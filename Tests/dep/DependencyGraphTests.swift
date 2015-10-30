@@ -14,6 +14,24 @@ import XCTest
 
 class VersionGraphTests: XCTestCase {
 
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testNoGraph", testNoGraph),
+            ("testOneDependency", testOneDependency),
+            ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
+			("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
+			("testTwoDependencies", testTwoDependencies),
+			("testTwoDirectDependencies", testTwoDirectDependencies),
+			("testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther", testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther),
+			("testSimpleVersionRestrictedGraph", testSimpleVersionRestrictedGraph),
+			("testComplexVersionRestrictedGraph", testComplexVersionRestrictedGraph),
+			("testVersionConstrain", testVersionConstrain),
+			("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
+			("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
+			("testVersionUnavailable", testVersionUnavailable)
+        ]
+    }
+    
     func testNoGraph() {
         class MockFetcher: _MockFetcher {
             override func fetch(url url: String) throws -> Fetchable {

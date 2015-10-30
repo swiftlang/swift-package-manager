@@ -12,7 +12,14 @@
 import sys
 import XCTest
 
-class FunctionalGetTests: SandboxTestCase {
+class FunctionalGetTests: SandboxTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testDealerBuild", testDealerBuild),
+            ("testExternalDeps", testExternalDeps)
+        ]
+    }
 
     func testDealerBuild() {
         testSwiftGet(fixtureName: "101_mattts_dealer") { prefix, baseURL, executeSwiftGet in

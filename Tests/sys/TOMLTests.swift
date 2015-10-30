@@ -28,7 +28,16 @@ private func parseTOML(data: String) -> TOMLItem {
     }
 }
 
-class TOMLTests: XCTestCase {
+class TOMLTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testLexer", testLexer),
+            ("testParser", testParser),
+            ("testParsingTables", testParsingTables),
+        ]
+    }
+    
     func testLexer() {
         // Test the basics.
         XCTAssertEqual(lexTOML("# Comment\nfoo"), ["Comment", "Identifier(\"foo\")"])
