@@ -12,6 +12,16 @@ import XCTest
 @testable import dep
 
 class ProjectTests: XCTestCase {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
+            ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
+            ("testUrlEndsInDotGit3", testUrlEndsInDotGit3),
+            ("testUid", testUid),
+        ]
+    }
+
     func testUrlEndsInDotGit1() {
         let uid = Package.name(forURL: "https://github.com/foo/bar.git")
         XCTAssertEqual(uid, "bar")

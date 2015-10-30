@@ -13,6 +13,18 @@ import POSIX
 @testable import sys
 
 class PathTests: XCTestCase {
+
+    var allTests : [(String, () -> ())] {
+        return [
+			("test", test),
+            ("testPrecombined", testPrecombined),
+            ("testExtraSeparators", testExtraSeparators),
+            ("testEmpties", testEmpties),
+            ("testNormalizePath", testNormalizePath),
+            ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
+        ]
+    }
+
     func test() {
         XCTAssertEqual(Path.join("a","b","c","d"), "a/b/c/d")
         XCTAssertEqual(Path.join("/a","b","c","d"), "/a/b/c/d")

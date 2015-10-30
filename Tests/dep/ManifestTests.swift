@@ -14,7 +14,14 @@ import sys
 @testable import dep
 import libc
 
-class ManifestTests: XCTestCase {
+class ManifestTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testManifestLoading", testManifestLoading),
+        ]
+    }
+    
     private func loadManifest(inputName: String) -> Manifest {
         let input = Path.join(__FILE__, "../Inputs", inputName).normpath
         do {

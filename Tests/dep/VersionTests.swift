@@ -12,7 +12,20 @@ import Foundation
 import XCTest
 @testable import struct PackageDescription.Version
 
-class VersionTests: XCTestCase {
+class VersionTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testEquality", testEquality),
+            ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
+            ("testComparable", testComparable),
+            ("testDescription", testDescription),
+            ("testFromString", testFromString),
+            ("testSort", testSort),
+            ("testRange", testRange),
+        ]
+    }
+    
     func testEquality() {
         func test(@autoclosure v: () -> Version) {
             XCTAssertEqual(v(), v())
