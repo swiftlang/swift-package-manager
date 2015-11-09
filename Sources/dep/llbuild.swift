@@ -54,7 +54,12 @@ public func llbuild(conf: BuildConfiguration) throws {
     try yaml.write()
 
     let toolPath = getenv("SWIFT_BUILD_TOOL") ?? Resources.findExecutable("swift-build-tool")
-    try system(toolPath, "-v", "-f", yaml.filename)
+    var args = [toolPath]
+    if sys.verbosity != .Concise {
+        args.append("-v")
+    }
+    args += ["-f", yaml.filename]
+    try system(args)
 }
 
 private class YAML {
