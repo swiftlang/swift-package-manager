@@ -266,3 +266,7 @@ public func rmtree(components: String...) throws {
     }
     try POSIX.rmdir(path)
 }
+
+public func attachedToTerminal() -> Bool {
+    return isatty(fileno(libc.stdin))
+}

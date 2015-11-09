@@ -14,14 +14,6 @@ import var libc.stdin
 import POSIX
 import sys
 
-func attachedToTerminal() -> Bool {
-    return isatty(fileno(libc.stdin))
-}
-
-enum Error: ErrorType {
-    case InvalidUsage(hint: String?)
-}
-
 extension Process {
     /**
      A string representing the command that can be pasted into a shell.

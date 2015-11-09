@@ -17,19 +17,26 @@ public var globalSymbolInMainBinary = 0
 Resources.initialize(&globalSymbolInMainBinary)
 
 do {
-    switch try CommandLine.parse() {
+    let args = Array(Process.arguments.dropFirst())
+    let (mode, chdir, verbosity) = try parse(commandLineArguments: args)
+
+    sys.verbosity = Verbosity(rawValue: verbosity)
+
+    if let dir = chdir {
+        try POSIX.chdir(dir)
+    }
+
+    // keep the working directory around for the duration of our process
+    try opendir(".")
+
+    switch mode {
     case .Usage:
-        print("swift build [--chdir DIRECTORY]")
-        print("swift build --clean")
+        usage()
 
     case .Clean:
         try rmtree(try findSourceRoot(), ".build")
 
-    case .Build(let dir):
-        if let dir = dir {
-            try chdir(dir)
-        }
-
+    case .Build:
         let rootd = try findSourceRoot()
         let manifest = try Manifest(path: "\(rootd)/Package.swift", baseURL: rootd)
         let pkgname = manifest.package.name ?? rootd.basename
@@ -44,9 +51,28 @@ do {
 
         // build the current directory
         try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: Path.join(builddir, "debug"), tmpdir: Path.join(builddir, "debug/o"))
+
+    case .Version:
+        print("Apple Swift Package Manager 0.1")
     }
 
+} catch CommandLineError.InvalidUsage(let hint, let mode) {
+
+    print("Invalid usage: \(hint)", toStream: &stderr)
+
+    if attachedToTerminal() {
+        switch mode {
+        case .Imply:
+            print("Enter `swift build --help` for usage information.", toStream: &stderr)
+        case .Print:
+            print("", toStream: &stderr)
+            usage { print($0, toStream: &stderr) }
+        }
+    }
+
+    exit(1)
+
 } catch {
-    print("swift build:", error, toStream: &stderr)
+    print("swift-build: \(error)", toStream: &stderr)
     exit(1)
 }

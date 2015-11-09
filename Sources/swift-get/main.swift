@@ -16,6 +16,7 @@ import sys
 public var globalSymbolInMainBinary = 0
 Resources.initialize(&globalSymbolInMainBinary)
 
+
 #if os(Linux)
     guard let locale = getenv("LC_ALL") ?? getenv("LC_CTYPE") ?? getenv("LANG") else {
         die("Error: Could not detect the environment’s locale, please set LANG")
@@ -31,17 +32,25 @@ Resources.initialize(&globalSymbolInMainBinary)
 
 //TODO warn if too restrictive a umask is set
 
-let args = [String](Process.arguments.dropFirst())
-
 do {
-    try opendir(".")  // keep the working directory around for the duration of our process
+    let args = Array(Process.arguments.dropFirst())
+    let (mode, chdir, verbosity) = try parse(commandLineArguments: args)
 
-    switch try CommandLine.parse(args) {
+    sys.verbosity = Verbosity(rawValue: verbosity)
+
+    if let dir = chdir {
+        try POSIX.chdir(dir)
+    }
+
+    // keep the working directory around for the duration of our process
+    try opendir(".")
+
+    switch mode {
     case .Usage:
         usage()
 
     case .Version:
-        print("swift-get 0.1")
+        print("Apple Swift Package Manager 0.1")
 
     case .Install(let urls):
         let pkgs = try get(urls, prefix: try getcwd())
@@ -50,26 +59,23 @@ do {
         }
     }
 
-    exit(0)
+} catch CommandLineError.InvalidUsage(let hint, let mode) {
 
-} catch Error.InvalidUsage {
-    if args.isEmpty {
-        print("`swift get` allows you to fetch, update and use remote packages.", toStream: &stderr)
-        print("", toStream: &stderr)
-        usage()
-    } else {
-        print("Invalid usage", terminator: "", toStream: &stderr)
-        if !attachedToTerminal() {
-            print(": \(Process.prettyArguments)", toStream: &stderr)
-        } else {
-            print(". Enter `swift get --help` for usage information.", toStream: &stderr)
+    print("Invalid usage: \(hint)", toStream: &stderr)
+
+    if attachedToTerminal() {
+        switch mode {
+        case .Imply:
+            print("Enter `swift get --help` for usage information.", toStream: &stderr)
+        case .Print:
+            print("", toStream: &stderr)
+            usage { print($0, toStream: &stderr) }
         }
     }
 
-} catch let error as SystemError {
-    print("System call error: \(error)", toStream: &stderr)
-} catch {
-    print("Unexpected error:", error, toStream: &stderr)
-}
+    exit(1)
 
-exit(1)
+} catch {
+    print("swift-get: \(error)", toStream: &stderr)
+    exit(1)
+}
