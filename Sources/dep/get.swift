@@ -132,7 +132,7 @@ extension Sandbox: Fetcher {
         init(path: String) throws {
             self.path = path
             do {
-                let manifestPath = Path.join(path, "Package.swift")
+                let manifestPath = Path.join(path, Manifest.filename)
                 self.manifest = try Manifest(path: manifestPath, baseURL: Git.Repo(root: path)!.origin!)
             } catch {
                 self.manifest = nil

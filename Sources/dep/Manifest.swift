@@ -149,4 +149,8 @@ public struct Manifest {
             throw Error.InvalidManifest("unable to parse package dump", errors: err.errors, data: toml)
         }
     }
+
+    public static var filename: String {
+        return "Package.swift"
+    }
 }

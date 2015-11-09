@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
-import sys
+import func POSIX.getcwd
+import struct sys.Path
+import struct dep.Manifest
 
 enum Error: ErrorType {
     case NoManifestFound
@@ -19,14 +20,14 @@ extension Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .NoManifestFound:
-            return "No manifest file found"
+            return "No \(Manifest.filename) file found"
         }
     }
 }
 
 func findSourceRoot() throws -> String {
     var rootd = try getcwd()
-    while !Path.join(rootd, "Package.swift").isFile {
+    while !Path.join(rootd, Manifest.filename).isFile {
         rootd = rootd.parentDirectory
         guard rootd != "/" else {
             throw Error.NoManifestFound

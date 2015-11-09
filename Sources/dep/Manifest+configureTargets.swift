@@ -160,8 +160,8 @@ extension Array {
 private func isValidSourceFile(filename: String, isRoot: Bool = false) -> Bool {
     let base = filename.basename
     
-    // If this is the root directory, disallow any spelling of "package.swift" (the manifest file).
-    if isRoot && base.lowercaseString == "package.swift" {
+    // If this is the root directory, reject the manifest file
+    if isRoot && base.lowercaseString == Manifest.filename.lowercaseString {
         return false
     }
     

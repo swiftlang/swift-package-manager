@@ -28,7 +28,7 @@ public struct Package {
 
     public init(path: String) throws {
         self.path = try path.abspath()
-        self.manifest = try Manifest(path: Path.join(path, "Package.swift"), baseURL: Git.Repo(root: path)!.origin!)
+        self.manifest = try Manifest(path: Path.join(path, Manifest.filename), baseURL: Git.Repo(root: path)!.origin!)
     }
 
     /// where we came from

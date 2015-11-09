@@ -142,7 +142,7 @@ class TestToolboxTestCase: SandboxTestCase {
 
         createSandbox(forPackage: mock) { sandbox, executeSwiftBuild in
             XCTAssertTrue(Path.join(mock.path, ".git").isDirectory)
-            XCTAssertTrue(Path.join(mock.path, "Package.swift").isFile)
+            XCTAssertTrue(Path.join(mock.path, Manifest.filename).isFile)
 
             // fails because no sources is a failure
             XCTAssertNotEqual(try! executeSwiftBuild(), 0)
