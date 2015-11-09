@@ -14,28 +14,6 @@ import var libc.stdin
 import POSIX
 import sys
 
-extension Process {
-    /**
-     A string representing the command that can be pasted into a shell.
-    */
-    static var prettyArguments: String {
-        return Process.arguments.map { arg in
-            let chars = arg.characters
-            if chars.contains(" ") {
-                return chars.split(" ").map(String.init).joinWithSeparator("\\ ")
-            } else {
-                return arg
-            }
-        }.joinWithSeparator(" ")
-    }
-}
-
-@noreturn func die(msg: String) {
-    print(msg, toStream: &stderr)
-    exit(1)
-}
-
-
 //TODO move to functional kit of some kind
 extension SequenceType {
     var isEmpty: Bool {

@@ -247,26 +247,3 @@ extension String {
         return abs ? "/\(cleaned)" : cleaned
     }
 }
-
-/**
- Recursively deletes the provided directory.
-*/
-public func rmtree(components: String...) throws {
-    let path = Path.join(components)
-    var dirs = [String]()
-    for entry in walk(path, recursively: true) {
-        if entry.isDirectory {
-            dirs.append(entry)
-        } else {
-            try POSIX.unlink(entry)
-        }
-    }
-    for dir in dirs.reverse() {
-        try POSIX.rmdir(dir)
-    }
-    try POSIX.rmdir(path)
-}
-
-public func attachedToTerminal() -> Bool {
-    return isatty(fileno(libc.stdin))
-}
