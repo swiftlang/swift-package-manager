@@ -8,7 +8,9 @@ The Swift Package Manager provides a set of tools for building and distributing 
 
 (Link to "User Guide" on Swift.org)
 
-To build the package manager you need Swift 2.1, then execute `Utilities/bootstrap`.
+With Swift 2.1 execute: `swift build`.
+If you are developing the package manager then please
+run the bootstrap script (`Utilities/bootstrap`) instead.
 
 ## Contributing
 
@@ -27,7 +29,7 @@ A program may have all of its code in a single module,
 or it may import other modules as _dependencies_.
 Aside from the handful of system-provided modules,
 such as Darwin on OS X
-or GLibC on Linux,
+or GLibc on Linux,
 most dependencies require code to be downloaded and built in order to be used.
 
 Extracting code that solves a particular problem into a separate module
@@ -88,7 +90,7 @@ foo/src/baz.swift
 foo/Package.swift
 ```
 
-Running `swift build` would produce a single library target: `foo/.build/debug/foo.a`
+Running `swift build` within directory `foo` would produce a single library target: `foo/.build/debug/foo.a`
 
 The file `Package.swift` is the manifest file, and is discussed in the next section.
 
