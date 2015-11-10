@@ -35,5 +35,16 @@ public class Target {
 
 public enum TargetType {
     case Executable
-    case DynamicLibrary
+    case Library
+}
+
+extension TargetType: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .Executable:
+            return "Executable"
+        case .Library:
+            return "Library"
+        }
+    }
 }

@@ -30,9 +30,9 @@ extension Target {
 
 class TargetTests: XCTestCase {
     func test1() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
 
         t3.dependsOn(t2)
         t2.dependsOn(t1)
@@ -42,10 +42,10 @@ class TargetTests: XCTestCase {
     }
 
     func test2() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
-        let t4 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
+        let t4 = try! Target(name: "t3", files: [], type: .Library)
 
         t4.dependsOn(t2)
         t4.dependsOn(t3)
@@ -60,10 +60,10 @@ class TargetTests: XCTestCase {
     }
 
     func test3() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
-        let t4 = try! Target(name: "t4", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
+        let t4 = try! Target(name: "t4", files: [], type: .Library)
 
         t4.dependsOn(t1)
         t4.dependsOn(t2)
@@ -78,10 +78,10 @@ class TargetTests: XCTestCase {
     }
 
     func test4() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
-        let t4 = try! Target(name: "t4", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
+        let t4 = try! Target(name: "t4", files: [], type: .Library)
 
         t4.dependsOn(t3)
         t3.dependsOn(t2)
@@ -93,12 +93,12 @@ class TargetTests: XCTestCase {
     }
 
     func test5() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
-        let t4 = try! Target(name: "t4", files: [], type: .DynamicLibrary)
-        let t5 = try! Target(name: "t5", files: [], type: .DynamicLibrary)
-        let t6 = try! Target(name: "t6", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
+        let t4 = try! Target(name: "t4", files: [], type: .Library)
+        let t5 = try! Target(name: "t5", files: [], type: .Library)
+        let t6 = try! Target(name: "t6", files: [], type: .Library)
 
         t6.dependsOn(t5)
         t6.dependsOn(t4)
@@ -122,12 +122,12 @@ class TargetTests: XCTestCase {
     }
 
     func test6() {
-        let t1 = try! Target(name: "t1", files: [], type: .DynamicLibrary)
-        let t2 = try! Target(name: "t2", files: [], type: .DynamicLibrary)
-        let t3 = try! Target(name: "t3", files: [], type: .DynamicLibrary)
-        let t4 = try! Target(name: "t4", files: [], type: .DynamicLibrary)
-        let t5 = try! Target(name: "t5", files: [], type: .DynamicLibrary)
-        let t6 = try! Target(name: "t6", files: [], type: .DynamicLibrary)
+        let t1 = try! Target(name: "t1", files: [], type: .Library)
+        let t2 = try! Target(name: "t2", files: [], type: .Library)
+        let t3 = try! Target(name: "t3", files: [], type: .Library)
+        let t4 = try! Target(name: "t4", files: [], type: .Library)
+        let t5 = try! Target(name: "t5", files: [], type: .Library)
+        let t6 = try! Target(name: "t6", files: [], type: .Library)
 
         t6.dependsOn(t4)  // same as above, but
         t6.dependsOn(t5)  // these two swapped

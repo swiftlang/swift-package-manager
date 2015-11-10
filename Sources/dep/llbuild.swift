@@ -154,7 +154,7 @@ private class YAML {
           #if os(OSX)
             args += " -target x86_64-apple-macosx10.10 "
           #endif
-            if target.type == .DynamicLibrary {
+            if target.type == .Library {
                 args += " -enable-testing"
             }
             if sysroot != nil {
@@ -170,7 +170,7 @@ private class YAML {
         try print("    outputs: [\(outputs)]")
         try print("    module-name: \(target.moduleName)")
         try print("    module-output-path: \(modulepath)")
-        try print("    is-library: \(target.type == .DynamicLibrary)")
+        try print("    is-library: \(target.type == .Library)")
         try print("    sources: \(sources)")
         try print("    objects: \(objects)")
         try print("    import-paths: \(importPaths.joinWithSeparator(" "))")
@@ -185,7 +185,7 @@ private class YAML {
 
         func args() throws -> String {
             switch target.type {
-            case .DynamicLibrary:
+            case .Library:
                 return "rm -f \(quote(productPath)); env ZERO_AR_DATE=1 ar cr \(quote(productPath)) \(objectargs)"
             case .Executable:
                 var args = ""
@@ -209,13 +209,13 @@ private class YAML {
 
                 let libsInOtherPackages = try conf.dependencies.flatMap { pkg -> [String] in
                     return try pkg.targets()
-                        .filter{ $0.type == .DynamicLibrary }
+                        .filter{ $0.type == .Library }
                         .map{ $0.productFilename }
                         .map{ Path.join(pkg.path, $0) }
                 }
 
                 let libsInThisPackage = target.dependencies
-                    .filter{ $0.type == .DynamicLibrary }
+                    .filter{ $0.type == .Library }
                     .map{ $0.productFilename }
                     .map{ Path.join(conf.prefix, $0) }
 
@@ -249,7 +249,7 @@ private extension Target {
 
     var productFilename: String {
         switch type {
-        case .DynamicLibrary:
+        case .Library:
             return "\(productName).a"
         case .Executable:
             return productName

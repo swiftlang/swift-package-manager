@@ -118,7 +118,7 @@ func sortDependencies(target: Target) -> Target {
 extension Target {
     private convenience init(name: String, sources srcs: [String]) throws {
         let islib = srcs.filter{ $0.isFile && $0.basename == "main.swift" }.isEmpty
-        let type = islib ? TargetType.DynamicLibrary : .Executable
+        let type = islib ? TargetType.Library : .Executable
         try self.init(productName: name, sources: srcs, type: type)
     }
 }
