@@ -20,12 +20,14 @@ Resources.initialize(&globalSymbolInMainBinary)
 #if os(Linux)
     guard let locale = getenv("LC_ALL") ?? getenv("LC_CTYPE") ?? getenv("LANG") else {
         print("Error: Could not detect the environment’s locale, please set LANG", toStream: &stderr)
+		exit(1)
     }
     guard locale.hasSuffix(".UTF-8") else {
         print("Error: `swift-get` requires the environment locale to be UTF-8 (\(locale))", toStream: &stderr)
         // sorry about this, but Swift operates with UTF8 only and 
         // we are not yet sure how to embrace other 8-bit locales.
         // matters because: filename encodings
+		exit(1)
     }
 #endif
 
