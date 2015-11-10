@@ -228,12 +228,15 @@ private class YAML {
             }
         }
 
+        let relativeProductPath = Path(productPath).relative(to: (try? getcwd()) ?? "/")
+        let description = "Linking \(target.type):  \(relativeProductPath)"
+
         try print("  \(target.targetNode):")
         try print("    tool: shell")
         try print("    inputs: [\(inputs)]")
         try print("    outputs: [\(target.targetNode), \(quote(productPath))]")
         try print("    args: \(args())")
-        try print("    description: Linking \(target.productFilename)")
+        try print("    description: \"\(description)\"")
     }
 }
 
