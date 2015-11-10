@@ -427,7 +427,7 @@ def main():
     parser = OptionParser("usage: %prog [options] [clean|all|install]")
     parser.add_option("", "--swiftc", dest="swiftc_path",
                       help="path to the swift compiler [%default]",
-                      default="swiftc", metavar="PATH")
+                      default=os.getenv("SWIFTC") or "swiftc", metavar="PATH")
     parser.add_option("", "--sbt", dest="sbt_path",
                       help="path to the 'swift-build-tool' tool [%default]",
                       metavar="PATH")
