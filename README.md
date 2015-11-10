@@ -12,6 +12,12 @@ With Swift 2.1 execute: `swift build`.
 If you are developing the package manager then please
 run the bootstrap script (`Utilities/bootstrap`) instead.
 
+Swift development is iterative and rapid,
+thus the package manager may require the latest Swift to compile.
+If your compile fails please build the latest Swift and try again.
+If you are trying to compile with the (optional) Xcode project you will need to
+download a Swift xctoolchain (Link).
+
 ## Contributing
 
 (Link to "Contributor Guide" on Swift.org)
