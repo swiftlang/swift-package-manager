@@ -41,7 +41,8 @@ public func system() {}
 
 
 /// Convenience wrapper for posix_spawn.
-func posix_spawnp(path: String, args: [String], var environment: [String: String] = [:], fileActions: posix_spawn_file_actions_t? = nil) throws -> pid_t {
+func posix_spawnp(path: String, args: [String], environment: [String: String] = [:], fileActions: posix_spawn_file_actions_t? = nil) throws -> pid_t {
+    var environment = environment
     let argv = args.map{ $0.withCString(strdup) }
     defer { for arg in argv { free(arg) } }
 

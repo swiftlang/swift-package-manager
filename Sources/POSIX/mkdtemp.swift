@@ -12,8 +12,8 @@ import var libc.errno
 import func libc.mkdtemp
 import func libc.rmdir
 
-public func mkdtemp<T>(template: String, var prefix: String! = nil, @noescape body: (String) throws -> T) rethrows -> T {
-
+public func mkdtemp<T>(template: String, prefix: String! = nil, @noescape body: (String) throws -> T) rethrows -> T {
+    var prefix = prefix
     if prefix == nil { prefix = getenv("TMPDIR") ?? "/tmp" }
     let path = prefix + "/\(template).XXXXXX"
 
