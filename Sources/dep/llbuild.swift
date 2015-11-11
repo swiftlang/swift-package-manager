@@ -122,9 +122,13 @@ private class YAML {
 
         try print("commands:")
 
-        for target in conf.targets {
-            try writeCompileNode(target)
-            try writeLinkNode(target)
+        if conf.targets.isEmpty {
+            try print("  {}")
+        } else {
+            for target in conf.targets {
+                try writeCompileNode(target)
+                try writeLinkNode(target)
+            }
         }
 
         fclose(f)
@@ -160,6 +164,15 @@ private class YAML {
             if sysroot != nil {
                 args += " -sdk \(quote(sysroot!))"
             }
+
+            for pkg in conf.dependencies where pkg.type == .ModuleMap {
+                let path = Path.join(pkg.path, "module.map")
+                args += " -Xcc -F-module-map=\(path) -I\(pkg.path)"
+            }
+
+            // Swift doesn’t include /usr/local by default
+            args += " -I/usr/local/include "
+
             return args
         }
 
@@ -223,6 +236,10 @@ private class YAML {
                 //
                 // We currently pass this with -Xlinker because the 'swift-autolink-extract' tool does not understand how to work with archives (<rdar://problem/23045632>).
                 args += (libsInThisPackage + libsInOtherPackages).flatMap{ ["-Xlinker", quote($0)] }.joinWithSeparator(" ")
+
+                // Swift doesn’t include /usr/local by default
+                //TODO we only want to do this if a module map wants to do this
+                args += " -L/usr/local/lib "
 
                 return args
             }

@@ -46,6 +46,8 @@ public struct Package {
      and mapping the result over the Manifest specifications.
      */
     public func targets() throws -> [Target] {
+        if type == .ModuleMap { return [] }  //TODO P.O.P.
+
         let computedTargets = try determineTargets(packageName: name, prefix: path)
         print("\(name): \(computedTargets.count): \(path)")
         return try manifest.configureTargets(computedTargets)
@@ -77,6 +79,19 @@ public struct Package {
     /// - Returns: The name that would be determined from the provided URL and version.
     static func name(forURL url: String, version: Version) -> String {
         return "\(name(forURL: url))-\(version)"
+    }
+
+    public enum Type {
+        case Module
+        case ModuleMap
+    }
+
+    public var type: Type {
+        if Path.join(path, "module.map").isFile {
+            return .ModuleMap
+        } else {
+            return .Module
+        }
     }
 }
 
