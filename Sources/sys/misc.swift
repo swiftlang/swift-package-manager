@@ -15,22 +15,6 @@
 import libc
 import POSIX
 
-extension Process {
-    /**
-     A string representing the command that can be pasted into a shell.
-     */
-    public static var prettyArguments: String {
-        return Process.arguments.map { arg in
-            let chars = arg.characters
-            if chars.contains(" ") {
-                return chars.split(" ").map(String.init).joinWithSeparator("\\ ")
-            } else {
-                return arg
-            }
-        }.joinWithSeparator(" ")
-    }
-}
-
 /**
  Recursively deletes the provided directory.
  */

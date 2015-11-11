@@ -117,3 +117,24 @@ public enum ShellError: ErrorType {
     case system(arguments: [String], SystemError)
     case popen(arguments: [String], SystemError)
 }
+
+func prettyArguments(args: [String]) -> String {
+    return args.map { arg in
+        let chars = arg.characters
+        if chars.contains(" ") {
+            return chars.split(" ").map(String.init).joinWithSeparator("\\ ")
+        } else {
+            return arg
+        }
+    }.joinWithSeparator(" ")
+}
+
+extension Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .ExitStatus(let code, let args):
+            let args = prettyArguments(args)
+            return "exit(\(code)): \(args)"
+        }
+    }
+}
