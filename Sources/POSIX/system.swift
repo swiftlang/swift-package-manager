@@ -25,9 +25,9 @@ public func system(args: String...) throws {
  the tool. Uses PATH to find the tool if the first argument
  path is not absolute.
 */
-public func system(arguments: [String]) throws {
+public func system(arguments: [String], environment: [String:String] = [:]) throws {
     do {
-        let pid = try posix_spawnp(arguments[0], args: arguments)
+        let pid = try posix_spawnp(arguments[0], args: arguments, environment: environment)
         let exitStatus = try waitpid(pid)
         guard exitStatus == 0 else { throw Error.ExitStatus(exitStatus, arguments) }
     } catch let underlyingError as SystemError {
