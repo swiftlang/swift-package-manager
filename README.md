@@ -209,24 +209,9 @@ let package = Package(
 
 The targets are named how your subdirectories are named.
 
-* * *
+### System Libraries
 
-## Usage
-
-You use the Swift Package Manager through subcommands of the `swift` command.
-
-### `swift build`
-
-The `swift build` command builds a package and its dependencies.
-If you are developing packages, you will use `swift build`
-
-### `swift get`
-
-The `swift get` command downloads packages and any dependencies into a new container.
-If you are deploying packages, you will use `swift get`.
-
-
-# System Libraries
+    // TODO: Reorganize this with existing documentation
 
 You can link against system libraries using the package manager.
 
@@ -313,8 +298,7 @@ Now if we type `swift build` in our example app directory we will create an exec
 from the headers you have already specified. For example with libogg there are three headers but the other two are included from the
 umbrella header ogg.h. If you get the includes wrong you will get intermittent and hard to debug compile issues.
 
-
-## Crossplatform Module Maps
+#### Cross-platform Module Maps
 
 The package manager will mangle your module map when used to cater to both `/usr` and `/usr/local` installs of system packages.
 However this may not be sufficient for all platforms.
@@ -323,23 +307,19 @@ Long term we hope that system libraries and system packagers will provide module
 manager will become redundant.
 
 However until then we will (in the near future)
-provide a way for module map packages to provide modulemaps for multiple platforms in the same package.
+provide a way for module map packages to provide module maps for multiple platforms in the same package.
 
 
-## Module Map Versioning
+#### Module Map Versioning
 
 Version the module maps semantically. The meaning of semantic version is less clear here, so use your best judgement.
-Do not follow the version of the system library the module map represents, version the module map(s) indepenently.
-
-
-## Major Versions
+Do not follow the version of the system library the module map represents, version the module map(s) independently.
 
 Follow the conventions of system packagers, for example, the debian package for python3 is called python3, there is not a single
 package for python and python is designed to be installed side-by-side. Where you to make a module map for python3 you should name
 it `CPython3`.
 
-
-## Packages That Provide Multiple Libraries
+### Packages That Provide Multiple Libraries
 
 Vorbis in fact provides three libraries, `libvorbis`, `libvorbisenc` and `libvorbisfile`. The above module map only provides
 support for libvorbis (the decoder), to provide modules we must supplement the same module-map:
@@ -367,3 +347,20 @@ the headers `vorbisenc.h` and `vorbisfile.h` both include `vorbis/codec.h`. It i
 do include their dependent headers, otherwise when the modules are imported into Swift the dependent modules will not get
 imported automatically and link errors will happen. If these link errors occur to consumers of a package that consumes your
 package the link errors can be especially difficult to debug.
+
+* * *
+
+## Usage
+
+You use the Swift Package Manager through subcommands of the `swift` command.
+
+### `swift build`
+
+The `swift build` command builds a package and its dependencies.
+If you are developing packages, you will use `swift build`
+
+### `swift get`
+
+The `swift get` command downloads packages and any dependencies into a new container.
+If you are deploying packages, you will use `swift get`.
+
