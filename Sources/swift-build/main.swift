@@ -47,7 +47,7 @@ do {
         let builddir = getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build")
 
         for pkg in dependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: Path.join(builddir, pkg.name), tmpdir: Path.join(builddir, pkg.name, "o"))
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: pkg.path, tmpdir: Path.join(builddir, pkg.name, "o"))
         }
 
         // build the current directory
