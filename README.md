@@ -48,7 +48,12 @@ you will need download a Swift xctoolchain.
 
 * * *
 
-## Conceptual Overview
+## Overview
+
+This section describes the basic concepts that motivate
+the functionality of the Swift Package Manager.
+
+### Modules
 
 Swift organizes code into _modules_.
 Each module specifies a namespace
@@ -62,15 +67,18 @@ such as Darwin on OS X
 or GLibc on Linux,
 most dependencies require code to be downloaded and built in order to be used.
 
-Extracting code that solves a particular problem into a separate module
-allows for that code to be reused in other situations.
-For example, a module that provides functionality for making network requests
-could be shared between a photo sharing app
-and a program that displays the weather forecast.
-And if a new module comes along that does a better job,
-it can be swapped in easily, with minimal change.
-By embracing modularity, you can focus on the interesting aspects of the problem at hand,
-rather than getting bogged down by solved problems you encounter along the way.
+> Extracting code that solves a particular problem into a separate module
+> allows for that code to be reused in other situations.
+> For example, a module that provides functionality for making network requests
+> could be shared between a photo sharing app
+> and a program that displays the weather forecast.
+> And if a new module comes along that does a better job,
+> it can be swapped in easily, with minimal change.
+> By embracing modularity,
+> you can focus on the interesting aspects of the problem at hand,
+> rather than getting bogged down by solved problems you encounter along the way.
+
+### Packages & Dependency Management
 
 Adding dependencies to a project, however, has an associated coordination cost.
 In addition to downloading and building the source code for a dependency,
@@ -78,26 +86,28 @@ that dependency's own dependencies must be downloaded and built as well,
 and so on, until the entire dependency graph is satisfied.
 To complicate matters further,
 a dependency may specify version requirements,
-which may have to be reconciled with the version requirements of another module with the same dependency.
+which may have to be reconciled with the version requirements
+of other modules with the same dependency.
 
 The role of the package manager is to automate the process
-of downloading and building all of dependencies for a project.
+of downloading and building all of dependencies for a project,
+and minimize the coordination costs associated with code reuse.
 
-(...)
-
+As the name implies, the Swift Package Manager manages _packages_.
 A _package_ consists of Swift source files
 and a manifest file, called `Package.swift`,
 which defines the package name and contents.
 The `Package.swift` file defines a package in a declarative manner
 with Swift code using the `PackageDescription` module.
 
-// TODO: "You can find API documentation for the `PackageDescription` module here: ..."
+    // TODO: "You can find API documentation for the `PackageDescription` module here: ..."
 
 A package has one or more _targets_.
 Each target specifies a _product_
 and may declare one or more _dependencies_.
 
-// TODO: Should this instead say that products are modules, and not make the same distinction?
+    // QUESTION: Should the next section instead say that products are modules, and not make the same distinction?
+
 A target may build either a _library_ or an _executable_ as its product.
 A library contains a module that can be imported by other Swift code.
 An executable is a program that can be run by the operating system.
