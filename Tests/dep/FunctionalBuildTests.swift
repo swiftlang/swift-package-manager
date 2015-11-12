@@ -323,6 +323,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             let prefix = Path.join(prefix, "app")
             try executeSwiftBuild(prefix)
             try executeSwiftBuild(prefix)
+            try executeSwiftBuild(prefix)
         }
     }
 }

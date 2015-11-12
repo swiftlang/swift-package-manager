@@ -90,8 +90,7 @@ extension Sandbox: Fetcher {
 
     func find(url url: String) throws -> Fetchable? {
         for prefix in walk(self.prefix, recursively: false) {
-            let clone = Path.join(prefix, "src")
-            guard let repo = Git.Repo(root: clone) else { continue }  //TODO warn user
+            guard let repo = Git.Repo(root: prefix) else { continue }  //TODO warn user
             guard repo.origin == url else { continue }
             return try Package(path: prefix)
         }
