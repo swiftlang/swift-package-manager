@@ -139,6 +139,11 @@
             value = "$(BUILT_PRODUCTS_DIR)/swift-build-tool"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "SWIFTC"
+            value = "$(SWIFT_EXEC)"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
       <AdditionalOptions>
       </AdditionalOptions>
