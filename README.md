@@ -48,6 +48,22 @@ you will need download a Swift xctoolchain.
 
 * * *
 
+## Usage
+
+You use the Swift Package Manager through subcommands of the `swift` command.
+
+### `swift build`
+
+The `swift build` command builds a package and its dependencies.
+If you are developing packages, you will use `swift build`
+
+### `swift get`
+
+The `swift get` command downloads packages and any dependencies into a new container.
+If you are deploying packages, you will use `swift get`.
+
+* * *
+
 ## Overview
 
 This section describes the basic concepts that motivate
@@ -352,18 +368,3 @@ If these link errors occur to consumers of a package that consumes your
 package the link errors can be especially difficult to debug.
 
 * * *
-
-## Usage
-
-You use the Swift Package Manager through subcommands of the `swift` command.
-
-### `swift build`
-
-The `swift build` command builds a package and its dependencies.
-If you are developing packages, you will use `swift build`
-
-### `swift get`
-
-The `swift get` command downloads packages and any dependencies into a new container.
-If you are deploying packages, you will use `swift get`.
-
