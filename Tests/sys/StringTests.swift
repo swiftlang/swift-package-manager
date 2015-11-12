@@ -11,7 +11,16 @@
 import XCTest
 @testable import sys
 
-class StringTests: XCTestCase {
+class StringTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testTrailingChomp", testTrailingChomp),
+            ("testEmptyChomp", testEmptyChomp),
+            ("testChuzzle", testChuzzle),
+        ]
+    }
+    
     func testTrailingChomp() {
         XCTAssertEqual("abc\n".chomp(), "abc")
         XCTAssertEqual("abc\r\n".chomp(), "abc")
@@ -38,7 +47,14 @@ class StringTests: XCTestCase {
 }
 
 
-class URLTests: XCTestCase {
+class URLTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testSchema", testSchema),
+        ]
+    }
+    
     func testSchema() {
         let a = "http://github.com/foo/bar"
         let b = "https://github.com/foo/bar"

@@ -28,7 +28,19 @@ extension Target {
 }
 
 
-class TargetTests: XCTestCase {
+class TargetTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("test1", test1),
+            ("test2", test2),
+            ("test3", test3),
+            ("test4", test4),
+            ("test5", test5),
+            ("test6", test6),
+        ]
+    }
+    
     func test1() {
         let t1 = try! Target(name: "t1", files: [], type: .Library)
         let t2 = try! Target(name: "t2", files: [], type: .Library)

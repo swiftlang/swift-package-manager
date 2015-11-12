@@ -11,7 +11,14 @@
 import XCTest
 @testable import POSIX
 
-class ShellTests: XCTestCase {
+class ShellTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("test_popen", test_popen),
+        ]
+    }
+    
     func test_popen() {
         XCTAssertEqual(try! popen(["echo", "foo"]), "foo\n")
         XCTAssertGreaterThan(try! popen(["cat", "/etc/passwd"]).characters.count, 4096)

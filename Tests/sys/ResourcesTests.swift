@@ -13,7 +13,14 @@ import sys
 
 public var globalSymbolInNonMainBinary = 0
 
-class ResourcesTests: XCTestCase {
+class ResourcesTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testResources", testResources),
+        ]
+    }
+    
     func testResources() {
         // Cause resources to be initialized, even though the path won't actually be correct.
         Resources.initialize(&globalSymbolInNonMainBinary)

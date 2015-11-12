@@ -21,7 +21,14 @@ private func parseTOML(data: String) -> TOMLItem {
     }
 }
 
-class PackageTests: XCTestCase {
+class PackageTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testBasics", testBasics),
+        ]
+    }
+    
     func testBasics() {
         // Verify that we can round trip a basic package through TOML.
         let p1 = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", majorVersion: 1)])

@@ -14,7 +14,30 @@ import func POSIX.popen
 import sys
 import XCTest
 
-class FunctionalBuildTests: SandboxTestCase {
+class FunctionalBuildTests: SandboxTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testSingleLibTarget", testSingleLibTarget),
+            ("testMultipleLibTargets", testMultipleLibTargets),
+            ("testSingleExecTarget", testSingleExecTarget),
+            ("testMultipleExecTargets", testMultipleExecTargets),
+            ("testMultipleLibAndExecTargets", testMultipleLibAndExecTargets),
+            ("testSingleLibTargetInSources", testSingleLibTargetInSources),
+            ("testMultipleLibTargetsInSources", testMultipleLibTargetsInSources),
+            ("testSingleExecTargetInSources", testSingleExecTargetInSources),
+            ("testMultipleExecTargetsInSources", testMultipleExecTargetsInSources),
+            ("testMultipleLibAndExecTargetsInSources", testMultipleLibAndExecTargetsInSources),
+            ("testSingleLibTargetSrc", testSingleLibTargetSrc),
+            ("testMultipleLibTargetsSrc", testMultipleLibTargetsSrc),
+            ("testSingleExecTargetSrc", testSingleExecTargetSrc),
+            ("testMultipleExecTargetsSrc", testMultipleExecTargetsSrc),
+            ("testMultipleExecTargetsSourcesSrc", testMultipleExecTargetsSourcesSrc),
+            ("testMultipleLibTargetsSourcesSrc", testMultipleLibTargetsSourcesSrc),
+            ("testMultipleLibExecTargetsSourcesSrc", testMultipleLibExecTargetsSourcesSrc),
+            ("testMultipleLibExecTargetsSourcesSrcExt", testMultipleLibExecTargetsSourcesSrcExt),
+        ]
+    }
     
     func runBuildTest(fixtureName: String, files:[String]) {
         let version = Version(1,0,0)
