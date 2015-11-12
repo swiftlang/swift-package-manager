@@ -1,30 +1,54 @@
 # Swift Package Manager
 
-The Swift Package Manager provides a set of tools for building and distributing Swift code.
+The Swift Package Manager provides a set of tools
+for building and distributing Swift code.
 
 * * *
 
-## Getting Started
+## Installing
 
-(Link to "User Guide" on Swift.org)
+The Swift Package Manager is included with Swift 2.1 and higher.
+You can install the latest version of Swift
+by following the instructions in the
+[Swift User Guide](https://oss.apple.com/user-guide).
 
-With Swift 2.1 execute: `swift build`.
-If you are developing the package manager then please
-run the bootstrap script (`Utilities/bootstrap`) instead.
+You can verify that you have the correct version of Swift installed
+by running the following command:
 
-Swift development is iterative and rapid,
-thus the package manager may require the latest Swift to compile.
-If your compile fails please build the latest Swift and try again.
-If you are trying to compile with the (optional) Xcode project you will need to
-download a Swift xctoolchain (Link).
+    // TODO: Support -h / --help flag
+
+```
+swift build --help
+```
+
+For usage instructions, see ["Usage"](#Usage) below.
 
 ## Contributing
 
-(Link to "Contributor Guide" on Swift.org)
+If you want to contribute to the Swift Package Manager,
+read the [Contributor Guide](https://oss.apple.com/contributor-guide)
+to learn about the policies and best practices that govern
+contributions to the Swift project.
+It is recommended that you develop against the latest version of Swift,
+to ensure compatibility with new releases.
+
+To build the Swift Package Manager from source,
+clone the repository and run the provided `Utilities/bootstrap` script:
+
+```
+git clone git@github.com:apple/swift-package-manager.git
+cd swift-package-manager
+./Utilities/bootstrap
+```
+
+To compile with the provided Xcode project,
+you will need download a Swift xctoolchain.
+
+    // TODO: Link to download and explanation of toolchains.
 
 * * *
 
-## Overview
+## Conceptual Overview
 
 Swift organizes code into _modules_.
 Each module specifies a namespace
@@ -293,7 +317,7 @@ However until then we will (in the near future)
 provide a way for module map packages to provide modulemaps for multiple platforms in the same package.
 
 
-## Module Map Versioning 
+## Module Map Versioning
 
 Version the module maps semantically. The meaning of semantic version is less clear here, so use your best judgement.
 Do not follow the version of the system library the module map represents, version the module map(s) indepenently.
