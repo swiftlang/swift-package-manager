@@ -12,6 +12,12 @@ import var libc.errno
 import func libc.mkdtemp
 import func libc.rmdir
 
+/**
+ Creates a temporary directory for the duration of the provided closure.
+ 
+ - Note: We only call rmdir() on the directory once done, it is up to
+ you to recursively delete the contents and thus ensure the rmdir succeeds
+*/
 public func mkdtemp<T>(template: String, prefix: String! = nil, @noescape body: (String) throws -> T) rethrows -> T {
     var prefix = prefix
     if prefix == nil { prefix = getenv("TMPDIR") ?? "/tmp" }
