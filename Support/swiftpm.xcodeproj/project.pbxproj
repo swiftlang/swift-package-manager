@@ -16,6 +16,9 @@
 		635C147D1BCDA0A900D4C4A9 /* TargetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C147C1BCDA0A900D4C4A9 /* TargetTests.swift */; };
 		637E98DA1BD95D0A0044B53E /* SandboxTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 637E98D91BD95D0A0044B53E /* SandboxTestCase.swift */; };
 		63ACA7EC1BED42160095510D /* PackageDescriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63ACA7EB1BED42160095510D /* PackageDescriptionTests.swift */; };
+		63DC25221BF413BA00EDCFBF /* XCTestCaseProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DC25211BF413BA00EDCFBF /* XCTestCaseProvider.swift */; };
+		63DC25371BF413BF00EDCFBF /* XCTestCaseProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DC25211BF413BA00EDCFBF /* XCTestCaseProvider.swift */; };
+		63DC25381BF413C200EDCFBF /* XCTestCaseProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63DC25211BF413BA00EDCFBF /* XCTestCaseProvider.swift */; };
 		B464B5F11BE41DE400086CE0 /* FunctionalBuildTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B464B5F01BE41DE400086CE0 /* FunctionalBuildTests.swift */; };
 		B4FAD2321BDEA7370057F8AE /* FunctionalGetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4FAD2311BDEA7370057F8AE /* FunctionalGetTests.swift */; };
 		E136D9421BD5F3DD000DFCE6 /* TOMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E136D9411BD5F35D000DFCE6 /* TOMLTests.swift */; };
@@ -186,6 +189,7 @@
 		635C147C1BCDA0A900D4C4A9 /* TargetTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TargetTests.swift; path = ../Tests/dep/TargetTests.swift; sourceTree = "<group>"; };
 		637E98D91BD95D0A0044B53E /* SandboxTestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SandboxTestCase.swift; path = ../Tests/dep/SandboxTestCase.swift; sourceTree = "<group>"; };
 		63ACA7EB1BED42160095510D /* PackageDescriptionTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PackageDescriptionTests.swift; path = ../Tests/PackageDescription/PackageDescriptionTests.swift; sourceTree = "<group>"; };
+		63DC25211BF413BA00EDCFBF /* XCTestCaseProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = XCTestCaseProvider.swift; path = ../Tests/XCTestCaseProvider.swift; sourceTree = "<group>"; };
 		B464B5F01BE41DE400086CE0 /* FunctionalBuildTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FunctionalBuildTests.swift; path = ../Tests/dep/FunctionalBuildTests.swift; sourceTree = "<group>"; };
 		B4FAD2311BDEA7370057F8AE /* FunctionalGetTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FunctionalGetTests.swift; path = ../Tests/dep/FunctionalGetTests.swift; sourceTree = "<group>"; };
 		E1066B6E1BC5931C00B892CE /* llbuild.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = llbuild.xcodeproj; path = ../../llbuild/llbuild.xcodeproj; sourceTree = "<group>"; };
@@ -243,6 +247,7 @@
 		63353A571BB4C4A900D6C4B0 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				63DC25211BF413BA00EDCFBF /* XCTestCaseProvider.swift */,
 				63CF91C31BE9419500265702 /* PackageDescription */,
 				63CF91C21BE9419100265702 /* sys */,
 				63CF91C11BE9418D00265702 /* dep */,
@@ -586,6 +591,7 @@
 				E136D9421BD5F3DD000DFCE6 /* TOMLTests.swift in Sources */,
 				63353A611BB4C4CD00D6C4B0 /* ShellTests.swift in Sources */,
 				E1E286D61BD83BE40015F0C5 /* ResourcesTests.swift in Sources */,
+				63DC25371BF413BF00EDCFBF /* XCTestCaseProvider.swift in Sources */,
 				63353A621BB4C4CD00D6C4B0 /* StringTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -601,6 +607,7 @@
 				B464B5F11BE41DE400086CE0 /* FunctionalBuildTests.swift in Sources */,
 				63353A5B1BB4C4BC00D6C4B0 /* VersionTests.swift in Sources */,
 				637E98DA1BD95D0A0044B53E /* SandboxTestCase.swift in Sources */,
+				63DC25221BF413BA00EDCFBF /* XCTestCaseProvider.swift in Sources */,
 				635C147D1BCDA0A900D4C4A9 /* TargetTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -610,6 +617,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				63ACA7EC1BED42160095510D /* PackageDescriptionTests.swift in Sources */,
+				63DC25381BF413C200EDCFBF /* XCTestCaseProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
