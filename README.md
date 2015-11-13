@@ -1,7 +1,7 @@
 # Swift Package Manager
 
 The Swift Package Manager provides a set of tools
-for building and distributing Swift code.
+for building both first and third party Swift code.
 
 * * *
 
@@ -15,13 +15,15 @@ by following the instructions in the
 You can verify that you have the correct version of Swift installed
 by running the following command:
 
-    // TODO: Support -h / --help flag
+    swift build --help
 
-```
-swift build --help
-```
+If that command provides usage information then you’re ready to go.
 
-For usage instructions, see ["Usage"](#Usage) below.
+## A Work In Progress
+
+The package manager is being released early. Please consider any public interface (command-line or API) subject to change.
+
+Also it is important to note Swift is not yet ABI or API stable so packages you write will (likely) break as Swift evolves.
 
 ## Contributing
 
@@ -41,267 +43,89 @@ cd swift-package-manager
 ./Utilities/bootstrap
 ```
 
-To compile with the provided Xcode project,
-you will need download a Swift xctoolchain.
-
-    // TODO: Link to download and explanation of toolchains.
-
 * * *
 
-## Usage
+## Overview
 
-You use the Swift Package Manager through subcommands of the `swift` command.
+This section describes the basic concepts that motivate
+the functionality of the Swift Package Manager.
 
-### `swift build`
+There is a thorough guide to Swift and the Package Manager [at swift.org](https://oss.apple.com/user-guide/). The following is technical documentation.
 
-The `swift build` command builds a package and its dependencies.
-If you are developing packages, you will use `swift build`
+### Modules
 
-### `swift get`
+Swift organizes code into _modules_.
+Each module specifies a namespace
+and enforces access controls on which parts of that code
+can be used outside of that module.
 
-The `swift get` command downloads packages and any dependencies into a new container.
-If you are deploying packages, you will use `swift get`.
+A program may have all of its code in a single module,
+or it may import other modules as _dependencies_.
+Aside from the handful of system-provided modules,
+such as Darwin on OS X
+or GLibc on Linux,
+most dependencies require code to be downloaded and built in order to be used.
 
-* * *
+> Extracting code that solves a particular problem into a separate module
+> allows for that code to be reused in other situations.
+> For example, a module that provides functionality for making network requests
+> could be shared between a photo sharing app
+> and a program that displays the weather forecast.
+> And if a new module comes along that does a better job,
+> it can be swapped in easily, with minimal change.
+> By embracing modularity,
+> you can focus on the interesting aspects of the problem at hand,
+> rather than getting bogged down solving problems you encounter along the way.
 
-    // TODO: Link to website docs
+As a rule of thumb: more modules is probably better than less modules. The package manager is designed to make creating both packages and apps with multiple modules as easy as possible.
 
-### Convention Based Target Determination
+### Building Swift Modules
 
-Targets are determined automatically based on how you layout your sources.
+To facilitate rapid development, modules are computed based on how you lay out your sources. A simple example could be:
 
-For example if you created a directory with the following layout:
+    foo/Package.swift
+    foo/Sources/main.swift
 
-```
-foo/
-foo/src/bar.swift
-foo/src/baz.swift
-foo/Package.swift
-```
+> `Package.swift` is the manifest file that contains metadata about your package, [we document the manifest file here](Documentation/PackageDotSwift.md]). For simple projects: an empty file is OK, however the file must still exist.
 
-Running `swift build` within directory `foo` would produce a single library target: `foo/.build/debug/foo.a`
-
-The file `Package.swift` is the manifest file, and is discussed in the next section.
-
-To create multiple targets create multiple subdirectories:
-
-```
-example/
-example/src/foo/foo.swift
-example/src/bar/bar.swift
-example/Package.swift
-```
-
-Running `swift build` would produce two library targets:
-
-* `foo/.build/debug/foo.a`
-* `foo/.build/debug/bar.a`
-
-To generate executables create a main.swift in a target directory:
-
-```
-example/
-example/src/foo/main.swift
-example/src/bar/bar.swift
-example/Package.swift
-```
-
-Running `swift build` would now produce:
-
-* `foo/.build/debug/foo`
-* `foo/.build/debug/bar.a`
-
-Where `foo` is an executable and `bar.a` a static library.
-
-### Manifest File
-
-Instructions for how to build a package are provided by
-a manifest file, called `Package.swift`.
-You can customize this file to
-declare build targets or dependencies,
-include or exclude source files,
-and specify build configurations for the module or individual files.
-
-Here's an example of a `Package.swift` file:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "Hello",
-    dependencies: [
-        .Package(url: "ssh://git@example.com/Greeter.git", versions: "1.0.0"),
-    ]
-)
-```
-
-A `Package.swift` file a Swift file
-that declaratively configures a Package
-using types defined in the `PackageDescription` module.
-This manifest declares a dependency on an external package: `Greeter`.
-
-If your package contains multiple targets that depend on each other you will
-need to specify their interdependencies. Here is an example:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "Example",
-    targets: [
-        Target(
-            name: "top",
-            dependencies: [.Target(name: "bottom")]),
-        Target(
-            name: "bottom")
-```
-
-The targets are named how your subdirectories are named.
-
-### System Libraries
-
-    // TODO: Reorganize this with existing documentation
-
-You can link against system libraries using the package manager.
-
-To do so special packages must be published that contain a module map for that library.
-
-Let’s use the example of `libvorbis`. This is the code we want to compile:
-
-```swift
-import CVorbis
-
-let foo = vorbis_version_string()
-let bar = String.fromCString(foo)!
-
-print(bar)
-```
-
-To `import CVorbis` the package manager requires
-that libvorbis has been installed by a system packager, the following files are of
-interest:
-
-    /usr/lib/libvorbis.dylib
-    /usr/include/vorbis/codec.h
-
-Using our system packager we determine that vorbis depends on libogg, and libogg depends on libc.
-We must provide or find packages that provide modules for `vorbis` and `ogg`,
-libc also has a module map, but it is
-provided by Swift (`Darwin` and `Glibc` on OS X and Linux respectively).
-
-We search but cannot find existing packages for vorbis or ogg, so we must create them ourselves.
-
-Packages that provide module maps for system libraries are handled differently to regular Swift packages.
-
-In a directory called `CVorbis` we add the following single file named `module.map`:
-
-    module CVorbis [system] {
-        header "/usr/local/include/vorbis/codec.h"
-        link "vorbis"
-        export *
-    }
-
-The convention we hope the community will adopt is to prefix such modules with `C` and to camelcase the modules
-as per Swift module name conventions. Then the community is free to name another module simply `Vorbis` which
-contains more “Swifty” function wrappers around the raw C interface.
-
-we must do the same for `libogg`:
-
-    module COgg [system] {
-        header "/usr/local/include/ogg/ogg.h"
-        link "ogg"
-        export *
-    }
-
-
-Note we do not call the module `CLibogg`. In general avoid the lib prefix unless the authors of the package
-typically always refer to it that way. A good rule of thumb is to look at the header files, here we can
-see the header is called simply "ogg.h". Pay attention to capitalization, note that we provide `CPOSIX` and not
-`CPosix`, this is because POSIX is an acronym and is typically spelled all-caps.
-
-Back in our example app we need a `Package.swift` that depends on CVorbis:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    dependencies: [
-        .Package(url: "../CVorbis", majorVersion: 1),
-    ]
-)
-```
-
-While we are developing these packages we can refer to `CVorbis` using a relative file path, but once we publish
-this package on the Internet we must also find homes for `COgg` and `CVorbis`.
-
-Now if we type `swift build` in our example app directory we will create an executable:
+If you then run the follow command in the directory `foo`:
 
     $ swift build
-    …
-    $ .build/debug/example
-    Xiph.Org libVorbis 1.3.5
-    $
 
+Swift will build a single executable called `foo`.
 
-**Take care** you must specify all the headers that a system package uses, ***BUT*** you must not specify headers that are included
-from the headers you have already specified. For example with libogg there are three headers but the other two are included from the
-umbrella header ogg.h. If you get the includes wrong you will get intermittent and hard to debug compile issues.
+To the package manager, everything is a package, hence `Package.swift`. However this does not mean you have to release your software to the wider world as a package: you can develop your app and never consider it a package that others will see or use. On the other hand if you one day decide that your project should _be_ a package (available to the wider world or just your company’s engineers) your sources are already in a form ready to be published.
 
-#### Cross-platform Module Maps
+For complete documentation on the rules governing how the package manager computes targets [go here](Documentation/PackageDotSwift.md).
 
-The package manager will mangle your module map when used to cater to both `/usr` and `/usr/local` installs of system packages.
-However this may not be sufficient for all platforms.
+### Packages & Dependency Management
 
-Long term we hope that system libraries and system packagers will provide module maps and thus this component of the package
-manager will become redundant.
+Modern development (for better and worse) is accelerated by
+the exponential use of external dependencies.
 
-However until then we will (in the near future)
-provide a way for module map packages to provide module maps for multiple platforms in the same package.
+Adding dependencies to a project, however, has an associated coordination cost.
+In addition to downloading and building the source code for a dependency,
+that dependency's own dependencies must be downloaded and built as well,
+and so on, until the entire dependency graph is satisfied.
+To complicate matters further,
+a dependency may specify version requirements,
+which may have to be reconciled with the version requirements
+of other modules with the same dependency.
 
+The role of the package manager is to automate the process
+of downloading and building all of the dependencies for a project,
+and minimize the coordination costs associated with code reuse.
 
-#### Module Map Versioning
-
-Version the module maps semantically. The meaning of semantic version is less clear here, so use your best judgement.
-Do not follow the version of the system library the module map represents, version the module map(s) independently.
-
-Follow the conventions of system packagers, for example, the debian package for python3 is called python3, there is not a single
-package for python and python is designed to be installed side-by-side. Where you to make a module map for python3 you should name
-it `CPython3`.
-
-### Packages That Provide Multiple Libraries
-
-Vorbis in fact provides three libraries, `libvorbis`, `libvorbisenc` and `libvorbisfile`. The above module map only provides
-support for libvorbis (the decoder), to provide modules we must supplement the same module-map:
-
-    module CVorbis [system] {
-        header "/usr/local/include/vorbis/codec.h"
-        link "vorbis"
-        export *
-    }
-
-    module CVorbisEncode [system] {
-        header "/usr/include/vorbis/vorbisenc.h"
-        link "vorbisenc"
-        export *
-    }
-
-    module CVorbisFile [system] {
-        header "/usr/include/vorbis/vorbisfile.h"
-        link "vorbisfile"
-        export *
-    }
-
-`libvorbisencode` and `libvorbisfile` link to `libvorbis`, we don’t need to specify this information in the module-map because
-the headers `vorbisenc.h` and `vorbisfile.h` both include `vorbis/codec.h`. It is very important however that those headers
-do include their dependent headers, otherwise when the modules are imported into Swift the dependent modules will not get
-imported automatically and link errors will happen. If these link errors occur to consumers of a package that consumes your
-package the link errors can be especially difficult to debug.
-
-* * *
-
-## Resources
+To add dependencies [supplement your `Package.swift` file](Documentation/Package.swift.md).
 
 ## Getting Help
+
+If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
+
+* [The mailing list](swift-package-manager@swift.org)
+* The bug tracker TODO:LINK
+* [Max Howell on Twitter](https:/twitter.com/mxcl)
+* [Max Howell via Email](max.howell@apple.com)
 
 ## License
 
