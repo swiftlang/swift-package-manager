@@ -8,10 +8,18 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
 import libc
 
 public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String
+{
+    var out = ""
+    try popen(arguments, redirectStandardError: redirectStandardError, environment: environment) { line in
+        out += line
+    }
+    return out
+}
+
+public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws
 {
     do {
         // Create a pipe to use for reading the result.
@@ -53,7 +61,6 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [Int8](count: N + 1, repeatedValue: 0)
-        var out = [Int8]()
 
         loop: while true {
             let n = read(pipe[0], &buf, N)
@@ -67,16 +74,18 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
             case 0:
                 break loop
             default:
-                out.appendContentsOf(buf[0..<n])
+                buf[n] = 0 // must null terminate
+                if let str = String.fromCString(buf) {
+                    body(str)
+                } else {
+                    //TODO better
+                    fatalError("fatal: popen: couldn't convert buffer to string")
+                }
             }
         }
 
         // Close the read end of the output pipe.
         close(pipe[0])
-
-        // Convert the buffer to a string.
-        out += [0]
-        let result = String.fromCString(out)!  //FIXME no bang, error gracefully instead
 
         // Wait for the command to exit.
         let exitStatus = try POSIX.waitpid(pid)
@@ -84,8 +93,6 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
         guard exitStatus == 0 else {
             throw Error.ExitStatus(exitStatus, arguments)
         }
-
-        return result
 
     } catch let underlyingError as SystemError {
         throw ShellError.popen(arguments: arguments, underlyingError)
