@@ -98,7 +98,7 @@ extension Sandbox: Fetcher {
     }
 
     func fetch(url url: String) throws -> Fetchable {
-        let dstdir = Path.join(prefix, "__tmp", Package.name(forURL: url))
+        let dstdir = Path.join(prefix, Package.name(forURL: url))
         try Git.clone(url, to: dstdir)
         return try RawClone(path: dstdir)
     }
