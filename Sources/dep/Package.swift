@@ -49,7 +49,6 @@ public struct Package {
         if type == .ModuleMap { return [] }  //TODO P.O.P.
 
         let computedTargets = try determineTargets(packageName: name, prefix: path)
-        print("\(name): \(computedTargets.count): \(path)")
         return try manifest.configureTargets(computedTargets)
     }
 
