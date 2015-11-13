@@ -58,7 +58,7 @@ class Git {
         if sys.verbosity == .Concise {
             var out = ""
             do {
-                print("Cloning", dstdir, terminator: "")
+                print("Cloning", Path(dstdir).relative(to: "."), terminator: "")
                 defer{ print("") }
                 try popen(args, redirectStandardError: true) { line in
                     out += line
