@@ -50,10 +50,31 @@ class Git {
     }
 
     class func clone(url: String, to dstdir: PathString) throws -> Repo {
-        try system(Git.tool, "clone",
+        let args = [Git.tool, "clone",
             "--recursive",          // get submodules too so that developers can use these if they so choose
             "--depth", "10",
-            url, dstdir)
+            url, dstdir]
+
+        if sys.verbosity == .Concise {
+            var out = ""
+            do {
+                print("Cloning", dstdir, terminator: "")
+                defer{ print("") }
+                try popen(args, redirectStandardError: true) { line in
+                    out += line
+                    for _ in out.characters.split("\n") {
+                        print(".", terminator: "")
+                    }
+                }
+            } catch ShellError.popen(let foo) {
+                print("$", prettyArguments(args), toStream: &stderr)
+                print(out, toStream: &stderr)
+                throw ShellError.popen(foo)
+            }
+        } else {
+            try system(args)
+        }
+
         return Repo(root: dstdir)!  //TODO no bangs
     }
 
