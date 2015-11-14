@@ -120,6 +120,12 @@ Dependencies are specified in your `Package.swift` manifest file.
 
 > [Further Reading: Package.swift — The Manifest File](Documentation/Package.swift.md)
 
+### Using System Libraries
+
+Your platform comes with a wealth of rich and powerful C libraries installed via the system package manager. Your Swift code can use them.
+
+> [Further Reading: System Modules](Documentation/SystemModules.md)
+
 ## Getting Help
 
 If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
