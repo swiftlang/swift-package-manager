@@ -49,7 +49,7 @@ class Git {
         }
     }
 
-    class func clone(url: String, to dstdir: PathString) throws -> Repo {
+    class func clone(url: String, to dstdir: String) throws -> Repo {
         let args = [Git.tool, "clone",
             "--recursive",          // get submodules too so that developers can use these if they so choose
             "--depth", "10",
