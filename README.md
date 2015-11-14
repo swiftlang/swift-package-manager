@@ -37,11 +37,9 @@ to ensure compatibility with new releases.
 To build the Swift Package Manager from source,
 clone the repository and run the provided `Utilities/bootstrap` script:
 
-```
-git clone git@github.com:apple/swift-package-manager.git
-cd swift-package-manager
-./Utilities/bootstrap
-```
+    git clone git@github.com:apple/swift-package-manager.git swiftpm
+    cd swiftpm
+    ./Utilities/bootstrap
 
 * * *
 
@@ -86,17 +84,19 @@ To facilitate rapid development, modules are computed based on how you lay out y
     foo/Package.swift
     foo/Sources/main.swift
 
-> `Package.swift` is the manifest file that contains metadata about your package, [we document the manifest file here](Documentation/PackageDotSwift.md]). For simple projects: an empty file is OK, however the file must still exist.
+> `Package.swift` is the manifest file that contains metadata about your package. For simple projects an empty file is OK, however the file must still exist. `Package.swift` is documented in a later section.
 
-If you then run the follow command in the directory `foo`:
+If you then run the following command in the directory `foo`:
 
     $ swift build
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However this does not mean you have to release your software to the wider world as a package: you can develop your app and never consider it a package that others will see or use. On the other hand if you one day decide that your project should _be_ a package (available to the wider world or just your company’s engineers) your sources are already in a form ready to be published.
+To the package manager, everything is a package, hence `Package.swift`. However this does not mean you have to release your software to the wider world as a package: you can develop your app and never consider it a package that others will see or use. On the other hand if one day you decide that your project _should_ be a package (available to the wider world or just your company’s engineers) your sources are already in a form ready to be published.
 
-For complete documentation on the rules governing how the package manager computes targets [go here](Documentation/PackageDotSwift.md).
+The package manager sources are laid out following these conventions and thus the package manager is used to build itself.
+
+> [Further Reading: Source Layouts](Documentation/SourceLayouts.md)
 
 ### Packages & Dependency Management
 
@@ -116,13 +116,15 @@ The role of the package manager is to automate the process
 of downloading and building all of the dependencies for a project,
 and minimize the coordination costs associated with code reuse.
 
-To add dependencies [supplement your `Package.swift` file](Documentation/Package.swift.md).
+Dependencies are specified in your `Package.swift` manifest file.
+
+> [Further Reading: Package.swift — The Manifest File](Documentation/Package.swift.md)
 
 ## Getting Help
 
 If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
 
-* [The mailing list](swift-package-manager@swift.org)
+* [The mailing list](mailto:swift-package-manager@swift.org)
 * The bug tracker TODO:LINK
 * [Max Howell on Twitter](https:/twitter.com/mxcl)
 * [Max Howell via Email](max.howell@apple.com)

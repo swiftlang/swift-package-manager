@@ -42,3 +42,8 @@ let package = Package(
 ```
 
 The targets are named how your subdirectories are named.
+
+
+## Depending on Apple Modules (eg. Foundation)
+
+At this time you cannot use Foundation, UIKit etc. with the Package Manager. Consider this an opportunity to create the fundamental libraries that the Swift community needs and will need for years to come.
