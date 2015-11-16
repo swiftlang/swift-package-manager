@@ -133,7 +133,7 @@ If you have any trouble with the package manager; we want to help. Choose the op
 * [The mailing list](mailto:swift-package-manager@swift.org)
 * [The bug tracker](http://jira.swift.org)
 * [Max Howell on Twitter](https:/twitter.com/mxcl)
-* [Max Howell via Email](max.howell@apple.com)
+* [Max Howell via Email](mailto:max.howell@apple.com)
 
 ## License
 
