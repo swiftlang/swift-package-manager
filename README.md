@@ -10,7 +10,7 @@ for building both first and third party Swift code.
 The Swift Package Manager is included with Swift 2.1 and higher.
 You can install the latest version of Swift
 by following the instructions in the
-[Swift User Guide](https://oss.apple.com/user-guide).
+[Swift User Guide](https://swift.org/download/).
 
 You can verify that you have the correct version of Swift installed
 by running the following command:
@@ -28,7 +28,7 @@ Also it is important to note Swift is not yet ABI or API stable so packages you 
 ## Contributing
 
 If you want to contribute to the Swift Package Manager,
-read the [Contributor Guide](https://oss.apple.com/contributor-guide)
+read the [Contributor Guide](https://swift.org/contributor-guide)
 to learn about the policies and best practices that govern
 contributions to the Swift project.
 It is recommended that you develop against the latest version of Swift,
@@ -48,7 +48,7 @@ clone the repository and run the provided `Utilities/bootstrap` script:
 This section describes the basic concepts that motivate
 the functionality of the Swift Package Manager.
 
-There is a thorough guide to Swift and the Package Manager [at swift.org](https://oss.apple.com/user-guide/). The following is technical documentation.
+There is a thorough guide to Swift and the Package Manager [at swift.org](https://swift.org/getting-started/). The following is technical documentation.
 
 ### Modules
 
