@@ -19,6 +19,10 @@ by running the following command:
 
 If that command provides usage information then you’re ready to go.
 
+## System Requirements
+
+The system requirements for the Swift Package Manager are the same as [those of Swift itself](https://github.com/apple/swift#system-requirements).
+
 ## A Work In Progress
 
 The package manager is being open-sourced early, but has not yet had a stable release. Please consider any public interface (command-line or API) subject to change. There are many important features which are not yet implemented.
@@ -40,6 +44,16 @@ clone the repository and run the provided `Utilities/bootstrap` script:
     git clone git@github.com:apple/swift-package-manager.git swiftpm
     cd swiftpm
     ./Utilities/bootstrap
+
+If you contribute, we’d appreciate if you could run the tests before submitting a pull-request.
+To run the tests (currently) you need Xcode:
+open the Xcode project in `./Support/` and from the “Product” menu click “Test”.
+
+> Long-term, we intend for testing to be an integral part of the Package Manager itself and not to require Xcode.
+
+In addition if you contribute, *please* write new tests to verify your contribution.
+If you do so you will need to amend the Xcode Project to include those new tests.
+Xcode as a requirement for contribution is strictly a temporary issue.
 
 * * *
 
@@ -98,6 +112,8 @@ The package manager sources are laid out following these conventions and thus th
 
 > [Further Reading: Source Layouts](Documentation/SourceLayouts.md)
 
+Please note that currently we only build static libraries. In general this has benefits, however we understand the need for dynamic libraries and support for this will be added in due course.
+
 ### Packages & Dependency Management
 
 Modern development (for better and worse) is accelerated by
@@ -132,6 +148,7 @@ If you have any trouble with the package manager; we want to help. Choose the op
 
 * [The mailing list](mailto:swift-package-manager@swift.org)
 * [The bug tracker](http://jira.swift.org)
+* You can also email the code owners directly; code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
 
 ## License
 
