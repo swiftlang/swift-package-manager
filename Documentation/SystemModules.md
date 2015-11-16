@@ -23,11 +23,12 @@ interest:
     /usr/include/vorbis/codec.h
 
 Using our system packager we determine that vorbis depends on libogg, and libogg depends on libc.
-We must provide or find packages that provide modules for `vorbis` and `ogg`,
+We must provide or find Swift packages that provide modules for `vorbis` and `ogg`,
 libc also has a module map, but it is
 provided by Swift (`Darwin` and `Glibc` on OS X and Linux respectively).
 
-We search but cannot find existing packages for vorbis or ogg, so we must create them ourselves.
+We search GitHub and ask on our social-networks
+but cannot find existing Swift packages for vorbis or ogg, so we must create them ourselves.
 
 Packages that provide module maps for system libraries are handled differently to regular Swift packages.
 
@@ -43,7 +44,12 @@ The convention we hope the community will adopt is to prefix such modules with `
 as per Swift module name conventions. Then the community is free to name another module simply `Vorbis` which
 contains more “Swifty” function wrappers around the raw C interface.
 
-we must do the same for `libogg`:
+> Create the `CVorbis` directory parallel to your app, thus you can specify
+> your app’s dependency on vorbis using a relative URL easing development of the module map
+> When you are done you should push to GitHub or another hosting site so
+> the wider community can benefit from your work.
+
+We must do the same for `libogg`:
 
     module COgg [system] {
         header "/usr/local/include/ogg/ogg.h"
@@ -134,5 +140,3 @@ the headers `vorbisenc.h` and `vorbisfile.h` both include `vorbis/codec.h`. It i
 do include their dependent headers, otherwise when the modules are imported into Swift the dependent modules will not get
 imported automatically and link errors will happen. If these link errors occur to consumers of a package that consumes your
 package the link errors can be especially difficult to debug.
-
-* * *
