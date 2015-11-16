@@ -49,13 +49,6 @@ func executeSwiftBuild(chdir: String) throws {
     try system([toolPath, "--chdir", chdir], environment: env)
 }
 
-func executeSwiftGet(url: String) throws {
-    let toolPath = Path.join(__FILE__, "../../../.build/debug/swift-get").normpath
-    var env = [String:String]()
-    env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    try system([toolPath, url], environment: env)
-}
-
 func mktmpdir(body: () throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in

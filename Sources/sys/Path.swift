@@ -19,6 +19,10 @@ public struct Path {
      meaning that the result will only end in a separator if the last part is
      empty. If a component is an absolute path, all previous components are
      thrown away and joining continues from the absolute path component.
+     
+     - Note: This function considers / to always be the path separator. If in
+       future we support platforms that have a different separator we will
+       convert any "/" characters in your strings to the platform separator.
     */
     public static func join(components: String...) -> String {
         return Path.join(components)

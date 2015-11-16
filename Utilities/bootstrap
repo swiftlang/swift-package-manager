@@ -179,8 +179,6 @@ targets = [
     Target('dep', dependencies=["sys", "PackageDescription"]),
     Target('swift-build', dependencies=["dep", "sys", "PackageDescription",
                                         "POSIX", "libc"]),
-    Target('swift-get', dependencies=["dep", "sys", "PackageDescription",
-                                      "POSIX", "libc"]),
 
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
@@ -517,16 +515,14 @@ def main():
         # build task file format.
         env_cmd.append("SWIFTPM_EMBED_RPATH=\\$ORIGIN/../lib/swift/linux")
     cmd = env_cmd + [os.path.join(sandbox_path, "bin", "swift-build")]
-    note("building self-hosted 'swift-build' and 'swift-get': %s" % (
+    note("building self-hosted 'swift-build': %s" % (
         ' '.join(cmd),))
     result = subprocess.call(cmd, cwd=g_project_root)
     if result != 0:
         error("build failed with exit status %d" % (result,))
 
     swift_build_path = os.path.join(build_path, "debug", "swift-build")
-    swift_get_path = os.path.join(build_path, "debug", "swift-get")
     note("built: %s" % (swift_build_path,))
-    note("built: %s" % (swift_get_path,))
 
     # Stage the runtime library in the expected resources location.
     #
@@ -544,7 +540,7 @@ def main():
                                         "lib", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_build_path, swift_get_path]:
+        for product_path in [swift_build_path]:
             cmd = ["install", product_path, bin_install_path]
             note("installing %s: %s" % (
                 os.path.basename(product_path), ' '.join(cmd)))

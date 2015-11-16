@@ -319,6 +319,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     }
 
     func test_exdeps_canRunBuildTwice() {
+
+        // running `swift build` multiple times should not fail
+        // subsequent executions to an unmodified source tree
+        // should immediately exit with exit-status: `0`
+
         fixture(name: "102_mattts_dealer") { prefix in
             let prefix = Path.join(prefix, "app")
             try executeSwiftBuild(prefix)
@@ -326,4 +331,30 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             try executeSwiftBuild(prefix)
         }
     }
+
+
+    func test_get_ExternalDeps() {
+        fixture(name: "100_external_deps") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/Bar"))
+            XCTAssertTrue(Path.join(prefix, "Bar/Packages/Foo-1.2.3").isDirectory)
+            XCTAssertTrue(Path.join(prefix, "Bar/.build/debug/Bar").isFile)
+        }
+    }
+
+    // 25: Build Mattt's Dealer
+    func test_get_DealerBuild() {
+        fixture(name: "101_mattts_dealer") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
+
+    // 25: Build Mattt's Dealer
+    func test_get_DealerBuildOutput() {
+        fixture(name: "102_mattts_dealer") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+            let output = try POSIX.popen(["\(prefix)/app/.build/debug/Dealer"])
+            XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
+        }
+    }
+
 }
