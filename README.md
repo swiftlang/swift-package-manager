@@ -131,7 +131,7 @@ Your platform comes with a wealth of rich and powerful C libraries installed via
 If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
 
 * [The mailing list](mailto:swift-package-manager@swift.org)
-* The bug tracker TODO:LINK
+* [The bug tracker](http://jira.swift.org)
 * [Max Howell on Twitter](https:/twitter.com/mxcl)
 * [Max Howell via Email](max.howell@apple.com)
 
