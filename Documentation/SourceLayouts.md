@@ -27,13 +27,13 @@ To generate an executable module (instead of a library module) add a `main.swift
 
 Running `swift build` would now produce:
 
-* `foo/.build/debug/foo`
-* `foo/.build/debug/bar.a`
+* `example/.build/debug/foo`
+* `example/.build/debug/bar.a`
 
 Where `foo` is an executable and `bar.a` a static library.
 
 
-# Other Rules
+## Other Rules
 
 * Directories named `Tests` are ignored
 * Sub directories of a directory named `Sources`, `Source`, `srcs` or `src` become modules
