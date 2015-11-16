@@ -21,9 +21,9 @@ If that command provides usage information then you’re ready to go.
 
 ## A Work In Progress
 
-The package manager is being released early. Please consider any public interface (command-line or API) subject to change.
+The package manager is being open-sourced early, but has not yet had a stable release. Please consider any public interface (command-line or API) subject to change. There are many important features which are not yet implemented.
 
-Also it is important to note Swift is not yet ABI or API stable so packages you write will (likely) break as Swift evolves.
+It is also important to note Swift is not yet ABI or API stable so packages you write will (likely) break as Swift evolves.
 
 ## Contributing
 
@@ -132,8 +132,6 @@ If you have any trouble with the package manager; we want to help. Choose the op
 
 * [The mailing list](mailto:swift-package-manager@swift.org)
 * [The bug tracker](http://jira.swift.org)
-* [Max Howell on Twitter](https:/twitter.com/mxcl)
-* [Max Howell via Email](mailto:max.howell@apple.com)
 
 ## License
 

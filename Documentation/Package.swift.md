@@ -46,4 +46,4 @@ The targets are named how your subdirectories are named.
 
 ## Depending on Apple Modules (eg. Foundation)
 
-At this time you cannot use Foundation, UIKit etc. with the Package Manager. Consider this an opportunity to create the fundamental libraries that the Swift community needs and will need for years to come.
+At this time there is no explicit support for depending on Foundation, AppKit, etc, though importing these modules should work if they are present in the proper system location. We will add explicit support for system dependencies in the future. Note that at this time the Package Manager has no support for iOS, watchOS, or AppleTV platforms.
