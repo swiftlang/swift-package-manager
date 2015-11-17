@@ -245,7 +245,7 @@ extension Array {
         default:
             var out = self;
             for i in (0..<count).reverse() {
-                let j = rand() % (i + 1)
+                let j = Int(rand()) % (i + 1)
                 (out[i], out[j]) = (out[j], out[i])
             }
             return out
