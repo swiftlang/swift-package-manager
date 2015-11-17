@@ -9,6 +9,8 @@
 */
 
 import XCTest
+import libc
+
 @testable import struct PackageDescription.Version
 
 class VersionTests: XCTestCase, XCTestCaseProvider {
