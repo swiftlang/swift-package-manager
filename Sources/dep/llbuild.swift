@@ -13,11 +13,23 @@ import PackageDescription
 import POSIX
 import sys
 
-public struct BuildConfiguration {
+public struct BuildParameters {
+    public enum Configuration {
+        case Debug, Release
+
+        public var dirname: String {
+            switch self {
+                case .Debug: return "debug"
+                case .Release: return "release"
+            }
+        }
+    }
+
     public init() {
         srcroot = ""
         targets = []
         dependencies = []
+        conf = .Debug
     }
 
     public var srcroot: String
@@ -27,6 +39,8 @@ public struct BuildConfiguration {
     public var prefix: String = ""
     public var tmpdir: String = ""
 
+    public var conf: Configuration
+
     private func requiredSubdirectories() -> [String] {
         return targets.flatMap { target in
             return target.sources.map { Path(components: $0, "..").relative(to: self.srcroot) }
@@ -34,23 +48,24 @@ public struct BuildConfiguration {
     }
 }
 
-public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String) throws -> BuildConfiguration {
-    var conf = BuildConfiguration()
-    conf.srcroot = srcroot
-    conf.targets = targets
-    conf.dependencies = dependencies
-    conf.prefix = prefix
-    conf.tmpdir = tmpdir
-    try llbuild(conf)
-    return conf
+public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws -> BuildParameters {
+    var parms = BuildParameters()
+    parms.srcroot = srcroot
+    parms.targets = targets
+    parms.dependencies = dependencies
+    parms.prefix = prefix
+    parms.tmpdir = tmpdir
+    parms.conf = configuration
+    try llbuild(parms)
+    return parms
 }
 
-public func llbuild(conf: BuildConfiguration) throws {
-    for subdir in conf.requiredSubdirectories() {
-        try mkdir(conf.tmpdir, subdir)
+public func llbuild(parms: BuildParameters) throws {
+    for subdir in parms.requiredSubdirectories() {
+        try mkdir(parms.tmpdir, subdir)
     }
 
-    let yaml = try YAML(buildConfiguration: conf)
+    let yaml = try YAML(parameters: parms)
     try yaml.write()
 
     let toolPath = getenv("SWIFT_BUILD_TOOL") ?? Resources.findExecutable("swift-build-tool")
@@ -63,33 +78,33 @@ public func llbuild(conf: BuildConfiguration) throws {
 }
 
 private class YAML {
-    let conf: BuildConfiguration
-    var f: UnsafeMutablePointer<FILE>
+    let parms: BuildParameters
+    var filePointer: UnsafeMutablePointer<FILE>
     let filename: String
 
-    init(buildConfiguration: BuildConfiguration) throws {
-        self.conf = buildConfiguration
-        let path = Path.join(buildConfiguration.tmpdir, "llbuild.yaml")
-        self.filename = path
+    init(parameters: BuildParameters) throws {
+        parms = parameters
+        let path = Path.join(parameters.tmpdir, "llbuild.yaml")
+        filename = path
         do {
-            self.f = try fopen(path, mode: "w")
+            filePointer = try fopen(path, mode: "w")
         } catch {
-            self.f = nil
+            filePointer = nil
             throw error
         }
     }
 
     deinit {
-        if f != nil {
-            fclose(f)
+        if filePointer != nil {
+            fclose(filePointer)
         }
     }
 
-    func targetsString() -> String { return conf.targets.map{$0.targetNode}.joinWithSeparator(", ") }
+    func targetsString() -> String { return parms.targets.map{$0.targetNode}.joinWithSeparator(", ") }
 
     func print(s: String = "") throws {
-        try fputs(s, f)
-        try fputs("\n", f)
+        try fputs(s, filePointer)
+        try fputs("\n", filePointer)
     }
 
     /**
@@ -115,57 +130,64 @@ private class YAML {
 
         try print("targets:")
         try print("  \"\": [\(targetsString())]")
-        for target in conf.targets {
+        for target in parms.targets {
             try print("  \(target.productName): [\(target.targetNode)]")
         }
         try print()
 
         try print("commands:")
 
-        if conf.targets.isEmpty {
+        if parms.targets.isEmpty {
             try print("  {}")
         } else {
-            for target in conf.targets {
+            for target in parms.targets {
                 try writeCompileNode(target)
                 try writeLinkNode(target)
             }
         }
 
-        fclose(f)
-        f = nil
+        fclose(filePointer)
+        filePointer = nil
     }
 
 
     func ofiles(target: Target) -> [String] {
         return target.sources.map { srcfile -> String in
-            let tip = Path(srcfile).relative(to: conf.srcroot)
-            return Path.join(conf.tmpdir, "\(tip).o")
+            let tip = Path(srcfile).relative(to: parms.srcroot)
+            return Path.join(parms.tmpdir, "\(tip).o")
         }
     }
 
     func writeCompileNode(target: Target) throws {
-        let importPaths = conf.dependencies.flatMap{ $0.path } + [conf.prefix]
-        let prodpath = Path.join(conf.tmpdir, target.productName)
-        let modulepath = Path.join(conf.prefix, "\(target.moduleName).swiftmodule")
+        let importPaths = [parms.prefix]
+        let prodpath = Path.join(parms.tmpdir, target.productName)
+        let modulepath = Path.join(parms.prefix, "\(target.moduleName).swiftmodule")
         let sources = target.sources.chuzzle()?.joinWithSeparator(" ") ?? "\"\""
         let objects = ofiles(target).chuzzle()?.joinWithSeparator(" ") ?? "\"\""
         let inputs = (target.dependencies.map{"<\($0.productName)>"} + target.sources.map(quote)).joinWithSeparator(", ")
         let outputs = (["<\(target.productName)-swiftc>", modulepath] + ofiles(target).map(quote)).joinWithSeparator(", ")
 
         func args() -> String {
-            var args = "-Onone -g"
-            args += " -j8" //TODO
+            var args = "-j8" //FIXME
+
+            switch parms.conf {
+            case .Debug:
+                args += " -Onone -g"
+            case .Release:
+                args += " -Ounchecked"
+            }
+
           #if os(OSX)
-            args += " -target x86_64-apple-macosx10.10 "
+            args += " -target x86_64-apple-macosx10.10"
           #endif
-            if target.type == .Library {
+            if target.type == .Library && parms.conf == .Debug {
                 args += " -enable-testing"
             }
             if sysroot != nil {
                 args += " -sdk \(quote(sysroot!))"
             }
 
-            for pkg in conf.dependencies where pkg.type == .ModuleMap {
+            for pkg in parms.dependencies where pkg.type == .ModuleMap {
                 let path = Path.join(pkg.path, "module.map")
                 args += " -Xcc -F-module-map=\(path) -I\(pkg.path)"
             }
@@ -194,7 +216,7 @@ private class YAML {
     func writeLinkNode(target: Target) throws {
         let inputs = (["<\(target.productName)-swiftc>"] + ofiles(target).map(quote)).joinWithSeparator(", ")
         let objectargs = ofiles(target).map(quote).joinWithSeparator(" ")
-        let productPath = Path.join(conf.prefix, target.productFilename)
+        let productPath = Path.join(parms.prefix, target.productFilename)
 
         func args() throws -> String {
             switch target.type {
@@ -220,17 +242,17 @@ private class YAML {
                     args += "-sdk \(quote(sysroot!)) "
                 }
 
-                let libsInOtherPackages = try conf.dependencies.flatMap { pkg -> [String] in
+                let libsInOtherPackages = try parms.dependencies.flatMap { pkg -> [String] in
                     return try pkg.targets()
                         .filter{ $0.type == .Library }
                         .map{ $0.productFilename }
-                        .map{ Path.join(pkg.path, $0) }
+                        .map{ Path.join(self.parms.prefix, $0) }
                 }
 
                 let libsInThisPackage = target.dependencies
                     .filter{ $0.type == .Library }
                     .map{ $0.productFilename }
-                    .map{ Path.join(conf.prefix, $0) }
+                    .map{ Path.join(parms.prefix, $0) }
 
                 // Add the static libraries of our dependencies.
                 //

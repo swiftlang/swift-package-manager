@@ -36,7 +36,7 @@ do {
     case .Clean:
         try rmtree(try findSourceRoot(), ".build")
 
-    case .Build:
+    case .Build(let configuration):
         let rootd = try findSourceRoot()
         let manifest = try Manifest(path: "\(rootd)/Package.swift", baseURL: rootd)
         let pkgname = manifest.package.name ?? rootd.basename
@@ -44,14 +44,14 @@ do {
         let computedTargets = try determineTargets(packageName: pkgname, prefix: rootd, ignore: [depsdir])
         let targets = try manifest.configureTargets(computedTargets)
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
-        let builddir = getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build")
+        let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
 
         for pkg in dependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: pkg.path, tmpdir: Path.join(builddir, pkg.name, "o"))
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         // build the current directory
-        try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: Path.join(builddir, "debug"), tmpdir: Path.join(builddir, "debug/o"))
+        try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
 
     case .Version:
         print("Apple Swift Package Manager 0.1")
