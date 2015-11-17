@@ -6,9 +6,6 @@ VersionGraphTests().invokeTest()
 // ManifestTests.swift
 ManifestTests().invokeTest()
 
-// FunctionalGetTests.swift
-FunctionalGetTests().invokeTest()
-
 // FunctionalBuildTests.swift
 FunctionalBuildTests().invokeTest()
 
