@@ -7,21 +7,21 @@ for building both first and third party Swift code.
 
 ## Installing
 
-The Swift Package Manager is included with Swift 2.1 and higher.
-You can install the latest version of Swift
-by following the instructions in the
+The Swift Package Manager has been included since Swift 2.1.
+To install the latest version of Swift
+see the 
 [Swift User Guide](https://swift.org/download/).
 
-You can verify that you have the correct version of Swift installed
-by running the following command:
+To check if the package manager is installed,
+enter the following in a terminal:
 
     swift build --help
 
-If that command provides usage information then you’re ready to go.
+If usage information is printed; you’re ready to go.
 
 ## System Requirements
 
-The system requirements for the Swift Package Manager are the same as [those of Swift itself](https://github.com/apple/swift#system-requirements).
+System requirements are the [same as those for Swift itself](https://github.com/apple/swift#system-requirements).
 
 ## A Work In Progress
 
@@ -31,12 +31,9 @@ It is also important to note Swift is not yet ABI or API stable so packages you 
 
 ## Contributing
 
-If you want to contribute to the Swift Package Manager,
-read the [Contributor Guide](https://swift.org/contributor-guide)
-to learn about the policies and best practices that govern
-contributions to the Swift project.
-It is recommended that you develop against the latest version of Swift,
-to ensure compatibility with new releases.
+To learn about the policies and best practices that govern
+contributions to the Swift project,
+please read the [Contributor Guide](https://swift.org/contributor-guide).
 
 To build the Swift Package Manager from source,
 clone the repository and run the provided `Utilities/bootstrap` script:
@@ -45,9 +42,12 @@ clone the repository and run the provided `Utilities/bootstrap` script:
     cd swiftpm
     ./Utilities/bootstrap
 
+It is recommended that you develop against the latest version of Swift,
+to ensure compatibility with new releases.
+
 If you contribute, we’d appreciate if you could run the tests before submitting a pull-request.
-To run the tests (currently) you need Xcode:
-open the Xcode project in `./Support/` and from the “Product” menu click “Test”.
+To run the tests (currently) you need Xcode and a clone of `swift-llbuild` parallel to this source tree.
+Then to run the tests, open `./Support/swiftpm.xcodeproj` and from the “Product” menu select “Test”.
 
 > Long-term, we intend for testing to be an integral part of the Package Manager itself and not to require Xcode.
 
@@ -135,7 +135,7 @@ and minimize the coordination costs associated with code reuse.
 Dependencies are specified in your `Package.swift` manifest file.
 
 > [Further Reading: Package.swift — The Manifest File](Documentation/Package.swift.md)
-
+ 
 > [Further Reading: Developing Packages](Documentation/DevelopingPackages.md)
 
 ### Using System Libraries
@@ -150,7 +150,7 @@ If you have any trouble with the package manager; we want to help. Choose the op
 
 * [The mailing list](mailto:swift-package-manager@swift.org)
 * [The bug tracker](http://jira.swift.org)
-* You can also email the code owners directly; code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
+* You can also email the code owners directly; their contact details can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
 
 ## License
 
