@@ -15,6 +15,12 @@
  It does so by writing out a build task file which can be used to build a
  stage1 package manager. That package manager is then expected to be able
  to build itself to produce the production tools.
+
+ Note that currently this script is also responsible for building the package
+ manager in such a way that it can be installed along with the Swift package. In
+ particular, it knows how to build the runtime PackageDescription library
+ correctly and install it.
+
 """
 
 import StringIO
@@ -86,7 +92,8 @@ class Target(object):
     def linked_virtual_node(self):
         return "<link-%s>" % (self.name)
     
-    def __init__(self, name, dependencies=[], swiftflags=[], extra_libs=[], subpath=None, is_test=False):
+    def __init__(self, name, dependencies=[], swiftflags=[], extra_libs=[],
+                 subpath=None, is_test=False):
         self.name = name
         self.dependencies = list(dependencies)
         self.swiftflags = list(swiftflags)
@@ -182,12 +189,11 @@ targets = [
 
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
-           dependencies=["dep", "sys", "PackageDescription", "libc"],
+           dependencies=["dep", "PackageDescription"], is_test=True),
+    Target('sys-tests', subpath="../Tests/sys", dependencies=["sys"],
            is_test=True),
-    Target('sys-tests', subpath="../Tests/sys", dependencies=[
-        "sys", "libc"], is_test=True),
-    Target('dep-tests', subpath="../Tests/dep", dependencies=[
-        "dep", "sys", "PackageDescription", "libc"], is_test=True),
+    Target('dep-tests', subpath="../Tests/dep", dependencies=["dep"],
+           is_test=True),
 ]
 target_map = dict((t.name,t) for t in targets)
 
@@ -292,7 +298,7 @@ def create_bootstrap_files(sandbox_path, opts):
             link_command.extend(objects)
             for dependency in target.dependencies:
                 dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
-                link_command.extend(["-Xlinker", dependency_lib_path])
+                link_command.append(dependency_lib_path)
                 linked_libraries.append(dependency_lib_path)
             if platform.system() == 'Darwin':
                 link_command.extend(["-Xlinker", "-all_load"])
