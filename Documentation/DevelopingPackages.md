@@ -3,27 +3,25 @@
 Simply put: a package is a git repository with semantically versioned tags,
 that contains Swift sources and a `Package.swift` manifest file at its root.
 
-
 ## Turning a Library Module into an External Package
 
 If you are building an app with several modules, at some point you may decide to
 make that module into an external package. Doing this makes that code available
 as a dependendable library that others may use.
 
-Doing so with the package manager is relatively simple. 
+Doing so with the package manager is relatively simple:
 
  1. Create a new repository on GitHub
- 2. Step into the module directory
+ 2. In a terminal, step into the module directory
  3. `git init`
  4. `git remote add origin [github-URL]`
  5. `git tag 1.0.0`
  5. `git push origin master --tags`
  
-Now delete the subdirectory, and amend your `Pacakge.swift` so that it includes:
+Now delete the subdirectory, and amend your `Package.swift` so that its `package` declaration includes:
 
 ```swift
 let package = Package(
-    name: "Hello",
     dependencies: [
         .Package(url: "…", versions: "1.0.0"),
     ]
