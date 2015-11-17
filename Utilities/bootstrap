@@ -305,8 +305,10 @@ def create_bootstrap_files(sandbox_path, opts):
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
             if opts.xctest_path:
-                link_command.extend(["-Xlinker", os.path.join(
-                    opts.xctest_path, "XCTest.a")])
+                # Tell the linker where to look for XCTest, but autolinking
+                # knows to pass -lXCTest
+                link_command.extend(
+                    ["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
 
         # Write out the link command.
         print >>output, "  %s:" % json.dumps(target.linked_virtual_node)
