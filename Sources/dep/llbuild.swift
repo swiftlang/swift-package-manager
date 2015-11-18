@@ -213,7 +213,7 @@ private class YAML {
                 // the package manager tools themselves on Linux, so they can be
                 // relocated with the Swift compiler.
                 if let rpathValue = getenv("SWIFTPM_EMBED_RPATH") {
-                    args += "-Xlinker -rpath=\(rpathValue) "
+                    args += "-Xlinker -rpath -Xlinker \"\(rpathValue)\" "
                 }
 
                 if sysroot != nil {
