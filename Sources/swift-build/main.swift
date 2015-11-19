@@ -74,6 +74,6 @@ do {
     exit(1)
 
 } catch {
-    print("swift-build: \(error)", toStream: &stderr)
+    print("swift-build:", error, toStream: &stderr)
     exit(1)
 }
