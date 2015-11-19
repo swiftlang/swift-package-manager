@@ -390,4 +390,9 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         }
     }
 
+    func testDependenciesWithVPrefixTagsWork() {
+        fixture(name: "102_mattts_dealer", tag: "v1.2.3") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
 }

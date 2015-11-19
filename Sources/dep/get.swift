@@ -144,16 +144,25 @@ extension Sandbox: Fetcher {
         }
 
         var version: Version {
-            return Version(repo.branch)!
+            var branch = repo.branch
+            if branch.hasPrefix("heads/") {
+                branch = String(branch.characters.dropFirst(6))
+            }
+            if branch.hasPrefix("v") {
+                branch = String(branch.characters.dropFirst())
+            }
+            return Version(branch)!
         }
 
-        func setVersion(newValue: Version) throws {
-            let v = newValue.description
-            // FIXME v prefix versions!
-            try popen([Git.tool, "-C", path, "reset", "--hard", v])
+        /// contract, you cannot call this before you have attempted to `constrain` this clone
+        func setVersion(v: Version) throws {
             // preliminary `0` for branch because otherwise git prepends `heads/` to the Version
             // if there is a tag with the same name. Basically, we shouldn't do it this way.
-            try popen([Git.tool, "-C", path, "branch", "-m", "0\(v)"])
+
+            let packageVersionsArePrefixed = repo.versionsArePrefixed
+            let v = (packageVersionsArePrefixed ? "v" : "") + v.description
+            try popen([Git.tool, "-C", path, "reset", "--hard", v])
+            try popen([Git.tool, "-C", path, "branch", "-m", v])
         }
 
         func constrain(to versionRange: Range<Version>) -> Version? {

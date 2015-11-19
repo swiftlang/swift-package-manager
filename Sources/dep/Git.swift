@@ -44,6 +44,15 @@ class Git {
             }
         }
 
+        /**
+         - Returns: true if the package versions in this repository
+           are all prefixed with "v", otherwise false. If there are
+           no versions, returns false.
+         */
+        var versionsArePrefixed: Bool {
+            return (try? popen([Git.tool, "-C", root, "tag", "-l"]))?.hasPrefix("v") ?? false
+        }
+
         var branch: String! {
             return try? popen([Git.tool, "-C", root, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }

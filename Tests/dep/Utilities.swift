@@ -12,7 +12,7 @@ import POSIX
 import sys
 import XCTest
 
-func fixture(name fixtureName: String, @noescape body: (String) throws -> Void) {
+func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (String) throws -> Void) {
     do {
         try POSIX.mkdtemp(fixtureName) { prefix in
             defer { _ = try? rmtree(prefix) }
@@ -31,7 +31,7 @@ func fixture(name fixtureName: String, @noescape body: (String) throws -> Void) 
                     try popen(["git", "-C", dstdir, "init"])
                     try popen(["git", "-C", dstdir, "add", "."])
                     try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
-                    try popen(["git", "-C", dstdir, "tag", "1.2.3"])
+                    try popen(["git", "-C", dstdir, "tag", tag])
                 }
                 try body(prefix)
             }
