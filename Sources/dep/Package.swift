@@ -23,22 +23,39 @@ import sys
  depends on you need to map them from the `manifest`.
 */
 public struct Package {
-    public let path: String  /// the local clone
+    /// the local clone
+    public let path: String
+
     public let manifest: Manifest
 
-    public init(path: String) throws {
+    /// the semantic version of this package
+    public let version: Version
+
+    /**
+      - Returns: The Package or this doesn’t seem to be a Package, nil.
+      - Note: Throws if the Package manifest will not parse.
+     */
+    public init?(path: String) throws {
+        let parts = path.characters.split("-")
+
+        // Packages are git clones
+        guard let repo = Git.Repo(root: path) else { return nil }
+
+        // Packages have origins
+        guard let origin = repo.origin else { return nil }
+
+        // Packages have dirnames of the form foo-X.Y.Z
+        guard parts.count == 2 else { return nil }
+        guard let version = Version(parts[1]) else { return nil }
+
+        self.version = version
+        self.manifest = try Manifest(path: Path.join(path, Manifest.filename), baseURL: origin)
         self.path = try path.abspath()
-        self.manifest = try Manifest(path: Path.join(path, Manifest.filename), baseURL: Git.Repo(root: path)!.origin!)
     }
 
     /// where we came from
     public var url: String {
         return Git.Repo(root: path)!.origin!
-    }
-
-    /// the semantic version of this package
-    public var version: Version {
-        return Version(path.characters.split("-").last!)!
     }
 
     /**
