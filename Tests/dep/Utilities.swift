@@ -53,7 +53,7 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (S
 
 
 func executeSwiftBuild(chdir: String) throws {
-    let toolPath = Path.join(__FILE__, "../../../.build/debug/swift-build").normpath
+    let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
     try system([toolPath, "--chdir", chdir], environment: env)

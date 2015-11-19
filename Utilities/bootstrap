@@ -654,6 +654,7 @@ testing support.""")
         # Construct the test environment.
         env_cmd = ["env",
                    "SWIFTC=" + opts.swiftc_path,
+                   "SWIFT_BUILD_TOOL=" + opts.sbt_path,
                    "SPM_INSTALL_PATH=" + sandbox_path]
         for target in targets:
             if not target.is_test:
