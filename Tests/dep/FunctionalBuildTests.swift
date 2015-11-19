@@ -40,10 +40,10 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         ]
     }
 
-    func testFixtureMachinery() {
+    func testEmptyPackageSwiftExitsWithZero() {
         fixture(name: "1_self_diagnostic") { prefix in
             XCTAssertTrue(Path.join(prefix, Manifest.filename).isFile)
-            XCTAssertNil(try? executeSwiftBuild(prefix))
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
         }
     }
     
