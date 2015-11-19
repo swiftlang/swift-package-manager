@@ -341,19 +341,52 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         }
     }
 
-    // 25: Build Mattt's Dealer
     func test_get_DealerBuild() {
         fixture(name: "101_mattts_dealer") { prefix in
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
         }
     }
 
-    // 25: Build Mattt's Dealer
     func test_get_DealerBuildOutput() {
         fixture(name: "102_mattts_dealer") { prefix in
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
             let output = try POSIX.popen(["\(prefix)/app/.build/debug/Dealer"])
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
+        }
+    }
+
+    func testNoArgumentsExitsWithOne() {
+        var foo = false
+        do {
+            try executeSwiftBuild("/")
+        } catch POSIX.Error.ExitStatus(let code, _) {
+
+            // if our code crashes we'll get an exit code of 256
+            XCTAssertEqual(code, Int32(1))
+
+            foo = true
+        } catch {
+            XCTFail()
+        }
+        XCTAssertTrue(foo)
+    }
+
+    func testCompileFailureExitsGracefully() {
+        fixture(name: "25_compile_fails") { prefix in
+            var foo = false
+            do {
+                try executeSwiftBuild(prefix)
+            } catch POSIX.Error.ExitStatus(let code, _) {
+
+                // if our code crashes we'll get an exit code of 256
+                XCTAssertEqual(code, Int32(1))
+
+                foo = true
+            } catch {
+                XCTFail()
+            }
+
+            XCTAssertTrue(foo)
         }
     }
 
