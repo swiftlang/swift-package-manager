@@ -263,6 +263,10 @@ def create_bootstrap_files(sandbox_path, opts):
     print >>output, "tools: {}"
     print >>output
 
+    # Compute the list of active targets.
+    active_targets = [target for target in targets
+                      if not target.is_test or opts.build_tests]
+    
     # Write out the targets list.
     #
     # We support 'all' (build all targets) and an individual name for each
@@ -271,11 +275,10 @@ def create_bootstrap_files(sandbox_path, opts):
     # FIXME: Need support for default target.
     print >>output, "targets:"
     print >>output, "  \"\": %s" % (json.dumps(
-        [target.virtual_node for target in targets]),)
+        [target.virtual_node for target in active_targets]),)
     print >>output, "  all: %s" % (json.dumps(
-        [target.virtual_node for target in targets]),)
-    print >>output, "  test: %s" % (json.dumps(["test"]),)
-    for target in targets:
+        [target.virtual_node for target in active_targets]),)
+    for target in active_targets:
         print >>output, "  %s: %s" % (
             target.name, json.dumps([target.virtual_node]))
     print >>output
