@@ -82,7 +82,42 @@ def write_file_if_changed(path, data):
 ###
 
 g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
-    
+if platform.system() == 'Darwin':
+    g_platform_path = subprocess.check_output(
+        ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]).strip()
+
+g_bundle_identifier_base = "org.swift.package-manager"
+g_xctest_infoplist_template = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>%(bundle_executable)s</string>
+	<key>CFBundleIdentifier</key>
+	<string>%(bundle_identifier)s</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>%(bundle_name)s</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+</dict>
+</plist>
+"""
+
 class Target(object):
     @property
     def virtual_node(self):
@@ -146,8 +181,21 @@ class Target(object):
         other_args.append("-enable-testing")
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
-        if opts.xctest_path:
-            other_args.extend(["-I", opts.xctest_path])
+        # Add the XCTest options, if needed.
+        if self.is_test:
+            # On Darwin, the XCTest library doesn't ship as part of the SDK
+            # *or* part of the Swift package, so we need to pass search
+            # paths to the Platform library location.
+            if platform.system() == 'Darwin':
+                other_args.extend([
+                    "-F", os.path.join(
+                        g_platform_path,
+                        "Developer", "Library", "Frameworks")])
+                
+            # If we are have an explicit path to the XCTest build products
+            # (used when co-building with Swift), then add that path.
+            if opts.xctest_path:
+                other_args.extend(["-I", opts.xctest_path])
         if opts.sysroot:
             other_args.extend(["-sdk", opts.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
@@ -189,10 +237,13 @@ targets = [
 
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
-           dependencies=["dep", "PackageDescription"], is_test=True),
-    Target('sys-tests', subpath="../Tests/sys", dependencies=["sys"],
+           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc"],
            is_test=True),
-    Target('dep-tests', subpath="../Tests/dep", dependencies=["dep"],
+    Target('sys-tests', subpath="../Tests/sys",
+           dependencies=["sys", "POSIX", "libc"],
+           is_test=True),
+    Target('dep-tests', subpath="../Tests/dep",
+           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc"],
            is_test=True),
 ]
 target_map = dict((t.name,t) for t in targets)
@@ -247,7 +298,7 @@ def create_bootstrap_files(sandbox_path, opts):
 
     print >>output, "commands:"
     for target in targets:
-        if target.is_test and not opts.xctest_path:
+        if target.is_test and not opts.build_tests:
             # Skip tests if XCTest path is not provided
             continue
         
@@ -276,20 +327,33 @@ def create_bootstrap_files(sandbox_path, opts):
                 opts, target_build_dir, module_dir, output, objects,
                 link_input_nodes, predecessor_node)
 
-        # Compute the linked output path.
-        if target.is_library:
-            link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
-        else:
-            link_output_path = os.path.join(bin_dir, target.name)
-
         # Form the command line to link.
         linked_libraries = []
         if target.is_library:
-            link_command = ['rm', '-f', link_output_path, ';'
-                            'env', 'ZERO_AR_DATE=1',
+            link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
+            link_command = ['rm', '-f', link_output_path, ';',
                             'ar', 'cr', link_output_path]
             link_command.extend(objects)
         else:
+            if target.is_test and platform.system() == "Darwin":
+                # On OS X, we build the test targets as actual bundles.
+                xctest_bundle_path = os.path.join(
+                    bin_dir, target.name + ".xctest")
+                contents_path = os.path.join(xctest_bundle_path, "Contents")
+                link_output_path = os.path.join(
+                    contents_path, "MacOS", target.name)
+                mkdir_p(os.path.dirname(link_output_path))
+                infoplist_path = os.path.join(contents_path, "Info.plist")
+                write_file_if_changed(
+                    infoplist_path, g_xctest_infoplist_template % {
+                        "bundle_executable" : target.name,
+                        "bundle_identifier" : "%s.%s" % (
+                            g_bundle_identifier_base, target.name),
+                        "bundle_name" : target.name
+                })
+            else:
+                link_output_path = os.path.join(bin_dir, target.name)
+                
             link_command = [opts.swiftc_path, '-o', link_output_path]
             if opts.sysroot:
                 link_command.extend(["-sdk", opts.sysroot])
@@ -304,11 +368,32 @@ def create_bootstrap_files(sandbox_path, opts):
                 link_command.extend(["-Xlinker", "-all_load"])
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
-            if opts.xctest_path:
-                # Tell the linker where to look for XCTest, but autolinking
-                # knows to pass -lXCTest
-                link_command.extend(
-                    ["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
+            # Add the XCTest options, if needed.
+            if target.is_test:
+                # On Darwin, the XCTest library doesn't ship as part of the SDK
+                # *or* part of the Swift package, so we need to pass search
+                # paths to the Platform library location.
+                if platform.system() == 'Darwin':
+                    link_command.extend(["-Xlinker", "-bundle"])
+                    link_command.extend([
+                        "-F", os.path.join(
+                            g_platform_path,
+                            "Developer", "Library", "Frameworks")])
+
+                    # We also embed an RPATH, so the tests can be run directly.
+                    link_command.extend([
+                        "-Xlinker", "-rpath",
+                        "-Xlinker", os.path.join(
+                            g_platform_path,
+                            "Developer", "Library", "Frameworks")])
+                
+                # If we are have an explicit path to the XCTest build products
+                # (used when co-building with Swift), then add that path.
+                if opts.xctest_path:
+                    # Tell the linker where to look for XCTest, but autolinking
+                    # knows to pass -lXCTest
+                    link_command.extend(
+                        ["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
 
         # Write out the link command.
         print >>output, "  %s:" % json.dumps(target.linked_virtual_node)
@@ -450,6 +535,8 @@ def main():
                       help="use verbose output")
     parser.add_option("--xctest", dest="xctest_path", action="store",
                       help="Path to XCTest build directory")
+    parser.add_option("", "--build-tests", dest="build_tests",
+                      action="store_true", help="enable building tests")
     opts,args = parser.parse_args()
 
     # When invoked via Xcode, it will automatically be passed a "build action".
