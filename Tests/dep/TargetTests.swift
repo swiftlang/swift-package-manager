@@ -161,6 +161,13 @@ class TargetTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(t3.recursiveDeps, [t2, t1])
         XCTAssertEqual(t2.recursiveDeps, [t1])
     }
+
+    func testEmptyDirectoriesHaveNoTargets() {
+        mktmpdir {
+            let computedTargets = try determineTargets(packageName: "foo", prefix: ".")
+            XCTAssertTrue(computedTargets.isEmpty)
+        }
+    }
 }
 
 

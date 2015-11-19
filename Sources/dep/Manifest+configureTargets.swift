@@ -82,7 +82,11 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
             // projects that want the github page to appear as simple as the
             // project *is*. You may not have any swift files in subdirectories
             let srcs = walk(srcdir, recursively: false).filter({ isValidSourceFile($0, isRoot: true) })
-            return [try Target(name: packageName, sources: srcs)]
+            if srcs.isEmpty {
+                return []
+            } else {
+                return [try Target(name: packageName, sources: srcs)]
+            }
         } else {
             return dirs.flatMap { path in
                 let srcs = walk(path, recursing: shouldConsiderDirectory).filter({ isValidSourceFile($0) })
