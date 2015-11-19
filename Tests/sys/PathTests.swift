@@ -65,6 +65,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual("/abc/def///".normpath, "/abc/def")
         XCTAssertEqual("../abc/def/".normpath, "../abc/def")
         XCTAssertEqual("../abc/../def/".normpath, "../def")
+        XCTAssertEqual(".".normpath, ".")
+        XCTAssertEqual("./././.".normpath, ".")
+        XCTAssertEqual("./././../.".normpath, "..")
 
         // Only run tests using HOME if it is defined.
         if POSIX.getenv("HOME") != nil {

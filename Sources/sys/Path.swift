@@ -173,6 +173,8 @@ extension String {
 
         if firstc == "/" || firstc == "~" {
             return "/\(stringValue)"
+        } else if stringValue.isEmpty {
+            return "."
         } else {
             return stringValue
         }
