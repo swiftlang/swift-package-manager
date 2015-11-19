@@ -25,7 +25,7 @@ public struct Version {
     }
 
     public init?(_ characters: String.CharacterView) {
-        let components = characters.split(".", maxSplit: 2).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let components = characters.split(".", maxSplit: 2, allowEmptySlices: true).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
         guard components.count == 3 else { return nil }
 
         self.major = components[0]
