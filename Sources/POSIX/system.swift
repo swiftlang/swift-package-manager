@@ -77,9 +77,9 @@ func waitpid(pid: pid_t) throws -> Int32 {
         let rv = waitpid(pid, &exitStatus, 0)
 
         if rv != -1 {
-            return exitStatus
+            return exitStatus >> 8
         } else if errno == EINTR {
-            continue  // see docs
+            continue  // see: man waitpid
         } else {
             throw SystemError.waitpid(errno)
         }
