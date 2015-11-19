@@ -70,6 +70,20 @@ func posix_spawnp(path: String, args: [String], environment: [String: String] = 
     return pid
 }
 
+
+private func _WSTATUS(status: CInt) -> CInt {
+    return status & 0x7f
+}
+
+private func WIFEXITED(status: CInt) -> Bool {
+    return _WSTATUS(status) == 0
+}
+
+private func WEXITSTATUS(status: CInt) -> CInt {
+    return (status >> 8) & 0xff
+}
+
+
 /// convenience wrapper for waitpid
 func waitpid(pid: pid_t) throws -> Int32 {
     while true {
@@ -77,7 +91,11 @@ func waitpid(pid: pid_t) throws -> Int32 {
         let rv = waitpid(pid, &exitStatus, 0)
 
         if rv != -1 {
-            return exitStatus >> 8
+            if WIFEXITED(exitStatus) {
+                return WEXITSTATUS(exitStatus)
+            } else {
+                throw Error.ExitSignal
+            }
         } else if errno == EINTR {
             continue  // see: man waitpid
         } else {

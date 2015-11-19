@@ -111,6 +111,7 @@ extension SystemError: CustomStringConvertible {
 
 public enum Error: ErrorType {
     case ExitStatus(Int32, [String])
+    case ExitSignal
 }
 
 public enum ShellError: ErrorType {
@@ -135,6 +136,9 @@ extension Error: CustomStringConvertible {
             
             //let args = prettyArguments(args)
             //return "exit(\(code)): \(args)"
+
+        case .ExitSignal:
+            return "Child process exited with signal"
         }
     }
 }
