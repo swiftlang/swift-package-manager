@@ -109,7 +109,7 @@ extension Sandbox: Fetcher {
             let prefix = Path.join(self.prefix, Package.name(forURL: clone.url, version: clone.version))
             try mkdir(prefix)
             try rename(old: clone.path, new: prefix)
-            return try Package(path: prefix)
+            return try Package(path: prefix)!
         case let pkg as Package:
             return pkg
         default:
