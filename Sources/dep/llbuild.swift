@@ -221,7 +221,7 @@ private class YAML {
         func args() throws -> String {
             switch target.type {
             case .Library:
-                return "rm -f \(quote(productPath)); env ZERO_AR_DATE=1 ar cr \(quote(productPath)) \(objectargs)"
+                return "rm -f \(quote(productPath)); ar cr \(quote(productPath)) \(objectargs)"
             case .Executable:
                 var args = ""
                 args += "\(swiftcPath) -o \(quote(productPath)) \(objectargs) "
