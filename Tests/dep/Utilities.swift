@@ -37,7 +37,17 @@ func fixture(name fixtureName: String, @noescape body: (String) throws -> Void) 
             }
         }
     } catch {
-        XCTFail("\(error)")
+        // Work around for a miscompile when converting error type to string. rdar://problem/23616384
+        struct TempStream: OutputStreamType {
+            var result: String = ""
+            mutating func write(string: String) {
+                result += string
+            }
+        }
+        var stream = TempStream()
+        print(error, toStream: &stream)
+        
+        XCTFail("\(stream.result)")
     }
 }
 
