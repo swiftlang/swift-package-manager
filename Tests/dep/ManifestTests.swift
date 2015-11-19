@@ -32,11 +32,6 @@ class ManifestTests: XCTestCase, XCTestCaseProvider {
     }
     
     func testManifestLoading() {
-        // Initialize resources, if necessary.
-        if libc.getenv("SPM_INSTALL_PATH") == nil {
-            libc.setenv("SPM_INSTALL_PATH", Path.join(__FILE__, "../../../.build").normpath, /*overwrite=*/1)
-        }
-        
         // Check a trivial manifest.
         var manifest = loadManifest("trivial-manifest")
         XCTAssertEqual(manifest.package.name, "Trivial")
