@@ -391,9 +391,11 @@ def create_bootstrap_files(sandbox_path, opts):
                 # (used when co-building with Swift), then add that path.
                 if opts.xctest_path:
                     # Tell the linker where to look for XCTest, but autolinking
-                    # knows to pass -lXCTest
+                    # knows to pass -lXCTest.
+                    link_command.extend(["-L", opts.xctest_path])
+                    # Add an RPATH, so that the tests can be run directly.
                     link_command.extend(
-                        ["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
+                        ["-Xlinker", "-rpath", "-Xlinker", opts.xctest_path])
 
         # Write out the link command.
         print >>output, "  %s:" % json.dumps(target.linked_virtual_node)
@@ -515,7 +517,17 @@ def get_swift_build_tool_path():
 
 def main():
     from optparse import OptionParser, OptionGroup
-    parser = OptionParser("usage: %prog [options] [clean|all|install]")
+    parser = OptionParser("""\
+usage: %prog [options] [clean|all|test|install]
+
+This script will build a bootstrapped copy of the Swift Package Manager, and
+optionally perform extra actions like installing the result (with 'install') to
+a location ('--prefix').
+
+The script is also capable of building the package manager tests as part of the
+Stage 1 build, and running those tests (with 'test'). This is a stop gap measure
+for enabling integrated testing until the package manager itself has built in
+testing support.""")
     parser.add_option("", "--swiftc", dest="swiftc_path",
                       help="path to the swift compiler [%default]",
                       default=os.getenv("SWIFTC") or "swiftc", metavar="PATH")
@@ -541,18 +553,21 @@ def main():
 
     # When invoked via Xcode, it will automatically be passed a "build action".
     if len(args) == 0:
-        build_action = "all"
-    elif len(args) == 1:
-        build_action = args[0]
+        build_actions = set(["all"])
     else:
-        parser.error("invalid number of arguments")
+        build_actions = set(args)
+
+    # Validate the build actions.
+    for action in build_actions:
+        if action not in ("clean", "all", "test", "install"):
+            raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
     build_path = os.path.join(g_project_root, opts.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
     
     # If the action is "clean", just remove the bootstrap and build directories.
-    if build_action == "clean":
+    if "clean" in build_actions:
         cmd = ["rm", "-rf", sandbox_path]
         note("cleaning stage1: %s" % (' '.join(cmd),))
         result = subprocess.call(cmd)
@@ -566,9 +581,8 @@ def main():
             error("build failed with exit status %d" % (result,))
         raise SystemExit(0)
 
-    if build_action not in ("all", "install"):
-        raise SystemExit("unknown build action: %r" % (build_action,))
-        
+    # All other actions build.
+    
     # Create the sandbox.
     mkdir_p(sandbox_path)
 
@@ -628,9 +642,33 @@ def main():
         build_path, opts)
     note("built runtime module : %s" % (runtime_module_path,))
     note("built runtime library: %s" % (runtime_lib_path,))
+
+    # If testing, run each of the test bundles.
+    if "test" in build_actions:
+        if not opts.build_tests:
+            parser.error("cannot use 'tests' action without '--build-tests'")
+
+        # Construct the test environment.
+        env_cmd = ["env",
+                   "SWIFTC=" + opts.swiftc_path,
+                   "SPM_INSTALL_PATH=" + sandbox_path]
+        for target in targets:
+            if not target.is_test:
+                continue
+
+            note("running test target '%s'..." % (target.name,))
+            if platform.system() == 'Linux':
+                cmd = env_cmd + [os.path.join(sandbox_path, "bin", target.name)]
+            else:
+                cmd = env_cmd + ["xcrun", "xctest", os.path.join(
+                    sandbox_path, "bin", target.name + ".xctest")]
+            note("executing: %s" % (' '.join(cmd),))
+            result = subprocess.call(cmd, cwd=g_project_root)
+            if result != 0:
+                error("tests failed with exit status %d" % (result,))
     
     # If installing, put the build products in the appropriate location.
-    if build_action == "install":
+    if "install" in build_actions:
         bin_install_path = os.path.join(g_project_root, opts.install_prefix,
                                         "bin")
         lib_install_path = os.path.join(g_project_root, opts.install_prefix,
