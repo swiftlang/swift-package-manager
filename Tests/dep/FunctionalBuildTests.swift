@@ -416,4 +416,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
         }
     }
+
+    func testCanBuildIfADependencyClonedButThenAborted() {
+        fixture(name: "102_mattts_dealer", tag: "v1.2.3") { prefix in
+            try system("git", "clone", Path.join(prefix, "DeckOfPlayingCards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
 }
