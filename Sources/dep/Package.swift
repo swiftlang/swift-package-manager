@@ -36,7 +36,7 @@ public struct Package {
       - Note: Throws if the Package manifest will not parse.
      */
     public init?(path: String) throws {
-        let parts = path.characters.split("-")
+        let parts = path.basename.characters.split("-")
 
         // Packages are git clones
         guard let repo = Git.Repo(root: path) else { return nil }
