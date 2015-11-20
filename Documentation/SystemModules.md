@@ -63,6 +63,17 @@ typically always refer to it that way. A good rule of thumb is to look at the he
 see the header is called simply "ogg.h". Pay attention to capitalization; note that we provide `CPOSIX` and not
 `CPosix`, because POSIX is an acronym and is typically spelled all-caps.
 
+We also need to create an empty Package.swift file to let the package
+manager know `CVorbis` is a package. Finally, we need to initialize
+this directory as a Git repository, adding all the files we created,
+and tagging it with a version number for the package manager to use:
+
+    CVorbis$ touch Package.swift
+    CVorbis$ git init
+    CVorbis$ git add .
+    CVorbis$ git ci -m "Creating module package"
+    CVorbis$ git tag 1.0.0
+
 Back in our example app we need a `Package.swift` that depends on CVorbis:
 
 ```swift
