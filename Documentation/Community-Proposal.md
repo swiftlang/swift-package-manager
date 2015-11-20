@@ -286,7 +286,7 @@ import of system libraries written in C.
 
 These packages must be git repositories with semantically versioned tags and a
 `Package.swift` — just like regular Swift packages. However, they contain a
-single `module.map` file instead of other Swift sources.
+single `module.modulemap` file instead of other Swift sources.
 
 The module.modulemap describes the headers and libraries in the system
 library.
