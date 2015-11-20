@@ -395,4 +395,10 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
         }
     }
+
+    func testWhenThereAreHyphensInThePath() {
+        fixture(name: "103-mattts-dealer") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
 }
