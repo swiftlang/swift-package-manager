@@ -112,13 +112,16 @@ class WalkTests: XCTestCase {
     }
 
     func testRecursive() {
-        var expected = ["/usr/share/locale/UTF-8/LC_CTYPE", "/usr/share/man/man1/yes.1"]
+        let root = Path.join(__FILE__, "../../../Sources").normpath
+        var expected = [
+            Path.join(root, "dep"),
+            Path.join(root, "sys")
+        ]
 
-        for x in walk("/usr/share") {
+        for x in walk(root) {
             if let i = expected.indexOf(x) {
                 expected.removeAtIndex(i)
             }
-            XCTAssertGreaterThanOrEqual(x.characters.split("/").count, 2)
         }
 
         XCTAssertEqual(expected.count, 0)
