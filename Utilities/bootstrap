@@ -550,8 +550,8 @@ testing support.""")
                       help="use verbose output")
     parser.add_option("--xctest", dest="xctest_path", action="store",
                       help="Path to XCTest build directory")
-    parser.add_option("", "--no-build-tests", dest="build_tests", default=True,
-                      action="store_false", help="enable building tests")
+    parser.add_option("", "--build-tests", dest="build_tests",
+                      action="store_true", help="enable building tests")
     opts,args = parser.parse_args()
 
     # When invoked via Xcode, it will automatically be passed a "build action".
