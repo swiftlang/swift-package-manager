@@ -8,19 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import POSIX
+import sys
 import XCTest
-@testable import POSIX
 
 class ShellTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
-            ("test_popen", test_popen),
+            ("test_popen", testPopen),
+            ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated)
         ]
     }
     
-    func test_popen() {
+    func testPopen() {
         XCTAssertEqual(try! popen(["echo", "foo"]), "foo\n")
-        XCTAssertGreaterThan(try! popen(["cat", "/etc/passwd"]).characters.count, 4096)
+    }
+    
+    func testPopenWithBufferLargerThanThatAllocated() {
+        let path = Path.join(__FILE__, "../../dep/FunctionalBuildTests.swift").normpath
+        XCTAssertGreaterThan(try! popen(["cat", path]).characters.count, 4096)
     }
 }
