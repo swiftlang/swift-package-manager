@@ -409,4 +409,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(["foo.a"], fixturePath: prefix))
         }
     }
+
+    func testCanBuildIfADependencyAlreadyCheckedOut() {
+        fixture(name: "102_mattts_dealer", tag: "v1.2.3") { prefix in
+            try system("git", "clone", Path.join(prefix, "DeckOfPlayingCards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
 }

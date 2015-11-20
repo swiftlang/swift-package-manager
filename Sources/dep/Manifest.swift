@@ -141,6 +141,12 @@ public struct Manifest {
             self.package = PackageDescription.Package()
             return
         }
+
+        // canonicalize URLs
+        var baseURL = baseURL
+        if baseURL != nil && URL.scheme(baseURL!) == nil {
+            baseURL = try realpath(baseURL!)
+        }
         
         // Deserialize the package.
         do {

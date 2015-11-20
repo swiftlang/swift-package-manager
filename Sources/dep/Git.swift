@@ -24,10 +24,18 @@ class Git {
 
         lazy var origin: String? = { repo in
             do {
-                return try popen([Git.tool, "-C", repo.root, "config", "--get", "remote.origin.url"]).chuzzle()
+                guard let url = try popen([Git.tool, "-C", repo.root, "config", "--get", "remote.origin.url"]).chuzzle() else {
+                    return nil
+                }
+                if URL.scheme(url) == nil {
+                    return try realpath(url)
+                } else {
+                    return url
+                }
+
             } catch {
                 //TODO better
-                print("Bad git repository: \(repo.root)")
+                print("Bad git repository: \(repo.root)", toStream: &stderr)
                 return ""
             }
         }(self)
@@ -59,6 +67,13 @@ class Git {
     }
 
     class func clone(url: String, to dstdir: String) throws -> Repo {
+
+        // canonicalize URL
+        var url = url
+        if URL.scheme(url) == nil {
+            url = try realpath(url)
+        }
+
         let args = [Git.tool, "clone",
             "--recursive",          // get submodules too so that developers can use these if they so choose
             "--depth", "10",
