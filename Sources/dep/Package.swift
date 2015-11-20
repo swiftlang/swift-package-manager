@@ -102,7 +102,7 @@ public struct Package {
     }
 
     public var type: Type {
-        if Path.join(path, "module.map").isFile {
+        if Path.join(path, "module.modulemap").isFile {
             return .ModuleMap
         } else {
             return .Module

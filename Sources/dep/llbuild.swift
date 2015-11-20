@@ -188,7 +188,7 @@ private class YAML {
             }
 
             for pkg in parms.dependencies where pkg.type == .ModuleMap {
-                let path = Path.join(pkg.path, "module.map")
+                let path = Path.join(pkg.path, "module.modulemap")
                 args += " -Xcc -F-module-map=\(path) -I\(pkg.path)"
             }
 
