@@ -36,8 +36,6 @@ public struct Package {
       - Note: Throws if the Package manifest will not parse.
      */
     public init?(path: String) throws {
-        let parts = path.basename.characters.split("-")
-
         // Packages are git clones
         guard let repo = Git.Repo(root: path) else { return nil }
 
@@ -45,8 +43,9 @@ public struct Package {
         guard let origin = repo.origin else { return nil }
 
         // Packages have dirnames of the form foo-X.Y.Z
-        guard parts.count == 2 else { return nil }
-        guard let version = Version(parts[1]) else { return nil }
+        let parts = path.basename.characters.split("-")
+        guard parts.count >= 2 else { return nil }
+        guard let version = Version(parts.last!) else { return nil }
 
         self.version = version
         self.manifest = try Manifest(path: Path.join(path, Manifest.filename), baseURL: origin)
