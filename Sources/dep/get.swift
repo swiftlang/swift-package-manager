@@ -101,6 +101,7 @@ extension Sandbox: Fetcher {
         let dstdir = Path.join(prefix, Package.name(forURL: url))
         if let repo = Git.Repo(root: dstdir) where repo.origin == url {
             //TODO need to canolicanize the URL need URL struct
+            try system("git", "-C", dstdir, "fetch", "origin")
             return try RawClone(path: dstdir)
         }
         try Git.clone(url, to: dstdir)
