@@ -140,6 +140,11 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
+            key = "SPM_INSTALL_PATH"
+            value = "$(PROJECT_DIR)/../.build"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "SWIFTC"
             value = "$(SWIFT_EXEC)"
             isEnabled = "YES">
