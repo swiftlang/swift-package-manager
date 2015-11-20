@@ -401,4 +401,12 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
         }
     }
+
+    // 2: Package with one library target
+    func testSingleTargetWithCustomName() {
+        fixture(name: "25_single_target_with_custom_name") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
+            XCTAssertTrue(self.verifyFilesExist(["foo.a"], fixturePath: prefix))
+        }
+    }
 }
