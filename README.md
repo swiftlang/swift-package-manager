@@ -35,8 +35,8 @@ To learn about the policies and best practices that govern
 contributions to the Swift project,
 please read the [Contributor Guide](https://swift.org/contributor-guide).
 
-Interested potential contributors should read the [Community
-Proposal][https://github.com/apple/swift-package-manager/blob/master/Documentation/Community-Proposal.md],
+Interested potential contributors should read the [Swift Package Manager Community
+Proposal][https://github.com/apple/swift-package-manager/blob/master/Documentation/Package-Manager-Community-Proposal.md],
 which provides some context for decisions made in the current implementation and offers direction
 for the development of future features.
 

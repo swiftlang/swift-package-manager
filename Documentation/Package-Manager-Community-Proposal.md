@@ -1,4 +1,4 @@
-# Community Proposal
+# Swift Package Manager Community Proposal
 
 The Swift Package Manager is a tool for managing distribution of source code,
 aimed at making it easy to share your code and reuse others' code. The tool
