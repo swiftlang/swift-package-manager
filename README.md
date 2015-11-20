@@ -40,19 +40,21 @@ To build from source enter the following into a terminal:
     git clone git@github.com:apple/swift-package-manager.git swiftpm
     git clone git@github.com:apple/swift-llbuild.git llbuild
     cd swiftpm
-    ./Utilities/bootstrap
+    ./Utilities/bootstrap --build-tests
 
 It is recommended that you develop against the latest version of Swift,
 to ensure compatibility with new releases.
 
-If you contribute, we’d appreciate if you could run the tests before submitting a pull-request.
-To run the tests (currently) you need Xcode: open `./Support/swiftpm.xcodeproj` and from the “Product” menu select “Test”.
+To run the tests on Linux:
 
-> Long-term, we intend for testing to be an integral part of the Package Manager itself and not to require Xcode.
+    for x in .build/.bootstrap/bin/*-test; do $x; done
 
-In addition if you contribute, *please* write new tests to verify your contribution.
-If you do so you will need to amend the Xcode Project to include those new tests.
-Xcode as a requirement for contribution is strictly a temporary issue.
+On Mac use the provided Xcode project.
+
+> Long-term, we intend for testing to be an integral part of the Package Manager itself
+> and to not require custom support.
+
+In addition if you contribute, *please, please, please* write new tests to verify your contribution.
 
 * * *
 
