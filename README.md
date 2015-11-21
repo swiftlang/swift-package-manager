@@ -59,7 +59,7 @@ On Mac use the provided Xcode project.
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.
 
-Contributions are expected to come with tests that verify the new or changed functionality.
+Including tests of new or changed functionality with your contributions makes it much more likely that they will be accepted.
 
 * * *
 
