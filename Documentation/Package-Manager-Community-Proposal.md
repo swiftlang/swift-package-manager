@@ -227,7 +227,7 @@ numbers to software releases. By adopting a common versioning convention,
 developers can more clearly communicate the impact a new version of their code
 will have, and better understand the changes between versions of dependencies.
 
-With SemVer, version number takes the form `MAJOR.MINOR.PATCH`, where `MAJOR`,
+With SemVer, a version number takes the form `MAJOR.MINOR.PATCH`, where `MAJOR`,
 `MINOR`, and `PATCH` are non-negative integers. You increment the `MAJOR`
 version when you make an incompatible API change, the `MINOR` version when you
 add functionality in a backwards-compatible manner, and the `UPDATE` version
@@ -372,6 +372,8 @@ incorporate the resulting products into products built by the IDE. We would
 also like to make it possible for an IDE to control Package Manager workflow,
 such as updating a package's dependencies to the latest versions.
 
+Apple intends to provide good support for the Swift Package Manager in Xcode.
+
 ### Standardized Licensing
 
 We would like the Package Manager to assist in managing the licenses of your
@@ -443,7 +445,7 @@ implement useful features based on analysis of the package's source code.
 
 We would like to make the Package Manager automatically detect changes to the
 public API of a package and help you update the appropriate semantic version
-component. For example, if a you change only the implementation of a method, a
+component. For example, if you change only the implementation of a method, a
 new `PATCH` version would be allowed, as this change is unlikely to break a
 consumer of the API. If a new method is added to the public API, the `MINOR`
 version should be updated. If you remove a method from the public API or
