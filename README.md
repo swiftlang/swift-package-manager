@@ -80,7 +80,7 @@ please see the [llbuild page](https://github.com/apple/swift-llbuild).
 If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
 
 * [The mailing list](mailto:swift-package-manager@swift.org)
-* [The bug tracker](http://jira.swift.org)
+* [The bug tracker](http://bugs.swift.org)
 * You can also email the code owners directly; their contact details can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
 
 
