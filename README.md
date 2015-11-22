@@ -1,9 +1,25 @@
 # Swift Package Manager
 
-The Swift Package Manager provides a set of tools
-for building both first and third party Swift code.
+The Swift Package Manager is a tool for managing distribution of source code,
+aimed at making it easy to share your code and reuse others' code. The tool
+directly addresses the challenges of compiling and linking Swift packages,
+managing dependencies, versioning, and supporting flexible distribution and
+collaboration models.
+
+We've designed the system to make it really easy to share packages on services
+like github, 
+but packages are also great for private personal development, sharing code
+within a team, or at any other granularity.
+
+Please note that the Swift Package Manager is still
+in early design and development phases - we are aiming to have it stable and
+ready to use as part of Swift 3.
 
 * * *
+
+## A Work In Progress
+
+Please consider all details subject to change. There also are many important features which are not yet implemented.  It is also important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
 
 ## Installing
 
@@ -17,17 +33,21 @@ enter the following in a terminal:
 
     swift build --help
 
-If usage information is printed; you’re ready to go.
+If usage information is printed; you’re ready to go.  If not, you can build it
+from source by entering the following into a terminal:
+
+git clone git@github.com:apple/swift-package-manager.git swiftpm
+git clone git@github.com:apple/swift-llbuild.git llbuild
+cd swiftpm
+./Utilities/bootstrap --build-tests
+
+It is recommended that you develop against the latest version of Swift,
+to ensure compatibility with new releases.
+
 
 ## System Requirements
 
 System requirements are the [same as those for Swift itself](https://github.com/apple/swift#system-requirements).
-
-## A Work In Progress
-
-The package manager is being open-sourced early, but has not yet had a stable release. Please consider any public interface (command-line or API) subject to change. There are many important features which are not yet implemented.
-
-It is also important to note Swift is not yet ABI or API stable so packages you write will (likely) break as Swift evolves.
 
 ## Contributing
 
@@ -40,17 +60,9 @@ Proposal][https://github.com/apple/swift-package-manager/blob/master/Documentati
 which provides some context for decisions made in the current implementation and offers direction
 for the development of future features.
 
-To build from source enter the following into a terminal:
-
-    git clone git@github.com:apple/swift-package-manager.git swiftpm
-    git clone git@github.com:apple/swift-llbuild.git llbuild
-    cd swiftpm
-    ./Utilities/bootstrap --build-tests
-
-It is recommended that you develop against the latest version of Swift,
-to ensure compatibility with new releases.
-
-To run the tests on Linux:
+Tests are an important part of the development and evolution of this project,
+and new contributions are expected to include tests for any functionality
+change.  To run the tests on Linux:
 
     for x in .build/.bootstrap/bin/*-test; do $x; done
 
@@ -59,16 +71,26 @@ On Mac use the provided Xcode project.
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.
 
-Including tests of new or changed functionality with your contributions makes it much more likely that they will be accepted.
+The Swift package manager uses "llbuild" as the underlying build system
+for compiler source files.  It is open source as part of the Swift project,
+please see the [llbuild page](https://github.com/apple/swift-llbuild).
+
+## Getting Help
+
+If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
+
+* [The mailing list](mailto:swift-package-manager@swift.org)
+* [The bug tracker](http://jira.swift.org)
+* You can also email the code owners directly; their contact details can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
+
 
 * * *
 
-## Overview
+## Technical Overview
 
-This section describes the basic concepts that motivate
-the functionality of the Swift Package Manager.
+A thorough guide to Swift and the Package Manager is available [at swift.org](https://swift.org/getting-started/). The following is technical documentation, describing the
+basic concepts that motivate the functionality of the Swift Package Manager.
 
-There is a thorough guide to Swift and the Package Manager [at swift.org](https://swift.org/getting-started/). The following is technical documentation.
 
 ### Modules
 
@@ -99,7 +121,11 @@ As a rule of thumb: more modules is probably better than less modules. The packa
 
 ### Building Swift Modules
 
-To facilitate rapid development, modules are computed based on how you lay out your sources. A simple example could be:
+The Swift Package Manager and its build system needs to understand how to
+compile your source code.  To do this, it uses a convention-based approach which
+uses the organization of your source code in the file system to determine what
+you mean, but allows you to fully override and customize these details.  A
+simple example could be:
 
     foo/Package.swift
     foo/Sources/main.swift
@@ -112,9 +138,17 @@ If you then run the following command in the directory `foo`:
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However this does not mean you have to release your software to the wider world as a package: you can develop your app and never consider it a package that others will see or use. On the other hand if one day you decide that your project _should_ be a package (available to the wider world or just your company’s engineers) your sources are already in a form ready to be published.
+To the package manager, everything is a package, hence `Package.swift`. However
+this does not mean you have to release your software to the wider world: you can
+develop your app without ever publishing it in a place where others can see or
+use. On the other hand, if one day you decide that your project _should_ be 
+available to a wider audience your sources are already in a form ready to be
+published.  The package manager is also independent of specific forms of
+distribution, so you can use it to share code within your personal projects,
+within your workgroup, team or company, or with the world.
 
-The package manager sources are laid out following these conventions and thus the package manager is used to build itself.
+Of course, the package manager is used to build itself, so its own source files
+are laid out following these conventions as well.
 
 > [Further Reading: Source Layouts](Documentation/SourceLayouts.md)
 
@@ -122,10 +156,11 @@ Please note that currently we only build static libraries. In general this has b
 
 ### Packages & Dependency Management
 
-Modern development (for better and worse) is accelerated by
-the exponential use of external dependencies.
+Modern development is accelerated by
+the exponential use of external dependencies (for better and worse).  This is
+great for allowing you to get more done with less time, but adding dependencies
+to a project has an associated coordination cost.
 
-Adding dependencies to a project, however, has an associated coordination cost.
 In addition to downloading and building the source code for a dependency,
 that dependency's own dependencies must be downloaded and built as well,
 and so on, until the entire dependency graph is satisfied.
@@ -149,14 +184,6 @@ Dependencies are specified in your `Package.swift` manifest file.
 Your platform comes with a wealth of rich and powerful C libraries installed via the system package manager. Your Swift code can use them.
 
 > [Further Reading: System Modules](Documentation/SystemModules.md)
-
-## Getting Help
-
-If you have any trouble with the package manager; we want to help. Choose the option that suits you best:
-
-* [The mailing list](mailto:swift-package-manager@swift.org)
-* [The bug tracker](http://jira.swift.org)
-* You can also email the code owners directly; their contact details can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt).
 
 ## License
 
