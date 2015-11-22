@@ -36,10 +36,10 @@ enter the following in a terminal:
 If usage information is printed; you’re ready to go.  If not, you can build it
 from source by entering the following into a terminal:
 
-git clone git@github.com:apple/swift-package-manager.git swiftpm
-git clone git@github.com:apple/swift-llbuild.git llbuild
-cd swiftpm
-./Utilities/bootstrap --build-tests
+    git clone git@github.com:apple/swift-package-manager.git swiftpm
+    git clone git@github.com:apple/swift-llbuild.git llbuild
+    cd swiftpm
+    ./Utilities/bootstrap --build-tests
 
 It is recommended that you develop against the latest version of Swift,
 to ensure compatibility with new releases.
@@ -55,8 +55,7 @@ To learn about the policies and best practices that govern
 contributions to the Swift project,
 please read the [Contributor Guide](https://swift.org/contributor-guide).
 
-Interested potential contributors should read the [Swift Package Manager Community
-Proposal][https://github.com/apple/swift-package-manager/blob/master/Documentation/Package-Manager-Community-Proposal.md],
+If you are interested in contributing, please read the [Swift Package Manager Community Proposal](Documentation/Package-Manager-Community-Proposal.md),
 which provides some context for decisions made in the current implementation and offers direction
 for the development of future features.
 
@@ -71,9 +70,8 @@ On Mac use the provided Xcode project.
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.
 
-The Swift package manager uses "llbuild" as the underlying build system
-for compiler source files.  It is open source as part of the Swift project,
-please see the [llbuild page](https://github.com/apple/swift-llbuild).
+The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system
+for compiling source files.  It is also open source and part of the Swift project.
 
 ## Getting Help
 
