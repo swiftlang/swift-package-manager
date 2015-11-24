@@ -44,7 +44,7 @@ For development purposes, the package manager can be built in two ways.
 
 To build the package manager as part of building the full Swift project,
 including the Swift compiler, see Swift's
-[README][https://github.com/apple/swift/blob/master/README.md]. This option is
+[README](https://github.com/apple/swift/blob/master/README.md). This option is
 recommended is required if you are also making changes to
 [llbuild](https://github.com/apple/swift-llbuild), the Swift language, or to the
 build integration.
