@@ -23,7 +23,6 @@ Please consider all details subject to change. There also are many important fea
 
 ## Installing
 
-The Swift Package Manager has been included since Swift 2.1.
 To install the latest version of Swift
 see the 
 [Swift User Guide](https://swift.org/download/).
