@@ -32,17 +32,33 @@ enter the following in a terminal:
 
     swift build --help
 
-If usage information is printed; you’re ready to go.  If not, you can build it
-from source by entering the following into a terminal:
+## Development
+
+The Package Manager is itself a Swift Package, and builds through use of the
+bootstrap script which handles manually building an initial copy of the package
+manager, then building it again using itself. This script also currently handles
+integrating with the Swift project build system for installing into packages
+alongside the other Swift tools.
+
+For development purposes, the package manager can be built in two ways.
+
+To build the package manager as part of building the full Swift project,
+including the Swift compiler, see Swift's
+[README][https://github.com/apple/swift/blob/master/README.md]. This option is
+recommended is required if you are also making changes to
+[llbuild](https://github.com/apple/swift-llbuild), the Swift language, or to the
+build integration.
+
+You can also build the package manager using only a
+[downloaded](https://swift.org/download/) Swift package. Once downloaded and
+installed, you can build it by entering the following into a terminal:
 
     git clone git@github.com:apple/swift-package-manager.git swiftpm
-    git clone git@github.com:apple/swift-llbuild.git llbuild
     cd swiftpm
-    ./Utilities/bootstrap --build-tests
+    ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
 
 It is recommended that you develop against the latest version of Swift,
 to ensure compatibility with new releases.
-
 
 ## System Requirements
 
@@ -60,11 +76,9 @@ for the development of future features.
 
 Tests are an important part of the development and evolution of this project,
 and new contributions are expected to include tests for any functionality
-change.  To run the tests on Linux:
+change.  To run the tests, pass the `test` verb to the `bootstrap` script:
 
-    for x in .build/.bootstrap/bin/*-test; do $x; done
-
-On Mac use the provided Xcode project.
+    ./Utilities/bootstrap test
 
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.

@@ -82,9 +82,12 @@ def write_file_if_changed(path, data):
 ###
 
 g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
+g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
         ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]).strip()
+    g_default_sysroot = subprocess.check_output(
+        ["xcrun", "--sdk", "macosx", "--show-sdk-path"]).strip()
 
 g_bundle_identifier_base = "org.swift.package-manager"
 g_xctest_infoplist_template = """\
@@ -539,7 +542,7 @@ testing support.""")
                       metavar="PATH")
     parser.add_option("", "--sysroot", dest="sysroot",
                       help="compiler sysroot to pass to Swift [%default]",
-                      default=None, metavar="PATH")
+                      default=g_default_sysroot, metavar="PATH")
     parser.add_option("", "--build", dest="build_path",
                       help="create build products at PATH [%default]",
                       default=".build", metavar="PATH")
@@ -649,7 +652,7 @@ testing support.""")
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         if not opts.build_tests:
-            parser.error("cannot use 'tests' action without '--build-tests'")
+            parser.error("cannot use 'test' action without '--build-tests'")
 
         # Construct the test environment.
         env_cmd = ["env",
