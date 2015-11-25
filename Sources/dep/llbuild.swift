@@ -82,6 +82,17 @@ private class YAML {
     var filePointer: UnsafeMutablePointer<FILE>
     let filename: String
 
+    
+    /**
+      The 'swiftc' executable path to use.
+    */
+    let swiftcPath: String
+
+    /**
+      The selected sysroot, if in use.
+    */
+    let sysroot: String?
+    
     init(parameters: BuildParameters) throws {
         parms = parameters
         let path = Path.join(parameters.tmpdir, "llbuild.yaml")
@@ -91,6 +102,22 @@ private class YAML {
         } catch {
             filePointer = nil
             throw error
+        }
+
+        // Compute the 'swiftc' to use.
+        swiftcPath = getenv("SWIFTC") ?? Resources.findExecutable("swiftc")
+
+        // Compute the '--sysroot' to use.
+        //
+        // On OS X, we automatically infer this using xcrun for the time being,
+        // to support users directly invoking the tools from a downloadable
+        // toolchain.
+        if let sysroot = getenv("SYSROOT") {
+            self.sysroot = sysroot
+        } else {
+#if os(OSX)
+            self.sysroot = (try? popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
+#endif
         }
     }
 
@@ -105,19 +132,6 @@ private class YAML {
     func print(s: String = "") throws {
         try fputs(s, filePointer)
         try fputs("\n", filePointer)
-    }
-
-    /**
-      Get the 'swiftc' executable path to use.
-      FIXME: We eventually will need to locate this relative to ourselves.
-    */
-    var swiftcPath: String {
-        return getenv("SWIFTC") ?? Resources.findExecutable("swiftc")
-    }
-
-    /// Get the sysroot option, used by the bootstrap script.
-    var sysroot: String? {
-        return getenv("SYSROOT")
     }
 
     func write() throws {
