@@ -29,9 +29,17 @@ public func rmtree(components: String...) throws {
         }
     }
     for dir in dirs.reverse() {
-        try POSIX.rmdir(dir)
+        do {
+            try POSIX.rmdir(dir)
+        } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
+            // Ignore ENOENT.
+        }
     }
-    try POSIX.rmdir(path)
+    do {
+        try POSIX.rmdir(path)
+    } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
+        // Ignore ENOENT.
+    }
 }
 
 /// - Returns: true if stdin is attached to a terminal
