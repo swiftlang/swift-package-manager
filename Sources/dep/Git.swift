@@ -11,6 +11,8 @@
 import struct PackageDescription.Version
 import POSIX
 import sys
+import func libc.fflush
+import var libc.stdout
 
 class Git {
     class Repo {
@@ -67,6 +69,7 @@ class Git {
     }
 
     class func clone(url: String, to dstdir: String) throws -> Repo {
+        var out = ""
 
         // canonicalize URL
         var url = url
@@ -75,31 +78,28 @@ class Git {
         }
 
         let args = [Git.tool, "clone",
-            "--recursive",          // get submodules too so that developers can use these if they so choose
+            "--recursive",   // get submodules too so that developers can use these if they so choose
             "--depth", "10",
             url, dstdir]
 
-        if sys.verbosity == .Concise {
-            var out = ""
-            do {
-                print("Cloning", Path(dstdir).relative(to: "."), terminator: "")
-                defer{ print("") }
+        do {
+            if sys.verbosity == .Concise {
+                print("Cloning", Path(dstdir).relative(to: "."))
+                fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
                 try popen(args, redirectStandardError: true) { line in
                     out += line
-                    for _ in out.characters.split("\n") {
-                        print(".", terminator: "")
-                    }
                 }
-            } catch ShellError.popen(let foo) {
-                print("$", prettyArguments(args), toStream: &stderr)
-                print(out, toStream: &stderr)
-                throw ShellError.popen(foo)
+            } else {
+                try system(args)
             }
-        } else {
-            try system(args)
-        }
 
-        return Repo(root: dstdir)!  //TODO no bangs
+            return Repo(root: dstdir)!  //TODO no bangs
+
+        } catch POSIX.Error.ExitStatus {
+            print("$", prettyArguments(args), toStream: &stderr)
+            print(out, toStream: &stderr)
+            throw Error.GitCloneFailure(url, dstdir)
+        }
     }
 
     class var tool: String {
