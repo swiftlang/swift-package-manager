@@ -117,6 +117,8 @@ private class YAML {
         } else {
 #if os(OSX)
             self.sysroot = (try? popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
+#else
+            self.sysroot = nil
 #endif
         }
     }
