@@ -101,10 +101,13 @@ extension Sandbox: Fetcher {
         let dstdir = Path.join(prefix, Package.name(forURL: url))
         if let repo = Git.Repo(root: dstdir) where repo.origin == url {
             //TODO need to canolicanize the URL need URL struct
-            try system("git", "-C", dstdir, "fetch", "origin")
             return try RawClone(path: dstdir)
         }
         try Git.clone(url, to: dstdir)
+
+        // fetch as well, clone does not fetch all tags, only tags on the master branch
+        try system("git", "-C", dstdir, "fetch", "origin")
+
         return try RawClone(path: dstdir)
     }
 
@@ -161,9 +164,6 @@ extension Sandbox: Fetcher {
 
         /// contract, you cannot call this before you have attempted to `constrain` this clone
         func setVersion(v: Version) throws {
-            // preliminary `0` for branch because otherwise git prepends `heads/` to the Version
-            // if there is a tag with the same name. Basically, we shouldn't do it this way.
-
             let packageVersionsArePrefixed = repo.versionsArePrefixed
             let v = (packageVersionsArePrefixed ? "v" : "") + v.description
             try popen([Git.tool, "-C", path, "reset", "--hard", v])
