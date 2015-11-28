@@ -31,7 +31,7 @@ The world is full of fascinating problems waiting to be solved.
 Software is created to solve some of these problems.
 
 Problems can be recursively decomposed into subproblems,
-such that any problem can be understood in terms of small, clearly-defined tasks.
+such that any problem can be understood in terms of small, clearly defined tasks.
 Likewise, code can be organized into individuals components,
 such that each one is responsible for a particular piece of functionality.
 
@@ -47,7 +47,7 @@ The question is how to minimize that cost.
 Code must first be organized in a way that allows for reuse.
 We define a _package_ to be
 a grouping of software and associated resources intended for distribution.
-Packages are identified by a chosen name,
+Packages are identified by a chosen name
 and may include additional information,
 such as a list of authors and license information.
 
@@ -168,11 +168,11 @@ We'd like to specifically call out the following design decisions:
 - System Library Access with Module Maps
 - Semantic Versioning
 - Build Environment Isolation
-- Source-based Distribution
+- Source-Based Distribution
 - Package Decentralization
 
 Creating an infinitely flexible tool to satisfy every conceivable use case
-is a specific _non-goal_ of this project.
+is specifically a _non-goal_ of this project.
 Instead, we are prioritizing conventions and designs
 that minimize the friction for distributing Swift code for individuals,
 and promote the development of a healthy package ecosystem for the community.
@@ -188,7 +188,7 @@ to produce built products from Swift source files.
 
 ### Convention-Based Configuration
 
-Rather than requiring every detail of a package is explicitly configured,
+Rather than requiring that every detail of a package is explicitly configured,
 the Swift Package Manager establishes a set of conventions
 about how packages are structured.
 
@@ -283,8 +283,10 @@ the `UPDATE` version is reset to `0`,
 and when you increment the `MAJOR` version,
 both the `MINOR` and `UPDATE` versions are reset to `0`.
 
-Each release corresponds to a commit in the repository that is tagged with a
-version number. To see all of the releases of a package, you do `$ git tag`:
+Each release corresponds to a commit in the repository
+that is tagged with a version number.
+To see all of the releases of a package,
+use the `git tag` command with no arguments:
 
 ```shell
 $ git tag
@@ -295,25 +297,26 @@ $ git tag
 1.1.1
 ```
 
-To create a new release, you do `$ git tag VERSION`:
+To create a new release, use the `git tag` command
+passing the version number as the first argument:
 
 ```shell
 $ git tag 2.0.0
 ```
 
 By adopting a common versioning convention,
-developers can more clearly communicate
+package maintainers can more clearly communicate
 the impact a new version of their code will have,
-and better understand the changes between versions of dependencies.
+and developers can better understand the changes between versions of a package.
 
 ### Build Environment Isolation
 
-Packages exist in self-contained directories
+A package exists in a self-contained directory
 containing cloned dependency sources and built products.
-Each package directory is considered independently of the rest of the file system.
+Each package directory is considered independently from the rest of the file system.
 
 Although there are a variety of different package managers,
-they can be broadly divided into one of two categories:
+they can be broadly divided into two categories:
 
 - **System Package Managers**,
   which are responsible for building and installing software to system directories
@@ -331,7 +334,7 @@ they can be broadly divided into one of two categories:
   into a single graph of packages.
   If successful, the package manager then downloads and builds each package accordingly.
 
-The Swift Package Manager is a _language_ package manager for Swift.
+The Swift Package Manager is a _language package manager_ for Swift.
 It does not install software to system directories.
 A system package manager can, however, use the Swift Package Manager
 to build code written in Swift,
@@ -353,7 +356,7 @@ strongly discouraged.
 [npm]: https://www.npmjs.com
 [CPAN]: http://www.cpan.org
 
-### Source-based Distribution
+### Source-Based Distribution
 
 Packages are distributed and consumed as source code,
 rather than pre-compiled binaries.
@@ -405,7 +408,7 @@ Here are a list of some features we'd like to see in future releases
 - Package Flavors
 - User-Global Installation
 
-Many of these ideas will eventually become concrete proposals, with community input,
+Many of these ideas will eventually become concrete proposals
 following the [Swift evolution process](https://github.com/apple/swift-evolution).
 We welcome your input on which features to prioritize
 or how we might design and implement them.
@@ -417,7 +420,7 @@ We would like to add support for building and running automated tests for packag
 
 This should be supported in a standardized way
 to encourage all packages to provide tests
-and allow a user to easily run the tests for all of a package's dependencies.
+and allow users to easily run the tests for all of a package's dependencies.
 A package index could use the testing support
 as a way to validate package submissions to the index.
 An automated test harness for known packages
@@ -435,8 +438,8 @@ as the native testing library.
 We would like to establish a standard for package documentation
 and provide tools for automatically presenting that documentation.
 
-Package maintainers should be encouraged to adequately document their packages,
-and to provide their documentation in a standard manner.
+Package maintainers would be encouraged to adequately document their packages,
+and to provide their documentation in a standardized manner.
 A package index could, as part of the submission process,
 generate documentation to be served statically alongside the package.
 
@@ -452,7 +455,8 @@ with platform-specific header paths.
 
 ### Support for Other Languages
 
-We would like to add support to the Swift Package Manager for languages other Swift.
+We would like to add support to the Swift Package Manager
+for languages other than Swift.
 
 Specifically, we are most interested in support for C-based languages,
 because the existing ecosystem of Swift code
@@ -492,10 +496,6 @@ In the future, we would like to make it available as
 a library with a clearly defined API,
 so that other tools can more easily be built on top of it.
 
-This includes adding support for integrating with IDEs
-that wish to support the Package Manager.
-An IDE should be able to work closely with the Swift Package Manager
-to incorporate Swift packages into the IDE's build process.
 We would also like to make it possible for an IDE
 to control Package Manager workflow,
 such as updating a package's dependencies to the latest versions.
@@ -519,7 +519,7 @@ We would like to provide a built-in security mechanism to sign and verify packag
 
 This would ensure that packages are not altered after publication.
 By default, the package manager might reject any remote packages that aren't signed,
-with the option to override this behavior.
+with an option to override this behavior.
 
 We may additionally incorporate a chain of trust mechanism
 to validate the source of a package.
@@ -550,8 +550,7 @@ and are investigating possible solutions.
 
 ### Dynamic Libraries
 
-While only static libraries are currently supported,
-we would like to add for support dynamic libraries as well
+We would like to add support for dynamic libraries
 (and, at least on OS X, framework bundles).
 
 By default, we plan to continue to build packages as static
@@ -566,14 +565,14 @@ for each release.
 
 For example, if you change only the implementation of a method,
 a new `PATCH` version would be allowed,
-as this change is unlikely to break a consumer of the API.
+as this change is unlikely to break dependent packages.
 If a new method is added to the public API,
 the `MINOR` version should be updated.
 If you remove a method from the public API or change a public method's signature,
 the Swift Package Manager would require the next version to update the `MAJOR` version.
 By doing so, maintainers can avoid
-inadvertently pushing incompatible release of their packages, and consumers
-can regularly upgrade packages for security or performance improvements
+inadvertently pushing incompatible release of their packages,
+and consumers can regularly upgrade packages for security or performance improvements
 without fear of breaking changes to the API.
 
 Relatedly, we may decide at some point in the future
@@ -582,7 +581,7 @@ as indicated by a `1.0.0` release.
 If this restriction is imposed,
 it would be possible to override these requirements in your local manifest,
 thereby allowing development of pre-1.0 packages,
-but not encouraging their proliferation.
+without encouraging their proliferation.
 
 #### Importing Dependencies by Source URL
 
@@ -608,14 +607,14 @@ calculate your module inter-dependencies
 and alter the machine editable portion of `Package.swift` for you.
 
 It may be possible for the package manager to calculate this every build, but
-to do so might introduce significant overhead to the build process.
+doing so might introduce significant overhead to the build process.
 
 ### Resource Management
 
 OS X provides a resource management solution for libraries
 in the form of framework bundles.
 We would like to provide a cross-platform solution for
-packages which have resources to manage.
+packages that have resources to manage.
 
 This might involve bringing frameworks to Linux.
 It could instead mean that packages with resources are built as frameworks on OS X,
