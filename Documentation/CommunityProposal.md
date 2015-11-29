@@ -496,11 +496,10 @@ In the future, we would like to make it available as
 a library with a clearly defined API,
 so that other tools can more easily be built on top of it.
 
-We would also like to make it possible for an IDE
-to control Package Manager workflow,
-such as updating a package's dependencies to the latest versions.
-
-Apple intends to provide support for the Swift Package Manager in Xcode.
+We would also like to make it possible for an IDE to control Package Manager
+workflow, such as updating a package's dependencies to the latest versions.  All
+of the major features of the package manager should be exposed through these 
+APIs, allowing great integration with IDEs like Xcode.
 
 ### Standardized Licensing
 
