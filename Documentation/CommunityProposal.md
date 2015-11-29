@@ -510,7 +510,9 @@ of each package in the dependency tree,
 and verify that all of them fall within a specified acceptance policy.
 For example, a package may specify that all of its dependencies
 must have at least one license specified,
-or that none of its dependencies are licensed with certain licenses.
+or that none of its dependencies are licensed with certain licenses.  Some
+licenses are known to be incompatible, and the package manager should be able to
+flag such issues.
 
 ### Security and Signing
 
