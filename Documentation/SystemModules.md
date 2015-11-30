@@ -227,3 +227,10 @@ Follow the conventions of system packagers;
 for example, the debian package for python3 is called python3,
 as there is not a single package for python and python is designed to be installed side-by-side.
 Where you to make a module map for python3 you should name it `CPython3`.
+
+
+## System Libraries With Optional Dependencies
+
+At this time you will need to make another module map package to represent any optional dependencies.
+
+For example, `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it is not required. To provide a package that uses libarchive with xz you must make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
