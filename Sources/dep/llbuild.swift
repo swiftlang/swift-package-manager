@@ -178,72 +178,72 @@ private class YAML {
         let importPaths = [parms.prefix]
         let prodpath = Path.join(parms.tmpdir, target.productName)
         let modulepath = Path.join(parms.prefix, "\(target.moduleName).swiftmodule")
-        let objects = ofiles(target)
-        let inputs = target.dependencies.map{"<\($0.productName)>"} + target.sources
-        let outputs = ["<\(target.productName)-swiftc>", modulepath] + objects
+        let sources = target.sources.chuzzle()?.joinWithSeparator(" ") ?? "\"\""
+        let objects = ofiles(target).chuzzle()?.joinWithSeparator(" ") ?? "\"\""
+        let inputs = (target.dependencies.map{"<\($0.productName)>"} + target.sources.map(quote)).joinWithSeparator(", ")
+        let outputs = (["<\(target.productName)-swiftc>", modulepath] + ofiles(target).map(quote)).joinWithSeparator(", ")
 
-        func args() -> [String] {
-            var args = ["-j8"] //FIXME
+        func args() -> String {
+            var args = "-j8" //FIXME
 
             switch parms.conf {
             case .Debug:
-                args += ["-Onone", "-g"]
+                args += " -Onone -g"
             case .Release:
-                args += ["-O"]
+                args += " -Ounchecked"
             }
 
           #if os(OSX)
-            args += ["-target", "x86_64-apple-macosx10.10"]
+            args += " -target x86_64-apple-macosx10.10"
           #endif
             if target.type == .Library && parms.conf == .Debug {
-                args += ["-enable-testing"]
+                args += " -enable-testing"
             }
-            if let sysroot = sysroot {
-                args += ["-sdk", sysroot]
+            if sysroot != nil {
+                args += " -sdk \(quote(sysroot!))"
             }
 
             for pkg in parms.dependencies where pkg.type == .ModuleMap {
                 let path = Path.join(pkg.path, "module.modulemap")
-                args += ["-Xcc", "-F-module-map=\(path)", "-I", pkg.path]
+                args += " -Xcc -F-module-map=\(path) -I\(pkg.path)"
             }
 
             // Swift doesn’t include /usr/local by default
-            args += ["-I", "/usr/local/include"]
+            args += " -I/usr/local/include "
 
             return args
         }
 
         try print("  <\(target.productName)-swiftc>:")
         try print("    tool: swift-compiler")
-        try print("    executable: \(toYAML(swiftcPath))")
-        try print("    inputs: \(toYAML(inputs))")
-        try print("    outputs: \(toYAML(outputs))")
-        try print("    module-name: \(toYAML(target.moduleName))")
-        try print("    module-output-path: \(toYAML(modulepath))")
-        try print("    is-library: \(toYAML(target.type == .Library))")
-        try print("    sources: \(toYAML(target.sources))")
-        try print("    objects: \(toYAML(objects))")
-        try print("    import-paths: \(toYAML(importPaths))")
-        try print("    temps-path: \(toYAML(prodpath))")
-        try print("    other-args: \(toYAML(args()))")
+        try print("    executable: \(quote(swiftcPath))")
+        try print("    inputs: [\(inputs)]")
+        try print("    outputs: [\(outputs)]")
+        try print("    module-name: \(target.moduleName)")
+        try print("    module-output-path: \(modulepath)")
+        try print("    is-library: \(target.type == .Library)")
+        try print("    sources: \(sources)")
+        try print("    objects: \(objects)")
+        try print("    import-paths: \(importPaths.joinWithSeparator(" "))")
+        try print("    temps-path: \(prodpath)")
+        try print("    other-args: \(args())")
     }
 
     func writeLinkNode(target: Target) throws {
-        let objects = ofiles(target)
-        let inputs = ["<\(target.productName)-swiftc>"] + objects
+        let inputs = (["<\(target.productName)-swiftc>"] + ofiles(target).map(quote)).joinWithSeparator(", ")
+        let objectargs = ofiles(target).map(quote).joinWithSeparator(" ")
         let productPath = Path.join(parms.prefix, target.productFilename)
-        let outputs = [target.targetNode, productPath]
 
-        func args() throws -> [String] {
+        func args() throws -> String {
             switch target.type {
             case .Library:
-                let quotedObjects = objects.map({ "'\($0)'" }).joinWithSeparator(" ")
-                return ["/bin/sh", "-c", "rm -f '\(productPath)'; ar cr '\(productPath)' \(quotedObjects)"]
+                return "rm -f \(quote(productPath)); ar cr \(quote(productPath)) \(objectargs)"
             case .Executable:
-                var args = [swiftcPath, "-o", productPath] + objects
+                var args = ""
+                args += "\(swiftcPath) -o \(quote(productPath)) \(objectargs) "
 #if os(OSX)
-                args += ["-Xlinker", "-all_load"]
-                args += ["-target", "x86_64-apple-macosx10.10"]
+                args += "-Xlinker -all_load "
+                args += "-target x86_64-apple-macosx10.10 "
 #endif
 
                 // We support a custom override in conjunction with the
@@ -251,11 +251,11 @@ private class YAML {
                 // the package manager tools themselves on Linux, so they can be
                 // relocated with the Swift compiler.
                 if let rpathValue = getenv("SWIFTPM_EMBED_RPATH") {
-                    args += ["-Xlinker", "-rpath", "-Xlinker", rpathValue]
+                    args += "-Xlinker -rpath -Xlinker \"\(rpathValue)\" "
                 }
 
-                if let sysroot = sysroot {
-                    args += ["-sdk", sysroot]
+                if sysroot != nil {
+                    args += "-sdk \(quote(sysroot!)) "
                 }
 
                 let libsInOtherPackages = try parms.dependencies.flatMap { pkg -> [String] in
@@ -273,11 +273,11 @@ private class YAML {
                 // Add the static libraries of our dependencies.
                 //
                 // We currently pass this with -Xlinker because the 'swift-autolink-extract' tool does not understand how to work with archives (<rdar://problem/23045632>).
-                args += (libsInThisPackage + libsInOtherPackages).flatMap{ ["-Xlinker", $0] }
+                args += (libsInThisPackage + libsInOtherPackages).flatMap{ ["-Xlinker", quote($0)] }.joinWithSeparator(" ")
 
                 // Swift doesn’t include /usr/local by default
                 //TODO we only want to do this if a module map wants to do this
-                args += ["-L/usr/local/lib"]
+                args += " -L/usr/local/lib "
 
                 return args
             }
@@ -288,21 +288,15 @@ private class YAML {
 
         try print("  \(target.targetNode):")
         try print("    tool: shell")
-        try print("    inputs: \(toYAML(inputs))")
-        try print("    outputs: \(toYAML(outputs))")
-        try print("    args: \(toYAML(args()))")
-        try print("    description: \(toYAML(description))")
+        try print("    inputs: [\(inputs)]")
+        try print("    outputs: [\(target.targetNode), \(quote(productPath))]")
+        try print("    args: \(args())")
+        try print("    description: \"\(description)\"")
     }
 }
 
-private func toYAML(arg: Bool) -> String {
-    return arg ? "true" : "false"
-}
-private func toYAML(arg: String) -> String {
-    return "\"\(arg)\""
-}
-private func toYAML(args: [String]) -> String {
-    return "[\(args.map(toYAML).joinWithSeparator(","))]"
+private func quote(input: String) -> String {
+    return "\"\(input)\""
 }
 
 private extension Target {
