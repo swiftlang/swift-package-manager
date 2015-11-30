@@ -1,68 +1,59 @@
 # Swift Package Manager
 
 The Swift Package Manager is a tool for managing distribution of source code,
-aimed at making it easy to share your code and reuse others' code. The tool
+aimed at making it easy to share your code and reuse others’ code. The tool
 directly addresses the challenges of compiling and linking Swift packages,
 managing dependencies, versioning, and supporting flexible distribution and
 collaboration models.
 
-We've designed the system to make it really easy to share packages on services
-like github, 
+We’ve designed the system to make it really easy to share packages on services
+like GitHub, 
 but packages are also great for private personal development, sharing code
 within a team, or at any other granularity.
-
-Please note that the Swift Package Manager is still
-in early design and development phases - we are aiming to have it stable and
-ready to use as part of Swift 3.
 
 * * *
 
 ## A Work In Progress
 
-Please consider all details subject to change. There also are many important features which are not yet implemented.  It is also important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
+The Swift Package Manager is still
+in early design and development — we are aiming to have it stable and
+ready for use with Swift 3 but currently all details are subject to change and many important features are yet to be implemented.
+
+Additionally, it is important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
 
 ## Installing
 
-To install the latest version of Swift
-see the 
-[Swift User Guide](https://swift.org/download/).
+The package manager is bundled with the [downloads available at swift.org](https://swift.org/download/).
 
-To check if the package manager is installed,
-enter the following in a terminal:
+If you want to verify you already have the package manager installed, enter the following in a terminal:
 
     swift build --help
 
+If you get usage output, it is installed.
+
 ## Development
 
-The Package Manager is itself a Swift Package, and builds through use of the
-bootstrap script which handles manually building an initial copy of the package
-manager, then building it again using itself. This script also currently handles
-integrating with the Swift project build system for installing into packages
-alongside the other Swift tools.
+The Package Manager is itself a Swift Package, and is built with a
+bootstrap script; initially building the package manager manually
+and then again using itself. The bootstrap script is also for
+integration with the wider Swift project build system.
 
-For development purposes, the package manager can be built in two ways.
+For development purposes, the package manager can be built in two ways:
 
-To build the package manager as part of building the full Swift project,
-including the Swift compiler, see Swift's
-[README](https://github.com/apple/swift/blob/master/README.md). This option is
-recommended is required if you are also making changes to
-[llbuild](https://github.com/apple/swift-llbuild), the Swift language, or to the
-build integration.
+1. To build the package manager as part of the full Swift project, including the Swift compiler, see the [Swift README](https://github.com/apple/swift/blob/master/README.md). This option is recommended and is required if you are also making changes to [llbuild](https://github.com/apple/swift-llbuild), the Swift language or to the build integration.
 
-You can also build the package manager using only a
-[downloaded](https://swift.org/download/) Swift package. Once downloaded and
-installed, you can build it by entering the following into a terminal:
+2. To build against a  [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
 
-    git clone git@github.com:apple/swift-package-manager.git swiftpm
-    cd swiftpm
-    ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
+        git clone git@github.com:apple/swift-package-manager.git swiftpm
+        cd swiftpm
+        ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
 
-It is recommended that you develop against the latest version of Swift,
+Either way, it is recommended that you develop against the latest version of Swift
 to ensure compatibility with new releases.
 
 ## System Requirements
 
-System requirements are the [same as those for Swift itself](https://github.com/apple/swift#system-requirements).
+The package manager’s system requirements are the same as [those for Swift](https://github.com/apple/swift#system-requirements).
 
 ## Contributing
 
@@ -70,7 +61,7 @@ To learn about the policies and best practices that govern
 contributions to the Swift project,
 please read the [Contributor Guide](https://swift.org/contributor-guide).
 
-If you are interested in contributing, please read the [Swift Package Manager Community Proposal](Documentation/Package-Manager-Community-Proposal.md),
+If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md),
 which provides some context for decisions made in the current implementation and offers direction
 for the development of future features.
 
