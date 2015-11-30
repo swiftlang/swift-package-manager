@@ -626,9 +626,7 @@ testing support.""")
     # On Linux, we need to embed an RPATH so swift-{build,get} can find the core
     # libraries.
     if platform.system() == 'Linux':
-        # FIXME: We shouldn't need to escape the '$' here, that is a bug in the
-        # build task file format.
-        env_cmd.append("SWIFTPM_EMBED_RPATH=\\$ORIGIN/../lib/swift/linux")
+        env_cmd.append("SWIFTPM_EMBED_RPATH=$ORIGIN/../lib/swift/linux")
     else:
         env_cmd.append("SWIFTPM_EMBED_RPATH=@executable_path/../lib/swift/macosx")
     cmd = env_cmd + [os.path.join(sandbox_path, "bin", "swift-build")]
