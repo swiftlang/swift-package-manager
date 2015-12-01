@@ -194,26 +194,28 @@ extension String {
         return hasPrefix("/")
     }
 
-    /// - Returns: true if the string is a directory on the filesystem
+    /**
+     - Returns: true if the string is a directory on the filesystem
+     - Note: symlinks are NOT resolved
+    */
     public var isDirectory: Bool {
         var mystat = stat()
-        let rv = stat(self, &mystat)
+        let rv = lstat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFDIR
     }
 
     /**
      - Returns: true if the string is a file on the filesystem
-     - Note: symlinks are resolved
+     - Note: symlinks are NOT resolved
      */
     public var isFile: Bool {
         var mystat = stat()
-        let rv = stat(self, &mystat)
+        let rv = lstat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
     }
 
     /**
      - Returns: true if the string is a symlink on the filesystem
-     - Note: symlinks are resolved
      */
     public var isSymlink: Bool {
         var mystat = stat()
