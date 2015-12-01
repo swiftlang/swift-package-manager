@@ -334,6 +334,7 @@ Here are a list of some features we'd like to see in future releases
 - Importing Dependencies by Source URL
 - Packaging Resources
 - Module Interdependency Determination
+- Dependency Resolution
 - Resource Management
 - Package Flavors
 - User-Global Installation
@@ -539,6 +540,12 @@ and alter the machine editable portion of `Package.swift` for you.
 
 It may be possible for the package manager to calculate this every build, but
 doing so might introduce significant overhead to the build process.
+
+### Dependency Resolution
+
+The Swift Package Manager does not currently provide a mechanism
+for automatically resolving conflicts in a dependency tree.
+However, this will be provided in the future.
 
 ### Resource Management
 
