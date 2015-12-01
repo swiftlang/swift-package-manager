@@ -473,10 +473,12 @@ or visualize changes to APIs over time.
 The index could also act as a naming authority,
 designating certain packages with canonical names.
 
-However, a centralized index has a responsibility
+As a naming authority and software distributor,
+a centralized index would have a responsibility
 to ensure the integrity of packages,
 the security of identities,
-and the availability of resources.
+and the availability of resources,
+as well as the ability to revoke fraudulent or malicious packages.
 
 We would like to provide a package index in the future,
 and are investigating possible solutions.
