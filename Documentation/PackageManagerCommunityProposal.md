@@ -366,13 +366,13 @@ as the native testing library.
 
 ### Documentation Generation
 
-We would like to establish a standard for package documentation
-and provide tools for automatically presenting that documentation.
+We would like to establish a standard for documenting packages
+and provide tools for automatically generating that documentation.
 
 Package maintainers would be encouraged to adequately document their packages,
 and to provide their documentation in a standardized manner.
-A package index could, as part of the submission process,
-generate documentation to be served statically alongside the package.
+In addition, a package index could, as part of the submission process,
+served generated documentation alongside the package.
 
 ### Cross-Platform Packages
 
