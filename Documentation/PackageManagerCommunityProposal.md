@@ -109,7 +109,7 @@ We'd like to specifically call out the following design decisions:
 
 - A Build System for Swift Packages
 - Convention-Based Configuration
-- Declarative Manifest Format
+- Swift Code as Manifest Format
 - Explicit Dependency Declaration
 - Packages and Modules
 - System Library Access with Module Maps
@@ -155,28 +155,40 @@ from the layout of the directory itself:
 * If the root directory contains a file called `main.swift`, that file will be
   used to create an executable with the name of the package.
 
-The manifest allows for additional configuration,
-such as any dependencies the package has
-or any custom build flags to set on individual source files,
-to accomodate any deviation from conventional expectations.
-
 Taking this approach also has the benefit of allowing
 this default behavior to evolve and improve over time
 without requiring any changes to existing packages.
 
-### Declarative Manifest Format
+The manifest format will eventually allow for additional configuration,
+such as any dependencies the package has
+or any custom build flags to set on individual source files,
+to accomodate any deviation from conventional expectations.
+
+### Swift Code as Manifest Format
 
 The manifest file, `Package.swift`, defines a `Package` object in Swift code.
 
-Using Swift as a manifest file format allows us to provide a great authoring experience
+Using Swift as a manifest file format
+allows us to provide a great authoring experience
 with the tools you already use to work with Swift.
-The APIs provided are used to create a declarative model of a package,
-which is then used by the Swift Package Manager to build the package.
+However, this could make it difficult for tools to automatically modify the manifest.
+To mitigate this issue,
+the manifest file format will eventually be more structured.
+Although it will remain valid Swift code,
+the manifest file will be divided into a declarative section,
+which is easily machine-editable,
+and an optional section of additional code,
+which can be ignored by tools.
 
 Unlike some other build systems,
 the provided APIs do not interact with the project build environment directly.
 This allows the Swift build system to evolve over time,
 without breaking existing packages.
+Instead, the APIs provided are used to create a declarative model of your package,
+which is then used by the Swift Package Manager to build the products.
+By defining a clear, descriptive API for defining packages,
+we allow developers to communicate their intent
+while still allowing the Package Manager to evolve.
 
 ### Explicit Dependency Declaration
 
