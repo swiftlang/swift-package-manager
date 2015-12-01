@@ -127,11 +127,15 @@ and promote the development of a healthy package ecosystem for the community.
 ### A Build System for Swift Packages
 
 Swift is a compiled language.
-As such, the Swift Package Manager provides a _build system_ for Swift (`swift build`).
-
-It knows how to invoke build tools,
+As such, the Swift Package Manager provides a _build system_ for Swift (`swift build`),
+which knows how to invoke build tools,
 like the Swift compiler (`swiftc`),
 to produce built products from Swift source files.
+
+By design, the Swift Package Manager tightly integrates features
+across package definitions and the Swift compiler.
+This allows for the build system to introspect package definitions
+and use insights from the compiler to manage their configuration.
 
 ### Convention-Based Configuration
 
@@ -445,7 +449,7 @@ so that other tools can more easily be built on top of it.
 
 We would also like to make it possible for an IDE to control Package Manager
 workflow, such as updating a package's dependencies to the latest versions.  All
-of the major features of the package manager should be exposed through these 
+of the major features of the package manager should be exposed through these
 APIs, allowing great integration with IDEs like Xcode.
 
 ### Standardized Licensing
