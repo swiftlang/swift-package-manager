@@ -278,46 +278,13 @@ A package exists in a self-contained directory
 containing cloned dependency sources and built products.
 Each package directory is considered independently from the rest of the file system.
 
-Although there are a variety of different package managers,
-they can be broadly divided into two categories:
-
-- **System Package Managers**,
-  which are responsible for building and installing software to system directories
-  _(for example, [APT][], [Homebrew][], and [yum][])_.
-  System packages are generally installed individually from the command line or a GUI.
-
-- **Language Package Managers**,
-  which are responsible for building and installing libraries for a particular language
-  _(for example, [CPAN][], [npm][], and [RubyGems][])_.
-  Language packages are often installed from a project _manifest file_,
-  although language packages can be installed like a system package as well.
-  For each entry in a manifest file,
-  the package manager recursively enumerates all of the dependencies
-  and attempts to reconcile the requirements of the entire project
-  into a single graph of packages.
-  If successful, the package manager then downloads and builds each package accordingly.
-
-The Swift Package Manager is a _language package manager_ for Swift.
-It does not install software to system directories.
-A system package manager can, however, use the Swift Package Manager
-to build code written in Swift,
-and then install the products into system directories.
-
 Developing software in isolation,
 with all dependencies explicitly declared,
 ensures that even packages with complex requirements
 can be reliably built and deployed to different environments.
 Implicit dependencies on the availability of system libraries,
-with the exception of platform-standard libraries, is
-strongly discouraged.
-
-[APT]: https://en.wikipedia.org/wiki/Advanced_Packaging_Tool
-[Homebrew]: http://brew.sh
-[yum]: https://en.wikipedia.org/wiki/Yellowdog_Updater,_Modified
-
-[RubyGems]: https://rubygems.org
-[npm]: https://www.npmjs.com
-[CPAN]: http://www.cpan.org
+with the exception of platform-standard libraries,
+is strongly discouraged.
 
 ### Source-Based Distribution
 
