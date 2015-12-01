@@ -22,8 +22,7 @@ import libc
  be empty. It is up to you to check `path` is valid before using this
  function.
 
- - Warning: Symbolic links are *resolved*. Don’t expect to get the path of
- the link: you get the path of the file at which it points.
+ - Warning: Symbolic links that point to directories are *not* followed.
 
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
@@ -44,8 +43,7 @@ public func walk(paths: String..., recursively: Bool = true) -> RecursibleDirect
  be empty. It is up to you to check `path` is valid before using this
  function.
 
- - Warning: Symbolic links are *resolved*. Don’t expect to get the path of
- the link: you get the path of the file at which it points.
+ - Warning: Symbolic links that point to directories are *not* followed.
 
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.

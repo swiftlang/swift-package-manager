@@ -126,6 +126,32 @@ class WalkTests: XCTestCase {
 
         XCTAssertEqual(expected.count, 0)
     }
+
+    func testSymlinksNotWalked() {
+        do {
+            try mkdtemp("foo") { root in
+                let root = try realpath(root)
+
+                try mkdir(root, "foo")
+                try mkdir(root, "bar")
+                try mkdir(root, "bar/baz")
+                try mkdir(root, "bar/baz/goo")
+                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+
+                XCTAssertTrue("\(root)/foo/symlink".isSymlink)
+                XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
+                XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
+
+
+                let results = walk(root, "foo").map{$0}
+
+                XCTAssertEqual(results, ["\(root)/foo/symlink"])
+            }
+        } catch {
+            XCTFail("\(error)")
+        }
+    }
+
 }
 
 class StatTests: XCTestCase {
