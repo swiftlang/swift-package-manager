@@ -13,12 +13,12 @@ To help you get started with the project,
 we have prepared the following Community Proposal,
 which is organized into three sections:
 
-- First, a **problem statement** outlining the challenges of software distribution,
-  and defining important terms and concepts.
-- Next, a discussion of **aspects of the design**,
-  describing what decisions were made and why.
-- Finally, a list of **future features** that are planned for development
-  following this initial release.
+First, a _problem statement_ outlining the challenges of software distribution,
+and defining important terms and concepts.
+Next, a discussion of _aspects of the design_,
+describing what decisions were made and why.
+Finally, a list of _future features_ that are planned for development
+following this initial release.
 
 > For more information about contributing to Swift and the Swift Package Manager,
 > see the ["Contributing" section of Swift.org](https://swift.org/contributing)
