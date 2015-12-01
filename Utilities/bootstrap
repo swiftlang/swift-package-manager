@@ -504,7 +504,13 @@ def get_swift_build_tool_path():
         if os.path.exists(sbt_path):
             return sbt_path
 
-    # Otherwise, on Darwin use xcrun to search for the tool.
+    # Next, search for it in PATH.
+    try:
+        return subprocess.check_output(["which", "swift-build-tool"]).strip()
+    except:
+        pass
+
+    # If that failed, on Darwin use xcrun to search for the tool.
     if platform.system() == 'Darwin':
         try:
             sbt_path = subprocess.check_output(
@@ -515,11 +521,8 @@ def get_swift_build_tool_path():
         except subprocess.CalledProcessError:
             pass
 
-    # Finally, search for it in PATH.
-    try:
-        return subprocess.check_output(["which", "swift-build-tool"]).strip()
-    except:
-        error("unable to find 'swift-build-tool' tool for bootstrap build")
+    # If all else failed, report an error.
+    error("unable to find 'swift-build-tool' tool for bootstrap build")
 
 def main():
     from optparse import OptionParser, OptionGroup
