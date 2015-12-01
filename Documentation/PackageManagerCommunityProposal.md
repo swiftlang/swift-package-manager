@@ -385,6 +385,7 @@ with platform-specific header paths.
 
 We would like to add support to the Swift Package Manager
 for languages other than Swift.
+This includes support for mixing and matching Swift with other languages.
 
 Specifically, we are most interested in support for C-based languages,
 because the existing ecosystem of Swift code
