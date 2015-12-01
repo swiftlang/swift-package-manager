@@ -313,10 +313,7 @@ without compromising the flexibility and freedom afforded by decentralization.
 ## Future Features
 
 Again, this initial release of the Swift Package Manager is just a starting point.
-There's so much more that this tool can and should do,
-and we look forward to working with you to build the best tool possible.
-
-Here are a list of some features we'd like to see in future releases
+Here is a list of some features we'd like to see in future releases
 (in no particular order):
 
 - Automated Testing
