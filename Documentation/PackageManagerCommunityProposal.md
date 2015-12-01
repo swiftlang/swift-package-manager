@@ -307,6 +307,9 @@ can be used as a dependency for any other package.
 
 Indexes can be created to aid in the discoverability and curation of Swift packages,
 without compromising the flexibility and freedom afforded by decentralization.
+For example, a package could easily switch between
+a canonical version of a package from an index to a private fork,
+simply by changing the source URL of the dependency declaration.
 
 * * *
 
