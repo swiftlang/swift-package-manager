@@ -10,15 +10,7 @@ and improving upon some of their shortcomings.
 This initial release is just a starting point,
 and we invite you to help us to build the best tool possible.
 To help you get started with the project,
-we have prepared the following Community Proposal,
-which is organized into three sections:
-
-First, a _problem statement_ outlining the challenges of software distribution,
-and defining important terms and concepts.
-Next, a discussion of _aspects of the design_,
-describing what decisions were made and why.
-Finally, a list of _future features_ that are planned for development
-following this initial release.
+we have prepared the following Community Proposal.
 
 > For more information about contributing to Swift and the Swift Package Manager,
 > see the ["Contributing" section of Swift.org](https://swift.org/contributing)
