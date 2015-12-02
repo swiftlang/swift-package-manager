@@ -239,6 +239,7 @@ private class YAML {
             case .Library:
                 let quotedObjects = objects.map({ "'\($0)'" }).joinWithSeparator(" ")
                 return ["/bin/sh", "-c", "rm -f '\(productPath)'; ar cr '\(productPath)' \(quotedObjects)"]
+
             case .Executable:
                 var args = [swiftcPath, "-o", productPath] + objects
 #if os(OSX)
@@ -258,12 +259,19 @@ private class YAML {
                     args += ["-sdk", sysroot]
                 }
 
-                let libsInOtherPackages = try parms.dependencies.flatMap { pkg -> [String] in
+                // The Linux linker requires that libraries are passed in a
+                // reverse topographical sort, hence the reverse(). Specifically
+                // it requires that first it finds it does not know about a
+                // symbol and then later it finds the symbol.
+                
+                let libsInOtherPackages = try parms.dependencies.reverse().flatMap { pkg -> [String] in
                     return try pkg.targets()
                         .filter{ $0.type == .Library }
                         .map{ $0.productFilename }
                         .map{ Path.join(self.parms.prefix, $0) }
                 }
+
+                // Target dependencies are *already* reverse sorted.
 
                 let libsInThisPackage = target.dependencies
                     .filter{ $0.type == .Library }
