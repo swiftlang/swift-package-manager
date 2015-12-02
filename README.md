@@ -82,7 +82,7 @@ for compiling source files.  It is also open source and part of the Swift projec
 If you have any trouble with the package manager, help is available. We recommend:
 
 * The [swift-package-manager-users mailing list](mailto:swift-package-manager-users@swift.org)
-* Our [bug tracker](http://jira.swift.org)
+* Our [bug tracker](http://bugs.swift.org)
 
 If you're not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the swift-package-manager-users mailing list is usually the best place to go for help.
 
