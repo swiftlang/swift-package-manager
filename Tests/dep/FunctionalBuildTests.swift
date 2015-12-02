@@ -19,6 +19,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
+            ("testEmptyPackageSwiftExitsWithZero", testEmptyPackageSwiftExitsWithZero),
+            ("testIgnoreFiles", testIgnoreFiles),
             ("testSingleLibTarget", testSingleLibTarget),
             ("testMultipleLibTargets", testMultipleLibTargets),
             ("testSingleExecTarget", testSingleExecTarget),
@@ -37,6 +39,23 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testMultipleLibTargetsSourcesSrc", testMultipleLibTargetsSourcesSrc),
             ("testMultipleLibExecTargetsSourcesSrc", testMultipleLibExecTargetsSourcesSrc),
             ("testMultipleLibExecTargetsSourcesSrcExt", testMultipleLibExecTargetsSourcesSrcExt),
+            ("testLibDep", testLibDep),
+            ("testLibDeps", testLibDeps),
+            ("testExecDep", testExecDep),
+            ("testExecDeps", testExecDeps),
+            ("testMultDeps", testMultDeps),
+            ("test_exdeps", test_exdeps),
+            ("test_exdeps_canRunBuildTwice", test_exdeps_canRunBuildTwice),
+            ("test_get_ExternalDeps", test_get_ExternalDeps),
+            ("test_get_DealerBuild", test_get_DealerBuild),
+            ("test_get_DealerBuildOutput", test_get_DealerBuildOutput),
+            ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
+            ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
+            ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
+            ("testWhenThereAreHyphensInThePath", testWhenThereAreHyphensInThePath),
+            ("testSingleTargetWithCustomName", testSingleTargetWithCustomName),
+            ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
+            ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
         ]
     }
 
