@@ -416,8 +416,7 @@ of adapting existing libraries for use in Swift code.
 We intend to tread cautiously here,
 as incorporating shell scripts and other external build processes
 significantly limits the ability of the Swift Package Manager
-to analyze the build process
-and to provide some of our planned future features in a robust way.
+to understand and analyze the build process.
 
 ### Support for Other Version Control Systems
 
