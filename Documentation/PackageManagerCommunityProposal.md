@@ -32,7 +32,7 @@ Software is created to solve some of these problems.
 
 Problems can be recursively decomposed into subproblems,
 such that any problem can be understood in terms of small, clearly defined tasks.
-Likewise, code can be organized into individuals components,
+Likewise, code can be organized into individual components,
 such that each one is responsible for a particular piece of functionality.
 
 No problem should ever have to be solved twice.
