@@ -219,7 +219,7 @@ the most recent version is used.
 
 Swift organizes code into _modules_.
 Each module specifies a namespace
-and enforces access controls on which parts of that code
+and enforces access control on which parts of that code
 can be used outside of that module.
 
 By default, the module name of each dependency is derived from its source URL.
