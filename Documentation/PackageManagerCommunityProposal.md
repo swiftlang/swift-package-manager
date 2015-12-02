@@ -180,6 +180,14 @@ which is easily machine-editable,
 and an optional section of additional code,
 which can be ignored by tools.
 
+The manifest file is used to specify any configuration that isn't expressed by convention.
+Currently, any dependencies a package has are declared in its manifest.
+In the future, additional configuration,
+such as custom build flags,
+will be supported as well.
+Packages that do not conform to the conventional-based structure
+will also be able to specify their source files explicitly.
+
 Unlike some other build systems,
 the provided APIs do not interact with the project build environment directly.
 This allows the Swift build system to evolve over time,
