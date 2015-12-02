@@ -58,9 +58,8 @@ it may add new features, remove existing features, or change underlying behavior
 To track changes to code over time,
 a package defines an external _version number_,
 which corresponds to a particular revision.
-A version number typically takes the form of `MAJOR.MINOR.UPDATE`,
-which semantically identifies changes between different versions of the same
-package.
+A version number typically takes the form of `MAJOR.MINOR.PATCH`,
+which semantically identifies different versions of the same package.
 
 ### Dependencies
 
