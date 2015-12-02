@@ -1,6 +1,6 @@
 # Swift Package Manager Community Proposal
 
-Package managers are essential to modern language ecosystems,
+Package managers play a significant role in modern language ecosystems,
 and are as varied as the languages for which they are created.
 We designed the Swift Package Manager to solve the specific challenges
 of distributing and managing Swift code,
