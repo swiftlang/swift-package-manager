@@ -175,6 +175,21 @@ And run it:
 > `CJpeg`, because JPEG is an acronym and is typically spelled all-caps.
 > It is `CJasPer` and not `CJasper` because the project itself refers to the library as “JasPer” in all their documentation.
 
+---
+
+Please note that on Ubuntu 15.10 the above steps fail with:
+
+    <module-includes>:1:10: note: in file included from <module-includes>:1:
+    #include "/usr/include/jpeglib.h"
+             ^
+    /usr/include/jpeglib.h:792:3: error: unknown type name 'size_t'
+      size_t free_in_buffer;        /* # of byte spaces remaining in buffer */
+      ^
+
+This is because `jpeglib.h` is not a correct module as bundled with Ubuntu (Homebrew’s jpeglib.h is correct however).
+To fix this you need to add `#include <stdio.h>` to the top of jpeglib.h.
+
+JPEG lib itself needs to be patched, but since this situation will be common we intend to add a workaround system in module packages.
 
 ## Packages That Provide Multiple Libraries
 
@@ -215,6 +230,9 @@ Module maps must contain absolute paths, thus they are not cross-platform. We in
 Long term we hope that system libraries and system packagers will provide module maps
 and thus this component of the package manager will become redundant.
 
+*Notably* the above steps will not work if you installed JPEG and JasPer with [Homebrew](http://brew.sh) since the files will
+be installed to `/usr/local` for now adapt the paths, but as said, we plan to support basic relocations like these.
+
 
 ## Module Map Versioning
 
@@ -226,11 +244,11 @@ version the module map(s) independently.
 Follow the conventions of system packagers;
 for example, the debian package for python3 is called python3,
 as there is not a single package for python and python is designed to be installed side-by-side.
-Where you to make a module map for python3 you should name it `CPython3`.
+Were you to make a module map for python3 you should name it `CPython3`.
 
 
 ## System Libraries With Optional Dependencies
 
-At this time you will need to make another module map package to represent any optional dependencies.
+At this time you will need to make another module map package to represent system packages that are built with optional dependencies.
 
 For example, `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it is not required. To provide a package that uses libarchive with xz you must make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
