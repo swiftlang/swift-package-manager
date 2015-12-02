@@ -480,9 +480,13 @@ They can be used to host source code,
 generate and serve documentation,
 run automated tests and code analyzers,
 or visualize changes to APIs over time.
+For example, by analyzing the interfaces of all submitted packages,
+an index could allow maintainers to identify the impact
+of any change to the public API of a package
+to any registered packages that depend on it.
+
 The index could also act as a naming authority,
 designating certain packages with canonical names.
-
 As a naming authority and software distributor,
 a centralized index would have a responsibility
 to ensure the integrity of packages,
