@@ -303,6 +303,8 @@ Although it requires additional computational resources,
 this approach guarantees that developers can adopt new features
 on platforms they support,
 without being reliant on vendors to supply updated dependencies.
+This also has the advantage of allowing tools to do things like
+automated testing and API analysis of package dependencies.
 
 ### Package Decentralization
 
