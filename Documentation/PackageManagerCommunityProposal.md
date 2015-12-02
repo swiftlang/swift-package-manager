@@ -247,11 +247,11 @@ With SemVer, a version number takes the form `MAJOR.MINOR.PATCH`,
 where `MAJOR`, `MINOR`, and `PATCH` are non-negative integers.
 You increment the `MAJOR` version when you make an incompatible API change,
 the `MINOR` version when you add functionality in a backwards-compatible manner,
-and the `UPDATE` version when you make backwards-compatible bugfixes.
+and the `PATCH` version when you make backwards-compatible bugfixes.
 When you increment the `MINOR` version,
-the `UPDATE` version is reset to `0`,
+the `PATCH` version is reset to `0`,
 and when you increment the `MAJOR` version,
-both the `MINOR` and `UPDATE` versions are reset to `0`.
+both the `MINOR` and `PATCH` versions are reset to `0`.
 
 Each release corresponds to a commit in the repository
 that is tagged with a version number.
