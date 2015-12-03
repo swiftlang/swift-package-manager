@@ -22,6 +22,7 @@ class PathTests: XCTestCase, XCTestCaseProvider {
             ("testEmpties", testEmpties),
             ("testNormalizePath", testNormalizePath),
             ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
+            ("testParentDirectory", testParentDirectory)
         ]
     }
 
@@ -95,6 +96,7 @@ class WalkTests: XCTestCase {
         return [
             ("testNonRecursive", testNonRecursive),
             ("testRecursive", testRecursive),
+            ("testSymlinksNotWalked", testSymlinksNotWalked),
         ]
     }
 
