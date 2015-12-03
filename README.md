@@ -27,8 +27,9 @@ The package manager is bundled with the [downloads available at swift.org](https
 
 If you want to verify you already have the package manager installed, enter the following in a terminal:
 
-    swift build --help
-
+```bash
+swift build --help
+```
 If you get usage output, it is installed.
 
 ## Development
@@ -44,9 +45,11 @@ For development purposes, the package manager can be built in two ways:
 
 2. To build against a [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
 
-        git clone git@github.com:apple/swift-package-manager.git swiftpm
-        cd swiftpm
-        ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
+```bash
+git clone git@github.com:apple/swift-package-manager.git swiftpm
+cd swiftpm
+./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
+```
 
 Either way, it is recommended that you develop against the latest version of Swift
 to ensure compatibility with new releases.
@@ -136,8 +139,9 @@ simple example could be:
 
 If you then run the following command in the directory `foo`:
 
-    $ swift build
-
+```bash
+$ swift build
+```
 Swift will build a single executable called `foo`.
 
 To the package manager, everything is a package, hence `Package.swift`. However
