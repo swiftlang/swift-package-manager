@@ -20,11 +20,11 @@ class ShellTests: XCTestCase, XCTestCaseProvider {
             ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated)
         ]
     }
-    
+
     func testPopen() {
         XCTAssertEqual(try! popen(["echo", "foo"]), "foo\n")
     }
-    
+
     func testPopenWithBufferLargerThanThatAllocated() {
         let path = Path.join(__FILE__, "../../dep/FunctionalBuildTests.swift").normpath
         XCTAssertGreaterThan(try! popen(["cat", path]).characters.count, 4096)

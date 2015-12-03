@@ -37,7 +37,7 @@ class TOMLTests: XCTestCase, XCTestCaseProvider {
             ("testParsingTables", testParsingTables),
         ]
     }
-    
+
     func testLexer() {
         // Test the basics.
         XCTAssertEqual(lexTOML("# Comment\nfoo"), ["Comment", "Identifier(\"foo\")"])
@@ -49,18 +49,18 @@ class TOMLTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(lexTOML("+12"), ["Number(\"+12\")"])
         XCTAssertEqual(lexTOML("1.2e-10"), ["Number(\"1.2e-10\")"])
     }
-    
+
     func testParser() {
         XCTAssertEqual(parseTOML("a = b"), toTable(["a": .String(value: "b")]))
         XCTAssertEqual(parseTOML("a = \"b\""), toTable(["a": .String(value: "b")]))
         XCTAssertEqual(parseTOML("a = 1"), toTable(["a": .Int(value: 1)]))
         XCTAssertEqual(parseTOML("a = true\n\nb = false"), toTable(["a": .Bool(value: true), "b": .Bool(value: false)]))
-        
+
         // Test arrays.
         XCTAssertEqual(parseTOML("a = [1, 2]"), toTable(["a": toArray([.Int(value: 1), .Int(value: 2)])]))
         XCTAssertEqual(parseTOML("a = [1,\n[\n2,\n] ]"), toTable(["a": toArray([.Int(value: 1), toArray([.Int(value: 2)])])]))
     }
-    
+
     func testParsingTables() {
         // Test nested tables.
         XCTAssertEqual(parseTOML(
@@ -84,7 +84,7 @@ class TOMLTests: XCTestCase, XCTestCaseProvider {
         // Check handling of empty nested tables.
         XCTAssertEqual(parseTOML("[[t1]]"), toTable([
             "t1": toArray([toTable([:])])]))
-            
+
         // Check basic append handling.
         XCTAssertEqual(parseTOML(
             (
@@ -96,7 +96,7 @@ class TOMLTests: XCTestCase, XCTestCaseProvider {
                 "t1": toArray([
                     toTable(["a": .Int(value: 1)]),
                     toTable(["a": .Int(value: 2)])])]))
-        
+
         // Check handling of insert into array of tables.
         XCTAssertEqual(parseTOML(
             (

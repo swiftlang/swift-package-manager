@@ -20,7 +20,7 @@ class ResourcesTests: XCTestCase, XCTestCaseProvider {
             ("testResources", testResources),
         ]
     }
-    
+
     func testResources() {
         // Cause resources to be initialized, even though the path won't actually be correct.
         Resources.initialize(&globalSymbolInNonMainBinary)

@@ -16,7 +16,7 @@ class PathTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
-			("test", test),
+            ("test", test),
             ("testPrecombined", testPrecombined),
             ("testExtraSeparators", testExtraSeparators),
             ("testEmpties", testEmpties),
@@ -93,11 +93,11 @@ class WalkTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
-			("testNonRecursive", testNonRecursive),
+            ("testNonRecursive", testNonRecursive),
             ("testRecursive", testRecursive),
         ]
-    }    
-    
+    }
+
     func testNonRecursive() {
         var expected = ["/usr", "/bin", "/sbin"]
 
@@ -132,13 +132,13 @@ class StatTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
-			("test_isdir", test_isdir),
+            ("test_isdir", test_isdir),
             ("test_isfile", test_isfile),
             ("test_realpath", test_realpath),
             ("test_basename", test_basename),
         ]
-    }    
-    
+    }
+
     func test_isdir() {
         XCTAssertTrue("/usr".isDirectory)
         XCTAssertTrue("/etc/passwd".isFile)
@@ -166,12 +166,12 @@ class RelativePathTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
-			("testAbsolute", testAbsolute),
+            ("testAbsolute", testAbsolute),
             ("testRelative", testRelative),
             ("testMixed", testMixed),
         ]
-    }    
-    
+    }
+
     func testAbsolute() {
         XCTAssertEqual("2/3", Path("/1/2/3").relative(to: "/1/"))
         XCTAssertEqual("3/4", Path("/1/2////3/4///").relative(to: "////1//2//"))

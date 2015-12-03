@@ -21,7 +21,7 @@ class ManifestTests: XCTestCase, XCTestCaseProvider {
             ("testManifestLoading", testManifestLoading),
         ]
     }
-    
+
     private func loadManifest(inputName: String) -> Manifest {
         let input = Path.join(__FILE__, "../Inputs", inputName).normpath
         do {
@@ -30,20 +30,20 @@ class ManifestTests: XCTestCase, XCTestCaseProvider {
             fatalError("unexpected error: \(err)")
         }
     }
-    
+
     func testManifestLoading() {
         // Check a trivial manifest.
         var manifest = loadManifest("trivial-manifest")
         XCTAssertEqual(manifest.package.name, "Trivial")
         XCTAssertEqual(manifest.package.targets, [])
         XCTAssertEqual(manifest.package.dependencies, [])
-        
+
         // Check a manifest with package specifications.
         manifest = loadManifest("package-deps-manifest")
         XCTAssertEqual(manifest.package.name, "PackageDeps")
         XCTAssertEqual(manifest.package.targets, [])
         XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
-        
+
         // Check a manifest with targets.
         manifest = loadManifest("target-deps-manifest")
         XCTAssertEqual(manifest.package.name, "TargetDeps")

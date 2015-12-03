@@ -65,7 +65,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild(prefix))
         }
     }
-    
+
     func verifyFilesExist(files: [String], fixturePath: String) -> Bool {
         for file in files {
             let name = fixturePath.characters.split("/").map(String.init).last!
@@ -80,23 +80,23 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             default:
                 filePath = Path.join(fixturePath, ".build/debug", file)
             }
-            
+
             guard filePath.isFile else { return false }
         }
         return true
     }
-    
+
     func testIgnoreFiles() {
         fixture(name: "20_ignore_files") { prefix in
             XCTAssertNotNil(try? executeSwiftBuild(prefix))
-            
+
             let targets = try! determineTargets(packageName: "foo", prefix: prefix)
-            
+
             XCTAssertEqual(targets.count, 1)
             XCTAssertEqual(targets[0].sources.map({ $0.basename }), ["Foo.swift"])
         }
     }
-    
+
     // 2: Package with one library target
     func testSingleLibTarget() {
         let filesToVerify = ["rootLib"]
@@ -105,8 +105,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
-    
+
+
     // 3: Package with multiple library targets
     func testMultipleLibTargets() {
         let filesToVerify = ["BarLib.a", "FooBarLib.a", "FooLib.a"]
@@ -115,8 +115,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
-    
+
+
     // 4: Package with one executable target
     func testSingleExecTarget() {
         let filesToVerify = ["rootExec"]
@@ -125,7 +125,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
+
     // 5: Package with multiple exectuble targets
     func testMultipleExecTargets() {
         let filesToVerify = ["BarExec", "FooBarExec", "FooExec"]
@@ -152,7 +152,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
+
     // 8: Package with multiple library targets in a sources directory
     func testMultipleLibTargetsInSources() {
         let filesToVerify = ["BarLib.a", "FooBarLib.a", "FooLib.a"]
@@ -161,7 +161,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
+
     // 9: Package with a single executable target in a sources directory
     func testSingleExecTargetInSources() {
         let filesToVerify = ["rootExec"]
@@ -170,7 +170,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
+
     // 10: Package with multiple executable targets in a sources directory
     func testMultipleExecTargetsInSources() {
         let filesToVerify = ["BarExec", "FooBarExec", "FooExec"]
@@ -188,7 +188,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
         }
     }
-    
+
     // 12: Package with a single library targets in a src directory
     func testSingleLibTargetSrc() {
         let filesToVerify = ["rootLib"]
@@ -238,8 +238,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             }
         }
     }
-    
-    
+
+
     // 17: Package with multiple library targets in a sources and src directory
     func testMultipleLibTargetsSourcesSrc() {
         fixture(name: "17_buildlib_src_sources") { prefix in
@@ -253,8 +253,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             }
         }
     }
-    
-    
+
+
     // 18: Package with multiple executable and library targets in a sources and src directory
     func testMultipleLibExecTargetsSourcesSrc() {
         fixture(name: "18_buildlibexec_src_sources") { prefix in
@@ -268,8 +268,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             }
         }
     }
-    
-    
+
+
     // 19: Package with multiple executable and library targets in a sources and src directory, and externally
     func testMultipleLibExecTargetsSourcesSrcExt() {
         fixture(name: "19_buildlibexec_src_sources_external") { prefix in
@@ -283,8 +283,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             }
         }
     }
-    
-    
+
+
     // 20: Single dependency where BarLib depends on FooLib
     func testLibDep() {
         let filesToVerify = ["BarLib.a", "FooLib.a"]

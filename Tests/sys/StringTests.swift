@@ -20,7 +20,7 @@ class StringTests: XCTestCase, XCTestCaseProvider {
             ("testChuzzle", testChuzzle),
         ]
     }
-    
+
     func testTrailingChomp() {
         XCTAssertEqual("abc\n".chomp(), "abc")
         XCTAssertEqual("abc\r\n".chomp(), "abc")
@@ -54,7 +54,7 @@ class URLTests: XCTestCase, XCTestCaseProvider {
             ("testSchema", testSchema),
         ]
     }
-    
+
     func testSchema() {
         let a = "http://github.com/foo/bar"
         let b = "https://github.com/foo/bar"
