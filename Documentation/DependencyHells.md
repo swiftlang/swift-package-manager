@@ -58,7 +58,7 @@ A package may have a dependency with an outstanding bug
 ## Global State Conflict
 A package may have two or more dependencies that
   presume to have exclusive access to the same global state.
-  For example, one package may not be able to accomodate
+  For example, one package may not be able to accommodate
   another package writing to a particular file path
   while reading from that same file path.
 
