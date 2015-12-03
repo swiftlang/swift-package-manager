@@ -141,7 +141,7 @@ simple example could be:
 If you then run the following command in the directory `foo`:
 
 ```sh
-$ swift build
+swift build
 ```
 
 Swift will build a single executable called `foo`.
