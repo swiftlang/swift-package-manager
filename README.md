@@ -29,7 +29,9 @@ If you want to verify you already have the package manager installed, enter the 
 
     swift build --help
 
-If you get usage output, it is installed.
+If you get usage output, it is installed, otherwise you will see an error such as:
+
+    <unknown>:0: error: no such file or directory: 'build'
 
 ## Development
 
