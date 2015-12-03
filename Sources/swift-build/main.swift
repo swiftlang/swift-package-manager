@@ -12,6 +12,7 @@ import dep
 import POSIX
 import sys
 
+
 // Initialize the resource support.
 public var globalSymbolInMainBinary = 0
 Resources.initialize(&globalSymbolInMainBinary)
@@ -50,8 +51,26 @@ do {
             try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
-        // build the current directory
-        try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+        do {
+            // build the current directory
+            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+        } catch POSIX.Error.ExitStatus(let foo) {
+#if os(Linux)
+            // it is a common error on Linux for clang++ to not be installed, but
+            // we need it for linking. swiftc itself gives a non-useful error, so
+            // we try to help here.
+
+            //TODO really we should figure out if clang++ is installed in a better way
+            // however, since this is an error path, the performance implications are
+            // less severe, so it will do for now.
+
+            if (try? popen(["clang++", "--version"], redirectStandardError: true)) == nil {
+                print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
+            }
+#endif
+            throw POSIX.Error.ExitStatus(foo)
+        }
+
 
     case .Version:
         print("Apple Swift Package Manager 0.1")
