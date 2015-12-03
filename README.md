@@ -27,8 +27,9 @@ The package manager is bundled with the [downloads available at swift.org](https
 
 If you want to verify you already have the package manager installed, enter the following in a terminal:
 
-```bash
+```sh
 swift build --help
+
 ```
 If you get usage output, it is installed.
 
