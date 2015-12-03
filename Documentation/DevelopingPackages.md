@@ -7,7 +7,7 @@ that contains Swift sources and a `Package.swift` manifest file at its root.
 
 If you are building an app with several modules, at some point you may decide to
 make that module into an external package. Doing this makes that code available
-as a dependendable library that others may use.
+as a dependable library that others may use.
 
 Doing so with the package manager is relatively simple:
 
