@@ -593,7 +593,7 @@ which could be used to build utilities for ad-hoc use.
 
 If you have any questions about this document,
 or would like to share any thoughts about existing features,
-please contact the Swift Package Manager mailing list: <swift-package-manager@swift.org>
+please contact the mailing list for Swift Package Manager development: <swift-build-dev@swift.org>
 
 For information about contributing to Swift or the Swift Package Manager,
 check out ["Contributing to Swift" on Swift.org](https://swift.org/contributing).
