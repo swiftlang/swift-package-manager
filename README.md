@@ -90,7 +90,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## Technical Overview
 
-A thorough guide to Swift and the Package Manager is available [at swift.org](https://swift.org/getting-started/). The following is technical documentation, describing the
+A thorough guide to Swift and the Package Manager is available [at swift.org](https://swift.org/package-manager/). The following is technical documentation, describing the
 basic concepts that motivate the functionality of the Swift Package Manager.
 
 
