@@ -42,7 +42,7 @@ For development purposes, the package manager can be built in two ways:
 
 1. To build the package manager as part of the full Swift project, including the Swift compiler, see the [Swift README](https://github.com/apple/swift/blob/master/README.md). This option is recommended and is required if you are also making changes to [llbuild](https://github.com/apple/swift-llbuild), the Swift language or to the build integration.
 
-2. To build against a  [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
+2. To build against a [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
 
         git clone git@github.com:apple/swift-package-manager.git swiftpm
         cd swiftpm
@@ -81,10 +81,10 @@ for compiling source files.  It is also open source and part of the Swift projec
 
 If you have any trouble with the package manager, help is available. We recommend:
 
-* The [swift-package-manager-users mailing list](mailto:swift-package-manager-users@swift.org)
+* The [swift-build-dev mailing list](mailto:swift-build-dev@swift.org)
 * Our [bug tracker](http://bugs.swift.org)
 
-If you're not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the swift-package-manager-users mailing list is usually the best place to go for help.
+If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODE_OWNERS.txt](CODE_OWNERS.txt); however, the mailing list is usually the best place to go for help.
 
 * * *
 
