@@ -50,8 +50,26 @@ do {
             try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
-        // build the current directory
-        try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+        do {
+            // build the current directory
+            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+        } catch let error as POSIX.ShellError {
+#if os(Linux)
+            // it is a common error on Linux for clang++ to not be installed, but
+            // we need it for linking. swiftc itself gives a non-useful error, so
+            // we try to help here.
+
+            //TODO really we should figure out if clang++ is installed in a better way
+            // however, since this is an error path, the performance implications are
+            // less severe, so it will do for now.
+
+            if (try? system("clang++")) == nil {
+                print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
+            }
+#endif
+            throw error
+        }
+
 
     case .Version:
         print("Apple Swift Package Manager 0.1")
