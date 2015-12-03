@@ -599,4 +599,4 @@ For information about contributing to Swift or the Swift Package Manager,
 check out ["Contributing to Swift" on Swift.org](https://swift.org/contributing).
 
 If you want to discuss new or planned features,
-see the [Swift evolution process](https://github.com/apple/swift-evolution) repository.
+see the [Swift evolution process](https://swift.org/contributing/#participating-in-the-swift-evolution-process).
