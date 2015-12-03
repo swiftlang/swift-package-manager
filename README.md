@@ -59,7 +59,7 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 To learn about the policies and best practices that govern
 contributions to the Swift project,
-please read the [Contributor Guide](https://swift.org/contributor-guide).
+please read the [Contributor Guide](https://swift.org/contributing/).
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md),
 which provides some context for decisions made in the current implementation and offers direction
