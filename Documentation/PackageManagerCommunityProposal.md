@@ -373,7 +373,7 @@ and provide tools for automatically generating that documentation.
 Package maintainers would be encouraged to adequately document their packages,
 and to provide their documentation in a standardized manner.
 In addition, a package index could, as part of the submission process,
-served generated documentation alongside the package.
+serve generated documentation alongside the package.
 
 ### Cross-Platform Packages
 
