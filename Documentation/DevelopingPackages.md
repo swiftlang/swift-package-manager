@@ -23,7 +23,7 @@ Now delete the subdirectory, and amend your `Package.swift` so that its `package
 ```swift
 let package = Package(
     dependencies: [
-        .Package(url: "…", versions: "1.0.0"),
+        .Package(url: "…", versions: Version(1,0,0)..<Version(2,0,0)),
     ]
 )
 ```
