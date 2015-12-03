@@ -153,7 +153,7 @@ without requiring any changes to existing packages.
 The manifest format will eventually allow for additional configuration,
 such as any dependencies the package has
 or any custom build flags to set on individual source files,
-to accomodate any deviation from conventional expectations.
+to accommodate any deviation from conventional expectations.
 
 ### Swift Code as Manifest Format
 
