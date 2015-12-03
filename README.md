@@ -59,7 +59,7 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 To learn about the policies and best practices that govern
 contributions to the Swift project,
-please read the [Contributor Guide](https://swift.org/contributor-guide).
+please read the [Contributor Guide](https://swift.org/contributing/).
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md),
 which provides some context for decisions made in the current implementation and offers direction
@@ -69,7 +69,7 @@ Tests are an important part of the development and evolution of this project,
 and new contributions are expected to include tests for any functionality
 change.  To run the tests, pass the `test` verb to the `bootstrap` script:
 
-    ./Utilities/bootstrap test
+    ./Utilities/bootstrap --build-tests test
 
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.
