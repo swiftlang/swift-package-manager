@@ -26,22 +26,22 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
             ("testRange", testRange),
         ]
     }
-    
+
     func testEquality() {
         func test(@autoclosure v: () -> Version) {
             XCTAssertEqual(v(), v())
         }
-        
+
         test(Version(1,2,3))
         test(Version(0,0,0))
         test(Version(Int.min, Int.min, Int.min))
         test(Version(Int.max, Int.max, Int.max))
     }
-    
+
     func testNegativeValuesBecomeZero() {
         XCTAssertEqual(Version(-1, -2, -3), Version(0,0,0))
     }
-    
+
     func testComparable() {
         do {
             let v1 = Version(1,2,3)
@@ -104,11 +104,11 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
             XCTAssertGreaterThanOrEqual(v8, v8)
         }
     }
-    
+
     func testDescription() {
         XCTAssertEqual(Version(123,234,345).description, "123.234.345")
     }
-    
+
     func testFromString() {
         XCTAssertNil(Version(""))
         XCTAssertNil(Version("1"))
@@ -116,7 +116,7 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(Version(1,2,3), Version("1.2.3"))
         XCTAssertNil(Version("1.2.3.4"))
         XCTAssertNil(Version("1.2.3.4.5"))
-        
+
         XCTAssertNil(Version("a"))
         XCTAssertNil(Version("1.a"))
         XCTAssertNil(Version("a.2"))

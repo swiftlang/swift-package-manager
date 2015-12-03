@@ -46,7 +46,7 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (S
         }
         var stream = TempStream()
         print(error, toStream: &stream)
-        
+
         XCTFail("\(stream.result)")
     }
 }

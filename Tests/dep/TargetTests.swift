@@ -40,7 +40,7 @@ class TargetTests: XCTestCase, XCTestCaseProvider {
             ("test6", test6),
         ]
     }
-    
+
     func test1() {
         let t1 = try! Target(name: "t1", files: [], type: .Library)
         let t2 = try! Target(name: "t2", files: [], type: .Library)

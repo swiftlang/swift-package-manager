@@ -19,19 +19,19 @@ class VersionGraphTests: XCTestCase {
             ("testNoGraph", testNoGraph),
             ("testOneDependency", testOneDependency),
             ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
-			("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
-			("testTwoDependencies", testTwoDependencies),
-			("testTwoDirectDependencies", testTwoDirectDependencies),
-			("testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther", testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther),
-			("testSimpleVersionRestrictedGraph", testSimpleVersionRestrictedGraph),
-			("testComplexVersionRestrictedGraph", testComplexVersionRestrictedGraph),
-			("testVersionConstrain", testVersionConstrain),
-			("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
-			("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
-			("testVersionUnavailable", testVersionUnavailable)
+            ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
+            ("testTwoDependencies", testTwoDependencies),
+            ("testTwoDirectDependencies", testTwoDirectDependencies),
+            ("testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther", testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther),
+            ("testSimpleVersionRestrictedGraph", testSimpleVersionRestrictedGraph),
+            ("testComplexVersionRestrictedGraph", testComplexVersionRestrictedGraph),
+            ("testVersionConstrain", testVersionConstrain),
+            ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
+            ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
+            ("testVersionUnavailable", testVersionUnavailable)
         ]
     }
-    
+
     func testNoGraph() {
         class MockFetcher: _MockFetcher {
             override func fetch(url url: String) throws -> Fetchable {
@@ -332,10 +332,10 @@ private let v199 = Version(1,9,9)
 
 private enum MockProject: String {
     case A
-    case B 
-    case C 
-    case D 
-    case E 
+    case B
+    case C
+    case D
+    case E
     case F
     var url: String { return rawValue }
 }

@@ -12,11 +12,11 @@ import XCTest
 @testable import dep
 
 class PackageTests: XCTestCase {
-  
+
     var allTests : [(String, () -> ())] {
         return []
     }
-  
+
     func testInitializer() {
         do {
             // valid path, but no manifest so check throw is correct

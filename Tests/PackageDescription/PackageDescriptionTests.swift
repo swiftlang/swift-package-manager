@@ -28,7 +28,7 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
             ("testBasics", testBasics),
         ]
     }
-    
+
     func testBasics() {
         // Verify that we can round trip a basic package through TOML.
         let p1 = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", majorVersion: 1)])
