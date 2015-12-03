@@ -46,4 +46,4 @@ then you have several options:
 
 Both options are currently non-ideal since it is easy to commit code that will break for other members of your team, for example, if you change the sources for `Foo` and then commit a change to your app that uses those new changes but you have not committed those changes to `Foo` then you have caused dependency hell for your co-workers.
 
-It is our intention to provide tooling to prevent such siutations, but for now please be aware of the caveats.
+It is our intention to provide tooling to prevent such situations, but for now please be aware of the caveats.
