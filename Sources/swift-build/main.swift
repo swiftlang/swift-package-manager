@@ -12,6 +12,7 @@ import dep
 import POSIX
 import sys
 
+
 // Initialize the resource support.
 public var globalSymbolInMainBinary = 0
 Resources.initialize(&globalSymbolInMainBinary)
@@ -63,7 +64,7 @@ do {
             // however, since this is an error path, the performance implications are
             // less severe, so it will do for now.
 
-            if (try? system("clang++")) == nil {
+            if (try? popen(["clang++", "--version"], redirectStandardError: true)) == nil {
                 print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
             }
 #endif
