@@ -39,6 +39,8 @@ let package = Package(
             dependencies: [.Target(name: "bottom")]),
         Target(
             name: "bottom")
+    ]
+)
 ```
 
 The targets are named how your subdirectories are named.
