@@ -20,7 +20,7 @@ let package = Package(
 )
 ```
 
-A `Package.swift` file a Swift file
+A `Package.swift` file is a Swift file
 that declaratively configures a Package
 using types defined in the `PackageDescription` module.
 This manifest declares a dependency on an external package: `Greeter`.
