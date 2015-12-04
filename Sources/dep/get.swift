@@ -137,7 +137,15 @@ extension Sandbox: Fetcher {
 
         // lazy because the tip of the default branch does not have to be a valid package
         //FIXME we should error gracefully if a selected version does not however
-        lazy var manifest: Manifest = try! Manifest(path: Path.join(self.path, Manifest.filename), baseURL: self.repo.origin!)
+        var manifest: Manifest! {
+            if let manifest = _manifest {
+                return manifest
+            } else {
+                _manifest = try? Manifest(path: Path.join(path, Manifest.filename), baseURL: repo.origin!)
+                return _manifest
+            }
+        }
+        private var _manifest: Manifest?
 
         init(path: String) {
             self.path = path
@@ -164,6 +172,9 @@ extension Sandbox: Fetcher {
             let v = (packageVersionsArePrefixed ? "v" : "") + v.description
             try popen([Git.tool, "-C", path, "reset", "--hard", v])
             try popen([Git.tool, "-C", path, "branch", "-m", v])
+
+            // we must re-read the manifest
+            _manifest = nil
         }
 
         func constrain(to versionRange: Range<Version>) -> Version? {
