@@ -10,6 +10,7 @@
 
 import POSIX
 import sys
+import PackageDescription
 
 extension Manifest {
     /**
@@ -18,23 +19,7 @@ extension Manifest {
     public func configureTargets(computedTargets: [Target]) throws -> [Target]
     {
         for target in computedTargets {
-            guard let matchingManifestSpecificationTarget = package.targets.pick({ manifestTarget -> Bool in
-                return target.productName == manifestTarget.name
-            }) else {
-                continue // no dep spec
-            }
-
-            target.dependencies = try matchingManifestSpecificationTarget.dependencies.map { manifestTarget -> Target in
-                switch manifestTarget {
-                case .Target(let name):
-                    guard let pick = computedTargets.pick({
-                        return $0.productName == name
-                    }) else {
-                        throw Error.ManifestTargetNotFound(name)
-                    }
-                    return pick
-                }
-            }
+            try self.configureTargetDependencies(computedTargets, target: target)
         }
 
         for target in computedTargets {
@@ -42,6 +27,43 @@ extension Manifest {
         }
 
         return computedTargets
+    }
+
+    /**
+      Sets the dependencies of a dep.Target with specified in the PackageDescription 
+     */
+    private func configureTargetDependencies(computedTargets: [Target], target: Target) throws {
+        guard let matchingManifestTarget = target.matchingTarget(self) else {
+            return // No dep spec
+        }
+
+        target.dependencies = try matchingManifestTarget.dependencies
+            .map { try $0.matchingManifestTarget(computedTargets) }
+    }
+}
+
+extension PackageDescription.Target.Dependency {
+    /**
+      Returns first dep.Target matching the name specified in the name
+     */
+    private func matchingManifestTarget(targets: [dep.Target]) throws -> dep.Target {
+        guard let target = targets.filter({ $0.productName == name }).first else {
+            throw Error.ManifestTargetNotFound(name)
+        }
+        return target
+    }
+}
+
+extension Target {
+    /**
+      Returns the matching target specified in the PackageDescription
+     */
+    private func matchingTarget(manifest: Manifest) -> PackageDescription.Target? {
+        return manifest.package.targets
+            .filter { manifestTarget in
+                self.productName == manifestTarget.name
+            }
+            .first
     }
 }
 
@@ -144,15 +166,6 @@ private func shouldConsiderDirectory(subdir: String) -> Bool {
     if subdir.hasSuffix(".playground") { return false }
     if subdir.hasPrefix(".") { return false }  // eg .git
     return true
-}
-
-extension Array {
-    private func pick(body: (Element) -> Bool) -> Element? {
-        for x in self {
-            if body(x) { return x }
-        }
-        return nil
-    }
 }
 
 /**
