@@ -124,9 +124,6 @@ extension Error: CustomStringConvertible {
         switch self {
         case .ExitStatus(let code, let args):
             return "exit(\(code)): \(prettyArguments(args))"
-            
-            //let args = prettyArguments(args)
-            //return "exit(\(code)): \(args)"
 
         case .ExitSignal:
             return "Child process exited with signal"
