@@ -106,7 +106,7 @@ extension Sandbox: Fetcher {
         try Git.clone(url, to: dstdir)
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
-        try system("git", "-C", dstdir, "fetch", "origin")
+        try system("git", "-C", dstdir, "fetch", "--tags", "origin")
 
         return try RawClone(path: dstdir)
     }
