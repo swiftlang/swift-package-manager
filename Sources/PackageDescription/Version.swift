@@ -214,9 +214,7 @@ extension Specifier: StringLiteralConvertible {
 
 extension Specifier: IntegerLiteralConvertible {
     public init(integerLiteral value: Int) {
-        self.major = value
-        self.minor = nil
-        self.patch = nil
+        self.init(value)
     }
 }
 
