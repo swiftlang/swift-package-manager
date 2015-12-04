@@ -25,12 +25,16 @@ public struct Version {
     }
 
     public init?(_ characters: String.CharacterView) {
-        let components = characters.split(".", maxSplit: 2, allowEmptySlices: true).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let components = Version.componentsFromCharacters(characters)
         guard components.count == 3 else { return nil }
 
         self.major = components[0]
         self.minor = components[1]
         self.patch = components[2]
+    }
+    
+    private static func componentsFromCharacters(characters: String.CharacterView) -> [Int] {
+        return characters.split(".", maxSplit: 2, allowEmptySlices: true).flatMap{ Int(String($0)) }.filter{ $0 >= 0 }
     }
 
     public init?(_ versionString: String) {
@@ -165,7 +169,7 @@ public struct Specifier {
     }
 
     public init?(_ characters: String.CharacterView) {
-        let components = characters.split(".", maxSplit: 2).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let components = Version.componentsFromCharacters(characters)
 
         self.major = components.count >= 1 ? components[0] : nil
         self.minor = components.count >= 2 ? components[1] : nil
