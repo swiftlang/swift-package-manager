@@ -123,16 +123,7 @@ extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ExitStatus(let code, let args):
-            // Work around for a miscompile when converting error type to string. rdar://problem/23616384
-            struct TempStream: OutputStreamType {
-                var result: String = ""
-                mutating func write(string: String) {
-                    result += string
-                }
-            }
-            var stream = TempStream()
-            print(args, toStream: &stream)
-            return "exit(\(code)): \(stream.result)"
+            return "exit(\(code)): \(args.joinWithSeparator(" "))"
             
             //let args = prettyArguments(args)
             //return "exit(\(code)): \(args)"
