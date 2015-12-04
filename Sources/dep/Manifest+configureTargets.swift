@@ -139,7 +139,7 @@ public func ==(lhs: Target, rhs: Target) -> Bool {
  */
 private func shouldConsiderDirectory(subdir: String) -> Bool {
     let subdir = subdir.basename.lowercaseString
-    if subdir == "tests" { return false }
+    if subdir.hasSuffix("tests") { return false }
     if subdir.hasSuffix(".xcodeproj") { return false }
     if subdir.hasSuffix(".playground") { return false }
     if subdir.hasPrefix(".") { return false }  // eg .git
