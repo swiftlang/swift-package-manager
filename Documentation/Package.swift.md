@@ -15,7 +15,7 @@ import PackageDescription
 let package = Package(
     name: "Hello",
     dependencies: [
-        .Package(url: "ssh://git@example.com/Greeter.git", majorVersion: 1, minor: 1),
+        .Package(url: "ssh://git@example.com/Greeter.git", majorVersion: 1, minor: 0),
     ]
 )
 ```
