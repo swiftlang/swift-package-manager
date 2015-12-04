@@ -13,7 +13,13 @@ import POSIX
 import XCTest
 import libc
 
-class RmtreeTests: XCTestCase {
+class RmtreeTests: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> ())] {
+        return [
+            ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
+        ]
+    }
 
     func testDoesNotFollowSymlinks() {
         do {
