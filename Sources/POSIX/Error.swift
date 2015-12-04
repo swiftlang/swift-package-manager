@@ -123,7 +123,7 @@ extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ExitStatus(let code, let args):
-            return "exit(\(code)): \(args.joinWithSeparator(" "))"
+            return "exit(\(code)): \(prettyArguments(args))"
             
             //let args = prettyArguments(args)
             //return "exit(\(code)): \(args)"
