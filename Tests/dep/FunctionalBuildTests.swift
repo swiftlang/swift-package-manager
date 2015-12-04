@@ -442,4 +442,28 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
         }
     }
+
+    // if HEAD of the default branch has no Package.swift it is still
+    // valid provided the selected version tag has a Package.swift
+    func testTipHasNoPackageSwift() {
+        fixture(name: "102_mattts_dealer") { prefix in
+            let path = Path.join(prefix, "FisherYates")
+            try system("git", "-C", path, "rm", "Package.swift")
+            try system("git", "-C", path, "commit", "-mwip")
+
+            XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
+
+    // if a tag does not have a valid Package.swift, the build fails
+    func testFailsIfVersionTagHasNoPackageSwift() {
+        fixture(name: "102_mattts_dealer") { prefix in
+            let path = Path.join(prefix, "FisherYates")
+            try system("git", "-C", path, "rm", "Package.swift")
+            try system("git", "-C", path, "commit", "-mwip")
+            try system("git", "-C", path, "tag", "-f", "1.2.3")
+
+            XCTAssertNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
 }

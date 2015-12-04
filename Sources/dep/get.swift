@@ -134,17 +134,13 @@ extension Sandbox: Fetcher {
      */
     class RawClone: Fetchable {
         let path: String
-        let manifest: Manifest!
 
-        init(path: String) throws {
+        // lazy because the tip of the default branch does not have to be a valid package
+        //FIXME we should error gracefully if a selected version does not however
+        lazy var manifest: Manifest = try! Manifest(path: Path.join(self.path, Manifest.filename), baseURL: self.repo.origin!)
+
+        init(path: String) {
             self.path = path
-            do {
-                let manifestPath = Path.join(path, Manifest.filename)
-                self.manifest = try Manifest(path: manifestPath, baseURL: Git.Repo(root: path)!.origin!)
-            } catch {
-                self.manifest = nil
-                throw error
-            }
         }
 
         var repo: Git.Repo {
