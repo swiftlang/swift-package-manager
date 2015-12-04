@@ -363,6 +363,7 @@
 				63353A471BB4C46200D6C4B0 /* Sources */,
 				63353A481BB4C46200D6C4B0 /* Frameworks */,
 				63353A491BB4C46200D6C4B0 /* Resources */,
+				63D5E8AC1C120CDD000A7AAE /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -584,6 +585,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		63D5E8AC1C120CDD000A7AAE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\nln -sf debug bin\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		63353A3A1BB4C40E00D6C4B0 /* Sources */ = {
