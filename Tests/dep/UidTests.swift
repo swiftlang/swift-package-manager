@@ -11,7 +11,7 @@
 import XCTest
 @testable import dep
 
-class ProjectTests: XCTestCase {
+class ProjectTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
