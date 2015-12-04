@@ -11,7 +11,7 @@
 import XCTest
 @testable import sys
 
-class StringTests: XCTestCase, XCTestCaseProvider {
+class StringTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
@@ -47,7 +47,7 @@ class StringTests: XCTestCase, XCTestCaseProvider {
 }
 
 
-class URLTests: XCTestCase, XCTestCaseProvider {
+class URLTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

@@ -11,7 +11,7 @@
 import XCTest
 @testable import dep
 
-class PackageTests: XCTestCase, XCTestCaseProvider {
+class PackageTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

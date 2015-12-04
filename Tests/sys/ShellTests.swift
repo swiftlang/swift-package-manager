@@ -12,7 +12,7 @@ import POSIX
 import sys
 import XCTest
 
-class ShellTests: XCTestCase, XCTestCaseProvider {
+class ShellTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

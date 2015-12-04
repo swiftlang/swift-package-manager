@@ -13,7 +13,7 @@ import libc
 
 @testable import struct PackageDescription.Version
 
-class VersionTests: XCTestCase, XCTestCaseProvider {
+class VersionTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

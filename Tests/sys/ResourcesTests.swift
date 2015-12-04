@@ -13,7 +13,7 @@ import sys
 
 public var globalSymbolInNonMainBinary = 0
 
-class ResourcesTests: XCTestCase, XCTestCaseProvider {
+class ResourcesTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
