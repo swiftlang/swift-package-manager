@@ -141,7 +141,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "SPM_INSTALL_PATH"
-            value = "$(PROJECT_DIR)/../.build"
+            value = "$(PROJECT_DIR)/../.build/.bootstrap"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
