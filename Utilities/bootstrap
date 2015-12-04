@@ -161,8 +161,6 @@ class Target(object):
                                      module_dir, output, objects,
                                      link_input_nodes, predecessor_node):
         # Compute the derived paths.
-        output_file_map_path = os.path.join(
-            target_build_dir, 'OutputFileMap.json')
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
 
         # Create the per-file entries.
