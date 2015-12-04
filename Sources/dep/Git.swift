@@ -66,44 +66,56 @@ class Git {
         var branch: String! {
             return try? popen([Git.tool, "-C", root, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
+
+        func fetch() throws {
+            try systém(Git.tool, "-C", root, "fetch", "--tags", "origin")
+        }
     }
 
     class func clone(url: String, to dstdir: String) throws -> Repo {
-        var out = ""
-
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {
             url = try realpath(url)
         }
 
-        let args = [Git.tool, "clone",
-            "--recursive",   // get submodules too so that developers can use these if they so choose
-            "--depth", "10",
-            url, dstdir]
-
         do {
-            if sys.verbosity == .Concise {
-                print("Cloning", Path(dstdir).relative(to: "."))
-                fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
-                try popen(args, redirectStandardError: true) { line in
-                    out += line
-                }
-            } else {
-                try system(args)
-            }
-
-            return Repo(root: dstdir)!  //TODO no bangs
-
+            try systém(Git.tool, "clone",
+                "--recursive",   // get submodules too so that developers can use these if they so choose
+                "--depth", "10",
+                url, dstdir, preamble: "Cloning \(Path(dstdir).relative(to: "."))")
         } catch POSIX.Error.ExitStatus {
-            print("$", prettyArguments(args), toStream: &stderr)
-            print(out, toStream: &stderr)
             throw Error.GitCloneFailure(url, dstdir)
         }
+
+        return Repo(root: dstdir)!  //TODO no bangs
     }
 
     class var tool: String {
         return getenv("SWIFT_GIT") ?? "git"
+    }
+}
+
+
+private func systém(args: String..., preamble: String? = nil) throws {
+    var out = ""
+    do {
+        if sys.verbosity == .Concise {
+            if let preamble = preamble {
+                print(preamble)
+                fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
+            }
+            try popen(args, redirectStandardError: true) { line in
+                out += line
+            }
+        } else {
+            try system(args)
+        }
+
+    } catch POSIX.Error.ExitStatus(let foo) {
+        print("$", prettyArguments(args), toStream: &stderr)
+        print(out, toStream: &stderr)
+        throw POSIX.Error.ExitStatus(foo)
     }
 }
 

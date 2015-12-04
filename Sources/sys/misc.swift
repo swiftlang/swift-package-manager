@@ -22,7 +22,7 @@ public func rmtree(components: String...) throws {
     let path = Path.join(components)
     var dirs = [String]()
     for entry in walk(path, recursively: true) {
-        if entry.isDirectory {
+        if entry.isDirectory && !entry.isSymlink {
             dirs.append(entry)
         } else {
             try POSIX.unlink(entry)

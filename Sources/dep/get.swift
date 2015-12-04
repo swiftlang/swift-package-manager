@@ -101,14 +101,13 @@ extension Sandbox: Fetcher {
         let dstdir = Path.join(prefix, Package.name(forURL: url))
         if let repo = Git.Repo(root: dstdir) where repo.origin == url {
             //TODO need to canolicanize the URL need URL struct
-            return try RawClone(path: dstdir)
+            return RawClone(path: dstdir)
         }
-        try Git.clone(url, to: dstdir)
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
-        try system("git", "-C", dstdir, "fetch", "--tags", "origin")
+        try Git.clone(url, to: dstdir).fetch()
 
-        return try RawClone(path: dstdir)
+        return RawClone(path: dstdir)
     }
 
     func finalize(fetchable: Fetchable) throws -> Package {

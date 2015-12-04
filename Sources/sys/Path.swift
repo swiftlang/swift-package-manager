@@ -196,21 +196,25 @@ extension String {
 
     /**
      - Returns: true if the string is a directory on the filesystem
-     - Note: symlinks are NOT resolved
+     - Note: if the entry is a symlink, but the symlink points to a
+       directory, then this function returns true. Use `isSymlink`
+       if the distinction is important.
     */
     public var isDirectory: Bool {
         var mystat = stat()
-        let rv = lstat(self, &mystat)
+        let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFDIR
     }
 
     /**
      - Returns: true if the string is a file on the filesystem
-     - Note: symlinks are NOT resolved
+     - Note: if the entry is a symlink, but the symlink points to Array
+       file, then this function returns true. Use `isSymlink` if the
+       distinction is important.
      */
     public var isFile: Bool {
         var mystat = stat()
-        let rv = lstat(self, &mystat)
+        let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
     }
 

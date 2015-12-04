@@ -22,7 +22,7 @@ class PathTests: XCTestCase, XCTestCaseProvider {
             ("testEmpties", testEmpties),
             ("testNormalizePath", testNormalizePath),
             ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
-            ("testParentDirectory", testParentDirectory)
+            ("testParentDirectory", testParentDirectory),
         ]
     }
 
@@ -97,6 +97,7 @@ class WalkTests: XCTestCase {
             ("testNonRecursive", testNonRecursive),
             ("testRecursive", testRecursive),
             ("testSymlinksNotWalked", testSymlinksNotWalked),
+            ("testWalkingADirectorySymlinkResolvesOnce", testWalkingADirectorySymlinkResolvesOnce),
         ]
     }
 
@@ -132,11 +133,9 @@ class WalkTests: XCTestCase {
     func testSymlinksNotWalked() {
         do {
             try mkdtemp("foo") { root in
-                let root = try realpath(root)
+                let root = try realpath(root)  //FIXME not good that we need this?
 
                 try mkdir(root, "foo")
-                try mkdir(root, "bar")
-                try mkdir(root, "bar/baz")
                 try mkdir(root, "bar/baz/goo")
                 try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
 
@@ -154,6 +153,26 @@ class WalkTests: XCTestCase {
         }
     }
 
+    func testWalkingADirectorySymlinkResolvesOnce() {
+        try! mkdtemp("foo") { root in
+            let root = try realpath(root)  //FIXME not good that we need this?
+
+            try mkdir(root, "foo/bar")
+            try mkdir(root, "abc/bar")
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
+            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
+
+            XCTAssertTrue(Path.join(root, "symlink").isSymlink)
+
+            let results = walk(root, "symlink").map{$0}
+
+            // we recurse a symlink to a directory, so this should work,
+            // but `abc` should not show because `baz` is a symlink too
+            // and that should *not* be followed
+
+            XCTAssertEqual(results, ["\(root)/symlink/bar", "\(root)/symlink/baz"])
+        }
+    }
 }
 
 class StatTests: XCTestCase {
@@ -170,6 +189,23 @@ class StatTests: XCTestCase {
     func test_isdir() {
         XCTAssertTrue("/usr".isDirectory)
         XCTAssertTrue("/etc/passwd".isFile)
+
+        try! mkdtemp("foo") { root in
+            try mkdir(root, "foo/bar")
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
+
+            XCTAssertTrue("\(root)/foo/bar".isDirectory)
+            XCTAssertTrue("\(root)/symlink/bar".isDirectory)
+            XCTAssertTrue("\(root)/symlink".isDirectory)
+            XCTAssertTrue("\(root)/symlink".isSymlink)
+
+            try POSIX.rmdir("\(root)/foo/bar")
+            try POSIX.rmdir("\(root)/foo")
+
+            XCTAssertTrue("\(root)/symlink".isSymlink)
+            XCTAssertFalse("\(root)/symlink".isDirectory)
+            XCTAssertFalse("\(root)/symlink".isFile)
+        }
     }
 
     func test_isfile() {

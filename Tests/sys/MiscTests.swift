@@ -44,7 +44,8 @@ class RmtreeTests: XCTestCase, XCTestCaseProvider {
                 XCTAssertTrue("\(root)/bar/baz/goo".isDirectory)
             }
         } catch {
-            XCTFail("\(error)")
+            print(error)
+            XCTFail()
         }
     }
 }

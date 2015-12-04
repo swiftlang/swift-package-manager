@@ -56,6 +56,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testSingleTargetWithCustomName", testSingleTargetWithCustomName),
             ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
             ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
+            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+            ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
         ]
     }
 
@@ -464,6 +466,20 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             try system("git", "-C", path, "tag", "-f", "1.2.3")
 
             XCTAssertNil(try? executeSwiftBuild("\(prefix)/app"))
+        }
+    }
+
+    func testSymlinkedSourceDirectoryWorks() {
+        fixture(name: "26_symlinked_sources_directory") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
+            XCTAssertTrue(Path.join(prefix, ".build/debug/Foo.a").isFile)
+        }
+    }
+
+    func testSymlinkedNestedSourceDirectoryWorks() {
+        fixture(name: "27_symlinked_nested_sources_directory") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
+            XCTAssertTrue(Path.join(prefix, ".build/debug/Bar.a").isFile)
         }
     }
 }
