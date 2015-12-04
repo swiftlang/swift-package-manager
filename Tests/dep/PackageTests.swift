@@ -11,10 +11,12 @@
 import XCTest
 @testable import dep
 
-class PackageTests: XCTestCase {
+class PackageTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
-        return []
+        return [
+            ("testInitializer", testInitializer)
+        ]
     }
 
     func testInitializer() {

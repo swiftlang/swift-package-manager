@@ -12,7 +12,7 @@ import XCTest
 @testable import dep
 @testable import struct PackageDescription.Version
 
-class VersionGraphTests: XCTestCase {
+class VersionGraphTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
