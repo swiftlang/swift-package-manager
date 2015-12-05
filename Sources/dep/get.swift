@@ -100,7 +100,7 @@ extension Sandbox: Fetcher {
     func fetch(url url: String) throws -> Fetchable {
         let dstdir = Path.join(prefix, Package.name(forURL: url))
         if let repo = Git.Repo(root: dstdir) where repo.origin == url {
-            //TODO need to canolicanize the URL need URL struct
+            //TODO need to canonicalize the URL need URL struct
             return RawClone(path: dstdir)
         }
 
