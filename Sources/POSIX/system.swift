@@ -58,6 +58,7 @@ func posix_spawnp(path: String, args: [String], environment: [String: String] = 
     var pid = pid_t()
     let rv: Int32
     if let fileActions = fileActions {
+        // required for the `&fileActions` inout parameter
         var fileActions = fileActions
         rv = posix_spawnp(&pid, argv[0], &fileActions, nil, argv + [nil], env + [nil])
     } else {
