@@ -56,7 +56,7 @@ Thus we must create `Package.swift` and initialize a Git repository with at leas
     CJPEG$ touch Package.swift
     CJPEG$ git init
     CJPEG$ git add .
-    CJPEG$ git ci -m "Initial Commit"
+    CJPEG$ git commit -m "Initial Commit"
     CJPEG$ git tag 1.0.0
 
 * * *
@@ -128,7 +128,7 @@ A package is a Git repository with semantically versioned tags and a `Package.sw
 
     CJasPer$ git init
     CJasPer$ git add .
-    CJasPer$ git ci -m "Initial Commit"
+    CJasPer$ git commit -m "Initial Commit"
     CJasPer$ git tag 1.0.0
 
 **PLEASE NOTE!** The package manager clones _the tag_. If you edit the `module.modulemap` and don’t `git tag -f 1.0.0` you will not build against your local changes.
