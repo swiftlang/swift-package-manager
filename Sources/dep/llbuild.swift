@@ -191,7 +191,7 @@ private class YAML {
 
         func args() -> [String] {
             let njobs = nprocessors()
-            var args = ["-j\(njobs)"] //FIXME
+            var args = ["-j\(njobs)"]
 
             switch parms.conf {
             case .Debug:
