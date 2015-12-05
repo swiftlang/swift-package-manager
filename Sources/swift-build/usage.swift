@@ -79,7 +79,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
                 mode = .Version
             }
 
-        case .Switch(.chdir):
+        case .Switch(.Chdir):
             switch try cruncher.peek() {
             case .Some(.Name(let name)):
                 chdir = name
@@ -88,7 +88,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
                 throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .Imply)
             }
 
-        case .Switch(.v):
+        case .Switch(.Verbose):
             verbosity += 1
 
         case .Name(let name):
@@ -135,8 +135,19 @@ private struct Cruncher {
             }
         }
         enum TheSwitch: String {
-            case chdir = "--chdir"
-            case v = "-v"
+            case Chdir = "--chdir"
+            case Verbose = "-v"
+            
+            init?(rawValue: String) {
+                switch rawValue {
+                case Chdir.rawValue, "-C":
+                    self = .Chdir
+                case Verbose.rawValue, "-vv":
+                    self = .Verbose
+                default:
+                    return nil
+                }
+            }
         }
 
         case Mode(TheMode)
@@ -154,17 +165,15 @@ private struct Cruncher {
         if let mode = Crunch.TheMode(rawValue: arg) {
             return .Mode(mode)
         }
-        switch arg {
-        case "--chdir", "-C":
-            return .Switch(.chdir)
-        case "-v", "-vv":
-            return .Switch(.v)
-        default:
-            guard !arg.hasPrefix("-") else {
-                throw CommandLineError.InvalidUsage("Unknown argument: \(arg)", .Imply)
-            }
-            return .Name(arg)
+        
+        if let theSwitch = Crunch.TheSwitch(rawValue: arg) {
+            return .Switch(theSwitch)
         }
+        
+        guard !arg.hasPrefix("-") else {
+            throw CommandLineError.InvalidUsage("Unknown argument: \(arg)", .Imply)
+        }
+        return .Name(arg)
     }
 
     mutating func pop() throws -> Crunch {
