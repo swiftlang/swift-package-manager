@@ -41,7 +41,7 @@ A package may have dependencies that are specified too strictly,
   which causes a package to lock that dependency to a particular version.
 
 ## Namespace Collision
-A package may have two or more dependencies may have the same name.
+A package may have two or more dependencies that have the same name.
   For example, a `Person` package depends on
   an `Addressable` package that defines a protocol
   for assigning a mailing address to a person,
@@ -51,7 +51,7 @@ A package may have two or more dependencies may have the same name.
 
 ## Broken Software
 A package may have a dependency with an outstanding bug
-  that is impacting usability, security, performance.
+  that is impacting usability, security, or performance.
   This may simply be a matter of timeliness on the part of the package maintainers,
   or a disagreement about their expectations for the package.
 
