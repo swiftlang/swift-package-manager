@@ -278,7 +278,7 @@ private struct Lexer {
             // Numeric literals.
             //
             // NOTE: It is important we parse this ahead of identifiers, as
-            // numbers are valid identifiers but should be reconfigzed as such.
+            // numbers are valid identifiers but should be reconfigured as such.
         case let c where c.isNumberInitialChar():
             // Scan to the end of the number.
             while let c = look() where c.isNumberChar() {
