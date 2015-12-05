@@ -12,6 +12,8 @@ import func libc.fclose
 import PackageDescription
 import POSIX
 import sys
+import func libc.sysconf
+import var libc._SC_NPROCESSORS_ONLN
 
 public struct BuildParameters {
     public enum Configuration {
@@ -173,6 +175,11 @@ private class YAML {
             return Path.join(parms.tmpdir, "\(tip).o")
         }
     }
+    
+    func nprocessors() -> Int {
+        let nprocessors = sysconf(_SC_NPROCESSORS_ONLN)
+        return nprocessors > 0 ? nprocessors : 8
+    }
 
     func writeCompileNode(target: Target) throws {
         let importPaths = [parms.prefix]
@@ -183,7 +190,8 @@ private class YAML {
         let outputs = ["<\(target.productName)-swiftc>", modulepath] + objects
 
         func args() -> [String] {
-            var args = ["-j8"] //FIXME
+            let njobs = nprocessors()
+            var args = ["-j\(njobs)"] //FIXME
 
             switch parms.conf {
             case .Debug:
