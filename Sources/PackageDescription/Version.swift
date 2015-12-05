@@ -145,23 +145,10 @@ public struct Specifier {
     }
 
     private init(_ major: Int?, _ minor: Int?, _ patch: Int?) {
-        if let major = major {
-            self.major = Swift.max(major, 0)
-        } else {
-            self.major = nil
-        }
 
-        if let minor = minor {
-            self.minor = Swift.max(minor, 0)
-        } else {
-            self.minor = nil
-        }
-
-        if let patch = patch {
-            self.patch = Swift.max(patch, 0)
-        } else {
-            self.patch = nil
-        }
+        self.major = major.map{ Swift.max($0, 0) }
+        self.minor = minor.map{ Swift.max($0, 0) }
+        self.patch = patch.map{ Swift.max($0, 0) }
     }
 
     public init?(_ characters: String.CharacterView) {
