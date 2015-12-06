@@ -68,7 +68,7 @@ class Git {
         }
 
         func fetch() throws {
-            try systém(Git.tool, "-C", root, "fetch", "--tags", "origin")
+            try loggedSystem(Git.tool, "-C", root, "fetch", "--tags", "origin")
         }
     }
 
@@ -80,7 +80,7 @@ class Git {
         }
 
         do {
-            try systém(Git.tool, "clone",
+            try loggedSystem(Git.tool, "clone",
                 "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
                 url, dstdir, preamble: "Cloning \(Path(dstdir).relative(to: "."))")
@@ -97,7 +97,7 @@ class Git {
 }
 
 
-private func systém(args: String..., preamble: String? = nil) throws {
+private func loggedSystem(args: String..., preamble: String? = nil) throws {
     var out = ""
     do {
         if sys.verbosity == .Concise {
