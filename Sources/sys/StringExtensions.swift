@@ -71,8 +71,4 @@ extension String {
 
         return String(cc)
     }
-
-    public func replace(token: String, with: String) -> String {
-        return ""
-    }
 }
