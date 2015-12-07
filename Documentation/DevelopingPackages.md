@@ -16,8 +16,8 @@ Doing so with the package manager is relatively simple:
  3. `git init`
  4. `git remote add origin [github-URL]`
  5. `git tag 1.0.0`
- 5. `git push origin master --tags`
- 
+ 6. `git push origin master --tags`
+
 Now delete the subdirectory, and amend your `Package.swift` so that its `package` declaration includes:
 
 ```swift
