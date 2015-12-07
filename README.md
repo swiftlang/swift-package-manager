@@ -1,5 +1,7 @@
 # Swift Package Manager
 
+[![Build Status](https://travis-ci.org/apple/swift-package-manager.svg?branch=master)](https://travis-ci.org/apple/swift-package-manager)
+
 The Swift Package Manager is a tool for managing distribution of source code,
 aimed at making it easy to share your code and reuse others’ code. The tool
 directly addresses the challenges of compiling and linking Swift packages,
@@ -7,7 +9,7 @@ managing dependencies, versioning, and supporting flexible distribution and
 collaboration models.
 
 We’ve designed the system to make it really easy to share packages on services
-like GitHub, 
+like GitHub,
 but packages are also great for private personal development, sharing code
 within a team, or at any other granularity.
 
@@ -154,7 +156,7 @@ Swift will build a single executable called `foo`.
 To the package manager, everything is a package, hence `Package.swift`. However
 this does not mean you have to release your software to the wider world: you can
 develop your app without ever publishing it in a place where others can see or
-use. On the other hand, if one day you decide that your project _should_ be 
+use. On the other hand, if one day you decide that your project _should_ be
 available to a wider audience your sources are already in a form ready to be
 published.  The package manager is also independent of specific forms of
 distribution, so you can use it to share code within your personal projects,
@@ -189,7 +191,7 @@ and minimize the coordination costs associated with code reuse.
 Dependencies are specified in your `Package.swift` manifest file.
 
 > [Further Reading: Package.swift — The Manifest File](Documentation/Package.swift.md)
- 
+
 > [Further Reading: Developing Packages](Documentation/DevelopingPackages.md)
 
 ### Using System Libraries
