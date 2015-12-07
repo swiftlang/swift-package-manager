@@ -24,6 +24,10 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
             ("testFromString", testFromString),
             ("testSort", testSort),
             ("testRange", testRange),
+            ("testSuccessor", testSuccessor),
+            ("testSuccessorForComponent", testSuccessorForComponent),
+            ("testPredecessor", testPredecessor),
+
         ]
     }
 
@@ -238,6 +242,46 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
             break
         }
     }
+
+    func testSuccessor() {
+        let v1 = Version(1,0,0).successor()
+        XCTAssertEqual(v1, Version(1,0,1))
+
+        let v2 = Version(0,1,24).successor()
+        XCTAssertEqual(v2, Version(0,1,25))
+
+//FIXME: does not increase version
+//        let v3 = Version(0,1,Int.max).successor()
+//        XCTAssertNotEqual(v3, Version(0,1,0))
+
+    }
+
+    func testSuccessorForComponent() {
+        let v1 = Version(1,0,0).successor(.Major)
+        XCTAssertEqual(v1, Version(2,0,0))
+
+        let v2 = Version(1,0,0).successor(.Minor)
+        XCTAssertEqual(v2, Version(1,1,0))
+
+        let v3 = Version(1,0,0).successor(.Patch)
+        XCTAssertEqual(v3, Version(1,0,1))
+    }
+
+    func testPredecessor() {
+        let v1 = Version(1,1,1).predecessor()
+        XCTAssertEqual(v1, Version(1,1,0))
+
+        let v2 = Version(1,2,0).predecessor()
+        XCTAssertEqual(v2, Version(1,1,Int.max))
+
+        let v3 = Version(2,0,0).predecessor()
+        XCTAssertEqual(v3, Version(1,Int.max,Int.max))
+
+//FIXME. What is correct behaviour when getting predecessor of Version(0,0,0)?
+//        let v4 = Version(0,0,0).predecessor()
+//        XCTAssertNotEqual(v4, Version(0,Int.max,Int.max))
+    }
+
 }
 
 
