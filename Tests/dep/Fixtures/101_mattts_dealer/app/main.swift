@@ -2,10 +2,6 @@ import FisherYates
 import PlayingCard
 import DeckOfPlayingCards
 
-#if os(Linux)
-import Glibc
-#endif
-
 let numberOfCards = 10
 
 var deck = Deck.standard52CardDeck()

@@ -279,9 +279,8 @@ private class YAML {
                     .map{ Path.join(parms.prefix, $0) }
 
                 // Add the static libraries of our dependencies.
-                //
-                // We currently pass this with -Xlinker because the 'swift-autolink-extract' tool does not understand how to work with archives (<rdar://problem/23045632>).
-                args += (libsInThisPackage + libsInOtherPackages).flatMap{ ["-Xlinker", $0] }
+                args += libsInThisPackage
+                args += libsInOtherPackages
 
                 // Swift doesn’t include /usr/local by default
                 //TODO we only want to do this if a module map wants to do this
