@@ -14,6 +14,14 @@ public final class Target {
     public enum Dependency {
         /// A dependency on a target in the same project.
         case Target(name: String)
+
+        /// Extracts `name` from associated data
+        public var name: String {
+            switch self {
+            case let .Target(name):
+                return name
+            }
+        }
     }
 
     /// The name of the target.
