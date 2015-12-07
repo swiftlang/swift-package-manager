@@ -68,7 +68,7 @@ class Git {
         }
 
         func fetch() throws {
-            try loggedSystem(Git.tool, "-C", root, "fetch", "--tags", "origin")
+            try system(Git.tool, "-C", root, "fetch", "--tags", "origin")
         }
     }
 
@@ -80,10 +80,10 @@ class Git {
         }
 
         do {
-            try loggedSystem(Git.tool, "clone",
+            try system(Git.tool, "clone",
                 "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, preamble: "Cloning \(Path(dstdir).relative(to: "."))")
+                url, dstdir, message: "Cloning \(Path(dstdir).relative(to: "."))")
         } catch POSIX.Error.ExitStatus {
             throw Error.GitCloneFailure(url, dstdir)
         }
@@ -97,14 +97,12 @@ class Git {
 }
 
 
-private func loggedSystem(args: String..., preamble: String? = nil) throws {
+private func system(args: String..., message: String) throws {
     var out = ""
     do {
         if sys.verbosity == .Concise {
-            if let preamble = preamble {
-                print(preamble)
-                fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
-            }
+            print(message)
+            fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
             try popen(args, redirectStandardError: true) { line in
                 out += line
             }
