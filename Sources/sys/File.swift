@@ -60,7 +60,7 @@ public class FileLineGenerator: GeneratorType, SequenceType {
     }
 
     deinit {
-        libc.fclose(fp)
+        fclose(fp)
     }
 
     public func next() -> String? {
@@ -77,7 +77,7 @@ public class FileLineGenerator: GeneratorType, SequenceType {
                     return nil
                 }
             }
-            if c == 10 { return out }
+            if c == separator { return out }
 
             // fgetc is documented to return unsigned char converted to an int
             out.append(UnicodeScalar(UInt8(c)))
