@@ -242,10 +242,18 @@ private class YAML {
 
             case .Executable:
                 var args = [swiftcPath, "-o", productPath] + objects
+
 #if os(OSX)
-                args += ["-Xlinker", "-all_load"]
                 args += ["-target", "x86_64-apple-macosx10.10"]
+                
+                // On OS X, we still require -all_load in order to properly load all libraries.
+                args += ["-Xlinker", "-all_load"]
 #endif
+
+                // Ensure debugging flags are present, if appropriate.
+                if case .Debug = parms.conf {
+                    args += ["-g"]
+                }
 
                 // We support a custom override in conjunction with the
                 // bootstrap script to allow embedding an appropriate RPATH for
