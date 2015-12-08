@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4BAA4BAC1C16CABE0074DA44 /* FileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BAA4BAB1C16CABE0074DA44 /* FileTests.swift */; };
 		6305480E1BD708B30001290A /* DependencyGraphTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305480D1BD708B30001290A /* DependencyGraphTests.swift */; };
 		63353A5A1BB4C4BC00D6C4B0 /* UidTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63353A581BB4C4BC00D6C4B0 /* UidTests.swift */; };
 		63353A5B1BB4C4BC00D6C4B0 /* VersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63353A591BB4C4BC00D6C4B0 /* VersionTests.swift */; };
@@ -178,6 +179,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		4BAA4BAB1C16CABE0074DA44 /* FileTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = FileTests.swift; path = ../Tests/sys/FileTests.swift; sourceTree = "<group>"; };
 		6305480D1BD708B30001290A /* DependencyGraphTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DependencyGraphTests.swift; path = ../Tests/dep/DependencyGraphTests.swift; sourceTree = "<group>"; };
 		63353A3E1BB4C40E00D6C4B0 /* sys-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sys-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		63353A4B1BB4C46200D6C4B0 /* dep-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "dep-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -305,6 +307,7 @@
 				63353A5D1BB4C4CD00D6C4B0 /* ShellTests.swift */,
 				63353A5E1BB4C4CD00D6C4B0 /* StringTests.swift */,
 				E136D9411BD5F35D000DFCE6 /* TOMLTests.swift */,
+				4BAA4BAB1C16CABE0074DA44 /* FileTests.swift */,
 			);
 			name = sys;
 			sourceTree = "<group>";
@@ -612,6 +615,7 @@
 				63353A611BB4C4CD00D6C4B0 /* ShellTests.swift in Sources */,
 				E1E286D61BD83BE40015F0C5 /* ResourcesTests.swift in Sources */,
 				63DC25371BF413BF00EDCFBF /* XCTestCaseProvider.swift in Sources */,
+				4BAA4BAC1C16CABE0074DA44 /* FileTests.swift in Sources */,
 				636EF11A1C0D0F1E00626610 /* MiscTests.swift in Sources */,
 				63353A621BB4C4CD00D6C4B0 /* StringTests.swift in Sources */,
 			);
