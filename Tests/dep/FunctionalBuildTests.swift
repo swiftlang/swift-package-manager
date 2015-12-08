@@ -128,7 +128,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         }
     }
 
-    // 5: Package with multiple exectuble targets
+    // 5: Package with multiple executable targets
     func testMultipleExecTargets() {
         let filesToVerify = ["BarExec", "FooBarExec", "FooExec"]
         fixture(name: "5_buildexec_mult_targets") { prefix in

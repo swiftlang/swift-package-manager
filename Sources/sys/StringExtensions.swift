@@ -12,7 +12,7 @@ extension String {
     /**
      Remove trailing newline characters. By default chomp removes
      all trailing \n (UNIX) or all trailing \r\n (Windows) (it will
-     not remove mixed occurances of both separators.
+     not remove mixed occurrences of both separators.
     */
     public func chomp(separator: String? = nil) -> String {
         var separator = separator

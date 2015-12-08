@@ -54,7 +54,7 @@ func moduleNameForName(name: String) throws -> String {
             0x06D0...0x06DC, 0x06E5...0x06E8, 0x06EA...0x06ED,
             // Digits (2)
             0x06F0...0x06F9,
-            // Devanagari and Special characeter 0x093D.
+            // Devanagari and Special character 0x093D.
             0x0901...0x0903, 0x0905...0x0939, 0x093D...0x094D,
             0x0950...0x0952, 0x0958...0x0963,
             // Digits (3)
