@@ -90,8 +90,8 @@ extension SystemError: CustomStringConvertible {
             return "readdir error: \(strerror(errno))"
         case readlink(let errno, let path):
             return "readlink error: \(path), \(strerror(errno))"
-        case .realpath(let errno, _):
-            return "realpath error: \(strerror(errno))"
+        case .realpath(let errno, let path):
+            return "realpath error: \(strerror(errno)): \(path)"
         case .rename(let errno, let old, let new):
             return "rename error: \(strerror(errno)): \(old) -> \(new)"
         case .rmdir(let errno, let path):
