@@ -185,6 +185,7 @@ extension Sandbox: Fetcher {
         }
 
         var dependencies: [(String, Range<Version>)] {
+            if manifest == nil { return [(String, Range<Version>)]() }
             //COPY PASTA from Package.dependencies
             return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
         }
