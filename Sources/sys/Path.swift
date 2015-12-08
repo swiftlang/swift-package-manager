@@ -64,8 +64,8 @@ public struct Path {
      path.
 
      The input paths are normalized before being compared. Thus the
-     resuting path will be normalized.
      
+     resulting path will be normalized.
      Either both paths must be absolute or both must be relative, if
      either differ we absolute both before comparison, so you may or
      may not get back an absolute path.
@@ -145,7 +145,7 @@ extension String {
      - Expanding ~
      - Expanding ~foo
      - Removing any trailing slash
-     - Removing any redundnant slashes
+     - Removing any redundant slashes
 
      This string manipulation may change the meaning of a path that
      contains symbolic links. The filesystem is not accessed.
@@ -181,7 +181,7 @@ extension String {
     }
 
     /**
-     Return a normalized absolutized version of this path. Equavalent to:
+     Return a normalized absolutized version of this path. Equivalent to:
 
          Path.join(try getcwd(), self).normpath
      */

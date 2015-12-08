@@ -67,7 +67,7 @@ protocol Fetchable {
 
     //FIXME protocols cannot impose new property constraints,
     // so Package has a version { get } already, we cannot add
-    // a set, so instead we hve to have this protocol func
+    // a set, so instead we have to have this protocol func
     func setVersion(newValue: Version) throws
 }
 
@@ -298,7 +298,7 @@ extension Range where Element: BidirectionalIndexType, Element: Comparable {
 
     /**
      - Returns: A new Range with startIndex and endIndex constrained such that
-     the returned range is entirely withing this Range and the provided Range.
+     the returned range is entirely within this Range and the provided Range.
      If the two ranges do not overlap at all returns `nil`.
     */
     func constrain(to constraint: Range) -> Range? {

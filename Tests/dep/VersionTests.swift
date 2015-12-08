@@ -277,7 +277,7 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
         let v3 = Version(2,0,0).predecessor()
         XCTAssertEqual(v3, Version(1,Int.max,Int.max))
 
-//FIXME. What is correct behaviour when getting predecessor of Version(0,0,0)?
+//FIXME. What is correct behavior when getting predecessor of Version(0,0,0)?
 //        let v4 = Version(0,0,0).predecessor()
 //        XCTAssertNotEqual(v4, Version(0,Int.max,Int.max))
     }
