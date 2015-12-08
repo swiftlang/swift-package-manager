@@ -12,7 +12,7 @@ import XCTest
 import POSIX
 @testable import sys
 
-class PathTests: XCTestCase, XCTestCaseProvider {
+class PathTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

@@ -21,7 +21,7 @@ private func parseTOML(data: String) -> TOMLItem {
     }
 }
 
-class PackageTests: XCTestCase, XCTestCaseProvider {
+class PackageTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

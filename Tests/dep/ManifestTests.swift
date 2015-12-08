@@ -14,7 +14,7 @@ import sys
 @testable import dep
 import libc
 
-class ManifestTests: XCTestCase, XCTestCaseProvider {
+class ManifestTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

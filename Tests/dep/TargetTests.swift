@@ -28,7 +28,7 @@ extension Target {
 }
 
 
-class TargetTests: XCTestCase, XCTestCaseProvider {
+class TargetTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

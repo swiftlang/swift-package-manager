@@ -13,7 +13,7 @@ import POSIX
 import XCTest
 import libc
 
-class RmtreeTests: XCTestCase, XCTestCaseProvider {
+class RmtreeTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [

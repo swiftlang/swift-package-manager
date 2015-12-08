@@ -15,7 +15,7 @@ import sys
 import XCTest
 
 
-class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
+class FunctionalBuildTests: XCTestCase {
 
     var allTests : [(String, () -> ())] {
         return [
