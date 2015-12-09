@@ -45,7 +45,7 @@ class Git {
         var versions: [Version] {
             //TODO separator is probably \r\n on Windows
             let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
-            let tags = out.characters.split("\n")
+            let tags = out.characters.split { $0 == "\n" || $0 == "\r\n" }.map(String.init)
             let versions = tags.flatMap(Version.init).sort()
             if !versions.isEmpty {
                 return versions
