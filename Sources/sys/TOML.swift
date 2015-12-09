@@ -19,12 +19,12 @@ import libc
 
 /// Represents a TOML encoded value.
 public enum TOMLItem {
-case Bool(value: Swift.Bool)
-case Int(value: Swift.Int)
-case Float(value: Swift.Float)
-case String(value: Swift.String)
-case Array(contents: TOMLItemArray)
-case Table(contents: TOMLItemTable)
+    case Bool(value: Swift.Bool)
+    case Int(value: Swift.Int)
+    case Float(value: Swift.Float)
+    case String(value: Swift.String)
+    case Array(contents: TOMLItemArray)
+    case Table(contents: TOMLItemTable)
 }
 
 public class TOMLItemArray: CustomStringConvertible {
@@ -149,34 +149,34 @@ private extension UInt8 {
 private struct Lexer {
     private enum Token {
         /// Any comment.
-    case Comment
+        case Comment
         /// Any whitespace.
-    case Whitespace
+        case Whitespace
         /// A newline.
-    case Newline
+        case Newline
         /// A literal string.
-    case StringLiteral(value: String)
+        case StringLiteral(value: String)
         /// An identifier (i.e., 'foo').
-    case Identifier(value: String)
+        case Identifier(value: String)
         /// A boolean constant.
-    case Boolean(value: Bool)
+        case Boolean(value: Bool)
         /// A numeric constant (which may not be well formed).
-    case Number(value: String)
+        case Number(value: String)
         /// The end of file marker.
-    case EOF
+        case EOF
         /// An unknown character.
-    case Unknown(value: UInt8)
+        case Unknown(value: UInt8)
 
         /// A ',' character.
-    case Comma
+        case Comma
         /// An '=' character.
-    case Equals
+        case Equals
         /// A left square bracket ('[').
-    case LSquare
+        case LSquare
         /// A right square bracket (']').
-    case RSquare
+        case RSquare
         /// A '.' character.
-    case Period
+        case Period
     }
 
     /// The string being lexed.
