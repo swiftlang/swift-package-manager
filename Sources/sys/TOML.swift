@@ -167,7 +167,7 @@ private struct Lexer {
     case Equals
         /// A left square bracket ('[').
     case LSquare
-        /// A right square bracket ('[').
+        /// A right square bracket (']').
     case RSquare
         /// A '.' character.
     case Period
