@@ -70,7 +70,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
 
     func verifyFilesExist(files: [String], fixturePath: String) -> Bool {
         for file in files {
-            let name = fixturePath.characters.split("/").map(String.init).last!
+            let name = fixturePath.basename
             let filePath: String
             switch file {
                 // Target (library) not in subfolder
