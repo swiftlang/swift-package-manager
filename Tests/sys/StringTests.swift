@@ -17,6 +17,7 @@ class StringTests: XCTestCase, XCTestCaseProvider {
         return [
             ("testTrailingChomp", testTrailingChomp),
             ("testEmptyChomp", testEmptyChomp),
+            ("testSeparatorChomp", testSeparatorChomp),
             ("testChuzzle", testChuzzle),
         ]
     }
