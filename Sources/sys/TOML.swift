@@ -444,9 +444,9 @@ private struct Parser {
 
             // If we stopped at the next nested table definition, process it.
             let startToken = lookahead
-            if consumeIf({ $0 == .LSquare }) {
+            if consumeIf(lookahead == .LSquare) {
                 // Check if we have a double-square (indicating an array-of-tables).
-                let isAppend = consumeIf({ $0 == .LSquare })
+                let isAppend = consumeIf(lookahead == .LSquare)
 
                 // Process the table specifier.
                 guard let specifiers = parseTableSpecifier(isAppend) else {
@@ -533,26 +533,26 @@ private struct Parser {
             }
 
             // Consume the specifier separator, if present.
-            if !consumeIf({ $0 == .Period }) {
+            if !consumeIf(lookahead == .Period) {
                 // If we didn't have a period, then should be at the end of the specifier.
                 break
             }
         }
 
         // Consume the trailing brackets.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf(lookahead == .RSquare) {
             error("expected terminating ']' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
-        if isAppend && !consumeIf({ $0 == .RSquare }) {
+        if isAppend && !consumeIf(lookahead == .RSquare) {
             error("expected terminating ']]' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
 
         // Consume the trailing newline.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf( lookahead == .EOF || lookahead == .Newline ) {
             error("unexpected trailing token after table specifier", at: lookahead)
             skipToEndOfLine()
         }
@@ -584,8 +584,8 @@ private struct Parser {
     }
 
     /// Consume a token if it matches a particular block.
-    private mutating func consumeIf(match: (Lexer.Token) -> Bool) -> Bool {
-        if match(lookahead) {
+    private mutating func consumeIf(@autoclosure match: () -> Bool) -> Bool {
+        if match() {
             eat()
             return true
         }
@@ -610,7 +610,7 @@ private struct Parser {
         // Parse assignments until we reach the EOF or a new table record.
         while lookahead != .EOF && lookahead != .LSquare {
             // If we have a bare newline, ignore it.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf( lookahead == .Newline ) {
                 continue
             }
 
@@ -638,7 +638,7 @@ private struct Parser {
         }
 
         // Expect an '='.
-        guard consumeIf({ $0 == .Equals }) else {
+        guard consumeIf(lookahead == .Equals) else {
             error("unexpected token while parsing assignment", at: lookahead)
             skipToEndOfLine()
             return
@@ -648,7 +648,7 @@ private struct Parser {
         let result: TOMLItem = parseItem()
 
         // Expect a newline or EOF.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf(lookahead == .EOF || lookahead == .Newline) {
             error("unexpected trailing token in assignment", at: lookahead)
             skipToEndOfLine()
         }
@@ -693,7 +693,7 @@ private struct Parser {
         let array = TOMLItemArray()
         while lookahead != .EOF && lookahead != .RSquare {
             // Skip newline tokens in arrays.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf(lookahead == .Newline) {
                 continue
             }
 
@@ -704,14 +704,14 @@ private struct Parser {
             array.items.append(parseItem())
 
             // Consume the trailing comma, if present.
-            if !consumeIf({ $0 == .Comma }) {
+            if !consumeIf(lookahead == .Comma) {
                 // If we didn't have a comma, then should be at the end of the array.
                 break
             }
         }
 
         // Consume the trailing bracket.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf(lookahead == .RSquare) {
             error("missing closing array square bracket", at: lookahead)
             // FIXME: This should skip respecting the current bracket nesting level.
             skipToEndOfLine()
