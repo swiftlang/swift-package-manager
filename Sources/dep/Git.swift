@@ -10,9 +10,9 @@
 
 //TODO get a Windows check working so NEWLINE can be defined as "\r\n"
 #if os(OSX) || os(iOS) || os(Linux)
-#define NEWLINE "\n"
+    let NEwLINE = "\n"
 #else
-#error "Unsupported platform"
+    //ERROR: Unsupported platform
 #endif
 
 import struct PackageDescription.Version
