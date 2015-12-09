@@ -10,8 +10,10 @@
  -------------------------------------------------------------------------
  This file defines a minimal TOML parser. It is currently designed only to
  support the needs of the package manager, not to be a general purpose TOML
- library. There is currently no support for the date or float types.
+ library. There is currently no support for the date types.
 */
+
+import libc
 
 // MARK: TOML Item Definition
 
@@ -19,6 +21,7 @@
 public enum TOMLItem {
 case Bool(value: Swift.Bool)
 case Int(value: Swift.Int)
+case Float(value: Swift.Float)
 case String(value: Swift.String)
 case Array(contents: TOMLItemArray)
 case Table(contents: TOMLItemTable)
@@ -53,6 +56,7 @@ extension TOMLItem: CustomStringConvertible {
         switch self {
         case .Bool(let value): return value.description
         case .Int(let value): return value.description
+        case .Float(let value): return value.description
         case .String(let value): return "\"\(value)\""
         case .Array(let values): return values.description
         case .Table(let values): return values.description
@@ -67,6 +71,8 @@ public func ==(lhs: TOMLItem, rhs: TOMLItem) -> Bool {
     case (.Bool, _): return false
     case (.Int(let a), .Int(let b)): return a == b
     case (.Int, _): return false
+    case (.Float(let a), .Float(let b)): return a == b
+    case (.Float, _): return false
     case (.String(let a), .String(let b)): return a == b
     case (.String, _): return false
     case (.Array(let a), .Array(let b)): return a.items == b.items
@@ -661,13 +667,13 @@ private struct Parser {
         let token = eat()
         switch token {
         case .Number(let spelling):
-            // FIXME: Need to handle all valid number spellings, not just integers.
-            guard let value = Int(spelling) else {
+            if let numberItem = parseNumberItem(spelling) {
+                return numberItem
+            } else {
                 error("invalid number value in assignment", at: token)
                 skipToEndOfLine()
                 return .String(value: "<<invalid>>")
             }
-            return .Int(value: value)
         case .Identifier(let string):
             return .String(value: string)
         case .StringLiteral(let string):
@@ -721,6 +727,19 @@ private struct Parser {
         // types. We should validate that.
 
         return .Array(contents: array)
+    }
+    
+    private func parseNumberItem(spelling: String) -> TOMLItem? {
+        
+        let normalized = String(spelling.characters.filter { $0 != "_" })
+
+        if let value = Int(normalized) {
+            return .Int(value: value)
+        } else if let value = Float(normalized) {
+            return .Float(value: value)
+        } else {
+            return nil
+        }
     }
 }
 
