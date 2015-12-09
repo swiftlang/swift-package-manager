@@ -68,7 +68,7 @@ class Git {
         }
 
         func fetch() throws {
-            try system(Git.tool, "-C", root, "fetch", "--tags", "origin")
+            try system(Git.tool, "-C", root, "fetch", "--tags", "origin", message: nil)
         }
     }
 
@@ -97,12 +97,14 @@ class Git {
 }
 
 
-private func system(args: String..., message: String) throws {
+private func system(args: String..., message: String?  ) throws {
     var out = ""
     do {
         if sys.verbosity == .Concise {
-            print(message)
-            fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
+			if let message = message {
+	            print(message)
+	            fflush(stdout)  // should git ask for credentials ensure we displayed the above status message first
+			}
             try popen(args, redirectStandardError: true) { line in
                 out += line
             }
