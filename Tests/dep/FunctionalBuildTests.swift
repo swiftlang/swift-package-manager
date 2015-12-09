@@ -482,4 +482,13 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(Path.join(prefix, ".build/debug/Bar.a").isFile)
         }
     }
+
+    func testPassExactDependenciesToBuildCommand() {
+        let filesToVerify = ["FooExec", "FooLib1.a", "FooLib2.a"]
+        fixture(name: "28_exact_dependencies") { prefix in
+            let path = Path.join(prefix, "app")
+            XCTAssertNotNil(try? executeSwiftBuild(path))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: path))
+        }
+    }
 }
