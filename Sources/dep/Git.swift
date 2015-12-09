@@ -11,7 +11,7 @@
 //TODO get a Windows check working so NEWLINE can be defined as "\r\n"
 #if os(OSX) || os(iOS) || os(Linux)
 #define NEWLINE "\n"
-#elseif
+#else
 #error "Unsupported platform"
 #endif
 
