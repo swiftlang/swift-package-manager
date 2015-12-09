@@ -38,6 +38,12 @@ public final class Package {
         public class func Package(url url: String, _ version: Version) -> Dependency {
             return Dependency(url, version...version)
         }
+
+        /// Print a representation of the dependency as TOML.
+        public func toTOML() -> String {
+            return "[\"\(url)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
+        }
+
     }
     
     /// The name of the package, if specified.
@@ -74,7 +80,7 @@ public final class Package {
         }
         result += "dependencies = ["
         for dependency in dependencies {
-            result += "[\"\(dependency.url)\", \"\(dependency.versionRange.startIndex)\", \"\(dependency.versionRange.endIndex)\"],"
+            result += dependency.toTOML()
         }
         result += "]\n"
         for target in targets {
