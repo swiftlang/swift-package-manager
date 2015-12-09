@@ -8,6 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+//TODO get a Windows check working so NEWLINE can be defined as "\r\n"
+#if os(OSX) || os(iOS) || os(Linux)
+    let NEWLINE = "\n"
+#else
+    //ERROR: Unsupported platform
+#endif
+
 import struct PackageDescription.Version
 import POSIX
 import sys
@@ -43,9 +50,8 @@ class Git {
         }(self)
 
         var versions: [Version] {
-            //TODO separator is probably \r\n on Windows
             let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
-            let tags = out.characters.split("\n")
+            let tags = out.characters.split(NEWLINE)
             let versions = tags.flatMap(Version.init).sort()
             if !versions.isEmpty {
                 return versions
