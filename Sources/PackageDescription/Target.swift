@@ -14,6 +14,14 @@ public final class Target {
     public enum Dependency {
         /// A dependency on a target in the same project.
         case Target(name: String)
+
+        /// Print a representation of the target dependency as TOML.
+        public func toTOML() -> String {
+            switch self {
+            case .Target(let name):
+                return "\"\(name)\","
+            }
+        }
     }
 
     /// The name of the target.
@@ -35,10 +43,7 @@ public final class Target {
         result += "name = \"\(name)\"\n"
         result += "dependencies = ["
         for dependency in dependencies {
-            switch dependency {
-            case .Target(let name):
-                result += "\"\(name)\","
-            }
+            result += dependency.toTOML()
         }
         result += "]\n"
         return result
