@@ -28,6 +28,12 @@ class StringTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual("abc\r\n\r\r\n".chomp(), "abc\r\n\r")
         XCTAssertEqual("abc\n \n".chomp(), "abc\n ")
     }
+    
+    func testSeparatorChomp() {
+        XCTAssertEqual("abc".chomp("c"), "ab")
+        XCTAssertEqual("abc\n".chomp("c"), "abc\n")
+        XCTAssertEqual("abc\n c".chomp("c"), "abc\n ")
+    }
 
     func testEmptyChomp() {
         XCTAssertEqual("".chomp(), "")

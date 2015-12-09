@@ -15,7 +15,6 @@ extension String {
      not remove mixed occurances of both separators.
     */
     public func chomp(separator: String? = nil) -> String {
-        var separator = separator
         func scrub(separator: String) -> String {
             var E = endIndex
             while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
