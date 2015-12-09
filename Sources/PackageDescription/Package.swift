@@ -14,6 +14,13 @@ import Glibc
 import Darwin.C
 #endif
 
+/// A TOML represenation of an element.
+protocol TOMLConvertible {
+
+    /// Return a TOML representation.
+    func toTOML() -> String
+}
+
 /// The description for a complete package.
 public final class Package {
     /// The description for a package dependency.
@@ -38,12 +45,6 @@ public final class Package {
         public class func Package(url url: String, _ version: Version) -> Dependency {
             return Dependency(url, version...version)
         }
-
-        /// Print a representation of the dependency as TOML.
-        public func toTOML() -> String {
-            return "[\"\(url)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
-        }
-
     }
     
     /// The name of the package, if specified.
@@ -70,8 +71,17 @@ public final class Package {
             dumpPackageAtExit(self)
         }
     }
+}
 
-    /// Print a representation of the package as TOML.
+// MARK: TOMLable
+
+extension Package.Dependency: TOMLConvertible {
+    public func toTOML() -> String {
+        return "[\"\(url)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
+    }
+}
+
+extension Package: TOMLConvertible {
     public func toTOML() -> String {
         var result = ""
         result += "[package]\n"
@@ -84,12 +94,15 @@ public final class Package {
         }
         result += "]\n"
         for target in targets {
-            result += target.toTOML("package.targets")
+
+            result += "[[package.targets]]\n"
+            result += target.toTOML()
         }
         return result
     }
 }
 
+// MARK: Equatable
 extension Package : Equatable { }
 public func ==(lhs: Package, rhs: Package) -> Bool {
     return (lhs.name == rhs.name &&
