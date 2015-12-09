@@ -151,7 +151,7 @@ swift build
 
 Swift will build a single executable called `foo`.
 
-To taylor, everything is a package, hence `Package.swift`. However
+To Taylor, everything is a package, hence `Package.swift`. However
 this does not mean you have to release your software to the wider world: you can
 develop your app without ever publishing it in a place where others can see or
 use. On the other hand, if one day you decide that your project _should_ be 
