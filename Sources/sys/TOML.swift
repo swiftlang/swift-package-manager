@@ -10,7 +10,7 @@
  -------------------------------------------------------------------------
  This file defines a minimal TOML parser. It is currently designed only to
  support the needs of the package manager, not to be a general purpose TOML
- library. There is currently no support for the date types.
+ library. There is currently no support for the date type.
 */
 
 import libc
