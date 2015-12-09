@@ -8,6 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+//TODO get a Windows check working so NEWLINE can be defined as "\r\n"
+#if os(OSX) || os(iOS) || os(Linux)
+#define NEWLINE "\n"
+#elseif
+#error "Unsupported platform"
+#endif
+
 import struct PackageDescription.Version
 import POSIX
 import sys
@@ -44,7 +51,7 @@ class Git {
 
         var versions: [Version] {
             let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
-            let tags = out.characters.split { $0 == "\n" || $0 == "\r\n" }.map(String.init)
+            let tags = out.characters.split(NEWLINE)
             let versions = tags.flatMap(Version.init).sort()
             if !versions.isEmpty {
                 return versions
