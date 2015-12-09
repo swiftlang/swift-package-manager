@@ -52,8 +52,8 @@ do {
 
         for pkg in dependencies {
             let manifest = try Manifest(path: "\(pkg.path)/Package.swift", baseURL: pkg.path)
-            let dependencyUrls = manifest.package.dependencies.map { $0.url }
-            let dependencies = dependencies.filter { dependencyUrls.contains($0.url) }
+            let dependencyUrls = manifest.package.dependencies.map { $0.url.basename }
+            let dependencies = dependencies.filter { dependencyUrls.contains($0.url.basename) }
             try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
