@@ -1,6 +1,6 @@
-# Swift Package Manager
+# Taylor - Package Manager
 
-The Swift Package Manager is a tool for managing distribution of source code,
+Taylor Package Manager is a tool for managing distribution of source code,
 aimed at making it easy to share your code and reuse others’ code. The tool
 directly addresses the challenges of compiling and linking Swift packages,
 managing dependencies, versioning, and supporting flexible distribution and
@@ -15,7 +15,7 @@ within a team, or at any other granularity.
 
 ## A Work In Progress
 
-The Swift Package Manager is still
+Taylor Package Manager is still
 in early design and development — we are aiming to have it stable and
 ready for use with Swift 3 but currently all details are subject to change and many important features are yet to be implemented.
 
@@ -37,7 +37,7 @@ If you get usage output, it is installed, otherwise you will see an error such a
 
 ## Development
 
-The Package Manager is itself a Swift Package, and is built with a
+Taylor is itself a Swift Package, and is built with a
 bootstrap script; initially building the package manager manually
 and then again using itself. The bootstrap script is also for
 integration with the wider Swift project build system.
@@ -99,7 +99,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## Technical Overview
 
-A thorough guide to Swift and the Package Manager is available [at swift.org](https://swift.org/package-manager/). The following is technical documentation, describing the
+A thorough guide to Swift and Taylor is available [at swift.org](https://swift.org/package-manager/). The following is technical documentation, describing the
 basic concepts that motivate the functionality of the Swift Package Manager.
 
 
@@ -132,7 +132,7 @@ As a rule of thumb: more modules is probably better than fewer modules. The pack
 
 ### Building Swift Modules
 
-The Swift Package Manager and its build system needs to understand how to
+Taylor Package Manager and its build system needs to understand how to
 compile your source code.  To do this, it uses a convention-based approach which
 uses the organization of your source code in the file system to determine what
 you mean, but allows you to fully override and customize these details.  A
@@ -151,7 +151,7 @@ swift build
 
 Swift will build a single executable called `foo`.
 
-To the package manager, everything is a package, hence `Package.swift`. However
+To taylor, everything is a package, hence `Package.swift`. However
 this does not mean you have to release your software to the wider world: you can
 develop your app without ever publishing it in a place where others can see or
 use. On the other hand, if one day you decide that your project _should_ be 
