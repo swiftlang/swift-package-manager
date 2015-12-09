@@ -128,7 +128,7 @@ most dependencies require code to be downloaded and built in order to be used.
 > you can focus on the interesting aspects of the problem at hand,
 > rather than getting bogged down solving problems you encounter along the way.
 
-As a rule of thumb: more modules is probably better than less modules. The package manager is designed to make creating both packages and apps with multiple modules as easy as possible.
+As a rule of thumb: more modules is probably better than fewer modules. The package manager is designed to make creating both packages and apps with multiple modules as easy as possible.
 
 ### Building Swift Modules
 
