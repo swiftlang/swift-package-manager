@@ -239,7 +239,7 @@ private struct Lexer {
         case "\n".utf8Constant:
             return .Newline
             
-            // Comments.
+        // Comments.
         case "#".utf8Constant:
             // Scan to the end of the line.
             while let c = look() {
@@ -250,7 +250,7 @@ private struct Lexer {
             }
             return .Comment
 
-            // Whitespace.
+        // Whitespace.
         case let c where c.isSpace():
             // Scan to the end of the whitespace
             while let c = look() where c.isSpace() {
@@ -258,7 +258,7 @@ private struct Lexer {
             }
             return .Whitespace
 
-            // Strings.
+        // Strings.
         case "\"".utf8Constant:
             // Scan to the end of the string.
             //
@@ -275,10 +275,10 @@ private struct Lexer {
             }
             return .StringLiteral(value: String(utf8[Range(start: startIndex.advancedBy(1), end: endIndex)]))
 
-            // Numeric literals.
-            //
-            // NOTE: It is important we parse this ahead of identifiers, as
-            // numbers are valid identifiers but should be reconfigured as such.
+        // Numeric literals.
+        //
+        // NOTE: It is important we parse this ahead of identifiers, as
+        // numbers are valid identifiers but should be reconfigured as such.
         case let c where c.isNumberInitialChar():
             // Scan to the end of the number.
             while let c = look() where c.isNumberChar() {
@@ -286,7 +286,7 @@ private struct Lexer {
             }
             return .Number(value: String(utf8[Range(start: startIndex, end: index)]))
 
-            // Identifiers.
+        // Identifiers.
         case let c where c.isIdentifierChar():
             // Scan to the end of the identifier.
             while let c = look() where c.isIdentifierChar() {
@@ -302,9 +302,9 @@ private struct Lexer {
                 return .Boolean(value: false)
             default:
                 return .Identifier(value: value)
-        }
+            }
             
-            // Punctuation.
+        // Punctuation.
         case ",".utf8Constant:
             return .Comma
         case "=".utf8Constant:
