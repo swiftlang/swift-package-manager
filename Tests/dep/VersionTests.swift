@@ -37,6 +37,7 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
         }
 
         test(Version(1,2,3))
+        test(Version(1,2,3, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011"))
         test(Version(0,0,0))
         test(Version(Int.min, Int.min, Int.min))
         test(Version(Int.max, Int.max, Int.max))
@@ -107,10 +108,40 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
             XCTAssertLessThanOrEqual(v8, v8)
             XCTAssertGreaterThanOrEqual(v8, v8)
         }
+
+        do {
+            // Prerelease precedence tests taken directly from http://semver.org
+            var tests = [
+                Version("1.0.0-alpha"),
+                Version("1.0.0-alpha.1"),
+                Version("1.0.0-alpha.beta"),
+                Version("1.0.0-beta"),
+                Version("1.0.0-beta.2"),
+                Version("1.0.0-beta.11"),
+                Version("1.0.0-rc.1"),
+                Version("1.0.0")
+                ].map{ $0! }
+
+            var v1: Version = tests.removeFirst()
+            for v2 in tests {
+                XCTAssertLessThan(v1, v2)
+                XCTAssertLessThanOrEqual(v1, v2)
+                XCTAssertGreaterThan(v2, v1)
+                XCTAssertGreaterThanOrEqual(v2, v1)
+                XCTAssertNotEqual(v1, v2)
+
+                XCTAssertLessThanOrEqual(v1, v1)
+                XCTAssertGreaterThanOrEqual(v1, v1)
+                XCTAssertLessThanOrEqual(v2, v2)
+                XCTAssertGreaterThanOrEqual(v2, v2)
+
+                v1 = v2
+            }
+        }
     }
 
     func testDescription() {
-        XCTAssertEqual(Version(123,234,345).description, "123.234.345")
+        XCTAssertEqual(Version(123,234,345, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011").description, "123.234.345-alpha.beta+1011")
     }
 
     func testFromString() {
@@ -139,6 +170,8 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(Version(1,2,3), Version("01.002.0003"))
 
         XCTAssertEqual(Version(0,9,21), Version("0.9.21"))
+
+        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011"), Version("0.9.21-alpha.beta+1011"))
     }
 
     func testSort() {
