@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-//TODO get a Windows check working so NEWLINE can be defined as "\r\n"
 #if os(OSX) || os(iOS) || os(Linux)
     extension Character {
         static var newline: Character { return Character("\n") }
