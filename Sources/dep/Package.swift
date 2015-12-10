@@ -58,7 +58,7 @@ public struct Package {
     }
 
     /**
-     The targets of this package, computed using our convention-layot rules
+     The targets of this package, computed using our convention-layout rules
      and mapping the result over the Manifest specifications.
      */
     public func targets() throws -> [Target] {
