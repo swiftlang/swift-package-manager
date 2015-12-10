@@ -108,14 +108,18 @@ public final class Resources {
     public static func findExecutable(name: String) -> String {
         // If we have an executable path, look adjacent to it first.
         if let executablesPath = executablesPath {
-            let p = Path.join(executablesPath, name)
-            if p.exists {
-                return p
+            let path = Path.join(executablesPath, name)
+            if path.exists {
+                return path
             }
         }
 
-        // FIXME: Otherwise, search PATH.
-        
+        // Then try to find it from $PATH.
+        // We may need to use "where.exe" on Windows. Currently only for OS X and Linux.
+        if let path = try? popen(["which", name]) {
+            return path.chomp()
+        }
+
         return name
     }
 }
