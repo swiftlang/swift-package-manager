@@ -10,7 +10,7 @@
 
 #if os(OSX) || os(iOS) || os(Linux)
     extension Character {
-        static var newline: Character { return Character("\n") }
+        static var newline: Character { return "\n" }
     }
 #else
     //ERROR: Unsupported platform
