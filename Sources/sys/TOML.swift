@@ -10,18 +10,21 @@
  -------------------------------------------------------------------------
  This file defines a minimal TOML parser. It is currently designed only to
  support the needs of the package manager, not to be a general purpose TOML
- library. There is currently no support for the date or float types.
+ library. There is currently no support for the date type.
 */
+
+import libc
 
 // MARK: TOML Item Definition
 
 /// Represents a TOML encoded value.
 public enum TOMLItem {
-case Bool(value: Swift.Bool)
-case Int(value: Swift.Int)
-case String(value: Swift.String)
-case Array(contents: TOMLItemArray)
-case Table(contents: TOMLItemTable)
+    case Bool(value: Swift.Bool)
+    case Int(value: Swift.Int)
+    case Float(value: Swift.Float)
+    case String(value: Swift.String)
+    case Array(contents: TOMLItemArray)
+    case Table(contents: TOMLItemTable)
 }
 
 public class TOMLItemArray: CustomStringConvertible {
@@ -53,6 +56,7 @@ extension TOMLItem: CustomStringConvertible {
         switch self {
         case .Bool(let value): return value.description
         case .Int(let value): return value.description
+        case .Float(let value): return value.description
         case .String(let value): return "\"\(value)\""
         case .Array(let values): return values.description
         case .Table(let values): return values.description
@@ -67,6 +71,8 @@ public func ==(lhs: TOMLItem, rhs: TOMLItem) -> Bool {
     case (.Bool, _): return false
     case (.Int(let a), .Int(let b)): return a == b
     case (.Int, _): return false
+    case (.Float(let a), .Float(let b)): return a == b
+    case (.Float, _): return false
     case (.String(let a), .String(let b)): return a == b
     case (.String, _): return false
     case (.Array(let a), .Array(let b)): return a.items == b.items
@@ -143,34 +149,34 @@ private extension UInt8 {
 private struct Lexer {
     private enum Token {
         /// Any comment.
-    case Comment
+        case Comment
         /// Any whitespace.
-    case Whitespace
+        case Whitespace
         /// A newline.
-    case Newline
+        case Newline
         /// A literal string.
-    case StringLiteral(value: String)
+        case StringLiteral(value: String)
         /// An identifier (i.e., 'foo').
-    case Identifier(value: String)
+        case Identifier(value: String)
         /// A boolean constant.
-    case Boolean(value: Bool)
+        case Boolean(value: Bool)
         /// A numeric constant (which may not be well formed).
-    case Number(value: String)
+        case Number(value: String)
         /// The end of file marker.
-    case EOF
+        case EOF
         /// An unknown character.
-    case Unknown(value: UInt8)
+        case Unknown(value: UInt8)
 
         /// A ',' character.
-    case Comma
+        case Comma
         /// An '=' character.
-    case Equals
+        case Equals
         /// A left square bracket ('[').
-    case LSquare
-        /// A right square bracket ('[').
-    case RSquare
+        case LSquare
+        /// A right square bracket (']').
+        case RSquare
         /// A '.' character.
-    case Period
+        case Period
     }
 
     /// The string being lexed.
@@ -239,7 +245,7 @@ private struct Lexer {
         case "\n".utf8Constant:
             return .Newline
             
-            // Comments.
+        // Comments.
         case "#".utf8Constant:
             // Scan to the end of the line.
             while let c = look() {
@@ -250,7 +256,7 @@ private struct Lexer {
             }
             return .Comment
 
-            // Whitespace.
+        // Whitespace.
         case let c where c.isSpace():
             // Scan to the end of the whitespace
             while let c = look() where c.isSpace() {
@@ -258,7 +264,7 @@ private struct Lexer {
             }
             return .Whitespace
 
-            // Strings.
+        // Strings.
         case "\"".utf8Constant:
             // Scan to the end of the string.
             //
@@ -275,10 +281,10 @@ private struct Lexer {
             }
             return .StringLiteral(value: String(utf8[Range(start: startIndex.advancedBy(1), end: endIndex)]))
 
-            // Numeric literals.
-            //
-            // NOTE: It is important we parse this ahead of identifiers, as
-            // numbers are valid identifiers but should be reconfigured as such.
+        // Numeric literals.
+        //
+        // NOTE: It is important we parse this ahead of identifiers, as
+        // numbers are valid identifiers but should be reconfigured as such.
         case let c where c.isNumberInitialChar():
             // Scan to the end of the number.
             while let c = look() where c.isNumberChar() {
@@ -286,7 +292,7 @@ private struct Lexer {
             }
             return .Number(value: String(utf8[Range(start: startIndex, end: index)]))
 
-            // Identifiers.
+        // Identifiers.
         case let c where c.isIdentifierChar():
             // Scan to the end of the identifier.
             while let c = look() where c.isIdentifierChar() {
@@ -302,9 +308,9 @@ private struct Lexer {
                 return .Boolean(value: false)
             default:
                 return .Identifier(value: value)
-        }
+            }
             
-            // Punctuation.
+        // Punctuation.
         case ",".utf8Constant:
             return .Comma
         case "=".utf8Constant:
@@ -444,9 +450,9 @@ private struct Parser {
 
             // If we stopped at the next nested table definition, process it.
             let startToken = lookahead
-            if consumeIf({ $0 == .LSquare }) {
+            if consumeIf(lookahead == .LSquare) {
                 // Check if we have a double-square (indicating an array-of-tables).
-                let isAppend = consumeIf({ $0 == .LSquare })
+                let isAppend = consumeIf(lookahead == .LSquare)
 
                 // Process the table specifier.
                 guard let specifiers = parseTableSpecifier(isAppend) else {
@@ -533,26 +539,26 @@ private struct Parser {
             }
 
             // Consume the specifier separator, if present.
-            if !consumeIf({ $0 == .Period }) {
+            if !consumeIf(lookahead == .Period) {
                 // If we didn't have a period, then should be at the end of the specifier.
                 break
             }
         }
 
         // Consume the trailing brackets.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf(lookahead == .RSquare) {
             error("expected terminating ']' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
-        if isAppend && !consumeIf({ $0 == .RSquare }) {
+        if isAppend && !consumeIf(lookahead == .RSquare) {
             error("expected terminating ']]' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
 
         // Consume the trailing newline.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf( lookahead == .EOF || lookahead == .Newline ) {
             error("unexpected trailing token after table specifier", at: lookahead)
             skipToEndOfLine()
         }
@@ -584,8 +590,8 @@ private struct Parser {
     }
 
     /// Consume a token if it matches a particular block.
-    private mutating func consumeIf(match: (Lexer.Token) -> Bool) -> Bool {
-        if match(lookahead) {
+    private mutating func consumeIf(@autoclosure match: () -> Bool) -> Bool {
+        if match() {
             eat()
             return true
         }
@@ -610,7 +616,7 @@ private struct Parser {
         // Parse assignments until we reach the EOF or a new table record.
         while lookahead != .EOF && lookahead != .LSquare {
             // If we have a bare newline, ignore it.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf( lookahead == .Newline ) {
                 continue
             }
 
@@ -638,7 +644,7 @@ private struct Parser {
         }
 
         // Expect an '='.
-        guard consumeIf({ $0 == .Equals }) else {
+        guard consumeIf(lookahead == .Equals) else {
             error("unexpected token while parsing assignment", at: lookahead)
             skipToEndOfLine()
             return
@@ -648,7 +654,7 @@ private struct Parser {
         let result: TOMLItem = parseItem()
 
         // Expect a newline or EOF.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf(lookahead == .EOF || lookahead == .Newline) {
             error("unexpected trailing token in assignment", at: lookahead)
             skipToEndOfLine()
         }
@@ -661,13 +667,13 @@ private struct Parser {
         let token = eat()
         switch token {
         case .Number(let spelling):
-            // FIXME: Need to handle all valid number spellings, not just integers.
-            guard let value = Int(spelling) else {
+            if let numberItem = parseNumberItem(spelling) {
+                return numberItem
+            } else {
                 error("invalid number value in assignment", at: token)
                 skipToEndOfLine()
                 return .String(value: "<<invalid>>")
             }
-            return .Int(value: value)
         case .Identifier(let string):
             return .String(value: string)
         case .StringLiteral(let string):
@@ -693,7 +699,7 @@ private struct Parser {
         let array = TOMLItemArray()
         while lookahead != .EOF && lookahead != .RSquare {
             // Skip newline tokens in arrays.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf(lookahead == .Newline) {
                 continue
             }
 
@@ -704,14 +710,14 @@ private struct Parser {
             array.items.append(parseItem())
 
             // Consume the trailing comma, if present.
-            if !consumeIf({ $0 == .Comma }) {
+            if !consumeIf(lookahead == .Comma) {
                 // If we didn't have a comma, then should be at the end of the array.
                 break
             }
         }
 
         // Consume the trailing bracket.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf(lookahead == .RSquare) {
             error("missing closing array square bracket", at: lookahead)
             // FIXME: This should skip respecting the current bracket nesting level.
             skipToEndOfLine()
@@ -721,6 +727,19 @@ private struct Parser {
         // types. We should validate that.
 
         return .Array(contents: array)
+    }
+    
+    private func parseNumberItem(spelling: String) -> TOMLItem? {
+        
+        let normalized = String(spelling.characters.filter { $0 != "_" })
+
+        if let value = Int(normalized) {
+            return .Int(value: value)
+        } else if let value = Float(normalized) {
+            return .Float(value: value)
+        } else {
+            return nil
+        }
     }
 }
 
