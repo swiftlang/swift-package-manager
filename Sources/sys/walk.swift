@@ -56,6 +56,7 @@ public func walk(paths: String..., recursing: (String) -> Bool) -> RecursibleDir
  A generator for a single directory’s contents
 */
 private class DirectoryContentsGenerator: GeneratorType {
+    private let dirptr: DirHandle
     private let path: String
 
     private init(path: String) {
@@ -67,8 +68,6 @@ private class DirectoryContentsGenerator: GeneratorType {
     deinit {
         if dirptr != nil { closedir(dirptr) }
     }
-
-    let dirptr: DirHandle
 
     func next() -> dirent? {
         if dirptr == nil { return nil }  // yuck, silently ignoring the error to maintain this pattern
