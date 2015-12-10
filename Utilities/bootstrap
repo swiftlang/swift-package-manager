@@ -32,6 +32,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import pipes
 
 ###
 
@@ -216,10 +217,10 @@ class Target(object):
         print >>output, "    is-library: %s" % json.dumps(
             str(bool(self.is_library)).lower())
         print >>output, "    sources: %s" % json.dumps(
-            ' '.join(self.swift_sources))
-        print >>output, "    objects: %s" % json.dumps(' '.join(swift_objects))
+            self.swift_sources)
+        print >>output, "    objects: %s" % json.dumps(swift_objects)
         print >>output, "    import-paths: %s" % json.dumps(
-            ' '.join([module_dir]))
+            [module_dir])
         print >>output, "    other-args: %s" % json.dumps(' '.join(other_args))
         print >>output, "    temps-path: %s" % json.dumps(target_build_dir)
         print >>output
@@ -335,9 +336,9 @@ def create_bootstrap_files(sandbox_path, opts):
         linked_libraries = []
         if target.is_library:
             link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
-            link_command = ['rm', '-f', link_output_path, ';',
-                            'ar', 'cr', link_output_path]
-            link_command.extend(objects)
+            link_command = ['rm', '-f', pipes.quote(link_output_path), ';',
+                            'ar', 'cr', pipes.quote(link_output_path)]
+            link_command.append(' '.join(pipes.quote(o) for o in objects))
         else:
             if target.is_test and platform.system() == "Darwin":
                 # On OS X, we build the test targets as actual bundles.
@@ -358,15 +359,15 @@ def create_bootstrap_files(sandbox_path, opts):
             else:
                 link_output_path = os.path.join(bin_dir, target.name)
                 
-            link_command = [opts.swiftc_path, '-o', link_output_path]
+            link_command = [opts.swiftc_path, '-o', pipes.quote(link_output_path)]
             if opts.sysroot:
                 link_command.extend(["-sdk", opts.sysroot])
             if platform.system() == 'Darwin':
                 link_command.extend(["-target", "x86_64-apple-macosx10.10"])
-            link_command.extend(objects)
+            link_command.append(' '.join(pipes.quote(o) for o in objects))
             for dependency in target.dependencies:
                 dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
-                link_command.append(dependency_lib_path)
+                link_command.append(pipes.quote(dependency_lib_path))
                 linked_libraries.append(dependency_lib_path)
             if platform.system() == 'Darwin':
                 link_command.extend(["-Xlinker", "-all_load"])
