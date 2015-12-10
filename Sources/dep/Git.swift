@@ -10,7 +10,9 @@
 
 //TODO get a Windows check working so NEWLINE can be defined as "\r\n"
 #if os(OSX) || os(iOS) || os(Linux)
-    let NEWLINE = Character("\n")
+    extension Character {
+        static var newline: Character { return Character("\n") }
+    }
 #else
     //ERROR: Unsupported platform
 #endif
@@ -51,7 +53,7 @@ class Git {
 
         var versions: [Version] {
             let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
-            let tags = out.characters.split(NEWLINE)
+            let tags = out.characters.split(Character.newline)
             let versions = tags.flatMap(Version.init).sort()
             if !versions.isEmpty {
                 return versions
