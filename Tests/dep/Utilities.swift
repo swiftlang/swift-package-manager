@@ -11,6 +11,7 @@
 import POSIX
 import sys
 import XCTest
+import XCTestCaseProvider
 
 func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (String) throws -> Void) {
     do {

@@ -11,6 +11,7 @@
 import sys
 import POSIX
 import XCTest
+import XCTestCaseProvider
 import libc
 
 class RmtreeTests: XCTestCase, XCTestCaseProvider {

@@ -9,6 +9,7 @@
  */
 
 import XCTest
+import XCTestCaseProvider
 @testable import dep
 
 class PackageTests: XCTestCase, XCTestCaseProvider {

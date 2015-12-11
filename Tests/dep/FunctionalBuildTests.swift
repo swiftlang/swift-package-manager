@@ -13,6 +13,7 @@ import struct PackageDescription.Version
 import POSIX
 import sys
 import XCTest
+import XCTestCaseProvider
 
 
 class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {

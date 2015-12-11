@@ -237,15 +237,21 @@ targets = [
     Target('swift-build', dependencies=["dep", "sys", "PackageDescription",
                                         "POSIX", "libc"]),
 
+    # Test dependencies.
+    # The Xcode project in swiftpm/Support/ builds these as Swift frameworks.
+    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider"),
+
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
-           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc"],
+           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc",
+                         "XCTestCaseProvider"],
            is_test=True),
     Target('sys-tests', subpath="../Tests/sys",
-           dependencies=["sys", "POSIX", "libc"],
+           dependencies=["sys", "POSIX", "libc", "XCTestCaseProvider"],
            is_test=True),
     Target('dep-tests', subpath="../Tests/dep",
-           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc"],
+           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc",
+                         "XCTestCaseProvider"],
            is_test=True),
 ]
 target_map = dict((t.name,t) for t in targets)

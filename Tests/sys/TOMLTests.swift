@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 @testable import sys
 
 // Test the basic types.

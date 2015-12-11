@@ -1,10 +1,7 @@
 import XCTest
+import XCTestCaseProvider
 
-#if !os(Linux)
-public protocol XCTestCaseProvider {
-    var allTests : [(String, () -> ())] { get }
-}
-#endif
-
-// PackageDescriptionTests.swift
-PackageTests().invokeTest()
+XCTMain([
+    // PackageDescriptionTests.swift
+    PackageTests(),
+])

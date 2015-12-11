@@ -1,30 +1,26 @@
 import XCTest
+import XCTestCaseProvider
 
-// Support building the "enumerated"-tests style, on OS X.
-#if !os(Linux)
-public protocol XCTestCaseProvider {
-    var allTests : [(String, () -> ())] { get }
-}
-#endif
+XCTMain([
+	// PathTests.swift
+	PathTests(),
+	WalkTests(),
+	StatTests(),
+	RelativePathTests(),
 
-// PathTests.swift
-PathTests().invokeTest()
-WalkTests().invokeTest()
-StatTests().invokeTest()
-RelativePathTests().invokeTest()
+	// ResourcesTests.swift
+	ResourcesTests(),
 
-// ResourcesTests.swift
-ResourcesTests().invokeTest()
+	// ShellTests.swift
+	ShellTests(),
 
-// ShellTests.swift
-ShellTests().invokeTest()
+	// StringTests.swift
+	StringTests(),
+	URLTests(),
 
-// StringTests.swift
-StringTests().invokeTest()
-URLTests().invokeTest()
+	// TOMLTests.swift
+	TOMLTests(),
 
-// TOMLTests.swift
-TOMLTests().invokeTest()
-
-// FileTests.swift
-FileTests().invokeTest()
+    // FileTests.swift
+    FileTests(),
+])

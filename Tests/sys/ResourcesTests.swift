@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 import sys
 
 public var globalSymbolInNonMainBinary = 0

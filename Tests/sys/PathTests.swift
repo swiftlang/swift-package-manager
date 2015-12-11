@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 import POSIX
 @testable import sys
 

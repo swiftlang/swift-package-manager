@@ -1,29 +1,25 @@
 import XCTest
+import XCTestCaseProvider
 
-// Support building the "enumerated"-tests style, on OS X.
-#if !os(Linux)
-public protocol XCTestCaseProvider {
-    var allTests : [(String, () -> ())] { get }
-}
-#endif
+XCTMain([
+	// DependencyGraphTests.swift
+	VersionGraphTests(),
 
-// DependencyGraphTests.swift
-VersionGraphTests().invokeTest()
+	// ManifestTests.swift
+	ManifestTests(),
 
-// ManifestTests.swift
-ManifestTests().invokeTest()
+	// FunctionalBuildTests.swift
+	FunctionalBuildTests(),
 
-// FunctionalBuildTests.swift
-FunctionalBuildTests().invokeTest()
+	// TargetTests.swift
+	TargetTests(),
 
-// TargetTests.swift
-TargetTests().invokeTest()
+	// UidTests.swift
+	ProjectTests(),
 
-// UidTests.swift
-ProjectTests().invokeTest()
+	// VersionTests.swift
+	VersionTests(),
 
-// VersionTests.swift
-VersionTests().invokeTest()
-
-// PackageTests.swift
-PackageTests().invokeTest()
+    // PackageTests.swift
+    PackageTests(),
+])

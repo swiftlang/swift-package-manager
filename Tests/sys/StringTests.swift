@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 @testable import sys
 
 class StringTests: XCTestCase, XCTestCaseProvider {
