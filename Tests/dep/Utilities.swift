@@ -30,6 +30,8 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (S
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try system("cp", "-R", d, dstdir)
                     try popen(["git", "-C", dstdir, "init"])
+                    try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
+                    try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
                     try popen(["git", "-C", dstdir, "add", "."])
                     try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
                     try popen(["git", "-C", dstdir, "tag", tag])

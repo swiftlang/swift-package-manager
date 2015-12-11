@@ -462,6 +462,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     func testTipHasNoPackageSwift() {
         fixture(name: "102_mattts_dealer") { prefix in
             let path = Path.join(prefix, "FisherYates")
+            try system("git", "config", "user.email", "example@example.com")
+            try system("git", "config", "user.name", "Example Example")
             try system("git", "-C", path, "rm", "Package.swift")
             try system("git", "-C", path, "commit", "-mwip")
 
@@ -473,6 +475,8 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     func testFailsIfVersionTagHasNoPackageSwift() {
         fixture(name: "102_mattts_dealer") { prefix in
             let path = Path.join(prefix, "FisherYates")
+            try system("git", "-C", path, "config", "user.email", "example@example.com")
+            try system("git", "-C", path, "config", "user.name", "Example Example")
             try system("git", "-C", path, "rm", "Package.swift")
             try system("git", "-C", path, "commit", "-mwip")
             try system("git", "-C", path, "tag", "-f", "1.2.3")
