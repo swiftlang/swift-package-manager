@@ -60,7 +60,9 @@ public class FileLineGenerator: GeneratorType, SequenceType {
     }
 
     deinit {
-        fclose(fp)
+        if fp != nil {
+            fclose(fp)
+        }
     }
 
     public func next() -> String? {
