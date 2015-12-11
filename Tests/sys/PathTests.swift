@@ -165,7 +165,7 @@ class WalkTests: XCTestCase, XCTestCaseProvider {
 
             XCTAssertTrue(Path.join(root, "symlink").isSymlink)
 
-            let results = walk(root, "symlink").map{$0}
+            let results = walk(root, "symlink").map{$0}.sort()
 
             // we recurse a symlink to a directory, so this should work,
             // but `abc` should not show because `baz` is a symlink too
