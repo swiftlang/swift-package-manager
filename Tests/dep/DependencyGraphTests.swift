@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 @testable import dep
 @testable import struct PackageDescription.Version
 

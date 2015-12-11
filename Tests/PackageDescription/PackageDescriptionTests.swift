@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 import PackageDescription
 import sys
 @testable import dep

@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import XCTestCaseProvider
 @testable import sys
 
 class FileTests: XCTestCase,  XCTestCaseProvider {

@@ -11,6 +11,7 @@
 import POSIX
 import sys
 import XCTest
+import XCTestCaseProvider
 
 class ShellTests: XCTestCase, XCTestCaseProvider {
 
