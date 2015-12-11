@@ -90,7 +90,7 @@ class PathTests: XCTestCase, XCTestCaseProvider {
     }
 }
 
-class WalkTests: XCTestCase {
+class WalkTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
@@ -175,7 +175,7 @@ class WalkTests: XCTestCase {
     }
 }
 
-class StatTests: XCTestCase {
+class StatTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
@@ -226,7 +226,7 @@ class StatTests: XCTestCase {
 }
 
 
-class RelativePathTests: XCTestCase {
+class RelativePathTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
