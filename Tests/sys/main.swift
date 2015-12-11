@@ -7,7 +7,7 @@ public protocol XCTestCaseProvider {
 }
 #endif
 
-// POSIXTests.swift
+// PathTests.swift
 PathTests().invokeTest()
 WalkTests().invokeTest()
 StatTests().invokeTest()
@@ -25,3 +25,6 @@ URLTests().invokeTest()
 
 // TOMLTests.swift
 TOMLTests().invokeTest()
+
+// FileTests.swift
+FileTests().invokeTest()

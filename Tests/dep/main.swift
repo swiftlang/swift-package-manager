@@ -24,3 +24,6 @@ ProjectTests().invokeTest()
 
 // VersionTests.swift
 VersionTests().invokeTest()
+
+// PackageTests.swift
+PackageTests().invokeTest()

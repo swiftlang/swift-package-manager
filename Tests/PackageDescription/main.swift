@@ -6,5 +6,5 @@ public protocol XCTestCaseProvider {
 }
 #endif
 
-// SharesTests.swift
+// PackageDescriptionTests.swift
 PackageTests().invokeTest()
