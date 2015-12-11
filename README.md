@@ -60,6 +60,8 @@ to ensure compatibility with new releases.
 To develop the package manager with Xcode you will need to launch Xcode 7.x [with a
 downloadable Swift toolchain](https://swift.org/download/#installation).
 
+Development focused documentation is in the [Internals](Documentation/Internals), subdirectory of Documentation.
+
 ## System Requirements
 
 The package manager’s system requirements are the same as [those for Swift](https://github.com/apple/swift#system-requirements).
