@@ -48,12 +48,17 @@ class TOMLTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(lexTOML("false true"), ["Boolean(false)", "Whitespace", "Boolean(true)"])
         XCTAssertEqual(lexTOML("+12"), ["Number(\"+12\")"])
         XCTAssertEqual(lexTOML("1.2e-10"), ["Number(\"1.2e-10\")"])
+        XCTAssertEqual(lexTOML("1.234"), ["Number(\"1.234\")"])
     }
 
     func testParser() {
         XCTAssertEqual(parseTOML("a = b"), toTable(["a": .String(value: "b")]))
         XCTAssertEqual(parseTOML("a = \"b\""), toTable(["a": .String(value: "b")]))
         XCTAssertEqual(parseTOML("a = 1"), toTable(["a": .Int(value: 1)]))
+        XCTAssertEqual(parseTOML("a = 1.234"), toTable(["a": .Float(value: 1.234)]))
+        XCTAssertEqual(parseTOML("a = 1.2e-2"), toTable(["a": .Float(value: 1.2e-2)]))
+        XCTAssertEqual(parseTOML("a = -12_34_56"), toTable(["a": .Int(value: -123456)]))
+        XCTAssertEqual(parseTOML("a = +1.2_34_56"), toTable(["a": .Float(value: 1.23456)]))
         XCTAssertEqual(parseTOML("a = true\n\nb = false"), toTable(["a": .Bool(value: true), "b": .Bool(value: false)]))
 
         // Test arrays.
