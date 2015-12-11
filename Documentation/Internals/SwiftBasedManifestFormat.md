@@ -36,44 +36,46 @@ At a high level, the primary purpose of this manifest is to:
 
 We propose to use the Swift language itself to write the manifest. An example of a proposed manifest for a small cross-platform project with several libraries might look something like this:
 
-    // This imports the API for declaring packages.
-    import PackageDescription
+```swift 
+// This imports the API for declaring packages.
+import PackageDescription
     
-    // This declares the package.
-    let package = Package(
-        // The name of the package (defaults to source root directory name).
-        name: "Foo",
+// This declares the package.
+let package = Package(
+    // The name of the package (defaults to source root directory name).
+    name: "Foo",
 
-        // The list of targets in the package.
-        targets: [
-            // Declares the main application.
-            Target(
-                name: "Foo",
-                // Declare the type of application.
-                type: .Tool,
-                // Declare that this target is a published product of the package
-                // (as opposed to an internal library or tool).
-                published: True)
-            
-            // Add information on a support library "CoreFoo" (as found by the
-            // convention based system in CoreFoo/**/*.swift).
-            Target(
-                name: "CoreFoo",
-                depends: [
-                    // The library always depends on the "Utils" target.
-                    "Utils",
-                    
-                    // This library depends on "AccessibilityUtils" on Linux.
-                    .Conditional(name: "AccessibilityUtils", platforms: [.Linux])
-                ])
+    // The list of targets in the package.
+    targets: [
+        // Declares the main application.
+        Target(
+            name: "Foo",
+            // Declare the type of application.
+            type: .Tool,
+            // Declare that this target is a published product of the package
+            // (as opposed to an internal library or tool).
+            published: true),
+        
+        // Add information on a support library "CoreFoo" (as found by the
+        // convention based system in CoreFoo/**/*.swift).
+        Target(
+            name: "CoreFoo",
+            depends: [
+                // The library always depends on the "Utils" target.
+                "Utils",
+                
+                // This library depends on "AccessibilityUtils" on Linux.
+                .Conditional(name: "AccessibilityUtils", platforms: [.Linux])
+            ]),
     
-            // NOTE: There is a "Utils" target inferred by the convention based
-            // system, but we don't need to modify it at all because the defaults
-            // were fine.
+        // NOTE: There is a "Utils" target inferred by the convention based
+        // system, but we don't need to modify it at all because the defaults
+        // were fine.
     
-            // Declare that the "AccessibilityUtils" target is Linux-specific.
-            Target(name: "AccessibilityUtils", platforms: [.Linux])
-        ])
+        // Declare that the "AccessibilityUtils" target is Linux-specific.
+        Target(name: "AccessibilityUtils", platforms: [.Linux])
+	])
+```
 
 *NOTE: this example is for expository purposes, the exact APIs are subject to change.*
 
@@ -81,7 +83,9 @@ By writing the manifest in Swift, we ensure a consistent development experience 
 
 The package description itself is a declarative definition of information which *augments* the convention based system. The actual package definition that will be used for a project consists of the convention based package definition with the package description applied to override or customize default behaviors. For example, this target description:
 
-    Target(name: "AccessibilityUtils", platforms: [.Linux])
+```swift
+Target(name: "AccessibilityUtils", platforms: [.Linux])
+```
 
 *does not* add a new target. Rather, it modifies the existing target `AccessibilityUtils` to specify what platforms it is available for.
 
@@ -92,20 +96,22 @@ We intend for the declaration package definition to cover 80%+ of the use cases 
 
 Instead, we allow users to interact with the `Package` object using its native Swift APIs. The package declaration in a file may be followed by additional code which configures the package using a natural, imperative, Swifty API. For example, this is an example of a project which uses a custom convention for selecting which files build with unchecked optimizations:
 
-    import PackageDescription
+```swift
+import PackageDescription
     
-    let package = Package(name: "FTW")
+let package = Package(name: "FTW")
     
-    // MARK: Custom Configuration
+// MARK: Custom Configuration
     
-    // Build all *_unchecked.swift files using "-Ounchecked" for Release mode.
-    for target in package.targets {
-        for source in target.sources {
-            if source.path.hasSuffix("_unchecked.swift") {
-                source.customFlags += [.Conditional("-Ounchecked", mode: .Release)
-            }
+// Build all *_unchecked.swift files using "-Ounchecked" for Release mode.
+for target in package.targets {
+    for source in target.sources {
+        if source.path.hasSuffix("_unchecked.swift") {
+            source.customFlags += [.Conditional("-Ounchecked", mode: .Release)
         }
     }
+}
+```
 
 It is important to note that even when using this feature, package manifest still **must be** declaratative. That is, the only output of a manifest is a complete description of the package, which is then operated on by the package manager and build tools. For example, a manifest **must not** attempt to do anything to directly interact with the build output. All such interactions must go through a documented, public API vended by the package manager libraries and surfaced via the package manager tools.
 
