@@ -332,6 +332,17 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         }
     }
 
+    // 29: Exclude Direcotries
+    func testExludeDirs() {
+        let filesToVerify = ["BarLib.a", "FooBarLib.a"]
+        let filesShouldNotExist = ["FooLib.a"]
+        fixture(name: "29_exclude_directory") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
+            XCTAssertFalse(self.verifyFilesExist(filesShouldNotExist, fixturePath: prefix))
+        }
+    }
+
     func test_exdeps() {
         fixture(name: "102_mattts_dealer") { prefix in
             let prefix = Path.join(prefix, "app")

@@ -42,8 +42,16 @@ extension PackageDescription.Package {
                 dependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
             }
         }
+
+        var exclude: [String] = []
+        if case .Some(.Array(let array)) = table.items["exclude"] {
+            for item in array.items {
+                guard case .String(let exludeItem) = item else { fatalError("exclude contains non string element") }
+                exclude.append(exludeItem)
+            }
+        }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies)
+        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, exclude: exclude)
     }
 }
 

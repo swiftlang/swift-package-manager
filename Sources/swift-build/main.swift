@@ -41,8 +41,11 @@ do {
         let rootd = try findSourceRoot()
         let manifest = try Manifest(path: "\(rootd)/Package.swift", baseURL: rootd)
         let pkgname = manifest.package.name ?? rootd.basename
+        let excludedirs = manifest.package.exclude.map { Path.join(rootd, $0) }
+
         let depsdir = Path.join(rootd, "Packages")
-        let computedTargets = try determineTargets(packageName: pkgname, prefix: rootd, ignore: [depsdir])
+        let computedTargets = try determineTargets(packageName: pkgname, prefix: rootd, ignore: [depsdir] + excludedirs)
+
         let targets = try manifest.configureTargets(computedTargets)
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)

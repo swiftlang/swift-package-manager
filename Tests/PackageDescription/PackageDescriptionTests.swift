@@ -34,4 +34,11 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
         let p1 = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", majorVersion: 1)])
         XCTAssertEqual(p1, Package.fromTOML(parseTOML(p1.toTOML())))
     }
+
+    func testExclude() {
+        let exclude = ["Images", "A/B"]
+        let p1 = Package(name: "a", exclude: exclude)
+        let pFromTOML = Package.fromTOML(parseTOML(p1.toTOML()))
+        XCTAssertEqual(pFromTOML.exclude, exclude)
+    }
 }
