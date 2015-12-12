@@ -28,6 +28,8 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
         return [
             ("testBasics", testBasics),
             ("testExclude", testExclude),
+            ("testEmptyPrivateDependencies", testEmptyPrivateDependencies),
+            ("testPrivateDependencies", testPrivateDependencies),
         ]
     }
 
@@ -47,5 +49,12 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
     func testEmptyPrivateDependencies() {
         let p = Package(privateDependencies: [])
         XCTAssertEqual(p.privateDependencies, [])
+    }
+
+    func testPrivateDependencies() {
+        let dependencies = [Package.Dependency.Package(url: "../TestingLib", majorVersion: 1)]
+        let p = Package(privateDependencies: dependencies)
+        let pFromTOML = Package.fromTOML(parseTOML(p.toTOML()))
+        XCTAssertEqual(pFromTOML.privateDependencies, dependencies)
     }
 }

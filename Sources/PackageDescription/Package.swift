@@ -101,6 +101,13 @@ extension Package: TOMLConvertible {
             result += dependency.toTOML()
         }
         result += "]\n"
+
+        result += "privateDependencies = ["
+        for dependency in privateDependencies {
+            result += dependency.toTOML()
+        }
+        result += "]\n"
+
         for target in targets {
 
             result += "[[package.targets]]\n"

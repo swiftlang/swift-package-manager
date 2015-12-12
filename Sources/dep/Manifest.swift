@@ -43,6 +43,14 @@ extension PackageDescription.Package {
             }
         }
 
+        // Parse the private dependencies.
+        var privateDependencies: [PackageDescription.Package.Dependency] = []
+        if case .Some(.Array(let array)) = table.items["privateDependencies"] {
+            for item in array.items {
+                privateDependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
+            }
+        }
+
         //Parse the exclude folders.
         var exclude: [String] = []
         if case .Some(.Array(let array)) = table.items["exclude"] {
@@ -52,7 +60,7 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, privateDependencies: privateDependencies, exclude: exclude)
     }
 }
 
