@@ -43,4 +43,9 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
         let pFromTOML = Package.fromTOML(parseTOML(p1.toTOML()))
         XCTAssertEqual(pFromTOML.exclude, exclude)
     }
+
+    func testEmptyPrivateDependencies() {
+        let p = Package(privateDependencies: [])
+        XCTAssertEqual(p.privateDependencies, [])
+    }
 }
