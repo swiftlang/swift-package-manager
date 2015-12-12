@@ -29,7 +29,7 @@ public final class Target {
     }
 }
 
-// MARK: TOMLable
+// MARK: TOMLConvertible
 
 extension Target.Dependency: TOMLConvertible {
     public func toTOML() -> String {
