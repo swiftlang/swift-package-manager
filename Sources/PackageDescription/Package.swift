@@ -14,7 +14,7 @@ import Glibc
 import Darwin.C
 #endif
 
-/// A TOML represenation of an element.
+/// A TOML representation of an element.
 protocol TOMLConvertible {
 
     /// Return a TOML representation.
@@ -56,7 +56,7 @@ public final class Package {
     /// The list of dependencies.
     public var dependencies: [Dependency]
 
-    /// The list of folders to exlude
+    /// The list of folders to exclude.
     public var exclude: [String]
 
     /// Construct a package.
@@ -77,7 +77,7 @@ public final class Package {
     }
 }
 
-// MARK: TOMLable
+// MARK: TOMLConvertible
 
 extension Package.Dependency: TOMLConvertible {
     public func toTOML() -> String {
