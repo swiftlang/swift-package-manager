@@ -62,14 +62,14 @@ do {
             try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
-        let privateDependencies = try get(manifest.package.privateDependencies, prefix: depsdir)
-        for pkg in privateDependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: privateDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+        let devDependencies = try get(manifest.package.devDependencies, prefix: depsdir)
+        for pkg in devDependencies {
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: devDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         do {
             // build the current directory
-            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies + privateDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies + devDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
         } catch POSIX.Error.ExitStatus(let foo) {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but

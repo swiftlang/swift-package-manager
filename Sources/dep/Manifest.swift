@@ -44,10 +44,10 @@ extension PackageDescription.Package {
         }
 
         // Parse the private dependencies.
-        var privateDependencies: [PackageDescription.Package.Dependency] = []
-        if case .Some(.Array(let array)) = table.items["privateDependencies"] {
+        var devDependencies: [PackageDescription.Package.Dependency] = []
+        if case .Some(.Array(let array)) = table.items["devDependencies"] {
             for item in array.items {
-                privateDependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
+                devDependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
             }
         }
 
@@ -60,7 +60,7 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, privateDependencies: privateDependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, devDependencies: devDependencies, exclude: exclude)
     }
 }
 

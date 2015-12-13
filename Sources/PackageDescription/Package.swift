@@ -57,17 +57,17 @@ public final class Package {
     public var dependencies: [Dependency]
 
     /// The list of private dependencies. They aren't exposed to a parent Package
-    public var privateDependencies: [Dependency]
+    public var devDependencies: [Dependency]
 
     /// The list of folders to exclude.
     public var exclude: [String]
 
     /// Construct a package.
-    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], privateDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], devDependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
         self.targets = targets
         self.dependencies = dependencies
-        self.privateDependencies = privateDependencies
+        self.devDependencies = devDependencies
         self.exclude = exclude
 
         // Add custom exit handler to cause package to be dumped at exit, if requested.
@@ -102,8 +102,8 @@ extension Package: TOMLConvertible {
         }
         result += "]\n"
 
-        result += "privateDependencies = ["
-        for dependency in privateDependencies {
+        result += "devDependencies = ["
+        for dependency in devDependencies {
             result += dependency.toTOML()
         }
         result += "]\n"
