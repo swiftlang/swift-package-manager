@@ -349,6 +349,24 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         }
     }
 
+    // 30: Private Dependencies
+    func testGetPrivateDeps() {
+        fixture(name: "30_private_deps") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(Path.join(appPath, "Packages/PrivateLib-1.2.3").isDirectory)
+        }
+    }
+
+    func testBuildPrivateDeps() {
+        let filesToVerify = ["Foo.a", "PrivateLib.a"]
+        fixture(name: "30_private_deps") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: appPath))
+        }
+    }
+
     func test_exdeps() {
         fixture(name: "102_mattts_dealer") { prefix in
             let prefix = Path.join(prefix, "app")
