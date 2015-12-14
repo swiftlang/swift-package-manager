@@ -43,6 +43,7 @@ extension PackageDescription.Package {
             }
         }
 
+        //Parse the exclude folders.
         var exclude: [String] = []
         if case .Some(.Array(let array)) = table.items["exclude"] {
             for item in array.items {
