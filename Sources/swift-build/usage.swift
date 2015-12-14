@@ -22,8 +22,8 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
-	print("  --headers <value>  Header file search paths, separated by colon(:)")
-	print("  --lib <value>      Library search paths, separated by colon(:)")
+	print("  --headers <value>  Header file search paths, separated by colon(:) [-I]")
+	print("  --libs <value>     Library search paths, separated by colon(:) [-L]")
     print("  -v                 Increase verbosity of informational output")
 }
 
@@ -168,9 +168,9 @@ private struct Cruncher {
                     self = .Chdir
                 case Verbose.rawValue, "-vv":
                     self = .Verbose
-				case Headers.rawValue:
+				case Headers.rawValue, "-I":
 					self = .Headers
-				case Libs.rawValue:
+				case Libs.rawValue, "-L":
 					self = .Libs
                 default:
                     return nil
