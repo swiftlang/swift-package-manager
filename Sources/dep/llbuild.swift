@@ -30,6 +30,8 @@ public struct BuildParameters {
         targets = []
         dependencies = []
         conf = .Debug
+		compileExtraArgs = []
+		linkExtraArgs = []
     }
 
     public var srcroot: String
@@ -38,6 +40,9 @@ public struct BuildParameters {
 
     public var prefix: String = ""
     public var tmpdir: String = ""
+
+	public var compileExtraArgs: [String]
+	public var linkExtraArgs: [String]
 
     public var conf: Configuration
 
@@ -48,7 +53,7 @@ public struct BuildParameters {
     }
 }
 
-public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws -> BuildParameters {
+public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration, compileExtraArgs:[String], linkExtraArgs:[String]) throws -> BuildParameters {
     var parms = BuildParameters()
     parms.srcroot = srcroot
     parms.targets = targets
@@ -56,6 +61,8 @@ public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [P
     parms.prefix = prefix
     parms.tmpdir = tmpdir
     parms.conf = configuration
+	parms.compileExtraArgs = compileExtraArgs
+	parms.linkExtraArgs = linkExtraArgs
     try llbuild(parms)
     return parms
 }
@@ -82,7 +89,6 @@ private class YAML {
     var filePointer: UnsafeMutablePointer<FILE>
     let filename: String
 
-    
     /**
       The 'swiftc' executable path to use.
     */
@@ -210,6 +216,8 @@ private class YAML {
             // Swift doesn’t include /usr/local by default
             args += ["-I", "/usr/local/include"]
 
+			args += parms.compileExtraArgs
+
             return args
         }
 
@@ -293,6 +301,8 @@ private class YAML {
                 // Swift doesn’t include /usr/local by default
                 //TODO we only want to do this if a module map wants to do this
                 args += ["-L/usr/local/lib"]
+
+				args += parms.linkExtraArgs
 
                 return args
             }

@@ -59,13 +59,21 @@ public final class Package {
     /// The list of folders to exclude.
     public var exclude: [String]
 
+    /// The list of compile options
+    public var cflags: [String]
+    
+    /// The list of link options
+    public var ldflags: [String]
+    
     /// Construct a package.
-    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], exclude: [String] = [], cflags: [String] = [], ldflags: [String] = []) {
         self.name = name
         self.targets = targets
         self.dependencies = dependencies
         self.exclude = exclude
-
+        self.cflags = cflags
+        self.ldflags = ldflags
+        
         // Add custom exit handler to cause package to be dumped at exit, if requested.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
@@ -104,6 +112,10 @@ extension Package: TOMLConvertible {
         }
         result += "\n" + "exclude = \(exclude)"
 
+        result += "\n" + "cflags = \(cflags)"
+        
+        result += "\n" + "ldflags = \(ldflags)"
+        
         return result
     }
 }

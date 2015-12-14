@@ -52,7 +52,25 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, exclude: exclude)
+        //Parse the cflags options.
+        var cflags: [String] = []
+        if case .Some(.Array(let array)) = table.items["cflags"] {
+            for item in array.items {
+                guard case .String(let cflagItem) = item else { fatalError("cflags contains non string element") }
+                cflags.append(cflagItem)
+            }
+        }
+        
+        //Parse the ldflags options.
+        var ldflags: [String] = []
+        if case .Some(.Array(let array)) = table.items["ldflags"] {
+            for item in array.items {
+                guard case .String(let ldflagItem) = item else { fatalError("ldflags contains non string element") }
+                ldflags.append(ldflagItem)
+            }
+        }
+        
+        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, exclude: exclude, cflags: cflags, ldflags: ldflags)
     }
 }
 
