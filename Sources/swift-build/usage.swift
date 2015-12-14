@@ -22,8 +22,6 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
-	print("  --headers <value>  Header file search paths, separated by colon(:) [-I]")
-	print("  --libs <value>     Library search paths, separated by colon(:) [-L]")
     print("  -v                 Increase verbosity of informational output")
 }
 
@@ -41,12 +39,10 @@ enum CommandLineError: ErrorType {
     case InvalidUsage(String, UsageMode)
 }
 
-func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?, verbosity: Int, headers:[String], libs:[String]) {
+func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?, verbosity: Int) {
     var verbosity = 0
     var chdir: String?
     var mode: Mode?
-	var headers: [String] = []
-	var libs: [String] = []
 
     var cruncher = Cruncher(args: args)
 
@@ -92,24 +88,6 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
                 throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .Imply)
             }
 
-		case .Switch(.Headers):
-			switch try cruncher.peek() {
-			case .Some(.Name(let name)):
-				headers += name.characters.split{$0 == ":"}.map(String.init)
-				cruncher.postPeekPop()
-			default:
-				throw CommandLineError.InvalidUsage("Option `--headers' requires subsequent directories argument", .Imply)
-			}
-
-		case .Switch(.Libs):
-			switch try cruncher.peek() {
-			case .Some(.Name(let name)):
-				libs += name.characters.split{$0 == ":"}.map(String.init)
-				cruncher.postPeekPop()
-			default:
-				throw CommandLineError.InvalidUsage("Option `--libs' requires subsequent directories argument", .Imply)
-			}
-
         case .Switch(.Verbose):
             verbosity += 1
 
@@ -118,7 +96,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
         }
     }
 
-    return (mode ?? .Build(.Debug), chdir, verbosity, headers, libs)
+    return (mode ?? .Build(.Debug), chdir, verbosity)
 }
 
 extension Mode: CustomStringConvertible {
@@ -159,8 +137,6 @@ private struct Cruncher {
         enum TheSwitch: String {
             case Chdir = "--chdir"
             case Verbose = "-v"
-			case Headers = "--headers"
-			case Libs = "--libs"
             
             init?(rawValue: String) {
                 switch rawValue {
@@ -168,10 +144,6 @@ private struct Cruncher {
                     self = .Chdir
                 case Verbose.rawValue, "-vv":
                     self = .Verbose
-				case Headers.rawValue, "-I":
-					self = .Headers
-				case Libs.rawValue, "-L":
-					self = .Libs
                 default:
                     return nil
                 }

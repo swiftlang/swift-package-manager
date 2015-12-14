@@ -19,7 +19,7 @@ Resources.initialize(&globalSymbolInMainBinary)
 
 do {
     let args = Array(Process.arguments.dropFirst())
-    let (mode, chdir, verbosity, headers, libs) = try parse(commandLineArguments: args)
+    let (mode, chdir, verbosity) = try parse(commandLineArguments: args)
 
     sys.verbosity = Verbosity(rawValue: verbosity)
 
@@ -50,28 +50,19 @@ do {
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
 
-		var compileExtraArgs:[String] = []
-		var linkExtraArgs:[String] = []
-		for header in headers {
-			compileExtraArgs += ["-I", header]
-		}
-		for lib in libs {
-			linkExtraArgs += ["-L", lib]
-		}
-
         for pkg in dependencies {
 			try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"),
 				configuration: configuration,
-				compileExtraArgs:compileExtraArgs,
-				linkExtraArgs:linkExtraArgs)
+				compileExtraArgs: manifest.package.cflags,
+				linkExtraArgs: manifest.package.ldflags)
         }
 
         do {
             // build the current directory
             try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"),
 				configuration: configuration,
-				compileExtraArgs:compileExtraArgs,
-				linkExtraArgs:linkExtraArgs)
+				compileExtraArgs: manifest.package.cflags,
+				linkExtraArgs: manifest.package.ldflags)
         } catch POSIX.Error.ExitStatus(let foo) {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but
