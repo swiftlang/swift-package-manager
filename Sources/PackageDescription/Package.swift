@@ -112,9 +112,9 @@ extension Package: TOMLConvertible {
         }
         result += "\n" + "exclude = \(exclude)"
 
-        result += "\n" + "cflags = \(otherCompilerOptions)"
+        result += "\n" + "otherCompilerOptions = \(otherCompilerOptions)"
         
-        result += "\n" + "ldflags = \(otherLinkerOptions)"
+        result += "\n" + "otherLinkerOptions = \(otherLinkerOptions)"
 
         return result
     }
