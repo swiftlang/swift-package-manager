@@ -26,6 +26,9 @@ public func system(args: String...) throws {
  path is not absolute.
 */
 public func system(arguments: [String], environment: [String:String] = [:]) throws {
+    // make sure subprocess output doesn't get interleaved with our own
+    fflush(stdout)
+
     do {
         let pid = try posix_spawnp(arguments[0], args: arguments, environment: environment)
         let exitStatus = try waitpid(pid)
