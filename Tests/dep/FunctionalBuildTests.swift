@@ -49,6 +49,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("test_exdeps", test_exdeps),
             ("test_exdeps_canRunBuildTwice", test_exdeps_canRunBuildTwice),
             ("test_get_ExternalDeps", test_get_ExternalDeps),
+            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("test_get_DealerBuild", test_get_DealerBuild),
             ("test_get_DealerBuildOutput", test_get_DealerBuildOutput),
             ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
@@ -374,6 +375,16 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/Bar"))
             XCTAssertTrue(Path.join(prefix, "Bar/Packages/Foo-1.2.3").isDirectory)
             XCTAssertTrue(Path.join(prefix, "Bar/.build/debug/Bar").isFile)
+        }
+    }
+
+    func testPrintsSelectedDependencyVersion() {
+        fixture(name: "100_external_deps", tag: "1.3.5") { prefix in
+            let output = try executeSwiftBuild("\(prefix)/Bar")
+            let lines = output.componentsSeparatedByString("\n")
+            let matchingLines = lines.filter({ $0.containsString("1.3.5") && $0.containsString("Foo") })
+
+            XCTAssertEqual(matchingLines.count, 1)
         }
     }
 
