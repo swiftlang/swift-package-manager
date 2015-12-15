@@ -381,7 +381,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     func testPrintsSelectedDependencyVersion() {
         fixture(name: "100_external_deps", tag: "1.3.5") { prefix in
             let output = try executeSwiftBuild("\(prefix)/Bar")
-            let lines = output.componentsSeparatedByString("\n")
+            let lines = output.split("\n")
             let matchingLines = lines.filter({ $0.containsString("1.3.5") && $0.containsString("Foo") })
 
             XCTAssertEqual(matchingLines.count, 1)
