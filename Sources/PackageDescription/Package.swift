@@ -62,13 +62,21 @@ public final class Package {
     /// The list of folders to exclude.
     public var exclude: [String]
 
+    /// The list of compile options
+    public var otherCompilerOptions: [String]
+    
+    /// The list of link options
+    public var otherLinkerOptions: [String]
+    
     /// Construct a package.
-    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency], exclude: [String] = [], otherCompilerOptions: [String] = [], otherLinkerOptions: [String] = []) {
         self.name = name
         self.targets = targets
         self.dependencies = dependencies
         self.testDependencies = testDependencies
         self.exclude = exclude
+        self.otherCompilerOptions = otherCompilerOptions
+        self.otherLinkerOptions = otherLinkerOptions
 
         // Add custom exit handler to cause package to be dumped at exit, if requested.
         //
@@ -114,6 +122,10 @@ extension Package: TOMLConvertible {
             result += "[[package.targets]]\n"
             result += target.toTOML()
         }
+
+        result += "\n" + "cflags = \(otherCompilerOptions)"
+        
+        result += "\n" + "ldflags = \(otherLinkerOptions)"
 
         return result
     }

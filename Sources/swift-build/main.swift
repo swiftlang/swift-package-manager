@@ -68,7 +68,7 @@ do {
                 for d in dependencies where d.url == dd.url { return d }
                 fatalError("Could not find dependency for \(dd)")
             }
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration, , compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
         }
 
         let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
@@ -78,7 +78,7 @@ do {
 
         do {
             // build the current directory
-            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration, compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
         } catch POSIX.Error.ExitStatus(let foo) {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but
