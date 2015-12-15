@@ -45,6 +45,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testExecDep", testExecDep),
             ("testExecDeps", testExecDeps),
             ("testMultDeps", testMultDeps),
+            ("testExcludeDirs", testExcludeDirs),
             ("test_exdeps", test_exdeps),
             ("test_exdeps_canRunBuildTwice", test_exdeps_canRunBuildTwice),
             ("test_get_ExternalDeps", test_get_ExternalDeps),
@@ -57,8 +58,10 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testSingleTargetWithCustomName", testSingleTargetWithCustomName),
             ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
             ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
-            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
             ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
+            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+            ("testSymlinkedSourceDirectoryWorks", testSymlinkedSourceDirectoryWorks),
+            ("testSymlinkedNestedSourceDirectoryWorks", testSymlinkedNestedSourceDirectoryWorks),
         ]
     }
 
@@ -334,7 +337,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     }
 
     // 29: Exclude Direcotries
-    func testExludeDirs() {
+    func testExcludeDirs() {
         let filesToVerify = ["BarLib.a", "FooBarLib.a"]
         let filesShouldNotExist = ["FooLib.a"]
         fixture(name: "29_exclude_directory") { prefix in
