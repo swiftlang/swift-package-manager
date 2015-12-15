@@ -68,12 +68,12 @@ do {
                 for d in dependencies where d.url == dd.url { return d }
                 fatalError("Could not find dependency for \(dd)")
             }
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration, , compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration, compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
         }
 
         let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
         for pkg in testDependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration, compilerExtraArgs: manifest.package.otherCompilerOptions, linkerExtraArgs: manifest.package.otherLinkerOptions)
         }
 
         do {

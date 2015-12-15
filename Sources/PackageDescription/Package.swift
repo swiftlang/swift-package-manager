@@ -69,7 +69,7 @@ public final class Package {
     public var otherLinkerOptions: [String]
     
     /// Construct a package.
-    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency], exclude: [String] = [], otherCompilerOptions: [String] = [], otherLinkerOptions: [String] = []) {
+    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = [], otherCompilerOptions: [String] = [], otherLinkerOptions: [String] = []) {
         self.name = name
         self.targets = targets
         self.dependencies = dependencies
@@ -123,9 +123,9 @@ extension Package: TOMLConvertible {
             result += target.toTOML()
         }
 
-        result += "\n" + "cflags = \(otherCompilerOptions)"
+        result += "\n" + "otherCompilerOptions = \(otherCompilerOptions)"
         
-        result += "\n" + "ldflags = \(otherLinkerOptions)"
+        result += "\n" + "otherLinkerOptions = \(otherLinkerOptions)"
 
         return result
     }
