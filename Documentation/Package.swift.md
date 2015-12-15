@@ -55,7 +55,7 @@ let package = Package(
 ```
 
 A package can require dependencies that are only needed during develop,
-as example for testing purposes. `devDependencies` are only fetched 
+as example for testing purposes. `testDependencies` are only fetched 
 when you build current package. They are not fetched if a package is 
 specified as a dependency in other package.
 
@@ -64,7 +64,7 @@ import PackageDescription
 
 let package = Package(
     name: "Hello",
-    devDependencies: [
+    testDependencies: [
         .Package(url: "ssh://git@example.com/Tester.git", versions: Version(1,0,0)..<Version(2,0,0)),
     ]
 )

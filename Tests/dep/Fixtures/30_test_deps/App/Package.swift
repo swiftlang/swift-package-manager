@@ -5,7 +5,7 @@ let package = Package(
     dependencies: [
         .Package(url: "../Foo", majorVersion: 1)
     ],
-    devDependencies: [
-        .Package(url: "../PrivateLib", majorVersion: 1)
+    testDependencies: [
+        .Package(url: "../TestingLib", majorVersion: 1)
     ]
 )
