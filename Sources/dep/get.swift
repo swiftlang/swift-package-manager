@@ -187,7 +187,13 @@ extension Sandbox: Fetcher {
         }
 
         var dependencies: [(String, Range<Version>)] {
-            guard manifest != nil else { return [] }
+            guard manifest != nil else {
+                // manifest may not exist, if so the package is BAD,
+                // still: we should not crash. Build failure will occur
+                // shortly after this because we cannot `setVersion`
+                return []
+            }
+
             //COPY PASTA from Package.dependencies
             return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
         }
