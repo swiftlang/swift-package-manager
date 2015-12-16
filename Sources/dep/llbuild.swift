@@ -98,7 +98,7 @@ private class YAML {
         let path = Path.join(parameters.tmpdir, "llbuild.yaml")
         filename = path
         do {
-            filePointer = try fopen(path, mode: "w")
+            filePointer = try fopen(path, mode: .Write)
         } catch {
             filePointer = nil
             throw error
