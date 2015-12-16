@@ -39,6 +39,7 @@ class TargetTests: XCTestCase, XCTestCaseProvider {
             ("test4", test4),
             ("test5", test5),
             ("test6", test6),
+            ("testEmptyDirectoriesHaveNoTargets", testEmptyDirectoriesHaveNoTargets),
         ]
     }
 
