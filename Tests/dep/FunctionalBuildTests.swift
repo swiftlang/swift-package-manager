@@ -523,4 +523,22 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: path))
         }
     }
+
+    func testInvalidLayout1() {
+        fixture(name: "30_invalid_layout_1") { prefix in
+            XCTAssertNil(try? executeSwiftBuild(prefix))
+        }
+    }
+
+    func testInvalidLayout2() {
+        fixture(name: "30_invalid_layout_2") { prefix in
+            XCTAssertNil(try? executeSwiftBuild(prefix))
+        }
+    }
+
+    func testInvalidLayout3() {
+        fixture(name: "30_invalid_layout_3") { prefix in
+            XCTAssertNil(try? executeSwiftBuild(prefix))
+        }
+    }
 }

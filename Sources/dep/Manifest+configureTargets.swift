@@ -65,7 +65,7 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
             return viableSourceRoots[0]
         default:
             // eg. there is a `Sources' AND a `src'
-            throw Error.InvalidSourcesLayout(viableSourceRoots)
+            throw Error.InvalidSourcesLayout(prefix)
         }
     }()
 
@@ -76,7 +76,19 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
     }
 
     return try { () -> [Target] in
+
+        func throwIfSources(prefix: String) throws {
+            guard walk(prefix, recursively: false).filter({ isValidSourceFile($0, isRoot: true) }).isEmpty else {
+                throw Error.InvalidSourcesLayout(prefix)
+            }
+        }
+
         if dirs.count == 0 {
+
+            if prefix != srcdir {
+                try throwIfSources(prefix)
+            }
+
             // If there are no subdirectories our convention is to treat the
             // root as the source directory, this is convenient for small
             // projects that want the github page to appear as simple as the
@@ -88,8 +100,11 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
                 return [try Target(name: packageName, sources: srcs)]
             }
         } else {
+            try throwIfSources(prefix)
+            try throwIfSources(srcdir)
+
             return dirs.flatMap { path in
-                let srcs = walk(path, recursing: shouldConsiderDirectory).filter({ isValidSourceFile($0) })
+                let srcs = walk(path, recursing: shouldConsiderDirectory).filter(isValidSourceFile)
                 guard srcs.count > 0 else { return nil }
                 return try? Target(name: path.basename, sources: srcs)
             }
@@ -169,4 +184,8 @@ private func isValidSourceFile(filename: String, isRoot: Bool = false) -> Bool {
     }
     
     return !base.hasPrefix(".") && filename.lowercaseString.hasSuffix(".swift")
+}
+
+private func isValidSourceFile(filename: String) -> Bool {
+    return  isValidSourceFile(filename, isRoot: false)
 }

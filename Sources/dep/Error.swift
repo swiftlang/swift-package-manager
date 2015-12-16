@@ -14,7 +14,7 @@ public enum Error: ErrorType {
     case NoManifest(String)
     case ManifestTargetNotFound(String)
     case InvalidDependencyGraph(String)
-    case InvalidSourcesLayout([String])
+    case InvalidSourcesLayout(String)
     case UpdateRequired(String)
 
     case GitCloneFailure(String, String)
