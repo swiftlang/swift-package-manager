@@ -126,6 +126,9 @@ public struct Manifest {
     
     /// Load the manifest at the given path.
     public init(path: String, baseURL: String? = nil) throws {
+
+        guard path.isFile else { throw Error.NoManifest(path) }
+
         // For now, we load the manifest by having Swift interpret it directly
         // and using a special environment variable to trigger the PackageDescription
         // library to dump the package (as TOML) at exit.  Eventually, we should

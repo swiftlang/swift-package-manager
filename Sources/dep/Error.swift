@@ -11,6 +11,7 @@
 public enum Error: ErrorType {
     case InvalidModuleName(String)
     case InvalidManifest(String, errors: [String], data: String)
+    case NoManifest(String)
     case ManifestTargetNotFound(String)
     case InvalidDependencyGraph(String)
     case InvalidSourcesLayout([String])
@@ -23,6 +24,8 @@ public enum Error: ErrorType {
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
+        case NoManifest(let path):
+            return "No Package.swift file found at: \(path)"
         case InvalidModuleName(let name):
             return "Invalid c99 module name: \(name)"
         case InvalidManifest(let path, let errors, _):
