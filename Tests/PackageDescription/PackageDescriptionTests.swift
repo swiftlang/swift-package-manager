@@ -27,6 +27,7 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
     var allTests : [(String, () -> ())] {
         return [
             ("testBasics", testBasics),
+            ("testExclude", testExclude),
         ]
     }
 
