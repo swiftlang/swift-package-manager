@@ -69,7 +69,7 @@ do {
 
         do {
             // build the current directory
-            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies + testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
         } catch POSIX.Error.ExitStatus(let foo) {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but
