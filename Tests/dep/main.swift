@@ -22,4 +22,7 @@ XCTMain([
 
     // PackageTests.swift
     PackageTests(),
+    
+    // GetTests.swift
+    GetTests(),
 ])
