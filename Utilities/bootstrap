@@ -239,7 +239,8 @@ targets = [
 
     # Test dependencies.
     # The Xcode project in swiftpm/Support/ builds these as Swift frameworks.
-    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider"),
+    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider", 
+           is_test=True),
 
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
