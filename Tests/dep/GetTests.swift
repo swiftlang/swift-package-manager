@@ -11,9 +11,10 @@
 import POSIX
 import sys
 import XCTest
+import XCTestCaseProvider
 @testable import dep
 
-class GetTests: XCTestCase {
+class GetTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> ())] {
         return [
