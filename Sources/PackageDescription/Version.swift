@@ -17,20 +17,49 @@ public struct Version {
     }
 
     public let (major, minor, patch): (Int, Int, Int)
-
-    public init(_ major: Int, _ minor: Int, _ patch: Int) {
+    public let prereleaseIdentifiers: [String]?
+    public let buildMetadataIdentifier: String?
+    
+    public init(_ major: Int, _ minor: Int, _ patch: Int, prereleaseIdentifiers: [String]? = nil, buildMetadataIdentifier: String? = nil) {
         self.major = Swift.max(major, 0)
         self.minor = Swift.max(minor, 0)
         self.patch = Swift.max(patch, 0)
+        self.prereleaseIdentifiers = prereleaseIdentifiers
+        self.buildMetadataIdentifier = buildMetadataIdentifier
     }
 
     public init?(_ characters: String.CharacterView) {
-        let components = characters.split(".", maxSplit: 2, allowEmptySlices: true).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
-        guard components.count == 3 else { return nil }
+        let prereleaseStartIndex = characters.indexOf("-")
+        let metadataStartIndex = characters.indexOf("+")
+        
+        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
+        let requiredCharacters = characters.prefixUpTo(requiredEndIndex)
+        let requiredComponents = requiredCharacters.split(".", maxSplit: 2, allowEmptySlices: true).map{ String($0) }.flatMap{ Int($0) }.filter{ $0 >= 0 }
+        
+        guard requiredComponents.count == 3 else {
+            return nil
+        }
 
-        self.major = components[0]
-        self.minor = components[1]
-        self.patch = components[2]
+        self.major = requiredComponents[0]
+        self.minor = requiredComponents[1]
+        self.patch = requiredComponents[2]
+        
+        var prereleaseIdentifiers: [String]? = nil
+        if let prereleaseStartIndex = prereleaseStartIndex {
+            let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
+            let prereleaseCharacters = characters[prereleaseStartIndex.successor()..<prereleaseEndIndex]
+            prereleaseIdentifiers = prereleaseCharacters.split(".").map{ String($0) }
+        }
+        self.prereleaseIdentifiers = prereleaseIdentifiers
+        
+        var buildMetadataIdentifier: String? = nil
+        if let metadataStartIndex = metadataStartIndex {
+            let buildMetadataCharacters = characters.suffixFrom(metadataStartIndex.successor())
+            if !buildMetadataCharacters.isEmpty {
+                buildMetadataIdentifier = String(buildMetadataCharacters)
+            }
+        }
+        self.buildMetadataIdentifier = buildMetadataIdentifier
     }
 
     public init?(_ versionString: String) {
@@ -51,7 +80,17 @@ public struct Version {
 extension Version: Equatable {}
 
 public func ==(v1: Version, v2: Version) -> Bool {
-    return v1.major == v2.major && v1.minor == v2.minor && v1.patch == v2.patch
+    guard v1.major == v2.major && v1.minor == v2.minor && v1.patch == v2.patch else {
+        return false
+    }
+    
+    switch (v1.prereleaseIdentifiers, v2.prereleaseIdentifiers) {
+    case (let p1?, let p2?) where p1 == p2: break
+    case (nil, nil): break
+    default: return false
+    }
+    
+    return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
 }
 
 // MARK: Comparable
@@ -59,7 +98,39 @@ public func ==(v1: Version, v2: Version) -> Bool {
 extension Version: Comparable {}
 
 public func <(lhs: Version, rhs: Version) -> Bool {
-    return [lhs.major, lhs.minor, lhs.patch].lexicographicalCompare([rhs.major, rhs.minor, rhs.patch])
+    let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
+    let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
+    
+    if lhsComparators != rhsComparators {
+        return lhsComparators.lexicographicalCompare(rhsComparators)
+    }
+    
+    guard let lhsPrereleaseIdentifiers = lhs.prereleaseIdentifiers else {
+        return false // Non-prerelease lhs >= potentially prerelease rhs
+    }
+    
+    guard let rhsPrereleaseIdentifiers = rhs.prereleaseIdentifiers else {
+        return true // Prerelease lhs < non-prerelease rhs 
+    }
+    
+    for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhsPrereleaseIdentifiers, rhsPrereleaseIdentifiers) {
+        if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
+            continue
+        }
+        
+        let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
+        let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
+        
+        switch (typedLhsIdentifier, typedRhsIdentifier) {
+        case let (int1 as Int, int2 as Int): return int1 < int2
+        case let (string1 as String, string2 as String): return string1 < string2
+        case (is Int, is String): return true // Int prereleases < String prereleases
+        case (is String, is Int): return false
+        default: return false
+        }
+    }
+    
+    return lhsPrereleaseIdentifiers.count < rhsPrereleaseIdentifiers.count
 }
 
 // MARK: ForwardIndexType
@@ -97,7 +168,14 @@ extension Version: BidirectionalIndexType, ForwardIndexType {
 
 extension Version: CustomStringConvertible {
     public var description: String {
-        return "\(major).\(minor).\(patch)"
+        var base = "\(major).\(minor).\(patch)"
+        if let prereleaseIdentifiers = prereleaseIdentifiers {
+            base += "-" + prereleaseIdentifiers.joinWithSeparator(".")
+        }
+        if let buildMetadataIdentifier = buildMetadataIdentifier {
+            base += "+" + buildMetadataIdentifier
+        }
+        return base
     }
 }
 
