@@ -18,7 +18,9 @@ import POSIX
 public final class Resources {
     /// The registered path of the main executable.
     private static var registeredMainExecutablePath: String? = nil
-
+    /// The computed paths for the install path and executable of package manager
+    private static var _computedResourcePaths: (install: String, executable: String?)?
+    
     /// Initialize the resources support.
     ///
     /// This function should be called from the module defining the executable
@@ -33,7 +35,7 @@ public final class Resources {
     ///   binary path.
     public static func initialize(inout globalSymbolInMainBinary: Int) {
         precondition(Resources.registeredMainExecutablePath == nil, "resources already initialized")
-        precondition(Resources._resourcePaths == nil, "resource paths already computed")
+        precondition(Resources._computedResourcePaths == nil, "resource paths already computed")
 
 #if os(Linux)
         // Infer the path from argv[0].
@@ -57,25 +59,24 @@ public final class Resources {
 
     /// Get the expected install path.
     public static var installPath: String {
-        // Compute the resource paths, if not cached.
-        if _resourcePaths == nil {
-            _resourcePaths = computeResourcesPaths()
-        }
-        return _resourcePaths!.install
+        return computedResourcePaths.install
     }
 
     /// Get the expected path containing executables.
     public static var executablesPath: String? {
-        // Compute the resource paths, if not cached.
-        if _resourcePaths == nil {
-            _resourcePaths = computeResourcesPaths()
-        }
-        return _resourcePaths!.executable
+        return computedResourcePaths.executable
     }
     
     /// Get the runtime library path.
     public static var runtimeLibPath: String {
         return Path.join(installPath, "lib", "swift", "pm")
+    }
+    
+    private static var computedResourcePaths: (install: String, executable: String?) {
+        if _computedResourcePaths == nil {
+            _computedResourcePaths = computeResourcesPaths()
+        }
+        return _computedResourcePaths!
     }
     
     /// Compute the paths for resources.
@@ -93,7 +94,6 @@ public final class Resources {
         // Otherwise, we give up. Assume we are installed in /usr.
         return (install: "/usr", executable: nil)
     }
-    private static var _resourcePaths: (install: String, executable: String?)?
     
     /// Get the main executable path, if registered.
     public static func getMainExecutable() -> String? {
@@ -108,14 +108,18 @@ public final class Resources {
     public static func findExecutable(name: String) -> String {
         // If we have an executable path, look adjacent to it first.
         if let executablesPath = executablesPath {
-            let p = Path.join(executablesPath, name)
-            if p.exists {
-                return p
+            let path = Path.join(executablesPath, name)
+            if path.exists {
+                return path
             }
         }
 
-        // FIXME: Otherwise, search PATH.
-        
+        // Then try to find it from $PATH.
+        // We may need to use "where.exe" on Windows. Currently only for OS X and Linux.
+        if let path = try? popen(["which", name]) {
+            return path.chomp()
+        }
+
         return name
     }
 }
