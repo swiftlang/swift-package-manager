@@ -525,19 +525,64 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     }
 
     func testInvalidLayout1() {
+        /*
+         Package
+         ├── File1.swift   <-- invalid
+         └── Sources
+             └── File2.swift
+        */
         fixture(name: "30_invalid_layout_1") { prefix in
             XCTAssertNil(try? executeSwiftBuild(prefix))
         }
     }
 
     func testInvalidLayout2() {
+        /*
+         Package
+         ├── File1.swift  <-- invalid
+         └── Bar
+             └── Sources
+                 └── File2.swift
+        */
         fixture(name: "30_invalid_layout_2") { prefix in
             XCTAssertNil(try? executeSwiftBuild(prefix))
         }
     }
 
     func testInvalidLayout3() {
+        /*
+         Package
+         └── Sources
+             ├── File1.swift  <-- Invalid
+             └── Bar
+                 └── File2.swift
+        */
         fixture(name: "30_invalid_layout_3") { prefix in
+            XCTAssertNil(try? executeSwiftBuild(prefix))
+        }
+    }
+
+    func testInvalidLayout4() {
+        /*
+         Package
+         ├── File1.swift  <-- Invalid
+         └── Sources
+             └── Bar
+                 └── File2.swift
+        */
+        fixture(name: "30_invalid_layout_4") { prefix in
+            XCTAssertNil(try? executeSwiftBuild(prefix))
+        }
+    }
+
+    func testInvalidLayout5() {
+        /*
+         Package
+         ├── File1.swift
+         └── Bar
+             └── File2.swift  <-- Invalid
+        */
+        fixture(name: "30_invalid_layout_5") { prefix in
             XCTAssertNil(try? executeSwiftBuild(prefix))
         }
     }
