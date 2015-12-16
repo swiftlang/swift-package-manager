@@ -101,7 +101,7 @@ public final class Resources {
     }
     
     /// Search for an executable, searching adjacent to the main executable, if
-    /// known, before searching the PATH.
+    /// known.
     ///
     /// - Returns: The absolute path to the found executable, or the provided
     ///   name if not found in any location.
@@ -113,8 +113,6 @@ public final class Resources {
                 return p
             }
         }
-
-        // FIXME: Otherwise, search PATH.
         
         return name
     }
