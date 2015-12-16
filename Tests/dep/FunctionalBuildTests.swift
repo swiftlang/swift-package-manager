@@ -63,6 +63,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
             ("testSymlinkedSourceDirectoryWorks", testSymlinkedSourceDirectoryWorks),
             ("testSymlinkedNestedSourceDirectoryWorks", testSymlinkedNestedSourceDirectoryWorks),
+            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ]
     }
 
