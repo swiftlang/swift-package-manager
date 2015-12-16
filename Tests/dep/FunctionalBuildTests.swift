@@ -45,9 +45,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testExecDep", testExecDep),
             ("testExecDeps", testExecDeps),
             ("testMultDeps", testMultDeps),
+            ("testExcludeDirs", testExcludeDirs),
             ("test_exdeps", test_exdeps),
             ("test_exdeps_canRunBuildTwice", test_exdeps_canRunBuildTwice),
             ("test_get_ExternalDeps", test_get_ExternalDeps),
+            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("test_get_DealerBuild", test_get_DealerBuild),
             ("test_get_DealerBuildOutput", test_get_DealerBuildOutput),
             ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
@@ -57,8 +59,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testSingleTargetWithCustomName", testSingleTargetWithCustomName),
             ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
             ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
-            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
             ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
+            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+            ("testSymlinkedSourceDirectoryWorks", testSymlinkedSourceDirectoryWorks),
+            ("testSymlinkedNestedSourceDirectoryWorks", testSymlinkedNestedSourceDirectoryWorks),
+            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ]
     }
 
@@ -334,7 +339,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     }
 
     // 29: Exclude Direcotries
-    func testExludeDirs() {
+    func testExcludeDirs() {
         let filesToVerify = ["BarLib.a", "FooBarLib.a"]
         let filesShouldNotExist = ["FooLib.a"]
         fixture(name: "29_exclude_directory") { prefix in
@@ -371,6 +376,14 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild("\(prefix)/Bar"))
             XCTAssertTrue(Path.join(prefix, "Bar/Packages/Foo-1.2.3").isDirectory)
             XCTAssertTrue(Path.join(prefix, "Bar/.build/debug/Bar").isFile)
+        }
+    }
+
+    func testPrintsSelectedDependencyVersion() {
+        fixture(name: "100_external_deps", tag: "1.3.5") { prefix in
+            let output = try executeSwiftBuild("\(prefix)/Bar")
+            let lines = output.characters.split("\n").map(String.init)
+            XCTAssertTrue(lines.contains("Using version 1.3.5 of package Foo"))
         }
     }
 
@@ -462,8 +475,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
     func testTipHasNoPackageSwift() {
         fixture(name: "102_mattts_dealer") { prefix in
             let path = Path.join(prefix, "FisherYates")
-            try system("git", "config", "user.email", "example@example.com")
-            try system("git", "config", "user.name", "Example Example")
+
+            // required for some Linux configurations
+            try system("git", "-C", path, "config", "user.email", "example@example.com")
+            try system("git", "-C", path, "config", "user.name", "Example Example")
+
             try system("git", "-C", path, "rm", "Package.swift")
             try system("git", "-C", path, "commit", "-mwip")
 
@@ -496,6 +512,15 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
         fixture(name: "27_symlinked_nested_sources_directory") { prefix in
             XCTAssertNotNil(try? executeSwiftBuild(prefix))
             XCTAssertTrue(Path.join(prefix, ".build/debug/Bar.a").isFile)
+        }
+    }
+
+    func testPassExactDependenciesToBuildCommand() {
+        let filesToVerify = ["FooExec", "FooLib1.a", "FooLib2.a"]
+        fixture(name: "28_exact_dependencies") { prefix in
+            let path = Path.join(prefix, "app")
+            XCTAssertNotNil(try? executeSwiftBuild(path))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: path))
         }
     }
 }

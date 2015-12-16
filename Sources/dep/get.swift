@@ -166,11 +166,13 @@ extension Sandbox: Fetcher {
         }
 
         /// contract, you cannot call this before you have attempted to `constrain` this clone
-        func setVersion(v: Version) throws {
+        func setVersion(ver: Version) throws {
             let packageVersionsArePrefixed = repo.versionsArePrefixed
-            let v = (packageVersionsArePrefixed ? "v" : "") + v.description
+            let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
             try popen([Git.tool, "-C", path, "reset", "--hard", v])
             try popen([Git.tool, "-C", path, "branch", "-m", v])
+
+            print("Using version \(ver) of package \(Package.name(forURL: url))")
 
             // we must re-read the manifest
             _manifest = nil

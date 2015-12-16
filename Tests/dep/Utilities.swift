@@ -55,11 +55,11 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", @noescape body: (S
 }
 
 
-func executeSwiftBuild(chdir: String) throws {
+func executeSwiftBuild(chdir: String, redirectStandardError: Bool = false) throws -> String {
     let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    try system([toolPath, "--chdir", chdir], environment: env)
+    return try popen([toolPath, "--chdir", chdir], redirectStandardError: redirectStandardError, printOutput: true, environment: env)
 }
 
 func mktmpdir(body: () throws -> Void) {

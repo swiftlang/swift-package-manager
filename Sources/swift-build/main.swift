@@ -50,8 +50,19 @@ do {
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
 
+        // build dependencies
         for pkg in dependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration, compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
+            // pass only the dependencies of this package
+            // we have to map them from PackageDescription.Package to dep.Package
+            let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
+            let dependencies = manifest.package.dependencies.map { dd -> Package in
+                for d in dependencies where d.url == dd.url { return d }
+                fatalError("Could not find dependency for \(dd)")
+            }
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir,
+            tmpdir: Path.join(builddir, "\(pkg.name).o"),
+            configuration: configuration,
+            compilerExtraArgs:manifest.package.otherCompilerOptions, linkerExtraArgs:manifest.package.otherLinkerOptions)
         }
 
         do {
