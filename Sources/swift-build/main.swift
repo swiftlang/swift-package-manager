@@ -62,6 +62,11 @@ do {
             try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
+        let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
+        for pkg in testDependencies {
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+        }
+
         do {
             // build the current directory
             try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)

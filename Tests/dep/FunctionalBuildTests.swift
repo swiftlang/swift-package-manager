@@ -64,6 +64,10 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testSymlinkedSourceDirectoryWorks", testSymlinkedSourceDirectoryWorks),
             ("testSymlinkedNestedSourceDirectoryWorks", testSymlinkedNestedSourceDirectoryWorks),
             ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
+            ("testGetTestDeps", testGetTestDeps),
+            ("testBuildTestDeps", testBuildTestDeps),
+            ("testDontGetChildrenPrivateDeps",testDontGetChildrenPrivateDeps),
+            ("testBuildChildrenPrivateDeps", testBuildChildrenPrivateDeps),
         ]
     }
 
@@ -346,6 +350,44 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild(prefix))
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
             XCTAssertFalse(self.verifyFilesExist(filesShouldNotExist, fixturePath: prefix))
+        }
+    }
+
+    // 30: Test Dependencies
+    func testGetTestDeps() {
+        fixture(name: "30_test_deps") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(Path.join(appPath, "Packages/TestingLib-1.2.3").isDirectory)
+        }
+    }
+
+    func testBuildTestDeps() {
+        let filesToVerify = ["Foo.a", "TestingLib.a"]
+        fixture(name: "30_test_deps") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: appPath))
+        }
+    }
+
+    // 31: Private Dependencies for a Package dependency
+    func testDontGetChildrenPrivateDeps() {
+        fixture(name: "31_test_deps_in_children") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(Path.join(appPath, "Packages/TestingLib-1.2.3").isDirectory)
+            XCTAssertFalse(Path.join(appPath, "Packages/PrivateFooLib-1.2.3").isDirectory)
+        }
+    }
+
+    func testBuildChildrenPrivateDeps() {
+        let filesToVerify = ["Foo.a", "TestingLib.a"]
+        fixture(name: "31_test_deps_in_children") { prefix in
+            let appPath = Path.join(prefix, "App")
+            XCTAssertNotNil(try? executeSwiftBuild(appPath))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: appPath))
+            XCTAssertFalse(self.verifyFilesExist(["TestingFooLib.a"], fixturePath: appPath))
         }
     }
 
