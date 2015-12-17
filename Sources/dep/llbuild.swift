@@ -207,8 +207,10 @@ private class YAML {
                 args += ["-Xcc", "-F-module-map=\(path)", "-I", pkg.path]
             }
 
-            // Swift doesn’t include /usr/local by default
-            args += ["-I", "/usr/local/include"]
+            if "/usr/local/include".isDirectory {
+                // Swift doesn’t include /usr/local by default
+                args += ["-I", "/usr/local/include"]
+            }
 
             return args
         }
@@ -290,9 +292,11 @@ private class YAML {
                 args += libsInThisPackage
                 args += libsInOtherPackages
 
-                // Swift doesn’t include /usr/local by default
-                //TODO we only want to do this if a module map wants to do this
-                args += ["-L/usr/local/lib"]
+                if "/usr/local/lib".isDirectory {
+                    // Swift doesn’t include /usr/local by default
+                    //TODO we only want to do this if a module map wants to do this
+                    args += ["-L/usr/local/lib"]
+                }
 
                 return args
             }
