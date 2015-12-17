@@ -30,6 +30,8 @@ public struct BuildParameters {
         targets = []
         dependencies = []
         conf = .Debug
+        compilerExtraArgs = []
+        linkerExtraArgs = []
     }
 
     public var srcroot: String
@@ -40,6 +42,9 @@ public struct BuildParameters {
     public var tmpdir: String = ""
 
     public var conf: Configuration
+    
+    public var compilerExtraArgs: [String]
+    public var linkerExtraArgs: [String]
 
     private func requiredSubdirectories() -> [String] {
         return targets.flatMap { target in
@@ -48,7 +53,7 @@ public struct BuildParameters {
     }
 }
 
-public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws -> BuildParameters {
+public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration, compilerExtraArgs: [String], linkerExtraArgs: [String]) throws -> BuildParameters {
     var parms = BuildParameters()
     parms.srcroot = srcroot
     parms.targets = targets
@@ -56,6 +61,8 @@ public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [P
     parms.prefix = prefix
     parms.tmpdir = tmpdir
     parms.conf = configuration
+    parms.compilerExtraArgs = compilerExtraArgs
+    parms.linkerExtraArgs = linkerExtraArgs
     try llbuild(parms)
     return parms
 }
@@ -210,6 +217,8 @@ private class YAML {
             // Swift doesn’t include /usr/local by default
             args += ["-I", "/usr/local/include"]
 
+            args += parms.compilerExtraArgs
+            
             return args
         }
 
@@ -293,6 +302,8 @@ private class YAML {
                 // Swift doesn’t include /usr/local by default
                 //TODO we only want to do this if a module map wants to do this
                 args += ["-L/usr/local/lib"]
+                
+                args += parms.linkerExtraArgs
 
                 return args
             }
