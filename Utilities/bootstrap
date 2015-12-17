@@ -411,7 +411,7 @@ def create_bootstrap_files(sandbox_path, opts):
         # Write out the link command.
         print >>output, "  %s:" % json.dumps(target.linked_virtual_node)
         print >>output, "    tool: shell"
-        print >>output, "    description: Link %s" % (target.name,)
+        print >>output, "    description: Link %s" % (target.name if target.is_library else link_output_path,)
         print >>output, "    inputs: %s" % json.dumps(
             link_input_nodes + objects + linked_libraries)
         print >>output, "    outputs: %s" % json.dumps(
