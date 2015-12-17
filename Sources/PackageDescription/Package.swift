@@ -108,12 +108,12 @@ extension Package: TOMLConvertible {
         }
         result += "]\n"
 
-        for target in targets {
+        result += "\n" + "exclude = \(exclude)" + "\n"
 
+        for target in targets {
             result += "[[package.targets]]\n"
             result += target.toTOML()
         }
-        result += "\n" + "exclude = \(exclude)"
 
         return result
     }
