@@ -146,13 +146,13 @@ private struct Cruncher {
         }
         enum TheSwitch: String {
             case Chdir = "--chdir"
-            case Verbose = "-v"
+            case Verbose = "--verbose"
             
             init?(rawValue: String) {
                 switch rawValue {
                 case Chdir.rawValue, "-C":
                     self = .Chdir
-                case Verbose.rawValue:
+                case Verbose.rawValue, "-v":
                     self = .Verbose
                 default:
                     return nil
