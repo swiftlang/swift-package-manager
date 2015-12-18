@@ -70,7 +70,13 @@ public func llbuild(parms: BuildParameters) throws {
 
     let toolPath = getenv("SWIFT_BUILD_TOOL") ?? Resources.findExecutable("swift-build-tool")
     var args = [toolPath]
-    if sys.verbosity != .Concise {
+    switch sys.verbosity {
+    case .Concise:
+        break
+    case .Verbose:
+        args.append("-v")
+    case .Debug:
+        args.append("-v")
         args.append("-v")
     }
     args += ["-f", yaml.filename]
