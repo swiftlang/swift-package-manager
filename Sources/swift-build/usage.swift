@@ -50,38 +50,38 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
         switch try cruncher.pop() {
         case .Mode(let newMode):
             switch (mode, newMode) {
-            case (.Some(let a), let b) where a == b:
+            case (let a?, let b) where a == b:
                 break
-            case (.Some(.Usage), let ignoredArgument):
+            case (.Usage?, let ignoredArgument):
                 throw CommandLineError.InvalidUsage("Both --help and \(ignoredArgument) specified", .Print)
-            case (.Some(let ignoredArgument), .Usage):
+            case (let ignoredArgument?, .Usage):
                 throw CommandLineError.InvalidUsage("Both --help and \(ignoredArgument) specified", .Print)
-            case (.Some(let oldMode), let newMode):
+            case (let oldMode?, let newMode):
                 throw CommandLineError.InvalidUsage("Multiple modes specified: \(oldMode), \(newMode)", .Imply)
-            case (.None, .Build):
+            case (nil, .Build):
                 switch try cruncher.peek() {
-                case .Some(.Name("debug")):
+                case .Name("debug")?:
                     mode = .Build(.Debug)
                     cruncher.postPeekPop()
-                case .Some(.Name("release")):
+                case .Name("release")?:
                     mode = .Build(.Release)
                     cruncher.postPeekPop()
-                case .Some(.Name(let name)):
+                case .Name(let name)?:
                     throw CommandLineError.InvalidUsage("Unknown build configuration: \(name)", .Imply)
                 default:
                     break
                 }
-            case (.None, .Usage):
+            case (nil, .Usage):
                 mode = .Usage
-            case (.None, .Clean):
+            case (nil, .Clean):
                 mode = .Clean
-            case (.None, .Version):
+            case (nil, .Version):
                 mode = .Version
             }
 
         case .Switch(.Chdir):
             switch try cruncher.peek() {
-            case .Some(.Name(let name)):
+            case .Name(let name)?:
                 chdir = name
                 cruncher.postPeekPop()
             default:
@@ -142,7 +142,7 @@ private struct Cruncher {
                 switch rawValue {
                 case Chdir.rawValue, "-C":
                     self = .Chdir
-                case Verbose.rawValue, "-vv":
+                case Verbose.rawValue:
                     self = .Verbose
                 default:
                     return nil
