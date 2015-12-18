@@ -44,7 +44,17 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
     var chdir: String?
     var mode: Mode?
 
-    var cruncher = Cruncher(args: args)
+    var cruncher = Cruncher(args: args.flatMap { arg -> [String] in
+
+        // split short form arguments so Cruncher can work with them,
+        // eg. -vv is split into -v -v
+
+        if arg.hasPrefix("-") && !arg.hasPrefix("--") {
+            return arg.characters.dropFirst().map{ "-" + String($0) }
+        } else {
+            return [arg]
+        }
+    })
 
     while cruncher.shouldContinue {
         switch try cruncher.pop() {
