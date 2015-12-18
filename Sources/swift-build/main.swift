@@ -94,12 +94,12 @@ do {
 
 } catch CommandLineError.InvalidUsage(let hint, let mode) {
 
-    print("Invalid usage: \(hint)", toStream: &stderr)
+    print("Invalid usage:", hint, toStream: &stderr)
 
     if attachedToTerminal() {
         switch mode {
         case .Imply:
-            print("Enter `swift build --help` for usage information.", toStream: &stderr)
+            print("Enter `swift build --help' for usage information.", toStream: &stderr)
         case .Print:
             print("", toStream: &stderr)
             usage { print($0, toStream: &stderr) }
@@ -109,6 +109,6 @@ do {
     exit(1)
 
 } catch {
-    print("swift-build:", error, toStream: &stderr)
+    print("swift-build:", red(error), toStream: &stderr)
     exit(1)
 }

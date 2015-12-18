@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
 import sys
 import XCTest
 import XCTestCaseProvider

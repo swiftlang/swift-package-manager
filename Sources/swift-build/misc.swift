@@ -11,6 +11,7 @@
 import func POSIX.getcwd
 import struct sys.Path
 import struct dep.Manifest
+import func sys.attachedToTerminal
 
 enum Error: ErrorType {
     case NoManifestFound
@@ -34,4 +35,12 @@ func findSourceRoot() throws -> String {
         }
     }
     return rootd
+}
+
+func red(input: Any) -> String {
+    let input = "\(input)"
+    guard attachedToTerminal() else { return input }
+    let ESC = "\u{001B}"
+    let CSI = "\(ESC)["
+    return CSI + "31m" + input + CSI + "0m"
 }

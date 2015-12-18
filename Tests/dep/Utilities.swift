@@ -10,6 +10,8 @@
 
 import POSIX
 import sys
+import func POSIX.system
+import func POSIX.popen
 import XCTest
 import XCTestCaseProvider
 

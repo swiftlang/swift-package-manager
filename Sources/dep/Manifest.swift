@@ -14,6 +14,7 @@
 import PackageDescription
 import POSIX
 import sys
+import func sys.popen
 
 extension PackageDescription.Package {
     public static func fromTOML(item: TOMLItem, baseURL: String? = nil) -> PackageDescription.Package {

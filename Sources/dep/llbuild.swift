@@ -12,6 +12,8 @@ import func libc.fclose
 import PackageDescription
 import POSIX
 import sys
+import func sys.system
+import func sys.popen
 
 public struct BuildParameters {
     public enum Configuration {

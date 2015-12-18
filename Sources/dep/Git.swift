@@ -19,8 +19,7 @@
 import struct PackageDescription.Version
 import POSIX
 import sys
-import func libc.fflush
-import var libc.stdout
+import func sys.popen
 
 class Git {
     class Repo {
@@ -102,31 +101,6 @@ class Git {
         return getenv("SWIFT_GIT") ?? "git"
     }
 }
-
-
-private func system(args: String..., message: String?) throws {
-    var out = ""
-    do {
-        if sys.verbosity == .Concise {
-            if let message = message {
-                print(message)
-                fflush(stdout)  // ensure we display `message` before git asks for credentials
-            }
-            try popen(args, redirectStandardError: true) { line in
-                out += line
-            }
-        } else {
-            try system(args)
-        }
-
-    } catch POSIX.Error.ExitStatus(let foo) {
-        print("$", prettyArguments(args), toStream: &stderr)
-        print(out, toStream: &stderr)
-        throw POSIX.Error.ExitStatus(foo)
-    }
-}
-
-
 
 extension Version {
     private static func vprefix(string: String.CharacterView) -> Version? {

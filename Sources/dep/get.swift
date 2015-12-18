@@ -12,6 +12,7 @@ import class PackageDescription.Package
 import struct PackageDescription.Version
 import POSIX
 import sys
+import func sys.popen
 
 
 /**

@@ -12,6 +12,7 @@ import dep
 import struct PackageDescription.Version
 import POSIX
 import sys
+import func POSIX.system
 import XCTest
 import XCTestCaseProvider
 
