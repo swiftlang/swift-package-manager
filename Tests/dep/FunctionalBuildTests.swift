@@ -68,6 +68,11 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testBuildTestDeps", testBuildTestDeps),
             ("testDontGetChildrenPrivateDeps",testDontGetChildrenPrivateDeps),
             ("testBuildChildrenPrivateDeps", testBuildChildrenPrivateDeps),
+            ("testInvalidLayout1", testInvalidLayout1),
+            ("testInvalidLayout2", testInvalidLayout2),
+            ("testInvalidLayout3", testInvalidLayout3),
+            ("testInvalidLayout4", testInvalidLayout4),
+            ("testInvalidLayout5", testInvalidLayout5),
         ]
     }
 
