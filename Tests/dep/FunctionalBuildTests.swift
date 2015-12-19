@@ -69,6 +69,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testBuildTestDeps", testBuildTestDeps),
             ("testDontGetChildrenPrivateDeps",testDontGetChildrenPrivateDeps),
             ("testBuildChildrenPrivateDeps", testBuildChildrenPrivateDeps),
+            ("testStringConvertibleTarget", testStringConvertibleTarget),
             ("testInvalidLayout1", testInvalidLayout1),
             ("testInvalidLayout2", testInvalidLayout2),
             ("testInvalidLayout3", testInvalidLayout3),
@@ -395,6 +396,15 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: appPath))
             XCTAssertFalse(self.verifyFilesExist(["TestingFooLib.a"], fixturePath: appPath))
         }
+    }
+    
+    // 32: Single dependency with string convertible target
+    func testStringConvertibleTarget() {
+       let filesToVerify = ["BarLib.a", "FooLib.a"]
+       fixture(name: "32_buildlib_singledep_string_target") { prefix in
+           XCTAssertNotNil(try? executeSwiftBuild(prefix))
+           XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
+       }
     }
 
     func test_exdeps() {
