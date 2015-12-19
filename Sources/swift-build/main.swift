@@ -75,12 +75,9 @@ do {
             // it is a common error on Linux for clang++ to not be installed, but
             // we need it for linking. swiftc itself gives a non-useful error, so
             // we try to help here.
+            //FIXME using which is non-ideal: it may not be available
 
-            //TODO really we should figure out if clang++ is installed in a better way
-            // however, since this is an error path, the performance implications are
-            // less severe, so it will do for now.
-
-            if (try? popen(["clang++", "--version"], redirectStandardError: true)) == nil {
+            if (try? sys.popen(["which", "clang++"])) == nil {
                 print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
             }
 #endif
