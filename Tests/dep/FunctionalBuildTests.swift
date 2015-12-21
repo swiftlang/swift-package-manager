@@ -47,6 +47,7 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             ("testExecDeps", testExecDeps),
             ("testMultDeps", testMultDeps),
             ("testExcludeDirs", testExcludeDirs),
+            ("testExcludeWithTarget", testExcludeWithTarget),
             ("test_exdeps", test_exdeps),
             ("test_exdeps_canRunBuildTwice", test_exdeps_canRunBuildTwice),
             ("test_get_ExternalDeps", test_get_ExternalDeps),
@@ -394,6 +395,18 @@ class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
             XCTAssertNotNil(try? executeSwiftBuild(appPath))
             XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: appPath))
             XCTAssertFalse(self.verifyFilesExist(["TestingFooLib.a"], fixturePath: appPath))
+        }
+    }
+
+    // 32 exclude directories (with targets)
+    // (see https://github.com/apple/swift-package-manager/pull/83)
+    func testExcludeWithTarget() {
+        let filesToVerify = ["BarLib.a", "FooBarLib.a"]
+        let filesShouldNotExist = ["FooLib.a"]
+        fixture(name: "32_exclude_directory_with_targets") { prefix in
+            XCTAssertNotNil(try? executeSwiftBuild(prefix))
+            XCTAssertTrue(self.verifyFilesExist(filesToVerify, fixturePath: prefix))
+            XCTAssertFalse(self.verifyFilesExist(filesShouldNotExist, fixturePath: prefix))
         }
     }
 
