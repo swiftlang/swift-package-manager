@@ -21,7 +21,7 @@
 // swift-corelibs-xctest.
 #if os(OSX)
     public protocol XCTestCaseProvider {
-        var allTests : [(String, () -> ())] { get }
+        var allTests : [(String, () -> Void)] { get }
     }
 
     public func XCTMain(testCases: [XCTestCaseProvider]) {
