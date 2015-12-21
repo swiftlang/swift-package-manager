@@ -72,13 +72,7 @@ public func llbuild(parms: BuildParameters) throws {
 
     let toolPath = getenv("SWIFT_BUILD_TOOL") ?? Resources.findExecutable("swift-build-tool")
     var args = [toolPath]
-    switch sys.verbosity {
-    case .Concise:
-        break
-    case .Verbose:
-        args.append("-v")
-    case .Debug:
-        args.append("-v")
+    if sys.verbosity != .Concise {
         args.append("-v")
     }
     args += ["-f", yaml.filename]
@@ -198,6 +192,10 @@ private class YAML {
                 args += ["-Onone", "-g"]
             case .Release:
                 args += ["-O"]
+            }
+
+            if sys.verbosity == .Debug {
+                args.append("-v")
             }
 
           #if os(OSX)
