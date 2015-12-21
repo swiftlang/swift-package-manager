@@ -17,7 +17,7 @@ import libc
 
 class ManifestTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testManifestLoading", testManifestLoading),
         ]

@@ -19,7 +19,7 @@ import XCTestCaseProvider
 
 class FunctionalBuildTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testEmptyPackageSwiftExitsWithZero", testEmptyPackageSwiftExitsWithZero),
             ("testIgnoreFiles", testIgnoreFiles),
