@@ -15,7 +15,7 @@ import libc
  files therein. If recursively is true will enter any directories
  encountered recursively.
 
- - Warning: directories that cannot be entered due to permissions problems
+ - Warning: directories that cannot be entered due to permission problems
  are silently ignored. So keep that in mind.
 
  - Warning: If path doesn’t exist or cannot be entered this generator will
