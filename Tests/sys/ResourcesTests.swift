@@ -16,7 +16,7 @@ public var globalSymbolInNonMainBinary = 0
 
 class ResourcesTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testResources", testResources),
         ]
