@@ -14,7 +14,7 @@ import XCTestCaseProvider
 
 class PackageTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testInitializer", testInitializer)
         ]

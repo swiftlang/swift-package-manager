@@ -14,7 +14,7 @@ import XCTestCaseProvider
 
 class ProjectTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
             ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
