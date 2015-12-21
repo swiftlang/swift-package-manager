@@ -45,7 +45,7 @@ let package = Package(
 
 The targets are named how your subdirectories are named.
 
-If you want to exclude some files and folders from Package, you can simple list them in the `exclude`. Every item specifies an absolute folder path from the Root folder of the package
+If you want to exclude some files and folders from Package, you can simple list them in the `exclude`. Every item specifies a relative folder path from the Root folder of the package
 
 ```swift
 let package = Package(
