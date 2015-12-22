@@ -14,7 +14,7 @@ public enum Error: ErrorType {
     case NoManifest(String)
     case ManifestTargetNotFound(String)
     case InvalidDependencyGraph(String)
-    case InvalidSourcesLayout(String)
+    case InvalidSourcesLayout(path: String, type: InvalidSourcesLayoutError)
     case UpdateRequired(String)
 
     case GitCloneFailure(String, String)
@@ -34,12 +34,28 @@ extension Error: CustomStringConvertible {
             return "The manifest describes a target that cannot be found in your source tree: \(target)"
         case InvalidDependencyGraph(let package):
             return "The dependency graph could not be satisfied (\(package))"
-        case InvalidSourcesLayout(let sources):
-            return "Your source structure is not supported due to conflicting directories: \(sources)"
+        case InvalidSourcesLayout(let path, let errorType):
+            return "Your source structure is not supported due to invalid sources layout: \(path). \(errorType)"
         case UpdateRequired(let package):
             return "The dependency graph could not be satisfied because an update to `\(package)' is required"
         case .GitCloneFailure(let url, let dstdir):
             return "Failed to clone \(url) to \(dstdir)"
+        }
+    }
+}
+
+public enum InvalidSourcesLayoutError {
+    case MultipleSourceFolders([String])
+    case ConflictingSources(String)
+}
+
+extension InvalidSourcesLayoutError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .MultipleSourceFolders(let folders):
+            return "Multiple source folders are found: \(folders). There should be only one source folder in the package."
+        case .ConflictingSources(let folder):
+            return "There should be no source files under: \(folder)."
         }
     }
 }

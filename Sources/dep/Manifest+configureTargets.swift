@@ -65,7 +65,7 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
             return viableSourceRoots[0]
         default:
             // eg. there is a `Sources' AND a `src'
-            throw Error.InvalidSourcesLayout(prefix)
+            throw Error.InvalidSourcesLayout(path: prefix, type: .MultipleSourceFolders(viableSourceRoots))
         }
     }()
 
@@ -77,16 +77,18 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
 
     return try { () -> [Target] in
 
-        func throwIfSources(prefix: String) throws {
+        func throwIfSources(prefix: String, type: InvalidSourcesLayoutError) throws {
             guard walk(prefix, recursively: false).filter({ isValidSourceFile($0, isRoot: true) }).isEmpty else {
-                throw Error.InvalidSourcesLayout(prefix)
+                throw Error.InvalidSourcesLayout(path: prefix, type: type)
             }
         }
 
         if dirs.count == 0 {
+            // There is no subdirectory in source folder.
 
+            // If source folder exists, there should be no source file in root.
             if prefix != srcdir {
-                try throwIfSources(prefix)
+                try throwIfSources(prefix, type: .ConflictingSources(prefix))
             }
 
             // If there are no subdirectories our convention is to treat the
@@ -100,8 +102,10 @@ public func determineTargets(packageName packageName: String, prefix: String, ig
                 return [try Target(name: packageName, sources: srcs)]
             }
         } else {
-            try throwIfSources(prefix)
-            try throwIfSources(srcdir)
+            // Should be no source in root folder
+            try throwIfSources(prefix, type: .ConflictingSources(prefix))
+            // Should be no source in source folder
+            try throwIfSources(srcdir, type: .ConflictingSources(srcdir))
 
             return dirs.flatMap { path in
                 let srcs = walk(path, recursing: shouldConsiderDirectory).filter(isValidSourceFile)
