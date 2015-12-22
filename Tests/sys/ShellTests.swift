@@ -14,7 +14,7 @@ import XCTestCaseProvider
 
 class ShellTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testPopen", testPopen),
             ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated)

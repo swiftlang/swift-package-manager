@@ -15,7 +15,7 @@ import XCTestCaseProvider
 
 class VersionGraphTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> ())] {
+    var allTests : [(String, () -> Void)] {
         return [
             ("testNoGraph", testNoGraph),
             ("testOneDependency", testOneDependency),
