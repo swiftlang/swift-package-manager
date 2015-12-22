@@ -53,6 +53,22 @@ extension Target: TOMLConvertible {
     }
 }
 
+// MARK: StringLiteralConvertible
+
+extension Target.Dependency : StringLiteralConvertible {
+  public init(unicodeScalarLiteral value: String) {
+    self = .Target(name: value)
+  }
+  
+  public init(extendedGraphemeClusterLiteral value: String) {
+    self = .Target(name: value)
+  }
+
+  public init(stringLiteral value: String) {
+    self = .Target(name: value)
+  } 
+}
+
 // MARK: Equatable
 
 extension Target : Equatable { }

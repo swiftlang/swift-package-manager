@@ -57,4 +57,8 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
         let pFromTOML = Package.fromTOML(parseTOML(p.toTOML()))
         XCTAssertEqual(pFromTOML.testDependencies, dependencies)
     }
+    
+    func testTargetDependencyIsStringConvertible() {
+      XCTAssertEqual(Target.Dependency.Target(name: "foo"), "foo")
+    }
 }
