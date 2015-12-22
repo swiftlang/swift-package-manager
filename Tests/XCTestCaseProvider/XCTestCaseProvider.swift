@@ -20,11 +20,33 @@
 // are not used on Linux, where it is already defined by
 // swift-corelibs-xctest.
 #if os(OSX)
+    import XCTest
+
     public protocol XCTestCaseProvider {
         var allTests : [(String, () -> Void)] { get }
     }
 
     public func XCTMain(testCases: [XCTestCaseProvider]) {
         fatalError("Unreachable.")
+    }
+
+    extension XCTestCase {
+        override public func tearDown() {
+            if let provider = self as? XCTestCaseProvider {
+                provider.assertContainsTest(invocation!.selector.description)
+            }
+
+            super.tearDown()
+        }
+    }
+
+    extension XCTestCaseProvider {
+        private func assertContainsTest(name: String) {
+            let contains = self.allTests.contains({ test in
+                return test.0 == name
+            })
+
+            XCTAssert(contains, "Test '\(name)' is missing from the allTests array")
+        }
     }
 #endif

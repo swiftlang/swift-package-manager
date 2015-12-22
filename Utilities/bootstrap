@@ -239,7 +239,8 @@ targets = [
 
     # Test dependencies.
     # The Xcode project in swiftpm/Support/ builds these as Swift frameworks.
-    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider"),
+    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider", 
+           is_test=True),
 
     # Test targets.
     Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
@@ -666,7 +667,7 @@ testing support.""")
                    "SWIFT_BUILD_TOOL=" + opts.sbt_path,
                    "SPM_INSTALL_PATH=" + sandbox_path]
         for target in targets:
-            if not target.is_test:
+            if not target.is_test or target.is_library:
                 continue
 
             note("running test target '%s'..." % (target.name,))
