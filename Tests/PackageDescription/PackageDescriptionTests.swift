@@ -30,6 +30,7 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
             ("testExclude", testExclude),
             ("testEmptyTestDependencies", testEmptyTestDependencies),
             ("testTestDependencies", testTestDependencies),
+            ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
         ]
     }
 
