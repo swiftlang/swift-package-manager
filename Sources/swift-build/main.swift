@@ -12,6 +12,11 @@ import dep
 import POSIX
 import sys
 
+import func libc.fileno
+import var libc.stdin
+import var libc.stderr
+import var sys.stderr
+
 
 // Initialize the resource support.
 public var globalSymbolInMainBinary = 0
@@ -49,6 +54,10 @@ do {
         let targets = try manifest.configureTargets(computedTargets)
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
+
+        guard targets.count > 0 else {
+            throw Error.NoTargetsFound
+        }
 
         // build dependencies
         for pkg in dependencies {
@@ -91,9 +100,9 @@ do {
 
 } catch CommandLineError.InvalidUsage(let hint, let mode) {
 
-    print("Invalid usage:", hint, toStream: &stderr)
+    print("error: invalid usage:", hint, toStream: &stderr)
 
-    if attachedToTerminal() {
+    if isatty(fileno(libc.stdin)) {
         switch mode {
         case .Imply:
             print("Enter `swift build --help' for usage information.", toStream: &stderr)
@@ -106,6 +115,19 @@ do {
     exit(1)
 
 } catch {
-    print("swift-build:", red(error), toStream: &stderr)
+
+    func red(input: Any) -> String {
+        let input = "\(input)"
+        let ESC = "\u{001B}"
+        let CSI = "\(ESC)["
+        return CSI + "31m" + input + CSI + "0m"
+    }
+
+    if !isatty(fileno(libc.stderr)) {
+        print("swift-build: error:", error, toStream: &stderr)
+    } else {
+        print(red("error:"), error, toStream: &stderr)
+    }
+
     exit(1)
 }

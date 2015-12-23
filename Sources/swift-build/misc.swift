@@ -11,17 +11,20 @@
 import func POSIX.getcwd
 import struct sys.Path
 import struct dep.Manifest
-import func sys.attachedToTerminal
 
 enum Error: ErrorType {
     case NoManifestFound
+    case NoTargetsFound
 }
 
 extension Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .NoManifestFound:
-            return "No \(Manifest.filename) file found"
+            return "no \(Manifest.filename) file found"
+        case .NoTargetsFound:
+            return "no targets found for this file layout\n" +
+                   "refer: https://github.com/apple/swift-package-manager/blob/master/Documentation/SourceLayouts.md"
         }
     }
 }
@@ -35,12 +38,4 @@ func findSourceRoot() throws -> String {
         }
     }
     return rootd
-}
-
-func red(input: Any) -> String {
-    let input = "\(input)"
-    guard attachedToTerminal() else { return input }
-    let ESC = "\u{001B}"
-    let CSI = "\(ESC)["
-    return CSI + "31m" + input + CSI + "0m"
 }

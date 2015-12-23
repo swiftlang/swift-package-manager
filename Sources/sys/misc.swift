@@ -41,8 +41,3 @@ public func rmtree(components: String...) throws {
         // Ignore ENOENT.
     }
 }
-
-/// - Returns: true if stdin is attached to a terminal
-public func attachedToTerminal() -> Bool {
-    return isatty(fileno(libc.stdin))
-}
