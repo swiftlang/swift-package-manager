@@ -46,7 +46,7 @@ public struct BuildParameters {
     private func requiredSubdirectories() -> [String] {
         return targets.flatMap { target in
             return target.sources.map { Path(components: $0, "..").relative(to: self.srcroot) }
-        } + [prefix]
+        } + [""]
     }
 }
 
