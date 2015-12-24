@@ -149,16 +149,11 @@ If you then run the following command in the directory `foo`:
 swift build
 ```
 
-Swift will build a single executable called `foo`.
+Swift will build a single executable called `foo` in the `.build` directory.
 
-To the package manager, everything is a package, hence `Package.swift`. However
-this does not mean you have to release your software to the wider world: you can
-develop your app without ever publishing it in a place where others can see or
-use. On the other hand, if one day you decide that your project _should_ be 
-available to a wider audience your sources are already in a form ready to be
-published.  The package manager is also independent of specific forms of
-distribution, so you can use it to share code within your personal projects,
-within your workgroup, team or company, or with the world.
+To the package manager, everything is a package, hence `Package.swift`. The result of building a package is a binary library or executable.  It is your responsibility to distribute, install, and/or use this binary (or not) as appropriate on your system.  Unlike "system" package managers like `apt` or `homebrew`, the Swift Package Manager is concerned only with building packages, not the search, discovery, or installation of built packages, which are tasks better left to other tools.
+
+By focusing on building packages, the package manager is an a appropriate build tool for every Swift module, regardless of operating system or OS convention, or whether the package is publicly or privately distributed.
 
 Of course, the package manager is used to build itself, so its own source files
 are laid out following these conventions as well.
