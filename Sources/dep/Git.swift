@@ -89,7 +89,7 @@ class Git {
             try system(Git.tool, "clone",
                 "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, message: "Cloning \(Path(dstdir).relative(to: "."))")
+                url, dstdir, message: "Cloning \(url)")
         } catch POSIX.Error.ExitStatus {
             throw Error.GitCloneFailure(url, dstdir)
         }
