@@ -48,11 +48,9 @@ For development purposes, the package manager can be built in two ways:
 
 2. To build against a [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
 
-```sh
-git clone git@github.com:apple/swift-package-manager.git swiftpm
-cd swiftpm
-./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
-```
+        git clone git@github.com:apple/swift-package-manager.git swiftpm
+        cd swiftpm
+        ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
 
 Either way, it is recommended that you develop against the latest version of Swift
 to ensure compatibility with new releases.
