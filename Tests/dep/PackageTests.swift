@@ -10,13 +10,16 @@
 
 import XCTest
 import XCTestCaseProvider
-@testable import dep
+import struct dep.Package
+import struct sys.Path
+
 
 class PackageTests: XCTestCase, XCTestCaseProvider {
 
     var allTests : [(String, () -> Void)] {
         return [
-            ("testInitializer", testInitializer)
+            ("testInitializer", testInitializer),
+            ("testModuleTypes", testModuleTypes),
         ]
     }
 
@@ -31,6 +34,16 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
 
         } catch {
             XCTFail()
+        }
+    }
+
+    func testModuleTypes() {
+        fixture(name: "Miscellaneous/PackageType") { prefix in
+            XCTAssertBuilds(prefix, "App")
+            let pkg1 = try Package(path: Path.join(prefix, "App/Packages/Module-1.2.3"))
+            let pkg2 = try Package(path: Path.join(prefix, "App/Packages/ModuleMap-1.2.3"))
+            XCTAssertEqual(pkg1?.type, .Module)
+            XCTAssertEqual(pkg2?.type, .ModuleMap)
         }
     }
 }
