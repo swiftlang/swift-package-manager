@@ -8,9 +8,6 @@ XCTMain([
 	// ManifestTests.swift
 	ManifestTests(),
 
-	// FunctionalBuildTests.swift
-	FunctionalBuildTests(),
-
 	// TargetTests.swift
 	TargetTests(),
 
