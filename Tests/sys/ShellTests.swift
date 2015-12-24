@@ -26,7 +26,7 @@ class ShellTests: XCTestCase, XCTestCaseProvider {
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
-        let path = Path.join(__FILE__, "../../dep/FunctionalBuildTests.swift").normpath
+        let path = Path.join(__FILE__, "../../dep/DependencyGraphTests.swift").normpath
         XCTAssertGreaterThan(try! popen(["cat", path]).characters.count, 4096)
     }
 }

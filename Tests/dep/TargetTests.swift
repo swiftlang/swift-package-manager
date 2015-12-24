@@ -40,6 +40,7 @@ class TargetTests: XCTestCase, XCTestCaseProvider {
             ("test5", test5),
             ("test6", test6),
             ("testEmptyDirectoriesHaveNoTargets", testEmptyDirectoriesHaveNoTargets),
+            ("testIgnoresFiles", testIgnoresFiles),
         ]
     }
 
@@ -165,9 +166,23 @@ class TargetTests: XCTestCase, XCTestCaseProvider {
     }
 
     func testEmptyDirectoriesHaveNoTargets() {
-        mktmpdir {
-            let computedTargets = try determineTargets(packageName: "foo", prefix: ".")
+        mktmpdir { prefix in
+            let computedTargets = try determineTargets(packageName: "foo", prefix: prefix)
             XCTAssertTrue(computedTargets.isEmpty)
+        }
+    }
+
+    func testIgnoresFiles() {
+
+        // there is a hidden `.Bar.swift` file in this fixture
+
+        fixture(name: "Miscellaneous/IgnoreDiagnostic") { prefix in
+            let targets = try determineTargets(packageName: "foo", prefix: prefix)
+            XCTAssertEqual(targets.count, 1)
+            XCTAssertEqual(targets[0].sources.count, 1)
+            XCTAssertEqual(targets[0].sources[0].basename, "Foo.swift")
+
+            XCTAssertBuilds(prefix)
         }
     }
 }

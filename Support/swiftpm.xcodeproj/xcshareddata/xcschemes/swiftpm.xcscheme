@@ -100,6 +100,16 @@
                ReferencedContainer = "container:swiftpm.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "634D96D11C28711E0056FAAA"
+               BuildableName = "Functional-tests.xctest"
+               BlueprintName = "Functional-tests"
+               ReferencedContainer = "container:swiftpm.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <MacroExpansion>
          <BuildableReference

@@ -8,10 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import sys
 import XCTest
 import XCTestCaseProvider
 @testable import dep
+
+import POSIX
+import struct sys.Path
 
 class GetTests: XCTestCase, XCTestCaseProvider {
 
@@ -22,7 +24,7 @@ class GetTests: XCTestCase, XCTestCaseProvider {
     }
 
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
-        fixture(name: "102_mattts_dealer") {
+        fixture(name: "DependencyResolution/External/Complex") {
             let path = Path.join($0, "FisherYates")
             try system("git", "-C", path, "rm", "Package.swift")
             try system("git", "-C", path, "commit", "-mwip")

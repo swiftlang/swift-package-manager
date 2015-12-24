@@ -1,0 +1,117 @@
+import XCTest
+import XCTestCaseProvider
+import func POSIX.rmdir
+import func POSIX.unlink
+
+class InvalidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
+
+    var allTests : [(String, () -> Void)] {
+        return [
+            ("testNoTargets", testNoTargets),
+            ("testMultipleRoots", testMultipleRoots),
+            ("testInvalidLayout1", testInvalidLayout1),
+            ("testInvalidLayout2", testInvalidLayout2),
+            ("testInvalidLayout3", testInvalidLayout3),
+            ("testInvalidLayout4", testInvalidLayout4),
+            ("testInvalidLayout5", testInvalidLayout5),
+        ]
+    }
+
+    func testNoTargets() {
+        fixture(name: "InvalidLayouts/NoTargets") { prefix in
+            XCTAssertFileExists(prefix, "Package.swift")
+            XCTAssertBuildFails(prefix)
+        }
+    }
+
+    func testMultipleRoots() {
+        fixture(name: "InvalidLayouts/MultipleRoots1") { prefix in
+            XCTAssertBuildFails(prefix)
+        }
+        fixture(name: "InvalidLayouts/MultipleRoots2") { prefix in
+            XCTAssertBuildFails(prefix)
+        }
+    }
+
+    func testInvalidLayout1() {
+        /*
+         Package
+         ├── main.swift   <-- invalid
+         └── Sources
+             └── File2.swift
+        */
+        fixture(name: "InvalidLayouts/Generic1") { prefix in
+            XCTAssertBuildFails(prefix)
+            try POSIX.unlink("\(prefix)/main.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testInvalidLayout2() {
+        /*
+         Package
+         ├── main.swift  <-- invalid
+         └── Bar
+             └── Sources
+                 └── File2.swift
+        */
+        fixture(name: "InvalidLayouts/Generic2") { prefix in
+            XCTAssertBuildFails(prefix)
+            try POSIX.unlink("\(prefix)/main.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testInvalidLayout3() {
+        /*
+         Package
+         └── Sources
+             ├── main.swift  <-- Invalid
+             └── Bar
+                 └── File2.swift
+        */
+        fixture(name: "InvalidLayouts/Generic3") { prefix in
+            XCTAssertBuildFails(prefix)
+            try POSIX.unlink("\(prefix)/Sources/main.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testInvalidLayout4() {
+        /*
+         Package
+         ├── main.swift  <-- Invalid
+         └── Sources
+             └── Bar
+                 └── File2.swift
+        */
+        fixture(name: "InvalidLayouts/Generic4") { prefix in
+            XCTAssertBuildFails(prefix)
+            try POSIX.unlink("\(prefix)/main.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testInvalidLayout5() {
+        /*
+         Package
+         ├── File1.swift
+         └── Foo
+             └── Foo.swift  <-- Invalid
+        */
+        fixture(name: "InvalidLayouts/Generic5") { prefix in
+
+            XCTAssertBuildFails(prefix)
+
+            // for the simplest layout it is invalid to have any
+            // subdirectories. It is the compromise you make.
+            // the reason for this is mostly performance in
+            // determineTargets() but also we are saying: this
+            // layout is only for *very* simple projects.
+
+            try POSIX.unlink("\(prefix)/Foo/Foo.swift")
+            try POSIX.rmdir("\(prefix)/Foo")
+            XCTAssertBuilds(prefix)
+        }
+    }
+}

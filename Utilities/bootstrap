@@ -254,6 +254,10 @@ targets = [
            dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc",
                          "XCTestCaseProvider"],
            is_test=True),
+    Target('Functional-tests', subpath="../Tests/Functional",
+           dependencies=["sys", "POSIX", "libc",
+                         "XCTestCaseProvider"],
+           is_test=True),
 ]
 target_map = dict((t.name,t) for t in targets)
 
