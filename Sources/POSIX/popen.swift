@@ -82,8 +82,7 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
                 if let str = String.fromCString(buf) {
                     body(str)
                 } else {
-                    //TODO better
-                    fatalError("fatal: popen: couldn't convert buffer to string")
+                    throw SystemError.popen(EILSEQ, arguments[0])
                 }
             }
         }
