@@ -753,7 +753,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\nln -sf debug bin\n";
+			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\n\nif [ ! -f bin ]; then\n    ln -sf debug bin\nfi\n";
 		};
 		63D5E8AC1C120CDD000A7AAE /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -767,7 +767,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\nln -sf debug bin\n";
+			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\n\nif [ ! -f bin ]; then\n    ln -sf debug bin\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
