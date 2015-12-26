@@ -52,3 +52,16 @@ caused dependency hell for your co-workers.
 
 It is our intention to provide tooling to prevent such situations,
 but for now please be aware of the caveats.
+
+## Packaging legacy code
+
+You may be working with code that builds both as a package and not.  For example, you may be packaging a project that also builds with Xcode.
+
+In these cases, you can use the build configuration `SWIFT_PACKAGE` to conditionally compile code for Swift packages.
+
+```swift
+#if SWIFT_PACKAGE
+import Foundation
+#endif
+```
+
