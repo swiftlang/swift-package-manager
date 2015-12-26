@@ -84,7 +84,7 @@ downloading packages,
 building and linking package modules,
 and resolving dependencies.
 Such a tool can take steps to prevent and mitigate certain forms of dependency hell.
-And for situations than cannot be avoided,
+And for situations that cannot be avoided,
 it can provide tools to clearly diagnose problems when they arise.
 The tool should adapt a flexible distribution and collaboration model,
 rooted in strong conventions and sensible defaults,
