@@ -217,6 +217,11 @@ private class YAML {
                 // Swift doesn’t include /usr/local by default
                 args += ["-I", "/usr/local/include"]
             }
+            
+            // Adding Macports path
+            if "/opt/local/include".isDirectory {
+                args += ["-I", "/opt/local/include"]
+            }
 
             return args
         }
@@ -302,6 +307,11 @@ private class YAML {
                     // Swift doesn’t include /usr/local by default
                     //TODO we only want to do this if a module map wants to do this
                     args += ["-L/usr/local/lib"]
+                }
+                
+                // Adding Macports path
+                if "/opt/local/lib".isDirectory {
+                    args += ["-L/opt/local/lib"]
                 }
 
                 return args
