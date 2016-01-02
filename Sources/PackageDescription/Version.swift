@@ -135,7 +135,7 @@ public func <(lhs: Version, rhs: Version) -> Bool {
 
 // MARK: ForwardIndexType
 
-extension Version: BidirectionalIndexType, ForwardIndexType {
+extension Version: BidirectionalIndexType {
     public func successor() -> Version {
         return successor(.Patch)
     }
