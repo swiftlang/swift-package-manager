@@ -56,8 +56,8 @@ extension PackageDescription.Package {
         var exclude: [String] = []
         if case .Some(.Array(let array)) = table.items["exclude"] {
             for item in array.items {
-                guard case .String(let exludeItem) = item else { fatalError("exclude contains non string element") }
-                exclude.append(exludeItem)
+                guard case .String(let excludeItem) = item else { fatalError("exclude contains non string element") }
+                exclude.append(excludeItem)
             }
         }
         
