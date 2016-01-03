@@ -37,6 +37,13 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
         }
     }
 
+    func testSingleModuleSubfolderWithSwiftSuffix() {
+        fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: __FILE__, line: __LINE__) { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar.a")
+        }
+    }
+
     func testMultipleModulesLibraries() {
         runLayoutFixture(name: "MultipleModules/Libraries") { prefix in
             XCTAssertBuilds(prefix)
@@ -101,6 +108,7 @@ extension ValidLayoutsTestCase {
             ("testSingleModuleLibrary", testSingleModuleLibrary),
             ("testSingleModuleExecutable", testSingleModuleExecutable),
             ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
+            ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
             ("testMultipleModulesLibraries", testMultipleModulesLibraries),
             ("testMultipleModulesExecutables", testMultipleModulesExecutables),
         ]
