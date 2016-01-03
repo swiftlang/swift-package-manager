@@ -23,6 +23,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
             ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
             ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+            ("testExtraArgs", testExtraArgs)
         ]
     }
 
@@ -203,6 +204,12 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             try system("git", "-C", path, "tag", "--force", "1.2.3")
 
             XCTAssertBuildFails(prefix, "app")
+        }
+    }
+
+    func testExtraArgs() {
+        fixture(name: "Miscellaneous/ExtraArgs") { prefix in
+            XCTAssertBuilds(prefix)
         }
     }
 }
