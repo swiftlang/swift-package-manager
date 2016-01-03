@@ -211,5 +211,8 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
         fixture(name: "Miscellaneous/ExtraArgs") { prefix in
             XCTAssertBuilds(prefix)
         }
+        fixture(name: "Miscellaneous/ExtraArgsTarget") { prefix in
+            XCTAssertBuilds(prefix)
+        }
     }
 }

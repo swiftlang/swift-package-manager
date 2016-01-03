@@ -118,14 +118,14 @@ extension Package: TOMLConvertible {
 
         result += "\n" + "exclude = \(exclude)" + "\n"
 
+        result += "\n" + "otherCompilerOptions = \(otherCompilerOptions)" + "\n"
+        
+        result += "\n" + "otherLinkerOptions = \(otherLinkerOptions)" + "\n"
+
         for target in targets {
             result += "[[package.targets]]\n"
             result += target.toTOML()
         }
-
-        result += "\n" + "otherCompilerOptions = \(otherCompilerOptions)"
-        
-        result += "\n" + "otherLinkerOptions = \(otherLinkerOptions)"
 
         return result
     }
