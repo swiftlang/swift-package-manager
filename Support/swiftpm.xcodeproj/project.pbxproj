@@ -172,6 +172,13 @@
 			remoteGlobalIDString = E1D191BE1B47232B000C4E95;
 			remoteInfo = "llbuild-framework";
 		};
+		63A90A8A1C3B0C0D00ACAA6C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 63344F981BB0806700460D40 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 63344F9C1BB0806700460D40;
+			remoteInfo = swiftpm;
+		};
 		DA3C2B1F1C1B4E2000893759 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 63344F981BB0806700460D40 /* Project object */;
@@ -458,7 +465,6 @@
 				63353A471BB4C46200D6C4B0 /* Sources */,
 				63353A481BB4C46200D6C4B0 /* Frameworks */,
 				63353A491BB4C46200D6C4B0 /* Resources */,
-				63D5E8AC1C120CDD000A7AAE /* Run Script */,
 			);
 			buildRules = (
 			);
@@ -478,7 +484,6 @@
 				634D96D61C28711E0056FAAA /* Sources */,
 				634D96E01C28711E0056FAAA /* Frameworks */,
 				634D96E11C28711E0056FAAA /* Resources */,
-				634D96E21C28711E0056FAAA /* Run Script */,
 			);
 			buildRules = (
 			);
@@ -499,10 +504,12 @@
 				DA3C2B101C1B4D4A00893759 /* Frameworks */,
 				DA3C2B111C1B4D4A00893759 /* Headers */,
 				DA3C2B121C1B4D4A00893759 /* Resources */,
+				63A90A891C3B0B9500ACAA6C /* ShellScript */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				63A90A8B1C3B0C0D00ACAA6C /* PBXTargetDependency */,
 			);
 			name = XCTestCaseProvider;
 			productName = XCTestCaseProvider;
@@ -741,33 +748,18 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		634D96E21C28711E0056FAAA /* Run Script */ = {
+		63A90A891C3B0B9500ACAA6C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Run Script";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\n\nif [ ! -f bin ]; then\n    ln -sf debug bin\nfi\n";
-		};
-		63D5E8AC1C120CDD000A7AAE /* Run Script */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Run Script";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\n\nif [ ! -f bin ]; then\n    ln -sf debug bin\nfi\n";
+			shellScript = "# so Resources.swift can find swift-build\n\ncd $PROJECT_DIR/../.build\nln -sf debug bin\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -846,6 +838,11 @@
 			isa = PBXTargetDependency;
 			name = "swift-build-tool";
 			targetProxy = 637021321BED46CE0005C5D5 /* PBXContainerItemProxy */;
+		};
+		63A90A8B1C3B0C0D00ACAA6C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 63344F9C1BB0806700460D40 /* swiftpm */;
+			targetProxy = 63A90A8A1C3B0C0D00ACAA6C /* PBXContainerItemProxy */;
 		};
 		DA3C2B201C1B4E2000893759 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
