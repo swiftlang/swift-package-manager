@@ -187,7 +187,7 @@ private func isValidSourceFile(filename: String, isRoot: Bool = false) -> Bool {
         return false
     }
     
-    return !base.hasPrefix(".") && filename.lowercaseString.hasSuffix(".swift")
+    return !base.hasPrefix(".") && filename.lowercaseString.hasSuffix(".swift") && filename.isFile
 }
 
 private func isValidSourceFile(filename: String) -> Bool {
