@@ -60,6 +60,7 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", file: MyString = _
         }
     } catch {
         // Work around for a miscompile when converting error type to string. rdar://problem/23616384
+        // COPYPASTA
         struct TempStream: OutputStreamType {
             var result: String = ""
             mutating func write(string: String) {
@@ -73,11 +74,11 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", file: MyString = _
     }
 }
 
-func executeSwiftBuild(chdir: String, redirectStandardError: Bool = false) throws -> String {
+func executeSwiftBuild(chdir: String) throws -> String {
     let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    return try popen([toolPath, "--chdir", chdir], redirectStandardError: redirectStandardError, printOutput: true, environment: env)
+    return try popen([toolPath, "--chdir", chdir], redirectStandardError: true, printOutput: false, environment: env)
 }
 
 func mktmpdir(file: MyString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
@@ -93,8 +94,21 @@ func mktmpdir(file: MyString = __FILE__, line: UInt = __LINE__, @noescape body: 
 
 func XCTAssertBuilds(paths: String..., file: MyString = __FILE__, line: UInt = __LINE__) {
     let prefix = Path.join(paths)
-    if (try? executeSwiftBuild(prefix)) == nil {
-        XCTFail("`swift build' failed", file: file, line: line)
+    do {
+        try executeSwiftBuild(prefix)
+    } catch {
+        // Work around for a miscompile when converting error type to string. rdar://problem/23616384
+        // COPYPASTA
+        struct TempStream: OutputStreamType {
+            var result: String = ""
+            mutating func write(string: String) {
+                result += string
+            }
+        }
+        var stream = TempStream()
+        print(error, toStream: &stream)
+
+        XCTFail("`swift build' failed:\n\n\(stream.result)\n", file: file, line: line)
     }
 }
 
