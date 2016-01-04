@@ -2,7 +2,6 @@ import XCTest
 import XCTestCaseProvider
 import enum POSIX.Error
 import func POSIX.popen
-import func POSIX.system
 import struct sys.Path
 
 class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {

@@ -10,10 +10,8 @@
 
 import XCTest
 import XCTestCaseProvider
-@testable import dep
-
-import POSIX
 import struct sys.Path
+@testable import dep
 
 class GetTests: XCTestCase, XCTestCaseProvider {
 

@@ -139,3 +139,7 @@ func XCTAssertNoSuchPath(paths: String..., file: MyString = __FILE__, line: UInt
         XCTFail("path exists by should not: \(path)", file: file, line: line)
     }
 }
+
+func system(args: String...) throws {
+    try popen(args, redirectStandardError: true)
+}
