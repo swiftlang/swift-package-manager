@@ -59,18 +59,7 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", file: MyString = _
             }
         }
     } catch {
-        // Work around for a miscompile when converting error type to string. rdar://problem/23616384
-        // COPYPASTA
-        struct TempStream: OutputStreamType {
-            var result: String = ""
-            mutating func write(string: String) {
-                result += string
-            }
-        }
-        var stream = TempStream()
-        print(error, toStream: &stream)
-
-        XCTFail(stream.result, file: file, line: line)
+        XCTFail(safeStringify(error), file: file, line: line)
     }
 }
 
@@ -88,7 +77,7 @@ func mktmpdir(file: MyString = __FILE__, line: UInt = __LINE__, @noescape body: 
             try body(dir)
         }
     } catch {
-        XCTFail("\(error)", file: file, line: line)
+        XCTFail(safeStringify(error), file: file, line: line)
     }
 }
 
@@ -97,18 +86,7 @@ func XCTAssertBuilds(paths: String..., file: MyString = __FILE__, line: UInt = _
     do {
         try executeSwiftBuild(prefix)
     } catch {
-        // Work around for a miscompile when converting error type to string. rdar://problem/23616384
-        // COPYPASTA
-        struct TempStream: OutputStreamType {
-            var result: String = ""
-            mutating func write(string: String) {
-                result += string
-            }
-        }
-        var stream = TempStream()
-        print(error, toStream: &stream)
-
-        XCTFail("`swift build' failed:\n\n\(stream.result)\n", file: file, line: line)
+        XCTFail("`swift build' failed:\n\n\(safeStringify(error))\n", file: file, line: line)
     }
 }
 
@@ -142,4 +120,20 @@ func XCTAssertNoSuchPath(paths: String..., file: MyString = __FILE__, line: UInt
 
 func system(args: String...) throws {
     try popen(args, redirectStandardError: true)
+}
+
+func safeStringify(error: ErrorType) -> String {
+    // work around for a miscompile when converting error type to string
+    // rdar://problem/23616384
+
+    struct TempStream: OutputStreamType {
+        var result: String = ""
+        mutating func write(string: String) {
+            result += string
+        }
+    }
+
+    var stream = TempStream()
+    print(error, toStream: &stream)
+    return stream.result
 }

@@ -13,7 +13,6 @@ import XCTestCaseProvider
 import PackageDescription
 import sys
 @testable import dep
-import libc
 
 class ManifestTests: XCTestCase, XCTestCaseProvider {
 
@@ -23,37 +22,40 @@ class ManifestTests: XCTestCase, XCTestCaseProvider {
         ]
     }
 
-    private func loadManifest(inputName: String) -> Manifest {
-        let input = Path.join(__FILE__, "../Inputs", inputName).normpath
+    private func loadManifest(inputName: String, line: UInt = __LINE__, body: (Manifest) -> Void) {
         do {
-            return try Manifest(path: input)
-        } catch let err {
-            fatalError("unexpected error: \(err)")
+            let input = Path.join(__FILE__, "../Inputs", inputName).normpath
+            body(try Manifest(path: input))
+        } catch {
+            XCTFail("Unexpected error: \(safeStringify(error))", file: __FILE__, line: line)
         }
     }
 
     func testManifestLoading() {
         // Check a trivial manifest.
-        var manifest = loadManifest("trivial-manifest")
-        XCTAssertEqual(manifest.package.name, "Trivial")
-        XCTAssertEqual(manifest.package.targets, [])
-        XCTAssertEqual(manifest.package.dependencies, [])
+        loadManifest("trivial-manifest") { manifest in
+            XCTAssertEqual(manifest.package.name, "Trivial")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
+        }
 
         // Check a manifest with package specifications.
-        manifest = loadManifest("package-deps-manifest")
-        XCTAssertEqual(manifest.package.name, "PackageDeps")
-        XCTAssertEqual(manifest.package.targets, [])
-        XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
+        loadManifest("package-deps-manifest") { manifest in
+            XCTAssertEqual(manifest.package.name, "PackageDeps")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
+        }
 
         // Check a manifest with targets.
-        manifest = loadManifest("target-deps-manifest")
-        XCTAssertEqual(manifest.package.name, "TargetDeps")
-        XCTAssertEqual(manifest.package.targets, [
-            Target(
-                name: "sys",
-                dependencies: [.Target(name: "libc")]),
-            Target(
-                name: "dep",
-                dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
+        loadManifest("target-deps-manifest") { manifest in
+            XCTAssertEqual(manifest.package.name, "TargetDeps")
+            XCTAssertEqual(manifest.package.targets, [
+                Target(
+                    name: "sys",
+                    dependencies: [.Target(name: "libc")]),
+                Target(
+                    name: "dep",
+                    dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
+        }
     }
 }
