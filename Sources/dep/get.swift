@@ -312,14 +312,12 @@ extension Range where Element: BidirectionalIndexType, Element: Comparable {
      If the two ranges do not overlap at all returns `nil`.
     */
     func constrain(to constraint: Range) -> Range? {
-        guard self ~= constraint.endIndex.predecessor() || self ~= constraint.startIndex else {
+        let start = max(self.startIndex, constraint.startIndex)
+        let end = min(self.endIndex, constraint.endIndex)
+        if start < end {
+            return start..<end
+        } else {
             return nil
         }
-
-        let lhs = constraint
-        let rhs = self
-        let start = [lhs.startIndex, rhs.startIndex].maxElement()!
-        let end = [lhs.endIndex, rhs.endIndex].minElement()!
-        return start..<end
     }
 }
