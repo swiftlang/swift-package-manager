@@ -53,8 +53,6 @@ do {
 
         let targets = try manifest.configureTargets(computedTargets)
         let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
-        let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
-        let allDependencies = dependencies + testDependencies
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
 
         guard targets.count > 0 else {
@@ -62,15 +60,27 @@ do {
         }
 
         // build dependencies
-        for pkg in allDependencies {
+        for pkg in dependencies {
             // pass only the dependencies of this package
             // we have to map them from PackageDescription.Package to dep.Package
             let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
-            let dependencies = manifest.package.dependencies.map { dd -> Package in
-                for d in allDependencies where d.url == dd.url { return d }
+            let pkgDependencies = manifest.package.dependencies.map { dd -> Package in
+                for d in dependencies where d.url == dd.url { return d }
                 fatalError("Could not find dependency for \(dd)")
             }
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: pkgDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+        }
+
+        let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
+        for pkg in testDependencies {
+            // pass only the dependencies of this package
+            // we have to map them from PackageDescription.Package to dep.Package
+            let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
+            let pkgDependencies = manifest.package.dependencies.map { dd -> Package in
+                for d in testDependencies where d.url == dd.url { return d }
+                fatalError("Could not find dependency for \(dd)")
+            }
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: pkgDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         do {
