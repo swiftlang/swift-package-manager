@@ -50,13 +50,8 @@ public class FileLineGenerator: GeneratorType, SequenceType {
     private let separator: Int32
 
     init(path: String, separator c: Character) throws {
-        do {
-            separator = Int32(String(c).utf8.first!)
-            fp = try fopen(path)
-        } catch {
-            fp = nil
-            throw error
-        }
+        separator = Int32(String(c).utf8.first!)
+        fp = try fopen(path)
     }
 
     deinit {

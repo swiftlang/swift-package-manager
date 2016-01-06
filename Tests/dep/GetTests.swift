@@ -20,6 +20,7 @@ class GetTests: XCTestCase, XCTestCaseProvider {
         return [
             ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
             ("testRangeConstrain", testRangeConstrain),
+            ("testGitRepoInitialization", testGitRepoInitialization),
         ]
     }
 
@@ -67,7 +68,16 @@ class GetTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(r1.constrain(to: r8), r18)
         XCTAssertEqual(r8.constrain(to: r1), r18)
     }
-    
+
+    func testGitRepoInitialization() {
+
+        fixture(name: "DependencyResolution/External/Complex") { prefix in
+            XCTAssertNotNil(Git.Repo(root: Path.join(prefix, "App")))
+        }
+
+        XCTAssertNil(Git.Repo(root: __FILE__))
+        XCTAssertNil(Git.Repo(root: __FILE__.parentDirectory))
+    }
 }
 
 

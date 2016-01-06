@@ -84,7 +84,6 @@ private class YAML {
     var filePointer: UnsafeMutablePointer<FILE>
     let filename: String
 
-    
     /**
       The 'swiftc' executable path to use.
     */
@@ -97,32 +96,24 @@ private class YAML {
     
     init(parameters: BuildParameters) throws {
         parms = parameters
-        let path = Path.join(parameters.tmpdir, "llbuild.yaml")
-        filename = path
-        do {
-            filePointer = try fopen(path, mode: .Write)
-        } catch {
-            filePointer = nil
-            throw error
-        }
+        filename = Path.join(parameters.tmpdir, "llbuild.yaml")
+        filePointer = try fopen(filename, mode: .Write)
 
         // Compute the 'swiftc' to use.
-        swiftcPath = getenv("SWIFTC") ?? Resources.findExecutable("swiftc")
+        swiftcPath = getenv("SWIFT_EXEC") ?? getenv("SWIFTC") ?? Resources.findExecutable("swiftc")
 
-        // Compute the '--sysroot' to use.
-        //
-        // On OS X, we automatically infer this using xcrun for the time being,
-        // to support users directly invoking the tools from a downloadable
-        // toolchain.
-        if let sysroot = getenv("SYSROOT") {
-            self.sysroot = sysroot
-        } else {
-#if os(OSX)
-            self.sysroot = (try? popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
-#else
-            self.sysroot = nil
-#endif
+        func xcrun() -> String? {
+        #if os(OSX)
+            // On OS X, we automatically infer this using xcrun for the time being,
+            // to support users directly invoking the tools from a downloadable
+            // toolchain.
+            return (try? popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
+        #else
+            return nil
+        #endif
         }
+
+        sysroot = getenv("SYSROOT") ?? xcrun()
     }
 
     deinit {

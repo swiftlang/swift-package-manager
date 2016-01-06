@@ -24,12 +24,7 @@ public class Target {
         self.sources = sources
         self.type = type
         self.dependencies = []
-        do {
-            moduleName = try moduleNameForName(productName)
-        } catch {
-            moduleName = ""
-            throw error
-        }
+        self.moduleName = try moduleNameForName(productName)
     }
 }
 
