@@ -61,7 +61,25 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
+        //Parse the cflags options.
+        var otherCompilerOptions: [String] = []
+        if case .Some(.Array(let array)) = table.items["otherCompilerOptions"] {
+            for item in array.items {
+                guard case .String(let flag) = item else { fatalError("otherCompilerOptions contains non string element") }
+                otherCompilerOptions.append(flag)
+            }
+        }
+        
+        //Parse the ldflags options.
+        var otherLinkerOptions: [String] = []
+        if case .Some(.Array(let array)) = table.items["otherLinkerOptions"] {
+            for item in array.items {
+                guard case .String(let flag) = item else { fatalError("otherLinkerOptions contains non string element") }
+                otherLinkerOptions.append(flag)
+            }
+        }
+        
+        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude, otherCompilerOptions: otherCompilerOptions, otherLinkerOptions: otherLinkerOptions)
     }
 }
 
