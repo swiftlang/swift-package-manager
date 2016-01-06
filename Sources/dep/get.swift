@@ -183,7 +183,7 @@ extension Sandbox: Fetcher {
             return availableVersions.filter {
                 // not using `contains` as it uses successor() and for Range<Version>
                 // this involves iterating from 0 to Int.max!
-                if case versionRange = $0 { return true } else { return false }
+                versionRange ~= $0
             }.last
         }
 
