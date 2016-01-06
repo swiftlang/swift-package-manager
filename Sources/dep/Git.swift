@@ -26,7 +26,7 @@ class Git {
         let root: String
 
         init?(root: String) {
-            guard let realroot = try? realpath(root) else { self.root = ""; return nil }
+            guard let realroot = try? realpath(root) else { return nil }
             self.root = realroot
             guard Path.join(root, ".git").isDirectory else { return nil }
         }
