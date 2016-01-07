@@ -64,16 +64,23 @@ do {
             // pass only the dependencies of this package
             // we have to map them from PackageDescription.Package to dep.Package
             let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
-            let dependencies = manifest.package.dependencies.map { dd -> Package in
+            let pkgDependencies = manifest.package.dependencies.map { dd -> Package in
                 for d in dependencies where d.url == dd.url { return d }
                 fatalError("Could not find dependency for \(dd)")
             }
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: pkgDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
         for pkg in testDependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
+            // pass only the dependencies of this package
+            // we have to map them from PackageDescription.Package to dep.Package
+            let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
+            let pkgDependencies = manifest.package.dependencies.map { dd -> Package in
+                for d in testDependencies where d.url == dd.url { return d }
+                fatalError("Could not find dependency for \(dd)")
+            }
+            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: pkgDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         do {
