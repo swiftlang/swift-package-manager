@@ -6,7 +6,9 @@ let numberOfCards = 10
 
 var deck = Deck.standard52CardDeck()
 
-//deck.shuffle()  // no shuffle!
+if FisherYates.shuffle {
+    deck.shuffle()
+}
 
 for _ in 0..<numberOfCards {
     guard let card = deck.deal() else {

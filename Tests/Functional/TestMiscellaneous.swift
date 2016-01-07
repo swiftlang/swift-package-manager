@@ -1,9 +1,11 @@
 import XCTest
 import XCTestCaseProvider
+import func libc.fclose
+import func libc.sleep
 import enum POSIX.Error
-import func POSIX.popen
 import func POSIX.fopen
 import func POSIX.fputs
+import func POSIX.popen
 import struct sys.Path
 
 class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
@@ -25,7 +27,9 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
             ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
             ("testPackageManagerDefine", testPackageManagerDefine),
-            ("testDependencyEdges", testDependencyEdges),
+            ("testInternalDependencyEdges", testInternalDependencyEdges),
+            ("testExternalDependencyEdges1", testExternalDependencyEdges1),
+            ("testExternalDependencyEdges2", testExternalDependencyEdges2),
         ]
     }
 
@@ -219,20 +223,76 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
      Tests that modules that are rebuilt causes
      any executables that link to that module to be relinked.
     */
-    func testDependencyEdges() {
-        fixture(name: "Miscellaneous/DependencyEdges") { prefix in
+    func testInternalDependencyEdges() {
+        fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
+            let execpath = [Path.join(prefix, ".build/debug/Foo")]
+
             XCTAssertBuilds(prefix)
-            var output = try popen([Path.join(prefix, ".build/debug/Foo")])
+            var output = try popen(execpath)
             XCTAssertEqual(output, "Hello\n")
 
-            do {
-                let fp = try fopen(prefix, "Bar/Bar.swift", mode: .Write)
-                defer { fclose(fp) }
-                try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
-            }
+            // we need to sleep at least one second otherwise
+            // llbuild does not realize the file has changed
+            sleep(1)
+
+            let fp = try fopen(prefix, "Bar/Bar.swift", mode: .Write)
+            try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
+            fclose(fp)
 
             XCTAssertBuilds(prefix)
-            output = try popen([Path.join(prefix, ".build/debug/Foo")])
+            output = try popen(execpath)
+            XCTAssertEqual(output, "Goodbye\n")
+        }
+    }
+
+    /**
+     Tests that modules from other packages that are rebuilt causes
+     any executables that link to that module in the root package.
+    */
+    func testExternalDependencyEdges1() {
+        fixture(name: "DependencyResolution/External/Complex") { prefix in
+            let execpath = [Path.join(prefix, "app/.build/debug/Dealer")]
+
+            XCTAssertBuilds(prefix, "app")
+            var output = try popen(execpath)
+            XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
+
+            // we need to sleep at least one second otherwise
+            // llbuild does not realize the file has changed
+            sleep(1)
+
+            let fp = try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write)
+            try POSIX.fputs("public extension CollectionType{ func shuffle() -> [Generator.Element] {return []} }\n\npublic extension MutableCollectionType where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerate() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
+            fclose(fp)
+
+            XCTAssertBuilds(prefix, "app")
+            output = try popen(execpath)
+            XCTAssertEqual(output, "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
+        }
+    }
+
+    /**
+     Tests that modules from other packages that are rebuilt causes
+     any executables for another external package to be rebuilt.
+     */
+    func testExternalDependencyEdges2() {
+        fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
+            let execpath = [Path.join(prefix, "root/.build/debug/dep2")]
+
+            XCTAssertBuilds(prefix, "root")
+            var output = try popen(execpath)
+            XCTAssertEqual(output, "Hello\n")
+
+            // we need to sleep at least one second otherwise
+            // llbuild does not realize the file has changed
+            sleep(1)
+
+            let fp = try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write)
+            try POSIX.fputs("public let foo = \"Goodbye\"", fp)
+            fclose(fp)
+
+            XCTAssertBuilds(prefix, "root")
+            output = try popen(execpath)
             XCTAssertEqual(output, "Goodbye\n")
         }
     }

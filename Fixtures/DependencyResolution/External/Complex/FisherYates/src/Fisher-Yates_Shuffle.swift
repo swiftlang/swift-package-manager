@@ -28,3 +28,5 @@ public extension MutableCollectionType where Index == Int {
         }
     }
 }
+
+public let shuffle = false

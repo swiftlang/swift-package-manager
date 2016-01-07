@@ -232,6 +232,12 @@ private class YAML {
     func writeLinkNode(target: Target) throws {
         let objects = ofiles(target)
         let inputs = ["<\(target.productName)-swiftc>"] + objects
+            // TODO this should refer to the llbuild-node when we combine all llbuild yamls
+            + (try parms.dependencies.flatMap {
+                try $0.targets().flatMap{
+                    Path.join(self.parms.prefix, $0.productFilename)
+                }
+            })
         let productPath = Path.join(parms.prefix, target.productFilename)
         let outputs = [target.targetNode, productPath]
 
