@@ -2,6 +2,8 @@ import XCTest
 import XCTestCaseProvider
 import enum POSIX.Error
 import func POSIX.popen
+import func POSIX.fopen
+import func POSIX.fputs
 import struct sys.Path
 
 class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
@@ -23,6 +25,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
             ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
             ("testPackageManagerDefine", testPackageManagerDefine),
+            ("testDependencyEdges", testDependencyEdges),
         ]
     }
 
@@ -209,6 +212,28 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
     func testPackageManagerDefine() {
         fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
             XCTAssertBuilds(prefix)
+        }
+    }
+
+    /**
+     Tests that modules that are rebuilt causes
+     any executables that link to that module to be relinked.
+    */
+    func testDependencyEdges() {
+        fixture(name: "Miscellaneous/DependencyEdges") { prefix in
+            XCTAssertBuilds(prefix)
+            var output = try popen([Path.join(prefix, ".build/debug/Foo")])
+            XCTAssertEqual(output, "Hello\n")
+
+            do {
+                let fp = try fopen(prefix, "Bar/Bar.swift", mode: .Write)
+                defer { fclose(fp) }
+                try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
+            }
+
+            XCTAssertBuilds(prefix)
+            output = try popen([Path.join(prefix, ".build/debug/Foo")])
+            XCTAssertEqual(output, "Goodbye\n")
         }
     }
 }

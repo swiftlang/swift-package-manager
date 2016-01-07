@@ -1,0 +1,3 @@
+import Bar
+
+print(bar)
