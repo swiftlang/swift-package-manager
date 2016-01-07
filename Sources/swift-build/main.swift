@@ -52,31 +52,32 @@ do {
         let computedTargets = try determineTargets(packageName: pkgname, prefix: rootd, ignore: [depsdir] + excludedirs)
 
         let targets = try manifest.configureTargets(computedTargets)
-        let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
         let builddir = Path.join(getenv("SWIFT_BUILD_PATH") ?? Path.join(rootd, ".build"), configuration.dirname)
 
         guard targets.count > 0 else {
             throw Error.NoTargetsFound
         }
 
-        // build dependencies
-        for pkg in dependencies {
-            // pass only the dependencies of this package
-            // we have to map them from PackageDescription.Package to dep.Package
-            let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
-            let dependencies = manifest.package.dependencies.map { dd -> Package in
-                for d in dependencies where d.url == dd.url { return d }
-                fatalError("Could not find dependency for \(dd)")
+        func build(dependencies: [Package]) throws {
+            // build dependencies
+            for pkg in dependencies {
+                // pass only the dependencies of this package
+                // we have to map them from PackageDescription.Package to dep.Package
+                let manifest = try Manifest(path: Path.join(pkg.path, "Package.swift"), baseURL: pkg.url)  //TODO cache
+                let dependencies = manifest.package.dependencies.map { dd -> Package in
+                    for d in dependencies where d.url == dd.url { return d }
+                    fatalError("Could not find dependency for \(dd)")
+                }
+                try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
             }
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
-        }
-
-        let testDependencies = try get(manifest.package.testDependencies, prefix: depsdir)
-        for pkg in testDependencies {
-            try llbuild(srcroot: pkg.path, targets: try pkg.targets(), dependencies: testDependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkg.name).o"), configuration: configuration)
         }
 
         do {
+            let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
+
+            try build(dependencies)
+            try build(try get(manifest.package.testDependencies, prefix: depsdir))
+
             // build the current directory
             try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
         } catch POSIX.Error.ExitStatus(let foo) {
