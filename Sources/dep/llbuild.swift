@@ -209,6 +209,8 @@ private class YAML {
                 args += ["-I", "/usr/local/include"]
             }
 
+            args += ["-D","SWIFT_PACKAGE"]
+
             return args
         }
 
