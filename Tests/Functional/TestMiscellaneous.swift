@@ -207,7 +207,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
     }
 
     func testPackageManagerDefine() {
-        fixture(name: "Miscellaneous/PackageManagerDefine") { prefix in
+        fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
             XCTAssertBuilds(prefix)
         }
     }
