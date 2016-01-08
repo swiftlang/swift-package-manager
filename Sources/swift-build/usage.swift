@@ -22,7 +22,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
-    print("  -v                 Increase verbosity of informational output")
+    print("  -v[v]              Increase verbosity of informational output")
 }
 
 enum Mode {
