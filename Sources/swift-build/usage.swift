@@ -19,6 +19,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("MODES:")
     print("  --configuration <value>  Build with configuration (debug|release) [-c]")
     print("  --clean                  Delete all build intermediaries and products [-k]")
+    print("  --distclean              Delete all build intermediaries, products, and packages")
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
@@ -28,6 +29,7 @@ func usage(print: (String) -> Void = { print($0) }) {
 enum Mode {
     case Build(BuildParameters.Configuration)
     case Clean
+    case DistClean
     case Usage
     case Version
 }
@@ -85,6 +87,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
                 mode = .Usage
             case (nil, .Clean):
                 mode = .Clean
+            case (nil, .DistClean):
+                mode = .DistClean
             case (nil, .Version):
                 mode = .Version
             }
@@ -114,6 +118,7 @@ extension Mode: CustomStringConvertible {
         switch self {
             case .Build(let conf): return "--build \(conf)"
             case .Clean: return "--clean"
+            case .DistClean: return "--distclean"
             case .Usage: return "--help"
             case .Version: return "--version"
         }
@@ -126,6 +131,7 @@ private struct Cruncher {
         enum TheMode: String {
             case Build = "--configuration"
             case Clean = "--clean"
+            case DistClean = "--distclean"
             case Usage = "--help"
             case Version = "--version"
 
@@ -135,6 +141,8 @@ private struct Cruncher {
                     self = .Build
                 case Clean.rawValue, "-k":
                     self = .Clean
+                case DistClean.rawValue:
+                    self = .DistClean
                 case Usage.rawValue:
                     self = .Usage
                 case Version.rawValue:
@@ -206,6 +214,7 @@ private func ==(lhs: Mode, rhs: Cruncher.Crunch.TheMode) -> Bool {
     switch lhs {
         case .Build: return rhs == .Build
         case .Clean: return rhs == .Clean
+        case .DistClean: return rhs == .DistClean
         case .Version: return rhs == .Version
         case .Usage: return rhs == .Usage
     }

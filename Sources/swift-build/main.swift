@@ -39,6 +39,10 @@ do {
     case .Usage:
         usage()
 
+    case .DistClean:
+        try rmtree(try findSourceRoot(), "Packages")
+        fallthrough
+
     case .Clean:
         try rmtree(try findSourceRoot(), ".build")
 
