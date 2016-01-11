@@ -32,7 +32,7 @@ public struct Package {
     public let version: Version
 
     /**
-      - Returns: The Package or this doesn’t seem to be a Package, nil.
+      - Returns: The Package or if this doesn’t seem to be a Package, nil.
       - Note: Throws if the Package manifest will not parse.
      */
     public init?(path: String) throws {
@@ -45,7 +45,29 @@ public struct Package {
         // Packages have dirnames of the form foo-X.Y.Z
         let parts = path.basename.characters.split("-")
         guard parts.count >= 2 else { return nil }
-        guard let version = Version(parts.last!) else { return nil }
+
+        func findVersion() -> String {
+
+            // support:
+            //   foo-1.2.3
+            //   foo-bar-1.2.3
+            //   foo-bar-1.2.3-beta1
+
+            next: for x in 1..<parts.count {
+                for c in parts[x] {
+                    switch c {
+                    case "0","1","2","3","4","5","6","7","8","9",".":
+                        break
+                    default:
+                        continue next
+                    }
+                }
+                return parts.dropFirst(x).map(String.init).joinWithSeparator("-")
+            }
+            return ""
+        }
+
+        guard let version = Version(findVersion()) else { return nil }
 
         self.version = version
         self.manifest = try Manifest(path: Path.join(path, Manifest.filename), baseURL: origin)
