@@ -87,7 +87,7 @@ private class YAML {
     /**
       The 'swiftc' executable path to use.
     */
-    let swiftcPath: String
+    let swiftcPath = Resources.path.swiftc
 
     /**
       The selected sysroot, if in use.
@@ -98,9 +98,6 @@ private class YAML {
         parms = parameters
         filename = Path.join(parameters.tmpdir, "llbuild.yaml")
         filePointer = try fopen(filename, mode: .Write)
-
-        // Compute the 'swiftc' to use.
-        swiftcPath = getenv("SWIFT_EXEC") ?? getenv("SWIFTC") ?? Resources.findExecutable("swiftc")
 
         func xcrun() -> String? {
         #if os(OSX)

@@ -56,6 +56,12 @@ public final class Resources {
         }
 #endif
     }
+    
+    public struct path {
+        public static var swiftc: String {
+            return getenv("SWIFT_EXEC") ?? Resources.findExecutable("swiftc")
+        }
+    }
 
     /// Get the expected install path.
     public static var installPath: String {

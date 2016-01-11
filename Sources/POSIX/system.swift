@@ -49,7 +49,7 @@ func posix_spawnp(path: String, args: [String], environment: [String: String] = 
     let argv = args.map{ $0.withCString(strdup) }
     defer { for arg in argv { free(arg) } }
 
-    for key in ["PATH", "SDKROOT", "HOME", "SWIFTC"] {
+    for key in ["PATH", "SDKROOT", "HOME", "SWIFT_EXEC"] {
         if let value = POSIX.getenv(key) {
             environment[key] = value
         }
