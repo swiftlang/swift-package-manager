@@ -23,7 +23,12 @@
 
 """
 
-import StringIO
+from __future__ import print_function
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 import errno
 import json
 import os
@@ -86,9 +91,9 @@ g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
-        ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]).strip()
+        ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], universal_newlines=True).strip()
     g_default_sysroot = subprocess.check_output(
-        ["xcrun", "--sdk", "macosx", "--show-sdk-path"]).strip()
+        ["xcrun", "--sdk", "macosx", "--show-sdk-path"], universal_newlines=True).strip()
 
 g_bundle_identifier_base = "org.swift.package-manager"
 g_xctest_infoplist_template = """\
@@ -203,27 +208,27 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
-        print >>output, "  %s:" % json.dumps(compile_swift_node)
-        print >>output, "    tool: swift-compiler"
-        print >>output, "    executable: %s" % json.dumps(opts.swiftc_path)
+        print("  %s:" % json.dumps(compile_swift_node), file=output)
+        print("    tool: swift-compiler", file=output)
+        print("    executable: %s" % json.dumps(opts.swiftc_path), file=output)
         # FIXME: We shouldn't even need to specify the sources here once we have
         # discovered dependencies support.
-        print >>output, "    inputs: %s" % json.dumps(
-            [predecessor_node] + self.swift_sources)
-        print >>output, "    outputs: %s" % json.dumps(
-            [compile_swift_node, module_path] + swift_objects)
-        print >>output, "    module-name: %s" % json.dumps(module_name)
-        print >>output, "    module-output-path: %s" % json.dumps(module_path)
-        print >>output, "    is-library: %s" % json.dumps(
-            str(bool(self.is_library)).lower())
-        print >>output, "    sources: %s" % json.dumps(
-            self.swift_sources)
-        print >>output, "    objects: %s" % json.dumps(swift_objects)
-        print >>output, "    import-paths: %s" % json.dumps(
-            [module_dir])
-        print >>output, "    other-args: %s" % json.dumps(' '.join(other_args))
-        print >>output, "    temps-path: %s" % json.dumps(target_build_dir)
-        print >>output
+        print("    inputs: %s" % json.dumps(
+            [predecessor_node] + self.swift_sources), file=output)
+        print("    outputs: %s" % json.dumps(
+            [compile_swift_node, module_path] + swift_objects), file=output)
+        print("    module-name: %s" % json.dumps(module_name), file=output)
+        print("    module-output-path: %s" % json.dumps(module_path), file=output)
+        print("    is-library: %s" % json.dumps(
+            str(bool(self.is_library)).lower()), file=output)
+        print("    sources: %s" % json.dumps(
+            self.swift_sources), file=output)
+        print("    objects: %s" % json.dumps(swift_objects), file=output)
+        print("    import-paths: %s" % json.dumps(
+            [module_dir]), file=output)
+        print("    other-args: %s" % json.dumps(' '.join(other_args)), file=output)
+        print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
+        print(file=output)
 
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -263,18 +268,18 @@ target_map = dict((t.name,t) for t in targets)
 
 def create_bootstrap_files(sandbox_path, opts):
     # Write out the build file.
-    output = StringIO.StringIO()
+    output = StringIO()
 
     # Write out the task file header.
-    print >>output, "client:"
-    print >>output, "  name: swift-build"
-    print >>output
+    print("client:", file=output)
+    print("  name: swift-build", file=output)
+    print(file=output)
 
     # Write out the tools section.
     #
     # FIXME: Not yet defined.
-    print >>output, "tools: {}"
-    print >>output
+    print("tools: {}", file=output)
+    print(file=output)
 
     # Compute the list of active targets.
     active_targets = [target for target in targets
@@ -286,15 +291,15 @@ def create_bootstrap_files(sandbox_path, opts):
     # target.
     #
     # FIXME: Need support for default target.
-    print >>output, "targets:"
-    print >>output, "  \"\": %s" % (json.dumps(
-        [target.virtual_node for target in active_targets]),)
-    print >>output, "  all: %s" % (json.dumps(
-        [target.virtual_node for target in active_targets]),)
+    print("targets:", file=output)
+    print("  \"\": %s" % (json.dumps(
+        [target.virtual_node for target in active_targets]),), file=output)
+    print("  all: %s" % (json.dumps(
+        [target.virtual_node for target in active_targets]),), file=output)
     for target in active_targets:
-        print >>output, "  %s: %s" % (
-            target.name, json.dumps([target.virtual_node]))
-    print >>output
+        print("  %s: %s" % (
+            target.name, json.dumps([target.virtual_node])), file=output)
+    print(file=output)
 
     # Create the shared lib dir.
     lib_dir = os.path.join(sandbox_path, "lib")
@@ -312,13 +317,13 @@ def create_bootstrap_files(sandbox_path, opts):
     tests_dir = os.path.join(sandbox_path, "Tests")
     mkdir_p(tests_dir)
 
-    print >>output, "commands:"
+    print("commands:", file=output)
     for target in targets:
         if target.is_test and not opts.build_tests:
             # Skip tests if XCTest path is not provided
             continue
         
-        print >>output, "  # Target Commands: %r" % (target.name,)
+        print("  # Target Commands: %r" % (target.name,), file=output)
         target_build_dir = os.path.join(sandbox_path, target.name + ".build")
         mkdir_p(target_build_dir)
 
@@ -327,12 +332,12 @@ def create_bootstrap_files(sandbox_path, opts):
         link_input_nodes = [predecessor_node]
 
         # Write out the predecessor node used to order w.r.t. other targets.
-        print >>output, "  %s:" % json.dumps(predecessor_node)
-        print >>output, "    tool: phony"
-        print >>output, "    inputs: %s" % json.dumps(
-            [target_map[name].virtual_node for name in target.dependencies])
-        print >>output, "    outputs: %s" % json.dumps([predecessor_node])
-        print >>output
+        print("  %s:" % json.dumps(predecessor_node), file=output)
+        print("    tool: phony", file=output)
+        print("    inputs: %s" % json.dumps(
+            [target_map[name].virtual_node for name in target.dependencies]), file=output)
+        print("    outputs: %s" % json.dumps([predecessor_node]), file=output)
+        print(file=output)
 
         # Write out the target build commands (we just name the command and node
         # the same).
@@ -414,23 +419,23 @@ def create_bootstrap_files(sandbox_path, opts):
                         ["-Xlinker", "-rpath", "-Xlinker", opts.xctest_path])
 
         # Write out the link command.
-        print >>output, "  %s:" % json.dumps(target.linked_virtual_node)
-        print >>output, "    tool: shell"
-        print >>output, "    description: Link %s" % (target.name if target.is_library else link_output_path,)
-        print >>output, "    inputs: %s" % json.dumps(
-            link_input_nodes + objects + linked_libraries)
-        print >>output, "    outputs: %s" % json.dumps(
-            [target.linked_virtual_node, link_output_path])
-        print >>output, "    args: %s" % ' '.join(link_command)
-        print >>output
+        print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
+        print("    tool: shell", file=output)
+        print("    description: Link %s" % (target.name if target.is_library else link_output_path,), file=output)
+        print("    inputs: %s" % json.dumps(
+            link_input_nodes + objects + linked_libraries), file=output)
+        print("    outputs: %s" % json.dumps(
+            [target.linked_virtual_node, link_output_path]), file=output)
+        print("    args: %s" % ' '.join(link_command), file=output)
+        print(file=output)
 
         # Write the top-level target group command.
-        print >>output, "  %s:" % json.dumps(target.virtual_node)
-        print >>output, "    tool: phony"
-        print >>output, "    inputs: %s" % json.dumps(
-            [target.linked_virtual_node])
-        print >>output, "    outputs: %s" % json.dumps([target.virtual_node])
-        print >>output
+        print("  %s:" % json.dumps(target.virtual_node), file=output)
+        print("    tool: phony", file=output)
+        print("    inputs: %s" % json.dumps(
+            [target.linked_virtual_node]), file=output)
+        print("    outputs: %s" % json.dumps([target.virtual_node]), file=output)
+        print(file=output)
     
     # Write the output file.
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
@@ -482,7 +487,7 @@ def process_runtime_libraries(build_path, opts, bootstrap=False):
         # error.
         tf = tempfile.NamedTemporaryFile(suffix=".swift")
         cmds = subprocess.check_output(
-            cmd + [tf.name, "-###"]).strip().split("\n")
+            cmd + [tf.name, "-###"], universal_newlines=True).strip().split("\n")
 
         # Get the link command 'swiftc' used.
         link_cmd = shlex.split(cmds[-1])
@@ -516,7 +521,7 @@ def get_swift_build_tool_path():
 
     # Next, search for it in PATH.
     try:
-        return subprocess.check_output(["which", "swift-build-tool"]).strip()
+        return subprocess.check_output(["which", "swift-build-tool"], universal_newlines=True).strip()
     except:
         pass
 
@@ -525,7 +530,7 @@ def get_swift_build_tool_path():
         try:
             sbt_path = subprocess.check_output(
                 ["xcrun", "--find", "swift-build-tool"],
-                stderr=subprocess.PIPE).strip()
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
             if os.path.exists(sbt_path):
                 return sbt_path
         except subprocess.CalledProcessError:
