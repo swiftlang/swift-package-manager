@@ -554,7 +554,7 @@ for enabling integrated testing until the package manager itself has built in
 testing support.""")
     parser.add_option("", "--swiftc", dest="swiftc_path",
                       help="path to the swift compiler [%default]",
-                      default=os.getenv("SWIFTC") or "swiftc", metavar="PATH")
+                      default=os.getenv("SWIFT_EXEC") or "swiftc", metavar="PATH")
     parser.add_option("", "--sbt", dest="sbt_path",
                       help="path to the 'swift-build-tool' tool [%default]",
                       metavar="PATH")
@@ -636,7 +636,7 @@ testing support.""")
 
     # Build the package manager with itself.
     env_cmd = ["env",
-               "SWIFTC=" + opts.swiftc_path,
+               "SWIFT_EXEC=" + opts.swiftc_path,
                "SWIFT_BUILD_TOOL=" + opts.sbt_path,
                "SWIFT_BUILD_PATH=" + build_path]
     if opts.sysroot:
@@ -672,7 +672,7 @@ testing support.""")
 
         # Construct the test environment.
         env_cmd = ["env",
-                   "SWIFTC=" + opts.swiftc_path,
+                   "SWIFT_EXEC=" + opts.swiftc_path,
                    "SWIFT_BUILD_TOOL=" + opts.sbt_path,
                    "SPM_INSTALL_PATH=" + sandbox_path]
         for target in targets:
