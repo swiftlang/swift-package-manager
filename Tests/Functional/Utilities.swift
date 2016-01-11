@@ -16,7 +16,7 @@ import func POSIX.system
 import func POSIX.popen
 
 
-func fixture(name fixtureName: String, tag: String = "1.2.3", file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+func fixture(name fixtureName: String, tags: String..., file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
 
     func gsub(input: String) -> String {
         return input.characters.split("/").map(String.init).joinWithSeparator("_")
@@ -38,7 +38,18 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", file: StaticString
                 try system("cp", "-R", rootd, dstdir)
                 try body(dstdir)
             } else {
-                for d in walk(rootd, recursively: false) {
+                var versions = tags
+                func popVersion() -> String {
+                    if versions.isEmpty {
+                        return "1.2.3"
+                    } else if versions.count == 1 {
+                        return versions.first!
+                    } else {
+                        return versions.removeFirst()
+                    }
+                }
+
+                for d in walk(rootd, recursively: false).sorted() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try system("cp", "-R", d, dstdir)
@@ -47,7 +58,7 @@ func fixture(name fixtureName: String, tag: String = "1.2.3", file: StaticString
                     try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
                     try popen(["git", "-C", dstdir, "add", "."])
                     try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
-                    try popen(["git", "-C", dstdir, "tag", tag])
+                    try popen(["git", "-C", dstdir, "tag", popVersion()])
                 }
                 try body(prefix)
             }
