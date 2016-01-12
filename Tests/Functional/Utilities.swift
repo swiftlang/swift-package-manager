@@ -49,7 +49,7 @@ func fixture(name fixtureName: String, tags: String..., file: StaticString = __F
                     }
                 }
 
-                for d in walk(rootd, recursively: false).sorted() {
+                for d in walk(rootd, recursively: false).sort() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try system("cp", "-R", d, dstdir)
