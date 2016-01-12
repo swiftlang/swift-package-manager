@@ -42,23 +42,25 @@ The Package Manager is itself a Swift Package and thus can be used
 to build itself. However we recommend instead one of the three
 following options:
 
-1. Using the [Swift project `build-script`](https://github.com/apple/swift/blob/master/README.md)
+1. Using the [Swift project `build-script`](https://github.com/apple/swift/blob/master/README.md):
 
-        swift/utils/build-script --llbuild --swiftpm
+        swift/utils/build-script --swiftpm --llbuild
 
-2. Independently with the *bootstrap* script.
+2. Independently with the bootstrap script:
   1. [Download and install a Swift snapshot](https://swift.org/download)
   2. Locate its `usr/bin` directory
-  3. `swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool`
+  3. Run the bootstrap script:
 
-   `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots.
+            swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool`
+
+   `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, *they are **not** built from the sources in this repository*.
 
 3. Using the Xcode Project in [Support](Support), this option requires:
    * Xcode 7.3 (beta)
    * [llbuild](https://github.com/apple/swift-llbuild) cloned parallel to your SwiftPM clone
   * Possibly, [a more recent Swift snapshot](https://swift.org/download)
 
-There is development-oriented documentation in [Documentation/Internals](Documentation/Internals).
+There is further development-oriented documentation in [Documentation/Internals](Documentation/Internals).
 
 
 ## System Requirements
