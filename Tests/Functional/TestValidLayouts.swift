@@ -64,10 +64,10 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
     }
 
     func testPackageIdentifiers() {
-        fixture(name: "DependencyResolution/External/Complex", tags: "1.2.3-beta5", "1.3.4-alpha.beta.gamma1", "1.2.3+24") { prefix in
+        fixture(name: "DependencyResolution/External/Complex", tags: "1.3.4-alpha.beta.gamma1", "1.2.3+24", "1.2.3", "1.2.3-beta5") { prefix in
             XCTAssertBuilds(prefix, "app")
             XCTAssertDirectoryExists(prefix, "app/Packages/deck-of-playing-cards-1.2.3-beta5")
-            XCTAssertDirectoryExists(prefix, "app/Packages/FisherYater-1.3.4-alpha.beta.gamma1")
+            XCTAssertDirectoryExists(prefix, "app/Packages/FisherYates-1.3.4-alpha.beta.gamma1")
             XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3+24")
         }
     }

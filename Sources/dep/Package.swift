@@ -43,7 +43,16 @@ public struct Package {
         guard let origin = repo.origin else { return nil }
 
         // Packages have dirnames of the form foo-X.Y.Z
-        let parts = path.basename.characters.split("-")
+        let parts = path.basename.characters.reduce([""]){ memo, c in
+            switch c {
+            case "-", "+":
+                return memo + [""]
+            default:
+                var memo = memo
+                let foo = memo.removeLast()
+                return memo + [foo + String(c)]
+            }
+        }
         guard parts.count >= 2 else { return nil }
 
         func findVersion() -> String {
@@ -54,7 +63,7 @@ public struct Package {
             //   foo-bar-1.2.3-beta1
 
             next: for x in 1..<parts.count {
-                for c in parts[x] {
+                for c in parts[x].characters {
                     switch c {
                     case "0","1","2","3","4","5","6","7","8","9",".":
                         break
@@ -62,7 +71,7 @@ public struct Package {
                         continue next
                     }
                 }
-                return parts.dropFirst(x).map(String.init).joinWithSeparator("-")
+                return parts.dropFirst(x).joinWithSeparator("-")
             }
             return ""
         }

@@ -173,6 +173,8 @@ class VersionTests: XCTestCase, XCTestCaseProvider {
         XCTAssertEqual(Version(0,9,21), Version("0.9.21"))
 
         XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011"), Version("0.9.21-alpha.beta+1011"))
+
+        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifier: "1011"), Version("0.9.21+1011"))
     }
 
     func testSort() {

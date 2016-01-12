@@ -17,10 +17,10 @@ public struct Version {
     }
 
     public let (major, minor, patch): (Int, Int, Int)
-    public let prereleaseIdentifiers: [String]?
+    public let prereleaseIdentifiers: [String]
     public let buildMetadataIdentifier: String?
     
-    public init(_ major: Int, _ minor: Int, _ patch: Int, prereleaseIdentifiers: [String]? = nil, buildMetadataIdentifier: String? = nil) {
+    public init(_ major: Int, _ minor: Int, _ patch: Int, prereleaseIdentifiers: [String] = [], buildMetadataIdentifier: String? = nil) {
         self.major = Swift.max(major, 0)
         self.minor = Swift.max(minor, 0)
         self.patch = Swift.max(patch, 0)
@@ -43,14 +43,14 @@ public struct Version {
         self.major = requiredComponents[0]
         self.minor = requiredComponents[1]
         self.patch = requiredComponents[2]
-        
-        var prereleaseIdentifiers: [String]? = nil
+
         if let prereleaseStartIndex = prereleaseStartIndex {
             let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
             let prereleaseCharacters = characters[prereleaseStartIndex.successor()..<prereleaseEndIndex]
             prereleaseIdentifiers = prereleaseCharacters.split(".").map{ String($0) }
+        } else {
+            prereleaseIdentifiers = []
         }
-        self.prereleaseIdentifiers = prereleaseIdentifiers
         
         var buildMetadataIdentifier: String? = nil
         if let metadataStartIndex = metadataStartIndex {
@@ -84,10 +84,8 @@ public func ==(v1: Version, v2: Version) -> Bool {
         return false
     }
     
-    switch (v1.prereleaseIdentifiers, v2.prereleaseIdentifiers) {
-    case (let p1?, let p2?) where p1 == p2: break
-    case (nil, nil): break
-    default: return false
+    if v1.prereleaseIdentifiers != v2.prereleaseIdentifiers {
+        return false
     }
     
     return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
@@ -105,15 +103,15 @@ public func <(lhs: Version, rhs: Version) -> Bool {
         return lhsComparators.lexicographicalCompare(rhsComparators)
     }
     
-    guard let lhsPrereleaseIdentifiers = lhs.prereleaseIdentifiers else {
+    guard lhs.prereleaseIdentifiers.count > 0 else {
         return false // Non-prerelease lhs >= potentially prerelease rhs
     }
     
-    guard let rhsPrereleaseIdentifiers = rhs.prereleaseIdentifiers else {
+    guard rhs.prereleaseIdentifiers.count > 0 else {
         return true // Prerelease lhs < non-prerelease rhs 
     }
     
-    for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhsPrereleaseIdentifiers, rhsPrereleaseIdentifiers) {
+    for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
         if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
             continue
         }
@@ -122,15 +120,16 @@ public func <(lhs: Version, rhs: Version) -> Bool {
         let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
         
         switch (typedLhsIdentifier, typedRhsIdentifier) {
-        case let (int1 as Int, int2 as Int): return int1 < int2
-        case let (string1 as String, string2 as String): return string1 < string2
-        case (is Int, is String): return true // Int prereleases < String prereleases
-        case (is String, is Int): return false
-        default: return false
+            case let (int1 as Int, int2 as Int): return int1 < int2
+            case let (string1 as String, string2 as String): return string1 < string2
+            case (is Int, is String): return true // Int prereleases < String prereleases
+            case (is String, is Int): return false
+        default:
+            return false
         }
     }
     
-    return lhsPrereleaseIdentifiers.count < rhsPrereleaseIdentifiers.count
+    return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
 }
 
 // MARK: ForwardIndexType
@@ -169,7 +168,7 @@ extension Version: BidirectionalIndexType {
 extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
-        if let prereleaseIdentifiers = prereleaseIdentifiers {
+        if prereleaseIdentifiers.count > 0 {
             base += "-" + prereleaseIdentifiers.joinWithSeparator(".")
         }
         if let buildMetadataIdentifier = buildMetadataIdentifier {
