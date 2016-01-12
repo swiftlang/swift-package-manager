@@ -16,7 +16,7 @@ import func POSIX.system
 import func POSIX.popen
 
 
-func fixture(name fixtureName: String, tags: String..., file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
 
     func gsub(input: String) -> String {
         return input.characters.split("/").map(String.init).joinWithSeparator("_")

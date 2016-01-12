@@ -38,7 +38,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
         // verifies the stdout contains information about 
         // the selected version of the package
 
-        fixture(name: "DependencyResolution/External/Simple", tags: "1.3.5") { prefix in
+        fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
             let output = try executeSwiftBuild("\(prefix)/Bar")
             let lines = output.characters.split("\n").map(String.init)
             XCTAssertTrue(lines.contains("Using version 1.3.5 of package Foo"))
@@ -127,7 +127,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
     }
 
     func testDependenciesWithVPrefixTagsWork() {
-        fixture(name: "DependencyResolution/External/Complex", tags: "v1.2.3") { prefix in
+        fixture(name: "DependencyResolution/External/Complex", tags: ["v1.2.3"]) { prefix in
             XCTAssertBuilds(prefix, "app")
         }
     }
