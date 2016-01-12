@@ -1,11 +1,12 @@
-//
-//  GitTests.swift
-//  swiftpm
-//
-//  Created by Kostiantyn Koval on 09/01/16.
-//  Copyright © 2016 Apple, Inc. All rights reserved.
-//
+/*
+ This source file is part of the Swift.org open source project
 
+ Copyright 2015 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
 import XCTest
 import XCTestCaseProvider
 
