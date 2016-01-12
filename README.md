@@ -35,30 +35,31 @@ If you get usage output, it is installed, otherwise you will see an error such a
 
     <unknown>:0: error: no such file or directory: 'build'
 
+
 ## Development
 
-The Package Manager is itself a Swift Package, and is built with a
-bootstrap script; initially building the package manager manually
-and then again using itself. The bootstrap script is also for
-integration with the wider Swift project build system.
+The Package Manager is itself a Swift Package and thus can be used
+to build itself. However we recommend instead one of the three
+following options:
 
-For development purposes, the package manager can be built in two ways:
+1. Using the [Swift project `build-script`](https://github.com/apple/swift/blob/master/README.md)
 
-1. To build the package manager as part of the full Swift project, including the Swift compiler, see the [Swift README](https://github.com/apple/swift/blob/master/README.md). This option is recommended and is required if you are also making changes to [llbuild](https://github.com/apple/swift-llbuild), the Swift language or to the build integration.
+        swift/utils/build-script --llbuild --swiftpm
 
-2. To build against a [downloaded](https://swift.org/download/) Swift package, enter the following in a terminal:
+2. Independently with the *bootstrap* script.
+  1. [Download and install a Swift snapshot](https://swift.org/download)
+  2. Locate its `usr/bin` directory
+  3. `swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool`
 
-        git clone git@github.com:apple/swift-package-manager.git swiftpm
-        cd swiftpm
-        ./Utilities/bootstrap --swiftc path/to/swiftc --sbt path/to/swift-build-tool
+   `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots.
 
-Either way, it is recommended that you develop against the latest version of Swift
-to ensure compatibility with new releases.
+3. Using the Xcode Project in [Support](Support), this option requires:
+   * Xcode 7.3 (beta)
+   * [llbuild](https://github.com/apple/swift-llbuild) cloned parallel to your SwiftPM clone
+  * Possibly, [a more recent Swift snapshot](https://swift.org/download)
 
-To develop the package manager with Xcode you will need to launch Xcode 7.x [with a
-downloadable Swift toolchain](https://swift.org/download/#installation).
+There is development-oriented documentation in [Documentation/Internals](Documentation/Internals).
 
-Development focused documentation is in the [Internals](Documentation/Internals), subdirectory of Documentation.
 
 ## System Requirements
 
