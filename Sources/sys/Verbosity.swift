@@ -72,9 +72,9 @@ public func system(arguments: [String], environment: [String:String] = [:]) thro
     try POSIX.system(arguments, environment: environment)
 }
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, printOutput: Bool = false, environment: [String: String] = [:]) throws -> String {
+public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
     printArgumentsIfVerbose(arguments)
-    return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, printOutput: printOutput, environment: environment)
+    return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
 }
 
 public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws {

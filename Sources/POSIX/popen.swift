@@ -10,15 +10,11 @@
 
 import libc
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, printOutput: Bool = false, environment: [String: String] = [:]) throws -> String
+public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String
 {
     var out = ""
     try popen(arguments, redirectStandardError: redirectStandardError, environment: environment) { line in
         out += line
-
-        if printOutput {
-            print(line, terminator: "")
-        }
     }
     return out
 }

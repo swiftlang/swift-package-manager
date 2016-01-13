@@ -72,7 +72,7 @@ func executeSwiftBuild(chdir: String) throws -> String {
     let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    return try popen([toolPath, "--chdir", chdir], redirectStandardError: true, printOutput: false, environment: env)
+    return try popen([toolPath, "--chdir", chdir], redirectStandardError: true, environment: env)
 }
 
 func mktmpdir(file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
