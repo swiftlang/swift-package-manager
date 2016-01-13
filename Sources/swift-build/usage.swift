@@ -18,16 +18,25 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("")
     print("MODES:")
     print("  --configuration <value>  Build with configuration (debug|release) [-c]")
-    print("  --clean                  Delete all build intermediaries and products [-k]")
+    print("  --clean[=<mode>]         Delete all build intermediaries and products [-k]")
+    print("                           <mode> is one of:")
+    print("                           build - Build intermediaries and products")
+    print("                           dist  - All of 'build' plus downloaded packages")
+    print("                           If no mode is given, 'build' is the default.")
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
     print("  -v[v]              Increase verbosity of informational output")
 }
 
+enum CleanMode: String {
+    case Build = "build"
+    case Dist  = "dist"
+}
+
 enum Mode {
     case Build(BuildParameters.Configuration)
-    case Clean
+    case Clean(CleanMode)
     case Usage
     case Version
 }
@@ -51,9 +60,16 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
 
         if arg.hasPrefix("-") && !arg.hasPrefix("--") {
             return arg.characters.dropFirst().map{ "-" + String($0) }
-        } else {
-            return [arg]
         }
+
+        // split applicative arguments so Cruncher can work with them,
+        // eg. --mode=value splits into --mode =value
+        let argParts = arg.characters.split{ $0 == "=" }.map{ String($0) }
+        if argParts.count > 1 {
+            return argParts
+        }
+
+        return [arg]
     })
 
     while cruncher.shouldContinue {
@@ -84,7 +100,18 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
             case (nil, .Usage):
                 mode = .Usage
             case (nil, .Clean):
-                mode = .Clean
+                mode = .Clean(.Build)
+                switch try cruncher.peek() {
+                case .Name("build")?:
+                    cruncher.postPeekPop()
+                case .Name("dist")?:
+                    mode = .Clean(.Dist)
+                    cruncher.postPeekPop()
+                case .Name(let name)?:
+                    throw CommandLineError.InvalidUsage("Unknown clean mode: \(name)", .Imply)
+                default:
+                    break
+		}
             case (nil, .Version):
                 mode = .Version
             }
@@ -109,11 +136,17 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
     return (mode ?? .Build(.Debug), chdir, verbosity)
 }
 
+extension CleanMode: CustomStringConvertible {
+    var description: String {
+        return "=\(self.rawValue)"
+    }
+}
+
 extension Mode: CustomStringConvertible {
     var description: String {   //FIXME shouldn't be necessary!
         switch self {
             case .Build(let conf): return "--build \(conf)"
-            case .Clean: return "--clean"
+            case .Clean(let cleanMode): return "--clean\(cleanMode)"
             case .Usage: return "--help"
             case .Version: return "--version"
         }
@@ -183,6 +216,7 @@ private struct Cruncher {
         guard !arg.hasPrefix("-") else {
             throw CommandLineError.InvalidUsage("Unknown argument: \(arg)", .Imply)
         }
+
         return .Name(arg)
     }
 
