@@ -20,6 +20,9 @@ class GitTests: XCTestCase, XCTestCaseProvider {
         return [
             ("testHasVersion", testHasVersion),
             ("testHasNoVersion", testHasNoVersion),
+            ("testCloneShouldNotCrashWihoutTags", testCloneShouldNotCrashWihoutTags),
+            ("testCloneShouldCrashWihoutTags", testCloneShouldCrashWihoutTags),
+
         ]
     }
 
@@ -35,6 +38,14 @@ class GitTests: XCTestCase, XCTestCaseProvider {
             let gitRepo = makeGitRepo(path, tag: nil)!
             XCTAssertFalse(gitRepo.hasVersion)
         }
+    }
+
+    func testCloneShouldNotCrashWihoutTags() {
+        tryCloningRepoWithTag("0.1.0", shouldCrash: false)
+    }
+
+    func testCloneShouldCrashWihoutTags() {
+        tryCloningRepoWithTag(nil, shouldCrash: true)
     }
 }
 
@@ -58,4 +69,19 @@ private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = __FI
         XCTFail(safeStringify(error), file: file, line: line)
     }
     return nil
+}
+
+private func tryCloningRepoWithTag(tag: String?, shouldCrash: Bool) {
+    var done = !shouldCrash
+    mktmpdir { path in
+        makeGitRepo(path, tag: tag)!
+        do {
+            _ = try Sandbox.RawClone(path: path)
+        } catch Error.GitVersionTagRequired {
+            done = shouldCrash
+        } catch {
+            XCTFail()
+        }
+        XCTAssertTrue(done)
+    }
 }

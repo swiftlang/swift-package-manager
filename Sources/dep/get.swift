@@ -149,9 +149,9 @@ extension Sandbox: Fetcher {
 
         init(path: String) throws {
             self.path = path
-          if !repo.hasVersion {
-            throw Error.GitVersionTagRequired(path)
-          }
+            if !repo.hasVersion {
+                throw Error.GitVersionTagRequired(path)
+            }
         }
 
         var repo: Git.Repo {
