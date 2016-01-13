@@ -39,11 +39,10 @@ do {
     case .Usage:
         usage()
 
-    case .DistClean:
-        try rmtree(try findSourceRoot(), "Packages")
-        fallthrough
-
-    case .Clean:
+    case .Clean(let cleanMode):
+        if case .Dist = cleanMode {
+            try rmtree(try findSourceRoot(), "Packages")
+        }
         try rmtree(try findSourceRoot(), ".build")
 
     case .Build(let configuration):
