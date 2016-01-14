@@ -43,6 +43,9 @@ public struct BuildParameters {
     public var prefix: String = ""
     public var tmpdir: String = ""
 
+    public var Xcc: [String] = []
+    public var Xlinker: [String] = []
+
     public var conf: Configuration
 
     private func requiredSubdirectories() -> [String] {
@@ -53,7 +56,7 @@ public struct BuildParameters {
 }
 
 
-public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws {
+public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration, Xcc: [String], Xlinker: [String]) throws {
     var params = BuildParameters()
     params.srcroot = srcroot
     params.targets = targets
@@ -61,6 +64,8 @@ public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [P
     params.prefix = prefix
     params.tmpdir = tmpdir
     params.conf = configuration
+    params.Xcc = Xcc.flatMap{ ["-Xcc", $0] }
+    params.Xlinker = Xlinker.flatMap{ ["-Xlinker", $0] }
     try llbuild(params)
 }
 
@@ -210,6 +215,8 @@ private class YAML {
 
             args += ["-D","SWIFT_PACKAGE"]
 
+            args += params.Xcc
+
             return args
         }
 
@@ -301,6 +308,8 @@ private class YAML {
                     //TODO we only want to do this if a module map wants to do this
                     args += ["-L/usr/local/lib"]
                 }
+
+                args += params.Xlinker
 
                 return args
             }

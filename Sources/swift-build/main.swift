@@ -24,12 +24,12 @@ Resources.initialize(&globalSymbolInMainBinary)
 
 do {
     let args = Array(Process.arguments.dropFirst())
-    let (mode, chdir, verbosity) = try parse(commandLineArguments: args)
+    let (mode, opts) = try parse(commandLineArguments: args)
 
-    sys.verbosity = Verbosity(rawValue: verbosity)
+    sys.verbosity = Verbosity(rawValue: opts.verbosity)
 
-    if let dir = chdir {
-        try POSIX.chdir(dir)
+    if let dir = opts.chdir {
+        try chdir(dir)
     }
 
     // keep the working directory around for the duration of our process
@@ -59,6 +59,10 @@ do {
 
         guard targets.count > 0 else {
             throw Error.NoTargetsFound
+        }
+
+        func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws {
+            try dep.llbuild(srcroot: srcroot, targets: targets, dependencies: dependencies, prefix: prefix, tmpdir: tmpdir, configuration: configuration, Xcc: opts.Xcc, Xlinker: opts.Xlinker)
         }
 
         func build(dependencies: [Package]) throws {

@@ -27,6 +27,8 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
     print("  -v[v]              Increase verbosity of informational output")
+    print("  -Xcc <flag>        Pass flag through to all compiler instantiations")
+    print("  -Xlinker <flag>    Pass flag through to all linker instantiations")
 }
 
 enum CleanMode: String {
@@ -48,12 +50,30 @@ enum CommandLineError: ErrorType {
     case InvalidUsage(String, UsageMode)
 }
 
-func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?, verbosity: Int) {
-    var verbosity = 0
-    var chdir: String?
+struct Options {
+    var chdir: String? = nil
+    var verbosity: Int = 0
+    var Xcc: [String] = []
+    var Xlinker: [String] = []
+}
+
+func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
+    var opts = Options()
     var mode: Mode?
 
+    //TODO refactor
+    var skipNext = false
     var cruncher = Cruncher(args: args.flatMap { arg -> [String] in
+
+        if skipNext {
+            skipNext = false
+            return [arg]
+        }
+
+        if arg == "-Xcc" || arg == "-Xlinker" {
+            skipNext = true
+            return [arg]
+        }
 
         // split short form arguments so Cruncher can work with them,
         // eg. -vv is split into -v -v
@@ -119,21 +139,27 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, chdir: String?,
         case .Switch(.Chdir):
             switch try cruncher.peek() {
             case .Name(let name)?:
-                chdir = name
                 cruncher.postPeekPop()
+                opts.chdir = name
             default:
                 throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .Imply)
             }
 
         case .Switch(.Verbose):
-            verbosity += 1
+            opts.verbosity += 1
 
         case .Name(let name):
             throw CommandLineError.InvalidUsage("Unknown argument: \(name)", .Imply)
+
+        case .Switch(.Xcc):
+            opts.Xcc.append(try cruncher.rawPop())
+
+        case .Switch(.Xlinker):
+            opts.Xlinker.append(try cruncher.rawPop())
         }
     }
 
-    return (mode ?? .Build(.Debug), chdir, verbosity)
+    return (mode ?? .Build(.Debug), opts)
 }
 
 extension CleanMode: CustomStringConvertible {
@@ -180,6 +206,8 @@ private struct Cruncher {
         enum TheSwitch: String {
             case Chdir = "--chdir"
             case Verbose = "--verbose"
+            case Xcc = "-Xcc"
+            case Xlinker = "-Xlinker"
             
             init?(rawValue: String) {
                 switch rawValue {
@@ -187,6 +215,10 @@ private struct Cruncher {
                     self = .Chdir
                 case Verbose.rawValue, "-v":
                     self = .Verbose
+                case Xcc.rawValue:
+                    self = .Xcc
+                case Xlinker.rawValue:
+                    self = .Xlinker
                 default:
                     return nil
                 }
@@ -214,10 +246,15 @@ private struct Cruncher {
         }
         
         guard !arg.hasPrefix("-") else {
-            throw CommandLineError.InvalidUsage("Unknown argument: \(arg)", .Imply)
+            throw CommandLineError.InvalidUsage("unknown argument: \(arg)", .Imply)
         }
 
         return .Name(arg)
+    }
+
+    mutating func rawPop() throws -> String {
+        guard args.count > 0 else { throw CommandLineError.InvalidUsage("expected argument", .Imply) }
+        return args.removeFirst()
     }
 
     mutating func pop() throws -> Crunch {
