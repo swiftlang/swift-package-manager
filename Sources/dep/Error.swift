@@ -18,6 +18,8 @@ public enum Error: ErrorType {
     case UpdateRequired(String)
 
     case GitCloneFailure(String, String)
+    case GitVersionTagRequired(String)
+
 }
 
 
@@ -40,6 +42,8 @@ extension Error: CustomStringConvertible {
             return "The dependency graph could not be satisfied because an update to `\(package)' is required"
         case .GitCloneFailure(let url, let dstdir):
             return "Failed to clone \(url) to \(dstdir)"
+        case .GitVersionTagRequired(let package):
+            return "No version tag found in (\(package)) package. Add a version tag with \"git tag\" command. Example: \"git tag 0.1.0\""
         }
     }
 }

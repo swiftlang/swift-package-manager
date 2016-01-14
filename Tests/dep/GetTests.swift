@@ -30,7 +30,7 @@ class GetTests: XCTestCase, XCTestCaseProvider {
             try system("git", "-C", path, "rm", "Package.swift")
             try system("git", "-C", path, "commit", "-mwip")
 
-            let rawClone = Sandbox.RawClone(path: path)
+            let rawClone = try Sandbox.RawClone(path: path)
             XCTAssertEqual(rawClone.dependencies.count, 0)
         }
     }

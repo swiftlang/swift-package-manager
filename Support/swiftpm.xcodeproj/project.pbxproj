@@ -25,6 +25,7 @@
 		63FDF0DA1C29EF4C00B3904D /* TestDependencyResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FDF0D91C29EF4C00B3904D /* TestDependencyResolution.swift */; };
 		63FDF0F01C29F34D00B3904D /* TestMiscellaneous.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FDF0EF1C29F34D00B3904D /* TestMiscellaneous.swift */; };
 		A1A815631C17A8F000BD6927 /* GetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A815621C17A8E700BD6927 /* GetTests.swift */; };
+		B59359861C429F5200AD4547 /* GitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59359851C429F5200AD4547 /* GitTests.swift */; };
 		DA3C2B1C1C1B4D7600893759 /* XCTestCaseProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3C2AE11C1B48C700893759 /* XCTestCaseProvider.swift */; };
 		E136D9421BD5F3DD000DFCE6 /* TOMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E136D9411BD5F35D000DFCE6 /* TOMLTests.swift */; };
 		E1E286BA1BD72D700015F0C5 /* ManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1E286B91BD72D700015F0C5 /* ManifestTests.swift */; };
@@ -245,6 +246,7 @@
 		63FDF0D91C29EF4C00B3904D /* TestDependencyResolution.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TestDependencyResolution.swift; path = ../Tests/Functional/TestDependencyResolution.swift; sourceTree = "<group>"; };
 		63FDF0EF1C29F34D00B3904D /* TestMiscellaneous.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TestMiscellaneous.swift; path = ../Tests/Functional/TestMiscellaneous.swift; sourceTree = "<group>"; };
 		A1A815621C17A8E700BD6927 /* GetTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GetTests.swift; path = ../Tests/dep/GetTests.swift; sourceTree = "<group>"; };
+		B59359851C429F5200AD4547 /* GitTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GitTests.swift; path = ../Tests/dep/GitTests.swift; sourceTree = "<group>"; };
 		DA3C2AE11C1B48C700893759 /* XCTestCaseProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = XCTestCaseProvider.swift; sourceTree = "<group>"; };
 		DA3C2B141C1B4D4A00893759 /* XCTestCaseProvider.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = XCTestCaseProvider.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1066B6E1BC5931C00B892CE /* llbuild.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = llbuild.xcodeproj; path = ../../llbuild/llbuild.xcodeproj; sourceTree = "<group>"; };
@@ -367,6 +369,7 @@
 			isa = PBXGroup;
 			children = (
 				A1A815621C17A8E700BD6927 /* GetTests.swift */,
+				B59359851C429F5200AD4547 /* GitTests.swift */,
 				63D2BC171BFD6287006E395C /* PackageTests.swift */,
 				6305480D1BD708B30001290A /* DependencyGraphTests.swift */,
 				635C147C1BCDA0A900D4C4A9 /* TargetTests.swift */,
@@ -789,6 +792,7 @@
 				634D97011C2874670056FAAA /* Utilities.swift in Sources */,
 				63353A5B1BB4C4BC00D6C4B0 /* VersionTests.swift in Sources */,
 				63D2BC181BFD6287006E395C /* PackageTests.swift in Sources */,
+				B59359861C429F5200AD4547 /* GitTests.swift in Sources */,
 				635C147D1BCDA0A900D4C4A9 /* TargetTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -60,6 +60,11 @@ class Git {
             }
         }
 
+        /// Check if repo contains a version tag
+        var hasVersion: Bool {
+            return !versions.isEmpty
+        }
+
         /**
          - Returns: true if the package versions in this repository
            are all prefixed with "v", otherwise false. If there are

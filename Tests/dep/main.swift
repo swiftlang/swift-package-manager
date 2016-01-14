@@ -22,4 +22,7 @@ XCTMain([
     
     // GetTests.swift
     GetTests(),
+
+    // GitTests.swift
+    GitTests(),
 ])
