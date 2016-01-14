@@ -15,7 +15,9 @@ import sys
 import func sys.system
 import func sys.popen
 
+
 public struct BuildParameters {
+
     public enum Configuration {
         case Debug, Release
 
@@ -50,24 +52,24 @@ public struct BuildParameters {
     }
 }
 
-public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws -> BuildParameters {
-    var parms = BuildParameters()
-    parms.srcroot = srcroot
-    parms.targets = targets
-    parms.dependencies = dependencies
-    parms.prefix = prefix
-    parms.tmpdir = tmpdir
-    parms.conf = configuration
-    try llbuild(parms)
-    return parms
+
+public func llbuild(srcroot srcroot: String, targets: [Target], dependencies: [Package], prefix: String, tmpdir: String, configuration: BuildParameters.Configuration) throws {
+    var params = BuildParameters()
+    params.srcroot = srcroot
+    params.targets = targets
+    params.dependencies = dependencies
+    params.prefix = prefix
+    params.tmpdir = tmpdir
+    params.conf = configuration
+    try llbuild(params)
 }
 
-public func llbuild(parms: BuildParameters) throws {
-    for subdir in parms.requiredSubdirectories() {
-        try mkdir(parms.tmpdir, subdir)
+private func llbuild(params: BuildParameters) throws {
+    for subdir in params.requiredSubdirectories() {
+        try mkdir(params.tmpdir, subdir)
     }
 
-    let yaml = try YAML(parameters: parms)
+    let yaml = try YAML(parameters: params)
     try yaml.write()
 
     let toolPath = getenv("SWIFT_BUILD_TOOL") ?? Resources.findExecutable("swift-build-tool")
@@ -80,7 +82,7 @@ public func llbuild(parms: BuildParameters) throws {
 }
 
 private class YAML {
-    let parms: BuildParameters
+    let params: BuildParameters
     var filePointer: UnsafeMutablePointer<FILE>
     let filename: String
 
@@ -95,7 +97,7 @@ private class YAML {
     let sysroot: String?
     
     init(parameters: BuildParameters) throws {
-        parms = parameters
+        params = parameters
         filename = Path.join(parameters.tmpdir, "llbuild.yaml")
         filePointer = try fopen(filename, mode: .Write)
 
@@ -119,7 +121,7 @@ private class YAML {
         }
     }
 
-    func targetsString() -> String { return parms.targets.map{$0.targetNode}.joinWithSeparator(", ") }
+    func targetsString() -> String { return params.targets.map{$0.targetNode}.joinWithSeparator(", ") }
 
     func print(s: String = "") throws {
         try fputs(s, filePointer)
@@ -136,17 +138,17 @@ private class YAML {
 
         try print("targets:")
         try print("  \"\": [\(targetsString())]")
-        for target in parms.targets {
+        for target in params.targets {
             try print("  \(target.productName): [\(target.targetNode)]")
         }
         try print()
 
         try print("commands:")
 
-        if parms.targets.isEmpty {
+        if params.targets.isEmpty {
             try print("  {}")
         } else {
-            for target in parms.targets {
+            for target in params.targets {
                 try writeCompileNode(target)
                 try writeLinkNode(target)
             }
@@ -159,15 +161,15 @@ private class YAML {
 
     func ofiles(target: Target) -> [String] {
         return target.sources.map { srcfile -> String in
-            let tip = Path(srcfile).relative(to: parms.srcroot)
-            return Path.join(parms.tmpdir, "\(tip).o")
+            let tip = Path(srcfile).relative(to: params.srcroot)
+            return Path.join(params.tmpdir, "\(tip).o")
         }
     }
 
     func writeCompileNode(target: Target) throws {
-        let importPaths = [parms.prefix]
-        let prodpath = Path.join(parms.tmpdir, target.productName)
-        let modulepath = Path.join(parms.prefix, "\(target.moduleName).swiftmodule")
+        let importPaths = [params.prefix]
+        let prodpath = Path.join(params.tmpdir, target.productName)
+        let modulepath = Path.join(params.prefix, "\(target.moduleName).swiftmodule")
         let objects = ofiles(target)
         let inputs = target.dependencies.map{"<\($0.productName)>"} + target.sources
         let outputs = ["<\(target.productName)-swiftc>", modulepath] + objects
@@ -175,7 +177,7 @@ private class YAML {
         func args() -> [String] {
             var args = ["-j8"] //FIXME
 
-            switch parms.conf {
+            switch params.conf {
             case .Debug:
                 args += ["-Onone", "-g"]
             case .Release:
@@ -189,14 +191,14 @@ private class YAML {
           #if os(OSX)
             args += ["-target", "x86_64-apple-macosx10.10"]
           #endif
-            if target.type == .Library && parms.conf == .Debug {
+            if target.type == .Library && params.conf == .Debug {
                 args += ["-enable-testing"]
             }
             if let sysroot = sysroot {
                 args += ["-sdk", sysroot]
             }
 
-            for pkg in parms.dependencies where pkg.type == .ModuleMap {
+            for pkg in params.dependencies where pkg.type == .ModuleMap {
                 let path = Path.join(pkg.path, "module.modulemap")
                 args += ["-Xcc", "-F-module-map=\(path)", "-I", pkg.path]
             }
@@ -230,12 +232,12 @@ private class YAML {
         let objects = ofiles(target)
         let inputs = ["<\(target.productName)-swiftc>"] + objects
             // TODO this should refer to the llbuild-node when we combine all llbuild yamls
-            + (try parms.dependencies.flatMap {
+            + (try params.dependencies.flatMap {
                 try $0.targets().flatMap{
-                    Path.join(self.parms.prefix, $0.productFilename)
+                    Path.join(self.params.prefix, $0.productFilename)
                 }
             })
-        let productPath = Path.join(parms.prefix, target.productFilename)
+        let productPath = Path.join(params.prefix, target.productFilename)
         let outputs = [target.targetNode, productPath]
 
         func args() throws -> [String] {
@@ -255,7 +257,7 @@ private class YAML {
 #endif
 
                 // Ensure debugging flags are present, if appropriate.
-                if case .Debug = parms.conf {
+                if case .Debug = params.conf {
                     args += ["-g"]
                 }
 
@@ -276,11 +278,11 @@ private class YAML {
                 // it requires that first it finds it does not know about a
                 // symbol and then later it finds the symbol.
                 
-                let libsInOtherPackages = try parms.dependencies.reverse().flatMap { pkg -> [String] in
+                let libsInOtherPackages = try params.dependencies.reverse().flatMap { pkg -> [String] in
                     return try pkg.targets()
                         .filter{ $0.type == .Library }
                         .map{ $0.productFilename }
-                        .map{ Path.join(self.parms.prefix, $0) }
+                        .map{ Path.join(self.params.prefix, $0) }
                 }
 
                 // Target dependencies are *already* reverse sorted.
@@ -288,7 +290,7 @@ private class YAML {
                 let libsInThisPackage = target.dependencies
                     .filter{ $0.type == .Library }
                     .map{ $0.productFilename }
-                    .map{ Path.join(parms.prefix, $0) }
+                    .map{ Path.join(params.prefix, $0) }
 
                 // Add the static libraries of our dependencies.
                 args += libsInThisPackage
