@@ -15,7 +15,7 @@ import POSIX
 
 class PathTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("test", test),
             ("testPrecombined", testPrecombined),
@@ -93,7 +93,7 @@ class PathTests: XCTestCase, XCTestCaseProvider {
 
 class WalkTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testNonRecursive", testNonRecursive),
             ("testRecursive", testRecursive),
@@ -178,7 +178,7 @@ class WalkTests: XCTestCase, XCTestCaseProvider {
 
 class StatTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("test_isdir", test_isdir),
             ("test_isfile", test_isfile),
@@ -229,7 +229,7 @@ class StatTests: XCTestCase, XCTestCaseProvider {
 
 class RelativePathTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testAbsolute", testAbsolute),
             ("testRelative", testRelative),

@@ -14,7 +14,7 @@ import XCTestCaseProvider
 
 class StringTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testTrailingChomp", testTrailingChomp),
             ("testEmptyChomp", testEmptyChomp),
@@ -57,7 +57,7 @@ class StringTests: XCTestCase, XCTestCaseProvider {
 
 class URLTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testSchema", testSchema),
         ]

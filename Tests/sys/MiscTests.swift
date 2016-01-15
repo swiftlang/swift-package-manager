@@ -16,7 +16,7 @@ import libc
 
 class RmtreeTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
         ]

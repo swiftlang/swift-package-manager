@@ -14,7 +14,7 @@ import XCTestCaseProvider
 
 class FileTests: XCTestCase,  XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testOpenFile", testOpenFile),
             ("testOpenFileFail", testOpenFileFail),

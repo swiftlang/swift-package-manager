@@ -31,7 +31,7 @@ extension Target {
 
 class TargetTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("test1", test1),
             ("test2", test2),

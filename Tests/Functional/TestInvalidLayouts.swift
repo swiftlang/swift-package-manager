@@ -5,7 +5,7 @@ import func POSIX.unlink
 
 class InvalidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testNoTargets", testNoTargets),
             ("testMultipleRoots", testMultipleRoots),

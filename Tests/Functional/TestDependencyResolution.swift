@@ -4,7 +4,7 @@ import func POSIX.popen
 
 class DependencyResolutionTestCase: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testInternalSimple", testInternalSimple),
             ("testInternalComplex", testInternalComplex),

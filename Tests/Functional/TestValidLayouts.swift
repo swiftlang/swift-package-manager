@@ -118,7 +118,7 @@ extension ValidLayoutsTestCase {
 //MARK: Boilerplate
 
 extension ValidLayoutsTestCase {
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testSingleModuleLibrary", testSingleModuleLibrary),
             ("testSingleModuleExecutable", testSingleModuleExecutable),

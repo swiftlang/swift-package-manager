@@ -31,7 +31,7 @@ private func parseTOML(data: String) -> TOMLItem {
 
 class TOMLTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testLexer", testLexer),
             ("testParser", testParser),

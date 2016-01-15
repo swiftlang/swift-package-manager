@@ -17,7 +17,7 @@ import func POSIX.rename
 
 class PackageTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testInitializer", testInitializer),
             ("testModuleTypes", testModuleTypes),

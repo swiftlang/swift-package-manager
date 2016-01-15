@@ -16,7 +16,7 @@ import sys
 
 class ManifestTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testManifestLoading", testManifestLoading),
         ]

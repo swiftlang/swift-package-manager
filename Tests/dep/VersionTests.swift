@@ -16,7 +16,7 @@ import libc
 
 class VersionTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testEquality", testEquality),
             ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),

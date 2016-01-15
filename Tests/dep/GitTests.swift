@@ -16,7 +16,7 @@ import func POSIX.popen
 
 class GitTests: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testHasVersion", testHasVersion),
             ("testHasNoVersion", testHasNoVersion),

@@ -23,7 +23,7 @@
     import XCTest
 
     public protocol XCTestCaseProvider {
-        var allTests : [(String, () -> Void)] { get }
+        var allTests : [(String, () throws -> Void)] { get }
     }
 
     public func XCTMain(testCases: [XCTestCaseProvider]) {
@@ -42,11 +42,11 @@
 
     extension XCTestCaseProvider {
         private func assertContainsTest(name: String) {
-            let contains = self.allTests.contains({ test in
+            let contains = allTests.contains({ test in
                 return test.0 == name
             })
 
-            XCTAssert(contains, "Test '\(name)' is missing from the allTests array")
+            XCTAssert(contains, "Test '\(name)' is missing from the var allTests : [(String, () throws -> Void)] { array")
         }
     }
 #endif

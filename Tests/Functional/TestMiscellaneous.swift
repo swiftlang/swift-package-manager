@@ -10,7 +10,7 @@ import struct sys.Path
 
 class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
 
-    var allTests : [(String, () -> Void)] {
+    var allTests : [(String, () throws -> Void)] {
         return [
             ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("testManifestExcludes1", testManifestExcludes1),
