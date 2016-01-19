@@ -29,6 +29,8 @@ The following files from the JPEG system-package are of interest:
 
 Swift packages that provide module maps for system libraries are handled differently from regular Swift packages.
 
+Note that this package may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
+
 Create a directory called `CJPEG` parallel to the `example` directory and create a file called `module.modulemap`:
 
     example$ cd ..
@@ -177,7 +179,7 @@ And run it:
 
 ---
 
-Please note that on Ubuntu 15.10 the above steps fail with:
+Please note that on some platforms, the above steps fail with:
 
     <module-includes>:1:10: note: in file included from <module-includes>:1:
     #include "/usr/include/jpeglib.h"
@@ -186,7 +188,7 @@ Please note that on Ubuntu 15.10 the above steps fail with:
       size_t free_in_buffer;        /* # of byte spaces remaining in buffer */
       ^
 
-This is because `jpeglib.h` is not a correct module as bundled with Ubuntu (Homebrew’s jpeglib.h is correct however).
+This is because `jpeglib.h` is not a correct module.
 To fix this you need to add `#include <stdio.h>` to the top of jpeglib.h.
 
 JPEG lib itself needs to be patched, but since this situation will be common we intend to add a workaround system in module packages.
