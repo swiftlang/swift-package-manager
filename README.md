@@ -51,7 +51,7 @@ following options:
   2. Locate its `usr/bin` directory
   3. Run the bootstrap script:
 
-            swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool`
+            swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool
 
    `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, *they are **not** built from the sources in this repository*.
 
