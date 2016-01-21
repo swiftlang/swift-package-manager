@@ -82,7 +82,7 @@ do {
         do {
             let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
             
-            if opts.pull == false {
+            if opts.get == false {
                 try build(dependencies)
                 try build(try get(manifest.package.testDependencies, prefix: depsdir))
 
