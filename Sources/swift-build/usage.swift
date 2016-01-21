@@ -29,6 +29,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("  -v[v]              Increase verbosity of informational output")
     print("  -Xcc <flag>        Pass flag through to all compiler instantiations")
     print("  -Xlinker <flag>    Pass flag through to all linker instantiations")
+    print("  --pull             Only pull down dependencies without building binaries")
 }
 
 enum CleanMode: String {
@@ -55,6 +56,7 @@ struct Options {
     var verbosity: Int = 0
     var Xcc: [String] = []
     var Xlinker: [String] = []
+    var pull = false
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -156,6 +158,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
 
         case .Switch(.Xlinker):
             opts.Xlinker.append(try cruncher.rawPop())
+        case .Switch(.Pull):
+            opts.pull = true
         }
     }
 
@@ -208,6 +212,7 @@ private struct Cruncher {
             case Verbose = "--verbose"
             case Xcc = "-Xcc"
             case Xlinker = "-Xlinker"
+            case Pull = "--pull"
             
             init?(rawValue: String) {
                 switch rawValue {
@@ -219,6 +224,8 @@ private struct Cruncher {
                     self = .Xcc
                 case Xlinker.rawValue:
                     self = .Xlinker
+                case Pull.rawValue:
+                    self = .Pull
                 default:
                     return nil
                 }

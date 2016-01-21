@@ -81,12 +81,14 @@ do {
 
         do {
             let dependencies = try get(manifest.package.dependencies, prefix: depsdir)
+            
+            if opts.pull == false {
+                try build(dependencies)
+                try build(try get(manifest.package.testDependencies, prefix: depsdir))
 
-            try build(dependencies)
-            try build(try get(manifest.package.testDependencies, prefix: depsdir))
-
-            // build the current directory
-            try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+                // build the current directory
+                try llbuild(srcroot: rootd, targets: targets, dependencies: dependencies, prefix: builddir, tmpdir: Path.join(builddir, "\(pkgname).o"), configuration: configuration)
+            }
         } catch POSIX.Error.ExitStatus(let foo) {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but
