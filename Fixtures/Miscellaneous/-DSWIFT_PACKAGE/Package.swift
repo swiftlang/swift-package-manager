@@ -1,3 +1,7 @@
 import PackageDescription
 
-let package = Package(name: "PackageManagerDefine")
+#if SWIFT_PACKAGE
+let package = Package(name: "PackageManagerIsDefined")
+#else
+let package = Package(name: "PackageManagerIsNotDefined")
+#endif
