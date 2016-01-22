@@ -216,6 +216,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
     func testPackageManagerDefine() {
         fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
             XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build/debug/PackageManagerIsDefined.a")
         }
     }
 

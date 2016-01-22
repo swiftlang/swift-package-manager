@@ -150,7 +150,7 @@ public struct Manifest {
         // in the id of another file descriptor to write the output onto.
         let libDir = Resources.runtimeLibPath
         let swiftcPath = Resources.path.swiftc
-        var cmd = [swiftcPath, "--driver-mode=swift", "-I", libDir, "-L", libDir, "-lPackageDescription"]
+        var cmd = [swiftcPath, "--driver-mode=swift", "-I", libDir, "-L", libDir, "-lPackageDescription", "-DSWIFT_PACKAGE"]
 #if os(OSX)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif
