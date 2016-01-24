@@ -127,12 +127,12 @@ public struct Package {
         return "\(name(forURL: url))-\(version)"
     }
 
-    public enum Type {
+    public enum PackageType {
         case Module
         case ModuleMap
     }
 
-    public var type: Type {
+    public var type: PackageType {
         if Path.join(path, "module.modulemap").isFile {
             return .ModuleMap
         } else {
