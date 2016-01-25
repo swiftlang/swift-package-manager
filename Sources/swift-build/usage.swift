@@ -23,6 +23,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("                           build - Build intermediaries and products")
     print("                           dist  - All of 'build' plus downloaded packages")
     print("                           If no mode is given, 'build' is the default.")
+    print("  --init                   Creates a new Swift project")
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
@@ -39,6 +40,7 @@ enum CleanMode: String {
 enum Mode {
     case Build(BuildParameters.Configuration)
     case Clean(CleanMode)
+    case Init
     case Usage
     case Version
 }
@@ -119,6 +121,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                 }
             case (nil, .Usage):
                 mode = .Usage
+            case (nil, .Init):
+                mode = .Init
             case (nil, .Clean):
                 mode = .Clean(.Build)
                 switch try cruncher.peek() {
@@ -173,6 +177,7 @@ extension Mode: CustomStringConvertible {
         switch self {
             case .Build(let conf): return "--build \(conf)"
             case .Clean(let cleanMode): return "--clean=\(cleanMode)"
+            case .Init: return "--init"
             case .Usage: return "--help"
             case .Version: return "--version"
         }
@@ -185,6 +190,7 @@ private struct Cruncher {
         enum TheMode: String {
             case Build = "--configuration"
             case Clean = "--clean"
+            case Init = "--init"
             case Usage = "--help"
             case Version = "--version"
 
@@ -194,6 +200,8 @@ private struct Cruncher {
                     self = .Build
                 case Clean.rawValue, "-k":
                     self = .Clean
+                case Init.rawValue:
+                    self = .Init
                 case Usage.rawValue:
                     self = .Usage
                 case Version.rawValue:
@@ -277,6 +285,7 @@ private func ==(lhs: Mode, rhs: Cruncher.Crunch.TheMode) -> Bool {
     switch lhs {
         case .Build: return rhs == .Build
         case .Clean: return rhs == .Clean
+        case .Init: return rhs == .Init
         case .Version: return rhs == .Version
         case .Usage: return rhs == .Usage
     }
