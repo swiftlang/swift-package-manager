@@ -44,7 +44,7 @@ public func get(urls: [(String, Range<Version>)], prefix: String) throws -> [dep
  Our usage fetches remote packages by having Sandbox conform.
 */
 protocol Fetcher {
-    typealias T: Fetchable
+    associatedtype T: Fetchable
 
     func find(url url: String) throws -> Fetchable?
     func fetch(url url: String) throws -> Fetchable
