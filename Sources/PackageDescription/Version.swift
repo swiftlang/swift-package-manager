@@ -52,14 +52,12 @@ public struct Version {
             prereleaseIdentifiers = []
         }
         
-        var buildMetadataIdentifier: String? = nil
-        if let metadataStartIndex = metadataStartIndex {
-            let buildMetadataCharacters = characters.suffixFrom(metadataStartIndex.successor())
-            if !buildMetadataCharacters.isEmpty {
-                buildMetadataIdentifier = String(buildMetadataCharacters)
-            }
-        }
-        self.buildMetadataIdentifier = buildMetadataIdentifier
+        self.buildMetadataIdentifier = metadataStartIndex
+                                       .map { characters.suffixFrom($0.successor()) }
+                                       .flatMap { $0.isEmpty ? nil : $0 }
+                                       .map { String($0) }
+
+
     }
 
     public init?(_ versionString: String) {
