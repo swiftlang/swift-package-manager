@@ -13,6 +13,7 @@ import struct sys.Path
 import struct dep.Manifest
 
 enum Error: ErrorType {
+    case ManifestAlreadyExists
     case NoManifestFound
     case NoTargetsFound
 }
@@ -20,6 +21,8 @@ enum Error: ErrorType {
 extension Error: CustomStringConvertible {
     var description: String {
         switch self {
+        case .ManifestAlreadyExists:
+            return "\(Manifest.filename) already exists"
         case .NoManifestFound:
             return "no \(Manifest.filename) file found"
         case .NoTargetsFound:

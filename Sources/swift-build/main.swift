@@ -101,6 +101,8 @@ do {
             throw POSIX.Error.ExitStatus(foo)
         }
 
+    case .Init:
+        try initPackage()
 
     case .Version:
         print("Apple Swift Package Manager 0.1")
