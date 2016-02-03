@@ -19,6 +19,7 @@ extension Package {
         guard let origin = repo.origin else { throw Error.NoOrigin(repo.path) }
         let manifest = try manifestParser(path: repo.path, url: origin)
         let pkg = Package(manifest: manifest, url: origin)
+        pkg.version = Version(pkg.versionString)!
         guard Version(pkg.versionString) != nil else { return nil }
         return pkg
     }

@@ -9,11 +9,13 @@
 */
 
 import Utility
+import struct PackageDescription.Version
 
 public class Package {
     public let url: String
     public let path: String
     public let name: String
+    public var version: Version?
     public var dependencies: [Package] = []
     public let manifest: Manifest
 
