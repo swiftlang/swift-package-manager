@@ -35,22 +35,14 @@ public enum SystemError: ErrorType {
     case waitpid(Int32)
 }
 
-#if os(OSX)
-    import func Darwin.strerror
-#else
-    import func Glibc.strerror
-#endif
+import func libc.strerror
 
 
 extension SystemError: CustomStringConvertible {
     public var description: String {
 
         func strerror(errno: Int32) -> String {
-          #if os(OSX)
-            let cmsg = Darwin.strerror(errno)
-          #else
-            let cmsg = Glibc.strerror(errno)
-          #endif
+            let cmsg = libc.strerror(errno)
             let msg = String.fromCString(cmsg) ?? "Unknown Error"
             return "\(msg) (\(errno))"
         }
