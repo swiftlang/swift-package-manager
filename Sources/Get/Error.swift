@@ -17,6 +17,8 @@ public enum Error: ErrorType {
 
     case ManifestTargetNotFound(String)
     case InvalidDependencyGraph(String)
+    case InvalidDependencyGraphMissingTag(package: String, requestedTag: String, existingTags: String)
+
     case InvalidSourcesLayout(path: String, type: InvalidSourcesLayoutError)
     case UpdateRequired(String)
     
@@ -41,6 +43,8 @@ extension Error: CustomStringConvertible {
             return "The manifest describes a target that cannot be found in your source tree: \(target)"
         case InvalidDependencyGraph(let package):
             return "The dependency graph could not be satisfied (\(package))"
+        case InvalidDependencyGraphMissingTag(let package, let requestedTag, let existingTags):
+            return "The dependency graph could not be satisfied. The package (\(package)) with version tag in range (\(requestedTag)) is not found. Found tags (\(existingTags))"
         case InvalidSourcesLayout(let path, let errorType):
             return "Your source structure is not supported due to invalid sources layout: \(path). \(errorType)"
         case UpdateRequired(let package):
