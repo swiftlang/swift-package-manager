@@ -228,7 +228,7 @@ public struct Specifier {
         self.patch = patch.map{ Swift.max($0, 0) }
     }
 
-    public init?(_ characters: String.CharacterView) {
+    public init(_ characters: String.CharacterView) {
         let components = characters.split(".", maxSplit: 2).map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
 
         self.major = components.count >= 1 ? components[0] : nil
@@ -262,7 +262,7 @@ public struct Specifier {
 
 extension Specifier: StringLiteralConvertible {
     public init(stringLiteral value: String) {
-        self.init(value.characters)!
+        self.init(value.characters)
     }
 
     public init(extendedGraphemeClusterLiteral value: String) {
