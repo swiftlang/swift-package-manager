@@ -53,10 +53,10 @@ class PackageTests: XCTestCase, XCTestCaseProvider {
                 oldpath = newpath
             }
 
-            try test("Module-1.2.3-alpha", line: __LINE__)
-            try test("Module-1.2.3-beta1.foo", line: __LINE__)
-            try test("Module-1.2.3-beta1.foo+23", line: __LINE__)
-            try test("Module-1.2.3+23", line: __LINE__)
+            try test("Module-1.2.3-alpha", line: #line)
+            try test("Module-1.2.3-beta1.foo", line: #line)
+            try test("Module-1.2.3-beta1.foo+23", line: #line)
+            try test("Module-1.2.3+23", line: #line)
         }
     }
 

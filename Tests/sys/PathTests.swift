@@ -116,7 +116,7 @@ class WalkTests: XCTestCase, XCTestCaseProvider {
     }
 
     func testRecursive() {
-        let root = Path.join(__FILE__, "../../../Sources").normpath
+        let root = Path.join(#file, "../../../Sources").normpath
         var expected = [
             Path.join(root, "dep"),
             Path.join(root, "sys")

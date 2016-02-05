@@ -16,7 +16,7 @@ import func POSIX.system
 import func POSIX.popen
 
 
-func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
 
     func gsub(input: String) -> String {
         return input.characters.split("/").map(String.init).joinWithSeparator("_")
@@ -26,7 +26,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
         try POSIX.mkdtemp(gsub(fixtureName)) { prefix in
             defer { _ = try? rmtree(prefix) }
 
-            let rootd = Path.join(__FILE__, "../../../Fixtures", fixtureName).normpath
+            let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
             guard rootd.isDirectory else {
                 XCTFail("No such fixture: \(rootd)", file: file, line: line)
@@ -75,7 +75,7 @@ func executeSwiftBuild(chdir: String) throws -> String {
     return try popen([toolPath, "--chdir", chdir], redirectStandardError: true, environment: env)
 }
 
-func mktmpdir(file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
             defer { _ = try? rmtree(dir) }
@@ -86,7 +86,7 @@ func mktmpdir(file: StaticString = __FILE__, line: UInt = __LINE__, @noescape bo
     }
 }
 
-func XCTAssertBuilds(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertBuilds(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let prefix = Path.join(paths)
     do {
         try executeSwiftBuild(prefix)
@@ -95,28 +95,28 @@ func XCTAssertBuilds(paths: String..., file: StaticString = __FILE__, line: UInt
     }
 }
 
-func XCTAssertBuildFails(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertBuildFails(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let prefix = Path.join(paths)
     if (try? executeSwiftBuild(prefix)) != nil {
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
     }
 }
 
-func XCTAssertFileExists(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertFileExists(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let path = Path.join(paths)
     if !path.isFile {
         XCTFail("Expected file doesn’t exist: \(path)", file: file, line: line)
     }
 }
 
-func XCTAssertDirectoryExists(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertDirectoryExists(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let path = Path.join(paths)
     if !path.isDirectory {
         XCTFail("Expected directory doesn’t exist: \(path)", file: file, line: line)
     }
 }
 
-func XCTAssertNoSuchPath(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertNoSuchPath(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let path = Path.join(paths)
     if path.exists {
         XCTFail("path exists by should not: \(path)", file: file, line: line)

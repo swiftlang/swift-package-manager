@@ -51,7 +51,7 @@ class GitTests: XCTestCase, XCTestCaseProvider {
 
 //MARK: - Helpers
 
-private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = __FILE__, line: UInt = __LINE__) -> Git.Repo? {
+private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
     do {
         let file = Path.join(dstdir, "file.swift")
         try popen(["touch", file])
