@@ -22,12 +22,12 @@ class ManifestTests: XCTestCase, XCTestCaseProvider {
         ]
     }
 
-    private func loadManifest(inputName: String, line: UInt = __LINE__, body: (Manifest) -> Void) {
+    private func loadManifest(inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
-            let input = Path.join(__FILE__, "../Inputs", inputName).normpath
+            let input = Path.join(#file, "../Inputs", inputName).normpath
             body(try Manifest(path: input))
         } catch {
-            XCTFail("Unexpected error: \(safeStringify(error))", file: __FILE__, line: line)
+            XCTFail("Unexpected error: \(safeStringify(error))", file: #file, line: line)
         }
     }
 

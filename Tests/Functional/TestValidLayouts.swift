@@ -38,7 +38,7 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
     }
 
     func testSingleModuleSubfolderWithSwiftSuffix() {
-        fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: __FILE__, line: __LINE__) { prefix in
+        fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix, ".build", "debug", "Bar.a")
         }
@@ -83,14 +83,14 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
 //MARK: Utility
 
 extension ValidLayoutsTestCase {
-    func runLayoutFixture(name name: String, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+    func runLayoutFixture(name name: String, line: UInt = #line, @noescape body: (String) throws -> Void) {
         let name = "ValidLayouts/\(name)"
 
         // 1. Rooted layout
-        fixture(name: name, file: __FILE__, line: line, body: body)
+        fixture(name: name, file: #file, line: line, body: body)
 
         // 2. Move everything to a directory called "Sources"
-        fixture(name: name, file: __FILE__, line: line) { prefix in
+        fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = try mkdir(prefix, "Sources")
             for file in files {
@@ -101,7 +101,7 @@ extension ValidLayoutsTestCase {
         }
 
         // 3. Symlink some other directory to a directory called "Sources"
-        fixture(name: name, file: __FILE__, line: line) { prefix in
+        fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = try mkdir(prefix, "Floobles")
             for file in files {
