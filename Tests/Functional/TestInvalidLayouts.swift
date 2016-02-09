@@ -1,21 +1,18 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
 import XCTest
-import XCTestCaseProvider
 import func POSIX.rmdir
 import func POSIX.unlink
 
-class InvalidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
-
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testNoTargets", testNoTargets),
-            ("testMultipleRoots", testMultipleRoots),
-            ("testInvalidLayout1", testInvalidLayout1),
-            ("testInvalidLayout2", testInvalidLayout2),
-            ("testInvalidLayout3", testInvalidLayout3),
-            ("testInvalidLayout4", testInvalidLayout4),
-            ("testInvalidLayout5", testInvalidLayout5),
-        ]
-    }
+class InvalidLayoutsTestCase: XCTestCase {
 
     func testNoTargets() {
         fixture(name: "InvalidLayouts/NoTargets") { prefix in

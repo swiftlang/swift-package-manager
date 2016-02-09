@@ -1,17 +1,17 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2016 Apple Inc. and the Swift project authors
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
-import struct dep.Manifest
-import struct sys.Path
+import struct Utility.Path
 import func libc.fclose
+import PackageType
+import POSIX
 
 func initPackage() throws {
     let rootd = try POSIX.getcwd()

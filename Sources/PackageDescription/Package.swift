@@ -14,12 +14,6 @@ import Glibc
 import Darwin.C
 #endif
 
-/// A TOML representation of an element.
-protocol TOMLConvertible {
-
-    /// Return a TOML representation.
-    func toTOML() -> String
-}
 
 /// The description for a complete package.
 public final class Package {
@@ -138,6 +132,11 @@ private var thePackageToDump: Package? = nil
 private func dumpPackageAtExit(package: Package) {
     func dump() {
         print(thePackageToDump!.toTOML())
+        for product in products {
+            print("[[products]]")
+            print(product.toTOML())
+            print()
+        }
     }
     thePackageToDump = package
     atexit(dump)

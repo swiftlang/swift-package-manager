@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct libc.FILE
 import func libc.fopen
 import var libc.errno
 
@@ -16,25 +17,8 @@ public enum FopenMode: String {
     case Write = "w"
 }
 
-public func fopen(path: String..., mode: FopenMode = .Read) throws -> UnsafeMutablePointer<FILE> {
-    let path = joinPathComponents(path)
+public func fopen(path: String, mode: FopenMode = .Read) throws -> UnsafeMutablePointer<FILE> {
     let f = libc.fopen(path, mode.rawValue)
     guard f != nil else { throw SystemError.fopen(errno, path) }
     return f
-}
-
-/**
- Joins path components, unless a component is an absolute
- path, in which case it discards all previous path components.
-*/
-func joinPathComponents(join: [String]) -> String {
-    guard join.count > 0 else { return "" }
-
-    return join.dropFirst(1).reduce(join[0]) {
-        if $1.hasPrefix("/") {
-            return $1
-        } else {
-            return $0 + "/" + $1
-        }
-    }
 }

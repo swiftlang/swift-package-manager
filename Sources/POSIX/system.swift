@@ -49,10 +49,10 @@ func posix_spawnp(path: String, args: [String], environment: [String: String] = 
     let argv = args.map{ $0.withCString(strdup) }
     defer { for arg in argv { free(arg) } }
 
-    for key in ["PATH", "SDKROOT", "HOME", "SWIFT_EXEC"] {
-        if let value = POSIX.getenv(key) {
-            environment[key] = value
-        }
+    for key in ["PATH", "SDKROOT", "HOME", "SWIFT_EXEC",
+                // FIXME these
+                "SPM_INSTALL_PATH", "SWIFT_BUILD_TOOL"] {
+        environment[key] = POSIX.getenv(key)
     }
 
     let env = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }

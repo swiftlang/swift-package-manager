@@ -9,7 +9,7 @@
 */
 
 import POSIX
-import sys
+import Utility
 import XCTest
 
 import func POSIX.system
@@ -68,11 +68,35 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
     }
 }
 
-func executeSwiftBuild(chdir: String) throws -> String {
+enum Configuration {
+    case Debug
+    case Release
+}
+
+func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false) throws -> String {
     let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    return try popen([toolPath, "--chdir", chdir], redirectStandardError: true, environment: env)
+    var args = [toolPath, "--chdir", chdir]
+    args.append("--configuration")
+    switch configuration {
+    case .Debug:
+        args.append("debug")
+    case .Release:
+        args.append("release")
+    }
+    var out = ""
+    do {
+        try popen(args, redirectStandardError: true, environment: env) {
+            out += $0
+        }
+        return out
+    } catch {
+        if printIfError {
+            print(out)
+        }
+        throw error
+    }
 }
 
 func mktmpdir(file: StaticString = __FILE__, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
@@ -86,12 +110,16 @@ func mktmpdir(file: StaticString = __FILE__, line: UInt = __LINE__, @noescape bo
     }
 }
 
-func XCTAssertBuilds(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
+func XCTAssertBuilds(paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = __FILE__, line: UInt = __LINE__) {
     let prefix = Path.join(paths)
-    do {
-        try executeSwiftBuild(prefix)
-    } catch {
-        XCTFail("`swift build' failed:\n\n\(safeStringify(error))\n", file: file, line: line)
+
+    for conf in configurations {
+        do {
+            print("    Building \(conf)")
+            try executeSwiftBuild(prefix, configuration: conf, printIfError: true)
+        } catch {
+            XCTFail("`swift build -c \(conf)' failed:\n\n\(safeStringify(error))\n", file: file, line: line)
+        }
     }
 }
 
@@ -119,7 +147,7 @@ func XCTAssertDirectoryExists(paths: String..., file: StaticString = __FILE__, l
 func XCTAssertNoSuchPath(paths: String..., file: StaticString = __FILE__, line: UInt = __LINE__) {
     let path = Path.join(paths)
     if path.exists {
-        XCTFail("path exists by should not: \(path)", file: file, line: line)
+        XCTFail("path exists but should not: \(path)", file: file, line: line)
     }
 }
 

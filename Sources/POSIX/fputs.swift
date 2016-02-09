@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct libc.FILE
 import func libc.fputs
 import var libc.EOF
 

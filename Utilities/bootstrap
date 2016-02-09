@@ -95,38 +95,6 @@ if platform.system() == 'Darwin':
     g_default_sysroot = subprocess.check_output(
         ["xcrun", "--sdk", "macosx", "--show-sdk-path"], universal_newlines=True).strip()
 
-g_bundle_identifier_base = "org.swift.package-manager"
-g_xctest_infoplist_template = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
-	<key>CFBundleExecutable</key>
-	<string>%(bundle_executable)s</string>
-	<key>CFBundleIdentifier</key>
-	<string>%(bundle_identifier)s</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>%(bundle_name)s</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleSupportedPlatforms</key>
-	<array>
-		<string>MacOSX</string>
-	</array>
-	<key>CFBundleVersion</key>
-	<string>1</string>
-</dict>
-</plist>
-"""
-
 class Target(object):
     @property
     def virtual_node(self):
@@ -137,12 +105,11 @@ class Target(object):
         return "<link-%s>" % (self.name)
     
     def __init__(self, name, dependencies=[], swiftflags=[], extra_libs=[],
-                 subpath=None, is_test=False):
+                 subpath=None):
         self.name = name
         self.dependencies = list(dependencies)
         self.swiftflags = list(swiftflags)
         self.extra_libs = list(extra_libs)
-        self.is_test = is_test
 
         # Discover the source files, and whether or not this is a library.
         self.is_library = True
@@ -157,10 +124,6 @@ class Target(object):
                         self.is_library = False
                     self.swift_sources.append(path)
 
-            # Exclude tests and fixtures, for now.
-            dirnames[:] = [
-                name for name in dirnames
-                if name != " " and not name.lower().startswith("fixtures")]
         self.swift_sources.sort()
 
     def write_swift_compile_commands(self, opts, target_build_dir,
@@ -185,24 +148,8 @@ class Target(object):
         # 'swift' tool.
         module_name = self.name.replace("-", "_")
         other_args = ['-Onone', '-j%d' % g_num_cpus] + self.swiftflags
-        other_args.append("-enable-testing")
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
-        # Add the XCTest options, if needed.
-        if self.is_test:
-            # On Darwin, the XCTest library doesn't ship as part of the SDK
-            # *or* part of the Swift package, so we need to pass search
-            # paths to the Platform library location.
-            if platform.system() == 'Darwin':
-                other_args.extend([
-                    "-F", os.path.join(
-                        g_platform_path,
-                        "Developer", "Library", "Frameworks")])
-                
-            # If we are have an explicit path to the XCTest build products
-            # (used when co-building with Swift), then add that path.
-            if opts.xctest_path:
-                other_args.extend(["-I", opts.xctest_path])
         if opts.sysroot:
             other_args.extend(["-sdk", opts.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
@@ -219,8 +166,6 @@ class Target(object):
             [compile_swift_node, module_path] + swift_objects), file=output)
         print("    module-name: %s" % json.dumps(module_name), file=output)
         print("    module-output-path: %s" % json.dumps(module_path), file=output)
-        print("    is-library: %s" % json.dumps(
-            str(bool(self.is_library)).lower()), file=output)
         print("    sources: %s" % json.dumps(
             self.swift_sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
@@ -234,35 +179,18 @@ class Target(object):
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
 targets = [
-    Target('PackageDescription'),
     Target('libc'),
     Target('POSIX', dependencies=["libc"]),
-    Target('sys', dependencies=["POSIX", "libc"]),
-    Target('dep', dependencies=["sys", "PackageDescription"]),
-    Target('swift-build', dependencies=["dep", "sys", "PackageDescription",
-                                        "POSIX", "libc"]),
-
-    # Test dependencies.
-    # The Xcode project in swiftpm/Support/ builds these as Swift frameworks.
-    Target('XCTestCaseProvider', subpath="../Tests/XCTestCaseProvider", 
-           is_test=True),
-
-    # Test targets.
-    Target('PackageDescription-tests', subpath="../Tests/PackageDescription",
-           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc",
-                         "XCTestCaseProvider"],
-           is_test=True),
-    Target('sys-tests', subpath="../Tests/sys",
-           dependencies=["sys", "POSIX", "libc", "XCTestCaseProvider"],
-           is_test=True),
-    Target('dep-tests', subpath="../Tests/dep",
-           dependencies=["dep", "sys", "PackageDescription", "POSIX", "libc",
-                         "XCTestCaseProvider"],
-           is_test=True),
-    Target('Functional-tests', subpath="../Tests/Functional",
-           dependencies=["sys", "POSIX", "libc",
-                         "XCTestCaseProvider"],
-           is_test=True),
+    Target('Utility', dependencies=["POSIX", "libc"]),
+    Target('PackageDescription'),
+    Target('Multitool', dependencies=["PackageType", "Utility", "POSIX", "libc"]),
+    Target('PackageType', dependencies=["PackageDescription", "Utility", "POSIX", "libc"]),
+    Target('Transmute', dependencies=["PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
+    Target('ManifestParser', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
+    Target('Get', dependencies=["ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
+    Target('Build', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
+    Target('swift-build', dependencies=["Transmute", "Multitool", "Build", "Get", "ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
+    Target('swift-test', dependencies=["Multitool", "PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
 ]
 target_map = dict((t.name,t) for t in targets)
 
@@ -282,8 +210,7 @@ def create_bootstrap_files(sandbox_path, opts):
     print(file=output)
 
     # Compute the list of active targets.
-    active_targets = [target for target in targets
-                      if not target.is_test or opts.build_tests]
+    active_targets = targets
     
     # Write out the targets list.
     #
@@ -313,16 +240,8 @@ def create_bootstrap_files(sandbox_path, opts):
     module_dir = os.path.join(sandbox_path, "modules")
     mkdir_p(module_dir)
 
-    # Create the shared test products dir.
-    tests_dir = os.path.join(sandbox_path, "Tests")
-    mkdir_p(tests_dir)
-
     print("commands:", file=output)
-    for target in targets:
-        if target.is_test and not opts.build_tests:
-            # Skip tests if XCTest path is not provided
-            continue
-        
+    for target in targets:        
         print("  # Target Commands: %r" % (target.name,), file=output)
         target_build_dir = os.path.join(sandbox_path, target.name + ".build")
         mkdir_p(target_build_dir)
@@ -356,24 +275,7 @@ def create_bootstrap_files(sandbox_path, opts):
                             'ar', 'cr', pipes.quote(link_output_path)]
             link_command.append(' '.join(pipes.quote(o) for o in objects))
         else:
-            if target.is_test and platform.system() == "Darwin":
-                # On OS X, we build the test targets as actual bundles.
-                xctest_bundle_path = os.path.join(
-                    bin_dir, target.name + ".xctest")
-                contents_path = os.path.join(xctest_bundle_path, "Contents")
-                link_output_path = os.path.join(
-                    contents_path, "MacOS", target.name)
-                mkdir_p(os.path.dirname(link_output_path))
-                infoplist_path = os.path.join(contents_path, "Info.plist")
-                write_file_if_changed(
-                    infoplist_path, g_xctest_infoplist_template % {
-                        "bundle_executable" : target.name,
-                        "bundle_identifier" : "%s.%s" % (
-                            g_bundle_identifier_base, target.name),
-                        "bundle_name" : target.name
-                })
-            else:
-                link_output_path = os.path.join(bin_dir, target.name)
+            link_output_path = os.path.join(bin_dir, target.name)
                 
             link_command = [opts.swiftc_path, '-o', pipes.quote(link_output_path)]
             if opts.sysroot:
@@ -389,34 +291,6 @@ def create_bootstrap_files(sandbox_path, opts):
                 link_command.extend(["-Xlinker", "-all_load"])
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
-            # Add the XCTest options, if needed.
-            if target.is_test:
-                # On Darwin, the XCTest library doesn't ship as part of the SDK
-                # *or* part of the Swift package, so we need to pass search
-                # paths to the Platform library location.
-                if platform.system() == 'Darwin':
-                    link_command.extend(["-Xlinker", "-bundle"])
-                    link_command.extend([
-                        "-F", os.path.join(
-                            g_platform_path,
-                            "Developer", "Library", "Frameworks")])
-
-                    # We also embed an RPATH, so the tests can be run directly.
-                    link_command.extend([
-                        "-Xlinker", "-rpath",
-                        "-Xlinker", os.path.join(
-                            g_platform_path,
-                            "Developer", "Library", "Frameworks")])
-                
-                # If we are have an explicit path to the XCTest build products
-                # (used when co-building with Swift), then add that path.
-                if opts.xctest_path:
-                    # Tell the linker where to look for XCTest, but autolinking
-                    # knows to pass -lXCTest.
-                    link_command.extend(["-L", opts.xctest_path])
-                    # Add an RPATH, so that the tests can be run directly.
-                    link_command.extend(
-                        ["-Xlinker", "-rpath", "-Xlinker", opts.xctest_path])
 
         # Write out the link command.
         print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
@@ -451,7 +325,7 @@ def process_runtime_libraries(build_path, opts, bootstrap=False):
         module_input_path = os.path.join(
             build_path, "debug", "PackageDescription.swiftmodule")
         input_lib_path = os.path.join(
-            build_path, "debug", "PackageDescription.a")
+            build_path, "debug", "libPackageDescription.a")
         
     lib_path = os.path.join(build_path, "lib", "swift", "pm")
     mkdir_p(lib_path)
@@ -546,12 +420,7 @@ usage: %prog [options] [clean|all|test|install]
 
 This script will build a bootstrapped copy of the Swift Package Manager, and
 optionally perform extra actions like installing the result (with 'install') to
-a location ('--prefix').
-
-The script is also capable of building the package manager tests as part of the
-Stage 1 build, and running those tests (with 'test'). This is a stop gap measure
-for enabling integrated testing until the package manager itself has built in
-testing support.""")
+a location ('--prefix').""")
     parser.add_option("", "--swiftc", dest="swiftc_path",
                       help="path to the swift compiler [%default]",
                       default=os.getenv("SWIFT_EXEC") or "swiftc", metavar="PATH")
@@ -572,7 +441,7 @@ testing support.""")
     parser.add_option("--xctest", dest="xctest_path", action="store",
                       help="Path to XCTest build directory")
     parser.add_option("", "--build-tests", dest="build_tests",
-                      action="store_true", help="enable building tests")
+                      action="store_true", help="Deprecated")
     opts,args = parser.parse_args()
 
     # When invoked via Xcode, it will automatically be passed a "build action".
@@ -613,8 +482,6 @@ testing support.""")
     # Determine the swift-build-tool to use.
     opts.sbt_path = os.path.abspath(
         opts.sbt_path or get_swift_build_tool_path())
-    if opts.xctest_path:
-        opts.xctest_path = os.path.abspath(opts.xctest_path)
 
     # Create or update the bootstrap files.
     create_bootstrap_files(sandbox_path, opts)
@@ -633,6 +500,16 @@ testing support.""")
     # FIXME: Integrate this into the bootstrap build.
     runtime_module_path,runtime_lib_path = process_runtime_libraries(
         sandbox_path, opts, bootstrap=True)
+        
+    # Symlink the expected lib location so that we don't yet
+    # have to support installation logic in SwiftPM proper
+    symlink_path = os.path.join(build_path, "lib", "swift", "pm")
+    if os.path.islink(symlink_path) == False:
+        mkdir_p(os.path.join(build_path, "lib", "swift"))
+        os.symlink(os.path.join(build_path, "debug"), symlink_path)
+    symlink_path = os.path.join(build_path, "bin")
+    if os.path.islink(symlink_path) == False:
+        os.symlink(os.path.join(build_path, "debug"), symlink_path)
 
     # Build the package manager with itself.
     env_cmd = ["env",
@@ -656,40 +533,20 @@ testing support.""")
 
     swift_build_path = os.path.join(build_path, "debug", "swift-build")
     note("built: %s" % (swift_build_path,))
-
-    # Stage the runtime library in the expected resources location.
-    #
-    # FIXME: It would be nice to get this to only be done incrementally.
-    runtime_module_path,runtime_lib_path = process_runtime_libraries(
-        build_path, opts)
-    note("built runtime module : %s" % (runtime_module_path,))
-    note("built runtime library: %s" % (runtime_lib_path,))
-
+  
     # If testing, run each of the test bundles.
     if "test" in build_actions:
-        if not opts.build_tests:
-            parser.error("cannot use 'test' action without '--build-tests'")
-
         # Construct the test environment.
         env_cmd = ["env",
                    "SWIFT_EXEC=" + opts.swiftc_path,
                    "SWIFT_BUILD_TOOL=" + opts.sbt_path,
-                   "SPM_INSTALL_PATH=" + sandbox_path]
-        for target in targets:
-            if not target.is_test or target.is_library:
-                continue
+                   "SWIFT_BUILD_PATH=" + build_path,
+                   "SPM_INSTALL_PATH=" + build_path]
 
-            note("running test target '%s'..." % (target.name,))
-            if platform.system() == 'Linux':
-                cmd = env_cmd + [os.path.join(sandbox_path, "bin", target.name)]
-            else:
-                cmd = env_cmd + ["xcrun", "xctest", os.path.join(
-                    sandbox_path, "bin", target.name + ".xctest")]
-            note("executing: %s" % (' '.join(cmd),))
-            result = subprocess.call(cmd, cwd=g_project_root)
-            if result != 0:
-                error("tests failed with exit status %d" % (result,))
-    
+        cmd = env_cmd + [os.path.join(build_path, "debug", "swift-test")]
+        result = subprocess.call(cmd, cwd=g_project_root)
+        if result != 0:
+            error("tests failed with exit status %d" % (result,))
     # If installing, put the build products in the appropriate location.
     if "install" in build_actions:
         bin_install_path = os.path.join(g_project_root, opts.install_prefix,
