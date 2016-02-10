@@ -114,15 +114,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         let objects: [String]
         switch conf {
         case .Release:
-            objects = recursiveDependencies(product.modules).filter{ $0 is SwiftModule }.map{ Path.join(prefix, "\($0.c99name).o") }
+            objects = product.buildables.map{ Path.join(prefix, "\($0.c99name).o") }
         case .Debug:
-            objects = recursiveDependencies(product.modules).flatMap{ module -> [String] in
-                if let module = module as? SwiftModule {
-                    return IncrementalNode(module: module, prefix: prefix).objectPaths
-                } else {
-                    return []
-                }
-            }
+            objects = product.buildables.flatMap{ return IncrementalNode(module: $0, prefix: prefix).objectPaths }
         }
 
         var args = [Resources.path.swiftc]
@@ -179,4 +173,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     }
 
     return yaml.path
+}
+
+
+extension Product {
+    private var buildables: [SwiftModule] {
+        return recursiveDependencies(modules.map{$0}).flatMap{ $0 as? SwiftModule }
+    }
 }

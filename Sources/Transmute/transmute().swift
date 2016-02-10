@@ -32,7 +32,7 @@ public func transmute(packages: [Package]) throws -> ([Module], [Product]) {
             testModule.dependencies = modules.filter{ $0.name == testModule.basename }
         }
 
-        map[package] = modules + testModules as [Module]
+        map[package] = modules + testModules.map{$0}
     }
 
     // ensure modules depend on the modules of any dependent packages

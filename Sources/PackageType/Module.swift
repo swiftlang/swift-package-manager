@@ -29,7 +29,7 @@ public class Module {
     }
 
     public var recursiveDependencies: [Module] {
-        return dependencies.recursiveDependencies()
+        return PackageType.recursiveDependencies(dependencies)
     }
 }
 
@@ -87,21 +87,39 @@ extension Module: CustomStringConvertible {
 }
 
 
-extension Array where Element: Module {
-    public func recursiveDependencies() -> [Module] {
-        var stack: [Module] = self
-        var set = Set<Module>()
-        var rv = [Module]()
+//FIXME swift on Linux crashed with this:
+//extension Array where Element: Module {
+//    public func recursiveDependencies() -> [Module] {
+//        var stack: [Module] = self
+//        var set = Set<Module>()
+//        var rv = [Module]()
+//
+//        while stack.count > 0 {
+//            let top = stack.removeFirst()
+//            if !set.contains(top) {
+//                rv.append(top)
+//                set.insert(top)
+//                stack += top.dependencies
+//            }
+//        }
+//
+//        return rv
+//    }
+//}
 
-        while stack.count > 0 {
-            let top = stack.removeFirst()
-            if !set.contains(top) {
-                rv.append(top)
-                set.insert(top)
-                stack += top.dependencies
-            }
+public func recursiveDependencies(modules: [Module]) -> [Module] {
+    var stack = modules
+    var set = Set<Module>()
+    var rv = [Module]()
+
+    while stack.count > 0 {
+        let top = stack.removeFirst()
+        if !set.contains(top) {
+            rv.append(top)
+            set.insert(top)
+            stack += top.dependencies
         }
-
-        return rv
     }
+
+    return rv
 }
