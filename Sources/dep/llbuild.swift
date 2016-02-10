@@ -29,16 +29,11 @@ public struct BuildParameters {
         }
     }
 
-    public init() {
-        srcroot = ""
-        targets = []
-        dependencies = []
-        conf = .Debug
-    }
+    public init() {}
 
-    public var srcroot: String
-    public var targets: [Target]
-    public var dependencies: [Package]
+    public var srcroot: String = ""
+    public var targets: [Target] = []
+    public var dependencies: [Package] = []
 
     public var prefix: String = ""
     public var tmpdir: String = ""
@@ -46,7 +41,7 @@ public struct BuildParameters {
     public var Xcc: [String] = []
     public var Xlinker: [String] = []
 
-    public var conf: Configuration
+    public var conf: Configuration = .Debug
 
     private func requiredSubdirectories() -> [String] {
         return targets.flatMap { target in
