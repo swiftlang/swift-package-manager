@@ -56,6 +56,20 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testManifestExcludes3() {
+
+        // Tests exclude syntax for dependencies
+        // Refs: https://bugs.swift.org/browse/SR-688
+
+        fixture(name: "Miscellaneous/ExcludeDiagnostic3") { prefix in
+            XCTAssertBuilds(prefix, "App")
+            XCTAssertFileExists(prefix, "App", ".build", "debug", "App")
+            XCTAssertFileExists(prefix, "App", ".build", "debug", "top")
+            XCTAssertFileExists(prefix, "App", ".build", "debug", "bottom.swiftmodule")
+            XCTAssertNoSuchPath(prefix, "App", ".build", "debug", "some")
+        }
+    }
+
     func testTestDependenciesSimple() {
     #if false
         //FIXME disabled pending no more magic
