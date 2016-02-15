@@ -15,7 +15,10 @@ func test(path: String..., args: String? = nil) -> Bool {
     let path = Path.join(path)
     let result: Void?
 #if os(OSX)
-    result = try? system("xcrun", "xctest", Path.join(path, "Package.xctest"))
+    var args = ["xcrun", "xctest"]
+    args += Process.arguments.dropFirst()
+    args += [Path.join(path, "Package.xctest")]
+    result = try? system(args)
 #else
     result = try? system(Path.join(path, "test-Package"))
 #endif
