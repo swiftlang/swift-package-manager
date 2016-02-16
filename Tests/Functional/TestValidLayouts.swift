@@ -154,6 +154,7 @@ extension MiscellaneousTestCase: XCTestCaseProvider {
             ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("testManifestExcludes1", testManifestExcludes1),
             ("testManifestExcludes2", testManifestExcludes2),
+            ("testManifestExcludes3", testManifestExcludes3),
             ("testTestDependenciesSimple", testTestDependenciesSimple),
             ("testTestDependenciesComplex", testTestDependenciesComplex),
             ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
