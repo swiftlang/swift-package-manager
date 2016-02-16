@@ -38,6 +38,7 @@ import subprocess
 import sys
 import tempfile
 import pipes
+import shutil
 
 ###
 
@@ -505,11 +506,15 @@ a location ('--prefix').""")
     # have to support installation logic in SwiftPM proper
     symlink_path = os.path.join(build_path, "lib", "swift", "pm")
     if os.path.islink(symlink_path) == False:
-        mkdir_p(os.path.join(build_path, "lib", "swift"))
+        path = os.path.join(build_path, "lib", "swift")
+        shutil.rmtree(path, True)
+        mkdir_p(path)
         os.symlink(os.path.join(build_path, "debug"), symlink_path)
     symlink_path = os.path.join(build_path, "bin")
     if os.path.islink(symlink_path) == False:
-        os.symlink(os.path.join(build_path, "debug"), symlink_path)
+        path = os.path.join(build_path, "debug")
+        shutil.rmtree(path, True)
+        os.symlink(path, symlink_path)
 
     # Build the package manager with itself.
     env_cmd = ["env",
