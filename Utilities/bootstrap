@@ -529,7 +529,18 @@ a location ('--prefix').""")
         env_cmd.append("SWIFTPM_EMBED_RPATH=$ORIGIN/../lib/swift/linux")
     else:
         env_cmd.append("SWIFTPM_EMBED_RPATH=@executable_path/../lib/swift/macosx")
-    cmd = env_cmd + [os.path.join(sandbox_path, "bin", "swift-build")]
+    
+    cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
+    if opts.xctest_path:
+        cmd.extend(["-Xcc", "-I", "-Xcc", opts.xctest_path])
+        # Tell the linker where to look for XCTest, but autolinking
+        # knows to pass -lXCTest.
+        cmd.extend(["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
+        # Add an RPATH, so that the tests can be run directly.
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", opts.xctest_path])
+
+    cmd = env_cmd + cmd
+    
     note("building self-hosted 'swift-build': %s" % (
         ' '.join(cmd),))
     result = subprocess.call(cmd, cwd=g_project_root)
