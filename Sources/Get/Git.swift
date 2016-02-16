@@ -1,0 +1,62 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
+import struct PackageDescription.Version
+import func POSIX.realpath
+import enum POSIX.Error
+import Utility
+
+extension Git {
+    class func clone(url: String, to dstdir: String) throws -> Repo {
+        // canonicalize URL
+        var url = url
+        if URL.scheme(url) == nil {
+            url = try realpath(url)
+        }
+
+        do {
+            try system(Git.tool, "clone",
+                       "--recursive",   // get submodules too so that developers can use these if they so choose
+                "--depth", "10",
+                url, dstdir, message: "Cloning \(url)")
+        } catch POSIX.Error.ExitStatus {
+            throw Error.GitCloneFailure(url, dstdir)
+        }
+
+        return Repo(root: dstdir)!  //TODO no bangs
+    }
+}
+
+extension Git.Repo {
+    var versions: [Version] {
+        let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
+        let tags = out.characters.split(Character.newline)
+        let versions = tags.flatMap(Version.init).sort()
+        if !versions.isEmpty {
+            return versions
+        } else {
+            return tags.flatMap(Version.vprefix).sort()
+        }
+    }
+
+    /// Check if repo contains a version tag
+    var hasVersion: Bool {
+        return !versions.isEmpty
+    }
+
+    /**
+     - Returns: true if the package versions in this repository
+     are all prefixed with "v", otherwise false. If there are
+     no versions, returns false.
+     */
+    var versionsArePrefixed: Bool {
+        return (try? popen([Git.tool, "-C", root, "tag", "-l"]))?.hasPrefix("v") ?? false
+    }
+}

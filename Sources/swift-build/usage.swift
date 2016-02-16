@@ -8,7 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct dep.BuildParameters
+import enum Build.Configuration
+import Multitool
 
 func usage(print: (String) -> Void = { print($0) }) {
     //.........10.........20.........30.........40.........50.........60.........70..
@@ -38,18 +39,11 @@ enum CleanMode: String {
 }
 
 enum Mode {
-    case Build(BuildParameters.Configuration)
+    case Build(Configuration)
     case Clean(CleanMode)
     case Init
     case Usage
     case Version
-}
-
-enum CommandLineError: ErrorType {
-    enum UsageMode {
-        case Print, Imply
-    }
-    case InvalidUsage(String, UsageMode)
 }
 
 struct Options {

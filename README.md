@@ -54,8 +54,6 @@ following options:
             swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool
 
    `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, *they are **not** built from the sources in this repository*.
-   
-   Please note, that the 2.2 release snapshot does not come with `swift-build-tool`, either download the *development* snapshot or build your own copy of `swift-llbuild`.
 
 3. Using the Xcode Project in [Support](Support), this option requires:
    * Xcode 7.3 (beta)
@@ -67,7 +65,7 @@ There is further development-oriented documentation in [Documentation/Internals]
 
 ## System Requirements
 
-The package manager’s system requirements are the same as [those for Swift](https://github.com/apple/swift#system-requirements).
+The package manager’s system requirements are the same as [those for Swift](https://github.com/apple/swift#system-requirements) with the caveat that the package manager requires Git at runtime as well as build-time.
 
 ## Contributing
 

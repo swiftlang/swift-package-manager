@@ -21,8 +21,7 @@ import func libc.realpath
  pathname.  All components in the provided input must exist when realpath()
  is called.
 */
-public func realpath(path: String...) throws -> String {
-    let path = joinPathComponents(path)
+public func realpath(path: String) throws -> String {
     let rv = realpath(path, nil)
     guard rv != nil else { throw SystemError.realpath(errno, path) }
     defer { free(rv) }

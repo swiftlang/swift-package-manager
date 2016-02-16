@@ -11,21 +11,52 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftPackageManager",
+    name: "SwiftPM",
     targets: [
         Target(
-            name: "sys",
-            dependencies: [.Target(name: "POSIX")]),
-        Target(
+            /** “Swifty” POSIX functions from libc */
             name: "POSIX",
-            dependencies: [.Target(name: "libc")]),
+            dependencies: ["libc"]),
         Target(
-            name: "dep",
-            dependencies: [.Target(name: "sys"), .Target(name: "PackageDescription")]),
+            /** Abstractions for common operations */
+            name: "Utility",
+            dependencies: ["POSIX"]),
         Target(
-            name: "swift-get",
-            dependencies: [.Target(name: "dep")]),
+            /** Base types for the package-engine */
+            name: "PackageType",
+            dependencies: ["PackageDescription", "Utility"]),  //FIXME dependency on PackageDescription sucks
+        Target(                                               //FIXME Carpet is too general, we only need `Path`
+            name: "ManifestParser",
+            dependencies: ["PackageDescription", "PackageType"]),
+        Target(
+            /** Turns Packages into Modules & Products */
+            name: "Transmute",
+            dependencies: ["PackageDescription", "PackageType"]),
+        Target(
+            /** Fetches Packages and their dependencies */
+            name: "Get",
+            dependencies: ["ManifestParser"]),
+        Target(
+            /** Builds Modules and Products */
+            name: "Build",
+            dependencies: ["PackageType"]),
+        Target(
+            /** Common components of both executables */
+            name: "Multitool",
+            dependencies: ["PackageType"]),
         Target(
             name: "swift-build",
-            dependencies: [.Target(name: "dep")]),
+            dependencies: ["Get", "Transmute", "Build", "Multitool"]),
+        Target(
+            name: "swift-test",
+            dependencies: ["Multitool"]),
     ])
+
+
+// otherwise executables are auto-determined you could
+// prevent this by asking for the auto-determined list
+// here and editing it.
+
+let dylib = Product(name: "PackageDescription", type: .Library(.Dynamic), modules: "PackageDescription")
+
+products.append(dylib)

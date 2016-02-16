@@ -1,37 +1,23 @@
-import XCTest
-import XCTestCaseProvider
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
+import struct Utility.Path
+import func Utility.fopen
 import func libc.fclose
 import func libc.sleep
 import enum POSIX.Error
-import func POSIX.fopen
 import func POSIX.fputs
 import func POSIX.popen
-import struct sys.Path
+import XCTest
 
-class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
-
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-            ("testManifestExcludes1", testManifestExcludes1),
-            ("testManifestExcludes2", testManifestExcludes2),
-            ("testTestDependenciesSimple", testTestDependenciesSimple),
-            ("testTestDependenciesComplex", testTestDependenciesComplex),
-            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
-            ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
-            ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
-            ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-            ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
-            ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
-            ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
-            ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
-            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
-            ("testPackageManagerDefine", testPackageManagerDefine),
-            ("testInternalDependencyEdges", testInternalDependencyEdges),
-            ("testExternalDependencyEdges1", testExternalDependencyEdges1),
-            ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-        ]
-    }
+class MiscellaneousTestCase: XCTestCase {
 
     func testPrintsSelectedDependencyVersion() {
 
@@ -41,7 +27,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
         fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
             let output = try executeSwiftBuild("\(prefix)/Bar")
             let lines = output.characters.split("\n").map(String.init)
-            XCTAssertTrue(lines.contains("Using version 1.3.5 of package Foo"))
+            XCTAssertTrue(lines.contains("Resolved version: 1.3.5"))
         }
     }
 
@@ -51,9 +37,9 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic1") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.a")
-            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.a")
-            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.a")
+            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.swiftmodule")
+            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.swiftmodule")
+            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.swiftmodule")
         }
     }
 
@@ -64,22 +50,27 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic2") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.a")
-            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.a")
-            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.a")
+            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.swiftmodule")
+            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.swiftmodule")
+            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.swiftmodule")
         }
     }
 
     func testTestDependenciesSimple() {
+    #if false
+        //FIXME disabled pending no more magic
         fixture(name: "TestDependencies/Simple") { prefix in
             XCTAssertBuilds(prefix, "App")
             XCTAssertDirectoryExists(prefix, "App/Packages/TestingLib-1.2.3")
-            XCTAssertFileExists(prefix, "App/.build/debug/Foo.a")
-            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.a")
+            XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
+            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
         }
+    #endif
     }
 
     func testTestDependenciesComplex() {
+    #if false
+        //FIXME disabled pending no more magic
 
         // verifies that testDependencies of dependencies are not fetched or built
 
@@ -90,15 +81,17 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             XCTAssertDirectoryExists(prefix, "App/Packages/Foo-1.2.3")
 
             XCTAssertFileExists(prefix, "App/.build/debug/App")
-            XCTAssertFileExists(prefix, "App/.build/debug/Foo.a")
-            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.a")
+            XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
+            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
 
             XCTAssertNoSuchPath(prefix, "App/Packages/PrivateFooLib-1.2.3")
             XCTAssertNoSuchPath(prefix, "App/Packages/TestingFooLib-1.2.3")
-            XCTAssertNoSuchPath(prefix, "App/.build/debug/PrivateFooLib.a")
-            XCTAssertNoSuchPath(prefix, "App/.build/debug/TestingFooLib.a")
+            XCTAssertNoSuchPath(prefix, "App/.build/debug/PrivateFooLib.swiftmodule")
+            XCTAssertNoSuchPath(prefix, "App/.build/debug/TestingFooLib.swiftmodule")
         }
+#endif
     }
+
 
     func testPassExactDependenciesToBuildCommand() {
 
@@ -108,8 +101,8 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             XCTAssertBuilds(prefix, "app")
             XCTAssertFileExists(prefix, "app/.build/debug/FooExec")
-            XCTAssertFileExists(prefix, "app/.build/debug/FooLib1.a")
-            XCTAssertFileExists(prefix, "app/.build/debug/FooLib2.a")
+            XCTAssertFileExists(prefix, "app/.build/debug/FooLib1.swiftmodule")
+            XCTAssertFileExists(prefix, "app/.build/debug/FooLib2.swiftmodule")
         }
     }
 
@@ -177,7 +170,7 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
     func testCanBuildIfADependencyClonedButThenAborted() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             try system("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
-            XCTAssertBuilds(prefix, "app")
+            XCTAssertBuilds(prefix, "app", configurations: [.Debug])
         }
     }
 
@@ -235,9 +228,9 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            let fp = try fopen(prefix, "Bar/Bar.swift", mode: .Write)
-            try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
-            fclose(fp)
+            try fopen(prefix, "Bar/Bar.swift", mode: .Write) { fp in
+                try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
+            }
 
             XCTAssertBuilds(prefix)
             output = try popen(execpath)
@@ -261,9 +254,9 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            let fp = try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write)
-            try POSIX.fputs("public extension CollectionType{ func shuffle() -> [Generator.Element] {return []} }\n\npublic extension MutableCollectionType where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerate() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
-            fclose(fp)
+            try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write) { fp in
+                try POSIX.fputs("public extension CollectionType{ func shuffle() -> [Generator.Element] {return []} }\n\npublic extension MutableCollectionType where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerate() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
+            }
 
             XCTAssertBuilds(prefix, "app")
             output = try popen(execpath)
@@ -287,9 +280,9 @@ class MiscellaneousTestCase: XCTestCase, XCTestCaseProvider {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            let fp = try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write)
-            try POSIX.fputs("public let foo = \"Goodbye\"", fp)
-            fclose(fp)
+            try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write) { fp in
+                try POSIX.fputs("public let foo = \"Goodbye\"", fp)
+            }
 
             XCTAssertBuilds(prefix, "root")
             output = try popen(execpath)

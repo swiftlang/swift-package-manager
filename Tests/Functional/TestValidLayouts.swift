@@ -1,21 +1,27 @@
-import XCTest
-import XCTestCaseProvider
+/*
+ This source file is part of the Swift.org open source project
 
-import func POSIX.mkdir
-import func POSIX.rename
-import func POSIX.popen
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
+import struct Utility.Path
 import func POSIX.symlink
-import func sys.walk
+import func Utility.walk
+import func POSIX.rename
+import func POSIX.mkdir
+import func POSIX.popen
+import XCTest
 
-import struct sys.Path
-
-
-class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
+class ValidLayoutsTestCase: XCTestCase {
 
     func testSingleModuleLibrary() {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Library.a")
+            XCTAssertFileExists(prefix, ".build", "debug", "Library.swiftmodule")
         }
     }
 
@@ -33,14 +39,14 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
 
         runLayoutFixture(name: "SingleModule/CustomizedName") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Bar.a")
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar.swiftmodule")
         }
     }
 
     func testSingleModuleSubfolderWithSwiftSuffix() {
-        fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: __FILE__, line: __LINE__) { prefix in
+        fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Bar.a")
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar.swiftmodule")
         }
     }
 
@@ -48,7 +54,7 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
         runLayoutFixture(name: "MultipleModules/Libraries") { prefix in
             XCTAssertBuilds(prefix)
             for x in ["Bar", "Baz", "Foo"] {
-                XCTAssertFileExists(prefix, ".build", "debug", "\(x).a")
+                XCTAssertFileExists(prefix, ".build", "debug", "\(x).swiftmodule")
             }
         }
     }
@@ -65,14 +71,15 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
 
     func testPackageIdentifiers() {
         #if os(OSX)
+            // this because sort orders vary on Linux on Mac currently
             let tags = ["1.3.4-alpha.beta.gamma1", "1.2.3+24", "1.2.3", "1.2.3-beta5"]
         #else
             let tags = ["1.2.3", "1.2.3-beta5", "1.3.4-alpha.beta.gamma1", "1.2.3+24"]
         #endif
         
         fixture(name: "DependencyResolution/External/Complex", tags: tags) { prefix in
-            XCTAssertBuilds(prefix, "app")
-            XCTAssertDirectoryExists(prefix, "app/Packages/deck-of-playing-cards-1.2.3-beta5")
+            XCTAssertBuilds(prefix, "app", configurations: [.Debug])
+            XCTAssertDirectoryExists(prefix, "app/Packages/DeckOfPlayingCards-1.2.3-beta5")
             XCTAssertDirectoryExists(prefix, "app/Packages/FisherYates-1.3.4-alpha.beta.gamma1")
             XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3+24")
         }
@@ -83,14 +90,14 @@ class ValidLayoutsTestCase: XCTestCase, XCTestCaseProvider {
 //MARK: Utility
 
 extension ValidLayoutsTestCase {
-    func runLayoutFixture(name name: String, line: UInt = __LINE__, @noescape body: (String) throws -> Void) {
+    func runLayoutFixture(name name: String, line: UInt = #line, @noescape body: (String) throws -> Void) {
         let name = "ValidLayouts/\(name)"
 
         // 1. Rooted layout
-        fixture(name: name, file: __FILE__, line: line, body: body)
+        fixture(name: name, file: #file, line: line, body: body)
 
         // 2. Move everything to a directory called "Sources"
-        fixture(name: name, file: __FILE__, line: line) { prefix in
+        fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = try mkdir(prefix, "Sources")
             for file in files {
@@ -101,7 +108,7 @@ extension ValidLayoutsTestCase {
         }
 
         // 3. Symlink some other directory to a directory called "Sources"
-        fixture(name: name, file: __FILE__, line: line) { prefix in
+        fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = try mkdir(prefix, "Floobles")
             for file in files {
@@ -115,9 +122,59 @@ extension ValidLayoutsTestCase {
 }
 
 
-//MARK: Boilerplate
+#if os(Linux)
+extension DependencyResolutionTestCase: XCTestCaseProvider {
+    var allTests : [(String, () throws -> Void)] {
+        return [
+            ("testInternalSimple", testInternalSimple),
+            ("testInternalComplex", testInternalComplex),
+            ("testExternalSimple", testExternalSimple),
+            ("testExternalComplex", testExternalComplex),
+        ]
+    }
+}
 
-extension ValidLayoutsTestCase {
+extension InvalidLayoutsTestCase: XCTestCaseProvider {
+    var allTests : [(String, () throws -> Void)] {
+        return [
+            ("testNoTargets", testNoTargets),
+            ("testMultipleRoots", testMultipleRoots),
+            ("testInvalidLayout1", testInvalidLayout1),
+            ("testInvalidLayout2", testInvalidLayout2),
+            ("testInvalidLayout3", testInvalidLayout3),
+            ("testInvalidLayout4", testInvalidLayout4),
+            ("testInvalidLayout5", testInvalidLayout5),
+        ]
+    }
+}
+
+extension MiscellaneousTestCase: XCTestCaseProvider {
+    var allTests : [(String, () throws -> Void)] {
+        return [
+            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
+            ("testManifestExcludes1", testManifestExcludes1),
+            ("testManifestExcludes2", testManifestExcludes2),
+            ("testTestDependenciesSimple", testTestDependenciesSimple),
+            ("testTestDependenciesComplex", testTestDependenciesComplex),
+            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
+            ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
+            ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
+            ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
+            ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
+            ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
+            ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
+            ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
+            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+            ("testPackageManagerDefine", testPackageManagerDefine),
+            ("testInternalDependencyEdges", testInternalDependencyEdges),
+            ("testExternalDependencyEdges1", testExternalDependencyEdges1),
+            ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+        ]
+    }
+}
+
+
+extension ValidLayoutsTestCase: XCTestCaseProvider {
     var allTests : [(String, () throws -> Void)] {
         return [
             ("testSingleModuleLibrary", testSingleModuleLibrary),
@@ -130,3 +187,4 @@ extension ValidLayoutsTestCase {
         ]
     }
 }
+#endif
