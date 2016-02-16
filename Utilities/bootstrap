@@ -532,6 +532,7 @@ a location ('--prefix').""")
         error("build failed with exit status %d" % (result,))
 
     swift_build_path = os.path.join(build_path, "debug", "swift-build")
+    swift_test_path = os.path.join(build_path, "debug", "swift-test")
     note("built: %s" % (swift_build_path,))
   
     # If testing, run each of the test bundles.
@@ -555,7 +556,7 @@ a location ('--prefix').""")
                                         "lib", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_build_path]:
+        for product_path in [swift_build_path, swift_test_path]:
             cmd = ["install", product_path, bin_install_path]
             note("installing %s: %s" % (
                 os.path.basename(product_path), ' '.join(cmd)))
