@@ -56,7 +56,7 @@ private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = #fil
         return Git.Repo(root: dstdir)
     }
     catch {
-        XCTFail(safeStringify(error), file: file, line: line)
+        XCTFail("\(error)", file: file, line: line)
     }
     return nil
 }

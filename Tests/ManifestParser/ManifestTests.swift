@@ -21,7 +21,7 @@ class ManifestTests: XCTestCase {
             let input = Path.join(#file, "../Inputs", inputName).normpath
             body(try Manifest(path: input, baseURL: input.parentDirectory))
         } catch {
-            XCTFail("Unexpected error: \(safeStringify(error))", file: #file, line: line)
+            XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
     }
 

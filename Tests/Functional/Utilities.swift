@@ -64,7 +64,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
             }
         }
     } catch {
-        XCTFail(safeStringify(error), file: file, line: line)
+        XCTFail("\(error)", file: file, line: line)
     }
 }
 
@@ -106,7 +106,7 @@ func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (S
             try body(dir)
         }
     } catch {
-        XCTFail(safeStringify(error), file: file, line: line)
+        XCTFail("\(error)", file: file, line: line)
     }
 }
 
@@ -118,7 +118,7 @@ func XCTAssertBuilds(paths: String..., configurations: Set<Configuration> = [.De
             print("    Building \(conf)")
             try executeSwiftBuild(prefix, configuration: conf, printIfError: true)
         } catch {
-            XCTFail("`swift build -c \(conf)' failed:\n\n\(safeStringify(error))\n", file: file, line: line)
+            XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
     }
 }
@@ -153,20 +153,4 @@ func XCTAssertNoSuchPath(paths: String..., file: StaticString = #file, line: UIn
 
 func system(args: String...) throws {
     try popen(args, redirectStandardError: true)
-}
-
-func safeStringify(error: ErrorType) -> String {
-    // work around for a miscompile when converting error type to string
-    // rdar://problem/23616384
-
-    struct TempStream: OutputStreamType {
-        var result: String = ""
-        mutating func write(string: String) {
-            result += string
-        }
-    }
-
-    var stream = TempStream()
-    print(error, toStream: &stream)
-    return stream.result
 }
