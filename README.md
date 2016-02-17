@@ -35,6 +35,9 @@ If you get usage output, it is installed, otherwise you will see an error such a
 
     <unknown>:0: error: no such file or directory: 'build'
 
+If you downloaded a snapshot and get the above error then you downloaded a release
+snapshot, please download a development snapshot.
+
 
 ## Development
 
