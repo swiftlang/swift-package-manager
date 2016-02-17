@@ -10,6 +10,7 @@
 
 import struct PackageDescription.Version
 import func POSIX.realpath
+import func POSIX.getenv
 import enum POSIX.Error
 import Utility
 
@@ -22,10 +23,18 @@ extension Git {
         }
 
         do {
+            //List of environment variables which might be useful while running git
+            let environmentList = ["SSH_AUTH_SOCK", "GIT_ASKPASS", "SSH_ASKPASS", "XDG_CONFIG_HOME"
+                , "LANG", "LANGUAGE", "EDITOR", "PAGER", "TERM"]
+            let environment = environmentList.reduce([String:String]()) { (accum, env) in
+                var newAccum = accum
+                newAccum[env] = getenv(env)
+                return newAccum
+            }
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, message: "Cloning \(url)")
+                url, dstdir, environment: environment, message: "Cloning \(url)")
         } catch POSIX.Error.ExitStatus {
             throw Error.GitCloneFailure(url, dstdir)
         }

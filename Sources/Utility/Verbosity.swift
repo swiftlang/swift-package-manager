@@ -87,7 +87,7 @@ import func libc.fflush
 import var libc.stdout
 import enum POSIX.Error
 
-public func system(arguments: String..., message: String?) throws {
+public func system(arguments: String..., environment: [String:String] = [:], message: String?) throws {
     var out = ""
     do {
         if Utility.verbosity == .Concise {
@@ -95,11 +95,11 @@ public func system(arguments: String..., message: String?) throws {
                 print(message)
                 fflush(stdout)  // ensure we display `message` before git asks for credentials
             }
-            try POSIX.popen(arguments, redirectStandardError: true) { line in
+            try POSIX.popen(arguments, redirectStandardError: true, environment: environment) { line in
                 out += line
             }
         } else {
-            try system(arguments)
+            try system(arguments, environment: environment)
         }
     } catch POSIX.Error.ExitStatus(let foo) {
         if verbosity == .Concise {
