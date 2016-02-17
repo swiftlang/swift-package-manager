@@ -201,6 +201,8 @@ private struct Cruncher {
                     self = .Build
                 case Clean.rawValue, "-k":
                     self = .Clean
+                case Fetch.rawValue:
+                    self = .Fetch
                 case Init.rawValue:
                     self = .Init
                 case Usage.rawValue:
