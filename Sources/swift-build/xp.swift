@@ -17,7 +17,7 @@ import POSIX
 public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String]) throws -> String {
     do {
         return try Build.describe(prefix, conf, modules, products, Xcc: Xcc, Xld: Xld)
-    } catch POSIX.Error.ExitStatus(let foo) {
+    } catch {
 
         // it is a common error on Linux for clang++ to not be installed, but
         // we need it for linking. swiftc itself gives a non-useful error, so
@@ -28,7 +28,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
         }
 
-        throw POSIX.Error.ExitStatus(foo)
+        throw error
     }
 }
 #endif

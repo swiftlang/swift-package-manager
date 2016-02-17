@@ -101,12 +101,12 @@ public func system(arguments: String..., environment: [String:String] = [:], mes
         } else {
             try system(arguments, environment: environment)
         }
-    } catch POSIX.Error.ExitStatus(let foo) {
+    } catch {
         if verbosity == .Concise {
             print(prettyArguments(arguments), toStream: &stderr)
             print(out, toStream: &stderr)
         }
-        throw POSIX.Error.ExitStatus(foo)
+        throw error
     }
 }
 
