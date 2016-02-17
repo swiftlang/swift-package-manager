@@ -22,7 +22,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         fatalError("No modules input")  //TODO throw
     }
 
-    let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
+    let Xcc = Xcc.flatMap{ ["-Xcc", $0] } + extraImports()
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = try mkdir(prefix, conf.dirname)
     let yaml = try YAML(path: "\(prefix).yaml")
@@ -147,6 +147,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 let hack2 = hack1.sources.root.parentDirectory
                 let hack3 = Path.join(hack2, "LinuxMain.swift")
                 args.append(hack3)
+                args += Xcc
 
                 args.append("-emit-executable")
                 args += ["-I", prefix]
@@ -179,5 +180,14 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 extension Product {
     private var buildables: [SwiftModule] {
         return recursiveDependencies(modules.map{$0}).flatMap{ $0 as? SwiftModule }
+    }
+}
+
+private func extraImports() -> [String] {
+    //FIXME HACK
+    if let I = getenv("SWIFTPM_EXTRA_IMPORT") {
+        return ["-I", I]
+    } else {
+        return []
     }
 }

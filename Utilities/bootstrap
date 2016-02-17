@@ -532,7 +532,7 @@ a location ('--prefix').""")
     
     cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
     if opts.xctest_path:
-        cmd.extend(["-Xcc", "-I", "-Xcc", opts.xctest_path])
+        env_cmd.append("SWIFTPM_EXTRA_IMPORT=" + opts.xctest_path)
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         cmd.extend(["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
