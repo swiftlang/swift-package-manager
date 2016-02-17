@@ -40,7 +40,7 @@ extension Fetcher {
 
                 func adjust(pkg: Fetchable, _ versionRange: Range<Version>) throws {
                     guard let v = pkg.constrain(to: versionRange) else {
-                        throw Error.InvalidDependencyGraph(url)
+                        throw Error.InvalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }
                     try pkg.setVersion(v)
                 }

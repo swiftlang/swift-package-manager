@@ -259,7 +259,7 @@ class VersionGraphTests: XCTestCase {
             try MyMockFetcher().recursivelyFetch([
                 (MockProject.A.url, v1...v1),
             ])
-        } catch Error.InvalidDependencyGraph(let url) {
+        } catch Error.InvalidDependencyGraphMissingTag(let url, _, _) {
             XCTAssertEqual(url, MockProject.F.url)
             invalidGraph = true
         } catch {
@@ -278,7 +278,7 @@ class VersionGraphTests: XCTestCase {
         var success = false
         do {
             try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
-        } catch Error.InvalidDependencyGraph {
+        } catch Error.InvalidDependencyGraphMissingTag {
             success = true
         } catch {
             XCTFail()
