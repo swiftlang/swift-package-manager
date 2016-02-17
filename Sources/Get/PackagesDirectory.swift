@@ -55,7 +55,7 @@ extension PackagesDirectory: Fetcher {
         switch fetchable {
         case let clone as RawClone:
             let prefix = Path.join(self.prefix, clone.finalName)
-            try mkdir(prefix)
+            try mkdir(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
             return try Package.make(repo: Git.Repo(root: prefix)!)!
         case let pkg as Package:
