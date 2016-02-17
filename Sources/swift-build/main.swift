@@ -34,18 +34,25 @@ do {
     if let dir = opts.chdir {
         try chdir(dir)
     }
+    
+    func fetch(root: String) throws -> [Package] {
+        let manifest = try Manifest(path: root, Manifest.filename, baseURL: root)
+        return try get(manifest)
+    }
 
     switch mode {
         case .Build(let conf):
             let dirs = try directories()
-            let manifest = try Manifest(path: dirs.root, Manifest.filename, baseURL: dirs.root)
-            let packages = try get(manifest)
+            let packages = try fetch(dirs.root)
             let (modules, products) = try transmute(packages)
             let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xlinker)
             try build(YAMLPath: yaml, target: "default")
 
         case .Init:
             try initPackage()
+            
+        case .Fetch:
+            try fetch(try directories().root)
 
         case .Usage:
             usage()
