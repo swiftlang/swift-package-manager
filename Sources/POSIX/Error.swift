@@ -115,19 +115,7 @@ extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ExitStatus(let code, let args):
-            // Work around for a miscompile when converting error type to string. rdar://problem/23616384
-            struct TempStream: OutputStreamType {
-                var result: String = ""
-                mutating func write(string: String) {
-                    result += string
-                }
-            }
-            var stream = TempStream()
-            print(args, toStream: &stream)
-            return "exit(\(code)): \(stream.result)"
-            
-            //let args = prettyArguments(args)
-            //return "exit(\(code)): \(args)"
+            return "exit(\(code)): \(prettyArguments(args))"
 
         case .ExitSignal:
             return "Child process exited with signal"
