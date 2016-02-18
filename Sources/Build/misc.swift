@@ -41,8 +41,8 @@ extension Module {
     var Xcc: [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? CModule {
-                let manifestPath = Path.join(module.path, "module.modulemap")
-                return ["-Xcc", "-F-module-map=\(manifestPath)", "-I", module.path]
+                let moduleMapPath = Path.join(module.path, "module.modulemap")
+                return ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"]
             } else {
                 return []
             }

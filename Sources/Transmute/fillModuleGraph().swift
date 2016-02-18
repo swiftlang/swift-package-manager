@@ -14,7 +14,9 @@ func fillModuleGraph(packages: [Package], modulesForPackage: (Package) -> [Modul
     for package in packages {
         let packageModules = modulesForPackage(package)
         for dep in package.recursiveDependencies {
-            let depModules = modulesForPackage(dep).filter{ ($0 as? SwiftModule)?.isLibrary ?? false }
+            let depModules = modulesForPackage(dep).filter{
+                ($0 as? SwiftModule)?.isLibrary ?? $0 is CModule
+            }
             for module in packageModules {
                 module.dependencies.insertContentsOf(depModules, at: 0)
             }

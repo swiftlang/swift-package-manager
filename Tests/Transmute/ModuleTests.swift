@@ -177,6 +177,8 @@ class ModuleTests: XCTestCase {
         let dummyURL = "https://example.com"
 
         fixture(name: "Miscellaneous/PackageType") { prefix in
+
+            // TODO get is enough
             XCTAssertBuilds(prefix, "App")
 
             for module in try Package(manifest: Manifest(path: prefix, "App/Packages/Module-1.2.3", baseURL: dummyURL), url: dummyURL).modules() {
@@ -186,6 +188,37 @@ class ModuleTests: XCTestCase {
             for module in try Package(manifest: Manifest(path: prefix, "App/Packages/ModuleMap-1.2.3", baseURL: dummyURL), url: dummyURL).modules() {
                 XCTAssert(module is CModule)
             }
+        }
+    }
+}
+
+
+import Get
+
+extension ModuleTests {
+    func testTransmuteResolvesCModuleDependencies() {
+        fixture(name: "Miscellaneous/PackageType") { prefix in
+            let prefix = Path.join(prefix, "App")
+            let manifest = try Manifest(path: prefix, baseURL: prefix)
+            let packages = try get(manifest)
+            let (modules, _) = try transmute(packages)
+
+            XCTAssertEqual(modules.count, 3)
+            XCTAssertEqual(recursiveDependencies(modules).count, 3)
+            XCTAssertTrue(modules.dropFirst().first is CModule)
+        }
+
+        fixture(name: "ModuleMaps/Direct") { prefix in
+            let prefix = Path.join(prefix, "App")
+            let manifest = try Manifest(path: prefix, baseURL: prefix)
+            let packages = try get(manifest)
+            let (modules, _) = try transmute(packages)
+
+            XCTAssertEqual(modules.count, 2)
+            XCTAssertTrue(modules.first is CModule)
+            XCTAssertEqual(modules[1].dependencies.count, 1)
+            XCTAssertEqual(modules[1].recursiveDependencies.count, 1)
+            XCTAssertTrue(modules[1].dependencies.contains(modules[0]))
         }
     }
 }
@@ -203,6 +236,7 @@ extension ModuleTests: XCTestCaseProvider {
             ("test6", test6),
             ("testIgnoresFiles", testIgnoresFiles),
             ("testModuleTypes", testModuleTypes),
+            ("testTransmuteResolvesCModuleDependencies", testTransmuteResolvesCModuleDependencies),
         ]
     }
 }

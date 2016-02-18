@@ -1,0 +1,3 @@
+import CFoo
+
+print(foo())

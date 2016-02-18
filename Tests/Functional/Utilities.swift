@@ -24,7 +24,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
     do {
         try POSIX.mkdtemp(gsub(fixtureName)) { prefix in
-            defer { _ = try? rmtree(prefix) }
+            //defer { _ = try? rmtree(prefix) }
 
             let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
@@ -73,7 +73,7 @@ enum Configuration {
     case Release
 }
 
-func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false) throws -> String {
+func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
     let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
@@ -85,6 +85,7 @@ func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, pri
     case .Release:
         args.append("release")
     }
+    args += Xld.flatMap{ ["-Xlinker", $0] }
     var out = ""
     do {
         try popen(args, redirectStandardError: true, environment: env) {
@@ -110,13 +111,13 @@ func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (S
     }
 }
 
-func XCTAssertBuilds(paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line) {
+func XCTAssertBuilds(paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xld: [String] = []) {
     let prefix = Path.join(paths)
 
     for conf in configurations {
         do {
             print("    Building \(conf)")
-            try executeSwiftBuild(prefix, configuration: conf, printIfError: true)
+            try executeSwiftBuild(prefix, configuration: conf, printIfError: true, Xld: Xld)
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
