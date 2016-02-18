@@ -84,6 +84,15 @@ class ValidLayoutsTestCase: XCTestCase {
             XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3+24")
         }
     }
+
+    func testMadeValidWithExclude() {
+        fixture(name: "ValidLayouts/MadeValidWithExclude/Case1") { prefix in
+            XCTAssertBuilds(prefix)
+        }
+        fixture(name: "ValidLayouts/MadeValidWithExclude/Case2") { prefix in
+            XCTAssertBuilds(prefix)
+        }
+    }
 }
 
 
@@ -185,6 +194,7 @@ extension ValidLayoutsTestCase: XCTestCaseProvider {
             ("testMultipleModulesLibraries", testMultipleModulesLibraries),
             ("testMultipleModulesExecutables", testMultipleModulesExecutables),
             ("testPackageIdentifiers", testPackageIdentifiers),
+            ("testMadeValidWithExclude", testMadeValidWithExclude),
         ]
     }
 }
