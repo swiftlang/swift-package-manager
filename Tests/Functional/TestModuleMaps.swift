@@ -26,8 +26,14 @@ class ModuleMapsTestCase: XCTestCase {
             let input = Path.join(prefix, CModuleName, "C/foo.c")
             let outdir = try mkdir(prefix, rootpkg, ".build/debug")
             let output = Path.join(outdir, "libfoo.\(dylib)")
-            try popen(["clang", "-dynamiclib", input, "-o", output])
-            try body(prefix, ["-L", outdir])
+            try popen(["clang", "-shared", input, "-o", output])
+
+            var Xld = ["-L", outdir]
+        #if os(Linux)
+            Xld += ["-rpath", outdir]
+        #endif
+
+            try body(prefix, Xld)
         }
     }
 
