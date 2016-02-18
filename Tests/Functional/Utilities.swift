@@ -52,7 +52,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                 for d in walk(rootd, recursively: false).sort() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
-                    try system("cp", "-R", d, dstdir)
+                    try system("cp", "-R", try realpath(d), dstdir)
                     try popen(["git", "-C", dstdir, "init"])
                     try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
                     try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
