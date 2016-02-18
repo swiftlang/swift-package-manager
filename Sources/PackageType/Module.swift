@@ -82,7 +82,7 @@ public class TestModule: SwiftModule {
 
 extension Module: CustomStringConvertible {
     public var description: String {
-        return "Module(\(name))"
+        return "\(self.dynamicType)(\(name))"
     }
 }
 
