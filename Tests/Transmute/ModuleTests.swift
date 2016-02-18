@@ -224,9 +224,8 @@ extension ModuleTests {
 }
 
 
-#if os(Linux)
-extension ModuleTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension ModuleTests {
+    static var allTests : [(String, ModuleTests -> () throws -> Void)] {
         return [
             ("test1", test1),
             ("test2", test2),
@@ -240,4 +239,3 @@ extension ModuleTests: XCTestCaseProvider {
         ]
     }
 }
-#endif

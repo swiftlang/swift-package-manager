@@ -24,12 +24,10 @@ final class DescribeTests: XCTestCase {
     }
 }
 
-#if os(Linux)
-extension DescribeTests: XCTestCaseProvider {
-    var allTests: [(String, () throws -> Void)] {
+extension DescribeTests {
+    static var allTests: [(String, DescribeTests -> () throws -> Void)] {
         return [
             ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
         ]
     }
 }
-#endif

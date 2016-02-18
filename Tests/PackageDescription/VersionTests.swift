@@ -309,9 +309,8 @@ extension Array {
 }
 
 
-#if os(Linux)
-extension VersionTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension VersionTests {
+    static var allTests : [(String, VersionTests -> () throws -> Void)] {
         return [
             ("testEquality", testEquality),
             ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
@@ -326,4 +325,3 @@ extension VersionTests: XCTestCaseProvider {
         ]
     }
 }
-#endif

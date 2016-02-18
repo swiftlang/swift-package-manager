@@ -131,9 +131,8 @@ extension ValidLayoutsTestCase {
 }
 
 
-#if os(Linux)
-extension DependencyResolutionTestCase: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension DependencyResolutionTestCase {
+    static var allTests : [(String, DependencyResolutionTestCase -> () throws -> Void)] {
         return [
             ("testInternalSimple", testInternalSimple),
             ("testInternalComplex", testInternalComplex),
@@ -143,8 +142,8 @@ extension DependencyResolutionTestCase: XCTestCaseProvider {
     }
 }
 
-extension InvalidLayoutsTestCase: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension InvalidLayoutsTestCase {
+    static var allTests : [(String, InvalidLayoutsTestCase -> () throws -> Void)] {
         return [
             ("testNoTargets", testNoTargets),
             ("testMultipleRoots", testMultipleRoots),
@@ -157,8 +156,8 @@ extension InvalidLayoutsTestCase: XCTestCaseProvider {
     }
 }
 
-extension MiscellaneousTestCase: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension MiscellaneousTestCase {
+    static var allTests : [(String, MiscellaneousTestCase -> () throws -> Void)] {
         return [
             ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("testManifestExcludes1", testManifestExcludes1),
@@ -183,9 +182,8 @@ extension MiscellaneousTestCase: XCTestCaseProvider {
     }
 }
 
-
-extension ValidLayoutsTestCase: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension ValidLayoutsTestCase {
+    static var allTests : [(String, ValidLayoutsTestCase -> () throws -> Void)] {
         return [
             ("testSingleModuleLibrary", testSingleModuleLibrary),
             ("testSingleModuleExecutable", testSingleModuleExecutable),
@@ -198,4 +196,3 @@ extension ValidLayoutsTestCase: XCTestCaseProvider {
         ]
     }
 }
-#endif
