@@ -82,8 +82,9 @@ extension Package {
     }
 
     func isValidSource(path: String) -> Bool {
-        if path.normpath == manifest.path.normpath { return false }
         if path.basename.hasPrefix(".") { return false }
+        let path = path.normpath
+        if path == manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
         return path.lowercaseString.hasSuffix(".swift") && path.isFile
     }
