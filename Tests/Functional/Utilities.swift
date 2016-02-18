@@ -24,7 +24,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
     do {
         try POSIX.mkdtemp(gsub(fixtureName)) { prefix in
-            //defer { _ = try? rmtree(prefix) }
+            defer { _ = try? rmtree(prefix) }
 
             let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
