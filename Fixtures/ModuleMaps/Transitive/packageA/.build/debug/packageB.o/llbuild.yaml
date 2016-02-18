@@ -1,0 +1,29 @@
+client:
+  name: swift-build
+
+tools: {}
+
+targets:
+  "": [<y>]
+  y: [<y>]
+
+commands:
+  <y-swiftc>:
+    tool: swift-compiler
+    executable: "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/bin/swiftc"
+    inputs: ["/home/vadime/swift-dev/PackageManager/defect1/packageA/Packages/packageB-0.0.10/Sources/y/y.swift"]
+    outputs: ["<y-swiftc>","/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/y.swiftmodule","/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/packageB.o/Sources/y/y.swift.o"]
+    module-name: "y"
+    module-output-path: "/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/y.swiftmodule"
+    is-library: true
+    sources: ["/home/vadime/swift-dev/PackageManager/defect1/packageA/Packages/packageB-0.0.10/Sources/y/y.swift"]
+    objects: ["/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/packageB.o/Sources/y/y.swift.o"]
+    import-paths: ["/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug"]
+    temps-path: "/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/packageB.o/y"
+    other-args: ["-j8","-Onone","-g","-enable-testing","-I","/usr/local/include","-D","SWIFT_PACKAGE"]
+  <y>:
+    tool: shell
+    inputs: ["<y-swiftc>","/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/packageB.o/Sources/y/y.swift.o","/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/x.a"]
+    outputs: ["<y>","/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/y.a"]
+    args: ["/bin/sh","-c","rm -f '/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/y.a'; ar cr '/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/y.a' '/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/packageB.o/Sources/y/y.swift.o'"]
+    description: "Linking Library:  .build/debug/y.a"

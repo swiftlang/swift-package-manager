@@ -20,19 +20,46 @@ private let dylib = "so"
 #endif
 
 class ModuleMapsTestCase: XCTestCase {
-    func testDirectDependency() {
-        fixture(name: "ModuleMaps/Direct") { prefix in
-            let input = Path.join(prefix, "CFoo/C/foo.c")
-            let outdir = try mkdir(prefix, "App/.build/debug")
+
+    private func fixture(name name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
+        Functionaltest.fixture(name: name) { prefix in
+            let input = Path.join(prefix, CModuleName, "C/foo.c")
+            let outdir = try mkdir(prefix, rootpkg, ".build/debug")
             let output = Path.join(outdir, "libfoo.\(dylib)")
             try popen(["clang", "-dynamiclib", input, "-o", output])
+            try body(prefix, ["-L", outdir])
+        }
+    }
 
-            XCTAssertBuilds(prefix, "App", Xld: ["-L", outdir])
+    func testDirectDependency() {
+        fixture(name: "ModuleMaps/Direct", CModuleName: "CFoo", rootpkg: "App") { prefix, Xld in
 
-            let debugout = try popen([Path.join(outdir, "App")])
+            XCTAssertBuilds(prefix, "App", Xld: Xld)
+
+            let debugout = try popen([Path.join(prefix, "App/.build/debug/App")])
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try popen([Path.join(outdir, "../Release/App")])
+            let releaseout = try popen([Path.join(prefix, "App/.build/release/App")])
             XCTAssertEqual(releaseout, "123\n")
+        }
+    }
+
+    func testTransitiveDependency() {
+        fixture(name: "ModuleMaps/Transitive", CModuleName: "packageD", rootpkg: "packageA") { prefix, Xld in
+
+            XCTAssertBuilds(prefix, "packageA", Xld: Xld)
+
+            func verify(conf: String, file: StaticString = #file, line: UInt = #line) {
+                do {
+                    let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
+                    let out = try popen([Path.join(prefix, "packageA/.build", conf, "packageA")])
+                    XCTAssertEqual(out, expectedOutput)
+                } catch {
+                    XCTFail("\(error)", file: file, line: line)
+                }
+            }
+
+            verify("debug")
+            verify("release")
         }
     }
 }

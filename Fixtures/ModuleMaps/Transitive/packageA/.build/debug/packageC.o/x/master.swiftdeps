@@ -1,0 +1,5 @@
+version: "Swift version 3.0-dev (LLVM 524cfeb800, Clang f66c5bb67b, Swift c33f2faad2)"
+options: "a5ba7e483b7a01709ac6f6d4dfbc6c74"
+build_time: [508239798, 150641000]
+inputs:
+  "/home/vadime/swift-dev/PackageManager/defect1/packageA/Packages/packageC-0.0.12/Sources/x/x.swift": [508239797, 0]

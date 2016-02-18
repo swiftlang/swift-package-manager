@@ -1,0 +1,44 @@
+### Swift dependencies file v0 ###
+provides-top-level:
+- "Y"
+provides-nominal:
+- "C1y1Y"
+provides-member:
+- ["C1y1Y", ""]
+depends-top-level:
+- !private "x"
+- !private "StringLiteralType"
+- "Y"
+- !private "print"
+- !private "X"
+depends-member:
+- !private ["Ps9AnyObject", "X"]
+- !private ["Ps9AnyObject", "print"]
+- !private ["Ps9AnyObject", "x"]
+- ["Ps9AnyObject", ""]
+- !private ["C1y1Y", "X"]
+- ["C1y1Y", "bar"]
+- ["C1y1Y", "deinit"]
+- ["C1y1Y", "init"]
+- !private ["C1y1Y", "print"]
+- !private ["C1y1Y", "x"]
+depends-nominal:
+- "Ps9AnyObject"
+- "C1y1Y"
+depends-dynamic-lookup:
+depends-external:
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/linux/x86_64/Swift.swiftmodule"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/UnicodeShims.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/SwiftStdint.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/SwiftStddef.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/LibcShims.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/RuntimeStubs.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/RuntimeShims.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/RefCount.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/HeapObject.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/GlobalObjects.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/FoundationShims.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/CoreFoundationShims.h"
+- "/home/vadime/swift/swift-DEVELOPMENT-SNAPSHOT-2016-02-03-a-ubuntu15.10/usr/lib/swift/shims/module.map"
+- "/home/vadime/swift-dev/PackageManager/defect1/packageA/.build/debug/x.swiftmodule"
+interface-hash: "56a2061bfd54442d59897df1666662a6"

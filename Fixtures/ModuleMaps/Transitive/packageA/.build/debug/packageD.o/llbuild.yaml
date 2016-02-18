@@ -1,0 +1,10 @@
+client:
+  name: swift-build
+
+tools: {}
+
+targets:
+  "": []
+
+commands:
+  {}
