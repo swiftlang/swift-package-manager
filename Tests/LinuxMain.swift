@@ -36,4 +36,5 @@ XCTMain([
 	VersionGraphTests(),
 	VersionTests(),
 	WalkTests(),
+    ModuleMapsTestCase(),
 ])
