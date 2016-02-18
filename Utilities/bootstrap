@@ -379,7 +379,7 @@ def process_runtime_libraries(build_path, opts, bootstrap=False):
             raise SystemExit("unable to understand 'swiftc' driver commands")
         del link_cmd[idx - 1]
         cmd = [arg for arg in link_cmd
-               if not arg.endswith(".o") and not arg.endswith(".autolink")]
+               if arg.endswith("swift_begin.o") or arg.endswith("swift_end.o") or (not arg.endswith(".o") and not arg.endswith(".autolink"))]
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_lib_path)
 
