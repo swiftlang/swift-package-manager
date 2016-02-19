@@ -76,7 +76,7 @@ class RawClone: Fetchable {
             // not using `contains` as it uses successor() and for Range<Version>
             // this involves iterating from 0 to Int.max!
             versionRange ~= $0
-            }.last
+        }.last
     }
 
     var children: [(String, Range<Version>)] {

@@ -126,8 +126,15 @@ func XCTAssertBuilds(paths: String..., configurations: Set<Configuration> = [.De
 
 func XCTAssertBuildFails(paths: String..., file: StaticString = #file, line: UInt = #line) {
     let prefix = Path.join(paths)
-    if (try? executeSwiftBuild(prefix)) != nil {
+    do {
+        try executeSwiftBuild(prefix)
+
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
+
+    } catch POSIX.Error.ExitStatus(let status, _) where status == 1{
+        // noop
+    } catch {
+        XCTFail("`swift build' failed in an unexpected manner")
     }
 }
 
