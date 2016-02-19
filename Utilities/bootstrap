@@ -393,6 +393,9 @@ def get_swift_build_tool_path():
         sbt_path = os.path.join(built_products_dir, "swift-build-tool")
         if os.path.exists(sbt_path):
             return sbt_path
+            
+    if os.environ.get("SWIFT_BUILD_TOOL"):
+        return os.environ.get("SWIFT_BUILD_TOOL")
 
     # Next, search for it in PATH.
     try:
