@@ -62,23 +62,6 @@
             ReferencedContainer = "container:swiftpm.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "SWIFT_BUILD_TOOL"
-            value = "$(BUILT_PRODUCTS_DIR)/swift-build-tool"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "SPM_INSTALL_PATH"
-            value = "$(PROJECT_DIR)/../.build"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "SWIFT_EXEC"
-            value = "/Library/Developer/Toolchains/swift-2.2-SNAPSHOT-2016-01-11-a.xctoolchain/usr/bin/swiftc"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>

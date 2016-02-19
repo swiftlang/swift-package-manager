@@ -483,6 +483,10 @@ a location ('--prefix').""")
     # Determine the swift-build-tool to use.
     opts.sbt_path = os.path.abspath(
         opts.sbt_path or get_swift_build_tool_path())
+        
+    # Due to bug in Xcode where SWIFT_EXEC is not set correctly by downloadable toolchain
+    if os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"):
+        opts.swiftc = os.path.join(os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
 
     # Create or update the bootstrap files.
     create_bootstrap_files(sandbox_path, opts)
