@@ -18,3 +18,9 @@ public enum Configuration {
         }
     }
 }
+
+extension Configuration: CustomStringConvertible {
+    public var description: String {
+        return dirname
+    }
+}

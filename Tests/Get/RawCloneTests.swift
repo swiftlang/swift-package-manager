@@ -67,7 +67,7 @@ private func tryCloningRepoWithTag(tag: String?, shouldCrash: Bool) {
         makeGitRepo(path, tag: tag)!
         do {
             _ = try RawClone(path: path)
-        } catch Error.GitVersionTagRequired {
+        } catch Error.Unversioned {
             done = shouldCrash
         } catch {
             XCTFail()

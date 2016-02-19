@@ -22,7 +22,6 @@ public enum CommandLineError: ErrorType {
 
 public enum Error: ErrorType {
     case NoManifestFound
-    case NoTargetsFound
 }
 
 extension Error: CustomStringConvertible {
@@ -30,9 +29,6 @@ extension Error: CustomStringConvertible {
         switch self {
         case .NoManifestFound:
             return "no \(Manifest.filename) file found"
-        case .NoTargetsFound:
-            return "no targets found for this file layout\n" +
-            "refer: https://github.com/apple/swift-package-manager/blob/master/Documentation/SourceLayouts.md"
         }
     }
 }

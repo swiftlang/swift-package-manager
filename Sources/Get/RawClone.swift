@@ -39,7 +39,7 @@ class RawClone: Fetchable {
     init(path: String) throws {
         self.path = path
         if !repo.hasVersion {
-            throw Error.GitVersionTagRequired(path)
+            throw Error.Unversioned(path)
         }
     }
 
