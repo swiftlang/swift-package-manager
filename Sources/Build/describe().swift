@@ -41,9 +41,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     var mkdirs = Set<String>()
 
-    for module in modules {
-
-        guard let module = module as? SwiftModule else { continue } //FIXME better: use for where
+    for case let module as SwiftModule in modules {
 
         let otherArgs = Xcc + module.Xcc + platformArgs()
 
