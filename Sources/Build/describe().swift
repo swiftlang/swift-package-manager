@@ -16,7 +16,7 @@ import Utility
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String]) throws -> String {
+public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
 
     guard modules.count > 0 else {
         fatalError("No modules input")  //TODO throw
@@ -41,9 +41,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     var mkdirs = Set<String>()
 
+
+    let swiftcArgs = Xcc + Xswiftc
+
     for case let module as SwiftModule in modules {
 
-        let otherArgs = Xcc + module.Xcc + platformArgs() + [conf.define]
+        let otherArgs = swiftcArgs + module.Xcc + platformArgs() + [conf.define]
 
         switch conf {
         case .Debug:
@@ -83,7 +86,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
         case .Release:
             let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
-            var args = ["-c", "-emit-module", "-D", "SWIFT_PACKAGE", "-O", "-whole-module-optimization", "-I", prefix]
+            var args = ["-c", "-emit-module", "-D", "SWIFT_PACKAGE", "-O", "-whole-module-optimization", "-I", prefix] + swiftcArgs
             let productPath = Path.join(prefix, "\(module.c99name).o")
 
             if module.isLibrary {
@@ -117,7 +120,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             objects = product.buildables.flatMap{ return IncrementalNode(module: $0, prefix: prefix).objectPaths }
         }
 
-        var args = [Resources.path.swiftc]
+        var args = [Resources.path.swiftc] + swiftcArgs
 
         switch product.type {
         case .Library(.Static):
@@ -145,7 +148,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 let hack2 = hack1.sources.root.parentDirectory
                 let hack3 = Path.join(hack2, "LinuxMain.swift")
                 args.append(hack3)
-                args += Xcc
 
                 args.append("-emit-executable")
                 args += ["-I", prefix]

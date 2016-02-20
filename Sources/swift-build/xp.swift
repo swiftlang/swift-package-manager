@@ -14,9 +14,9 @@ import Build
 import POSIX
 
 #if os(Linux)
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String]) throws -> String {
+public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
     do {
-        return try Build.describe(prefix, conf, modules, products, Xcc: Xcc, Xld: Xld)
+        return try Build.describe(prefix, conf, modules, products, Xcc: Xcc, Xld: Xld, Xswftc: Xswiftc)
     } catch {
 
         // it is a common error on Linux for clang++ to not be installed, but

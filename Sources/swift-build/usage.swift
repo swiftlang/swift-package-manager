@@ -12,27 +12,23 @@ import enum Build.Configuration
 import Multitool
 
 func usage(print: (String) -> Void = { print($0) }) {
-    //.........10.........20.........30.........40.........50.........60.........70..
+         //.........10.........20.........30.........40.........50.........60.........70..
     print("OVERVIEW: Build sources into binary products")
     print("")
     print("USAGE: swift build [options]")
     print("")
     print("MODES:")
     print("  --configuration <value>  Build with configuration (debug|release) [-c]")
-    print("  --clean[=<mode>]         Delete all build intermediaries and products [-k]")
-    print("                           <mode> is one of:")
-    print("                           build - Build intermediaries and products")
-    print("                           dist  - All of 'build' plus downloaded packages")
-    print("                           If no mode is given, 'build' is the default.")
+    print("  --clean[=<mode>]         Delete artefacts (build|dist) [-k]")
     print("  --init                   Creates a new Swift project")
     print("  --fetch                  Fetch package dependencies")
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
     print("  -v[v]              Increase verbosity of informational output")
-    print("  -Xcc <flag>        Pass flag through to all compiler instantiations")
+    print("  -Xcc <flag>        Pass flag through to all C compiler instantiations")
     print("  -Xlinker <flag>    Pass flag through to all linker instantiations")
-    print("  --get             Only pull down dependencies without building binaries")
+    print("  -Xswiftc <flag>    Pass flag through to all Swift compiler instantiations")
 }
 
 enum CleanMode: String {
@@ -53,7 +49,8 @@ struct Options {
     var chdir: String? = nil
     var verbosity: Int = 0
     var Xcc: [String] = []
-    var Xlinker: [String] = []
+    var Xld: [String] = []
+    var Xswiftc: [String] = []
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -69,7 +66,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             return [arg]
         }
 
-        if arg == "-Xcc" || arg == "-Xlinker" {
+        if "-Xcc" == arg || "-Xlinker" == arg || "-Xswiftc" == arg {
             skipNext = true
             return [arg]
         }
@@ -158,7 +155,10 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.Xcc.append(try cruncher.rawPop())
 
         case .Switch(.Xlinker):
-            opts.Xlinker.append(try cruncher.rawPop())
+            opts.Xld.append(try cruncher.rawPop())
+
+        case .Switch(.Xswiftc):
+            opts.Xswiftc.append(try cruncher.rawPop())
         }
     }
 
@@ -219,6 +219,7 @@ private struct Cruncher {
             case Verbose = "--verbose"
             case Xcc = "-Xcc"
             case Xlinker = "-Xlinker"
+            case Xswiftc = "-Xswiftc"
             
             init?(rawValue: String) {
                 switch rawValue {
@@ -230,6 +231,8 @@ private struct Cruncher {
                     self = .Xcc
                 case Xlinker.rawValue:
                     self = .Xlinker
+                case Xswiftc.rawValue:
+                    self = .Xswiftc
                 default:
                     return nil
                 }
