@@ -43,7 +43,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     for case let module as SwiftModule in modules {
 
-        let otherArgs = Xcc + module.Xcc + platformArgs()
+        let otherArgs = Xcc + module.Xcc + platformArgs() + [conf.define]
 
         switch conf {
         case .Debug:

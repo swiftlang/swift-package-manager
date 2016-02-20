@@ -17,6 +17,13 @@ public enum Configuration {
             case .Release: return "release"
         }
     }
+
+    var define: String {
+        switch self {
+            case .Debug: return "-DDEBUG"
+            case .Release: return "-DNDEBUG"
+        }
+    }
 }
 
 extension Configuration: CustomStringConvertible {
