@@ -29,6 +29,7 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from io import StringIO
+import argparse
 import errno
 import json
 import os
@@ -127,7 +128,7 @@ class Target(object):
 
         self.swift_sources.sort()
 
-    def write_swift_compile_commands(self, opts, target_build_dir,
+    def write_swift_compile_commands(self, args, target_build_dir,
                                      module_dir, output, objects,
                                      link_input_nodes, predecessor_node):
         # Compute the derived paths.
@@ -151,14 +152,14 @@ class Target(object):
         other_args = ['-Onone', '-j%d' % g_num_cpus] + self.swiftflags
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
-        if opts.sysroot:
-            other_args.extend(["-sdk", opts.sysroot])
+        if args.sysroot:
+            other_args.extend(["-sdk", args.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
-        print("    executable: %s" % json.dumps(opts.swiftc_path), file=output)
+        print("    executable: %s" % json.dumps(args.swiftc_path), file=output)
         # FIXME: We shouldn't even need to specify the sources here once we have
         # discovered dependencies support.
         print("    inputs: %s" % json.dumps(
@@ -195,7 +196,7 @@ targets = [
 ]
 target_map = dict((t.name, t) for t in targets)
 
-def create_bootstrap_files(sandbox_path, opts):
+def create_bootstrap_files(sandbox_path, args):
     # Write out the build file.
     output = StringIO()
 
@@ -265,7 +266,7 @@ def create_bootstrap_files(sandbox_path, opts):
         # Write the Swift compile commands, if used.
         if target.swift_sources:
             target.write_swift_compile_commands(
-                opts, target_build_dir, module_dir, output, objects,
+                args, target_build_dir, module_dir, output, objects,
                 link_input_nodes, predecessor_node)
 
         # Form the command line to link.
@@ -278,9 +279,9 @@ def create_bootstrap_files(sandbox_path, opts):
         else:
             link_output_path = os.path.join(bin_dir, target.name)
 
-            link_command = [opts.swiftc_path, '-o', pipes.quote(link_output_path)]
-            if opts.sysroot:
-                link_command.extend(["-sdk", opts.sysroot])
+            link_command = [args.swiftc_path, '-o', pipes.quote(link_output_path)]
+            if args.sysroot:
+                link_command.extend(["-sdk", args.sysroot])
             if platform.system() == 'Darwin':
                 link_command.extend(["-target", "x86_64-apple-macosx10.10"])
             link_command.append(' '.join(pipes.quote(o) for o in objects))
@@ -316,7 +317,7 @@ def create_bootstrap_files(sandbox_path, opts):
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
                           output.getvalue())
 
-def process_runtime_libraries(build_path, opts, bootstrap=False):
+def process_runtime_libraries(build_path, args, bootstrap=False):
     if bootstrap:
         module_input_path = os.path.join(
             build_path, "modules", "PackageDescription.swiftmodule")
@@ -336,7 +337,7 @@ def process_runtime_libraries(build_path, opts, bootstrap=False):
     subprocess.check_call(cmd)
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
-        cmd = [opts.swiftc_path, "-Xlinker", "-dylib", "-o",
+        cmd = [args.swiftc_path, "-Xlinker", "-dylib", "-o",
                runtime_lib_path,
                "-Xlinker", "-all_load",
                input_lib_path,
@@ -352,7 +353,7 @@ def process_runtime_libraries(build_path, opts, bootstrap=False):
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
-        cmd = [opts.swiftc_path, "-Xlinker", "-shared", "-o", runtime_lib_path,
+        cmd = [args.swiftc_path, "-Xlinker", "-shared", "-o", runtime_lib_path,
                "-Xlinker", "--whole-archive",
                "-Xlinker", input_lib_path,
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
@@ -418,41 +419,42 @@ def get_swift_build_tool_path():
     error("unable to find 'swift-build-tool' tool for bootstrap build")
 
 def main():
-    from optparse import OptionParser
-    parser = OptionParser("""\
-usage: %prog [options] [clean|all|test|install]
-
-This script will build a bootstrapped copy of the Swift Package Manager, and
-optionally perform extra actions like installing the result (with 'install') to
-a location ('--prefix').""")
-    parser.add_option("", "--swiftc", dest="swiftc_path",
-                      help="path to the swift compiler [%default]",
-                      default=os.getenv("SWIFT_EXEC") or "swiftc", metavar="PATH")
-    parser.add_option("", "--sbt", dest="sbt_path",
-                      help="path to the 'swift-build-tool' tool [%default]",
-                      metavar="PATH")
-    parser.add_option("", "--sysroot", dest="sysroot",
-                      help="compiler sysroot to pass to Swift [%default]",
-                      default=g_default_sysroot, metavar="PATH")
-    parser.add_option("", "--build", dest="build_path",
-                      help="create build products at PATH [%default]",
-                      default=".build", metavar="PATH")
-    parser.add_option("", "--prefix", dest="install_prefix",
-                      help="use PATH as the prefix for installing [%default]",
-                      default="/usr/local", metavar="PATH")
-    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
-                      help="use verbose output")
-    parser.add_option("--xctest", dest="xctest_path", action="store",
-                      help="Path to XCTest build directory")
-    parser.add_option("", "--build-tests", dest="build_tests",
-                      action="store_true", help="Deprecated")
-    opts, args = parser.parse_args()
-
-    # When invoked via Xcode, it will automatically be passed a "build action".
-    if len(args) == 0:
-        build_actions = set(["all"])
-    else:
-        build_actions = set(args)
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [options] [clean|all|test|install]",
+        description="This script will build a bootstrapped copy of the Swift "
+                    "Package Manager, and optionally perform extra actions "
+                    "like installing the result (with 'install') to a "
+                    "location ('--prefix').")
+    parser.add_argument("build_actions",
+                        help="Extra actions to perform. Can be any number of "
+                             "the following: [clean, all, test, install]",
+                        nargs="*", default=["all"])
+    parser.add_argument("--swiftc", dest="swiftc_path",
+                        help="path to the swift compiler [%(default)s]",
+                        default=os.getenv("SWIFT_EXEC") or "swiftc",
+                        metavar="PATH")
+    parser.add_argument("--sbt", dest="sbt_path",
+                        help="path to the 'swift-build-tool' tool "
+                             "[%(default)s]",
+                        metavar="PATH")
+    parser.add_argument("--sysroot",
+                        help="compiler sysroot to pass to Swift [%(default)s]",
+                        default=g_default_sysroot, metavar="PATH")
+    parser.add_argument("--build", dest="build_path",
+                        help="create build products at PATH [%(default)s]",
+                        default=".build", metavar="PATH")
+    parser.add_argument("--prefix", dest="install_prefix",
+                        help="use PATH as the prefix for installing "
+                             "[%(default)s]",
+                        default="/usr/local", metavar="PATH")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="use verbose output")
+    parser.add_argument("--xctest", dest="xctest_path",
+                        help="Path to XCTest build directory")
+    parser.add_argument("--build-tests", action="store_true",
+                        help="Deprecated")
+    args = parser.parse_args()
+    build_actions = set(args.build_actions)
 
     # Validate the build actions.
     for action in build_actions:
@@ -460,7 +462,7 @@ a location ('--prefix').""")
             raise SystemExit("unknown build action: %r" % (action,))
 
     # Compute the build paths.
-    build_path = os.path.join(g_project_root, opts.build_path)
+    build_path = os.path.join(g_project_root, args.build_path)
     sandbox_path = os.path.join(build_path, ".bootstrap")
 
     # If the action is "clean", just remove the bootstrap and build directories.
@@ -484,19 +486,19 @@ a location ('--prefix').""")
     mkdir_p(sandbox_path)
 
     # Determine the swift-build-tool to use.
-    opts.sbt_path = os.path.abspath(
-        opts.sbt_path or get_swift_build_tool_path())
+    args.sbt_path = os.path.abspath(
+        args.sbt_path or get_swift_build_tool_path())
 
     # Due to bug in Xcode where SWIFT_EXEC is not set correctly by downloadable toolchain
     if os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"):
-        opts.swiftc = os.path.join(os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
+        args.swiftc = os.path.join(os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
 
     # Create or update the bootstrap files.
-    create_bootstrap_files(sandbox_path, opts)
+    create_bootstrap_files(sandbox_path, args)
 
     # Run the stage1 build.
-    cmd = [opts.sbt_path, "-f", os.path.join(sandbox_path, "build.swift-build")]
-    if opts.verbose:
+    cmd = [args.sbt_path, "-f", os.path.join(sandbox_path, "build.swift-build")]
+    if args.verbose:
         cmd.append("-v")
     note("building stage1: %s" % ' '.join(cmd))
     result = subprocess.call(cmd)
@@ -507,7 +509,7 @@ a location ('--prefix').""")
     #
     # FIXME: Integrate this into the bootstrap build.
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
-        sandbox_path, opts, bootstrap=True)
+        sandbox_path, args, bootstrap=True)
 
     # Symlink the expected lib location so that we don't yet
     # have to support installation logic in SwiftPM proper
@@ -525,11 +527,11 @@ a location ('--prefix').""")
 
     # Build the package manager with itself.
     env_cmd = ["env",
-               "SWIFT_EXEC=" + opts.swiftc_path,
-               "SWIFT_BUILD_TOOL=" + opts.sbt_path,
+               "SWIFT_EXEC=" + args.swiftc_path,
+               "SWIFT_BUILD_TOOL=" + args.sbt_path,
                "SWIFT_BUILD_PATH=" + build_path]
-    if opts.sysroot:
-        env_cmd.append("SYSROOT=" + opts.sysroot)
+    if args.sysroot:
+        env_cmd.append("SYSROOT=" + args.sysroot)
     # On Linux, we need to embed an RPATH so swift-{build,get} can find the core
     # libraries.
     if platform.system() == 'Linux':
@@ -538,13 +540,13 @@ a location ('--prefix').""")
         env_cmd.append("SWIFTPM_EMBED_RPATH=@executable_path/../lib/swift/macosx")
 
     cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
-    if opts.xctest_path:
-        env_cmd.append("SWIFTPM_EXTRA_IMPORT=" + opts.xctest_path)
+    if args.xctest_path:
+        env_cmd.append("SWIFTPM_EXTRA_IMPORT=" + args.xctest_path)
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
-        cmd.extend(["-Xlinker", "-L", "-Xlinker", opts.xctest_path])
+        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", opts.xctest_path])
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
 
     cmd = env_cmd + cmd
 
@@ -562,8 +564,8 @@ a location ('--prefix').""")
     if "test" in build_actions:
         # Construct the test environment.
         env_cmd = ["env",
-                   "SWIFT_EXEC=" + opts.swiftc_path,
-                   "SWIFT_BUILD_TOOL=" + opts.sbt_path,
+                   "SWIFT_EXEC=" + args.swiftc_path,
+                   "SWIFT_BUILD_TOOL=" + args.sbt_path,
                    "SWIFT_BUILD_PATH=" + build_path,
                    "SPM_INSTALL_PATH=" + build_path]
 
@@ -573,9 +575,9 @@ a location ('--prefix').""")
             error("tests failed with exit status %d" % (result,))
     # If installing, put the build products in the appropriate location.
     if "install" in build_actions:
-        bin_install_path = os.path.join(g_project_root, opts.install_prefix,
+        bin_install_path = os.path.join(g_project_root, args.install_prefix,
                                         "bin")
-        lib_install_path = os.path.join(g_project_root, opts.install_prefix,
+        lib_install_path = os.path.join(g_project_root, args.install_prefix,
                                         "lib", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
