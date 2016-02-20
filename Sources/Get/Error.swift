@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct PackageDescription.Version
+
 public enum Error: ErrorType {
 
     public typealias ClonePath = String
@@ -15,6 +17,7 @@ public enum Error: ErrorType {
 
     case GitCloneFailure(URL, ClonePath)
     case InvalidDependencyGraph(ClonePath)
+    case NoManifest(ClonePath, Version)
     case UpdateRequired(ClonePath)
     case Unversioned(ClonePath)
     case InvalidDependencyGraphMissingTag(package: String, requestedTag: String, existingTags: String)
@@ -33,6 +36,8 @@ extension Error: CustomStringConvertible {
             return "Failed to clone \(url) to \(dstdir)"
         case .Unversioned(let package):
             return "No version tag found in (\(package)) package. Add a version tag with \"git tag\" command. Example: \"git tag 0.1.0\""
+        case NoManifest(let clonePath, let version):
+            return "The package at `\(clonePath)' has no Package.swift for the specific version: \(version)"
         }
     }
 }

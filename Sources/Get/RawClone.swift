@@ -69,6 +69,9 @@ class RawClone: Fetchable {
 
         // we must re-read the manifest
         _manifest = nil
+        if manifest == nil {
+            throw Error.NoManifest(path, ver)
+        }
     }
 
     func constrain(to versionRange: Range<Version>) -> Version? {
