@@ -143,11 +143,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                     }
                 }
             #else
-                //HACK
-                let hack1 = product.modules.flatMap{ $0 as? TestModule }.first!
-                let hack2 = hack1.sources.root.parentDirectory
-                let hack3 = Path.join(hack2, "LinuxMain.swift")
-                args.append(hack3)
+                // HACK: To get a path to LinuxMain.swift, we just grab the
+                //       parent directory of the first test module we can find.
+                let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
+                let testDirectory = firstTestModule.sources.root.parentDirectory
+                let main = Path.join(testDirectory, "LinuxMain.swift")
+                args.append(main)
 
                 args.append("-emit-executable")
                 args += ["-I", prefix]
