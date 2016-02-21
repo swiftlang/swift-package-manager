@@ -39,13 +39,13 @@ extension Git {
             throw Error.GitCloneFailure(url, dstdir)
         }
 
-        return Repo(root: dstdir)!  //TODO no bangs
+        return Repo(path: dstdir)!  //TODO no bangs
     }
 }
 
 extension Git.Repo {
     var versions: [Version] {
-        let out = (try? popen([Git.tool, "-C", root, "tag", "-l"])) ?? ""
+        let out = (try? popen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
         let tags = out.characters.split(Character.newline)
         let versions = tags.flatMap(Version.init).sort()
         if !versions.isEmpty {
@@ -66,6 +66,6 @@ extension Git.Repo {
      no versions, returns false.
      */
     var versionsArePrefixed: Bool {
-        return (try? popen([Git.tool, "-C", root, "tag", "-l"]))?.hasPrefix("v") ?? false
+        return (try? popen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
     }
 }

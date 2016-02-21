@@ -44,7 +44,7 @@ class RawClone: Fetchable {
     }
 
     var repo: Git.Repo {
-        return Git.Repo(root: path)!
+        return Git.Repo(path: path)!
     }
 
     var version: Version {

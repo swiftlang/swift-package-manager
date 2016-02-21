@@ -53,7 +53,7 @@ private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = #fil
         if let tag = tag {
             try popen(["git", "-C", dstdir, "tag", tag])
         }
-        return Git.Repo(root: dstdir)
+        return Git.Repo(path: dstdir)
     }
     catch {
         XCTFail("\(error)", file: file, line: line)
