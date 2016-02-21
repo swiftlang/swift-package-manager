@@ -17,8 +17,8 @@ extension Package {
     // FIXME we *always* have a manifest, don't reparse it
 
     static func make(repo repo: Git.Repo) throws -> Package? {
-        guard let origin = repo.origin else { throw Error.NoOrigin(repo.root) }
-        let manifest = try Manifest(path: repo.root, baseURL: origin)
+        guard let origin = repo.origin else { throw Error.NoOrigin(repo.path) }
+        let manifest = try Manifest(path: repo.path, baseURL: origin)
         let pkg = Package(manifest: manifest, url: origin)
         guard Version(pkg.versionString) != nil else { return nil }
         return pkg

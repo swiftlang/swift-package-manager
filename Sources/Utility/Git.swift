@@ -13,17 +13,17 @@ import func POSIX.getenv
 
 public class Git {
     public class Repo {
-        public let root: String  //TODO rename path
+        public let path: String
 
-        public init?(root: String) {
-            guard let realroot = try? realpath(root) else { return nil }
-            self.root = realroot
-            guard Path.join(root, ".git").isDirectory else { return nil }
+        public init?(path: String) {
+            guard let realroot = try? realpath(path) else { return nil }
+            self.path = realroot
+            guard Path.join(path, ".git").isDirectory else { return nil }
         }
 
         public lazy var origin: String? = { repo in
             do {
-                guard let url = try popen([Git.tool, "-C", repo.root, "config", "--get", "remote.origin.url"]).chuzzle() else {
+                guard let url = try popen([Git.tool, "-C", repo.path, "config", "--get", "remote.origin.url"]).chuzzle() else {
                     return nil
                 }
                 if URL.scheme(url) == nil {
@@ -34,17 +34,17 @@ public class Git {
 
             } catch {
                 //TODO better
-                print("Bad git repository: \(repo.root)", toStream: &stderr)
+                print("Bad git repository: \(repo.path)", toStream: &stderr)
                 return nil
             }
         }(self)
 
         public var branch: String! {
-            return try? popen([Git.tool, "-C", root, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
+            return try? popen([Git.tool, "-C", path, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
 
         public func fetch() throws {
-            try system(Git.tool, "-C", root, "fetch", "--tags", "origin", message: nil)
+            try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
         }
     }
 

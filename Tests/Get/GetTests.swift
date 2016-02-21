@@ -66,11 +66,11 @@ class GetTests: XCTestCase {
     func testGitRepoInitialization() {
 
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            XCTAssertNotNil(Git.Repo(root: Path.join(prefix, "app")))
+            XCTAssertNotNil(Git.Repo(path: Path.join(prefix, "app")))
         }
 
-        XCTAssertNil(Git.Repo(root: #file))
-        XCTAssertNil(Git.Repo(root: #file.parentDirectory))
+        XCTAssertNil(Git.Repo(path: #file))
+        XCTAssertNil(Git.Repo(path: #file.parentDirectory))
     }
 }
 

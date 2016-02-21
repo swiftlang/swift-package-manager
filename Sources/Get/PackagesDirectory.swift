@@ -31,7 +31,7 @@ extension PackagesDirectory: Fetcher {
 
     func find(url url: String) throws -> Fetchable? {
         for prefix in walk(self.prefix, recursively: false) {
-            guard let repo = Git.Repo(root: prefix) else { continue }  //TODO warn user
+            guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
             guard repo.origin == url else { continue }
             return try Package.make(repo: repo)
         }
@@ -40,7 +40,7 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url url: String) throws -> Fetchable {
         let dstdir = Path.join(prefix, Package.nameForURL(url))
-        if let repo = Git.Repo(root: dstdir) where repo.origin == url {
+        if let repo = Git.Repo(path: dstdir) where repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir)
         }
@@ -57,7 +57,7 @@ extension PackagesDirectory: Fetcher {
             let prefix = Path.join(self.prefix, clone.finalName)
             try mkdir(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
-            return try Package.make(repo: Git.Repo(root: prefix)!)!
+            return try Package.make(repo: Git.Repo(path: prefix)!)!
         case let pkg as Package:
             return pkg
         default:
