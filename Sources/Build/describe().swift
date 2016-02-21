@@ -19,7 +19,7 @@ import Utility
 public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
 
     guard modules.count > 0 else {
-        fatalError("No modules input")  //TODO throw
+        throw Error.NoModules
     }
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] } + extraImports()
@@ -54,10 +54,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             args.append("-enable-testing")
 
         #if os(OSX)
-            //TODO if this fails and is required, throw
             if let platformPath = Resources.path.platformPath {
                 let path = Path.join(platformPath, "Developer/Library/Frameworks")
                 args += ["-F", path]
+            } else {
+                throw Error.InvalidPlatformPath
             }
         #endif
 
@@ -129,10 +130,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             #if os(OSX)
                 args += ["-Xlinker", "-bundle"]
 
-                //TODO if this fails and is required, throw
                 if let platformPath = Resources.path.platformPath {
                     let path = Path.join(platformPath, "Developer/Library/Frameworks")
                     args += ["-F", path]
+                } else {
+                    throw Error.InvalidPlatformPath
                 }
 
                 // TODO should be llbuild rules
@@ -149,7 +151,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 let testDirectory = firstTestModule.sources.root.parentDirectory
                 let main = Path.join(testDirectory, "LinuxMain.swift")
                 args.append(main)
-
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif

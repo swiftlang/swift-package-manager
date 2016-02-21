@@ -1,7 +1,7 @@
 
 // we want to generate this.
 // read the AST and generate it
-// ticket: 
+// ticket:
 
 import XCTest
 
@@ -37,4 +37,5 @@ XCTMain([
 	VersionTests(),
 	WalkTests(),
     ModuleMapsTestCase(),
+    DescribeTests(),
 ])
