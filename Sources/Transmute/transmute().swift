@@ -21,15 +21,22 @@ public func transmute(packages: [Package]) throws -> ([Module], [Product]) {
         let testModules = try package.testModules()
         products += try package.products(modules, tests: testModules)
 
+        // Set dependencies for test modules.
         for testModule in testModules {
-
-            guard testModule.basename != "Functional" else {
-                //FIXME HACK
+            if testModule.basename == "Functional" {
+                // FIXME: swiftpm's own Functional tests module does not
+                //        follow the normal rules--there is no corresponding
+                //        'Sources/Functional' module to depend upon. For the
+                //        time being, assume test modules named 'Functional'
+                //        depend upon 'Utility', and hope that no users define
+                //        test modules named 'Functional'.
                 testModule.dependencies = modules.filter{ $0.name == "Utility" }
-                continue
+            } else {
+                // Normally, test modules are only dependent upon modules with
+                // the same basename. For example, a test module in
+                // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
+                testModule.dependencies = modules.filter{ $0.name == testModule.basename }
             }
-
-            testModule.dependencies = modules.filter{ $0.name == testModule.basename }
         }
 
         map[package] = modules + testModules.map{$0}
