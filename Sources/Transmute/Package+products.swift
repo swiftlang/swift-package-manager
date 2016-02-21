@@ -17,8 +17,7 @@ extension Package {
 
     ////// first auto-determine executables
 
-        for module in modules {
-            guard let module = module as? SwiftModule else { continue }
+        for case let module as SwiftModule in modules {
             if module.sources.relativePaths.contains("main.swift") {
                 let product = Product(name: module.name, type: .Executable, modules: [module])
                 products.append(product)
