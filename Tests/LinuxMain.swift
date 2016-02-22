@@ -12,6 +12,7 @@ import XCTest
 @testable import ManifestParsertest
 @testable import PackageDescriptiontest
 @testable import PackageTypetest
+@testable import Buildtest
 
 XCTMain([
     DependencyResolutionTestCase(),
