@@ -31,10 +31,10 @@ public final class Package {
             return Dependency(url, versions)
         }
         public class func Package(url url: String, majorVersion: Int) -> Dependency {
-            return Dependency(url, Version(majorVersion, 0, 0)..<Version(majorVersion + 1, 0, 0))
+            return Dependency(url, Version(majorVersion, 0, 0)..<Version(majorVersion, .max, .max))
         }
         public class func Package(url url: String, majorVersion: Int, minor: Int) -> Dependency {
-            return Dependency(url, Version(majorVersion, minor, 0)..<Version(majorVersion, minor + 1, 0))
+            return Dependency(url, Version(majorVersion, minor, 0)..<Version(majorVersion, minor, .max))
         }
         public class func Package(url url: String, _ version: Version) -> Dependency {
             return Dependency(url, version...version)
