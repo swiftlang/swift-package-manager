@@ -24,7 +24,7 @@ final class DescribeTests: XCTestCase {
     }
 }
 
-
+#if os(Linux)
 extension DescribeTests: XCTestCaseProvider {
     var allTests: [(String, () throws -> Void)] {
         return [
@@ -32,3 +32,4 @@ extension DescribeTests: XCTestCaseProvider {
         ]
     }
 }
+#endif
