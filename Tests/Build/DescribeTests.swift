@@ -14,7 +14,7 @@ import XCTest
 final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
-            let _ = try describe("foo", .Debug, [], [], Xcc: [], Xld: [])
+            let _ = try describe("foo", .Debug, [], [], Xcc: [], Xld: [], Xswiftc: [])
             XCTFail("This call should throw")
         } catch Build.Error.NoModules {
             XCTAssert(true, "This error should be throw")
