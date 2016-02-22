@@ -48,6 +48,7 @@ private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = #fil
         try popen(["git", "-C", dstdir, "init"])
         try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
         try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
+        try popen(["git", "-C", dstdir, "config", "commit.gpgsign", "false"])
         try popen(["git", "-C", dstdir, "add", "."])
         try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
         if let tag = tag {
@@ -115,7 +116,6 @@ extension GitTests: XCTestCaseProvider {
             ("testHasNoVersion", testHasNoVersion),
             ("testCloneShouldNotCrashWihoutTags", testCloneShouldNotCrashWihoutTags),
             ("testCloneShouldCrashWihoutTags", testCloneShouldCrashWihoutTags),
-            
         ]
     }
 }
