@@ -205,7 +205,7 @@ private struct Cruncher {
                     self = .Fetch
                 case Init.rawValue:
                     self = .Init
-                case Usage.rawValue:
+                case Usage.rawValue, "-h":
                     self = .Usage
                 case Version.rawValue:
                     self = .Version
