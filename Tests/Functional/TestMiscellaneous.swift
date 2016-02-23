@@ -349,4 +349,18 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build/debug/libBar.a")
         }
     }
+
+    func testModuleWithTests() {
+        fixture(name: "SwiftTesting/SingleTarget", file: #file, line: #line) { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "Foo.swiftmodule")
+
+            #if os(OSX)
+                XCTAssertDirectoryExists(prefix, ".build", "debug", "Package.xctest")
+            #else
+                XCTAssertDirectoryExists(prefix, ".build", "debug", "test-Package")
+            #endif
+
+        }
+    }
 }
