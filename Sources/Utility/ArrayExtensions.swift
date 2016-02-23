@@ -10,8 +10,8 @@
 
 extension Array {
     public func pick(body: (Element) -> Bool) -> Element? {
-        for x in self {
-            if body(x) { return x }
+        for x in self where body(x) {
+            return x
         }
         return nil
     }
