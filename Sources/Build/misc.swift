@@ -107,17 +107,22 @@ func infoPlist(test: Product) -> String {
     return s
 }
 
-// this function because I couldn't make a Buildable
-// protocol and then implement an isTest function
-// without Swift runtime erroring about "Could not
-// convert Array from Objective-C.
-// FIXME please improve!
-func targetSplitter(modules: [Module], _ products: [Product]) -> ([String], [String]) {
-    let (testmodules, nontestmodules) = modules.partition{ $0 is TestModule }
-    let (testproducts, nontestproducts) = products.partition{ if case .Test = $0.type { return true } else { return false } }
+protocol Buildable {
+    var targetName: String { get }
+    var isTest: Bool { get }
+}
 
-    let one = testmodules.map{$0.targetName} + testproducts.map{$0.targetName}
-    let two = nontestmodules.map{$0.targetName} + nontestproducts.map{$0.targetName}
-    
-    return (one, two)
+extension Module: Buildable {
+    var isTest: Bool {
+        return self is TestModule
+    }
+}
+
+extension Product: Buildable {
+    var isTest: Bool {
+        if case .Test = type {
+            return true
+        }
+        return false
+    }
 }
