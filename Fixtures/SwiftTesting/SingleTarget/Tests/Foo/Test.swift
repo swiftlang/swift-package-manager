@@ -7,3 +7,11 @@ class SimpleGetTests: XCTestCase {
         XCTAssertEqual(ten(), 10)
     }
 }
+
+extension SimpleGetTests {
+    static var allTests : [(String, SimpleGetTests -> () throws -> Void)]  {
+        return [
+            ("testGetRequestStatusCode", testGetRequestStatusCode),
+        ]
+    }
+}

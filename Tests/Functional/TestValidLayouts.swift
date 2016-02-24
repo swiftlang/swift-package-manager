@@ -181,6 +181,7 @@ extension MiscellaneousTestCase {
             ("testInternalDependencyEdges", testInternalDependencyEdges),
             ("testExternalDependencyEdges1", testExternalDependencyEdges1),
             ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+            ("testModuleWithTests", testModuleWithTests),
         ]
     }
 }
