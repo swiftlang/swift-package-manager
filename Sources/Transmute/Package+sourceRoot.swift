@@ -30,7 +30,7 @@ extension Package {
             return viableRoots[0]
         default:
             // eg. there is a `Sources' AND a `src'
-            throw Error.InvalidLayout(.MultipleSourceRoots(viableRoots))
+            throw ModuleError.InvalidLayout(.MultipleSourceRoots(viableRoots))
         }
     }
 }

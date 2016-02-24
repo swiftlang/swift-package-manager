@@ -23,7 +23,7 @@ extension Package {
 
         if srcroot != path {
             guard walk(path, recursively: false).filter(isValidSource).isEmpty else {
-                throw Error.InvalidLayout(.InvalidLayout)
+                throw ModuleError.InvalidLayout(.InvalidLayout)
             }
         }
 
@@ -31,7 +31,7 @@ extension Package {
 
         if maybeModules.count == 1 && maybeModules[0] != srcroot {
             guard walk(srcroot, recursively: false).filter(isValidSource).isEmpty else {
-                throw Error.InvalidLayout(.InvalidLayout)
+                throw ModuleError.InvalidLayout(.InvalidLayout)
             }
         }
 
@@ -40,7 +40,7 @@ extension Package {
             do {
                 modules = [SwiftModule(name: self.name, sources: try sourcify(srcroot))]
             } catch Module.Error.NoSources {
-                throw Error.NoModules(self)
+                throw ModuleError.NoModules(self)
             }
         } else {
             modules = try maybeModules.map(sourcify).map { sources in
@@ -65,7 +65,7 @@ extension Package {
                 switch $0 {
                 case .Target(let name):
                     guard let module = moduleForName(name) else {
-                        throw Error.ModuleNotFound(name)
+                        throw ModuleError.ModuleNotFound(name)
                     }
                     return module
                 }
