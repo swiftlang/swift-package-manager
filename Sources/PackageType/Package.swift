@@ -30,6 +30,12 @@ public class Package {
     }
 }
 
+extension Package: CustomStringConvertible {
+    public var description: String {
+        return name
+    }
+}
+
 extension Package: Hashable, Equatable {
     //FIXME technically version should be taken into account
     public var hashValue: Int { return url.hashValue }
