@@ -163,23 +163,23 @@ class ModuleTests: XCTestCase {
            let manifest = try Manifest(path: prefix)
            let modules = try Package(manifest: manifest, url: prefix).modules()
 
-            XCTAssertEqual(modules.count, 1)
+           XCTAssertEqual(modules.count, 1)
 
-            guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
-            XCTAssertEqual(swiftModule.sources.paths.count, 1)
-            XCTAssertEqual(swiftModule.sources.paths[0].basename, "Foo.swift")
+           guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
+           XCTAssertEqual(swiftModule.sources.paths.count, 1)
+           XCTAssertEqual(swiftModule.sources.paths[0].basename, "Foo.swift")
 
-            XCTAssertBuilds(prefix)
-        }
+           XCTAssertBuilds(prefix)
+       }
     }
 
     func testModuleTypes() {
         let dummyURL = "https://example.com"
 
-        fixture(name: "Miscellaneous/PackageType") { prefix in
+       fixture(name: "Miscellaneous/PackageType") { prefix in
 
-            // TODO get is enough
-            XCTAssertBuilds(prefix, "App")
+           // TODO get is enough
+           XCTAssertBuilds(prefix, "App")
 
            for module in try Package(manifest: Manifest(path: prefix, "App/Packages/Module-1.2.3"), url: dummyURL).modules() {
                XCTAssert(module is SwiftModule)

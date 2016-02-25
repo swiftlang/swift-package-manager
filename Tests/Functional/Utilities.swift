@@ -8,12 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
-import Utility
-import XCTest
-
-import func POSIX.system
+import struct Utility.Path
+import func Utility.rmtree
+import func Utility.walk
+import func XCTest.XCTFail
 import func POSIX.popen
+import POSIX
+
+#if os(OSX)
+import class Foundation.NSBundle
+#endif
 
 
 func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
@@ -73,11 +77,37 @@ enum Configuration {
     case Release
 }
 
+private var globalSymbolInMainBinary = 0
+
+
+func swiftBuildPath() -> String {
+#if os(OSX)
+    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+        return Path.join(bundle.bundlePath.parentDirectory, "swift-build")
+    }
+    fatalError()
+#else
+    return Path.join(try! Process.arguments.first!.abspath().parentDirectory, "swift-build")
+#endif
+}
+
+
 func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
-    let toolPath = Resources.findExecutable("swift-build")
     var env = [String:String]()
     env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
-    var args = [toolPath, "--chdir", chdir]
+#if Xcode
+    //FIXME Xcode should set this during tests
+    // rdar://problem/24134324
+
+    if env["SWIFT_EXEC"] == nil {
+        let bindir = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin")
+        env["SWIFT_EXEC"] = Path.join(bindir, "swiftc")
+        env["SWIFT_BUILD_TOOL"] = Path.join(bindir, "swift-build-tool")
+    } else {
+        fatalError("HURRAY! This is fixed")
+    }
+#endif
+    var args = [swiftBuildPath(), "--chdir", chdir]
     args.append("--configuration")
     switch configuration {
     case .Debug:
@@ -95,6 +125,7 @@ func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, pri
     } catch {
         if printIfError {
             print(out)
+            print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
         }
         throw error
     }

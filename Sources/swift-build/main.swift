@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import func POSIX.getcwd
 import func POSIX.getenv
 import func POSIX.chdir
 import func libc.exit
@@ -15,9 +16,26 @@ import ManifestParser
 import PackageType
 import Multitool
 import Transmute
+import Xcodeproj
 import Utility
 import Build
 import Get
+
+
+private let origwd = (try? getcwd()) ?? "/"
+
+extension String {
+    private var prettied: String {
+        if self.parentDirectory == origwd {
+            return "./\(basename)"
+        } else if hasPrefix(origwd) {
+            return Path(self).relative(to: origwd)
+        } else {
+            return self
+        }
+    }
+}
+
 
 do {
     let args = Array(Process.arguments.dropFirst())
@@ -71,6 +89,16 @@ do {
 
         case .Version:
             print("Apple Swift Package Manager 0.1")
+            
+        case .GenerateXcodeproj:
+            let dirs = try directories()
+            let packages = try fetch(dirs.root)
+            let (modules, products) = try transmute(packages, rootdir: dirs.root)
+            let swiftModules = modules.flatMap{ $0 as? SwiftModule }
+
+            let path = try Xcodeproj.generate(path: try getcwd(), package: packages.last!, modules: swiftModules, products: products)
+
+            print("generated:", path.prettied)
     }
 
 } catch {

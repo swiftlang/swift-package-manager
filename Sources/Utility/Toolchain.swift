@@ -26,20 +26,32 @@ public struct Toolchain: Installation {
                 return path
             }
         }
+
+    #if os(OSX)
+        if let cmdpath = (try? popen(["xcrun", "--find", cmd]))?.chuzzle() {
+            return cmdpath
+        }
+    #endif
+        
         return cmd
     }
 
+    //TODO better
+    public static var prefix: String {
+        return swiftc.parentDirectory.parentDirectory.parentDirectory
+    }
+
     /// the location of swiftc relative to our installation
-    public static var swiftc = getenv("SWIFT_EXEC") ?? Toolchain.which("swiftc")
+    public static let swiftc = getenv("SWIFT_EXEC") ?? Toolchain.which("swiftc")
 
     /// the location of swift_build_tool relatve to our installation
-    public static var swift_build_tool = getenv("SWIFT_BUILD_TOOL") ?? Toolchain.which("swift-build-tool")
+    public static let swift_build_tool = getenv("SWIFT_BUILD_TOOL") ?? Toolchain.which("swift-build-tool")
 }
 
 #if os(OSX)
 extension Toolchain {
-    public static var sysroot = getenv("SYSROOT") ?? (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
-    public static var platformPath = (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]))?.chuzzle()
+    public static let sysroot = getenv("SYSROOT") ?? (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
+    public static let platformPath = (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]))?.chuzzle()
 }
 #endif
 
