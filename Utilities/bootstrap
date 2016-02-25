@@ -175,6 +175,8 @@ class Target(object):
             [module_dir]), file=output)
         print("    other-args: %s" % json.dumps(' '.join(other_args)), file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
+        print("    is-library: %s" % json.dumps(
+            str(bool(self.is_library)).lower()), file=output)
         print(file=output)
 
 # Hard-coded target definition.
@@ -185,13 +187,14 @@ targets = [
     Target('POSIX', dependencies=["libc"]),
     Target('Utility', dependencies=["POSIX", "libc"]),
     Target('PackageDescription'),
+    Target('Xcodeproj', dependencies=["PackageType", "Utility", "POSIX", "libc"]),
     Target('Multitool', dependencies=["PackageType", "Utility", "POSIX", "libc"]),
     Target('PackageType', dependencies=["PackageDescription", "Utility", "POSIX", "libc"]),
     Target('Transmute', dependencies=["PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
     Target('ManifestParser', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
     Target('Get', dependencies=["ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
     Target('Build', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
-    Target('swift-build', dependencies=["Transmute", "Multitool", "Build", "Get", "ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
+    Target('swift-build', dependencies=["Xcodeproj", "Transmute", "Multitool", "Build", "Get", "ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
     Target('swift-test', dependencies=["Multitool", "PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
 ]
 target_map = dict((t.name, t) for t in targets)
