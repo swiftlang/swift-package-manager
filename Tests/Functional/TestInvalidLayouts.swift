@@ -14,13 +14,6 @@ import func POSIX.unlink
 
 class InvalidLayoutsTestCase: XCTestCase {
 
-    func testNoTargets() {
-        fixture(name: "InvalidLayouts/NoTargets") { prefix in
-            XCTAssertFileExists(prefix, "Package.swift")
-            XCTAssertBuildFails(prefix)
-        }
-    }
-
     func testMultipleRoots() {
         fixture(name: "InvalidLayouts/MultipleRoots1") { prefix in
             XCTAssertBuildFails(prefix)
