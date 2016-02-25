@@ -43,6 +43,7 @@ enum Mode {
     case Init
     case Usage
     case Version
+    case Dump
 }
 
 struct Options {
@@ -134,6 +135,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                 mode = .Version
             case (nil, .Fetch):
                 mode = .Fetch
+            case (nil, .Dump):
+                mode = .Dump
             }
 
         case .Switch(.Chdir):
@@ -176,6 +179,7 @@ extension Mode: CustomStringConvertible {
         switch self {
             case .Build(let conf): return "--build \(conf)"
             case .Clean(let cleanMode): return "--clean=\(cleanMode)"
+            case .Dump: return "--dump"
             case .Fetch: return "--fetch"
             case .Init: return "--init"
             case .Usage: return "--help"
@@ -190,6 +194,7 @@ private struct Cruncher {
         enum TheMode: String {
             case Build = "--configuration"
             case Clean = "--clean"
+            case Dump = "--dump"
             case Fetch = "--fetch"
             case Init = "--init"
             case Usage = "--help"
@@ -201,6 +206,8 @@ private struct Cruncher {
                     self = .Build
                 case Clean.rawValue, "-k":
                     self = .Clean
+                case Dump.rawValue:
+                    self =  .Dump
                 case Fetch.rawValue:
                     self = .Fetch
                 case Init.rawValue:
@@ -291,6 +298,7 @@ private func ==(lhs: Mode, rhs: Cruncher.Crunch.TheMode) -> Bool {
     switch lhs {
         case .Build: return rhs == .Build
         case .Clean: return rhs == .Clean
+        case .Dump: return rhs == .Dump
         case .Fetch: return rhs == .Fetch
         case .Init: return rhs == .Init
         case .Version: return rhs == .Version

@@ -15,6 +15,7 @@ import ManifestParser
 import PackageType
 import Multitool
 import Transmute
+import Xcodeproj
 import Utility
 import Build
 import Get
@@ -41,30 +42,40 @@ do {
     }
 
     switch mode {
-        case .Build(let conf):
-            let dirs = try directories()
-            let packages = try fetch(dirs.root)
-            let (modules, products) = try transmute(packages)
-            let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
-            try build(YAMLPath: yaml, target: "default")
+    case .Build(let conf):
+        let dirs = try directories()
+        let packages = try fetch(dirs.root)
+        let (modules, products) = try transmute(packages)
+        let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
+        try build(YAMLPath: yaml, target: "default")
 
-        case .Init:
-            try initPackage()
-            
-        case .Fetch:
-            try fetch(try directories().root)
+    case .Init:
+        try initPackage()
+        
+    case .Fetch:
+        try fetch(try directories().root)
 
-        case .Usage:
-            usage()
+    case .Usage:
+        usage()
 
-        case .Clean(.Dist):
-            try rmtree(try directories().root, "Packages")
-            fallthrough
-        case .Clean(.Build):
-            try rmtree(try directories().root, ".build")
+    case .Clean(.Dist):
+        try rmtree(try directories().root, "Packages")
+        fallthrough
+    case .Clean(.Build):
+        try rmtree(try directories().root, ".build")
 
-        case .Version:
-            print("Apple Swift Package Manager 0.1")
+    case .Version:
+        Swift.print("Apple Swift Package Manager 0.1")
+
+    case .Dump:
+        let dirs = try directories()
+        let packages = try fetch(dirs.root)
+        let (modules, products) = try transmute(packages)
+        let swiftModules = modules.flatMap{ $0 as? SwiftModule }
+
+        Xcodeproj.print(srcroot: dirs.root, modules: swiftModules, products: products) {
+            Swift.print($0)
+        }
     }
 
 } catch {
