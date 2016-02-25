@@ -10,14 +10,25 @@
 
 import PackageType
 import Utility
+import func libc.exit
 
-public func transmute(packages: [Package]) throws -> ([Module], [Product]) {
+public func transmute(packages: [Package], rootdir: String) throws -> ([Module], [Product]) {
 
     var products: [Product] = []
     var map: [Package: [Module]] = [:]
 
     for package in packages {
-        let modules = try package.modules()
+
+        let modules: [Module]
+        do {
+            modules = try package.modules()
+        } catch Package.ModuleError.NoModules(let pkg) where pkg.path == rootdir {
+            //Ignore and print warning if root package doesn't contain any sources
+            print("warning: root package '\(pkg)' does not contain any sources")
+            if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
+            modules = []
+        }
+
         let testModules = try package.testModules()
         products += try package.products(modules, tests: testModules)
 
