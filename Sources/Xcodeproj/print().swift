@@ -13,7 +13,8 @@ import Utility
 
 public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [Product], printer write: (String) -> Void) {
 
-    let modules = modules.filter{ !($0 is TestModule) }
+    let nontests = modules.filter{ !($0 is TestModule) }
+    let tests = modules.filter{ $0 is TestModule }
 
     write("// !$*UTF8*$!")
     write("{")
@@ -41,10 +42,7 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
 ////// root group
     write("        REF00000004 = {")
     write("            isa = PBXGroup;")
-    write("            children = (")
-    write("                REF0000000b,")
-    write("                REF00000017,")
-    write("            );")
+    write("            children = (REF0000000b, REF0000000c, REF00000017);")
     write("            sourceTree = '<group>';")
     write("        };")
 
@@ -70,7 +68,6 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         write("        };")
 
         let deps = module.dependencies.map{ dependencyRef(module: module, dep: $0) }.joinWithSeparator(", ")
-        let type = module.isLibrary ? "com.apple.product-type.library.dynamic" : "com.apple.product-type.tool"
 
         write("        \(productsGroupRef(module)) = {")
         write("            isa = PBXNativeTarget;")
@@ -81,16 +78,12 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         write("            name = \(module.name);")
         write("            productName = \(module.c99name);")
         write("            productReference = \(productRef(module));")
-        write("            productType = '\(type)';")
+        write("            productType = '\(module.type)';")
         write("        };")
-
-        let path = module.isLibrary ? "\(module.c99name).dylib" : "'\(module.name)'"
-        let type2 = module.isLibrary ? "dylib" : "executable"
-
         write("        \(productRef(module)) = {")
         write("            isa = PBXFileReference;")
-        write("            explicitFileType = 'compiled.mach-o.\(type2)';")
-        write("            path = \(path);")
+        write("            explicitFileType = 'compiled.mach-o.\(module.explicitFileType)';")
+        write("            path = '\(module.productPath)';")
         write("            sourceTree = BUILT_PRODUCTS_DIR;")
         write("        };")
 
@@ -115,7 +108,15 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         write("            defaultConfigurationName = Debug;")
         write("        };")
 
-        let buildSettings = "PRODUCT_NAME = '$(TARGET_NAME)';"
+        var buildSettings = "PRODUCT_NAME = '$(TARGET_NAME)';"
+
+        if module is TestModule {
+            buildSettings += " EMBEDDED_CONTENT_CONTAINS_SWIFT = YES;"
+        } else if module.isLibrary {
+            buildSettings += " DYLIB_INSTALL_NAME_BASE = '$(CONFIGURATION_BUILD_DIR)'; SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
+        } else {
+            buildSettings += " SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
+        }
 
         //TODO probably should be a build option
         //        if !module.isLibrary {
@@ -154,10 +155,19 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         }
     }
 
+////// sources group
     write("        REF0000000b = {")
     write("            isa = PBXGroup;")
-    write("            children = (" + modules.map(moduleGroupName).joinWithSeparator(", ") + ");")
+    write("            children = (" + nontests.map(moduleGroupName).joinWithSeparator(", ") + ");")
     write("            name = Sources;")
+    write("            sourceTree = '<group>';")
+    write("        };")
+
+////// sources group
+    write("        REF0000000c = {")
+    write("            isa = PBXGroup;")
+    write("            children = (" + tests.map(moduleGroupName).joinWithSeparator(", ") + ");")
+    write("            name = Tests;")
     write("            sourceTree = '<group>';")
     write("        };")
 
@@ -236,4 +246,36 @@ func dependencyTargetProxyRef(module module: Module, dep: Module) -> String {
 
 func linkBuildPhase(module module: Module) -> String {
     return "LinkBuildPhase\(module.c99name)"
+}
+
+extension SwiftModule {
+    var type: String {
+        if self is TestModule {
+            return "com.apple.product-type.bundle.unit-test"
+        } else if isLibrary {
+            return "com.apple.product-type.library.dynamic"
+        } else {
+            return "com.apple.product-type.tool"
+        }
+    }
+
+    var explicitFileType: String {
+        if self is TestModule {
+            return "wrapper.cfbundle"
+        } else if isLibrary {
+            return "dylib"
+        } else {
+            return "executable"
+        }
+    }
+
+    var productPath: String {
+        if self is TestModule {
+            return "\(c99name).xctest"
+        } else if isLibrary {
+            return "\(c99name).dylib"
+        } else {
+            return name
+        }
+    }
 }
