@@ -81,9 +81,9 @@ public struct Path {
         let abs = (path: string.isAbsolute, pivot: pivot.isAbsolute)
 
         func go(path: [String], _ pivot: [String]) -> String {
-            let join = { [String].joinWithSeparator($0)("/") }
+            let join = { [String].joined($0)(separator: "/") }
 
-            if path.startsWith(pivot) {
+            if path.starts(with: pivot) {
                 let relativePortion = path.dropFirst(pivot.count)
                 return join(Array(relativePortion))
             } else {
@@ -134,7 +134,7 @@ private func clean(parts: [String.CharacterView]) -> [String] {
 }
 
 private func clean(string: String) -> [String] {
-    return clean(string.characters.split("/"))
+    return clean(string.characters.split(separator: "/"))
 }
 
 extension String {
@@ -156,20 +156,20 @@ extension String {
         }
 
         let chars = characters
-        var parts = chars.split("/")
+        var parts = chars.split(separator: "/")
         let firstc = chars.first!
 
         if firstc == "~" {
-            var replacement = Path.home.characters.split("/")
+            var replacement = Path.home.characters.split(separator: "/")
             if parts[0].count > 1 {
                 // FIXME not technically correct, but works 99% of the time!
                 replacement.append("..".characters)
                 replacement.append(parts[0].dropFirst())
             }
-            parts.replaceRange(0...0, with: replacement)
+            parts.replaceSubrange(0...0, with: replacement)
         }
 
-        let stringValue = clean(parts).joinWithSeparator("/")
+        let stringValue = clean(parts).joined(separator: "/")
 
         if firstc == "/" || firstc == "~" {
             return "/\(stringValue)"
@@ -242,7 +242,7 @@ extension String {
     */
     public var basename: String {
         guard !isEmpty else { return "." }
-        let parts = characters.split("/")
+        let parts = characters.split(separator: "/")
         guard !parts.isEmpty else { return "/" }
         return String(parts.last!)
     }
@@ -255,7 +255,7 @@ extension String {
     /// - Returns: Ensures single path separators in a path string
     private var onesep: String {
         let abs = isAbsolute
-        let cleaned = characters.split("/").map(String.init).joinWithSeparator("/")
+        let cleaned = characters.split(separator: "/").map(String.init).joined(separator: "/")
         return abs ? "/\(cleaned)" : cleaned
     }
 }

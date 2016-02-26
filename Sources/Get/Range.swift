@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Range where Element: BidirectionalIndexType, Element: Comparable {
+extension Range where Element: BidirectionalIndex, Element: Comparable {
 
     /**
      - Returns: A new Range with startIndex and endIndex constrained such that
@@ -16,8 +16,8 @@ extension Range where Element: BidirectionalIndexType, Element: Comparable {
      If the two ranges do not overlap at all returns `nil`.
      */
     func constrain(to constraint: Range) -> Range? {
-        let start = max(self.startIndex, constraint.startIndex)
-        let end = min(self.endIndex, constraint.endIndex)
+        let start = Swift.max(self.startIndex, constraint.startIndex)
+        let end = Swift.min(self.endIndex, constraint.endIndex)
         if start < end {
             return start..<end
         } else {

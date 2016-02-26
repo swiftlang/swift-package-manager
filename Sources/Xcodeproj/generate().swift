@@ -54,7 +54,7 @@ public func generate(path path: String, package: Package, modules: [SwiftModule]
 
 
 private func open(path: String..., body: ((String) -> Void) -> Void) throws {
-    var error: ErrorType? = nil
+    var error: ErrorProtocol? = nil
 
     try Utility.fopen(Path.join(path), mode: .Write) { fp in
         body { line in

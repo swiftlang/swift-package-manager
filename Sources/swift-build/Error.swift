@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-enum Error: ErrorType {
+enum Error: ErrorProtocol {
     case ManifestAlreadyExists
 }
 

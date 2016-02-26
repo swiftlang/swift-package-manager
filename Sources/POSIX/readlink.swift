@@ -14,12 +14,12 @@ import func libc.readlink
 
 public func readlink(path: String) throws -> String {
     let N = Int(PATH_MAX)
-    let mem = UnsafeMutablePointer<Int8>.alloc(N + 1)
+    let mem = UnsafeMutablePointer<Int8>(allocatingCapacity: N + 1)
     let n = readlink(path, mem, N)
     guard n >= 0 else {
         throw SystemError.readlink(errno, path)
     }
     mem[n] = 0  // readlink does not null terminate what it returns
 
-    return String.fromCString(mem)!
+    return String(validatingUTF8: mem)!
 }

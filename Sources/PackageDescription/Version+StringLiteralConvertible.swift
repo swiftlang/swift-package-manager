@@ -30,12 +30,12 @@ extension Version {
     }
 
     public init?(_ characters: String.CharacterView) {
-        let prereleaseStartIndex = characters.indexOf("-")
-        let metadataStartIndex = characters.indexOf("+")
+        let prereleaseStartIndex = characters.index(of: "-")
+        let metadataStartIndex = characters.index(of: "+")
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
-        let requiredCharacters = characters.prefixUpTo(requiredEndIndex)
-        let requiredComponents = requiredCharacters.split(".", maxSplit: 2, allowEmptySlices: true).map{ String($0) }.flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
+        let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false).map{ String($0) }.flatMap{ Int($0) }.filter{ $0 >= 0 }
 
         guard requiredComponents.count == 3 else {
             return nil
@@ -48,14 +48,14 @@ extension Version {
         if let prereleaseStartIndex = prereleaseStartIndex {
             let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
             let prereleaseCharacters = characters[prereleaseStartIndex.successor()..<prereleaseEndIndex]
-            prereleaseIdentifiers = prereleaseCharacters.split(".").map{ String($0) }
+            prereleaseIdentifiers = prereleaseCharacters.split(separator: ".").map{ String($0) }
         } else {
             prereleaseIdentifiers = []
         }
 
         var buildMetadataIdentifier: String? = nil
         if let metadataStartIndex = metadataStartIndex {
-            let buildMetadataCharacters = characters.suffixFrom(metadataStartIndex.successor())
+            let buildMetadataCharacters = characters.suffix(from: metadataStartIndex.successor())
             if !buildMetadataCharacters.isEmpty {
                 buildMetadataIdentifier = String(buildMetadataCharacters)
             }

@@ -25,6 +25,6 @@ public func realpath(path: String) throws -> String {
     let rv = realpath(path, nil)
     guard rv != nil else { throw SystemError.realpath(errno, path) }
     defer { free(rv) }
-    guard let rvv = String.fromCString(rv) else { throw SystemError.realpath(-1, path) }
+    guard let rvv = String(validatingUTF8: rv) else { throw SystemError.realpath(-1, path) }
     return rvv
 }

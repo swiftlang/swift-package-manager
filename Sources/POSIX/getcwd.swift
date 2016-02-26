@@ -21,6 +21,6 @@ public func getcwd() throws -> String {
     let cwd = libc.getcwd(nil, Int(PATH_MAX))
     if cwd == nil { throw SystemError.getcwd(errno) }
     defer { free(cwd) }
-    guard let path = String.fromCString(cwd) else { throw SystemError.getcwd(-1) }
+    guard let path = String(validatingUTF8: cwd) else { throw SystemError.getcwd(-1) }
     return path
 }

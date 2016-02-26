@@ -15,7 +15,7 @@ extension Package {
     public func sourceRoot() throws -> String {
 
         let viableRoots = walk(path, recursively: false).filter { entry in
-            switch entry.basename.lowercaseString {
+            switch entry.basename.lowercased() {
             case "sources", "source", "src", "srcs":
                 return entry.isDirectory && !manifest.package.exclude.contains(entry)
             default:

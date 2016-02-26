@@ -13,7 +13,7 @@ import Utility
 
 extension Package {
     func shouldConsiderDirectory(path: String) -> Bool {
-        let base = path.basename.lowercaseString
+        let base = path.basename.lowercased()
         if base == "tests" { return false }
         if base.hasSuffix(".xcodeproj") { return false }
         if base.hasSuffix(".playground") { return false }

@@ -24,7 +24,7 @@ public class Package {
         self.name = manifest.package.name ?? Package.nameForURL(url)
     }
 
-    public enum Error: ErrorType {
+    public enum Error: ErrorProtocol {
         case NoManifest(String)
         case NoOrigin(String)
     }
@@ -54,7 +54,7 @@ extension Package {
         case "http", "https", "git", "ssh":
             if url.hasSuffix(".git") {
                 let a = base.startIndex
-                let b = base.endIndex.advancedBy(-4)
+                let b = base.endIndex.advanced(by: -4)
                 return base[a..<b]
             } else {
                 fallthrough

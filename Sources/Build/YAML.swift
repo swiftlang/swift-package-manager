@@ -37,6 +37,6 @@ extension Array where Element: YAMLRepresentable {
             return input
         }
         let stringArray = self.flatMap { String($0) }
-        return "[" + stringArray.map(quote).joinWithSeparator(", ") + "]"
+        return "[" + stringArray.map(quote).joined(separator: ", ") + "]"
     }
 }

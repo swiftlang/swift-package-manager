@@ -23,7 +23,7 @@ import class Foundation.NSBundle
 func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
 
     func gsub(input: String) -> String {
-        return input.characters.split("/").map(String.init).joinWithSeparator("_")
+        return input.characters.split(separator: "/").map(String.init).joined(separator: "_")
     }
 
     do {
@@ -53,7 +53,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                     }
                 }
 
-                for d in walk(rootd, recursively: false).sort() {
+                for d in walk(rootd, recursively: false).sorted() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try system("cp", "-R", try realpath(d), dstdir)

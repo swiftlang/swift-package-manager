@@ -64,7 +64,7 @@ private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) ->
         default:
             return "\(c)"
         }
-    }.joinWithSeparator("")
+    }.joined(separator: "")
 }
 
 func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {
@@ -122,11 +122,11 @@ extension SwiftModule {
     }
 
     var linkPhaseFileRefs: String {
-        return recursiveDependencies.map{ fileRef(forLinkPhaseChild: $0) }.joinWithSeparator(", ")
+        return recursiveDependencies.map{ fileRef(forLinkPhaseChild: $0) }.joined(separator: ", ")
     }
 
     var nativeTargetDependencies: String {
-        return dependencies.map{ $0.dependencyReference }.joinWithSeparator(", ")
+        return dependencies.map{ $0.dependencyReference }.joined(separator: ", ")
     }
 
     var productName: String {
@@ -175,7 +175,7 @@ extension SwiftModule {
             }
         }
 
-        return buildSettings.map{ "\($0) = \($1);" }.joinWithSeparator(" ")
+        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 }
 

@@ -27,7 +27,7 @@ func fillModuleGraph(packages: [Package], modulesForPackage: (Package) -> [Modul
                 }
             }
             for module in packageModules {
-                module.dependencies.insertContentsOf(depModules, at: 0)
+                module.dependencies.insert(contentsOf: depModules, at: 0)
             }
         }
     }

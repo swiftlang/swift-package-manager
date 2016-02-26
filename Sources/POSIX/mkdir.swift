@@ -25,7 +25,7 @@ public func mkdir(path: String...) throws -> String {
 }
 
 public func mkdir(path: [String]) throws -> String {
-    let parts = path.flatMap{ $0.characters.split("/") }
+    let parts = path.flatMap{ $0.characters.split(separator: "/") }
     var prefix = path.first!.hasPrefix("/")
         ? ""
         : try getcwd()
