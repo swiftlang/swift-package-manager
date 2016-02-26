@@ -20,6 +20,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("MODES:")
     print("  --configuration <value>  Build with configuration (debug|release) [-c]")
     print("  --clean[=<mode>]         Delete artefacts (build|dist) [-k]")
+    print("  --dump                   Dumps project.pbxproj to stdout")
     print("  --init                   Creates a new Swift project")
     print("  --fetch                  Fetch package dependencies")
     print("")
