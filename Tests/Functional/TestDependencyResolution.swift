@@ -46,4 +46,10 @@ class DependencyResolutionTestCase: XCTestCase {
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
+
+    func testIndirectTestsDontBuild() {
+        fixture(name: "DependencyResolution/External/IgnoreIndirectTests") { prefix in
+            XCTAssertBuilds(prefix, "app")
+        }
+    }
 }
