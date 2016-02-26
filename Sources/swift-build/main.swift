@@ -73,7 +73,7 @@ do {
         let (modules, products) = try transmute(packages)
         let swiftModules = modules.flatMap{ $0 as? SwiftModule }
 
-        Xcodeproj.print(srcroot: dirs.root, modules: swiftModules, products: products) {
+        Xcodeproj.print(package: packages.last!, modules: swiftModules, products: products) {
             Swift.print($0)
         }
     }

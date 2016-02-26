@@ -8,11 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+//TODO our references should remain human readable, but they
+// aren't unique enough, eg. if a module is called ProxyFoo then the TargetProxy for Foo will conflict with the Target for ProxyFoo
+
 import PackageType
 import Utility
 
-public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [Product], printer write: (String) -> Void) {
+public func print(package package: Package, modules: [SwiftModule], products _: [Product], printer write: (String) -> Void) {
 
+    let srcroot = package.path
     let nontests = modules.filter{ !($0 is TestModule) }
     let tests = modules.filter{ $0 is TestModule }
 
@@ -36,7 +40,7 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
     write("            productRefGroup = REF00000017;")
     write("            projectDirPath = '';")
     write("            projectRoot = '';")
-    write("            targets = (" + modules.map(productsGroupRef).joinWithSeparator(", ") + ");")
+    write("            targets = (AggregateTarget, " + modules.map(productsGroupRef).joinWithSeparator(", ") + ");")
     write("        };")
 
 ////// root group
@@ -49,6 +53,16 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
 ////// modules group
     for module in modules {
 
+        // the group for the sources in this target
+        write("        \(moduleGroupName(module)) = {")
+        write("            isa = PBXGroup;")
+        write("            name = \(module.name);")
+        write("            path = '\(Path(module.sources.root).relative(to: srcroot))';")
+        write("            sourceTree = '<group>';")
+        write("            children = (" + sourceFileRefs(module).map{$0.0}.joinWithSeparator(", ") + ");")
+        write("        };")
+        
+        // the references to the sources in this target
         for (ref, path) in sourceFileRefs(module) {
             let path = Path(path).relative(to: srcroot)
             write("        \(ref) = {")
@@ -59,27 +73,20 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
             write("        };")
         }
 
-        write("        \(moduleGroupName(module)) = {")
-        write("            isa = PBXGroup;")
-        write("            name = \(module.name);")
-        write("            path = '\(Path(module.sources.root).relative(to: srcroot))';")
-        write("            sourceTree = '<group>';")
-        write("            children = (" + sourceFileRefs(module).map{$0.0}.joinWithSeparator(", ") + ");")
-        write("        };")
-
-        let deps = module.dependencies.map{ dependencyRef(module: module, dep: $0) }.joinWithSeparator(", ")
-
+        // the target
         write("        \(productsGroupRef(module)) = {")
         write("            isa = PBXNativeTarget;")
         write("            buildConfigurationList = \(productBuildConfigurationList(module));")
         write("            buildPhases = (\(productBuildPhase(module)), \(linkBuildPhase(module: module)));")
         write("            buildRules = ();")
-        write("            dependencies = (\(deps));")
+        write("            dependencies = (\(module.nativeTargetDependencies));")
         write("            name = \(module.name);")
         write("            productName = \(module.c99name);")
         write("            productReference = \(productRef(module));")
         write("            productType = '\(module.type)';")
         write("        };")
+        
+        // the product file reference
         write("        \(productRef(module)) = {")
         write("            isa = PBXFileReference;")
         write("            explicitFileType = 'compiled.mach-o.\(module.explicitFileType)';")
@@ -87,13 +94,7 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         write("            sourceTree = BUILT_PRODUCTS_DIR;")
         write("        };")
 
-        for (ref1, ref2) in sourcesBuildPhaseFileRefs(module) + [(productRef(module), productBuildPhaseFileRef(module))] {
-            write("        \(ref2) = {")
-            write("            isa = PBXBuildFile;")
-            write("            fileRef = \(ref1);")
-            write("        };")
-        }
-
+        // sources build phase
         write("        \(productBuildPhase(module)) = {")
         write("            isa = PBXSourcesBuildPhase;")
         write("            buildActionMask = 2147483647;")
@@ -101,61 +102,53 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
         write("            runOnlyForDeploymentPostprocessing = 0;")
         write("        };")
 
+        // the references to the sources in the sources build phase
+        for (ref1, ref2) in sourcesBuildPhaseFileRefs(module) + [(productRef(module), productBuildPhaseFileRef(module))] {
+            write("        \(ref2) = {")
+            write("            isa = PBXBuildFile;")
+            write("            fileRef = \(ref1);")
+            write("        };")
+        }
+        
+        // link build phase
+        write("        \(linkBuildPhase(module: module)) = {")
+        write("            isa = PBXFrameworksBuildPhase;")
+        write("            buildActionMask = 2147483647;")
+        write("            files = (\(module.linkBuildPhaseFiles));")
+        write("            runOnlyForDeploymentPostprocessing = 0;")
+        write("        };")
+
+        // the target build configuration
         write("        \(productBuildConfigurationList(module)) = {")
         write("            isa = XCConfigurationList;")
         write("            buildConfigurations = (\(productBuildConfiguration(module)));")
         write("            defaultConfigurationIsVisible = 0;")
         write("            defaultConfigurationName = Debug;")
         write("        };")
-
-        var buildSettings = "PRODUCT_NAME = '$(TARGET_NAME)';"
-
-        if module is TestModule {
-            buildSettings += " EMBEDDED_CONTENT_CONTAINS_SWIFT = YES;"
-        } else if module.isLibrary {
-            buildSettings += " DYLIB_INSTALL_NAME_BASE = '$(CONFIGURATION_BUILD_DIR)'; SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
-        } else {
-            buildSettings += " SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
-        }
-
-        //TODO probably should be a build option
-        //        if !module.isLibrary {
-//            buildSettings += " SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
-//        }
-
         write("        \(productBuildConfiguration(module)) = {")
         write("            isa = XCBuildConfiguration;")
-        write("            buildSettings = { \(buildSettings) };")
+        write("            buildSettings = { \(module.buildSettings) };")
         write("            name = Debug;")
         write("        };")
+        //TODO ^^ probably can consolidate this into the three kinds
+        //TODO we use rather than have one per module
 
-        for dep in module.recursiveDependencies {
-            write("        \(dependencyRef(module: module, dep: dep)) = {")
-            write("            isa = PBXTargetDependency;")
-            write("            target = \(productsGroupRef(dep));")
-            write("            targetProxy = \(dependencyTargetProxyRef(module: module, dep: dep));")
-            write("        };")
-
-            write("        \(dependencyTargetProxyRef(module: module, dep: dep)) = {")
-            write("            isa = PBXContainerItemProxy;")
-            write("            containerPortal = REF00000000;")
-            write("            proxyType = 1;")
-            write("            remoteGlobalIDString = \(productsGroupRef(dep));")
-            write("            remoteInfo = \(dep.c99name);")
-            write("        };")
-
-            let files = module.recursiveDependencies.map(productBuildPhaseFileRef).joinWithSeparator(", ")
-
-            write("        \(linkBuildPhase(module: module)) = {")
-            write("            isa = PBXFrameworksBuildPhase;")
-            write("            buildActionMask = 2147483647;")
-            write("            files = (\(files));")
-            write("            runOnlyForDeploymentPostprocessing = 0;")
-            write("        };")
-        }
+        // targets that depend on this target use these
+        write("        \(targetDependency(module)) = {")
+        write("            isa = PBXTargetDependency;")
+        write("            target = \(productsGroupRef(module));")
+        // write("            targetProxy = \(targetDependencyProxy(module));")
+        write("        };")
+        // write("        \(targetDependencyProxy(module)) = {")
+        // write("            isa = PBXContainerItemProxy;")
+        // write("            containerPortal = REF00000000;")
+        // write("            proxyType = 1;")
+        // write("            remoteGlobalIDString = \(productsGroupRef(module));")
+        // write("            remoteInfo = \(module.c99name);")
+        // write("        };")
     }
 
-////// sources group
+////// “Sources” group
     write("        REF0000000b = {")
     write("            isa = PBXGroup;")
     write("            children = (" + nontests.map(moduleGroupName).joinWithSeparator(", ") + ");")
@@ -163,7 +156,7 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
     write("            sourceTree = '<group>';")
     write("        };")
 
-////// sources group
+////// “Tests” group
     write("        REF0000000c = {")
     write("            isa = PBXGroup;")
     write("            children = (" + tests.map(moduleGroupName).joinWithSeparator(", ") + ");")
@@ -178,6 +171,31 @@ public func print(srcroot srcroot: String, modules: [SwiftModule], products _: [
     write("            name = Products;")
     write("            sourceTree = '<group>';")
     write("        };")
+
+///// aggregate target
+    write("        AggregateTarget = {")
+    write("            isa = PBXAggregateTarget;")
+    write("            buildConfigurationList = REF0000001a;")
+    write("            buildPhases = ();")
+    write("            dependencies = (\(nontests.map(targetDependency).joinWithSeparator(", ")));")
+    write("            name = _\(package.name);")  // HACK underscore puts it at the top
+    write("            productName = WTF;")
+    write("        };")
+    write("        REF0000001a = {")
+    write("                isa = XCConfigurationList;")
+    write("                buildConfigurations = (")
+    write("                    REF0000001b,")
+    write("                );")
+    write("                defaultConfigurationIsVisible = 0;")
+    write("                defaultConfigurationName = Debug;")
+    write("            };")
+    write("            REF0000001b = {")
+    write("                isa = XCBuildConfiguration;")
+    write("                buildSettings = {")
+    write("                    PRODUCT_NAME = '$(TARGET_NAME)';")
+    write("                };")
+    write("                name = Debug;")
+    write("         };")
 
 ////// build configuration
     write("        REF00000003 = {")
@@ -236,12 +254,12 @@ func moduleGroupName(module: Module) -> String {
     return "Group\(module.c99name)"
 }
 
-func dependencyRef(module module: Module, dep: Module) -> String {
-    return "Dep\(module.c99name)For\(dep.c99name)"
+func targetDependency(module: Module) -> String {
+    return "TargetDependency\(module.c99name)"
 }
 
-func dependencyTargetProxyRef(module module: Module, dep: Module) -> String {
-    return "TargetProxyDep\(module.c99name)For\(dep.c99name)"
+func targetDependencyProxy(module: Module) -> String {
+    return "TargetDependencyProxy\(module.c99name)"
 }
 
 func linkBuildPhase(module module: Module) -> String {
@@ -277,5 +295,30 @@ extension SwiftModule {
         } else {
             return name
         }
+    }
+    
+    var linkBuildPhaseFiles: String {
+        return recursiveDependencies.map(productBuildPhaseFileRef).joinWithSeparator(", ")
+    }
+    
+    var nativeTargetDependencies: String {
+        return dependencies.map(targetDependency).joinWithSeparator(", ")
+    }
+    
+    var buildSettings: String {
+        var buildSettings = "PRODUCT_NAME = '$(TARGET_NAME)';"
+
+        if self is TestModule {
+            buildSettings += " EMBEDDED_CONTENT_CONTAINS_SWIFT = YES;"
+            buildSettings += " LD_RUNPATH_SEARCH_PATHS = '@loader_path/../Frameworks';"
+        } else if isLibrary {
+            buildSettings += " ENABLE_TESTABILITY = YES;"
+            buildSettings += " DYLIB_INSTALL_NAME_BASE = '$(CONFIGURATION_BUILD_DIR)';"
+            buildSettings += " SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
+        } else {
+            buildSettings += " SWIFT_FORCE_STATIC_LINK_STDLIB = YES;"
+        }
+
+        return buildSettings
     }
 }
