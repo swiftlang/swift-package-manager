@@ -27,7 +27,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     let prefix = try mkdir(prefix, conf.dirname)
     let yaml = try YAML(path: "\(prefix).yaml")
     let write = yaml.write
-    let (tests, nontests) = targetSplitter(modules, products)
+    
+    let (buildableTests, buildableNonTests) = (modules.map{$0 as Buildable} + products.map{$0 as Buildable}).partition{$0.isTest}
+    let (tests, nontests) = (buildableTests.map{$0.targetName}, buildableNonTests.map{$0.targetName})
 
     defer { yaml.close() }
 
