@@ -165,6 +165,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             }
         }
 
+        if conf == .Debug {
+            args += ["-g"]
+        }
         args += platformArgs() //TODO don't need all these here or above: split outname
         args += Xld
         args += ["-o", outpath]
