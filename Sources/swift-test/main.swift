@@ -24,7 +24,7 @@ do {
     setenv("SPM_INSTALL_PATH", dir.build, 0)
 
     let yamlPath = Path.join(dir.build, "debug.yaml")
-    if !yamlPath.exists { throw Error.DebugYAMLNotFound }
+    guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
     
     try build(YAMLPath: yamlPath, target: "test")
     let success = test(dir.build, "debug")
