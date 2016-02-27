@@ -147,12 +147,15 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                     }
                 }
             #else
-                // HACK: To get a path to LinuxMain.swift, we just grab the
-                //       parent directory of the first test module we can find.
-                let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
-                let testDirectory = firstTestModule.sources.root.parentDirectory
-                let main = Path.join(testDirectory, "LinuxMain.swift")
-                args.append(main)
+            
+                // For now we need to generate the LinuxMain.swift file, together
+                // with LinuxTestManifest.swift file in each module.
+                //TODO: What's the idea with these files long term?
+                //Should we automatically add them to .gitignore? Delete them afterwards?
+                //Is there a way to delete files once compilation is done?
+                let testMetadataFiles = try generateLinuxTestFiles(product)
+                
+                args.appendContentsOf(testMetadataFiles)
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif
@@ -185,7 +188,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     return yaml.path
 }
-
 
 extension Product {
     private var buildables: [SwiftModule] {
