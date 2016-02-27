@@ -29,7 +29,7 @@ func generateLinuxTestFiles(product: Product) throws -> ProductTestMetadata {
     let metadata = try product
         .modules
         .flatMap{ $0 as? TestModule }
-        .map { try generateLinuxTestManifests($0) }
+        .flatMap { try generateLinuxTestManifests($0) }
     
     //TODO: Decide what to do when users already have
     //the linux XCTestCaseProvider extension. 
@@ -59,7 +59,7 @@ func generateLinuxMain(product: Product, metadata: [ModuleTestMetadata]) throws 
 }
 
 /// Returns a list of class names that are subclasses of XCTestCase
-func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata {
+func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata? {
     
     let root = module.sources.root
     let testManifestPath = Path.join(root, "LinuxTestManifest.swift")
@@ -71,8 +71,10 @@ func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata
         .sources
         .relativePaths
         .map { Path.join(root, $0) }
-        .flatMap { try parser.parseTestClass($0) }
+        .flatMap { try parser.parseTestClasses($0) }
         .flatMap { $0 }
+    
+    guard classes.count > 0 else { return nil }
     
     let metadata = ModuleTestMetadata(moduleName: module.name, testManifestPath: testManifestPath, dependencies: module.dependencies.map { $0.name }, classes: classes)
     

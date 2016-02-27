@@ -23,7 +23,7 @@ struct ModuleTestMetadata {
 }
 
 protocol TestMetadataParser {
-    func parseTestClass(testFilePath: String) throws -> [TestClassMetadata]?
+    func parseTestClasses(testFilePath: String) throws -> [TestClassMetadata]?
 }
 
 //up for grabs
@@ -36,7 +36,7 @@ struct StringTestMetadataParser: TestMetadataParser {
     
     /// Based on the absolute path passed in parses test class metadata
     /// Returns array because there might be more test classes in one file
-    func parseTestClass(testFilePath: String) throws -> [TestClassMetadata]? {
+    func parseTestClasses(testFilePath: String) throws -> [TestClassMetadata]? {
         
         guard let lines = try? File(path: testFilePath).enumerate() else { return nil }
         
@@ -48,7 +48,7 @@ struct StringTestMetadataParser: TestMetadataParser {
             
             guard let line = outLine else {
                 //EOF, no more classes
-                return classes
+                return classes.nilIfEmpty()
             }
             
             //look for a class name
@@ -64,7 +64,7 @@ struct StringTestMetadataParser: TestMetadataParser {
                             let testClass = TestClassMetadata(name: className, testNames: testNames)
                             classes.append(testClass)
                         }
-                        return classes
+                        return classes.nilIfEmpty()
                     }
                     
                     if let testName = parseTestName(line) {
