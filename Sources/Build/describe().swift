@@ -153,9 +153,16 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 //TODO: What's the idea with these files long term?
                 //Should we automatically add them to .gitignore? Delete them afterwards?
                 //Is there a way to delete files once compilation is done?
-                let testMetadataFiles = try generateLinuxTestFiles(product)
+                let testMetadata = try generateLinuxTestFiles(product)
                 
-                args.appendContentsOf(testMetadataFiles)
+                //TODO: we need to take the paths of the created files
+                //in each module and add them to sources of the module
+                //that can only be done higher up, but I'll need ideas on 
+                //what the cleanest way of mutating the structure is
+                
+                let linuxMainPath = testMetadata.linuxMainPath
+                
+                args.append(linuxMainPath)
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif

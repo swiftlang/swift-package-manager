@@ -13,9 +13,15 @@ import Utility
 import POSIX
 import func libc.fclose
 
+struct ProductTestMetadata {
+    let linuxMainPath: String
+    let product: Product
+    let metadata: [ModuleTestMetadata]
+}
+
 /// Generates one LinuxTestManifest.swift per test module and one LinuxMain.swift
 /// for the whole product. All returned paths need to be added for compilation.
-func generateLinuxTestFiles(product: Product) throws -> [String] {
+func generateLinuxTestFiles(product: Product) throws -> ProductTestMetadata {
     
     // Now parse and generate files for each test module.
     // First parse each module's tests to get the list of classes
@@ -33,10 +39,7 @@ func generateLinuxTestFiles(product: Product) throws -> [String] {
     // With the test information, generate the LinuxMain file
     let mainPath = try generateLinuxMain(product, metadata: metadata)
     
-    // Create a list of test metadata files which need to be added for compilation
-    var paths = metadata.map { $0.testManifestPath }
-    paths.append(mainPath)
-    return paths
+    return ProductTestMetadata(linuxMainPath: mainPath, product: product, metadata: metadata)
 }
 
 /// Updates the contents of and returns the path of LinuxMain.swift file.
