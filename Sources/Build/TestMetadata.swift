@@ -11,6 +11,7 @@
 import PackageType
 import Utility
 import POSIX
+import func libc.fclose
 
 /// Generates one LinuxTestManifest.swift per test module and one LinuxMain.swift
 /// for the whole product. All returned paths need to be added for compilation.
