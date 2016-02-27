@@ -24,6 +24,7 @@ XCTMain([
     MiscellaneousTestCase(),
     ManifestParsertest.PackageTests(),
 	ModuleTests(),
+    PackageDescriptiontest.PackageTests(),
     PackageTypetest.PackageTests(),
 	PathTests(),
 	RelativePathTests(),
