@@ -70,4 +70,11 @@ extension String {
 
         return String(cc)
     }
+    
+    /// Splits string with any character in passed-in string of delimiters
+    public func splitWithCharactersInString(delimiters: String) -> [String] {
+        let stops = Set(delimiters.characters)
+        return self.characters.split { stops.contains($0) }.map(String.init)
+    }
+    
 }
