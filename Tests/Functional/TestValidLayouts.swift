@@ -163,6 +163,8 @@ extension MiscellaneousTestCase {
             ("testManifestExcludes1", testManifestExcludes1),
             ("testManifestExcludes2", testManifestExcludes2),
             ("testManifestExcludes3", testManifestExcludes3),
+            ("testManifestExcludes4", testManifestExcludes4),
+            ("testManifestExcludes5", testManifestExcludes5),
             ("testTestDependenciesSimple", testTestDependenciesSimple),
             ("testTestDependenciesComplex", testTestDependenciesComplex),
             ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
