@@ -9,6 +9,7 @@
  */
 
 import Utility
+import PackageType
 
 struct TestClassMetadata {
     let name: String
@@ -16,7 +17,7 @@ struct TestClassMetadata {
 }
 
 struct ModuleTestMetadata {
-    let moduleName: String
+    let module: TestModule
     let testManifestPath: String
     let dependencies: [String]
     let classes: [TestClassMetadata]
