@@ -84,8 +84,19 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
     
     func parseClassName(line: String) -> String? {
-        let comps = line.splitWithCharactersInString(":\r\t\n ").filter { !$0.isEmpty }
+        var comps = line.splitWithCharactersInString(":\r\t\n ").filter { !$0.isEmpty }
         guard comps.count >= 2 else { return nil }
+        //see if this line is a candidate
+        guard Set(comps).contains("class") else { return nil }
+        while true {
+            let allowedFirst = Set(["private", "public", "internal", "final"])
+            if allowedFirst.contains(comps[0]) {
+                //drop first
+                comps = Array(comps.dropFirst())
+            } else {
+                break
+            }
+        }
         guard comps[0] == "class" else { return nil }
         guard comps[2] == "XCTestCase" else { return nil }
         return comps[1]
