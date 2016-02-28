@@ -24,11 +24,16 @@ do {
     setenv("SPM_INSTALL_PATH", dir.build, 0)
 
     let yamlPath = Path.join(dir.build, "debug.yaml")
+
     guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
+
+    try build(YAMLPath: yamlPath, target: "tests-ast")
+    let a = try parseAST(Path.join(dir.build, "debug", "TestsAST"))
+    print(a)
     
-    try build(YAMLPath: yamlPath, target: "test")
-    let success = test(dir.build, "debug")
-    exit(success ? 0 : 1)
+//    try build(YAMLPath: yamlPath, target: "test")
+//    let success = test(dir.build, "debug")
+    exit(0)
 
 } catch {
     handleError(error, usage: { _ in })

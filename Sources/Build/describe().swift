@@ -17,8 +17,6 @@ import Utility
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
 public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
-
-    print("prefix \(prefix)")
     
     guard modules.count > 0 else {
         throw Error.NoModules
