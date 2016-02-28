@@ -45,7 +45,7 @@ func generateLinuxTestFilesForProducts(products: [Product], prefix: String) thro
     }
     
     //create our .build subfolder
-    let testManifestFolder = Path.join(prefix, ".xctestmanifests")
+    let testManifestFolder = Path.join(prefix, "xctestmanifests")
     try mkdir(testManifestFolder)
     
     //TODO: what do we do when user deletes an XCTestCase file?
