@@ -9,6 +9,7 @@
  */
 
 import Utility
+import PackageType
 
 struct TestClassMetadata {
     let name: String
@@ -16,7 +17,7 @@ struct TestClassMetadata {
 }
 
 struct ModuleTestMetadata {
-    let moduleName: String
+    let module: TestModule
     let testManifestPath: String
     let dependencies: [String]
     let classes: [TestClassMetadata]
@@ -83,8 +84,19 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
     
     func parseClassName(line: String) -> String? {
-        let comps = line.splitWithCharactersInString(":\r\t\n ").filter { !$0.isEmpty }
+        var comps = line.splitWithCharactersInString(":\r\t\n ").filter { !$0.isEmpty }
         guard comps.count >= 2 else { return nil }
+        //see if this line is a candidate
+        guard Set(comps).contains("class") else { return nil }
+        while true {
+            let allowedFirst = Set(["private", "public", "internal", "final"])
+            if allowedFirst.contains(comps[0]) {
+                //drop first
+                comps = Array(comps.dropFirst())
+            } else {
+                break
+            }
+        }
         guard comps[0] == "class" else { return nil }
         guard comps[2] == "XCTestCase" else { return nil }
         return comps[1]
@@ -95,6 +107,7 @@ struct StringTestMetadataParser: TestMetadataParser {
         guard comps.count >= 2 else { return nil }
         guard comps[0] == "func" else { return nil }
         guard comps[1].hasPrefix("test") else { return nil }
+        guard comps[1].hasSuffix("()") else { return nil }
         //remove trailing parentheses
         return String(comps[1].characters.dropLast(2))
     }

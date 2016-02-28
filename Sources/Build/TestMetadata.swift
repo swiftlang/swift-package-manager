@@ -70,13 +70,14 @@ func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata
     let classes = try module
         .sources
         .relativePaths
+        .filter { $0 != "LinuxTestManifest.swift" }
         .map { Path.join(root, $0) }
         .flatMap { try parser.parseTestClasses($0) }
         .flatMap { $0 }
     
     guard classes.count > 0 else { return nil }
     
-    let metadata = ModuleTestMetadata(moduleName: module.name, testManifestPath: testManifestPath, dependencies: module.dependencies.map { $0.name }, classes: classes)
+    let metadata = ModuleTestMetadata(module: module, testManifestPath: testManifestPath, dependencies: module.dependencies.map { $0.name }, classes: classes)
     
     //now generate the LinuxTestManifest.swift file
     try writeLinuxTestManifest(metadata, path: testManifestPath)
@@ -128,25 +129,34 @@ func writeLinuxMain(metadata: [ModuleTestMetadata], path: String) throws {
     
     //imports
     try fputs("import XCTest\n", file)
-    try metadata.flatMap { $0.moduleName }.sort().forEach {
-        //module name e.g. "Jay.test" needs to be imported as "Jaytest"
-        //so remove all occurences of '.'
-        let name = $0.splitWithCharactersInString(".").joinWithSeparator("")
-        try fputs("@testable import \(name)\n", file)
+    try metadata.flatMap { $0.module.importableName() }.sort().forEach {
+        try fputs("@testable import \($0)\n", file)
     }
     try fputs("\n", file)
     
     try fputs("XCTMain([\n", file)
     
     //for each class
-    try metadata
-        .flatMap { $0.classes }
-        .sort { $0.name < $1.name }
-        .forEach { classMetadata in
-            try fputs("    \(classMetadata.name)(),\n", file)
+    for moduleMetadata in metadata {
+        try moduleMetadata
+            .classes
+            .sort { $0.name < $1.name }
+            .forEach { classMetadata in
+                try fputs("    \(moduleMetadata.module.importableName()).\(classMetadata.name)(),\n", file)
+        }
     }
     
     try fputs("])\n\n", file)
+}
+
+extension Module {
+    
+    func importableName() -> String {
+        //module name e.g. "Build.test" needs to be imported as "Buildtest"
+        //so remove all occurences of '.'
+        let name = self.name.splitWithCharactersInString(".").joinWithSeparator("")
+        return name
+    }
 }
 
 
