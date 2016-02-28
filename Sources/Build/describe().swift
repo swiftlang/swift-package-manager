@@ -119,6 +119,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         let name = "<\(testModule.name).ast.module>"
         
         var args = [Resources.path.swiftc, "-dump-ast"]
+        args += ["-module-name", testModule.c99name]
+        args += ["-I", prefix]
+        
         #if os(OSX)
             if let platformPath = Resources.path.platformPath {
                 let path = Path.join(platformPath, "Developer/Library/Frameworks")
