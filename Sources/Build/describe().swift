@@ -18,6 +18,8 @@ import Utility
 */
 public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
 
+    print("prefix \(prefix)")
+    
     guard modules.count > 0 else {
         throw Error.NoModules
     }
@@ -133,9 +135,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         args += platformArgs()
         args += testModule.sources.paths
         
-        let node = IncrementalNode(module: testModule, prefix: prefix)
         args += ["&>"]
-        args += [Path.join(node.tempsPath, "\(testModule.c99name).ast")]
+        
+        let testsAstDir = Path.join(prefix, "TestsAST")
+        mkdirs.insert(testsAstDir)
+        args += [Path.join(testsAstDir, "\(testModule.c99name).ast")]
         
         let realArgs = ["/bin/sh", "-c", args.reduce(""){$0 + " " + $1}]
         
@@ -144,7 +148,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         try write("    description: Generating AST for \(name)")
         try write("    outputs: ", [name])
         try write("    args: ", realArgs)
-
     }
     
 
