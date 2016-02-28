@@ -49,7 +49,7 @@ func generateLinuxTestFilesForProducts(products: [Product]) throws -> TestMetada
     }
     
     //TODO: what do we do when user deletes an XCTestCase file?
-    //we should somehow know to delete its manifest it.
+    //we should somehow know to delete its manifest.
     
     //collect the paths of generated files
     var productPaths = [String: String]()
