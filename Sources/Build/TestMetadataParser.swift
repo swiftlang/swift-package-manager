@@ -96,7 +96,7 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
     
     func parseTestName(line: String) -> String? {
-        let comps = line.splitWithCharactersInString(" \t\n\r").filter { !$0.isEmpty }
+        let comps = line.splitWithCharactersInString(" \t\n\r{").filter { !$0.isEmpty }
         guard comps.count >= 2 else { return nil }
         guard comps[0] == "func" else { return nil }
         guard comps[1].hasPrefix("test") else { return nil }
