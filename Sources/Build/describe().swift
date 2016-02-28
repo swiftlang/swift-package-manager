@@ -21,7 +21,8 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     guard modules.count > 0 else {
         throw Error.NoModules
     }
-
+    
+    let buildPrefix = prefix
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] } + extraImports()
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = try mkdir(prefix, conf.dirname)
@@ -43,7 +44,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     //generate test manifests for XCTest on Linux
     #if os(Linux)
-    let testMetadata = try generateLinuxTestFilesForProducts(products)
+    let testMetadata = try generateLinuxTestFilesForProducts(products, prefix: buildPrefix)
     #endif
     
     var mkdirs = Set<String>()
@@ -63,7 +64,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             }
         }
         #endif
-        
+
         switch conf {
         case .Debug:
             var args = ["-j8","-Onone","-g","-D","SWIFT_PACKAGE"]
