@@ -106,6 +106,9 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
 }
 
-
-
+extension Array {
+    public func nilIfEmpty() -> Array? {
+        return self.isEmpty ? nil : self
+    }
+}
 
