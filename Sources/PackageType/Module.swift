@@ -50,8 +50,7 @@ public class SwiftModule: Module {
     }
     
     public func addSources(paths: [String]) {
-        var newPaths = self.sources.paths + paths
-        self.sources = Sources(paths: newPaths, root: self.sources.root)
+        self.sources = Sources(paths: self.sources.paths + paths, root: self.sources.root)
     }
 
     public var isLibrary: Bool {
