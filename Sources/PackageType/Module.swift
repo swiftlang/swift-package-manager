@@ -42,11 +42,15 @@ public func ==(lhs: Module, rhs: Module) -> Bool {
 }
 
 public class SwiftModule: Module {
-    public let sources: Sources
+    public private(set) var sources: Sources
 
     public init(name: String, sources: Sources) {
         self.sources = sources
         super.init(name: name)
+    }
+    
+    public func addSources(paths: [String]) {
+        self.sources = Sources(paths: self.sources.paths + paths, root: self.sources.root)
     }
 
     public var isLibrary: Bool {

@@ -41,8 +41,4 @@ extension Array {
         }
         return (a, b)
     }
-    
-    public func nilIfEmpty() -> Array? {
-        return self.isEmpty ? nil : self
-    }
 }

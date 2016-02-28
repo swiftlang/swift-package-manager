@@ -19,7 +19,6 @@ struct TestClassMetadata {
 struct ModuleTestMetadata {
     let module: TestModule
     let testManifestPath: String
-    let dependencies: [String]
     let classes: [TestClassMetadata]
 }
 
@@ -42,44 +41,38 @@ struct StringTestMetadataParser: TestMetadataParser {
         guard let lines = try? File(path: testFilePath).enumerate() else { return nil }
         
         var classes = [TestClassMetadata]()
+        func finishClass(className: String?, _ testNames: [String]) {
+            if let className = className where testNames.count > 0 {
+                let testClass = TestClassMetadata(name: className, testNames: testNames)
+                classes.append(testClass)
+            }
+        }
         
         //parse lines one by one, no need to load the whole into memory
-        var outLine: String? = lines.next()
-        CLASSES: while true {
+        var className: String? = nil
+        var testNames = [String]()
+        while true {
             
-            guard let line = outLine else {
+            guard let line = lines.next() else {
                 //EOF, no more classes
+                finishClass(className, testNames)
+                testNames = []
                 return classes.nilIfEmpty()
             }
             
             //look for a class name
-            if let className = parseClassName(line) {
-                //found class name, start searching for test names
-                
-                var testNames = [String]()
-                while true {
-                    
-                    guard let line = lines.next() else {
-                        //EOF, finish & add current class
-                        if testNames.count > 0 {
-                            let testClass = TestClassMetadata(name: className, testNames: testNames)
-                            classes.append(testClass)
-                        }
-                        return classes.nilIfEmpty()
-                    }
-                    
-                    if let testName = parseTestName(line) {
-                        //found another test name
-                        testNames.append(testName)
-                    }
-                    
-                    if let _ = parseClassName(line) {
-                        continue CLASSES
-                    }
-                }
+            if let newClassName = parseClassName(line) {
+                //found class name, finish old class and start new
+                finishClass(className, testNames)
+                className = newClassName
+                testNames = []
             }
             
-            outLine = lines.next()
+            //look for a test case
+            if let testName = parseTestName(line) {
+                //found another test name
+                testNames.append(testName)
+            }
         }
     }
     
@@ -103,7 +96,7 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
     
     func parseTestName(line: String) -> String? {
-        let comps = line.splitWithCharactersInString(" \t\n\r").filter { !$0.isEmpty }
+        let comps = line.splitWithCharactersInString(" \t\n\r{").filter { !$0.isEmpty }
         guard comps.count >= 2 else { return nil }
         guard comps[0] == "func" else { return nil }
         guard comps[1].hasPrefix("test") else { return nil }
@@ -113,6 +106,9 @@ struct StringTestMetadataParser: TestMetadataParser {
     }
 }
 
-
-
+extension Array {
+    public func nilIfEmpty() -> Array? {
+        return self.isEmpty ? nil : self
+    }
+}
 

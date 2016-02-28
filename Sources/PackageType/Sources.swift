@@ -15,11 +15,9 @@ public struct Sources {
     public let root: String
 
     public var paths: [String] {
-        for relativePath in relativePaths {
-            assert(!relativePath.hasPrefix("/"))
-        }
-
-        return relativePaths.map{ Path.join(root, $0) }
+        
+        let (absolutes, relatives) = relativePaths.partition { $0.hasPrefix("/") }
+        return relatives.map{ Path.join(root, $0) } + absolutes
     }
 
     public init(paths: [String], root: String) {
