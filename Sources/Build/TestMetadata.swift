@@ -13,15 +13,61 @@ import Utility
 import POSIX
 import func libc.fclose
 
+struct TestMetadata {
+    
+    /// Map from product name -> LinuxMain absolute path
+    var productMainPaths: [String: String]
+
+    /// Map from module name -> LinuxTestManifest absolute path
+    var moduleManifestPaths: [String: String]
+}
+
 struct ProductTestMetadata {
     let linuxMainPath: String
     let product: Product
     let metadata: [ModuleTestMetadata]
 }
 
+
+/// Generates a LinuxTestManifest file for each module and LinuxMain file for
+/// each product. Note that no files are generated for modules with no XCTestCase
+/// subclasses and no files are generated for packages with no XCTest-able modules.
+/// Returns TestMetadata, which informs of which files need to be added for 
+/// compilation into which module/product.
+func generateLinuxTestFilesForProducts(products: [Product]) throws -> TestMetadata {
+    
+    //only work with test products
+    let testProducts = products.filter {
+        switch $0.type {
+        case .Test: return true
+        default: return false
+        }
+    }
+
+    let productsMetadata = try testProducts.flatMap { testProduct in
+        return try generateLinuxTestFiles(testProduct)
+    }
+    
+    //TODO: what do we do when user deletes an XCTestCase file?
+    //we should somehow know to delete its manifest it.
+    
+    //collect the paths of generated files
+    var productPaths = [String: String]()
+    var modulePaths = [String: String]()
+    
+    for productMetadata in productsMetadata {
+        productPaths[productMetadata.product.name] = productMetadata.linuxMainPath
+        for moduleMetadata in productMetadata.metadata {
+            modulePaths[moduleMetadata.module.name] = moduleMetadata.testManifestPath
+        }
+    }
+    
+    return TestMetadata(productMainPaths: productPaths, moduleManifestPaths: modulePaths)
+}
+
 /// Generates one LinuxTestManifest.swift per test module and one LinuxMain.swift
 /// for the whole product. All returned paths need to be added for compilation.
-func generateLinuxTestFiles(product: Product) throws -> ProductTestMetadata {
+func generateLinuxTestFiles(product: Product) throws -> ProductTestMetadata? {
     
     // Now parse and generate files for each test module.
     // First parse each module's tests to get the list of classes
@@ -30,6 +76,9 @@ func generateLinuxTestFiles(product: Product) throws -> ProductTestMetadata {
         .modules
         .flatMap{ $0 as? TestModule }
         .flatMap { try generateLinuxTestManifests($0) }
+    
+    // Don't continue if no modules with testable classes were found
+    guard metadata.count > 0 else { return nil }
     
     //TODO: Decide what to do when users already have
     //the linux XCTestCaseProvider extension. 

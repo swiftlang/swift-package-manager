@@ -41,15 +41,29 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     try write("  test: ", tests)
     try write("commands: ")
 
+    //generate test manifests for XCTest on Linux
+    #if os(Linux)
+    let testMetadata = try generateLinuxTestFilesForProducts(products)
+    #endif
+    
     var mkdirs = Set<String>()
-
 
     let swiftcArgs = Xcc + Xswiftc
 
     for case let module as SwiftModule in modules {
 
         let otherArgs = swiftcArgs + module.Xcc + platformArgs()
-
+        
+        #if os(Linux)
+        //add test manifest for compilation, if one exists for this module
+        if let testManifestPath = testMetadata.moduleManifestPaths[module.name] {
+            //only if it isn't already there however
+            if !Set(module.sources.paths).contains(testManifestPath) {
+                module.addSources([testManifestPath])
+            }
+        }
+        #endif
+        
         switch conf {
         case .Debug:
             var args = ["-j8","-Onone","-g","-D","SWIFT_PACKAGE"]
@@ -148,21 +162,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 }
             #else
             
-                // For now we need to generate the LinuxMain.swift file, together
-                // with LinuxTestManifest.swift file in each module.
-                //TODO: What's the idea with these files long term?
-                //Should we automatically add them to .gitignore? Delete them afterwards?
-                //Is there a way to delete files once compilation is done?
-                let testMetadata = try generateLinuxTestFiles(product)
-                
-                //TODO: we need to take the paths of the created files
-                //in each module and add them to sources of the module
-                //that can only be done higher up, but I'll need ideas on 
-                //what the cleanest way of mutating the structure is
-                
-                let linuxMainPath = testMetadata.linuxMainPath
-                
-                args.append(linuxMainPath)
+                //add LinuxMain.swift for compilation
+                if let linuxMainPath = testMetadata.productMainPaths[product.name] {
+                    args.append(linuxMainPath)
+                }
+            
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif
