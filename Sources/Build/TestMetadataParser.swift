@@ -19,7 +19,6 @@ struct TestClassMetadata {
 struct ModuleTestMetadata {
     let module: TestModule
     let testManifestPath: String
-    let dependencies: [String]
     let classes: [TestClassMetadata]
 }
 

@@ -77,7 +77,7 @@ func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata
     
     guard classes.count > 0 else { return nil }
     
-    let metadata = ModuleTestMetadata(module: module, testManifestPath: testManifestPath, dependencies: module.dependencies.map { $0.name }, classes: classes)
+    let metadata = ModuleTestMetadata(module: module, testManifestPath: testManifestPath, classes: classes)
     
     //now generate the LinuxTestManifest.swift file
     try writeLinuxTestManifest(metadata, path: testManifestPath)
@@ -94,9 +94,6 @@ func writeLinuxTestManifest(metadata: ModuleTestMetadata, path: String) throws {
     
     //imports
     try fputs("import XCTest\n", file)
-    try metadata.dependencies.forEach {
-        try fputs("@testable import \($0)\n", file)
-    }
     try fputs("\n", file)
     
     //conditional compilation for users who will check them in
