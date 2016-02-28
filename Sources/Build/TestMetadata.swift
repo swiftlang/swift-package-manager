@@ -70,6 +70,7 @@ func generateLinuxTestManifests(module: TestModule) throws -> ModuleTestMetadata
     let classes = try module
         .sources
         .relativePaths
+        .filter { $0 != "LinuxTestManifest.swift" }
         .map { Path.join(root, $0) }
         .flatMap { try parser.parseTestClasses($0) }
         .flatMap { $0 }

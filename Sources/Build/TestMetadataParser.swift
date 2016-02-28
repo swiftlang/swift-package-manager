@@ -107,6 +107,7 @@ struct StringTestMetadataParser: TestMetadataParser {
         guard comps.count >= 2 else { return nil }
         guard comps[0] == "func" else { return nil }
         guard comps[1].hasPrefix("test") else { return nil }
+        guard comps[1].hasSuffix("()") else { return nil }
         //remove trailing parentheses
         return String(comps[1].characters.dropLast(2))
     }
