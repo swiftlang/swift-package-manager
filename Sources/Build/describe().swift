@@ -31,6 +31,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     let (buildableTests, buildableNonTests) = (modules.map{$0 as Buildable} + products.map{$0 as Buildable}).partition{$0.isTest}
     let (tests, nontests) = (buildableTests.map{$0.targetName}, buildableNonTests.map{$0.targetName})
 
+    
+    var testsAst: [String] = []
+    for case let x as TestModule in modules {
+        testsAst.append("<\(x.name).ast.module>")
+    }
+    
     defer { yaml.close() }
 
     try write("client:")
@@ -39,6 +45,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     try write("targets:")
     try write("  default: ", nontests)
     try write("  test: ", tests)
+    try write("  tests-ast: ", testsAst)
     try write("commands: ")
 
     var mkdirs = Set<String>()
@@ -104,6 +111,39 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             try write("    args: ", [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
         }
     }
+    
+    
+    // MARK:- AST stuff
+    
+    for case let testModule as TestModule in modules {
+        let name = "<\(testModule.name).ast.module>"
+        
+        var args = [Resources.path.swiftc, "-dump-ast"]
+        #if os(OSX)
+            if let platformPath = Resources.path.platformPath {
+                let path = Path.join(platformPath, "Developer/Library/Frameworks")
+                args += ["-F", path]
+            } else {
+                throw Error.InvalidPlatformPath
+            }
+        #endif
+        args += platformArgs()
+        args += testModule.sources.paths
+        
+        let node = IncrementalNode(module: testModule, prefix: prefix)
+        args += ["&>"]
+        args += [Path.join(node.tempsPath, "\(testModule.c99name).ast")]
+        
+        let realArgs = ["/bin/sh", "-c", args.reduce(""){$0 + " " + $1}]
+        
+        try write("  ", name, ":")
+        try write("    tool: shell")
+        try write("    description: Generating AST for \(name)")
+        try write("    outputs: ", [name])
+        try write("    args: ", realArgs)
+
+    }
+    
 
     // make eg .build/debug/foo.build/subdir for eg. Sources/foo/subdir/bar.swift
     // TODO swift-build-tool should do this
