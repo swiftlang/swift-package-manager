@@ -119,6 +119,9 @@ func writeLinuxTestManifest(metadata: ModuleTestMetadata, path: String) throws {
 
 func writeLinuxMain(metadata: [ModuleTestMetadata], path: String) throws {
     
+    //don't write anything if no classes are available
+    guard metadata.count > 0 else { return }
+
     let file = try fopen(path, mode: .Write)
     defer {
         fclose(file)
