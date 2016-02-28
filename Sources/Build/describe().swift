@@ -58,10 +58,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         #if os(Linux)
         //add test manifest for compilation, if one exists for this module
         if let testManifestPath = testMetadata.moduleManifestPaths[module.name] {
-            //only if it isn't already there however
-            if !Set(module.sources.paths).contains(testManifestPath) {
-                module.addSources([testManifestPath])
-            }
+            module.addSources([testManifestPath])
         }
         #endif
 
