@@ -11,7 +11,7 @@ install:
 script:
   - . ~/.swiftenv/init
   - Utilities/bootstrap
-  - swift test
+  - .build/bin/swift-test
 notifications:
   email:
     on_success: never
