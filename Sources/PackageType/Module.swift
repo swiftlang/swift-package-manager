@@ -49,10 +49,15 @@ public class SwiftModule: Module {
         super.init(name: name)
     }
 
-    public var isLibrary: Bool {
-        return !sources.relativePaths.contains { path in
+    public enum ModuleType {
+        case Library, Executable
+    }
+
+    public var type: ModuleType {
+        let isLibrary = !sources.relativePaths.contains { path in
             path.basename.lowercaseString == "main.swift"
         }
+        return isLibrary ? .Library : .Executable
     }
 }
 

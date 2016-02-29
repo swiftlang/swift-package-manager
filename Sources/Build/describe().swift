@@ -81,7 +81,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
             // this must be set or swiftc compiles single source file
             // modules with a main() for some reason
-            try write("    is-library: ", module.isLibrary)
+            try write("    is-library: ", module.type == .Library)
 
             for o in node.objectPaths {
                 mkdirs.insert(o.parentDirectory)
@@ -92,7 +92,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             var args = ["-c", "-emit-module", "-D", "SWIFT_PACKAGE", "-O", "-whole-module-optimization", "-I", prefix] + swiftcArgs
             let productPath = Path.join(prefix, "\(module.c99name).o")
 
-            if module.isLibrary {
+            if module.type == .Library {
                 args += ["-parse-as-library"]
             }
 
