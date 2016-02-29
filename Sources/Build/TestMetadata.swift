@@ -37,12 +37,7 @@ struct ProductTestMetadata {
 func generateLinuxTestFilesForProducts(products: [Product], prefix: String) throws -> TestMetadata {
     
     //only work with test products
-    let testProducts = products.filter {
-        switch $0.type {
-        case .Test: return true
-        default: return false
-        }
-    }
+    let testProducts = products.filter { $0.isTest }
     
     //create our .build subfolder
     let testManifestFolder = Path.join(prefix, "xctestmanifests")
