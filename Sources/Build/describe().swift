@@ -44,7 +44,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     //generate test manifests for XCTest on Linux
     #if os(Linux)
-    let testMetadata = try generateLinuxTestFilesForProducts(products, prefix: buildPrefix)
+    let testMetadata = try generateTestManifestFilesForProducts(products, prefix: buildPrefix)
     #endif
     
     var mkdirs = Set<String>()
@@ -160,9 +160,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 }
             #else
             
-                //add LinuxMain.swift for compilation
-                if let linuxMainPath = testMetadata.productMainPaths[product.name] {
-                    args.append(linuxMainPath)
+                //add XCTestMain.swift for compilation
+                if let xctestMainPath = testMetadata.productMainPaths[product.name] {
+                    args.append(xctestMainPath)
                 }
             
                 args.append("-emit-executable")
