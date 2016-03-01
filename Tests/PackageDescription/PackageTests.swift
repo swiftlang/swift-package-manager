@@ -28,15 +28,3 @@ class PackageTests: XCTestCase {
     }
 
 }
-
-
-#if os(Linux)
-extension PackageTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testMatchDependencyWithPreReleaseVersion", testMatchDependencyWithPreReleaseVersion),
-
-        ]
-    }
-}
-#endif
