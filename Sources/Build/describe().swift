@@ -21,7 +21,8 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     guard modules.count > 0 else {
         throw Error.NoModules
     }
-
+    
+    let buildPrefix = prefix
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] } + extraImports()
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = try mkdir(prefix, conf.dirname)
@@ -41,14 +42,25 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     try write("  test: ", tests)
     try write("commands: ")
 
+    //generate test manifests for XCTest on Linux
+    #if os(Linux)
+    let testMetadata = try generateTestManifestFilesForProducts(products, prefix: buildPrefix)
+    #endif
+    
     var mkdirs = Set<String>()
-
 
     let swiftcArgs = Xcc + Xswiftc
 
     for case let module as SwiftModule in modules {
 
         let otherArgs = swiftcArgs + module.Xcc + platformArgs()
+        
+        #if os(Linux)
+        //add test manifest for compilation, if one exists for this module
+        if let testManifestPath = testMetadata.moduleManifestPaths[module.name] {
+            module.addSources([testManifestPath])
+        }
+        #endif
 
         switch conf {
         case .Debug:
@@ -147,12 +159,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                     }
                 }
             #else
-                // HACK: To get a path to LinuxMain.swift, we just grab the
-                //       parent directory of the first test module we can find.
-                let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
-                let testDirectory = firstTestModule.sources.root.parentDirectory
-                let main = Path.join(testDirectory, "LinuxMain.swift")
-                args.append(main)
+            
+                //add XCTestMain.swift for compilation
+                if let xctestMainPath = testMetadata.productMainPaths[product.name] {
+                    args.append(xctestMainPath)
+                }
+            
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif
@@ -185,7 +197,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
     return yaml.path
 }
-
 
 extension Product {
     private var buildables: [SwiftModule] {

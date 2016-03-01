@@ -106,36 +106,3 @@ class TOMLTests: XCTestCase {
                         "t2": toTable(["a": .Int(value: 1)])])])]))
     }
 }
-
-
-#if os(Linux)
-extension TOMLTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testLexer", testLexer),
-            ("testParser", testParser),
-            ("testParsingTables", testParsingTables),
-        ]
-    }
-}
-
-extension ManifestTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testManifestLoading", testManifestLoading),
-        ]
-    }
-}
-
-extension PackageTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-            ("testExclude", testExclude),
-            ("testEmptyTestDependencies", testEmptyTestDependencies),
-            ("testTestDependencies", testTestDependencies),
-            ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
-        ]
-    }
-}
-#endif
