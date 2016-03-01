@@ -13,8 +13,26 @@ import Utility
 
 extension Package {
     func testModules() throws -> [TestModule] {
-        return try walk(path, "Tests", recursively: false).filter{ $0.isDirectory }.map { dir in
-            return TestModule(basename: dir.basename, sources: try self.sourcify(dir))
+        let (directories, files) = walk(path, "Tests", recursively: false).partition{ $0.isDirectory }
+
+        let testDirectories = directories.filter{ !excludes.contains($0) }
+        let rootTestFiles = files.filter { 
+            !$0.hasSuffix("LinuxMain.swift") && isValidSource($0) && !excludes.contains($0)
         }
+
+        if (testDirectories.count > 0 && rootTestFiles.count > 0) {
+            throw ModuleError.InvalidLayout(.InvalidLayout)            
+        } else if (testDirectories.count > 0) {
+            return try testDirectories.map { 
+                TestModule(basename: $0.basename, sources: try self.sourcify($0)) 
+            }
+        } else {
+            if (rootTestFiles.count > 0) {
+                let rootTestSource = Sources(paths: rootTestFiles, root: path)
+                return [TestModule(basename: name, sources: rootTestSource)]
+            }
+        }
+        
+        return []
     }
 }

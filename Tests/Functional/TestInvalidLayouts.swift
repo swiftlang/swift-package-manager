@@ -11,6 +11,7 @@
 import XCTest
 import func POSIX.rmdir
 import func POSIX.unlink
+import func POSIX.rename
 
 class InvalidLayoutsTestCase: XCTestCase {
 
@@ -111,4 +112,46 @@ class InvalidLayoutsTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
         }
     }
+    
+    func testDirectTestsWithModules1() {
+        /*
+        Package
+        ├── Sources
+        │   └── ModuleA
+        │       └── Foo.swift
+        └── Tests
+            ├── FooTests.swift  <-- Invalid
+            └── ModuleA
+                └── ModuleATests.swift
+        */
+        
+        fixture(name: "InvalidLayouts/DirectTestsWithModules1") { prefix in
+            
+            XCTAssertBuildFails(prefix)
+            
+            try POSIX.unlink("\(prefix)/Tests/FooTests.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testDirectTestsWithModules2() {
+        /*
+        Package
+        ├── Sources
+        │   └── Foo.swift
+        └── Tests
+            ├── FooTests.swift      <-- Invalid
+            └── ImplicitModuleName
+                └── ModuleTests.swift
+        */
+        
+        fixture(name: "InvalidLayouts/DirectTestsWithModules1") { prefix in
+            
+            XCTAssertBuildFails(prefix)
+            
+            try POSIX.unlink("\(prefix)/Tests/FooTests.swift")
+            XCTAssertBuilds(prefix)
+        }
+    }
+
 }
