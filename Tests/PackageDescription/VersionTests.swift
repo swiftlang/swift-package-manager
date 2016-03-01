@@ -307,23 +307,3 @@ extension Array {
         }
     }
 }
-
-
-#if os(Linux)
-extension VersionTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testEquality", testEquality),
-            ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
-            ("testComparable", testComparable),
-            ("testDescription", testDescription),
-            ("testFromString", testFromString),
-            ("testSort", testSort),
-            ("testRange", testRange),
-            ("testSuccessor", testSuccessor),
-            ("testPredecessor", testPredecessor),
-            
-        ]
-    }
-}
-#endif

@@ -34,16 +34,3 @@ class PackageTests: XCTestCase {
     }
 }
 
-
-#if os(Linux)
-extension PackageTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
-        return [
-            ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
-            ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
-            ("testUrlEndsInDotGit3", testUrlEndsInDotGit3),
-            ("testUid", testUid),
-        ]
-    }
-}
-#endif
