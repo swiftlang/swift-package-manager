@@ -95,7 +95,7 @@ extension PackageDescription.Target {
 
         // Parse the dependencies.
         var dependencies: [PackageDescription.Target.Dependency] = []
-        if case .Some(.Array(let array)) = table.items["dependencies"] {
+        if case .Array(let array)? = table.items["dependencies"] {
             for item in array.items {
                 dependencies.append(PackageDescription.Target.Dependency.fromTOML(item))
             }
