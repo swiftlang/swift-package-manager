@@ -15,26 +15,26 @@ import func libc.fclose
 
 struct TestMetadata {
     
-    /// Map from product name -> LinuxMain absolute path
+    /// Map from product name -> XCTestMain absolute path
     var productMainPaths: [String: String]
 
-    /// Map from module name -> LinuxTestManifest absolute path
+    /// Map from module name -> XCTestManifest absolute path
     var moduleManifestPaths: [String: String]
 }
 
 struct ProductTestMetadata {
-    let linuxMainPath: String
+    let xctestMainPath: String
     let product: Product
     let metadata: [ModuleTestMetadata]
 }
 
 
-/// Generates a LinuxTestManifest file for each module and LinuxMain file for
+/// Generates a XCTestManifest.swift file for each module and XCTestMain.swift file for
 /// each product. Note that no files are generated for modules with no XCTestCase
 /// subclasses and no files are generated for packages with no XCTest-able modules.
 /// Returns TestMetadata, which informs of which files need to be added for 
 /// compilation into which module/product.
-func generateLinuxTestFilesForProducts(products: [Product], prefix: String) throws -> TestMetadata {
+func generateTestManifestFilesForProducts(products: [Product], prefix: String) throws -> TestMetadata {
     
     //only work with test products
     let testProducts = products.filter { $0.isTest }
@@ -50,7 +50,7 @@ func generateLinuxTestFilesForProducts(products: [Product], prefix: String) thro
     
     //produce manifest file for each test module
     let productsMetadata = try testProducts.flatMap { testProduct in
-        return try generateLinuxTestFiles(testProduct, testManifestFolder: testManifestFolder)
+        return try generateTestManifestFiles(testProduct, testManifestFolder: testManifestFolder)
     }
     
     //collect the paths of generated files
@@ -58,7 +58,7 @@ func generateLinuxTestFilesForProducts(products: [Product], prefix: String) thro
     var modulePaths = [String: String]()
     
     for productMetadata in productsMetadata {
-        productPaths[productMetadata.product.name] = productMetadata.linuxMainPath
+        productPaths[productMetadata.product.name] = productMetadata.xctestMainPath
         for moduleMetadata in productMetadata.metadata {
             modulePaths[moduleMetadata.module.name] = moduleMetadata.testManifestPath
         }
@@ -67,48 +67,48 @@ func generateLinuxTestFilesForProducts(products: [Product], prefix: String) thro
     return TestMetadata(productMainPaths: productPaths, moduleManifestPaths: modulePaths)
 }
 
-/// Generates one LinuxTestManifest.swift per test module and one LinuxMain.swift
+/// Generates one XCTestManifest.swift per test module and one XCTestMain.swift
 /// for the whole product. All returned paths need to be added for compilation.
-func generateLinuxTestFiles(product: Product, testManifestFolder: String) throws -> ProductTestMetadata? {
+func generateTestManifestFiles(product: Product, testManifestFolder: String) throws -> ProductTestMetadata? {
     
     // Now parse and generate files for each test module.
     // First parse each module's tests to get the list of classes
-    // which we'll use to generate the LinuxMain.swift file later.
+    // which we'll use to generate the XCTestMain.swift file later.
     let metadata = try product
         .modules
         .flatMap{ $0 as? TestModule }
-        .flatMap { try generateLinuxTestManifests($0, testManifestFolder: testManifestFolder) }
+        .flatMap { try generateXCTestManifests($0, testManifestFolder: testManifestFolder) }
     
     // Don't continue if no modules with testable classes were found
     guard metadata.count > 0 else { return nil }
     
     //TODO: Decide what to do when users already have
-    //the linux XCTestCaseProvider extension. 
+    //the manual XCTestCaseProvider extension.
     //Ignore that file? Error out and ask them to remove it once and for all?
     //I'd prefer the second, because it'll get everyone on the same page quickly.
     
-    // With the test information, generate the LinuxMain file
-    let mainPath = try generateLinuxMain(product, metadata: metadata, testManifestFolder: testManifestFolder)
+    // With the test information, generate the XCTestMain file
+    let mainPath = try generateXCTestMain(product, metadata: metadata, testManifestFolder: testManifestFolder)
     
-    return ProductTestMetadata(linuxMainPath: mainPath, product: product, metadata: metadata)
+    return ProductTestMetadata(xctestMainPath: mainPath, product: product, metadata: metadata)
 }
 
-/// Updates the contents of and returns the path of LinuxMain.swift file.
-func generateLinuxMain(product: Product, metadata: [ModuleTestMetadata], testManifestFolder: String) throws -> String {
+/// Updates the contents of and returns the path of XCTestMain.swift file.
+func generateXCTestMain(product: Product, metadata: [ModuleTestMetadata], testManifestFolder: String) throws -> String {
     
-    let main = Path.join(testManifestFolder, "\(product.name)-LinuxMain.swift")
+    let main = Path.join(testManifestFolder, "\(product.name)-XCTestMain.swift")
     
-    // Generate the LinuxMain.swift's contents.
-    try writeLinuxMain(metadata, path: main)
+    // Generate the XCTestMain.swift's contents.
+    try writeXCTestMain(metadata, path: main)
     
     return main
 }
 
 /// Returns a list of class names that are subclasses of XCTestCase
-func generateLinuxTestManifests(module: TestModule, testManifestFolder: String) throws -> ModuleTestMetadata? {
+func generateXCTestManifests(module: TestModule, testManifestFolder: String) throws -> ModuleTestMetadata? {
     
     let root = module.sources.root
-    let testManifestPath = Path.join(testManifestFolder, "\(module.name)-LinuxTestManifest.swift")
+    let testManifestPath = Path.join(testManifestFolder, "\(module.name)-XCTestManifest.swift")
     
     // Replace the String based parser with AST parser once it's ready
     let parser: TestMetadataParser = StringTestMetadataParser()
@@ -124,13 +124,13 @@ func generateLinuxTestManifests(module: TestModule, testManifestFolder: String) 
     
     let metadata = ModuleTestMetadata(module: module, testManifestPath: testManifestPath, classes: classes)
     
-    //now generate the LinuxTestManifest.swift file
-    try writeLinuxTestManifest(metadata, path: testManifestPath)
+    //now generate the XCTestManifest.swift file
+    try writeXCTestManifest(metadata, path: testManifestPath)
     
     return metadata
 }
 
-func writeLinuxTestManifest(metadata: ModuleTestMetadata, path: String) throws {
+func writeXCTestManifest(metadata: ModuleTestMetadata, path: String) throws {
     
     let file = try fopen(path, mode: .Write)
     defer {
@@ -141,7 +141,6 @@ func writeLinuxTestManifest(metadata: ModuleTestMetadata, path: String) throws {
     try fputs("import XCTest\n", file)
     try fputs("\n", file)
     
-    //conditional compilation for users who will check them in
     try fputs("#if os(Linux)\n", file)
     
     //for each class
@@ -162,7 +161,7 @@ func writeLinuxTestManifest(metadata: ModuleTestMetadata, path: String) throws {
     try fputs("#endif\n\n", file)
 }
 
-func writeLinuxMain(metadata: [ModuleTestMetadata], path: String) throws {
+func writeXCTestMain(metadata: [ModuleTestMetadata], path: String) throws {
     
     //don't write anything if no classes are available
     guard metadata.count > 0 else { return }
