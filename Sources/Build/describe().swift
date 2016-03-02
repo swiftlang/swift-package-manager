@@ -17,7 +17,7 @@ import Utility
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
 public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
-    
+
     guard modules.count > 0 else {
         throw Error.NoModules
     }
@@ -78,9 +78,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             if module is TestModule {
                 testGenFile = Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest")
             }
-                // let testGenFile = 
-                // sources += [Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest.swift")]
-            // }
 
             try write("  ", module.targetName, ":")
             try write("    tool: swift-compiler")

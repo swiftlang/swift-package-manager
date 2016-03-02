@@ -10,9 +10,9 @@
 
 import func libc.setenv
 import func libc.exit
-import ASTParser
-import Utility
 import Multitool
+import Utility
+import ASTParser
 
 // Initialize the resource support.
 public var globalSymbolInMainBinary = 0
@@ -25,7 +25,6 @@ do {
     setenv("SPM_INSTALL_PATH", dir.build, 0)
 
     let yamlPath = Path.join(dir.build, "debug.yaml")
-
     guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
 
     try build(YAMLPath: yamlPath, target: "tests-ast")

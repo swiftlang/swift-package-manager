@@ -33,4 +33,3 @@ public func parseAST(dir: String) throws -> [TestModule] {
     
     return testModules
 }
-

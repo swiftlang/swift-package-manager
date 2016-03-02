@@ -52,7 +52,7 @@ let package = Package(
             dependencies: ["Get", "Transmute", "Build", "Multitool"]),
         Target(
             name: "swift-test",
-            dependencies: ["Multitool", "ASTParser"]),            
+            dependencies: ["Multitool", "ASTParser"]),
     ])
 
 
