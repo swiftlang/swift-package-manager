@@ -36,6 +36,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     for case let x as TestModule in modules {
         testsAst.append("<\(x.name).ast.module>")
     }
+    let xcTestGenPath = Path.join(prefix, "debug", "XCTestGen")
     
     defer { yaml.close() }
 
@@ -84,7 +85,14 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             try write("    temps-path: ", node.tempsPath)
             try write("    objects: ", node.objectPaths)
             try write("    other-args: ", args + otherArgs)
-            try write("    sources: ", module.sources.paths)
+
+            var sources = module.sources.paths
+
+            if module is TestModule {
+                sources += [Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest.swift")]
+            }
+
+            try write("    sources: ", sources)
 
             // this must be set or swiftc compiles single source file
             // modules with a main() for some reason
@@ -191,11 +199,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                     }
                 }
             #else
-                // HACK: To get a path to LinuxMain.swift, we just grab the
-                //       parent directory of the first test module we can find.
-                let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
-                let testDirectory = firstTestModule.sources.root.parentDirectory
-                let main = Path.join(testDirectory, "LinuxMain.swift")
+
+                let main = Path.join(xcTestGenPath, "XCTestMain.swift")
+
+
+
                 args.append(main)
                 args.append("-emit-executable")
                 args += ["-I", prefix]

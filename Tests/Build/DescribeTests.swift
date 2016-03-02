@@ -23,11 +23,3 @@ final class DescribeTests: XCTestCase {
         }
     }
 }
-
-extension DescribeTests {
-    static var allTests: [(String, DescribeTests -> () throws -> Void)] {
-        return [
-            ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
-        ]
-    }
-}
