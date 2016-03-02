@@ -159,6 +159,8 @@ extension InvalidLayoutsTestCase {
             ("testInvalidLayout3", testInvalidLayout3),
             ("testInvalidLayout4", testInvalidLayout4),
             ("testInvalidLayout5", testInvalidLayout5),
+            ("testDirectTestsWithModules1", testDirectTestsWithModules1),
+            ("testDirectTestsWithModules2", testDirectTestsWithModules2),
         ]
     }
 }

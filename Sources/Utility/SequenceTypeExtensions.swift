@@ -10,7 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 extension SequenceType {
     @warn_unused_result
-    public func partition(@noescape include:(Generator.Element)->Bool) -> ([Generator.Element], [Generator.Element]) {
+    public func partition(@noescape include: (Generator.Element) -> Bool) -> ([Generator.Element], [Generator.Element]) {
         var left = Array<Generator.Element>()
         var right = Array<Generator.Element>()
         
