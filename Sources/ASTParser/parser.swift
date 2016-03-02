@@ -81,7 +81,6 @@ private func parseASTString(astString: String) -> [Node] {
              data = ""
         } else {
             data = data + String(char)
-            if data == "(source_file" {  print("Yes") }
             if char == "\"" || char == "'" {
                 if quoteChar == nil { 
                     quoteChar = char

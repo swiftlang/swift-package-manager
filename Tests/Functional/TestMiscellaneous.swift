@@ -70,41 +70,41 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testTestDependenciesSimple() {
-    #if false
-        //FIXME disabled pending no more magic
-        fixture(name: "TestDependencies/Simple") { prefix in
-            XCTAssertBuilds(prefix, "App")
-            XCTAssertDirectoryExists(prefix, "App/Packages/TestingLib-1.2.3")
-            XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
-            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
-        }
-    #endif
-    }
+//     func testTestDependenciesSimple() {
+//     #if false
+//         //FIXME disabled pending no more magic
+//         fixture(name: "TestDependencies/Simple") { prefix in
+//             XCTAssertBuilds(prefix, "App")
+//             XCTAssertDirectoryExists(prefix, "App/Packages/TestingLib-1.2.3")
+//             XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
+//             XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
+//         }
+//     #endif
+//     }
 
-    func testTestDependenciesComplex() {
-    #if false
-        //FIXME disabled pending no more magic
+//     func testTestDependenciesComplex() {
+//     #if false
+//         //FIXME disabled pending no more magic
 
-        // verifies that testDependencies of dependencies are not fetched or built
+//         // verifies that testDependencies of dependencies are not fetched or built
 
-        fixture(name: "TestDependencies/Complex") { prefix in
-            XCTAssertBuilds(prefix, "App")
+//         fixture(name: "TestDependencies/Complex") { prefix in
+//             XCTAssertBuilds(prefix, "App")
 
-            XCTAssertDirectoryExists(prefix, "App/Packages/TestingLib-1.2.3")
-            XCTAssertDirectoryExists(prefix, "App/Packages/Foo-1.2.3")
+//             XCTAssertDirectoryExists(prefix, "App/Packages/TestingLib-1.2.3")
+//             XCTAssertDirectoryExists(prefix, "App/Packages/Foo-1.2.3")
 
-            XCTAssertFileExists(prefix, "App/.build/debug/App")
-            XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
-            XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
+//             XCTAssertFileExists(prefix, "App/.build/debug/App")
+//             XCTAssertFileExists(prefix, "App/.build/debug/Foo.swiftmodule")
+//             XCTAssertFileExists(prefix, "App/.build/debug/TestingLib.swiftmodule")
 
-            XCTAssertNoSuchPath(prefix, "App/Packages/PrivateFooLib-1.2.3")
-            XCTAssertNoSuchPath(prefix, "App/Packages/TestingFooLib-1.2.3")
-            XCTAssertNoSuchPath(prefix, "App/.build/debug/PrivateFooLib.swiftmodule")
-            XCTAssertNoSuchPath(prefix, "App/.build/debug/TestingFooLib.swiftmodule")
-        }
-#endif
-    }
+//             XCTAssertNoSuchPath(prefix, "App/Packages/PrivateFooLib-1.2.3")
+//             XCTAssertNoSuchPath(prefix, "App/Packages/TestingFooLib-1.2.3")
+//             XCTAssertNoSuchPath(prefix, "App/.build/debug/PrivateFooLib.swiftmodule")
+//             XCTAssertNoSuchPath(prefix, "App/.build/debug/TestingFooLib.swiftmodule")
+//         }
+// #endif
+//     }
 
 
     func testPassExactDependenciesToBuildCommand() {
