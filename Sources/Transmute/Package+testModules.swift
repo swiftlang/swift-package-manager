@@ -19,10 +19,12 @@ extension Package {
         let rootTestFiles = files.filter { 
             !$0.hasSuffix("LinuxMain.swift") && isValidSource($0) && !excludes.contains($0)
         }
+        
+        guard testDirectories.count > 0 && rootTestFiles.count > 0 else {
+            throw ModuleError.InvalidLayout(.InvalidLayout)
+        }
 
-        if (testDirectories.count > 0 && rootTestFiles.count > 0) {
-            throw ModuleError.InvalidLayout(.InvalidLayout)            
-        } else if (testDirectories.count > 0) {
+        if (testDirectories.count > 0) {
             return try testDirectories.map { 
                 TestModule(basename: $0.basename, sources: try self.sourcify($0)) 
             }
