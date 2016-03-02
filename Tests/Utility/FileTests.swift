@@ -69,9 +69,8 @@ class FileTests: XCTestCase {
 }
 
 
-#if os(Linux)
-extension FileTests:  XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension FileTests {
+    static var allTests : [(String, FileTests -> () throws -> Void)] {
         return [
             ("testOpenFile", testOpenFile),
             ("testOpenFileFail", testOpenFileFail),
@@ -82,16 +81,16 @@ extension FileTests:  XCTestCaseProvider {
 }
 
 
-extension RmtreeTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension RmtreeTests {
+    static var allTests : [(String, RmtreeTests -> () throws -> Void)] {
         return [
             ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
         ]
     }
 }
 
-extension PathTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension PathTests {
+    static var allTests : [(String, PathTests -> () throws -> Void)] {
         return [
             ("test", test),
             ("testPrecombined", testPrecombined),
@@ -104,8 +103,8 @@ extension PathTests: XCTestCaseProvider {
     }
 }
 
-extension WalkTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension WalkTests {
+    static var allTests : [(String, WalkTests -> () throws -> Void)] {
         return [
             ("testNonRecursive", testNonRecursive),
             ("testRecursive", testRecursive),
@@ -115,8 +114,8 @@ extension WalkTests: XCTestCaseProvider {
     }
 }
 
-extension StatTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension StatTests {
+    static var allTests : [(String, StatTests -> () throws -> Void)] {
         return [
             ("test_isdir", test_isdir),
             ("test_isfile", test_isfile),
@@ -126,8 +125,8 @@ extension StatTests: XCTestCaseProvider {
     }
 }
 
-extension RelativePathTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension RelativePathTests {
+    static var allTests : [(String, RelativePathTests -> () throws -> Void)] {
         return [
             ("testAbsolute", testAbsolute),
             ("testRelative", testRelative),
@@ -137,16 +136,16 @@ extension RelativePathTests: XCTestCaseProvider {
 }
 
 
-extension ResourcesTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension ResourcesTests {
+    static var allTests : [(String, ResourcesTests -> () throws -> Void)] {
         return [
             ("testResources", testResources),
         ]
     }
 }
 
-extension ShellTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension ShellTests {
+    static var allTests : [(String, ShellTests -> () throws -> Void)] {
         return [
             ("testPopen", testPopen),
             ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
@@ -156,8 +155,8 @@ extension ShellTests: XCTestCaseProvider {
 }
 
 
-extension StringTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension StringTests {
+    static var allTests : [(String, StringTests -> () throws -> Void)] {
         return [
             ("testTrailingChomp", testTrailingChomp),
             ("testEmptyChomp", testEmptyChomp),
@@ -168,11 +167,10 @@ extension StringTests: XCTestCaseProvider {
     
 }
 
-extension URLTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension URLTests {
+    static var allTests : [(String, URLTests -> () throws -> Void)] {
         return [
             ("testSchema", testSchema),
         ]
     }
 }
-#endif

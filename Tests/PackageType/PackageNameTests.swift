@@ -35,9 +35,8 @@ class PackageTests: XCTestCase {
 }
 
 
-#if os(Linux)
-extension PackageTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension PackageTests {
+    static var allTests : [(String, PackageTests -> () throws -> Void)] {
         return [
             ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
             ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
@@ -46,4 +45,3 @@ extension PackageTests: XCTestCaseProvider {
         ]
     }
 }
-#endif

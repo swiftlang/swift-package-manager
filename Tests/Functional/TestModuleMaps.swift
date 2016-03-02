@@ -72,7 +72,7 @@ class ModuleMapsTestCase: XCTestCase {
 
 
 extension ModuleMapsTestCase {
-    var allTests : [(String, () throws -> Void)] {
+    static var allTests : [(String, ModuleMapsTestCase -> () throws -> Void)] {
         return [
             ("testDirectDependency", testDirectDependency),
             ("testTransitiveDependency", testTransitiveDependency),

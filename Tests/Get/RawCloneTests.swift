@@ -78,9 +78,8 @@ private func tryCloningRepoWithTag(tag: String?, shouldCrash: Bool) {
 }
 
 
-#if os(Linux)
-extension VersionGraphTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension VersionGraphTests {
+    static var allTests : [(String, VersionGraphTests -> () throws -> Void)] {
         return [
             ("testNoGraph", testNoGraph),
             ("testOneDependency", testOneDependency),
@@ -99,8 +98,8 @@ extension VersionGraphTests: XCTestCaseProvider {
     }
 }
 
-extension GetTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension GetTests {
+    static var allTests : [(String, GetTests -> () throws -> Void)] {
         return [
             ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
             ("testRangeConstrain", testRangeConstrain),
@@ -109,8 +108,8 @@ extension GetTests: XCTestCaseProvider {
     }
 }
 
-extension GitTests: XCTestCaseProvider {
-    var allTests : [(String, () throws -> Void)] {
+extension GitTests {
+    static var allTests : [(String, GitTests -> () throws -> Void)] {
         return [
             ("testHasVersion", testHasVersion),
             ("testHasNoVersion", testHasNoVersion),
@@ -119,4 +118,3 @@ extension GitTests: XCTestCaseProvider {
         ]
     }
 }
-#endif
