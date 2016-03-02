@@ -57,34 +57,42 @@ private func parseASTString(astString: String) -> [Node] {
     var stack = Array<Node>()
     var data = ""
     var quoteStarted = false
+    var quoteChar: Character? = nil
     var sources: [Node] = []
+    
     for char in astString.characters {
+
         if char == "(" && !quoteStarted {
             let node = Node()
-            if let chuzzledData = data.chuzzle(), lastNode = stack.last where chuzzledData.characters.count > 0 {
+            if data.characters.count > 0, let lastNode = stack.last, let chuzzledData = data.chuzzle() {
                 lastNode.contents = chuzzledData
                 if lastNode.contents == "source_file" { sources += [lastNode] }
             }
             stack.append(node)
             data = ""
         } else if char == ")" && !quoteStarted {
-            var poppedNode: Node?
-            if stack.count > 0 {
-                poppedNode = stack.removeLast()
-                if let chuzzledData = data.chuzzle(), poppedNode = poppedNode where chuzzledData.characters.count > 0 {
+            if case let poppedNode = stack.removeLast() where stack.count > 0 {
+                if data.characters.count > 0, let chuzzledData = data.chuzzle() {
                     poppedNode.contents = chuzzledData
                 }
-                data = ""
+                stack.last!.nodes += [poppedNode]
+               
             }
-            if let last = stack.last, let poppedNode = poppedNode {
-                last.nodes += [poppedNode]
-            }
+             data = ""
         } else {
             data = data + String(char)
-            if char == "\""  || char == "'" {
-                quoteStarted = !quoteStarted
-            }
+            if data == "(source_file" {  print("Yes") }
+            if char == "\"" || char == "'" {
+                if quoteChar == nil { 
+                    quoteChar = char
+                    quoteStarted = true
+                } else if char == quoteChar {
+                    quoteChar = nil
+                    quoteStarted = false
+                }
+             }       
         }
+        
     }
     return sources
 }
