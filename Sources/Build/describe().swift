@@ -36,7 +36,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     for case let x as TestModule in modules {
         testsAst.append("<\(x.name).ast.module>")
     }
-    let xcTestGenPath = Path.join(prefix, "debug", "XCTestGen")
+    let xcTestGenPath = Path.join(prefix, "XCTestGen")
     
     defer { yaml.close() }
 
@@ -74,25 +74,26 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
             let node = IncrementalNode(module: module, prefix: prefix)
 
+            var testGenFile: String? = nil
+            if module is TestModule {
+                testGenFile = Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest")
+            }
+                // let testGenFile = 
+                // sources += [Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest.swift")]
+            // }
+
             try write("  ", module.targetName, ":")
             try write("    tool: swift-compiler")
             try write("    executable: ", Resources.path.swiftc)
             try write("    module-name: ", module.c99name)
             try write("    module-output-path: ", node.moduleOutputPath)
             try write("    inputs: ", node.inputs)
-            try write("    outputs: ", node.outputs)
+            try write("    outputs: ", node.outputs + (testGenFile != nil ? ["\(testGenFile!).o"] : []))
             try write("    import-paths: ", prefix)
             try write("    temps-path: ", node.tempsPath)
-            try write("    objects: ", node.objectPaths)
+            try write("    objects: ", node.objectPaths + (testGenFile != nil ? ["\(testGenFile!).o"] : []))
             try write("    other-args: ", args + otherArgs)
-
-            var sources = module.sources.paths
-
-            if module is TestModule {
-                sources += [Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest.swift")]
-            }
-
-            try write("    sources: ", sources)
+            try write("    sources: ", module.sources.paths + (testGenFile != nil ? ["\(testGenFile!).swift"] : []))
 
             // this must be set or swiftc compiles single source file
             // modules with a main() for some reason
@@ -141,7 +142,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         args += platformArgs()
         args += testModule.sources.paths
         
-        args += ["&>"]
+        args += ["2>"]
         
         let testsAstDir = Path.join(prefix, "TestsAST")
         mkdirs.insert(testsAstDir)
@@ -201,9 +202,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             #else
 
                 let main = Path.join(xcTestGenPath, "XCTestMain.swift")
-
-
-
                 args.append(main)
                 args.append("-emit-executable")
                 args += ["-I", prefix]
@@ -223,7 +221,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         args += platformArgs() //TODO don't need all these here or above: split outname
         args += Xld
         args += ["-o", outpath]
-        args += objects
+
+        var genObjs: [String] = []
+        if case .Test = product.type   {
+             genObjs = product.modules.filter{$0 is TestModule}.flatMap { Path.join(xcTestGenPath, "\($0.c99name)-XCTestManifest.o") }
+        }
+        args += objects + genObjs
 
         let inputs = product.modules.flatMap{ [$0.targetName] + IncrementalNode(module: $0, prefix: prefix).inputs }
 

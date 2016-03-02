@@ -28,9 +28,10 @@ class ModuleMapsTestCase: XCTestCase {
             let output = Path.join(outdir, "libfoo.\(dylib)")
             try popen(["clang", "-shared", input, "-o", output])
 
-            var Xld = ["-L", outdir]
-        #if os(Linux)
-            Xld += ["-rpath", outdir]
+        #if os(OSX)
+            let Xld = ["-L", outdir]
+        #else 
+            let Xld = ["-rpath", outdir]
         #endif
 
             try body(prefix, Xld)

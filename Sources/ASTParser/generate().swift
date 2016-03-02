@@ -46,7 +46,8 @@ private func writeXCTestManifest(module: TestModule, path: String) throws {
         try fputs("        return [\n", file)
 
         try moduleClass.testMethods.sort().forEach {
-            try fputs("            (\"\($0)\", \($0)),\n", file)
+            let methodName = $0[$0.startIndex..<$0.endIndex.advancedBy(-2)]
+            try fputs("            (\"\(methodName)\", \(methodName)),\n", file)
         }
 
         try fputs("        ]\n", file)

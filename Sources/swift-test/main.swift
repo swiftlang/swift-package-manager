@@ -33,11 +33,9 @@ do {
 
     try generate(testModules, prefix: Path.join(dir.build, "debug"))
 
-//    print(a)
-
-//    try build(YAMLPath: yamlPath, target: "test")
-//    let success = test(dir.build, "debug")
-    exit(0)
+    try build(YAMLPath: yamlPath, target: "test")
+    let success = test(dir.build, "debug")
+    exit(success ? 0 : 1)
 
 } catch {
     handleError(error, usage: { _ in })
