@@ -7,13 +7,10 @@ class BarTests: XCTestCase {
     }
 }
 
-#if os(Linux)
-extension BarTests: XCTestCaseProvider {
-    var allTests: [(String, () throws -> Void)] {
+extension BarTests {
+    static var allTests: [(String, BarTests -> () throws -> Void)] {
         return [
             ("testSuccess", testSuccess),
         ]
     }
 }
-#endif
-

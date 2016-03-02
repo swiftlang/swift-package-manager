@@ -7,12 +7,10 @@ class FooTests: XCTestCase {
     }
 }
 
-#if os(Linux)
-extension FooTests: XCTestCaseProvider {
-    var allTests: [(String, () throws -> Void)] {
+extension FooTests {
+    static var allTests: [(String, FooTests -> () throws -> Void)] {
         return [
             ("testSuccess", testSuccess),
         ]
     }
 }
-#endif
