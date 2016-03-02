@@ -10,7 +10,7 @@
 
 import func libc.setenv
 import func libc.exit
-import Multitool
+import ASTParser
 import Utility
 
 // Initialize the resource support.
