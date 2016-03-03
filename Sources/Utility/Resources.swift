@@ -18,9 +18,7 @@ import POSIX
 public final class Resources {
     /// The registered path of the main executable.
     private static var registeredMainExecutablePath: String? = nil
-    /// The computed paths for the install path and executable of package manager
-    static var _computedResourcePaths: (install: String, executable: String?)?
-    
+
     /// Initialize the resources support.
     ///
     /// This function should be called from the module defining the executable
@@ -91,12 +89,10 @@ public final class Resources {
         return Path.join(installPath, "lib", "swift", "pm")
     }
 
-    private static var computedResourcePaths: (install: String, executable: String?) {
-        if _computedResourcePaths == nil {
-            _computedResourcePaths = computeResourcesPaths()
-        }
-        return _computedResourcePaths!
-    }
+    /// The computed paths for the install path and executable of package manager
+    private static var computedResourcePaths: (install: String, executable: String?) = {
+        Resources.computeResourcesPaths()
+    }()
 
     /// Compute the paths for resources.
     private static func computeResourcesPaths() -> (install: String, executable: String?) {
