@@ -62,7 +62,7 @@ private func parse(manifestPath: String) throws -> String? {
     var cmd = [Resources.path.swiftc]
     cmd += ["--driver-mode=swift"]
     cmd += ["-I", libdir]
-    cmd += ["-L", libdir, "-lPackageDescription", "-llibc", "-lPOSIX"]
+    cmd += ["-L", libdir, "-lPackageDescription"]
 #if os(OSX)
     cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif
@@ -70,7 +70,6 @@ private func parse(manifestPath: String) throws -> String? {
 
     //Create and open a temporary file to write toml to
     let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
-    print("PATH: \(filePath)")
     let fp = try fopen(filePath, mode: .Write)
     defer { fclose(fp) }
 
@@ -78,10 +77,8 @@ private func parse(manifestPath: String) throws -> String? {
     cmd += ["-fileno", "\(fileno(fp))"]
     try system(cmd)
 
-    fclose(fp)
-
     let toml = try File(path: filePath).enumerate().reduce("") { $0 + "\n" + $1 }
     unlink(filePath) //Delete the temp file after reading it
 
-    return toml
+    return toml != "" ? toml : nil
 }
