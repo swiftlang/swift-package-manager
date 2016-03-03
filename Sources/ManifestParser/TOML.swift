@@ -213,11 +213,11 @@ private struct Lexer {
 
         // Consume and cache the next character.
         lookahead = utf8[index]
-        nextIndex = index.advancedBy(1)
+        nextIndex = index.successor()
 
         // Normalize line endings.
         if lookahead == "\r".utf8Constant && utf8[nextIndex!] == "\n".utf8Constant {
-            nextIndex = nextIndex!.advancedBy(1)
+            nextIndex = nextIndex!.successor()
             lookahead = "\n".utf8Constant
         }
 
@@ -277,7 +277,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .StringLiteral(value: String(utf8[Range(start: startIndex.advancedBy(1), end: endIndex)]))
+            return .StringLiteral(value: String(utf8[Range(start: startIndex.successor(), end: endIndex)]))
 
         // Numeric literals.
         //

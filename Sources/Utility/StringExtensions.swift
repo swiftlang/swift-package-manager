@@ -48,9 +48,9 @@ extension String {
 
         loop: while true {
             switch cc.first {
-            case .None:
+            case nil:
                 return nil
-            case .Some("\n"), .Some("\r"), .Some(" "), .Some("\t"), .Some("\r\n"):
+            case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
                 cc = cc.dropFirst()
             default:
                 break loop
@@ -59,9 +59,9 @@ extension String {
 
         loop: while true {
             switch cc.last {
-            case .None:
+            case nil:
                 return nil
-            case .Some("\n"), .Some("\r"), .Some(" "), .Some("\t"), .Some("\r\n"):
+            case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
                 cc = cc.dropLast()
             default:
                 break loop
