@@ -12,6 +12,9 @@ import struct PackageType.Manifest
 import func POSIX.realpath
 import PackageDescription
 import Utility
+import func POSIX.fopen
+import func libc.fileno
+import func libc.unlink
 
 extension Manifest {
     public init(path pathComponents: String..., baseURL: String) throws {
@@ -49,27 +52,36 @@ extension Manifest {
 
 private func parse(manifestPath: String) throws -> String? {
 
-    // For now, we load the manifest by having Swift interpret it directly
-    // and using a special environment variable to trigger the PackageDescription
-    // library to dump the package (as TOML) at exit.  Eventually, we should
-    // have two loading processes, one that loads only the the declarative
-    // package specification using the Swift compiler directly and validates
-    // it.
-    //
-    // FIXME: We also should make the mechanism for communicating the
-    // package between the PackageDescription module more robust, for example by passing
-    // in the id of another file descriptor to write the output onto.
+    // For now, we load the manifest by having Swift interpret it directly.
+    // Eventually, we should have two loading processes, one that loads only
+    // the the declarative package specification using the Swift compiler
+    // directly and validates it.
 
     let libdir = Resources.runtimeLibPath
 
     var cmd = [Resources.path.swiftc]
     cmd += ["--driver-mode=swift"]
     cmd += ["-I", libdir]
-    cmd += ["-L", libdir, "-lPackageDescription"]
+    cmd += ["-L", libdir, "-lPackageDescription", "-llibc", "-lPOSIX"]
 #if os(OSX)
     cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif
     cmd += [manifestPath]
 
-    return try popen(cmd, environment: ["SWIFT_DUMP_PACKAGE": "1"]).chuzzle()
+    //Create and open a temporary file to write toml to
+    let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
+    print("PATH: \(filePath)")
+    let fp = try fopen(filePath, mode: .Write)
+    defer { fclose(fp) }
+
+    //Pass the fd in arguments
+    cmd += ["-fileno", "\(fileno(fp))"]
+    try system(cmd)
+
+    fclose(fp)
+
+    let toml = try File(path: filePath).enumerate().reduce("") { $0 + "\n" + $1 }
+    unlink(filePath) //Delete the temp file after reading it
+
+    return toml
 }
