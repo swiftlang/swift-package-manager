@@ -20,10 +20,10 @@ extension Array {
         var t = [T]()
         var u = [U]()
         for e in self {
-            if e is T {
-                t.append(e as! T)
-            } else {
-                u.append(e as! U)
+            if let e = e as? T {
+                t.append(e)
+            } else if let e = e as? U {
+                u.append(e)
             }
         }
         return (t, u)
