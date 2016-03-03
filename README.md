@@ -56,7 +56,7 @@ following options:
 
             swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool
 
-   `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, *they are **not** built from the sources in this repository*.
+   `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, _they are **not** built from the sources in this repository_.
 
 3. Using the Xcode Project in [Support](Support), this option requires:
    * Xcode 7.3 (beta)
