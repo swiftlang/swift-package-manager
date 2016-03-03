@@ -31,7 +31,7 @@ public final class Resources {
     ///   defined in main binary. The actual contents of the symbol are
     ///   irrelevant, this is just used in order to be able to locate the main
     ///   binary path.
-    public static func initialize(inout globalSymbolInMainBinary: Int, file: String = #file) {
+    public static func initialize(globalSymbolInMainBinary: inout Int, file: String = #file) {
         precondition(Resources.registeredMainExecutablePath == nil, "resources already initialized")
 
 #if os(Linux)
