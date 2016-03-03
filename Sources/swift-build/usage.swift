@@ -99,7 +99,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             case (let ignoredArgument?, .Usage):
                 throw CommandLineError.InvalidUsage("Both --help and \(ignoredArgument) specified", .Print)
             case (let oldMode?, let newMode):
-                throw CommandLineError.InvalidUsage("Multiple modes specified: \(oldMode), \(newMode)", .Imply)
+                throw CommandLineError.InvalidUsage("Multiple modes specified: \(oldMode), \(newMode)", .ImplySwiftBuild)
             case (nil, .Build):
                 switch try cruncher.peek() {
                 case .Name("debug")?:
@@ -109,7 +109,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                     mode = .Build(.Release)
                     cruncher.postPeekPop()
                 case .Name(let name)?:
-                    throw CommandLineError.InvalidUsage("Unknown build configuration: \(name)", .Imply)
+                    throw CommandLineError.InvalidUsage("Unknown build configuration: \(name)", .ImplySwiftBuild)
                 default:
                     break
                 }
@@ -124,7 +124,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                     mode = .Init(.Library)
                     cruncher.postPeekPop()
                 case .Name(let name)?:
-                    throw CommandLineError.InvalidUsage("Unknown init mode: \(name)", .Imply)
+                    throw CommandLineError.InvalidUsage("Unknown init mode: \(name)", .ImplySwiftBuild)
                 default:
                     break
                 }
@@ -137,7 +137,7 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                     mode = .Clean(.Dist)
                     cruncher.postPeekPop()
                 case .Name(let name)?:
-                    throw CommandLineError.InvalidUsage("Unknown clean mode: \(name)", .Imply)
+                    throw CommandLineError.InvalidUsage("Unknown clean mode: \(name)", .ImplySwiftBuild)
                 default:
                     break
                 }
@@ -153,14 +153,14 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                 cruncher.postPeekPop()
                 opts.chdir = name
             default:
-                throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .Imply)
+                throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .ImplySwiftBuild)
             }
 
         case .Switch(.Verbose):
             opts.verbosity += 1
 
         case .Name(let name):
-            throw CommandLineError.InvalidUsage("Unknown argument: \(name)", .Imply)
+            throw CommandLineError.InvalidUsage("Unknown argument: \(name)", .ImplySwiftBuild)
 
         case .Switch(.Xcc):
             opts.Xcc.append(try cruncher.rawPop())
@@ -271,14 +271,14 @@ private struct Cruncher {
         }
         
         guard !arg.hasPrefix("-") else {
-            throw CommandLineError.InvalidUsage("unknown argument: \(arg)", .Imply)
+            throw CommandLineError.InvalidUsage("unknown argument: \(arg)", .ImplySwiftBuild)
         }
 
         return .Name(arg)
     }
 
     mutating func rawPop() throws -> String {
-        guard args.count > 0 else { throw CommandLineError.InvalidUsage("expected argument", .Imply) }
+        guard args.count > 0 else { throw CommandLineError.InvalidUsage("expected argument", .ImplySwiftBuild) }
         return args.removeFirst()
     }
 
