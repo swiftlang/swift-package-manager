@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import func POSIX.getcwd
 import func POSIX.getenv
 import func POSIX.chdir
 import func libc.exit
@@ -78,9 +79,7 @@ do {
         let (modules, products) = try transmute(packages)
         let swiftModules = modules.flatMap{ $0 as? SwiftModule }
 
-        Xcodeproj.print(package: packages.last!, modules: swiftModules, products: products) {
-            Swift.print($0)
-        }
+        try Xcodeproj.create(path: try getcwd(), package: packages.last!, modules: swiftModules, products: products)
     }
 
 } catch {
