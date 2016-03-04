@@ -13,15 +13,8 @@ import func libc.exit
 import Multitool
 import Utility
 
-// Initialize the resource support.
-public var globalSymbolInMainBinary = 0
-Resources.initialize(&globalSymbolInMainBinary)
-
 do {
     let dir = try directories()
-
-    //FIXME this is a hack for SwiftPM’s own tests
-    setenv("SPM_INSTALL_PATH", dir.build, 0)
 
     let yamlPath = Path.join(dir.build, "debug.yaml")
     guard yamlPath.exists else { throw Error.DebugYAMLNotFound }

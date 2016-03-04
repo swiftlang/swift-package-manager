@@ -10,22 +10,24 @@
 
 @testable import struct PackageDescription.Version
 @testable import Get
+import struct PackageType.Manifest
+import class PackageType.Package
 import XCTest
 import Utility
 
 typealias Sandbox = PackagesDirectory
 
+
 class GetTests: XCTestCase {
 
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
-        fixture(name: "DependencyResolution/External/Complex") {
-            let path = Path.join($0, "FisherYates")
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "-mwip")
-            try system("git", "-C", path, "remote", "add", "origin", path)
-
-            let rawClone = try RawClone(path: path)
-            XCTAssertEqual(rawClone.children.count, 0)
+        mktmpdir { tmpdir in
+            guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
+            try popen(["git", "-C", repo.path, "remote", "add", "origin", repo.path])
+            let clone = try RawClone(path: repo.path, manifestParser: { _,_ throws -> Manifest in
+                throw Package.Error.NoManifest(tmpdir)
+            })
+            XCTAssertEqual(clone.children.count, 0)
         }
     }
     

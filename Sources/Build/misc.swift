@@ -15,13 +15,13 @@ import Utility
 func platformArgs() -> [String] {
     var args = [String]()
 
-    #if os(OSX)
-        args += ["-target", "x86_64-apple-macosx10.10"]
+#if os(OSX)
+    args += ["-target", "x86_64-apple-macosx10.10"]
 
-        if let sysroot = Resources.path.sysroot {
-            args += ["-sdk", sysroot]
-        }
-    #endif
+    if let sysroot = Toolchain.sysroot {
+        args += ["-sdk", sysroot]
+    }
+#endif
 
     // We support a custom override in conjunction with the
     // bootstrap script to allow embedding an appropriate RPATH for

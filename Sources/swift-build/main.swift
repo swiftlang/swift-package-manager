@@ -20,12 +20,6 @@ import Utility
 import Build
 import Get
 
-
-// Initialize the resource support.
-public var globalSymbolInMainBinary = 0
-Resources.initialize(&globalSymbolInMainBinary)
-
-
 do {
     let args = Array(Process.arguments.dropFirst())
     let (mode, opts) = try parse(commandLineArguments: args)
@@ -36,9 +30,20 @@ do {
         try chdir(dir)
     }
     
+    func parseManifest(path path: String, baseURL: String) throws -> Manifest {
+        let bindir = try! Process.arguments.first!.parentDirectory.abspath()
+        let libdir: String
+        if Path.join(bindir, "PackageDescription.swiftmodule").isDirectory { //FIXME HACK
+            libdir = bindir
+        } else {
+            libdir = try! Path.join(bindir, "../lib/swift/pm").abspath()
+        }
+        return try Manifest(path: path, baseURL: baseURL, swiftc: Toolchain.swiftc, libdir: libdir)
+    }
+    
     func fetch(root: String) throws -> [Package] {
-        let manifest = try Manifest(path: root, Manifest.filename, baseURL: root)
-        return try get(manifest)
+        let manifest = try parseManifest(path: root, baseURL: root)
+        return try get(manifest, manifestParser: parseManifest)
     }
 
     switch mode {

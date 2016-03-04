@@ -56,7 +56,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             args.append("-enable-testing")
 
         #if os(OSX)
-            if let platformPath = Resources.path.platformPath {
+            if let platformPath = Toolchain.platformPath {
                 let path = Path.join(platformPath, "Developer/Library/Frameworks")
                 args += ["-F", path]
             } else {
@@ -68,7 +68,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
             try write("  ", module.targetName, ":")
             try write("    tool: swift-compiler")
-            try write("    executable: ", Resources.path.swiftc)
+            try write("    executable: ", Toolchain.swiftc)
             try write("    module-name: ", module.c99name)
             try write("    module-output-path: ", node.moduleOutputPath)
             try write("    inputs: ", node.inputs)
@@ -101,7 +101,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             try write("    description: Compiling \(module.name)")
             try write("    inputs: ", inputs)
             try write("    outputs: ", [productPath, module.targetName])
-            try write("    args: ", [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
+            try write("    args: ", [Toolchain.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
         }
     }
 
@@ -123,7 +123,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             objects = product.buildables.flatMap{ return IncrementalNode(module: $0, prefix: prefix).objectPaths }
         }
 
-        var args = [Resources.path.swiftc] + swiftcArgs
+        var args = [Toolchain.swiftc] + swiftcArgs
 
         switch product.type {
         case .Library(.Static):
@@ -132,7 +132,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             #if os(OSX)
                 args += ["-Xlinker", "-bundle"]
 
-                if let platformPath = Resources.path.platformPath {
+                if let platformPath = Toolchain.platformPath {
                     let path = Path.join(platformPath, "Developer/Library/Frameworks")
                     args += ["-F", path]
                 } else {

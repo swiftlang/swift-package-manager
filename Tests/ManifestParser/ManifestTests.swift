@@ -10,16 +10,34 @@
 
 @testable import ManifestParser
 @testable import Utility
+import func POSIX.getenv
 import PackageDescription
 import PackageType
 import XCTest
 
 class ManifestTests: XCTestCase {
 
+#if os(OSX)
+  #if Xcode
+    let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
+  #else
+    let swiftc = Toolchain.swiftc
+  #endif
+    let libdir = { _ -> String in
+        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+            return bundle.bundlePath.parentDirectory
+        }
+        fatalError()
+    }()
+#else
+    let swiftc = Toolchain.swiftc
+    let libdir = Process.arguments.first!.parentDirectory
+#endif
+
     private func loadManifest(inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = Path.join(#file, "../Inputs", inputName).normpath
-            body(try Manifest(path: input, baseURL: input.parentDirectory))
+            body(try Manifest(path: input, baseURL: input.parentDirectory, swiftc: swiftc, libdir: libdir))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -54,7 +72,7 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/")
+        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc, libdir: libdir)
         XCTAssertNil(foo)
     }
 }
