@@ -54,18 +54,14 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix, "packageA", Xld: Xld)
 
-            func verify(conf: String, file: StaticString = #file, line: UInt = #line) {
-                do {
-                    let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                    let out = try popen([Path.join(prefix, "packageA/.build", conf, "packageA")])
-                    XCTAssertEqual(out, expectedOutput)
-                } catch {
-                    XCTFail("\(error)", file: file, line: line)
-                }
+            func verify(conf: String, file: StaticString = #file, line: UInt = #line) throws {
+                let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
+                let out = try popen([Path.join(prefix, "packageA/.build", conf, "packageA")])
+                XCTAssertEqual(out, expectedOutput)
             }
 
-            verify("debug")
-            verify("release")
+            try verify("debug")
+            try verify("release")
         }
     }
 }
