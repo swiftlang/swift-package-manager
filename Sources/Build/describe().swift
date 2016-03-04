@@ -41,7 +41,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     }
 
     var mkdirs = Set<String>()
-    let swiftcArgs = Xcc + Xswiftc
+    let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
     for case let module as SwiftModule in modules {
 

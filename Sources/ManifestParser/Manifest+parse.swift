@@ -64,6 +64,7 @@ private func parse(manifestPath: String) throws -> String? {
     cmd += ["--driver-mode=swift"]
     cmd += ["-I", libdir]
     cmd += ["-L", libdir, "-lPackageDescription"]
+    cmd += verbosity.ccArgs
 #if os(OSX)
     cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif

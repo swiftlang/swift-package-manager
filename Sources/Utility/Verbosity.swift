@@ -23,6 +23,18 @@ public enum Verbosity: Int {
             self = .Debug
         }
     }
+
+    public var ccArgs: [String] {
+        switch self {
+        case .Concise:
+            return []
+        case .Verbose:
+            // the first level of verbosity is passed to llbuild itself
+            return []
+        case .Debug:
+            return ["-v"]
+        }
+    }
 }
 
 public var verbosity = Verbosity.Concise
