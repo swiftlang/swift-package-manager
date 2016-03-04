@@ -10,10 +10,10 @@
 
 import func POSIX.getenv
 import func POSIX.mkdir
-import PackageType
-import Utility
 import func POSIX.fopen
 import func libc.fclose
+import PackageType
+import Utility
 
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
@@ -53,7 +53,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             args.append("-enable-testing")
 
         #if os(OSX)
-            if let platformPath = Resources.path.platformPath {
+            if let platformPath = Toolchain.platformPath {
                 let path = Path.join(platformPath, "Developer/Library/Frameworks")
                 args += ["-F", path]
             } else {
@@ -65,7 +65,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             let swiftc = SwiftcTool(
                 inputs: node.inputs,
                 outputs: node.outputs,
-                executable: Resources.path.swiftc,
+                executable: Toolchain.swiftc,
                 moduleName: module.c99name,
                 moduleOutputPath:  node.moduleOutputPath,
                 importPaths: prefix,
@@ -96,7 +96,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 description: "Compiling \(module.name)",
                 inputs: inputs,
                 outputs: [productPath, module.targetName],
-                args: [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
+                args: [Toolchain.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
 
             let command = Command(name: module.targetName, tool: shell)
             append(command, buildable: module)
@@ -121,7 +121,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             objects = product.buildables.flatMap{ return IncrementalNode(module: $0, prefix: prefix).objectPaths }
         }
 
-        var args = [Resources.path.swiftc] + swiftcArgs
+        var args = [Toolchain.swiftc] + swiftcArgs
 
         switch product.type {
         case .Library(.Static):
@@ -130,7 +130,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             #if os(OSX)
                 args += ["-Xlinker", "-bundle"]
 
-                if let platformPath = Resources.path.platformPath {
+                if let platformPath = Toolchain.platformPath {
                     let path = Path.join(platformPath, "Developer/Library/Frameworks")
                     args += ["-F", path]
                 } else {

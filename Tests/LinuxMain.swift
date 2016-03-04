@@ -28,7 +28,6 @@ XCTMain([
     testCase(PackageTypetest.PackageTests.allTests),
     testCase(PathTests.allTests),
     testCase(RelativePathTests.allTests),
-    testCase(ResourcesTests.allTests),
     testCase(ShellTests.allTests),
     testCase(StatTests.allTests),
     testCase(StringTests.allTests),

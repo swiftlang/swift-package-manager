@@ -42,6 +42,16 @@ public func transmute(packages: [Package], rootdir: String) throws -> ([Module],
                 //        depend upon 'Utility', and hope that no users define
                 //        test modules named 'Functional'.
                 testModule.dependencies = modules.filter{ $0.name == "Utility" }
+            } else if testModule.basename == "Transmute" {
+                // FIXME: Turns out TransmuteTests violate encapsulation :(
+                testModule.dependencies = modules.filter{
+                    switch $0.name {
+                    case "Get", "Transmute", "ManifestParser":
+                        return true
+                    default:
+                        return false
+                    }
+                }
             } else {
                 // Normally, test modules are only dependent upon modules with
                 // the same basename. For example, a test module in

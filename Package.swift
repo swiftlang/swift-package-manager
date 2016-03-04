@@ -35,7 +35,7 @@ let package = Package(
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["ManifestParser"]),
+            dependencies: ["PackageDescription", "PackageType"]),
         Target(
             /** Builds Modules and Products */
             name: "Build",
@@ -46,7 +46,7 @@ let package = Package(
             dependencies: ["PackageType"]),
         Target(
             name: "swift-build",
-            dependencies: ["Get", "Transmute", "Build", "Multitool"]),
+            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool"]),
         Target(
             name: "swift-test",
             dependencies: ["Multitool"]),

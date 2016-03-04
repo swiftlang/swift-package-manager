@@ -135,15 +135,6 @@ extension RelativePathTests {
     }
 }
 
-
-extension ResourcesTests {
-    static var allTests : [(String, ResourcesTests -> () throws -> Void)] {
-        return [
-            ("testResources", testResources),
-        ]
-    }
-}
-
 extension ShellTests {
     static var allTests : [(String, ShellTests -> () throws -> Void)] {
         return [
