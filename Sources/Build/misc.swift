@@ -23,17 +23,6 @@ func platformArgs() -> [String] {
         }
     #endif
 
-    // We support a custom override in conjunction with the
-    // bootstrap script to allow embedding an appropriate RPATH for
-    // the package manager tools themselves on Linux, so they can be
-    // relocated with the Swift compiler.
-
-    //TODO replace with -Xlinker forwarding since we have that now
-
-    if let rpath = getenv("SWIFTPM_EMBED_RPATH") {
-        args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
-    }
-
     return args
 }
 
