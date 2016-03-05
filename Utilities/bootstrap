@@ -449,6 +449,8 @@ def main():
                         default="/usr/local", metavar="PATH")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="use verbose output")
+    parser.add_argument("--foundation", dest="foundation_path",
+                        help="Path to Foundation build directory")
     parser.add_argument("--xctest", dest="xctest_path",
                         help="Path to XCTest build directory")
     parser.add_argument("--build-tests", action="store_true",
