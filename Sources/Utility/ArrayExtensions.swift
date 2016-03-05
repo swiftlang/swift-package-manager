@@ -28,17 +28,4 @@ extension Array {
         }
         return (t, u)
     }
-
-    public func partition(body: (Element) -> Bool) -> ([Element], [Element]) {
-        var a = [Element]()
-        var b = [Element]()
-        for e in self {
-            if body(e) {
-                a.append(e)
-            } else {
-                b.append(e)
-            }
-        }
-        return (a, b)
-    }
 }

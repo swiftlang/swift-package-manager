@@ -50,6 +50,13 @@ class ValidLayoutsTestCase: XCTestCase {
         }
     }
 
+    func testEmptyPackageWithDirectTests() {
+        fixture(name: "ValidLayouts/SingleModule/DirectTests", file: #file, line: #line) { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "DirectTests.swiftmodule")
+        }
+    }
+
     func testMultipleModulesLibraries() {
         runLayoutFixture(name: "MultipleModules/Libraries") { prefix in
             XCTAssertBuilds(prefix)
@@ -152,6 +159,8 @@ extension InvalidLayoutsTestCase {
             ("testInvalidLayout3", testInvalidLayout3),
             ("testInvalidLayout4", testInvalidLayout4),
             ("testInvalidLayout5", testInvalidLayout5),
+            ("testDirectTestsWithModules1", testDirectTestsWithModules1),
+            ("testDirectTestsWithModules2", testDirectTestsWithModules2),
         ]
     }
 }
@@ -189,6 +198,7 @@ extension ValidLayoutsTestCase {
             ("testSingleModuleExecutable", testSingleModuleExecutable),
             ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
             ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
+            ("testEmptyPackageWithDirectTests", testEmptyPackageWithDirectTests),
             ("testMultipleModulesLibraries", testMultipleModulesLibraries),
             ("testMultipleModulesExecutables", testMultipleModulesExecutables),
             ("testPackageIdentifiers", testPackageIdentifiers),
