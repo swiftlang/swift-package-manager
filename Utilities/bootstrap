@@ -542,13 +542,18 @@ def main():
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
     cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
-    if args.xctest_path:
-        env_cmd.append("SWIFTPM_EXTRA_IMPORT=" + args.xctest_path)
+    if args.foundation_path and args.xctest_path:
+        core_foundation_path = os.path.join(
+            args.foundation_path, "usr", "lib", "swift")
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
         cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
 
     cmd = env_cmd + cmd
 
