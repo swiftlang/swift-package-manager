@@ -451,8 +451,6 @@ def main():
                         help="use verbose output")
     parser.add_argument("--xctest", dest="xctest_path",
                         help="Path to XCTest build directory")
-    parser.add_argument("--build-tests", action="store_true",
-                        help="Deprecated")
     args = parser.parse_args()
     build_actions = set(args.build_actions)
 
