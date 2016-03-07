@@ -15,7 +15,7 @@ import PackageDescription
 let package = Package(
     name: "Hello",
     dependencies: [
-        .Package(url: "ssh://git@example.com/Greeter.git", versions: Version(1,0,0)..<Version(2,0,0)),
+        .Package(url: "ssh://git@example.com/Greeter.git", versions: Version(1,0,0)..<Version(1,.max,.max)),
     ]
 )
 ```
@@ -65,7 +65,7 @@ import PackageDescription
 let package = Package(
     name: "Hello",
     testDependencies: [
-        .Package(url: "ssh://git@example.com/Tester.git", versions: Version(1,0,0)..<Version(2,0,0)),
+        .Package(url: "ssh://git@example.com/Tester.git", versions: Version(1,0,0)..<Version(1,.max,.max)),
     ]
 )
 ```
