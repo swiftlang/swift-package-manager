@@ -13,8 +13,13 @@ import Utility
 
 extension Package {
     func testModules() throws -> [TestModule] {
-        return try walk(path, "Tests", recursively: false).filter{ $0.isDirectory }.map { dir in
-            return TestModule(basename: dir.basename, sources: try self.sourcify(dir))
+        return walk(path, "Tests", recursively: false).filter{ $0.isDirectory }.flatMap { dir in
+            if let sources = try? self.sourcify(dir) {
+                return TestModule(basename: dir.basename, sources: sources)
+            } else {
+                print("warning: no sources in test module: \(path)")
+                return nil
+            }
         }
     }
 }
