@@ -84,7 +84,7 @@ Tests are an important part of the development and evolution of this project,
 and new contributions are expected to include tests for any functionality
 change.  To run the tests, pass the `test` verb to the `bootstrap` script:
 
-    ./Utilities/bootstrap --build-tests test
+    ./Utilities/bootstrap test
 
 > Long-term, we intend for testing to be an integral part of the Package Manager itself
 > and to not require custom support.
