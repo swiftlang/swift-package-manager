@@ -22,7 +22,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         throw Error.NoModules
     }
 
-    let Xcc = Xcc.flatMap{ ["-Xcc", $0] } + extraImports()
+    let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = try mkdir(prefix, conf.dirname)
     let yaml = try YAML(path: "\(prefix).yaml")
@@ -190,14 +190,5 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 extension Product {
     private var buildables: [SwiftModule] {
         return recursiveDependencies(modules.map{$0}).flatMap{ $0 as? SwiftModule }
-    }
-}
-
-private func extraImports() -> [String] {
-    //FIXME HACK
-    if let I = getenv("SWIFTPM_EXTRA_IMPORT") {
-        return ["-I", I]
-    } else {
-        return []
     }
 }
