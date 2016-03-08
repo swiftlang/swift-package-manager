@@ -10,6 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 enum Error: ErrorType {
     case DebugYAMLNotFound
+    case TestsExecutableNotFound
 }
 
 extension Error: CustomStringConvertible {
@@ -17,6 +18,8 @@ extension Error: CustomStringConvertible {
         switch self {
         case .DebugYAMLNotFound:
             return "build the package using `swift build` before running tests"
+        case .TestsExecutableNotFound:
+            return "no tests found to execute, create a test-module in `Tests` directory"
         }
     }
 }

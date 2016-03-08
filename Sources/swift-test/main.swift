@@ -27,7 +27,7 @@ do {
     guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
     
     try build(YAMLPath: yamlPath, target: "test")
-    let success = test(dir.build, "debug")
+    let success = try test(dir.build, "debug")
     exit(success ? 0 : 1)
 
 } catch {
