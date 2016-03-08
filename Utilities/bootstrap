@@ -191,8 +191,9 @@ targets = [
     Target('ManifestParser', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
     Target('Get', dependencies=["ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
     Target('Build', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
+    Target('ASTParser', dependencies=["Utility", "POSIX", "libc"]),
     Target('swift-build', dependencies=["Transmute", "Multitool", "Build", "Get", "ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
-    Target('swift-test', dependencies=["Multitool", "PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
+    Target('swift-test', dependencies=["Multitool", "PackageType", "ASTParser", "PackageDescription", "Utility", "POSIX", "libc"]),
 ]
 target_map = dict((t.name, t) for t in targets)
 

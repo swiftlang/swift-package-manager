@@ -45,11 +45,14 @@ let package = Package(
             name: "Multitool",
             dependencies: ["PackageType"]),
         Target(
+            name: "ASTParser",
+            dependencies: ["POSIX", "Utility"]),
+        Target(
             name: "swift-build",
             dependencies: ["Get", "Transmute", "Build", "Multitool"]),
         Target(
             name: "swift-test",
-            dependencies: ["Multitool"]),
+            dependencies: ["Multitool", "ASTParser"]),
     ])
 
 

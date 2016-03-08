@@ -1,8 +1,3 @@
-
-// we want to generate this.
-// read the AST and generate it
-// ticket:
-
 import XCTest
 
 @testable import Transmutetest

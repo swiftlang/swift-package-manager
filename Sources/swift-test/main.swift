@@ -12,6 +12,7 @@ import func libc.setenv
 import func libc.exit
 import Multitool
 import Utility
+import ASTParser
 
 // Initialize the resource support.
 public var globalSymbolInMainBinary = 0
@@ -25,7 +26,12 @@ do {
 
     let yamlPath = Path.join(dir.build, "debug.yaml")
     guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
-    
+
+    try build(YAMLPath: yamlPath, target: "tests-ast")
+    let testModules = try parseAST(Path.join(dir.build, "debug", "TestsAST"))
+
+    try generate(testModules, prefix: Path.join(dir.build, "debug"))
+
     try build(YAMLPath: yamlPath, target: "test")
     let success = test(dir.build, "debug")
     exit(success ? 0 : 1)

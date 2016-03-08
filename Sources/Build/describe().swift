@@ -31,6 +31,13 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     let (buildableTests, buildableNonTests) = (modules.map{$0 as Buildable} + products.map{$0 as Buildable}).partition{$0.isTest}
     let (tests, nontests) = (buildableTests.map{$0.targetName}, buildableNonTests.map{$0.targetName})
 
+    
+    var testsAst: [String] = []
+    for case let x as TestModule in modules {
+        testsAst.append("<\(x.name).ast.module>")
+    }
+    let xcTestGenPath = Path.join(prefix, "XCTestGen")
+    
     defer { yaml.close() }
 
     try write("client:")
@@ -39,6 +46,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     try write("targets:")
     try write("  default: ", nontests)
     try write("  test: ", tests)
+    try write("  tests-ast: ", testsAst)
     try write("commands: ")
 
     var mkdirs = Set<String>()
@@ -66,18 +74,23 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
             let node = IncrementalNode(module: module, prefix: prefix)
 
+            var testGenFile: String? = nil
+            if module is TestModule {
+                testGenFile = Path.join(xcTestGenPath, "\(module.c99name)-XCTestManifest")
+            }
+
             try write("  ", module.targetName, ":")
             try write("    tool: swift-compiler")
             try write("    executable: ", Resources.path.swiftc)
             try write("    module-name: ", module.c99name)
             try write("    module-output-path: ", node.moduleOutputPath)
             try write("    inputs: ", node.inputs)
-            try write("    outputs: ", node.outputs)
+            try write("    outputs: ", node.outputs + (testGenFile != nil ? ["\(testGenFile!).o"] : []))
             try write("    import-paths: ", prefix)
             try write("    temps-path: ", node.tempsPath)
-            try write("    objects: ", node.objectPaths)
+            try write("    objects: ", node.objectPaths + (testGenFile != nil ? ["\(testGenFile!).o"] : []))
             try write("    other-args: ", args + otherArgs)
-            try write("    sources: ", module.sources.paths)
+            try write("    sources: ", module.sources.paths + (testGenFile != nil ? ["\(testGenFile!).swift"] : []))
 
             // this must be set or swiftc compiles single source file
             // modules with a main() for some reason
@@ -104,6 +117,43 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             try write("    args: ", [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
         }
     }
+    
+    
+    // MARK:- AST stuff
+    
+    for case let testModule as TestModule in modules {
+        let name = "<\(testModule.name).ast.module>"
+        
+        var args = [Resources.path.swiftc, "-dump-ast"]
+        args += ["-module-name", testModule.c99name]
+        args += ["-I", prefix]
+        
+        #if os(OSX)
+            if let platformPath = Resources.path.platformPath {
+                let path = Path.join(platformPath, "Developer/Library/Frameworks")
+                args += ["-F", path]
+            } else {
+                throw Error.InvalidPlatformPath
+            }
+        #endif
+        args += platformArgs()
+        args += testModule.sources.paths
+        
+        args += ["2>"]
+        
+        let testsAstDir = Path.join(prefix, "TestsAST")
+        mkdirs.insert(testsAstDir)
+        args += [Path.join(testsAstDir, "\(testModule.c99name).ast")]
+        
+        let realArgs = ["/bin/sh", "-c", args.reduce(""){$0 + " " + $1}]
+        
+        try write("  ", name, ":")
+        try write("    tool: shell")
+        try write("    description: Generating AST for \(name)")
+        try write("    outputs: ", [name])
+        try write("    args: ", realArgs)
+    }
+    
 
     // make eg .build/debug/foo.build/subdir for eg. Sources/foo/subdir/bar.swift
     // TODO swift-build-tool should do this
@@ -147,11 +197,8 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                     }
                 }
             #else
-                // HACK: To get a path to LinuxMain.swift, we just grab the
-                //       parent directory of the first test module we can find.
-                let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
-                let testDirectory = firstTestModule.sources.root.parentDirectory
-                let main = Path.join(testDirectory, "LinuxMain.swift")
+
+                let main = Path.join(xcTestGenPath, "XCTestMain.swift")
                 args.append(main)
                 args.append("-emit-executable")
                 args += ["-I", prefix]
@@ -171,7 +218,12 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         args += platformArgs() //TODO don't need all these here or above: split outname
         args += Xld
         args += ["-o", outpath]
-        args += objects
+
+        var genObjs: [String] = []
+        if case .Test = product.type   {
+             genObjs = product.modules.filter{$0 is TestModule}.flatMap { Path.join(xcTestGenPath, "\($0.c99name)-XCTestManifest.o") }
+        }
+        args += objects + genObjs
 
         let inputs = product.modules.flatMap{ [$0.targetName] + IncrementalNode(module: $0, prefix: prefix).inputs }
 
