@@ -69,6 +69,26 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoSuchPath(prefix, "App", ".build", "debug", "some")
         }
     }
+    
+    func testManifestExcludes4() {
+        
+        // exclude directory is inside Tests folder (Won't build without exclude)
+        
+        fixture(name: "Miscellaneous/ExcludeDiagnostic4") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "FooPackage.swiftmodule")
+        }
+    }
+    
+    func testManifestExcludes5() {
+        
+        // exclude directory is Tests folder (Won't build without exclude)
+        
+        fixture(name: "Miscellaneous/ExcludeDiagnostic5") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "FooPackage.swiftmodule")
+        }
+    }
 
     func testTestDependenciesSimple() {
     #if false

@@ -13,7 +13,10 @@ import Utility
 
 extension Package {
     func testModules() throws -> [TestModule] {
-        return walk(path, "Tests", recursively: false).filter{ $0.isDirectory }.flatMap { dir in
+        let testsPath = Path.join(path, "Tests")
+        //Don't try to walk Tests if it is in excludes
+        if testsPath.isDirectory && excludes.contains(testsPath) { return [] }
+        return walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
             if let sources = try? self.sourcify(dir) {
                 return TestModule(basename: dir.basename, sources: sources)
             } else {
