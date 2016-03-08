@@ -15,6 +15,7 @@ import Utility
 import func POSIX.fopen
 import func libc.fileno
 import func libc.unlink
+import func libc.fclose
 
 extension Manifest {
     public init(path pathComponents: String..., baseURL: String) throws {
