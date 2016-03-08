@@ -49,7 +49,7 @@ $ xcrun --find swift
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift
 $ swift --version
 Apple Swift version 2.2
-$ export TOOLCHAINS=$(defaults read /Library/Developer/Toolchains/swift-latest.xctoolchain/Info.plist CFBundleIdentifier)
+$ export TOOLCHAINS=swift
 $ xcrun --find swift
 /Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swift
 $ swift --version
@@ -59,6 +59,9 @@ Swift version 3.0-dev
 On OS X `/usr/bin/swift` is just a stub that forwards invocations to the active
 toolchain. Thus when you call `swift build` it will use the swift defined by
 your `TOOLCHAINS` enivonment variable.
+
+To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier`
+in an `.xctoolchain`’s Info.plist.
 
 Please note, this feature may by a little flakey with Xcode prior to 7.3.
 
