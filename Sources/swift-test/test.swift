@@ -22,5 +22,6 @@ func test(path: String..., args: String? = nil) -> Bool {
 #else
     result = try? system(Path.join(path, "test-Package"))
 #endif
+    
     return result != nil
 }
