@@ -153,6 +153,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 let testDirectory = firstTestModule.sources.root.parentDirectory
                 let main = Path.join(testDirectory, "LinuxMain.swift")
                 args.append(main)
+                for module in product.modules {
+                    args += module.Xcc
+                }
                 args.append("-emit-executable")
                 args += ["-I", prefix]
             #endif
