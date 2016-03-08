@@ -20,7 +20,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("MODES:")
     print("  --configuration <value>  Build with configuration (debug|release) [-c]")
     print("  --clean[=<mode>]         Delete artefacts (build|dist) [-k]")
-    print("  --init                   Creates a new Swift project")
+    print("  --init <mode>            Creates a new Swift package (executable|library)")
     print("  --fetch                  Fetch package dependencies")
     print("")
     print("OPTIONS:")
@@ -40,7 +40,7 @@ enum Mode {
     case Build(Configuration)
     case Clean(CleanMode)
     case Fetch
-    case Init
+    case Init(InitPackage.InitMode)
     case Usage
     case Version
 }
@@ -116,7 +116,18 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             case (nil, .Usage):
                 mode = .Usage
             case (nil, .Init):
-                mode = .Init
+                mode = .Init(.Executable)
+                switch try cruncher.peek() {
+                case .Name("executable")?:
+                    cruncher.postPeekPop()
+                case .Name("library")?:
+                    mode = .Init(.Library)
+                    cruncher.postPeekPop()
+                case .Name(let name)?:
+                    throw CommandLineError.InvalidUsage("Unknown init mode: \(name)", .Imply)
+                default:
+                    break
+                }
             case (nil, .Clean):
                 mode = .Clean(.Build)
                 switch try cruncher.peek() {

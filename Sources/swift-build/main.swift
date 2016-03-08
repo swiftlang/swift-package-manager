@@ -48,9 +48,10 @@ do {
             let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
             try build(YAMLPath: yaml, target: "default")
 
-        case .Init:
-            try initPackage()
-            
+        case .Init(let initMode):
+            let initPackage = try InitPackage(mode: initMode)
+            try initPackage.writePackageStructure()
+                        
         case .Fetch:
             try fetch(try directories().root)
 
