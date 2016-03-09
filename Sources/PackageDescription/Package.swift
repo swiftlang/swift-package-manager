@@ -14,7 +14,6 @@ import Glibc
 import Darwin.C
 #endif
 
-
 /// The description for a complete package.
 public final class Package {
     /// The description for a package dependency.
@@ -69,8 +68,10 @@ public final class Package {
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
-        if getenv("SWIFT_DUMP_PACKAGE") != nil {
-            dumpPackageAtExit(self)
+
+        if let fileNoOptIndex = Process.arguments.indexOf("-fileno"),
+               fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
+            dumpPackageAtExit(self, fileNo: fileNo)
         }
     }
 }
@@ -128,16 +129,21 @@ public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
 
 // MARK: Package Dumping
 
-private var thePackageToDump: Package? = nil
-private func dumpPackageAtExit(package: Package) {
+private var dumpInfo: (package: Package, fileNo: Int32)? = nil
+private func dumpPackageAtExit(package: Package, fileNo: Int32) {
     func dump() {
-        print(thePackageToDump!.toTOML())
+        guard let dumpInfo = dumpInfo else { return }
+        let fd = fdopen(dumpInfo.fileNo, "w")
+        guard fd != nil else { return }
+        fputs(dumpInfo.package.toTOML(), fd)
         for product in products {
-            print("[[products]]")
-            print(product.toTOML())
-            print()
+            fputs("[[products]]", fd)
+            fputs("\n", fd)
+            fputs(product.toTOML(), fd)
+            fputs("\n", fd)
         }
+        fclose(fd)
     }
-    thePackageToDump = package
+    dumpInfo = (package, fileNo)
     atexit(dump)
 }
