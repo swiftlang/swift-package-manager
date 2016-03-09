@@ -133,6 +133,43 @@ func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, pri
     }
 }
 
+//FIXME: rafactor to use a common dir for swift-build and swift-test
+func swiftTestPath() -> String {
+    #if os(OSX)
+        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+            return Path.join(bundle.bundlePath.parentDirectory, "swift-test")
+        }
+        fatalError()
+    #else
+        return Path.join(try! Process.arguments.first!.abspath().parentDirectory, "swift-test")
+    #endif
+}
+
+//TODO: refactor swift-build and swift-test tools runing
+func executeSwiftTest(dir: String, printIfError: Bool = false) throws -> String {
+    let toolPath = swiftTestPath()
+    let env = [String:String]()
+    let args = [toolPath]
+
+    var out = ""
+    do {
+        // FIXME: this probably should be refactored to --chdir arg in swift-test
+        let cwd = try getcwd()
+        defer { _ = try? POSIX.chdir(cwd) }
+        try POSIX.chdir(dir)
+
+        try popen(args, redirectStandardError: true, environment: env) {
+            out += $0
+        }
+        return out
+    } catch {
+        if printIfError {
+            print(out)
+        }
+        throw error
+    }
+}
+
 func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
@@ -168,6 +205,16 @@ func XCTAssertBuildFails(paths: String..., file: StaticString = #file, line: UIn
         // noop
     } catch {
         XCTFail("`swift build' failed in an unexpected manner")
+    }
+}
+
+func XCTAssertTests(paths: String..., file: StaticString = #file, line: UInt = #line) {
+    let prefix = Path.join(paths)
+    do {
+        print("    Testing")
+        try executeSwiftTest(prefix, printIfError: true)
+    } catch {
+        XCTFail("swift-test failed:\n\n\(error)\n", file: file, line: line)
     }
 }
 

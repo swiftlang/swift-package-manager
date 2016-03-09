@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import Footest
+@testable import FooTestSuite
 
 XCTMain([
     testCase(SimpleGetTests.allTests),

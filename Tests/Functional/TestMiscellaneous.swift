@@ -351,14 +351,14 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testModuleWithTests() {
-        fixture(name: "SwiftTesting/SingleTarget", file: #file, line: #line) { prefix in
+        fixture(name: "SwiftTesting/SingleTarget") { prefix in
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix, ".build", "debug", "Foo.swiftmodule")
+            XCTAssertTests(prefix)
             #if os(OSX)
                 XCTAssertDirectoryExists(prefix, ".build", "debug", "Package.xctest")
             #else
-                //FIXME: test-Package not generated during swift-build on linux so this will fail.
-                //XCTAssertFileExists(prefix, ".build", "debug", "test-Package")
+                XCTAssertFileExists(prefix, ".build", "debug", "test-Package")
             #endif
 
         }
