@@ -74,6 +74,18 @@ public class CModule: Module {
     }
 }
 
+public class CLangModule: Module {
+    public let sources: Sources
+    public let moduleMapPath: String
+    
+    public init(name: String, sources: Sources) {
+        self.sources = sources
+        //TODO: generate this with swiftpm if layout supports
+        moduleMapPath = sources.root + "/include/module.modulemap"
+        super.init(name: name)
+    }
+}
+
 public class TestModule: SwiftModule {
 
     public init(basename: String, sources: Sources) {

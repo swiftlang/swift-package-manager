@@ -17,8 +17,8 @@ extension Package {
         //Don't try to walk Tests if it is in excludes
         if testsPath.isDirectory && excludes.contains(testsPath) { return [] }
         return walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
-            if let sources = try? self.sourcify(dir) {
-                return TestModule(basename: dir.basename, sources: sources)
+            if let sourcified = try? self.sourcify(dir) {
+                return TestModule(basename: dir.basename, sources: sourcified.sources)
             } else {
                 print("warning: no sources in test module: \(path)")
                 return nil

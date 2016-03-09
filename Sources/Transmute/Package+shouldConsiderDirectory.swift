@@ -15,6 +15,7 @@ extension Package {
     func shouldConsiderDirectory(path: String) -> Bool {
         let base = path.basename.lowercased()
         if base == "tests" { return false }
+        if base.hasSuffix("include") { return false }
         if base.hasSuffix(".xcodeproj") { return false }
         if base.hasSuffix(".playground") { return false }
         if base.hasPrefix(".") { return false }  // eg .git

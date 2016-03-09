@@ -11,6 +11,11 @@
 import Utility
 
 public struct Sources {
+
+    static public var validExtensions: [String] {
+        return [".swift", ".c"]
+    }
+
     public let relativePaths: [String]
     public let root: String
 

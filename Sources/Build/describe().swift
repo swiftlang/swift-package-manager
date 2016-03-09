@@ -103,6 +103,40 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
     }
 
+    //For C language Modules
+    //FIXME: Probably needs more compiler options for debug and release modes
+    //FIXME: Incremental builds
+    //FIXME: Add support for executables
+    for case let module as CLangModule in modules {
+        let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
+        let productPath = Path.join(prefix, "\(module.c99name).o")
+        let wd = Path.join(prefix, "\(module.c99name).build")
+        mkdirs.insert(wd)
+        
+        var args: [String] = []
+        args += ["-fmodules", "-fmodule-name=\(module.name)"]
+        args += ["-fmodule-map-file=\(module.moduleMapPath)", "-working-directory", Path.join(prefix, "\(module.c99name).build")]
+        
+        switch conf {
+        case .Debug:
+            args += ["-g", "-O0"]
+        case .Release:
+            args += ["-O2"]
+        }
+        
+        args += module.sources.paths
+        args += ["-shared", "-o", Path.join(prefix, "lib\(module.c99name).so")]
+
+        let clang = ShellTool(
+            description: "Compiling \(module.name)",
+            inputs: inputs,
+            outputs: [productPath, module.targetName],
+            args: [Toolchain.clang] + args)
+        
+        let command = Command(name: module.targetName, tool: clang)
+        append(command, buildable: module)
+    }
+    
     // make eg .build/debug/foo.build/subdir for eg. Sources/foo/subdir/bar.swift
     // TODO swift-build-tool should do this
     for dir in mkdirs {
@@ -171,6 +205,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
         args += platformArgs() //TODO don't need all these here or above: split outname
         args += Xld
+        args += ["-L\(prefix)"]
         args += ["-o", outpath]
         args += objects
 

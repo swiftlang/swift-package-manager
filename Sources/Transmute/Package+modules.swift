@@ -38,19 +38,28 @@ extension Package {
         let modules: [Module]
         if maybeModules.isEmpty {
             do {
-                modules = [SwiftModule(name: self.name, sources: try sourcify(srcroot))]
+                let sourcified = try sourcify(srcroot)
+                if sourcified.isSwiftModule {
+                    modules = [SwiftModule(name: self.name, sources: sourcified.sources)]
+                } else {
+                    modules = [CLangModule(name: self.name, sources: sourcified.sources)]
+                }
+                
             } catch Module.Error.NoSources {
                 throw ModuleError.NoModules(self)
             }
         } else {
-            modules = try maybeModules.map(sourcify).map { sources in
+            modules = try maybeModules.map(sourcify).map { sourcified in
                 let name: String
-                if sources.root == srcroot {
+                if sourcified.sources.root == srcroot {
                     name = self.name
                 } else {
-                    name = sources.root.basename
+                    name = sourcified.sources.root.basename
                 }
-                return SwiftModule(name: name, sources: sources)
+                if sourcified.isSwiftModule {
+                    return SwiftModule(name: name, sources: sourcified.sources)
+                }
+                return CLangModule(name: name, sources: sourcified.sources)
             }
         }
 
@@ -75,10 +84,12 @@ extension Package {
         return modules
     }
 
-    func sourcify(path: String) throws -> Sources {
+    func sourcify(path: String) throws -> (sources: Sources, isSwiftModule: Bool) {
         let sources = walk(path, recursing: shouldConsiderDirectory).filter(isValidSource)
         guard sources.count > 0 else { throw Module.Error.NoSources(path) }
-        return Sources(paths: sources, root: path)
+        let partioned = sources.partition { $0.hasSuffix(".swift") }
+        guard !(partioned.0.count > 0 && partioned.1.count > 0) else { throw Module.Error.MixedSources(path) }
+        return (sources: Sources(paths: sources, root: path), isSwiftModule: partioned.0.count > 0)
     }
 
     func isValidSource(path: String) -> Bool {
@@ -86,7 +97,13 @@ extension Package {
         let path = path.normpath
         if path == manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
-        return path.lowercased().hasSuffix(".swift") && path.isFile
+        if !path.isFile { return false }
+        for ext in Sources.validExtensions {
+            if path.lowercased().hasSuffix(ext) {
+                return true
+            }
+        }
+        return false
     }
 
     private func targetForName(name: String) -> Target? {

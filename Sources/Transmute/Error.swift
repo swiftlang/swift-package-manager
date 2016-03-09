@@ -26,5 +26,6 @@ extension Package {
 extension Module {
     public enum Error: ErrorProtocol {
         case NoSources(String)
+        case MixedSources(String)
     }
 }
