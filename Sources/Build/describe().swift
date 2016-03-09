@@ -12,6 +12,8 @@ import func POSIX.getenv
 import func POSIX.mkdir
 import PackageType
 import Utility
+import func POSIX.fopen
+import func libc.fclose
 
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
@@ -25,25 +27,20 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = try mkdir(prefix, conf.dirname)
-    let yaml = try YAML(path: "\(prefix).yaml")
-    let write = yaml.write
     
-    let (buildableTests, buildableNonTests) = (modules.map{$0 as Buildable} + products.map{$0 as Buildable}).partition{$0.isTest}
-    let (tests, nontests) = (buildableTests.map{$0.targetName}, buildableNonTests.map{$0.targetName})
+    var nonTests = [Command]()
+    var tests = [Command]()
 
-    defer { yaml.close() }
-
-    try write("client:")
-    try write("  name: swift-build")
-    try write("tools: {}")
-    try write("targets:")
-    try write("  default: ", nontests)
-    try write("  test: ", tests)
-    try write("commands: ")
+    /// Appends the command to appropriate array
+    func append(command: Command, buildable: Buildable) {
+        if buildable.isTest {
+            tests.append(command)
+        } else {
+            nonTests.append(command)
+        }
+    }
 
     var mkdirs = Set<String>()
-
-
     let swiftcArgs = Xcc + Xswiftc
 
     for case let module as SwiftModule in modules {
@@ -65,23 +62,22 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         #endif
 
             let node = IncrementalNode(module: module, prefix: prefix)
+            let swiftc = SwiftcTool(
+                inputs: node.inputs,
+                outputs: node.outputs,
+                executable: Resources.path.swiftc,
+                moduleName: module.c99name,
+                moduleOutputPath:  node.moduleOutputPath,
+                importPaths: prefix,
+                tempsPath: node.tempsPath,
+                objects: node.objectPaths,
+                otherArgs: args + otherArgs,
+                sources: module.sources.paths,
+                isLibrary: module.type == .Library) /// this must be set or swiftc compiles single source
+                                                    /// file modules with a main() for some reason
 
-            try write("  ", module.targetName, ":")
-            try write("    tool: swift-compiler")
-            try write("    executable: ", Resources.path.swiftc)
-            try write("    module-name: ", module.c99name)
-            try write("    module-output-path: ", node.moduleOutputPath)
-            try write("    inputs: ", node.inputs)
-            try write("    outputs: ", node.outputs)
-            try write("    import-paths: ", prefix)
-            try write("    temps-path: ", node.tempsPath)
-            try write("    objects: ", node.objectPaths)
-            try write("    other-args: ", args + otherArgs)
-            try write("    sources: ", module.sources.paths)
-
-            // this must be set or swiftc compiles single source file
-            // modules with a main() for some reason
-            try write("    is-library: ", module.type == .Library)
+            let command = Command(name: module.targetName, tool: swiftc)
+            append(command, buildable: module)
 
             for o in node.objectPaths {
                 mkdirs.insert(o.parentDirectory)
@@ -96,12 +92,14 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 args += ["-parse-as-library"]
             }
 
-            try write("  ", module.targetName, ":")
-            try write("    tool: shell")
-            try write("    description: Compiling \(module.name)")
-            try write("    inputs: ", inputs)
-            try write("    outputs: ", [productPath, module.targetName])
-            try write("    args: ", [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
+            let shell = ShellTool(
+                description: "Compiling \(module.name)",
+                inputs: inputs,
+                outputs: [productPath, module.targetName],
+                args: [Resources.path.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
+
+            let command = Command(name: module.targetName, tool: shell)
+            append(command, buildable: module)
         }
     }
 
@@ -178,15 +176,30 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
 
         let inputs = product.modules.flatMap{ [$0.targetName] + IncrementalNode(module: $0, prefix: prefix).inputs }
 
-        try write("  \(product.targetName):")
-        try write("    tool: shell")
-        try write("    description: Linking \(product)")
-        try write("    inputs: ", inputs)
-        try write("    outputs: ", [product.targetName, outpath])
-        try write("    args: ", args)
+        let shell = ShellTool(
+            description: "Linking \(product)",
+            inputs: inputs,
+            outputs: [product.targetName, outpath],
+            args: args)
+
+        let command = Command(name: product.targetName, tool: shell)
+        append(command, buildable: product)
     }
 
-    return yaml.path
+    //Create Targets
+    let nontestTarget = Target(name: "default", commands: nonTests)
+    let testTarget = Target(name: "test", commands: tests)
+
+    //Generate YAML String for the targets
+    let yamlString = llbuildYAML(targets: [nontestTarget, testTarget])
+
+    //Write YAML to file
+    let yamlPath = "\(prefix).yaml"
+    let fp = try fopen(yamlPath, mode: .Write)
+    defer { fclose(fp) }
+    try fputs(yamlString, fp)
+
+    return yamlPath
 }
 
 
