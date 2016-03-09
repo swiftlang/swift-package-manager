@@ -15,7 +15,7 @@ import libc
 
 public enum CommandLineError: ErrorType {
     public enum UsageMode {
-        case Print, Imply
+        case Print, ImplySwiftBuild, ImplySwiftTest
     }
     case InvalidUsage(String, UsageMode)
 }
@@ -40,8 +40,10 @@ extension Error: CustomStringConvertible {
 
         if isatty(fileno(libc.stdin)) {
             switch mode {
-            case .Imply:
+            case .ImplySwiftBuild:
                 print("enter `swift build --help' for usage information", toStream: &stderr)
+            case .ImplySwiftTest:
+                print("enter `swift test --help' for usage information", toStream: &stderr)
             case .Print:
                 print("", toStream: &stderr)
                 usage { print($0, toStream: &stderr) }

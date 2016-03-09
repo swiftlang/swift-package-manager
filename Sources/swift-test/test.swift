@@ -11,7 +11,7 @@
 import PackageType
 import Utility
 
-func test(path: String..., args: String? = nil) throws -> Bool {
+func test(path: String..., xctestArg: String? = nil) throws -> Bool {
     let path = Path.join(path)
     var args: [String] = []
     let testsPath: String
@@ -19,8 +19,11 @@ func test(path: String..., args: String? = nil) throws -> Bool {
 #if os(OSX)
     testsPath = Path.join(path, "Package.xctest")
     args = ["xcrun", "xctest"]
-    args += Process.arguments.dropFirst()
+    if let xctestArg = xctestArg {
+        args += ["-XCTest", xctestArg]
+    }
 #else
+    //FIXME: Pass xctestArg when swift-corelibs-xctest supports it
     testsPath = Path.join(path, "test-Package")
 #endif
 
