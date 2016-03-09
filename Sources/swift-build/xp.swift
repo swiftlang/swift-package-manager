@@ -19,12 +19,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         return try Build.describe(prefix, conf, modules, products, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     } catch {
 
-        // it is a common error on Linux for clang++ to not be installed, but
-        // we need it for linking. swiftc itself gives a non-useful error, so
-        // we try to help here.
-        //FIXME using `which' is non-ideal: it may not be available
-
-        if (try? Utility.popen(["which", "clang++"])) == nil {
+        if (try? Utility.popen(["command", "-v", "clang++"])) == nil {
             print("warning: clang++ not found: this will cause build failure", toStream: &stderr)
         }
 
