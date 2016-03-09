@@ -31,6 +31,25 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testPackageWithNoSources() {
+
+        // Tests a package with no source files
+
+        fixture(name: "Miscellaneous/Empty") { prefix in
+            XCTAssertBuilds(prefix)
+        }
+    }
+
+    func testPackageWithNoSourcesButDependency() {
+
+        // Tests a package with no source files but dependency, dependency should build.
+
+        fixture(name: "Miscellaneous/ExactDependencies") { prefix in
+            XCTAssertBuilds(prefix, "EmptyWithDependency")
+            XCTAssertFileExists(prefix, "EmptyWithDependency/.build/debug/FooLib2.swiftmodule")
+        }
+    }
+
     func testManifestExcludes1() {
 
         // Tests exclude syntax where no target customization is specified

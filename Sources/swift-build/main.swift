@@ -44,7 +44,7 @@ do {
         case .Build(let conf):
             let dirs = try directories()
             let packages = try fetch(dirs.root)
-            let (modules, products) = try transmute(packages)
+            let (modules, products) = try transmute(packages, rootdir: dirs.root)
             let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
             try build(YAMLPath: yaml, target: "default")
 

@@ -145,7 +145,6 @@ extension DependencyResolutionTestCase {
 extension InvalidLayoutsTestCase {
     static var allTests : [(String, InvalidLayoutsTestCase -> () throws -> Void)] {
         return [
-            ("testNoTargets", testNoTargets),
             ("testMultipleRoots", testMultipleRoots),
             ("testInvalidLayout1", testInvalidLayout1),
             ("testInvalidLayout2", testInvalidLayout2),
@@ -160,6 +159,8 @@ extension MiscellaneousTestCase {
     static var allTests : [(String, MiscellaneousTestCase -> () throws -> Void)] {
         return [
             ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
+            ("testPackageWithNoSources", testPackageWithNoSources),
+            ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
             ("testManifestExcludes1", testManifestExcludes1),
             ("testManifestExcludes2", testManifestExcludes2),
             ("testManifestExcludes3", testManifestExcludes3),
