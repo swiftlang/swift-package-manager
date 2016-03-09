@@ -42,7 +42,7 @@ extension Package {
                 if sourcified.isSwiftModule {
                     modules = [SwiftModule(name: self.name, sources: sourcified.sources)]
                 } else {
-                    modules = [CLangModule(name: self.name, sources: sourcified.sources)]
+                    modules = [ClangModule(name: self.name, sources: sourcified.sources)]
                 }
                 
             } catch Module.Error.NoSources {
@@ -59,7 +59,7 @@ extension Package {
                 if sourcified.isSwiftModule {
                     return SwiftModule(name: name, sources: sourcified.sources)
                 }
-                return CLangModule(name: name, sources: sourcified.sources)
+                return ClangModule(name: name, sources: sourcified.sources)
             }
         }
 

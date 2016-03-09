@@ -107,7 +107,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     //FIXME: Probably needs more compiler options for debug and release modes
     //FIXME: Incremental builds
     //FIXME: Add support for executables
-    for case let module as CLangModule in modules {
+    for case let module as ClangModule in modules {
         let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
         let productPath = Path.join(prefix, "\(module.c99name).o")
         let wd = Path.join(prefix, "\(module.c99name).build")

@@ -32,7 +32,7 @@ extension Module {
             if let module = module as? CModule {
                 let moduleMapPath = Path.join(module.path, "module.modulemap")
                 return ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"]
-            } else if let cmodule = module as? CLangModule {
+            } else if let cmodule = module as? ClangModule {
                 return ["-Xcc", "-fmodule-map-file=\(cmodule.moduleMapPath)"]
             } else {
                 return []

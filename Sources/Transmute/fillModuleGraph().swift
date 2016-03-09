@@ -20,7 +20,7 @@ func fillModuleGraph(packages: [Package], modulesForPackage: (Package) -> [Modul
                     return false
                 case let module as SwiftModule where module.type == .Library:
                     return true
-                case is CLangModule:
+                case is ClangModule:
                     return true
                 case is CModule:
                     return true

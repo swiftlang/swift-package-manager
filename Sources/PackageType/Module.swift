@@ -74,7 +74,7 @@ public class CModule: Module {
     }
 }
 
-public class CLangModule: Module {
+public class ClangModule: Module {
     public let sources: Sources
     public let moduleMapPath: String
     

@@ -15,6 +15,7 @@ import XCTest
 @testable import BuildTestSuite
 
 XCTMain([
+    testCase(TestClangModulesTestCase.allTests),
     testCase(DependencyResolutionTestCase.allTests),
     testCase(FileTests.allTests),
     testCase(GetTests.allTests),
