@@ -17,6 +17,8 @@ func platformArgs() -> [String] {
 
     #if os(OSX)
         args += ["-target", "x86_64-apple-macosx10.10"]
+        args += ["-Xcc", "-I/usr/local/include"]
+        args += ["-Xlinker", "-L/usr/local/lib"]
 
         if let sysroot = Resources.path.sysroot {
             args += ["-sdk", sysroot]
