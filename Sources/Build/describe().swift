@@ -128,6 +128,10 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
         args += ["-fmodule-map-file=\(module.moduleMapPath)"]
         
+        for case let otherModule as ClangModule in modules where otherModule != module {
+            args += ["-iquote", otherModule.path]
+        }
+        
         switch conf {
         case .Debug:
             args += ["-g", "-O0"]
