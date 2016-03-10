@@ -108,6 +108,17 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     //FIXME: Incremental builds
     //FIXME: Add support for executables
     for case let module as ClangModule in modules {
+        
+        //FIXME: Generate modulemaps if possible
+        //Since we're not generating modulemaps currently we'll just emit empty module map file
+        //if it not present
+        if !module.path.isFile {
+            try mkdir(module.path.parentDirectory)
+            try fopen(module.path, mode: .Write) { fp in
+                try fputs("\n", fp)
+            }
+        }
+        
         let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
         let productPath = Path.join(prefix, "\(module.c99name).o")
         let wd = Path.join(prefix, "\(module.c99name).build")
