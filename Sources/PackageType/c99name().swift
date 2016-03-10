@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Module {
 /**
  Removes characters from name that are invalid in C99 module-names.
 */
-public var c99name: String {
+func c99name(name name: String) -> String {
     var mapped = name.unicodeScalars.filter {
         switch $0.value {
         case//  a-z       A-Z      0-9   _
@@ -205,5 +204,4 @@ public var c99name: String {
 
     // String(mapped) AND map(String.init) didn't work ¯\_(ツ)_/¯
     return mapped.reduce(""){ $0 + String($1) }
-}
 }

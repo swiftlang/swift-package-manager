@@ -31,6 +31,10 @@ public class Module {
     public var recursiveDependencies: [Module] {
         return PackageType.recursiveDependencies(dependencies)
     }
+
+    public var c99name: String {
+        return PackageType.c99name(name: name)
+    }
 }
 
 extension Module: Hashable, Equatable {
@@ -73,11 +77,15 @@ public class CModule: Module {
 public class TestModule: SwiftModule {
 
     public init(basename: String, sources: Sources) {
-        super.init(name: "\(basename).test", sources: sources)
+        super.init(name: "\(basename).testsuite", sources: sources)
     }
 
     public var basename: String {
-        return String(name.characters.dropLast(5))
+        return String(name.characters.dropLast(10))
+    }
+
+    override public var c99name: String {
+        return PackageType.c99name(name: basename) + "TestSuite"
     }
 }
 

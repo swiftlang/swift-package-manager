@@ -27,7 +27,7 @@ public func generate(path path: String, package: Package, modules: [SwiftModule]
     }
 
 ////// the scheme acts like an aggregate target for all our targets
-   /// it also allows has all tests associated
+   /// it has all tests associated so CMD+U works
     try open(schemedir, "\(package.name).xcscheme") { fwrite in
         xcscheme(packageName: package.name, modules: modules, printer: fwrite)
     }
