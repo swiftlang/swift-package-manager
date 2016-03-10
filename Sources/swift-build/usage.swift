@@ -18,11 +18,11 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("USAGE: swift build [options]")
     print("")
     print("MODES:")
-    print("  --configuration <value>  Build with configuration (debug|release) [-c]")
-    print("  --clean[=<mode>]         Delete artefacts (build|dist) [-k]")
-    print("  --init <mode>            Creates a new Swift package (executable|library)")
-    print("  --fetch                  Fetch package dependencies")
-    print("  --generate-xcodeproj     Generates an Xcode project for this package [-X]")
+    print("  --configuration <value>        Build with configuration (debug|release) [-c]")
+    print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
+    print("  --init <mode>                  Creates a new Swift package (executable|library)")
+    print("  --fetch                        Fetch package dependencies")
+    print("  --generate-xcodeproj [<path>]  Generates an Xcode project for this package [-X]")
     print("")
     print("OPTIONS:")
     print("  --chdir <value>    Change working directory before any other operation [-C]")
@@ -44,7 +44,7 @@ enum Mode {
     case Init(InitPackage.InitMode)
     case Usage
     case Version
-    case GenerateXcodeproj
+    case GenerateXcodeproj(String?)
 }
 
 struct Options {
@@ -148,7 +148,14 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             case (nil, .Fetch):
                 mode = .Fetch
             case (nil, .GenerateXcodeproj):
-                mode = .GenerateXcodeproj
+                mode = .GenerateXcodeproj(nil)
+                switch try cruncher.peek() {
+                case .Name(let path)?:
+                    mode = .GenerateXcodeproj(path)
+                    cruncher.postPeekPop()
+                default:
+                    break
+                }
             }
 
         case .Switch(.Chdir):
