@@ -73,6 +73,7 @@ final class InitPackage {
         try fputs(".DS_Store\n", gitignoreFP)
         try fputs("/.build\n", gitignoreFP)
         try fputs("/Packages\n", gitignoreFP)
+        try fputs("/*.xcodeproj\n", gitignoreFP)
     }
     
     private func writeSources() throws {
