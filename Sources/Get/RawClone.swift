@@ -9,7 +9,6 @@
 */
 
 import struct PackageDescription.Version
-import ManifestParser
 import PackageType
 import Utility
 import libc
@@ -23,6 +22,7 @@ import libc
  */
 class RawClone: Fetchable {
     let path: String
+    let manifestParser: (path: String, url: String) throws -> Manifest
 
     // lazy because the tip of the default branch does not have to be a valid package
     //FIXME we should error gracefully if a selected version does not however
@@ -30,14 +30,15 @@ class RawClone: Fetchable {
         if let manifest = _manifest {
             return manifest
         } else {
-            _manifest = try? Manifest(path: path, baseURL: repo.origin!)
+            _manifest = try? manifestParser(path: path, url: repo.origin!)
             return _manifest
         }
     }
     private var _manifest: Manifest?
 
-    init(path: String) throws {
+    init(path: String, manifestParser: (path: String, url: String) throws -> Manifest) throws {
         self.path = path
+        self.manifestParser = manifestParser
         if !repo.hasVersion {
             throw Error.Unversioned(path)
         }

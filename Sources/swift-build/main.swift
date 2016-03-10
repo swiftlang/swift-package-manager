@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import func POSIX.getcwd
 import func POSIX.getenv
 import func POSIX.chdir
 import func libc.exit
@@ -15,14 +16,25 @@ import ManifestParser
 import PackageType
 import Multitool
 import Transmute
+import Xcodeproj
 import Utility
 import Build
 import Get
 
 
-// Initialize the resource support.
-public var globalSymbolInMainBinary = 0
-Resources.initialize(&globalSymbolInMainBinary)
+private let origwd = (try? getcwd()) ?? "/"
+
+extension String {
+    private var prettied: String {
+        if self.parentDirectory == origwd {
+            return "./\(basename)"
+        } else if hasPrefix(origwd) {
+            return Path(self).relative(to: origwd)
+        } else {
+            return self
+        }
+    }
+}
 
 
 do {
@@ -35,9 +47,20 @@ do {
         try chdir(dir)
     }
     
+    func parseManifest(path path: String, baseURL: String) throws -> Manifest {
+        let bindir = try! Process.arguments.first!.parentDirectory.abspath()
+        let libdir: String
+        if Path.join(bindir, "PackageDescription.swiftmodule").isDirectory { //FIXME HACK
+            libdir = bindir
+        } else {
+            libdir = try! Path.join(bindir, "../lib/swift/pm").abspath()
+        }
+        return try Manifest(path: path, baseURL: baseURL, swiftc: Toolchain.swiftc, libdir: libdir)
+    }
+    
     func fetch(root: String) throws -> [Package] {
-        let manifest = try Manifest(path: root, Manifest.filename, baseURL: root)
-        return try get(manifest)
+        let manifest = try parseManifest(path: root, baseURL: root)
+        return try get(manifest, manifestParser: parseManifest)
     }
 
     switch mode {
@@ -66,6 +89,16 @@ do {
 
         case .Version:
             print("Apple Swift Package Manager 0.1")
+            
+        case .GenerateXcodeproj:
+            let dirs = try directories()
+            let packages = try fetch(dirs.root)
+            let (modules, products) = try transmute(packages, rootdir: dirs.root)
+            let swiftModules = modules.flatMap{ $0 as? SwiftModule }
+
+            let path = try Xcodeproj.generate(path: try getcwd(), package: packages.last!, modules: swiftModules, products: products)
+
+            print("generated:", path.prettied)
     }
 
 } catch {

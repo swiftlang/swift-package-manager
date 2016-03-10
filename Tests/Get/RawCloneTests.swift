@@ -8,14 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import PackageType
 @testable import Get
+import struct PackageType.Manifest
+import struct Utility.Path
+import class PackageDescription.Package
+import class Utility.Git
 import func POSIX.popen
-import Utility
 import XCTest
 
-class GitTests: XCTestCase {
 
+class GitTests: XCTestCase {
     func testHasVersion() {
         mktmpdir { path in
             let gitRepo = makeGitRepo(path, tag: "0.1.0")!
@@ -41,7 +43,7 @@ class GitTests: XCTestCase {
 
 //MARK: - Helpers
 
-private func makeGitRepo(dstdir: String, tag: String?, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
+func makeGitRepo(dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
     do {
         let file = Path.join(dstdir, "file.swift")
         try popen(["touch", file])
@@ -67,7 +69,9 @@ private func tryCloningRepoWithTag(tag: String?, shouldCrash: Bool) {
     mktmpdir { path in
         makeGitRepo(path, tag: tag)!
         do {
-            _ = try RawClone(path: path)
+            _ = try RawClone(path: path, manifestParser: { _ throws in
+                return Manifest(path: path, package: PackageDescription.Package(), products: [])
+            })
         } catch Error.Unversioned {
             done = shouldCrash
         } catch {

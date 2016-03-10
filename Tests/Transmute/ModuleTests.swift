@@ -159,36 +159,36 @@ class ModuleTests: XCTestCase {
 
         // there is a hidden `.Bar.swift` file in this fixture
 
-        fixture(name: "Miscellaneous/IgnoreDiagnostic") { prefix in
-            let manifest = try Manifest(path: prefix, baseURL: prefix)
-            let modules = try Package(manifest: manifest, url: prefix).modules()
+       fixture(name: "Miscellaneous/IgnoreDiagnostic") { prefix in
+           let manifest = try Manifest(path: prefix)
+           let modules = try Package(manifest: manifest, url: prefix).modules()
 
-            XCTAssertEqual(modules.count, 1)
+           XCTAssertEqual(modules.count, 1)
 
-            guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
-            XCTAssertEqual(swiftModule.sources.paths.count, 1)
-            XCTAssertEqual(swiftModule.sources.paths[0].basename, "Foo.swift")
+           guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
+           XCTAssertEqual(swiftModule.sources.paths.count, 1)
+           XCTAssertEqual(swiftModule.sources.paths[0].basename, "Foo.swift")
 
-            XCTAssertBuilds(prefix)
-        }
+           XCTAssertBuilds(prefix)
+       }
     }
 
     func testModuleTypes() {
         let dummyURL = "https://example.com"
 
-        fixture(name: "Miscellaneous/PackageType") { prefix in
+       fixture(name: "Miscellaneous/PackageType") { prefix in
 
-            // TODO get is enough
-            XCTAssertBuilds(prefix, "App")
+           // TODO get is enough
+           XCTAssertBuilds(prefix, "App")
 
-            for module in try Package(manifest: Manifest(path: prefix, "App/Packages/Module-1.2.3", baseURL: dummyURL), url: dummyURL).modules() {
-                XCTAssert(module is SwiftModule)
-            }
+           for module in try Package(manifest: Manifest(path: prefix, "App/Packages/Module-1.2.3"), url: dummyURL).modules() {
+               XCTAssert(module is SwiftModule)
+           }
 
-            for module in try Package(manifest: Manifest(path: prefix, "App/Packages/ModuleMap-1.2.3", baseURL: dummyURL), url: dummyURL).modules() {
-                XCTAssert(module is CModule)
-            }
-        }
+           for module in try Package(manifest: Manifest(path: prefix, "App/Packages/ModuleMap-1.2.3"), url: dummyURL).modules() {
+               XCTAssert(module is CModule)
+           }
+       }
     }
 }
 
@@ -199,8 +199,8 @@ extension ModuleTests {
     func testTransmuteResolvesCModuleDependencies() {
         fixture(name: "Miscellaneous/PackageType") { prefix in
             let prefix = Path.join(prefix, "App")
-            let manifest = try Manifest(path: prefix, baseURL: prefix)
-            let packages = try get(manifest)
+            let manifest = try Manifest(path: prefix)
+            let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
             let (modules, _) = try transmute(packages, rootdir: prefix)
 
             XCTAssertEqual(modules.count, 3)
@@ -210,8 +210,8 @@ extension ModuleTests {
 
         fixture(name: "ModuleMaps/Direct") { prefix in
             let prefix = Path.join(prefix, "App")
-            let manifest = try Manifest(path: prefix, baseURL: prefix)
-            let packages = try get(manifest)
+            let manifest = try Manifest(path: prefix)
+            let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
             let (modules, _) = try transmute(packages, rootdir: prefix)
 
             XCTAssertEqual(modules.count, 2)
@@ -237,5 +237,37 @@ extension ModuleTests {
             ("testModuleTypes", testModuleTypes),
             ("testTransmuteResolvesCModuleDependencies", testTransmuteResolvesCModuleDependencies),
         ]
+    }
+}
+
+import struct Utility.Toolchain
+import func POSIX.getenv
+
+extension Manifest {
+    private init(path pathComponents: String..., baseURL: String! = nil) throws {
+
+    // copy pasta from ManifestParser tests
+    // TODO these tests should not depend on ManifestParser *at all* so fix that then delete this
+
+    #if os(OSX)
+        #if Xcode
+            let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
+        #else
+            let swiftc = Toolchain.swiftc
+        #endif
+        let libdir = { _ -> String in
+            for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+                return bundle.bundlePath.parentDirectory
+            }
+            fatalError()
+        }()
+    #else
+        let swiftc = Toolchain.swiftc
+        let libdir = Process.arguments.first!.parentDirectory
+    #endif
+
+        let path = Path.join(pathComponents)
+        let baseURL = baseURL ?? path
+        try self.init(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
     }
 }

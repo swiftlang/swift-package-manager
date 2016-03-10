@@ -17,9 +17,9 @@ import Utility
  - Throws: Error.InvalidDependencyGraph
  - Returns: The modules that this manifest requires building
 */
-public func get(manifest: Manifest) throws -> [Package] {
+public func get(manifest: Manifest, manifestParser: (path: String, url: String) throws -> Manifest) throws -> [Package] {
     let dir = Path.join(manifest.path.parentDirectory, "Packages")
-    let box = PackagesDirectory(prefix: dir)
+    let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 
     //TODO don't lose the dependency information during the Fetcher process!
 

@@ -25,7 +25,7 @@ let package = Package(
             /** Base types for the package-engine */
             name: "PackageType",
             dependencies: ["PackageDescription", "Utility"]),  //FIXME dependency on PackageDescription sucks
-        Target(                                               //FIXME Carpet is too general, we only need `Path`
+        Target(                                                //FIXME Utility is too general, we only need `Path`
             name: "ManifestParser",
             dependencies: ["PackageDescription", "PackageType"]),
         Target(
@@ -35,7 +35,7 @@ let package = Package(
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["ManifestParser"]),
+            dependencies: ["PackageDescription", "PackageType"]),
         Target(
             /** Builds Modules and Products */
             name: "Build",
@@ -45,8 +45,11 @@ let package = Package(
             name: "Multitool",
             dependencies: ["PackageType"]),
         Target(
+            name: "Xcodeproj",
+            dependencies: ["PackageType"]),
+        Target(
             name: "swift-build",
-            dependencies: ["Get", "Transmute", "Build", "Multitool"]),
+            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
         Target(
             name: "swift-test",
             dependencies: ["Multitool"]),
