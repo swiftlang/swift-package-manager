@@ -10,7 +10,7 @@
 
 import struct PackageDescription.Version
 
-public enum Error: ErrorType {
+public enum Error: ErrorProtocol {
 
     public typealias ClonePath = String
     public typealias URL = String

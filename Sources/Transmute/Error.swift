@@ -11,7 +11,7 @@
 import PackageType
 
 extension Package {
-    public enum ModuleError: ErrorType {
+    public enum ModuleError: ErrorProtocol {
         case NoModules(Package)
         case ModuleNotFound(String)
         case InvalidLayout(InvalidLayoutType)
@@ -24,7 +24,7 @@ extension Package {
 }
 
 extension Module {
-    public enum Error: ErrorType {
+    public enum Error: ErrorProtocol {
         case NoSources(String)
     }
 }

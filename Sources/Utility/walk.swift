@@ -61,7 +61,7 @@ public func walk(paths: String..., recursing: (String) -> Bool) -> RecursibleDir
 /**
  A generator for a single directory’s contents
 */
-private class DirectoryContentsGenerator: GeneratorType {
+private class DirectoryContentsGenerator: IteratorProtocol {
     private let dirptr: DirHandle
     private let path: String
 
@@ -99,7 +99,7 @@ private class DirectoryContentsGenerator: GeneratorType {
 /**
  Produced by `walk`.
 */
-public class RecursibleDirectoryContentsGenerator: GeneratorType, SequenceType {
+public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     private var current: DirectoryContentsGenerator
     private var towalk = [String]()
     private let shouldRecurse: (String) -> Bool
@@ -122,7 +122,7 @@ public class RecursibleDirectoryContentsGenerator: GeneratorType, SequenceType {
             }
             var dirName = entry.d_name
             let name = withUnsafePointer(&dirName) { (ptr) -> String in
-                return String.fromCString(UnsafePointer<CChar>(ptr)) ?? ""
+                return String(validatingUTF8: UnsafePointer<CChar>(ptr)) ?? ""
             }
             if Int32(entry.d_type) == Int32(DT_DIR) {
                 towalk.append(Path.join(current.path, name))

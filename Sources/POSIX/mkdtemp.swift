@@ -31,6 +31,6 @@ public func mkdtemp<T>(template: String, prefix: String! = nil, @noescape body: 
         let dir = libc.mkdtemp(mutable)  //TODO get actual TMP dir
         if dir == nil { throw SystemError.mkdtemp(errno) }
         defer { rmdir(dir) }
-        return try body(String.fromCString(dir)!)
+        return try body(String(validatingUTF8: dir)!)
     }
 }

@@ -277,7 +277,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .StringLiteral(value: String(utf8[Range(start: startIndex.successor(), end: endIndex)]))
+            return .StringLiteral(value: String(utf8[startIndex.successor()..<endIndex]))
 
         // Numeric literals.
         //
@@ -288,7 +288,7 @@ private struct Lexer {
             while let c = look() where c.isNumberChar() {
                 eat()
             }
-            return .Number(value: String(utf8[Range(start: startIndex, end: index)]))
+            return .Number(value: String(utf8[startIndex..<index]))
 
         // Identifiers.
         case let c where c.isIdentifierChar():
@@ -298,7 +298,7 @@ private struct Lexer {
             }
 
             // Match special strings.
-            let value: String = String(utf8[Range(start: startIndex, end: index)])
+            let value: String = String(utf8[startIndex..<index])
             switch value {
             case "true":
                 return .Boolean(value: true)
@@ -364,7 +364,7 @@ extension Lexer.Token : CustomStringConvertible {
     }
 }
 
-private struct LexerTokenGenerator : GeneratorType {
+private struct LexerTokenGenerator : IteratorProtocol {
     var lexer: Lexer
 
     mutating func next() -> Lexer.Token? {
@@ -376,8 +376,8 @@ private struct LexerTokenGenerator : GeneratorType {
     }
 }
 
-extension Lexer : LazySequenceType {
-    func generate() -> LexerTokenGenerator {
+extension Lexer : LazySequenceProtocol {
+    func makeIterator() -> LexerTokenGenerator {
         return LexerTokenGenerator(lexer: self)
     }
 }
@@ -470,7 +470,7 @@ private struct Parser {
     private mutating func findInsertPoint(topLevelTable: TOMLItemTable, _ specifiers: [String], isAppend: Bool, startToken: Lexer.Token) -> TOMLItemTable {
         // FIXME: Handle TOML requirements (sole definition).
         var into = topLevelTable
-        for (i,specifier) in specifiers.enumerate() {
+        for (i,specifier) in specifiers.enumerated() {
             // If this is an append, then the last key is handled as a special case.
             if isAppend && i == specifiers.count - 1 {
                 if let existing = into.items[specifier] {
@@ -742,7 +742,7 @@ private struct Parser {
 }
 
 /// Generic error thrown for any TOML error.
-public struct TOMLParsingError : ErrorType {
+public struct TOMLParsingError : ErrorProtocol {
     /// The raw errors.
     public let errors: [String]
 }

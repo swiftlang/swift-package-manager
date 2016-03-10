@@ -19,8 +19,8 @@ public struct URL {
             guard count > start + 3 else { return nil }
 
             let a = url.startIndex
-            let b = a.advancedBy(start)
-            let c = b.advancedBy(3)
+            let b = a.advanced(by: start)
+            let c = b.advanced(by: 3)
             if url[b..<c] == "://" || url[b] == "@" {
                 return url[a..<b]
             } else {

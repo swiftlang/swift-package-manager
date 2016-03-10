@@ -46,7 +46,7 @@ public struct File {
 /**
  - See: File.enumerate
 */
-public class FileLineGenerator: GeneratorType, SequenceType {
+public class FileLineGenerator: IteratorProtocol, Sequence {
     private let fp: UnsafeMutablePointer<FILE>
     private let separator: Int32
 

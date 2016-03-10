@@ -28,7 +28,7 @@ public func rmtree(components: String...) throws {
             try POSIX.unlink(entry)
         }
     }
-    for dir in dirs.reverse() {
+    for dir in dirs.reversed() {
         do {
             try POSIX.rmdir(dir)
         } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {

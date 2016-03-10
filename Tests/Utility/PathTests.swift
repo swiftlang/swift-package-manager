@@ -84,10 +84,10 @@ class WalkTests: XCTestCase {
         var expected = ["/usr", "/bin", "/sbin"]
 
         for x in walk("/", recursively: false) {
-            if let i = expected.indexOf(x) {
-                expected.removeAtIndex(i)
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
             }
-            XCTAssertEqual(1, x.characters.split("/").count)
+            XCTAssertEqual(1, x.characters.split(separator: "/").count)
         }
 
         XCTAssertEqual(expected.count, 0)
@@ -101,8 +101,8 @@ class WalkTests: XCTestCase {
         ]
 
         for x in walk(root) {
-            if let i = expected.indexOf(x) {
-                expected.removeAtIndex(i)
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
             }
         }
 
@@ -143,7 +143,7 @@ class WalkTests: XCTestCase {
 
             XCTAssertTrue(Path.join(root, "symlink").isSymlink)
 
-            let results = walk(root, "symlink").map{$0}.sort()
+            let results = walk(root, "symlink").map{$0}.sorted()
 
             // we recurse a symlink to a directory, so this should work,
             // but `abc` should not show because `baz` is a symlink too

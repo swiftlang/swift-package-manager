@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum SystemError: ErrorType {
+public enum SystemError: ErrorProtocol {
     case chdir(Int32)
     case close(Int32)
     case dirfd(Int32, String)
@@ -43,7 +43,7 @@ extension SystemError: CustomStringConvertible {
 
         func strerror(errno: Int32) -> String {
             let cmsg = libc.strerror(errno)
-            let msg = String.fromCString(cmsg) ?? "Unknown Error"
+            let msg = String(validatingUTF8: cmsg) ?? "Unknown Error"
             return "\(msg) (\(errno))"
         }
 
@@ -101,12 +101,12 @@ extension SystemError: CustomStringConvertible {
 }
 
 
-public enum Error: ErrorType {
+public enum Error: ErrorProtocol {
     case ExitStatus(Int32, [String])
     case ExitSignal
 }
 
-public enum ShellError: ErrorType {
+public enum ShellError: ErrorProtocol {
     case system(arguments: [String], SystemError)
     case popen(arguments: [String], SystemError)
 }

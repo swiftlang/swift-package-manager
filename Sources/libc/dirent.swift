@@ -12,7 +12,7 @@
 */
 
 #if os(Linux)
-public typealias DirHandle = COpaquePointer
+public typealias DirHandle = OpaquePointer
 #else
 public typealias DirHandle = UnsafeMutablePointer<DIR>
 #endif

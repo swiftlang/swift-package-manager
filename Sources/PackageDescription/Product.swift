@@ -60,7 +60,7 @@ extension Product: TOMLConvertible {
     }
 
     private var mods: String {
-        return modules.map{ "\"\($0)\"" }.joinWithSeparator(", ")
+        return modules.map{ "\"\($0)\"" }.joined(separator: ", ")
     }
 }
 

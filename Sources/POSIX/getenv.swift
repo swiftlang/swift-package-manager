@@ -12,5 +12,5 @@ import func libc.getenv
 
 public func getenv(key: String) -> String? {
     let out = libc.getenv(key)
-    return out == nil ? nil : String.fromCString(out)  //FIXME locale may not be UTF8
+    return out == nil ? nil : String(validatingUTF8: out)  //FIXME locale may not be UTF8
 }

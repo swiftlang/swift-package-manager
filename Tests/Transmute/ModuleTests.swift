@@ -114,11 +114,11 @@ class ModuleTests: XCTestCase {
 
         // precise order is not important, but it is important that the following are true
         let t6rd = t6.recursiveDeps
-        XCTAssertEqual(t6rd.indexOf(t3)!, t6rd.indexOf(t4)!.successor())
-        XCTAssert(t6rd.indexOf(t5)! < t6rd.indexOf(t2)!)
-        XCTAssert(t6rd.indexOf(t5)! < t6rd.indexOf(t1)!)
-        XCTAssert(t6rd.indexOf(t2)! < t6rd.indexOf(t1)!)
-        XCTAssert(t6rd.indexOf(t3)! < t6rd.indexOf(t2)!)
+        XCTAssertEqual(t6rd.index(of: t3)!, t6rd.index(of: t4)!.successor())
+        XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t2)!)
+        XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t1)!)
+        XCTAssert(t6rd.index(of: t2)! < t6rd.index(of: t1)!)
+        XCTAssert(t6rd.index(of: t3)! < t6rd.index(of: t2)!)
 
         XCTAssertEqual(t5.recursiveDeps, [t2, t1])
         XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
@@ -143,11 +143,11 @@ class ModuleTests: XCTestCase {
 
         // precise order is not important, but it is important that the following are true
         let t6rd = t6.recursiveDeps
-        XCTAssertEqual(t6rd.indexOf(t3)!, t6rd.indexOf(t4)!.successor())
-        XCTAssert(t6rd.indexOf(t5)! < t6rd.indexOf(t2)!)
-        XCTAssert(t6rd.indexOf(t5)! < t6rd.indexOf(t1)!)
-        XCTAssert(t6rd.indexOf(t2)! < t6rd.indexOf(t1)!)
-        XCTAssert(t6rd.indexOf(t3)! < t6rd.indexOf(t2)!)
+        XCTAssertEqual(t6rd.index(of: t3)!, t6rd.index(of: t4)!.successor())
+        XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t2)!)
+        XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t1)!)
+        XCTAssert(t6rd.index(of: t2)! < t6rd.index(of: t1)!)
+        XCTAssert(t6rd.index(of: t3)! < t6rd.index(of: t2)!)
 
         XCTAssertEqual(t5.recursiveDeps, [t2, t1])
         XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])

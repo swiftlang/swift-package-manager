@@ -4,8 +4,8 @@ import Darwin
 import Glibc
 #endif
 
-public extension CollectionType {
-    func shuffle() -> [Generator.Element] {
+public extension Collection {
+    func shuffle() -> [Iterator.Element] {
         var array = Array(self)
         array.shuffleInPlace()
 
@@ -13,7 +13,7 @@ public extension CollectionType {
     }
 }
 
-public extension MutableCollectionType where Index == Int {
+public extension MutableCollection where Index == Int {
     mutating func shuffleInPlace() {
         guard count > 1 else { return }
 

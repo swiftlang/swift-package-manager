@@ -86,7 +86,7 @@ extension Package {
         let path = path.normpath
         if path == manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
-        return path.lowercaseString.hasSuffix(".swift") && path.isFile
+        return path.lowercased().hasSuffix(".swift") && path.isFile
     }
 
     private func targetForName(name: String) -> Target? {

@@ -69,7 +69,7 @@ public final class Package {
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
 
-        if let fileNoOptIndex = Process.arguments.indexOf("-fileno"),
+        if let fileNoOptIndex = Process.arguments.index(of: "-fileno"),
                fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
             dumpPackageAtExit(self, fileNo: fileNo)
         }

@@ -26,7 +26,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
             let output = try executeSwiftBuild("\(prefix)/Bar")
-            let lines = output.characters.split("\n").map(String.init)
+            let lines = output.characters.split(separator: "\n").map(String.init)
             XCTAssertTrue(lines.contains("Resolved version: 1.3.5"))
         }
     }
@@ -308,7 +308,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write) { fp in
-                try POSIX.fputs("public extension CollectionType{ func shuffle() -> [Generator.Element] {return []} }\n\npublic extension MutableCollectionType where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerate() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
+                try POSIX.fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
             }
 
             XCTAssertBuilds(prefix, "app")

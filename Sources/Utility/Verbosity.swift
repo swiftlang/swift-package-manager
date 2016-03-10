@@ -43,7 +43,7 @@ public var verbosity = Verbosity.Concise
 import func libc.fputs
 import var libc.stderr
 
-public class StandardErrorOutputStream: OutputStreamType {
+public class StandardErrorOutputStream: OutputStream {
     public func write(string: String) {
         libc.fputs(string, libc.stderr)
     }
@@ -115,8 +115,8 @@ public func system(arguments: String..., environment: [String:String] = [:], mes
         }
     } catch {
         if verbosity == .Concise {
-            print(prettyArguments(arguments), toStream: &stderr)
-            print(out, toStream: &stderr)
+            print(prettyArguments(arguments), to: &stderr)
+            print(out, to: &stderr)
         }
         throw error
     }

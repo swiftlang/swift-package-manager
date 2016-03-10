@@ -55,7 +55,7 @@ public class SwiftModule: Module {
 
     public var type: ModuleType {
         let isLibrary = !sources.relativePaths.contains { path in
-            path.basename.lowercaseString == "main.swift"
+            path.basename.lowercased() == "main.swift"
         }
         return isLibrary ? .Library : .Executable
     }

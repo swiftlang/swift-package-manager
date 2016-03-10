@@ -27,5 +27,5 @@ func sort(module: Module) {
         }
     }
 
-    module.dependencies = recurse(module).reverse()
+    module.dependencies = recurse(module).reversed()
 }
