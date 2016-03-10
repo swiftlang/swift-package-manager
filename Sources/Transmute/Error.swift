@@ -27,5 +27,6 @@ extension Module {
     public enum Error: ErrorProtocol {
         case NoSources(String)
         case MixedSources(String)
+        case CExecutableNotSupportedYet(String) //TODO: Remove this when add Support for C Exectuable
     }
 }

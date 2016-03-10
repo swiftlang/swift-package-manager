@@ -90,6 +90,10 @@ extension Package {
         if isSwiftModule {
             return SwiftModule(name: name, sources: sources)
         }
+        
+        //FIXME: Support executables for C languages
+        guard !cSources.contains({ $0.hasSuffix("main.c") }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
+        
         return ClangModule(name: name, sources: sources)
     }
 
