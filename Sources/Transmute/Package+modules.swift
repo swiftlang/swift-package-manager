@@ -85,25 +85,33 @@ extension Package {
     }
 
     func sourcify(path: String) throws -> (sources: Sources, isSwiftModule: Bool) {
-        let sources = walk(path, recursing: shouldConsiderDirectory).filter(isValidSource)
-        guard sources.count > 0 else { throw Module.Error.NoSources(path) }
-        let partioned = sources.partition { $0.hasSuffix(".swift") }
-        guard !(partioned.0.count > 0 && partioned.1.count > 0) else { throw Module.Error.MixedSources(path) }
-        return (sources: Sources(paths: sources, root: path), isSwiftModule: partioned.0.count > 0)
+        let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
+        
+        let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
+        let swiftSources = walked.filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
+                
+        guard cSources.count > 0 || swiftSources.count > 0 else { throw Module.Error.NoSources(path) }
+        guard !(cSources.count > 0 && swiftSources.count > 0) else { throw Module.Error.MixedSources(path) }
+        
+        var sources = cSources
+        if swiftSources.count > 0 {
+            sources = swiftSources
+        }
+        return (sources: Sources(paths: sources, root: path), isSwiftModule: swiftSources.count > 0)
     }
 
     func isValidSource(path: String) -> Bool {
+        return isValidSource(path, validExtensions: Sources.validExtensions)
+    }
+    
+    func isValidSource(path: String, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         let path = path.normpath
         if path == manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
         if !path.isFile { return false }
-        for ext in Sources.validExtensions {
-            if path.lowercased().hasSuffix(ext) {
-                return true
-            }
-        }
-        return false
+        guard let ext = path.fileExt else { return false }
+        return validExtensions.contains(ext)
     }
 
     private func targetForName(name: String) -> Target? {
