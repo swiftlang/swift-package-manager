@@ -79,8 +79,8 @@ public class ClangModule: CModule {
     
     public init(name: String, sources: Sources) {
         self.sources = sources
-        //TODO: generate this with swiftpm if layout supports
-        super.init(name: name, path: sources.root + "/include/module.modulemap")
+        //TODO: generate module map using swiftpm if layout can support
+        super.init(name: name, path: sources.root + "/include")
     }
 }
 

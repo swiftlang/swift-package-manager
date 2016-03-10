@@ -112,21 +112,21 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         //FIXME: Generate modulemaps if possible
         //Since we're not generating modulemaps currently we'll just emit empty module map file
         //if it not present
-        if !module.path.isFile {
-            try mkdir(module.path.parentDirectory)
-            try fopen(module.path, mode: .Write) { fp in
+        if !module.moduleMapPath.isFile {
+            try mkdir(module.moduleMapPath.parentDirectory)
+            try fopen(module.moduleMapPath, mode: .Write) { fp in
                 try fputs("\n", fp)
             }
         }
         
         let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
-        let productPath = Path.join(prefix, "\(module.c99name).o")
+        let productPath = Path.join(prefix, "lib\(module.c99name).so")
         let wd = Path.join(prefix, "\(module.c99name).build")
         mkdirs.insert(wd)
         
         var args: [String] = []
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
-        args += ["-fmodule-map-file=\(module.path)", "-working-directory", Path.join(prefix, "\(module.c99name).build")]
+        args += ["-fmodule-map-file=\(module.moduleMapPath)"]
         
         switch conf {
         case .Debug:
@@ -136,7 +136,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
         
         args += module.sources.paths
-        args += ["-shared", "-o", Path.join(prefix, "lib\(module.c99name).so")]
+        args += ["-shared", "-o", productPath]
 
         let clang = ShellTool(
             description: "Compiling \(module.name)",
