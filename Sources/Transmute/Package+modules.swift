@@ -38,28 +38,19 @@ extension Package {
         let modules: [Module]
         if maybeModules.isEmpty {
             do {
-                let sourcified = try sourcify(srcroot)
-                if sourcified.isSwiftModule {
-                    modules = [SwiftModule(name: self.name, sources: sourcified.sources)]
-                } else {
-                    modules = [ClangModule(name: self.name, sources: sourcified.sources)]
-                }
-                
+                modules = [try modulify(srcroot, name: self.name)]
             } catch Module.Error.NoSources {
                 throw ModuleError.NoModules(self)
             }
         } else {
-            modules = try maybeModules.map(sourcify).map { sourcified in
+            modules = try maybeModules.map { path in
                 let name: String
-                if sourcified.sources.root == srcroot {
+                if path == srcroot {
                     name = self.name
                 } else {
-                    name = sourcified.sources.root.basename
+                    name = path.basename
                 }
-                if sourcified.isSwiftModule {
-                    return SwiftModule(name: name, sources: sourcified.sources)
-                }
-                return ClangModule(name: name, sources: sourcified.sources)
+                return try modulify(path, name: name)
             }
         }
 
@@ -83,8 +74,8 @@ extension Package {
 
         return modules
     }
-
-    func sourcify(path: String) throws -> (sources: Sources, isSwiftModule: Bool) {
+    
+    func modulify(path: String, name: String) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
@@ -93,11 +84,13 @@ extension Package {
         guard cSources.count > 0 || swiftSources.count > 0 else { throw Module.Error.NoSources(path) }
         guard !(cSources.count > 0 && swiftSources.count > 0) else { throw Module.Error.MixedSources(path) }
         
-        var sources = cSources
-        if swiftSources.count > 0 {
-            sources = swiftSources
+        let isSwiftModule = swiftSources.count > 0 //We've already made sure that it'll can be only either of the two.
+            let sources = Sources(paths: isSwiftModule ? swiftSources : cSources, root: path)
+        
+        if isSwiftModule {
+            return SwiftModule(name: name, sources: sources)
         }
-        return (sources: Sources(paths: sources, root: path), isSwiftModule: swiftSources.count > 0)
+        return ClangModule(name: name, sources: sources)
     }
 
     func isValidSource(path: String) -> Bool {
