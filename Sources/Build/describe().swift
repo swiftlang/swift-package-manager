@@ -125,11 +125,20 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         mkdirs.insert(wd)
         
         var args: [String] = []
+    #if os(Linux)
+         args += ["-fPIC"]
+    #endif
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
         args += ["-L\(prefix)"]
         
         for case let dep as ClangModule in module.dependencies {
-            args += ["-iquote", dep.path]
+            let includeFlag: String
+            if dep.path.parentDirectory.parentDirectory.basename == "Packages" { //Do better
+                includeFlag = "-I"
+            } else {
+                includeFlag = "-iquote"
+            }
+            args += [includeFlag, dep.path]
             args += ["-l\(dep.c99name)"] //FIXME: giving path to other module's -fmodule-map-file is not linking that module
         }
         

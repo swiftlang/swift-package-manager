@@ -55,6 +55,14 @@ class TestClangModulesTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
         }
     }
+    
+    func testCUsingCDep() {
+        fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
+            XCTAssertBuilds(prefix, "Bar")
+            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
+        }
+    }
 }
 
 
@@ -65,6 +73,8 @@ extension TestClangModulesTestCase {
             ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
             ("testMixedSwiftAndC", testMixedSwiftAndC),
             ("testExternalSimpleCDep", testExternalSimpleCDep),
+            ("testiquoteDep", testiquoteDep),
+            ("testCUsingCDep", testCUsingCDep),
         ]
     }
 }
