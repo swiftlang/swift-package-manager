@@ -12,6 +12,12 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftPM",
+    
+    /**
+     The following is parsed by our bootstrap script, so
+     if you make changes here please check the boostrap still
+     succeeds! Thanks.
+    */
     targets: [
         Target(
             /** “Swifty” POSIX functions from libc */
@@ -24,8 +30,8 @@ let package = Package(
         Target(
             /** Base types for the package-engine */
             name: "PackageType",
-            dependencies: ["PackageDescription", "Utility"]),  //FIXME dependency on PackageDescription sucks
-        Target(                                                //FIXME Utility is too general, we only need `Path`
+            dependencies: ["PackageDescription", "Utility"]),
+        Target(
             name: "ManifestParser",
             dependencies: ["PackageDescription", "PackageType"]),
         Target(
@@ -45,12 +51,15 @@ let package = Package(
             name: "Multitool",
             dependencies: ["PackageType"]),
         Target(
+            /** Generates Xcode projects */
             name: "Xcodeproj",
             dependencies: ["PackageType"]),
         Target(
+            /** The main executable provided by SwiftPM */
             name: "swift-build",
             dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
         Target(
+            /** Runs package tests */
             name: "swift-test",
             dependencies: ["Multitool"]),
     ])
