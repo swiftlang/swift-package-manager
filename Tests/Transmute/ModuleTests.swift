@@ -201,8 +201,8 @@ extension ModuleTests {
             let prefix = Path.join(prefix, "App")
             let manifest = try Manifest(path: prefix)
             let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-            let (modules, _) = try transmute(packages, rootdir: prefix)
-
+            let (modules, _,  _) = try transmute(packages, rootdir: prefix)
+            
             XCTAssertEqual(modules.count, 3)
             XCTAssertEqual(recursiveDependencies(modules).count, 3)
             XCTAssertTrue(modules.dropFirst().first is CModule)
@@ -212,7 +212,7 @@ extension ModuleTests {
             let prefix = Path.join(prefix, "App")
             let manifest = try Manifest(path: prefix)
             let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-            let (modules, _) = try transmute(packages, rootdir: prefix)
+            let (modules, _, _) = try transmute(packages, rootdir: prefix)
 
             XCTAssertEqual(modules.count, 2)
             XCTAssertTrue(modules.first is CModule)

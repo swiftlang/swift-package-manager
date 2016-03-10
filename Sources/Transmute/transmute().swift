@@ -12,7 +12,7 @@ import PackageType
 import Utility
 import func libc.exit
 
-public func transmute(packages: [Package], rootdir: String) throws -> ([Module], [Product]) {
+public func transmute(packages: [Package], rootdir: String) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
 
     var products: [Product] = []
     var map: [Package: [Module]] = [:]
@@ -66,18 +66,10 @@ public func transmute(packages: [Package], rootdir: String) throws -> ([Module],
     // ensure modules depend on the modules of any dependent packages
     fillModuleGraph(packages, modulesForPackage: { map[$0]! })
 
-    var set = Set<Module>()
-    var stack = packages.flatMap{ map[$0] ?? [] }
-    var modules = [Module]()
+    let depPackages = packages.filter{ $0.path != rootdir }
 
-    while !stack.isEmpty {
-        let module = stack.removeFirst()
-        if !set.contains(module) {
-            set.insert(module)
-            stack += module.dependencies
-            modules.append(module)
-        }
-    }
+    let modules = recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
+    let extModules = recursiveDependencies(depPackages.flatMap{ map[$0] ?? [] })
 
-    return (modules, products)
+    return (modules, extModules, products)
 }

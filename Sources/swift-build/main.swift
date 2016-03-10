@@ -67,7 +67,7 @@ do {
         case .Build(let conf):
             let dirs = try directories()
             let packages = try fetch(dirs.root)
-            let (modules, products) = try transmute(packages, rootdir: dirs.root)
+            let (modules, externalModules, products) = try transmute(packages, rootdir: dirs.root)
             let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
             try build(YAMLPath: yaml, target: "default")
 
@@ -93,8 +93,10 @@ do {
         case .GenerateXcodeproj(let outpath):
             let dirs = try directories()
             let packages = try fetch(dirs.root)
-            let (modules, products) = try transmute(packages, rootdir: dirs.root)
+            let (modules, externalModules, products) = try transmute(packages, rootdir: dirs.root)
+            
             let swiftModules = modules.flatMap{ $0 as? SwiftModule }
+            let externalSwiftModules = externalModules.flatMap{ $0 as? SwiftModule }
 
             let projectName: String
             let dstdir: String
@@ -114,7 +116,7 @@ do {
                 projectName = packageName
             }
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: swiftModules, products: products)
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: swiftModules, externalModules: externalSwiftModules, products: products)
 
             print("generated:", outpath.prettied)
     }
