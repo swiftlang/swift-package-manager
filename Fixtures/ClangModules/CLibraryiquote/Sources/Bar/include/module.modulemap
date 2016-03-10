@@ -1,0 +1,5 @@
+module Bar {
+  header "Bar/Bar.h"
+  link "Bar"
+  export *
+}

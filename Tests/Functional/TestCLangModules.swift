@@ -47,6 +47,14 @@ class TestClangModulesTestCase: XCTestCase {
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
+    
+    func testiquoteDep() {
+        fixture(name: "ClangModules/CLibraryiquote") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "libFoo.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
+        }
+    }
 }
 
 

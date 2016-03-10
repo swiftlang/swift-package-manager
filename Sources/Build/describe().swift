@@ -126,10 +126,11 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         
         var args: [String] = []
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
-        args += ["-fmodule-map-file=\(module.moduleMapPath)"]
+        args += ["-L\(prefix)"]
         
-        for case let otherModule as ClangModule in modules where otherModule != module {
-            args += ["-iquote", otherModule.path]
+        for case let dep as ClangModule in module.dependencies {
+            args += ["-iquote", dep.path]
+            args += ["-l\(dep.c99name)"] //FIXME: giving path to other module's -fmodule-map-file is not linking that module
         }
         
         switch conf {
