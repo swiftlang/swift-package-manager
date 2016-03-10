@@ -74,15 +74,13 @@ public class CModule: Module {
     }
 }
 
-public class ClangModule: Module {
+public class ClangModule: CModule {
     public let sources: Sources
-    public let moduleMapPath: String
     
     public init(name: String, sources: Sources) {
         self.sources = sources
         //TODO: generate this with swiftpm if layout supports
-        moduleMapPath = sources.root + "/include/module.modulemap"
-        super.init(name: name)
+        super.init(name: name, path: sources.root + "/include/module.modulemap")
     }
 }
 

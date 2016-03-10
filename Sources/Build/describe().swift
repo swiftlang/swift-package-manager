@@ -115,7 +115,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         
         var args: [String] = []
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
-        args += ["-fmodule-map-file=\(module.moduleMapPath)", "-working-directory", Path.join(prefix, "\(module.c99name).build")]
+        args += ["-fmodule-map-file=\(module.path)", "-working-directory", Path.join(prefix, "\(module.c99name).build")]
         
         switch conf {
         case .Debug:
