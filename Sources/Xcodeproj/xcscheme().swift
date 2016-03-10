@@ -37,7 +37,8 @@ func xcscheme(packageName packageName: String, modules: [SwiftModule], printer p
     print("    buildConfiguration = \"Debug\"")
     print("    selectedDebuggerIdentifier = \"Xcode.DebuggerFoundation.Debugger.LLDB\"")
     print("    selectedLauncherIdentifier = \"Xcode.DebuggerFoundation.Launcher.LLDB\"")
-    print("    shouldUseLaunchSchemeArgsEnv = \"YES\">")
+    print("    shouldUseLaunchSchemeArgsEnv = \"YES\"")
+    print("    codeCoverageEnabled = \"YES\">")
     print("    <Testables>")
 
     for module in tests {
