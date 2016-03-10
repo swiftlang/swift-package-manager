@@ -119,14 +119,19 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         // the target build configuration
         print("        \(module.configurationListReference) = {")
         print("            isa = XCConfigurationList;")
-        print("            buildConfigurations = (\(module.configurationReference));")
+        print("            buildConfigurations = (\(module.debugConfigurationReference), \(module.releaseConfigurationReference));")
         print("            defaultConfigurationIsVisible = 0;")
         print("            defaultConfigurationName = Debug;")
         print("        };")
-        print("        \(module.configurationReference) = {")
+        print("        \(module.debugConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.buildSettings) };")
+        print("            buildSettings = { \(module.debugBuildSettings) };")
         print("            name = Debug;")
+        print("        };")
+        print("        \(module.releaseConfigurationReference) = {")
+        print("            isa = XCBuildConfiguration;")
+        print("            buildSettings = { \(module.releaseBuildSettings) };")
+        print("            name = Release;")
         print("        };")
 
         //TODO ^^ probably can consolidate this into the three kinds
@@ -189,19 +194,24 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     print("        };")
 
 ////// primary build configurations
-    print("        \(rootBuildConfigurationReference) = {")
+    print("        \(rootDebugBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
     print("            buildSettings = {};")
     print("            name = Debug;")
     print("        };")
+    print("        \(rootReleaseBuildConfigurationReference) = {")
+    print("            isa = XCBuildConfiguration;")
+    print("            buildSettings = {};")
+    print("            name = Release;")
+    print("        };")
     print("        \(rootBuildConfigurationListReference) = {")
     print("            isa = XCConfigurationList;")
-    print("            buildConfigurations = (\(rootBuildConfigurationReference));")
+    print("            buildConfigurations = (\(rootDebugBuildConfigurationReference), \(rootReleaseBuildConfigurationReference));")
     print("            defaultConfigurationIsVisible = 0;")
     print("            defaultConfigurationName = Debug;")
     print("        };")
     print("    };")
-    
+
 ////// done!
     print("}")
 }
