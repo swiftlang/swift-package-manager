@@ -5,14 +5,14 @@
 
 import XCTest
 
-@testable import Transmutetest
-@testable import Utilitytest
-@testable import Functionaltest
-@testable import Gettest
-@testable import ManifestParsertest
-@testable import PackageDescriptiontest
-@testable import PackageTypetest
-@testable import Buildtest
+@testable import TransmuteTestSuite
+@testable import UtilityTestSuite
+@testable import FunctionalTestSuite
+@testable import GetTestSuite
+@testable import ManifestParserTestSuite
+@testable import PackageDescriptionTestSuite
+@testable import PackageTypeTestSuite
+@testable import BuildTestSuite
 
 XCTMain([
     testCase(DependencyResolutionTestCase.allTests),
@@ -22,10 +22,10 @@ XCTMain([
     testCase(InvalidLayoutsTestCase.allTests),
     testCase(ManifestTests.allTests),
     testCase(MiscellaneousTestCase.allTests),
-    testCase(ManifestParsertest.PackageTests.allTests),
+    testCase(ManifestParserTestSuite.PackageTests.allTests),
     testCase(ModuleTests.allTests),
-    testCase(PackageDescriptiontest.PackageTests.allTests),
-    testCase(PackageTypetest.PackageTests.allTests),
+    testCase(PackageDescriptionTestSuite.PackageTests.allTests),
+    testCase(PackageTypeTestSuite.PackageTests.allTests),
     testCase(PathTests.allTests),
     testCase(RelativePathTests.allTests),
     testCase(ShellTests.allTests),
