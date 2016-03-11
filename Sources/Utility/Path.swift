@@ -269,4 +269,20 @@ extension String {
         let cleaned = characters.split(separator: "/").map(String.init).joined(separator: "/")
         return abs ? "/\(cleaned)" : cleaned
     }
+
+    /**
+      - Returns: A path suitable for display to the user, if possible,
+        a path relative to the current working directory.
+      - Note: As such this function relies on the working directory
+        not changing during execution.
+     */
+    public var prettyPath: String {
+        if let wd = try? getcwd() {
+            return Path(self).relative(to: wd)
+        } else if let abspath = try? abspath() {
+            return abspath
+        } else {
+            return self
+        }
+    }
 }

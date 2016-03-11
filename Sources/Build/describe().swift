@@ -244,7 +244,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         let inputs = product.modules.flatMap{ [$0.targetName] + IncrementalNode(module: $0, prefix: prefix).inputs }
 
         let shell = ShellTool(
-            description: "Linking \(product)",
+            description: "Linking \(outpath.prettyPath)",
             inputs: inputs,
             outputs: [product.targetName, outpath],
             args: args)
