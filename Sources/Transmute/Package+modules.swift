@@ -80,21 +80,16 @@ extension Package {
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
-                
-        guard cSources.count > 0 || swiftSources.count > 0 else { throw Module.Error.NoSources(path) }
-        guard !(cSources.count > 0 && swiftSources.count > 0) else { throw Module.Error.MixedSources(path) }
         
-        let isSwiftModule = swiftSources.count > 0 //We've already made sure that it'll can be only either of the two.
-            let sources = Sources(paths: isSwiftModule ? swiftSources : cSources, root: path)
-        
-        if isSwiftModule {
-            return SwiftModule(name: name, sources: sources)
+        if !cSources.isEmpty {
+            guard swiftSources.isEmpty else { throw Module.Error.MixedSources(path) }
+            //FIXME: Support executables for C languages
+            guard !cSources.contains({ $0.hasSuffix("main.c") }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
+            return ClangModule(name: name, sources: Sources(paths: cSources, root: path))
         }
         
-        //FIXME: Support executables for C languages
-        guard !cSources.contains({ $0.hasSuffix("main.c") }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
-        
-        return ClangModule(name: name, sources: sources)
+        guard !swiftSources.isEmpty else { throw Module.Error.NoSources(path) }
+        return SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path)) 
     }
 
     func isValidSource(path: String) -> Bool {
