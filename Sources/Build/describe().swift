@@ -133,7 +133,14 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         
         for case let dep as ClangModule in module.dependencies {
             let includeFlag: String
-            if dep.path.parentDirectory.parentDirectory.basename == "Packages" { //Do better
+            //add `-iquote` argument to the include directory of every target in the package in the
+            //transitive closure of the target being built allowing the use of `#include "..."`
+            //add `-I` argument to the include directory of every target outside the package in the
+            //transitive closure of the target being built allowing the use of `#include <...>`
+            //FIXME: To detect external deps we're checking if their path's parent.parent directory 
+            //is `Packages` as external deps will get copied to `Packages` dir. There should be a
+            //better way to do this.
+            if dep.path.parentDirectory.parentDirectory.basename == "Packages" {
                 includeFlag = "-I"
             } else {
                 includeFlag = "-iquote"
