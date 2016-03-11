@@ -33,13 +33,14 @@ import argparse
 import errno
 import json
 import os
+import pipes
 import platform
+import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
-import pipes
-import shutil
 
 ###
 
@@ -179,24 +180,48 @@ class Target(object):
             str(bool(self.is_library)).lower()), file=output)
         print(file=output)
 
+# currently only returns the targets parsed from the manifest
+def parse_manifest():
+    # we have a *very* strict format for our manifest to make parsing more robust
+    pattern = re.compile(r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)', re.DOTALL|re.MULTILINE)
+    manifest_data = open(os.path.join(g_project_root, "Package.swift")).read()
+
+    def convert(match):
+        name = match.group(1)
+        deps = eval(match.group(2))
+        return Target(name, deps)
+    targets = map(convert, pattern.finditer(manifest_data))
+
+    # substitute strings for Target objects
+    for target in targets:
+        def convert(targetName):
+            try:
+                return next(a for a in targets if a.name == targetName)
+            except StopIteration:
+                # this target is not explicit in the manifest: it is an implicit target
+                b = Target(targetName)
+                targets.append(b)
+                return b
+        target.dependencies = map(convert, target.dependencies)
+
+    # fill dependency graph and set dependencies back to strings
+    def convert(target):
+        myset = set()
+        def recurse(root):
+            deps = []
+            for dep in root.dependencies:
+                if dep.name not in myset:
+                    myset.add(dep.name)
+                    deps += recurse(dep) + [dep.name]
+            return deps
+        # `reversed` because Linux link order must be reverse-topological
+        return Target(target.name, reversed(recurse(target)))
+    return map(convert, targets)
+
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
-targets = [
-    Target('libc'),
-    Target('POSIX', dependencies=["libc"]),
-    Target('Utility', dependencies=["POSIX", "libc"]),
-    Target('PackageDescription'),
-    Target('Xcodeproj', dependencies=["PackageType", "Utility", "POSIX", "libc"]),
-    Target('Multitool', dependencies=["PackageType", "Utility", "POSIX", "libc"]),
-    Target('PackageType', dependencies=["PackageDescription", "Utility", "POSIX", "libc"]),
-    Target('Transmute', dependencies=["PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
-    Target('ManifestParser', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
-    Target('Get', dependencies=["ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
-    Target('Build', dependencies=["PackageType", "Utility", "PackageDescription", "POSIX", "libc"]),
-    Target('swift-build', dependencies=["Xcodeproj", "Transmute", "Multitool", "Build", "Get", "ManifestParser", "PackageDescription", "PackageType", "Utility", "POSIX", "libc"]),
-    Target('swift-test', dependencies=["Multitool", "PackageType", "PackageDescription", "Utility", "POSIX", "libc"]),
-]
+targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 
 def create_bootstrap_files(sandbox_path, args):
