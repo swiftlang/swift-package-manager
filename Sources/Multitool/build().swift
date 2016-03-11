@@ -23,7 +23,7 @@ private func swift_build_tool() -> String {
     } else if let path = try? Path.join(exepath, "..", "swift-build-tool").abspath() where path.isFile {
         return path
     } else {
-        return "swift-build-tool"
+        return Toolchain.which("swift-build-tool")
     }
 }
 
