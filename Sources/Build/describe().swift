@@ -103,6 +103,72 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
     }
 
+    //For C language Modules
+    //FIXME: Probably needs more compiler options for debug and release modes
+    //FIXME: Incremental builds
+    //FIXME: Add support for executables
+    for case let module as ClangModule in modules {
+        
+        //FIXME: Generate modulemaps if possible
+        //Since we're not generating modulemaps currently we'll just emit empty module map file
+        //if it not present
+        if !module.moduleMapPath.isFile {
+            try mkdir(module.moduleMapPath.parentDirectory)
+            try fopen(module.moduleMapPath, mode: .Write) { fp in
+                try fputs("\n", fp)
+            }
+        }
+        
+        let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
+        let productPath = Path.join(prefix, "lib\(module.c99name).so")
+        let wd = Path.join(prefix, "\(module.c99name).build")
+        mkdirs.insert(wd)
+        
+        var args: [String] = []
+    #if os(Linux)
+         args += ["-fPIC"]
+    #endif
+        args += ["-fmodules", "-fmodule-name=\(module.name)"]
+        args += ["-L\(prefix)"]
+        
+        for case let dep as ClangModule in module.dependencies {
+            let includeFlag: String
+            //add `-iquote` argument to the include directory of every target in the package in the
+            //transitive closure of the target being built allowing the use of `#include "..."`
+            //add `-I` argument to the include directory of every target outside the package in the
+            //transitive closure of the target being built allowing the use of `#include <...>`
+            //FIXME: To detect external deps we're checking if their path's parent.parent directory 
+            //is `Packages` as external deps will get copied to `Packages` dir. There should be a
+            //better way to do this.
+            if dep.path.parentDirectory.parentDirectory.basename == "Packages" {
+                includeFlag = "-I"
+            } else {
+                includeFlag = "-iquote"
+            }
+            args += [includeFlag, dep.path]
+            args += ["-l\(dep.c99name)"] //FIXME: giving path to other module's -fmodule-map-file is not linking that module
+        }
+        
+        switch conf {
+        case .Debug:
+            args += ["-g", "-O0"]
+        case .Release:
+            args += ["-O2"]
+        }
+        
+        args += module.sources.paths
+        args += ["-shared", "-o", productPath]
+
+        let clang = ShellTool(
+            description: "Compiling \(module.name)",
+            inputs: inputs,
+            outputs: [productPath, module.targetName],
+            args: [Toolchain.clang] + args)
+        
+        let command = Command(name: module.targetName, tool: clang)
+        append(command, buildable: module)
+    }
+    
     // make eg .build/debug/foo.build/subdir for eg. Sources/foo/subdir/bar.swift
     // TODO swift-build-tool should do this
     for dir in mkdirs {
@@ -171,6 +237,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
         args += platformArgs() //TODO don't need all these here or above: split outname
         args += Xld
+        args += ["-L\(prefix)"]
         args += ["-o", outpath]
         args += objects
 

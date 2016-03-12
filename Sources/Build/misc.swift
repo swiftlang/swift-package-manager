@@ -26,12 +26,17 @@ func platformArgs() -> [String] {
     return args
 }
 
+extension CModule {
+    var moduleMapPath: String {
+        return Path.join(path, "module.modulemap")
+    }
+}
+
 extension Module {
     var Xcc: [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? CModule {
-                let moduleMapPath = Path.join(module.path, "module.modulemap")
-                return ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"]
+                return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
             } else {
                 return []
             }

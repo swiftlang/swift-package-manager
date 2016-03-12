@@ -1,0 +1,5 @@
+module CLibrarySources {
+  header "abc.h"
+  link "CLibrarySources"
+  export *
+}

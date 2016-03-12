@@ -46,6 +46,9 @@ public struct Toolchain: Installation {
 
     /// the location of swift_build_tool relatve to our installation
     public static let swift_build_tool = getenv("SWIFT_BUILD_TOOL") ?? Toolchain.which("swift-build-tool")
+	
+    /// the location of clang relatve to our installation
+    public static let clang = getenv("CC") ?? Toolchain.which("clang")
 }
 
 #if os(OSX)

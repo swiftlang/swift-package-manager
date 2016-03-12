@@ -38,19 +38,19 @@ extension Package {
         let modules: [Module]
         if maybeModules.isEmpty {
             do {
-                modules = [SwiftModule(name: self.name, sources: try sourcify(srcroot))]
+                modules = [try modulify(srcroot, name: self.name)]
             } catch Module.Error.NoSources {
                 throw ModuleError.NoModules(self)
             }
         } else {
-            modules = try maybeModules.map(sourcify).map { sources in
+            modules = try maybeModules.map { path in
                 let name: String
-                if sources.root == srcroot {
+                if path == srcroot {
                     name = self.name
                 } else {
-                    name = sources.root.basename
+                    name = path.basename
                 }
-                return SwiftModule(name: name, sources: sources)
+                return try modulify(path, name: name)
             }
         }
 
@@ -74,19 +74,36 @@ extension Package {
 
         return modules
     }
-
-    func sourcify(path: String) throws -> Sources {
-        let sources = walk(path, recursing: shouldConsiderDirectory).filter(isValidSource)
-        guard sources.count > 0 else { throw Module.Error.NoSources(path) }
-        return Sources(paths: sources, root: path)
+    
+    func modulify(path: String, name: String) throws -> Module {
+        let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
+        
+        let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
+        let swiftSources = walked.filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
+        
+        if !cSources.isEmpty {
+            guard swiftSources.isEmpty else { throw Module.Error.MixedSources(path) }
+            //FIXME: Support executables for C languages
+            guard !cSources.contains({ $0.hasSuffix("main.c") }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
+            return ClangModule(name: name, sources: Sources(paths: cSources, root: path))
+        }
+        
+        guard !swiftSources.isEmpty else { throw Module.Error.NoSources(path) }
+        return SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path)) 
     }
 
     func isValidSource(path: String) -> Bool {
+        return isValidSource(path, validExtensions: Sources.validExtensions)
+    }
+    
+    func isValidSource(path: String, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         let path = path.normpath
         if path == manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
-        return path.lowercased().hasSuffix(".swift") && path.isFile
+        if !path.isFile { return false }
+        guard let ext = path.fileExt else { return false }
+        return validExtensions.contains(ext)
     }
 
     private func targetForName(name: String) -> Target? {

@@ -26,4 +26,16 @@ public struct Sources {
         relativePaths = paths.map { Path($0).relative(to: root) }
         self.root = root
     }
+    
+    static public var validSwiftExtensions: Set<String> {
+        return ["swift"]
+    }
+    
+    static public var validCExtensions: Set<String> {
+        return ["c"]
+    }
+    
+    static public var validExtensions: Set<String> {
+        return validSwiftExtensions.union(validCExtensions)
+    }
 }

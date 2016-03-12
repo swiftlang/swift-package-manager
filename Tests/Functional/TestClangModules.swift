@@ -1,0 +1,80 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
+import struct Utility.Path
+import func POSIX.symlink
+import func Utility.walk
+import func POSIX.rename
+import func POSIX.mkdir
+import func POSIX.popen
+import XCTest
+
+class TestClangModulesTestCase: XCTestCase {
+    
+    func testSingleModuleFlatCLibrary() {
+        fixture(name: "ClangModules/CLibraryFlat") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "libCLibraryFlat.so")
+        }
+    }
+    
+    func testSingleModuleCLibraryInSources() {
+        fixture(name: "ClangModules/CLibrarySources") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "libCLibrarySources.so")
+        }
+    }
+    
+    func testMixedSwiftAndC() {
+        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "libSeaLib.so")
+        }
+    }
+    
+    func testExternalSimpleCDep() {
+        fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
+            XCTAssertBuilds(prefix, "Bar")
+            XCTAssertFileExists(prefix, "Bar/.build/debug/Bar")
+            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
+        }
+    }
+    
+    func testiquoteDep() {
+        fixture(name: "ClangModules/CLibraryiquote") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build", "debug", "libFoo.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
+        }
+    }
+    
+    func testCUsingCDep() {
+        fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
+            XCTAssertBuilds(prefix, "Bar")
+            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
+        }
+    }
+}
+
+
+extension TestClangModulesTestCase {
+    static var allTests : [(String, TestClangModulesTestCase -> () throws -> Void)] {
+        return [
+            ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
+            ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
+            ("testMixedSwiftAndC", testMixedSwiftAndC),
+            ("testExternalSimpleCDep", testExternalSimpleCDep),
+            ("testiquoteDep", testiquoteDep),
+            ("testCUsingCDep", testCUsingCDep),
+        ]
+    }
+}

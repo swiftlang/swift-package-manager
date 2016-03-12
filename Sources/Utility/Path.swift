@@ -217,6 +217,17 @@ extension String {
         let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
     }
+    
+    /**
+     - Returns: the file extension for a file otherwise nil
+     */
+    public var fileExt: String? {
+        guard isFile else { return nil }
+        guard characters.contains(".") else { return nil }
+        let parts = characters.split(separator: ".")
+        if let last = parts.last where parts.count > 1 { return String(last) }
+        return nil
+    }
 
     /**
      - Returns: true if the string is a symlink on the filesystem
