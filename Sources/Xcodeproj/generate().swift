@@ -18,7 +18,12 @@ import POSIX
 */
 public func generate(path path: String, package: Package, modules: [SwiftModule], products: [Product]) throws -> String {
 
-    let rootdir = try mkdir(path, "\(package.name).xcodeproj")
+    /// If a specific *.xcodeproj path is already passed in, use that. 
+    /// Otherwise treat the path as the desired enclosing folder for
+    /// the .xcodeproj folder.
+    let rootdir = path.hasSuffix(".xcodeproj") ? path : Path.join(path, "\(package.name).xcodeproj")
+    try mkdir(rootdir)
+    
     let schemedir = try mkdir(rootdir, "xcshareddata/xcschemes")
 
 ////// the pbxproj file describes the project and its targets
