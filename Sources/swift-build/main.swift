@@ -90,14 +90,13 @@ do {
         case .Version:
             print("Apple Swift Package Manager 0.1")
             
-        case .GenerateXcodeproj(let xcodeprojPath):
+        case .GenerateXcodeproj(let outpath):
             let dirs = try directories()
             let packages = try fetch(dirs.root)
             let (modules, products) = try transmute(packages, rootdir: dirs.root)
             let swiftModules = modules.flatMap{ $0 as? SwiftModule }
-            
-            let xcodeprojFolder = try (xcodeprojPath ?? ".").abspath()
-            let path = try Xcodeproj.generate(path: xcodeprojFolder, package: packages.last!, modules: swiftModules, products: products)
+
+            let path = try Xcodeproj.generate(path: outpath ?? dirs.root, package: packages.last!, modules: swiftModules, products: products)
 
             print("generated:", path.prettied)
     }
