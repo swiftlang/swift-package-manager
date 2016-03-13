@@ -131,6 +131,7 @@ extension RelativePathTests {
             ("testAbsolute", testAbsolute),
             ("testRelative", testRelative),
             ("testMixed", testMixed),
+            ("testRelativeCommonSubprefix", testRelativeCommonSubprefix)
         ]
     }
 }
