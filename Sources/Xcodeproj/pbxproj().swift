@@ -157,10 +157,35 @@ public func pbxproj(package package: Package, modules: [SwiftModule], products _
     print("            sourceTree = '<group>';")
     print("        };")
 
+////// “Tests” group
+    print("        \(testsGroupReference) = {")
+    print("            isa = PBXGroup;")
+    print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
+    print("            name = Tests;")
+    print("            sourceTree = '<group>';")
+    print("        };")
+
+    
+    var productReferences: [String] = []
+    
+    if !tests.isEmpty {
+        ////// “Product/Tests” group
+        print("       \(testProductsGroupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            children = (" + tests.map{ $0.productReference }.joined(separator: ", ") + ");")
+        print("            name = Tests;")
+        print("            sourceTree = '<group>';")
+        print("        };")
+
+        productReferences = [testProductsGroupReference]
+    }
+
 ////// “Products” group
+    productReferences += nontests.map { $0.productReference }
+
     print("        \(productsGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (" + modules.map{ $0.productReference }.joined(separator: ", ") + ");")
+    print("            children = (" + productReferences.joined(separator: ", ") + ");")
     print("            name = Products;")
     print("            sourceTree = '<group>';")
     print("        };")
