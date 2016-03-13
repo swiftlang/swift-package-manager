@@ -89,34 +89,46 @@ extension SwiftModule {
         return type == .Library
     }
 
-    var type: String {
+    func productType(forType type: ProductBuildType) -> String {
         if self is TestModule {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
-            return "com.apple.product-type.library.dynamic"
+            switch type {
+            case .Framework:
+                return "com.apple.product-type.framework"
+            case .DyLib:
+                return "com.apple.product-type.library.dynamic"
+            }
         } else {
             return "com.apple.product-type.tool"
         }
     }
 
-    var explicitFileType: String {
-        func suffix() -> String {
-            if self is TestModule {
-                return "wrapper.cfbundle"
-            } else if isLibrary {
-                return "dylib"
-            } else {
-                return "executable"
+    func explicitFileType(forType type: ProductBuildType) -> String {
+        if self is TestModule {
+            return "wrapper.cfbundle"
+        } else if isLibrary {
+            switch type {
+            case .Framework:
+                return "wrapper.framework"
+            case .DyLib:
+                return "compiled.mach-o.dylib"
             }
+        } else {
+            return "compiled.mach-o.executable"
         }
-        return "compiled.mach-o.\(suffix())"
     }
 
-    var productPath: String {
+    func productPath(forType type: ProductBuildType) -> String {
         if self is TestModule {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "\(c99name).dylib"
+            switch type {
+            case .Framework:
+                return "\(c99name).framework"
+            case .DyLib:
+                return "\(c99name).dylib"
+            }
         } else {
             return name
         }
@@ -186,11 +198,16 @@ extension SwiftModule {
         return targetReference
     }
 
-    var buildableName: String {
+    func buildableName(forType type: ProductBuildType) -> String {
         if isLibrary && !(self is TestModule) {
-            return "lib\(productPath)"
+            switch type {
+            case .Framework:
+                return "\(productPath(forType: type)).framework"
+            case .DyLib:
+                return "lib\(productPath(forType: type))"
+            }
         } else {
-            return productPath
+            return productPath(forType: type)
         }
     }
 

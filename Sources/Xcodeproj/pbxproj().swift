@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(package package: Package, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(package package: Package, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void, productType: ProductBuildType) {
 
     let srcroot = package.path
     let nontests = modules.filter{ !($0 is TestModule) }
@@ -85,14 +85,14 @@ public func pbxproj(package package: Package, modules: [SwiftModule], products _
         print("            name = \(module.name);")
         print("            productName = \(module.c99name);")
         print("            productReference = \(module.productReference);")
-        print("            productType = '\(module.type)';")
+        print("            productType = '\(module.productType(forType: productType))';")
         print("        };")
 
         // the product file reference
         print("        \(module.productReference) = {")
         print("            isa = PBXFileReference;")
-        print("            explicitFileType = '\(module.explicitFileType)';")
-        print("            path = '\(module.productPath)';")
+        print("            explicitFileType = '\(module.explicitFileType(forType: productType))';")
+        print("            path = '\(module.productPath(forType: productType))';")
         print("            sourceTree = BUILT_PRODUCTS_DIR;")
         print("        };")
 

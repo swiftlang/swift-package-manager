@@ -10,6 +10,7 @@
 
 import enum Build.Configuration
 import Multitool
+import Xcodeproj
 
 func usage(print: (String) -> Void = { print($0) }) {
          //.........10.........20.........30.........40.........50.........60.........70..
@@ -30,6 +31,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("  -Xcc <flag>        Pass flag through to all C compiler instantiations")
     print("  -Xlinker <flag>    Pass flag through to all linker instantiations")
     print("  -Xswiftc <flag>    Pass flag through to all Swift compiler instantiations")
+    print("  --type <value>     Set type of built products (framework|dylib)")
 }
 
 enum CleanMode: String {
@@ -53,6 +55,7 @@ struct Options {
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
+    var type: ProductBuildType = .DyLib
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -181,6 +184,13 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
 
         case .Switch(.Xswiftc):
             opts.Xswiftc.append(try cruncher.rawPop())
+
+        case .Switch(.ProductType):
+            let rawProductType = try cruncher.rawPop()
+            guard let productType = ProductBuildType(rawValue: rawProductType) else {
+                throw CommandLineError.InvalidUsage("Unknown type. Supported types: dylib, framework", .Print)
+            }
+            opts.type = productType
         }
     }
 
@@ -246,6 +256,7 @@ private struct Cruncher {
             case Xcc = "-Xcc"
             case Xlinker = "-Xlinker"
             case Xswiftc = "-Xswiftc"
+            case ProductType = "--type"
             
             init?(rawValue: String) {
                 switch rawValue {
@@ -259,6 +270,8 @@ private struct Cruncher {
                     self = .Xlinker
                 case Xswiftc.rawValue:
                     self = .Xswiftc
+                case ProductType.rawValue:
+                    self = .ProductType
                 default:
                     return nil
                 }
