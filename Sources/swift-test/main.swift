@@ -11,10 +11,14 @@
 import func libc.exit
 import Multitool
 import Utility
+import func POSIX.chdir
 
 do {
     let args = Array(Process.arguments.dropFirst())
-    let mode = try parse(commandLineArguments: args)
+    let (mode, opts) = try parse(commandLineArguments: args)
+    if let dir = opts.chdir {
+        try chdir(dir)
+    }
 
     switch mode {
     case .Usage:
