@@ -97,7 +97,7 @@ do {
             let swiftModules = modules.flatMap{ $0 as? SwiftModule }
             
             let xcodeprojFolder = try (xcodeprojPath ?? ".").abspath()
-            let path = try Xcodeproj.generate(path: xcodeprojFolder, package: packages.last!, modules: swiftModules, products: products)
+            let path = try Xcodeproj.generate(path: xcodeprojFolder, package: packages.last!, modules: swiftModules, products: products, productType: opts.type)
 
             print("generated:", path.prettied)
     }

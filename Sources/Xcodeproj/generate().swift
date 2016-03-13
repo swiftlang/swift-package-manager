@@ -12,24 +12,29 @@ import PackageType
 import Utility
 import POSIX
 
+public enum ProductBuildType: String {
+    case DyLib = "dylib"
+    case Framework = "framework"
+}
+
 /** 
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(path path: String, package: Package, modules: [SwiftModule], products: [Product]) throws -> String {
+public func generate(path path: String, package: Package, modules: [SwiftModule], products: [Product], productType: ProductBuildType) throws -> String {
 
     let rootdir = try mkdir(path, "\(package.name).xcodeproj")
     let schemedir = try mkdir(rootdir, "xcshareddata/xcschemes")
 
 ////// the pbxproj file describes the project and its targets
     try open(rootdir, "project.pbxproj") { fwrite in
-        pbxproj(package: package, modules: modules, products: products, printer: fwrite)
+        pbxproj(package: package, modules: modules, products: products, printer: fwrite, productType: productType)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
     try open(schemedir, "\(package.name).xcscheme") { fwrite in
-        xcscheme(packageName: package.name, modules: modules, printer: fwrite)
+        xcscheme(packageName: package.name, modules: modules, printer: fwrite, productType: productType)
     }
 
 ////// we generate this file to ensure our main scheme is listed
