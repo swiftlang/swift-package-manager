@@ -30,6 +30,7 @@ try:
 except ImportError:
     from io import StringIO
 import argparse
+import codecs
 import errno
 import json
 import os
@@ -184,13 +185,13 @@ class Target(object):
 def parse_manifest():
     # we have a *very* strict format for our manifest to make parsing more robust
     pattern = re.compile(r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)', re.DOTALL|re.MULTILINE)
-    manifest_data = open(os.path.join(g_project_root, "Package.swift")).read()
+    manifest_data = codecs.open(os.path.join(g_project_root, "Package.swift"), encoding='utf-8', errors='strict').read()
 
     def convert(match):
         name = match.group(1)
         deps = eval(match.group(2))
         return Target(name, deps)
-    targets = map(convert, pattern.finditer(manifest_data))
+    targets = list(map(convert, pattern.finditer(manifest_data)))
 
     # substitute strings for Target objects
     for target in targets:
@@ -202,7 +203,7 @@ def parse_manifest():
                 b = Target(targetName)
                 targets.append(b)
                 return b
-        target.dependencies = map(convert, target.dependencies)
+        target.dependencies = list(map(convert, target.dependencies))
 
     # fill dependency graph and set dependencies back to strings
     def convert(target):
@@ -216,7 +217,7 @@ def parse_manifest():
             return deps
         # `reversed` because Linux link order must be reverse-topological
         return Target(target.name, reversed(recurse(target)))
-    return map(convert, targets)
+    return list(map(convert, targets))
 
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
