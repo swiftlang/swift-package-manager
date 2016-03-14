@@ -15,9 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(projectPath projectPath: String, package: Package, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
-
-    let srcroot = projectPath
+public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
     let nontests = modules.filter{ !($0 is TestModule) }
     let tests = modules.filter{ $0 is TestModule }
 
@@ -60,7 +58,7 @@ public func pbxproj(projectPath projectPath: String, package: Package, modules: 
         print("        \(module.groupReference) = {")
         print("            isa = PBXGroup;")
         print("            name = \(module.name);")
-        print("            path = '\(Path(module.sources.root).relative(to: srcroot))';")
+        print("            path = '\(Path(module.sources.root).relative(to: projectRoot))';")
         print("            sourceTree = '<group>';")
         print("            children = (" + fileRefs(forModuleSources: module, srcroot: srcroot).map{$0.0}.joined(separator: ", ") + ");")
         print("        };")
