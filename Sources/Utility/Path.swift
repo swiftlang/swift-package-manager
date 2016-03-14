@@ -86,6 +86,24 @@ public struct Path {
             if path.starts(with: pivot) {
                 let relativePortion = path.dropFirst(pivot.count)
                 return join(Array(relativePortion))
+            } else if path.starts(with: pivot.prefix(1)) {
+                //only the first matches, so we will be able to find a relative
+                //path by adding jumps back the directory tree
+                var newPath = ArraySlice(path)
+                var newPivot = ArraySlice(pivot)
+                repeat {
+                    //remove all shared components in the prefix
+                    newPath = newPath.dropFirst()
+                    newPivot = newPivot.dropFirst()
+                } while newPath.prefix(1) == newPivot.prefix(1)
+                
+                //as we found the first differing point, the final path is
+                //a) as many ".." as there are components in newPivot
+                //b) what's left in newPath
+                var final = Array(repeating: "..", count: newPivot.count)
+                final.append(contentsOf: newPath)
+                let relativePath = Path.join(final)
+                return relativePath
             } else {
                 let prefix = abs.path ? "/" : ""
                 return prefix + join(path)

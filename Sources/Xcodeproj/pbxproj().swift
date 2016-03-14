@@ -15,9 +15,9 @@
 import PackageType
 import Utility
 
-public func pbxproj(package package: Package, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(projectPath projectPath: String, package: Package, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
 
-    let srcroot = package.path
+    let srcroot = projectPath
     let nontests = modules.filter{ !($0 is TestModule) }
     let tests = modules.filter{ $0 is TestModule }
 

@@ -210,4 +210,10 @@ class RelativePathTests: XCTestCase {
     func testMixed() {
         XCTAssertEqual("3/4", Path(try! getcwd() + "/1/2/3/4").relative(to: "1/2"))
     }
+    
+    func testRelativeCommonSubprefix() {
+        XCTAssertEqual("../4", Path("/1/2/4").relative(to: "/1/2/3"))
+        XCTAssertEqual("../4/5", Path("/1/2/4/5").relative(to: "/1/2/3"))
+        XCTAssertEqual("../../../4/5", Path("/1/2/4/5").relative(to: "/1/2/3/6/7"))
+    }
 }

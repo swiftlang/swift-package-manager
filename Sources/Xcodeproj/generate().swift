@@ -28,7 +28,7 @@ public func generate(path path: String, package: Package, modules: [SwiftModule]
 
 ////// the pbxproj file describes the project and its targets
     try open(rootdir, "project.pbxproj") { fwrite in
-        pbxproj(package: package, modules: modules, products: products, printer: fwrite)
+        pbxproj(projectPath: path, package: package, modules: modules, products: products, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
