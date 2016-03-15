@@ -195,7 +195,9 @@ def parse_manifest():
     pattern = re.compile(
         r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
         re.DOTALL | re.MULTILINE)
-    manifest_data = codecs.open(os.path.join(g_project_root, "Package.swift"), encoding='utf-8', errors='strict').read()
+    manifest_data = codecs.open(os.path.join(g_project_root,
+                                "Package.swift"), encoding='utf-8',
+                                errors='strict').read()
 
     def convert(match):
         name = match.group(1)
