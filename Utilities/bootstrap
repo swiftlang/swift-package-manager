@@ -43,16 +43,17 @@ import subprocess
 import sys
 import tempfile
 
-###
 
 def note(message):
     print("%s: note: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
 
+
 def error(message):
     print("%s: error: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
     raise SystemExit(1)
+
 
 def mkdir_p(path):
     """
@@ -67,6 +68,7 @@ def mkdir_p(path):
         # Ignore EEXIST, which may occur during a race condition.
         if e.errno != errno.EEXIST:
             raise
+
 
 # FIXME: Consider eliminating this once the build task format supports node
 # hashing.
@@ -95,9 +97,12 @@ g_num_cpus = os.sysconf("SC_NPROCESSORS_ONLN")
 g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
-        ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], universal_newlines=True).strip()
+        ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
+        universal_newlines=True).strip()
     g_default_sysroot = subprocess.check_output(
-        ["xcrun", "--sdk", "macosx", "--show-sdk-path"], universal_newlines=True).strip()
+        ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+        universal_newlines=True).strip()
+
 
 class Target(object):
     @property
@@ -169,23 +174,28 @@ class Target(object):
         print("    outputs: %s" % json.dumps(
             [compile_swift_node, module_path] + swift_objects), file=output)
         print("    module-name: %s" % json.dumps(module_name), file=output)
-        print("    module-output-path: %s" % json.dumps(module_path), file=output)
-        print("    sources: %s" % json.dumps(
-            self.swift_sources), file=output)
+        print("    module-output-path: %s" % json.dumps(module_path),
+              file=output)
+        print("    sources: %s" % json.dumps(self.swift_sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
         print("    import-paths: %s" % json.dumps(
             [module_dir]), file=output)
-        print("    other-args: %s" % json.dumps(' '.join(other_args)), file=output)
+        print("    other-args: %s" % json.dumps(' '.join(other_args)),
+              file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
         print("    is-library: %s" % json.dumps(
             str(bool(self.is_library)).lower()), file=output)
         print(file=output)
 
+
 # currently only returns the targets parsed from the manifest
 def parse_manifest():
-    # we have a *very* strict format for our manifest to make parsing more robust
-    pattern = re.compile(r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)', re.DOTALL|re.MULTILINE)
-    manifest_data = codecs.open(os.path.join(g_project_root, "Package.swift"), encoding='utf-8', errors='strict').read()
+    # we have a *very* strict format for our manifest to make parsing more
+    # robust
+    pattern = re.compile(
+        r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
+        re.DOTALL | re.MULTILINE)
+    manifest_data = open(os.path.join(g_project_root, "Package.swift"), encoding='utf-8', errors='strict').read()
 
     def convert(match):
         name = match.group(1)
@@ -199,7 +209,8 @@ def parse_manifest():
             try:
                 return next(a for a in targets if a.name == targetName)
             except StopIteration:
-                # this target is not explicit in the manifest: it is an implicit target
+                # this target is not explicit in the manifest: it is an
+                # implicit target
                 b = Target(targetName)
                 targets.append(b)
                 return b
@@ -208,6 +219,7 @@ def parse_manifest():
     # fill dependency graph and set dependencies back to strings
     def convert(target):
         myset = set()
+
         def recurse(root):
             deps = []
             for dep in root.dependencies:
@@ -224,6 +236,7 @@ g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
 targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
+
 
 def create_bootstrap_files(sandbox_path, args):
     # Write out the build file.
@@ -285,7 +298,8 @@ def create_bootstrap_files(sandbox_path, args):
         print("  %s:" % json.dumps(predecessor_node), file=output)
         print("    tool: phony", file=output)
         print("    inputs: %s" % json.dumps(
-            [target_map[name].virtual_node for name in target.dependencies]), file=output)
+            [target_map[name].virtual_node for name in target.dependencies]),
+            file=output)
         print("    outputs: %s" % json.dumps([predecessor_node]), file=output)
         print(file=output)
 
@@ -308,7 +322,8 @@ def create_bootstrap_files(sandbox_path, args):
         else:
             link_output_path = os.path.join(bin_dir, target.name)
 
-            link_command = [args.swiftc_path, '-o', pipes.quote(link_output_path)]
+            link_command = [args.swiftc_path,
+                            '-o', pipes.quote(link_output_path)]
             if args.sysroot:
                 link_command.extend(["-sdk", args.sysroot])
             if platform.system() == 'Darwin':
@@ -326,7 +341,10 @@ def create_bootstrap_files(sandbox_path, args):
         # Write out the link command.
         print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
         print("    tool: shell", file=output)
-        print("    description: Link %s" % (target.name if target.is_library else link_output_path,), file=output)
+        if target.is_library:
+            print("    description: Link %s" % target.name, file=output)
+        else:
+            print("    description: Link %s" % link_output_path, file=output)
         print("    inputs: %s" % json.dumps(
             link_input_nodes + objects + linked_libraries), file=output)
         print("    outputs: %s" % json.dumps(
@@ -339,12 +357,14 @@ def create_bootstrap_files(sandbox_path, args):
         print("    tool: phony", file=output)
         print("    inputs: %s" % json.dumps(
             [target.linked_virtual_node]), file=output)
-        print("    outputs: %s" % json.dumps([target.virtual_node]), file=output)
+        print("    outputs: %s" % json.dumps([target.virtual_node]),
+              file=output)
         print(file=output)
 
     # Write the output file.
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
                           output.getvalue())
+
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
     if bootstrap:
@@ -392,7 +412,8 @@ def process_runtime_libraries(build_path, args, bootstrap=False):
         # error.
         tf = tempfile.NamedTemporaryFile(suffix=".swift")
         cmds = subprocess.check_output(
-            cmd + [tf.name, "-###"], universal_newlines=True).strip().split("\n")
+            cmd + [tf.name, "-###"],
+            universal_newlines=True).strip().split("\n")
 
         # Get the link command 'swiftc' used.
         link_cmd = shlex.split(cmds[-1])
@@ -409,9 +430,11 @@ def process_runtime_libraries(build_path, args, bootstrap=False):
             raise SystemExit("unable to understand 'swiftc' driver commands")
         del link_cmd[idx - 1]
         cmd = [arg for arg in link_cmd
-               if arg.endswith("swift_begin.o") or arg.endswith("swift_end.o") or (not arg.endswith(".o") and not arg.endswith(".autolink"))]
+               if arg.endswith(("swift_begin.o", "swift_end.o")) or
+               (not arg.endswith((".o", ".autolink")))]
     subprocess.check_call(cmd)
     return (runtime_module_path, runtime_lib_path)
+
 
 def get_swift_build_tool_path():
     # Search for a 'swift-build-tool' to use.
@@ -429,7 +452,8 @@ def get_swift_build_tool_path():
 
     # Next, search for it in PATH.
     try:
-        return subprocess.check_output(["which", "swift-build-tool"], universal_newlines=True).strip()
+        return subprocess.check_output(["which", "swift-build-tool"],
+                                       universal_newlines=True).strip()
     except:
         pass
 
@@ -446,6 +470,7 @@ def get_swift_build_tool_path():
 
     # If all else failed, report an error.
     error("unable to find 'swift-build-tool' tool for bootstrap build")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -518,9 +543,11 @@ def main():
     args.sbt_path = os.path.abspath(
         args.sbt_path or get_swift_build_tool_path())
 
-    # Due to bug in Xcode where SWIFT_EXEC is not set correctly by downloadable toolchain
+    # Due to bug in Xcode where SWIFT_EXEC is not set correctly by downloadable
+    # toolchain
     if os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"):
-        args.swiftc = os.path.join(os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
+        args.swiftc = os.path.join(
+            os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
 
     # Create or update the bootstrap files.
     create_bootstrap_files(sandbox_path, args)
@@ -562,7 +589,7 @@ def main():
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
 
-    # We need to embed an RPATH so swift-{build,test} can find the core 
+    # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
         embed_rpath = "$ORIGIN/../lib/swift/linux"
