@@ -96,9 +96,27 @@ do {
             let (modules, products) = try transmute(packages, rootdir: dirs.root)
             let swiftModules = modules.flatMap{ $0 as? SwiftModule }
 
-            let path = try Xcodeproj.generate(path: outpath ?? dirs.root, package: packages.last!, modules: swiftModules, products: products)
+            let projectName: String
+            let dstdir: String
+            let packageName = packages.last!.name  //FIXME coincidental dependency on order
 
-            print("generated:", path.prettied)
+            switch outpath {
+            case let outpath? where outpath.hasSuffix(".xcodeproj"):
+                // if user specified path ending with .xcodeproj, generate that
+                "\(packageName).xcodeproj"
+                projectName = String(outpath.basename.characters.dropLast(10))
+                dstdir = outpath.parentDirectory
+            case let outpath?:
+                dstdir = outpath
+                projectName = packageName
+            case _:
+                dstdir = dirs.root
+                projectName = packageName
+            }
+
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: swiftModules, products: products)
+
+            print("generated:", outpath.prettied)
     }
 
 } catch {

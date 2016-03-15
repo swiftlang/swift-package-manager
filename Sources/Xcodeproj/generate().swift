@@ -16,36 +16,33 @@ import POSIX
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(path path: String, package: Package, modules: [SwiftModule], products: [Product]) throws -> String {
+public func generate(dstdir dstdir: String, projectName: String, srcroot: String, modules: [SwiftModule], products: [Product]) throws -> String {
 
-    /// If a specific *.xcodeproj path is already passed in, use that. 
-    /// Otherwise treat the path as the desired enclosing folder for
-    /// the .xcodeproj folder.
-    let rootdir = path.hasSuffix(".xcodeproj") ? path : Path.join(path, "\(package.name).xcodeproj")
-    try mkdir(rootdir)
-    
-    let schemedir = try mkdir(rootdir, "xcshareddata/xcschemes")
+    let xcodeprojName = "\(projectName).xcodeproj"
+    let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
+    let schemesDirectory = try mkdir(xcodeprojPath, "xcshareddata/xcschemes")
+    let schemeName = "\(projectName).xcscheme"
 
 ////// the pbxproj file describes the project and its targets
-    try open(rootdir, "project.pbxproj") { fwrite in
-        pbxproj(projectPath: path, package: package, modules: modules, products: products, printer: fwrite)
+    try open(xcodeprojPath, "project.pbxproj") { fwrite in
+        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, products: products, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
-    try open(schemedir, "\(package.name).xcscheme") { fwrite in
-        xcscheme(packageName: package.name, modules: modules, printer: fwrite)
+    try open(schemesDirectory, schemeName) { fwrite in
+        xcscheme(container: xcodeprojName, modules: modules, printer: fwrite)
     }
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemedir, "xcschememanagement.plist") { fwrite in
+    try open(schemesDirectory, "xcschememanagement.plist") { fwrite in
         fwrite("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         fwrite("<plist version=\"1.0\">")
         fwrite("<dict>")
         fwrite("  <key>SchemeUserState</key>")
         fwrite("  <dict>")
-        fwrite("    <key>\(package.name).xcscheme</key>")
+        fwrite("    <key>\(schemeName)</key>")
         fwrite("    <dict></dict>")
         fwrite("  </dict>")
         fwrite("  <key>SuppressBuildableAutocreation</key>")
@@ -54,7 +51,7 @@ public func generate(path path: String, package: Package, modules: [SwiftModule]
         fwrite("</plist>")
     }
 
-    return rootdir
+    return xcodeprojPath
 }
 
 
