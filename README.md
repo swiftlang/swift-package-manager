@@ -90,6 +90,15 @@ following options:
    * [llbuild](https://github.com/apple/swift-llbuild) cloned parallel to your SwiftPM clone
   * Possibly, [a more recent Swift snapshot](https://swift.org/download)
 
+###Choosing Swift version
+
+The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift build`. If it is not set, SPM will try to locate it:
+
+1. In `swift-build`'s parent directory. 
+2. (on OS X) by calling `xcrun --find swiftc`
+3. in PATH
+
+
 There is further development-oriented documentation in [Documentation/Internals](Documentation/Internals).
 
 
