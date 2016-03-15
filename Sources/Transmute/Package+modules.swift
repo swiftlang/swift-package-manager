@@ -84,7 +84,7 @@ extension Package {
         if !cSources.isEmpty {
             guard swiftSources.isEmpty else { throw Module.Error.MixedSources(path) }
             //FIXME: Support executables for C languages
-            guard !cSources.contains({ $0.hasSuffix("main.c") }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
+            guard !cSources.contains({ $0.basename == "main.c" }) else { throw Module.Error.CExecutableNotSupportedYet(path) }
             return ClangModule(name: name, sources: Sources(paths: cSources, root: path))
         }
         
