@@ -23,7 +23,9 @@ Additionally, it is important to note that the Swift language syntax is not stab
 
 ## Installing
 
-The package manager is bundled with the [downloads available at swift.org](https://swift.org/download/).
+The package manager is bundled with the [developer snapshots available at swift.org](https://swift.org/download/).
+**Please note the package manager does not come with the 2.2 release snapshots, ensure you download a 
+developer snapshot.**
 
 If you want to verify you already have the package manager installed, enter the following in a terminal:
 
@@ -35,8 +37,9 @@ If you get usage output, it is installed, otherwise you will see an error such a
 
     <unknown>:0: error: no such file or directory: 'build'
 
-If you downloaded a snapshot and get the above error then you downloaded a release
-snapshot, please download a development snapshot.
+After installing a downloadable toolchain on OS X, by default you will probably see this error.
+To execute the swift from your download you either need to put that `swift` first in your `PATH`,
+or you need to set the `TOOLCHAINS` environment variable: see the next section.
 
 
 ### Managing Swift Environments
