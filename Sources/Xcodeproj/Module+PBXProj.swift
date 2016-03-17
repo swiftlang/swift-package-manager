@@ -14,9 +14,9 @@
   1. Unique reference identifiers
   2. Human readable reference identifiers
   3. Stable reference identifiers
- 
+
  (as opposed to the generated UUIDs Xcode typically generates)
- 
+
  We create identifiers with a constant-length unique prefix and
  a unique suffix where the suffix is the filename or module name
  and since we guarantee uniqueness at the PackageDescription
@@ -29,7 +29,8 @@ import PackageType
 
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
-let rootBuildConfigurationReference =               "_______Debug_"
+let rootDebugBuildConfigurationReference =          "_______Debug_"
+let rootReleaseBuildConfigurationReference =        "_____Release_"
 let rootGroupReference =                            "___RootGroup_"
 let productsGroupReference =                        "____Products_"
 let testProductsGroupReference =                    "TestProducts_"
@@ -40,14 +41,15 @@ let sourceGroupFileRefPrefix =                      "__PBXFileRef_"
 let compilePhaseFileRefPrefix =                     "__src_cc_ref_"
 
 extension Module {
-    var dependencyReference: String        { return "__Dependency_\(c99name)" }
-    var productReference: String           { return "_____Product_\(c99name)" }
-    var targetReference: String            { return "______Target_\(c99name)" }
-    var groupReference: String             { return "_______Group_\(c99name)" }
-    var configurationListReference: String { return "_______Confs_\(c99name)" }
-    var configurationReference: String     { return "___DebugConf_\(c99name)" }
-    var compilePhaseReference: String      { return "CompilePhase_\(c99name)" }
-    var linkPhaseReference: String         { return "___LinkPhase_\(c99name)" }
+    var dependencyReference: String           { return "__Dependency_\(c99name)" }
+    var productReference: String              { return "_____Product_\(c99name)" }
+    var targetReference: String               { return "______Target_\(c99name)" }
+    var groupReference: String                { return "_______Group_\(c99name)" }
+    var configurationListReference: String    { return "_______Confs_\(c99name)" }
+    var debugConfigurationReference: String   { return "___DebugConf_\(c99name)" }
+    var releaseConfigurationReference: String { return "_ReleaseConf_\(c99name)" }
+    var compilePhaseReference: String         { return "CompilePhase_\(c99name)" }
+    var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
 }
 
 func fileRef(forLinkPhaseChild module: Module) -> String {
@@ -139,12 +141,23 @@ extension SwiftModule {
         }
     }
 
-    var buildSettings: String {
+    var debugBuildSettings: String {
+        var buildSettings = commonBuildSettings
+        buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
+
+        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+    }
+
+    var releaseBuildSettings: String {
+        let buildSettings = commonBuildSettings
+        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+    }
+
+    private var commonBuildSettings: [String: String] {
         var buildSettings = ["PRODUCT_NAME": productName]
         buildSettings["PRODUCT_MODULE_NAME"] = c99name
         buildSettings["OTHER_SWIFT_FLAGS"] = "-DXcode"
         buildSettings["MACOSX_DEPLOYMENT_TARGET"] = "'10.10'"
-        buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
 
         // prevents Xcode project upgrade warnings
         buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
@@ -176,7 +189,7 @@ extension SwiftModule {
             }
         }
 
-        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+        return buildSettings
     }
 }
 

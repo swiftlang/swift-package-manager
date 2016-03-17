@@ -5,6 +5,5 @@ The following features are welcome, please submit a PR:
 * Split out tests and non-tests in Products group
 * Enable code coverage
 * Allow frameworks instead of dylibs and add a command line toggle
-* Release configuration
 * Nest Groups for module sources, eg. Sources/Bar/Foo/Baz.swift would be in Xcode groups: Source -> Bar -> Foo -> Baz.swift
 * Put dependencies in Package-named sub groups of a group called "Dependencies"
