@@ -40,7 +40,7 @@ extension Error: CustomStringConvertible {
         case NoManifest(let clonePath, let version):
             return "The package at `\(clonePath)' has no Package.swift for the specific version: \(version)"
         case ObsoleteGitVersion:
-            return "Git 2.0 or higer is required. Please update git and retry."
+            return "Git 2.0 or higher is required. Please update git and retry."
         }
     }
 }
