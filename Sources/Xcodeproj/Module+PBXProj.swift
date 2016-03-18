@@ -23,7 +23,6 @@
  layer for these properties we satisfy the above constraints.
 */
 
-import struct Utility.Toolchain
 import struct Utility.Path
 import PackageType
 
@@ -169,15 +168,7 @@ extension SwiftModule {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'@loader_path/../Frameworks'"
 
         } else {
-
-            //FIXME we should not have to set this ourselves, and in fact
-            // it is problematic because now you must regenerate the xcodeproj
-            // whenever the toolchain changes :(
-            // static linking would be better since that is what we are meant
-            // to do while swift has no ABI compatability.
-            // probably the real solution is to generate frameworks since then
-            // Xcode will embed the swift runtime libs
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'\(Toolchain.prefix)/usr/lib/swift/macosx'"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
 
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
