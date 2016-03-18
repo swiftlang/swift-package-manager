@@ -63,6 +63,9 @@ public class Git {
             let prefixRange = version.startIndex...version.startIndex.advanced(by: prefix.characters.count)
             version.removeSubrange(prefixRange)
         }
-        return Int(String(version.characters.first!))
+        guard let first = version.characters.first else {
+            return nil
+        }
+        return Int(String(first))
     }
 }
