@@ -200,8 +200,8 @@ extension ModuleTests {
         fixture(name: "Miscellaneous/PackageType") { prefix in
             let prefix = Path.join(prefix, "App")
             let manifest = try Manifest(path: prefix)
-            let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-            let (modules, _,  _) = try transmute(packages, rootdir: prefix)
+            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
+            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
             
             XCTAssertEqual(modules.count, 3)
             XCTAssertEqual(recursiveDependencies(modules).count, 3)
@@ -211,8 +211,8 @@ extension ModuleTests {
         fixture(name: "ModuleMaps/Direct") { prefix in
             let prefix = Path.join(prefix, "App")
             let manifest = try Manifest(path: prefix)
-            let packages = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-            let (modules, _, _) = try transmute(packages, rootdir: prefix)
+            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
+            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
 
             XCTAssertEqual(modules.count, 2)
             XCTAssertTrue(modules.first is CModule)

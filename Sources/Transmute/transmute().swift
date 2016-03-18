@@ -12,17 +12,19 @@ import PackageType
 import Utility
 import func libc.exit
 
-public func transmute(packages: [Package], rootdir: String) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
+public func transmute(rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
 
     var products: [Product] = []
     var map: [Package: [Module]] = [:]
+    
+    let packages = externalPackages + [rootPackage]
 
     for package in packages {
 
         let modules: [Module]
         do {
             modules = try package.modules()
-        } catch Package.ModuleError.NoModules(let pkg) where pkg.path == rootdir {
+        } catch Package.ModuleError.NoModules(let pkg) where pkg === rootPackage {
             //Ignore and print warning if root package doesn't contain any sources
             print("warning: root package '\(pkg)' does not contain any sources")
             if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
@@ -66,10 +68,8 @@ public func transmute(packages: [Package], rootdir: String) throws -> (modules: 
     // ensure modules depend on the modules of any dependent packages
     fillModuleGraph(packages, modulesForPackage: { map[$0]! })
 
-    let depPackages = packages.filter{ $0.path != rootdir }
-
     let modules = recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
-    let extModules = recursiveDependencies(depPackages.flatMap{ map[$0] ?? [] })
+    let externalModules = recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
-    return (modules, extModules, products)
+    return (modules, externalModules, products)
 }

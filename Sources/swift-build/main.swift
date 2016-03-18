@@ -58,7 +58,7 @@ do {
         return try Manifest(path: path, baseURL: baseURL, swiftc: Toolchain.swiftc, libdir: libdir)
     }
     
-    func fetch(root: String) throws -> [Package] {
+    func fetch(root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
         let manifest = try parseManifest(path: root, baseURL: root)
         return try get(manifest, manifestParser: parseManifest)
     }
@@ -66,8 +66,8 @@ do {
     switch mode {
         case .Build(let conf):
             let dirs = try directories()
-            let packages = try fetch(dirs.root)
-            let (modules, externalModules, products) = try transmute(packages, rootdir: dirs.root)
+            let (rootPackage, externalPackages) = try fetch(dirs.root)
+            let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
             let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
             try build(YAMLPath: yaml, target: "default")
 
@@ -92,15 +92,15 @@ do {
             
         case .GenerateXcodeproj(let outpath):
             let dirs = try directories()
-            let packages = try fetch(dirs.root)
-            let (modules, externalModules, products) = try transmute(packages, rootdir: dirs.root)
+            let (rootPackage, externalPackages) = try fetch(dirs.root)
+            let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
             
             let swiftModules = modules.flatMap{ $0 as? SwiftModule }
             let externalSwiftModules = externalModules.flatMap{ $0 as? SwiftModule }
 
             let projectName: String
             let dstdir: String
-            let packageName = packages.last!.name  //FIXME coincidental dependency on order
+            let packageName = rootPackage.name
 
             switch outpath {
             case let outpath? where outpath.hasSuffix(".xcodeproj"):
