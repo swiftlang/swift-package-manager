@@ -12,6 +12,10 @@ import func POSIX.mkdir
 import PackageType
 import Utility
 
+
+//FIXME messy :/
+
+
 extension Command {
     static func link(product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String]) throws -> Command {
 
@@ -25,11 +29,38 @@ extension Command {
 
         let outpath = Path.join(prefix, product.outname)
 
-        var args = [Toolchain.swiftc] + otherArgs
+        var args: [String]
+        switch product.type {
+        case .Library(.Dynamic), .Executable, .Test:
+            args = [Toolchain.swiftc] + otherArgs
+
+            if conf == .Debug {
+                args += ["-g"]
+            }
+            args += ["-L\(prefix)"]
+            args += ["-o", outpath]
+
+        case .Library(.Static):
+            //FIXME proper static archive llbuild tool
+            //NOTE HACK this works because llbuild runs it with via a shell
+            //FIXME this is coincidental, do properly
+            args = ["rm", "-f", outpath, "&&", "ar", "cr"]
+        }
+
+        let inputs = product.modules.flatMap { module -> [String] in
+            switch conf {
+            case .Debug:
+                let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: [])
+                // must return tool’s outputs and inputs as shell nodes don't calculate more than that
+                return tool.inputs + tool.outputs
+            case .Release:
+                return objects
+            }
+        }
 
         switch product.type {
         case .Library(.Static):
-            fatalError("Unimplemented")
+            args.append(outpath)
         case .Test:
           #if os(OSX)
             args += ["-Xlinker", "-bundle"]
@@ -70,15 +101,14 @@ extension Command {
             }
         }
 
-        if conf == .Debug {
-            args += ["-g"]
-        }
-
-        args += ["-L\(prefix)"]
-        args += ["-o", outpath]
         args += objects
 
-        let inputs = product.modules.flatMap{ [$0.targetName] + SwiftcTool(module: $0, prefix: prefix, otherArgs: []).inputs }
+        if case .Library(.Static) = product.type {
+            //HACK we need to be executed passed-through to the shell
+            // otherwise we cannot do the rm -f first
+            //FIXME make a proper static archive tool for llbuild
+            args = [args.joined(separator: " ")] //TODO escape!
+        }
 
         let shell = ShellTool(
             description: "Linking \(outpath.prettyPath)",

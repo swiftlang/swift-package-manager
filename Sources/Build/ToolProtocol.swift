@@ -25,12 +25,21 @@ struct ShellTool: ToolProtocol {
     }
 
     var YAMLDescription: String {
+        let args: String
+        if self.args.count == 1 {
+            // if one argument is specified we assume pre-escaped and have
+            // llbuild execute it passed through to the shell
+            args = self.args.first!
+        } else {
+            args = self.args.YAML
+        }
+
         var yaml = ""
         yaml += "    tool: " + name.YAML + "\n"
         yaml += "    description: " + description.YAML + "\n"
         yaml += "    inputs: " + inputs.YAML + "\n"
         yaml += "    outputs: " + outputs.YAML + "\n"
-        yaml += "    args: " + args.YAML + "\n"
+        yaml += "    args: " + args + "\n"
         return yaml
     }
 
