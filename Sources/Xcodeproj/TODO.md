@@ -9,3 +9,4 @@ The following features are welcome, please submit a PR:
 * Put dependencies in Package-named sub groups of a group called "Dependencies"
 * Add .txt etc. to groups
 * List modules in topological dependency order
+* Escape all strings
