@@ -51,4 +51,18 @@ public class Git {
     public class var tool: String {
         return getenv("SWIFT_GIT") ?? "git"
     }
+
+    public class var version: String! {
+        return try? popen([Git.tool, "version"])
+    }
+
+    public class var majorVersionNumber: Int? {
+        let prefix = "git version"
+        var version = Git.version
+        if version.hasPrefix(prefix) {
+            let prefixRange = version.startIndex...version.startIndex.advanced(by: prefix.characters.count)
+            version.removeSubrange(prefixRange)
+        }
+        return Int(String(version.characters.first!))
+    }
 }
