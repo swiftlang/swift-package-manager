@@ -45,16 +45,16 @@ public func ==(lhs: Module, rhs: Module) -> Bool {
     return lhs.c99name == rhs.c99name
 }
 
+public enum ModuleType {
+    case Library, Executable
+}
+
 public class SwiftModule: Module {
     public let sources: Sources
 
     public init(name: String, sources: Sources) {
         self.sources = sources
         super.init(name: name)
-    }
-
-    public enum ModuleType {
-        case Library, Executable
     }
 
     public var type: ModuleType {
@@ -96,6 +96,28 @@ public class TestModule: SwiftModule {
 
     override public var c99name: String {
         return PackageType.c99name(name: basename) + "TestSuite"
+    }
+}
+
+public class XcodeModule: Module {
+    public var sources: Sources 
+    public var type: ModuleType
+    public init?(module: Module){
+        switch module {
+            case let swiftModule as SwiftModule:
+                sources = swiftModule.sources
+                type = swiftModule.type
+                
+            case let clangModule as ClangModule:
+                sources = clangModule.sources
+                type = .Library
+        
+            default:
+                return nil
+        }
+        super.init(name: module.name)
+        dependencies = module.dependencies
+        // dependencies = module.dependencies.map { XcodeModule(module: $0) }
     }
 }
 

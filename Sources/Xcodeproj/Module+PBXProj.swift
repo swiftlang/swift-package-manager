@@ -70,7 +70,7 @@ private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) ->
     }.joined(separator: "")
 }
 
-func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {
+func fileRefs(forModuleSources module: XcodeModule, srcroot: String) -> [(String, String)] {
     return module.sources.relativePaths.map { relativePath in
         let path = Path.join(module.sources.root, relativePath)
         let suffix = fileRef(suffixForModuleSourceFile: path, srcroot: srcroot)
@@ -78,7 +78,7 @@ func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String
     }
 }
 
-func fileRefs(forCompilePhaseSourcesInModule module: SwiftModule, srcroot: String) -> [(String, String)] {
+func fileRefs(forCompilePhaseSourcesInModule module: XcodeModule, srcroot: String) -> [(String, String)] {
     return fileRefs(forModuleSources: module, srcroot: srcroot).map { ref1, relativePath in
         let path = Path.join(module.sources.root, relativePath)
         let suffix = fileRef(suffixForModuleSourceFile: path, srcroot: srcroot)
@@ -86,7 +86,7 @@ func fileRefs(forCompilePhaseSourcesInModule module: SwiftModule, srcroot: Strin
     }
 }
 
-extension SwiftModule {
+extension XcodeModule {
     private var isLibrary: Bool {
         return type == .Library
     }
@@ -95,7 +95,7 @@ extension SwiftModule {
         if self is TestModule {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
-            return "com.apple.product-type.library.dynamic"
+            return "com.apple.product-type.framework"
         } else {
             return "com.apple.product-type.tool"
         }
@@ -106,7 +106,7 @@ extension SwiftModule {
             if self is TestModule {
                 return "wrapper.cfbundle"
             } else if isLibrary {
-                return "dylib"
+                return "framework"
             } else {
                 return "executable"
             }
@@ -118,7 +118,7 @@ extension SwiftModule {
         if self is TestModule {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "\(c99name).dylib"
+            return "\(c99name).framework"
         } else {
             return name
         }
@@ -194,7 +194,7 @@ extension SwiftModule {
 }
 
 
-extension SwiftModule {
+extension XcodeModule {
     var blueprintIdentifier: String {
         return targetReference
     }
