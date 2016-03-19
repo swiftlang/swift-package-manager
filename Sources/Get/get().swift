@@ -18,11 +18,6 @@ import Utility
  - Returns: The modules that this manifest requires building
 */
 public func get(manifest: Manifest, manifestParser: (path: String, url: String) throws -> Manifest) throws -> [Package] {
-    // Git 2.0 or higher is required
-    if Git.majorVersionNumber < 2 {
-        throw Error.ObsoleteGitVersion
-    }
-
     let dir = Path.join(manifest.path.parentDirectory, "Packages")
     let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 

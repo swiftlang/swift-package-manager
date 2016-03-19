@@ -21,7 +21,6 @@ public enum Error: ErrorProtocol {
     case UpdateRequired(ClonePath)
     case Unversioned(ClonePath)
     case InvalidDependencyGraphMissingTag(package: String, requestedTag: String, existingTags: String)
-    case ObsoleteGitVersion
 }
 
 extension Error: CustomStringConvertible {
@@ -39,8 +38,6 @@ extension Error: CustomStringConvertible {
             return "No version tag found in (\(package)) package. Add a version tag with \"git tag\" command. Example: \"git tag 0.1.0\""
         case NoManifest(let clonePath, let version):
             return "The package at `\(clonePath)' has no Package.swift for the specific version: \(version)"
-        case ObsoleteGitVersion:
-            return "Git 2.0 or higher is required. Please update git and retry."
         }
     }
 }
