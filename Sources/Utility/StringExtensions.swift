@@ -70,4 +70,16 @@ extension String {
 
         return String(cc)
     }
+    
+    /// Splits string around a delimiter string into up to two substrings
+    /// If delimiter is not found, the second returned substring is nil
+    func splitAround(delimiter: String) -> (String, String?) {
+        let comps = self.characters.splitAround(Array(delimiter.characters))
+        let head = String(comps.0)
+        if let tail = comps.1 {
+            return (head, String(tail))
+        } else {
+            return (head, nil)
+        }
+    }
 }
