@@ -70,6 +70,11 @@ private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) ->
     }.joined(separator: "")
 }
 
+func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, String) {
+    let suffix = fileRef(suffixForModuleSourceFile: name, srcroot: srcroot)
+    return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
+}
+
 func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {
     return module.sources.relativePaths.map { relativePath in
         let path = Path.join(module.sources.root, relativePath)

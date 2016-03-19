@@ -44,10 +44,20 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     print("            targets = (" + modules.map{ $0.targetReference }.joined(separator: ", ") + ");")
     print("        };")
 
+////// Package.swift file
+    let packageSwift = fileRef(inProjectRoot: "Package.swift", srcroot: srcroot)
+    print("        \(packageSwift.0) = {")
+    print("            isa = PBXFileReference;")
+    print("            lastKnownFileType = sourcecode.swift;")
+    print("            name = '\(packageSwift.1)';")
+    print("            path = '\(packageSwift.2)';")
+    print("            sourceTree = '<group>';")
+    print("        };")
+
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(sourcesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.0), \(sourcesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 
@@ -143,7 +153,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         print("            target = \(module.targetReference);")
         print("        };")
     }
-
+    
 ////// “Sources” group
     print("        \(sourcesGroupReference) = {")
     print("            isa = PBXGroup;")
