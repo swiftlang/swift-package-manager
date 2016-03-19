@@ -102,16 +102,17 @@ public class TestModule: SwiftModule {
 public class XcodeModule: Module {
     public var sources: Sources 
     public var type: ModuleType
+    public var fileType: String
     public init?(module: Module){
         switch module {
             case let swiftModule as SwiftModule:
                 sources = swiftModule.sources
                 type = swiftModule.type
-                
+                fileType = "sourcecode.swift"
             case let clangModule as ClangModule:
                 sources = clangModule.sources
                 type = .Library
-        
+                fileType = "sourcecode.c.c"
             default:
                 return nil
         }

@@ -67,7 +67,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Xcod
         for (ref, path) in fileRefs(forModuleSources: module, srcroot: srcroot) {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = sourcecode.swift;")
+            print("            lastKnownFileType = \(module.fileType);")
             print("            name = '\(Path(path).relative(to: module.sources.root))';")
             print("            sourceTree = '<group>';")
             print("        };")
