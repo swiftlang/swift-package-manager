@@ -216,4 +216,10 @@ class RelativePathTests: XCTestCase {
         XCTAssertEqual("../4/5", Path("/1/2/4/5").relative(to: "/1/2/3"))
         XCTAssertEqual("../../../4/5", Path("/1/2/4/5").relative(to: "/1/2/3/6/7"))
     }
+    
+    func testCombiningRelativePaths() {
+        XCTAssertEqual("/1/2/3", Path.join("/1/2/4", "../3").normpath)
+        XCTAssertEqual("/1/2", Path.join("/1/2/3", "..").normpath)
+        XCTAssertEqual("2", Path.join("2/3", "..").normpath)
+    }
 }
