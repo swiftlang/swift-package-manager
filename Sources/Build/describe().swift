@@ -130,7 +130,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     #endif
     #if os(OSX)
         if let sysroot = Toolchain.sysroot {
-           args += ["-I\(sysroot)/usr/include"]
+           args += ["-isysroot", "\(sysroot)"]
         }
     #endif
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
