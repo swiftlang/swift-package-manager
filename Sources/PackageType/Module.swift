@@ -103,16 +103,19 @@ public class XcodeModule: Module {
     public var sources: Sources 
     public var type: ModuleType
     public var fileType: String
+    public var modulemap: String?
     public init?(module: Module){
         switch module {
             case let swiftModule as SwiftModule:
                 sources = swiftModule.sources
                 type = swiftModule.type
                 fileType = "sourcecode.swift"
+                modulemap = nil
             case let clangModule as ClangModule:
                 sources = clangModule.sources
                 type = .Library
                 fileType = "sourcecode.c.c"
+                modulemap = clangModule.path+"/module.modulemap"
             default:
                 return nil
         }

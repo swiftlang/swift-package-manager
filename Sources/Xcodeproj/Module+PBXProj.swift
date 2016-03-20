@@ -132,13 +132,8 @@ extension XcodeModule {
         return dependencies.map{ $0.dependencyReference }.joined(separator: ", ")
     }
 
-    var productName: String {
-        if isLibrary && !(self is TestModule) {
-            // you can go without a lib prefix, but something unexpected will break
-            return "'lib$(TARGET_NAME)'"
-        } else {
-            return "'$(TARGET_NAME)'"
-        }
+    var productName: String {    
+       return "'$(TARGET_NAME)'"
     }
 
     var debugBuildSettings: String {
@@ -182,6 +177,10 @@ extension XcodeModule {
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
                 buildSettings["DYLIB_INSTALL_NAME_BASE"] = "'$(CONFIGURATION_BUILD_DIR)'"
+                if let modulemap = modulemap {
+                    buildSettings["DEFINES_MODULE"] = "YES"
+                    buildSettings["MODULEMAP_FILE"] = modulemap
+                }
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
