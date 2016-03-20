@@ -157,6 +157,9 @@ extension XcodeModule {
         // prevents Xcode project upgrade warnings
         buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
 
+        //FIXME xcode can't find local headers from modulemap
+        buildSettings["USER_HEADER_SEARCH_PATHS"] = "'$(SRCROOT)/Packages/**'"
+
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
 
