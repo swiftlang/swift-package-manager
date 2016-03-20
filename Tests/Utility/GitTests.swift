@@ -18,7 +18,7 @@ class GitMoc: Git {
     }
 }
 
-class GitTests: XCTestCase {
+class GitUtilityTests: XCTestCase {
 
     func testGitVersion() {
         XCTAssertEqual(GitMoc.majorVersionNumber, 2)
@@ -34,8 +34,8 @@ class GitTests: XCTestCase {
     }
 }
 
-extension GitTests {
-    static var allTests : [(String, GitTests -> () throws -> Void)] {
+extension GitUtilityTests {
+    static var allTests : [(String, GitUtilityTests -> () throws -> Void)] {
         return [
                    ("testGitVersion", testGitVersion),
         ]
