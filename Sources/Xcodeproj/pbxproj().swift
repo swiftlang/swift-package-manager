@@ -153,7 +153,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         print("            target = \(module.targetReference);")
         print("        };")
     }
-    
+
 ////// “Sources” group
     print("        \(sourcesGroupReference) = {")
     print("            isa = PBXGroup;")
