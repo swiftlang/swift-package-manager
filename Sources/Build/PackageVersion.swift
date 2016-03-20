@@ -14,17 +14,16 @@ import struct Utility.Path
 import func libc.fclose
 
 public func generateVersionData(rootDir: String, packages: [Package]) throws {
-    let dirPath = rootDir + "/.build/versionData/"
+    let dirPath = Path.join(rootDir, ".build/versionData")
     try mkdir(dirPath)
-    let versionData = generateData(packages)
 
-    for (pkgName, data) in versionData {
+    for (pkgName, data) in generateData(packages) {
         try saveVersionData(dirPath, packageName: pkgName, data: data)
     }
 }
 
 func generateData(packages: [Package]) -> [String : String] {
-    var versionData: [String : String] = [:]
+    var versionData = [String : String]()
     for pkg in packages {
         versionData[pkg.name] = packageVersionData(pkg)
     }
