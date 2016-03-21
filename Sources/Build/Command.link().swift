@@ -41,10 +41,9 @@ extension Command {
             args += ["-o", outpath]
 
         case .Library(.Static):
-            //FIXME proper static archive llbuild tool
-            //NOTE HACK this works because llbuild runs it with via a shell
-            //FIXME this is coincidental, do properly
-            args = ["rm", "-f", outpath, "&&", "ar", "cr"]
+            let inputs = product.buildables.map{ $0.targetName } + objects
+            let outputs = [product.targetName, outpath]
+            return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
 
         let inputs = product.modules.flatMap { module -> [String] in

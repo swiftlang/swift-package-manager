@@ -29,6 +29,8 @@ extension Command {
           #endif
 
             let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC)
+
+            //FIXME these should be inferred as implicit inputs by llbuild
             let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
             return (cmd(tool), mkdirs)
 

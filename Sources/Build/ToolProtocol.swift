@@ -133,3 +133,18 @@ struct ClangTool: ToolProtocol {
         return yaml
     }
 }
+
+struct ArchiveTool: ToolProtocol {
+    let inputs: [String]
+    let outputs: [String]
+
+    var name: String { return "archive" }
+
+    var YAMLDescription: String {
+        var yaml = [(String, String)]()
+        yaml.append(("tool", name.YAML))
+        yaml.append(("inputs", inputs.YAML))
+        yaml.append(("outputs", outputs.YAML))
+        return yaml.map{ return "    \($0): \($1)" }.joined(separator: "\n")
+    }
+}
