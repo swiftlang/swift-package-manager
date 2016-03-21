@@ -51,11 +51,14 @@ public struct Toolchain: Installation {
     public static let clang = getenv("CC") ?? Toolchain.which("clang")
 }
 
-#if os(OSX)
 extension Toolchain {
+#if os(OSX)
     public static let sysroot = getenv("SYSROOT") ?? (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]))?.chuzzle()
     public static let platformPath = (try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]))?.chuzzle()
-}
+#else
+    public static let sysroot: String? = nil
+    public static let platformPath: String? = nil
 #endif
+}
 
 
