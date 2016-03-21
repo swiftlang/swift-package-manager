@@ -65,7 +65,7 @@ extension Product {
 
 func infoPlist(test: Product) -> String {
 
-    let bundleExecutable = "Package"
+    let bundleExecutable = test.name
     let bundleID = "org.swift.pm." + test.name
     let bundleName = test.name
 
