@@ -227,9 +227,6 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             args.append("-emit-library")
         case .Executable:
             args.append("-emit-executable")
-            if conf == .Release {
-                 args += ["-Xlinker", "-dead_strip"]
-            }
         }
 
         if conf == .Debug {
