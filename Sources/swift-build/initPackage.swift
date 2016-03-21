@@ -122,9 +122,9 @@ final class InitPackage {
         }
         print("Creating Tests/LinuxMain.swift")
         try fputs("import XCTest\n", linuxMainFP)
-        try fputs("@testable import \(pkgname)test\n\n", linuxMainFP)
+        try fputs("@testable import \(pkgname)TestSuite\n\n", linuxMainFP)
         try fputs("XCTMain([\n", linuxMainFP)
-        try fputs("\t\(pkgname)(),\n", linuxMainFP)
+        try fputs("\t testCase(\(pkgname).allTests),\n", linuxMainFP)
         try fputs("])\n", linuxMainFP)
     }
     
@@ -151,14 +151,12 @@ final class InitPackage {
     
         try fputs("}\n", testsFileFP)
     
-        try fputs("\n#if os(Linux)\n", testsFileFP)
-        try fputs("extension \(pkgname): XCTestCaseProvider {\n", testsFileFP)
-        try fputs("\tvar allTests : [(String, () throws -> Void)] {\n", testsFileFP)
+        try fputs("extension \(pkgname) {\n", testsFileFP)
+        try fputs("\tstatic var allTests : [(String, \(pkgname) -> () throws -> Void)] {\n", testsFileFP)
         try fputs("\t\treturn [\n", testsFileFP)
         try fputs("\t\t\t(\"testExample\", testExample),\n", testsFileFP)
         try fputs("\t\t]\n", testsFileFP)
         try fputs("\t}\n", testsFileFP)
         try fputs("}\n", testsFileFP)
-        try fputs("#endif\n", testsFileFP)
     }
 }
