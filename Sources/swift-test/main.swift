@@ -21,11 +21,14 @@ do {
         usage()
     case .Run(let xctestArg):
         let dir = try directories()
+
+        //FIXME find a reliable name to detect the name of the root test Package
+        let testPackageName = dir.root.basename
         let yamlPath = Path.join(dir.build, "debug.yaml")
         guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
 
         try build(YAMLPath: yamlPath, target: "test")
-        let success = try test(dir.build, "debug", xctestArg: xctestArg)
+        let success = try test(dir.build, "debug", testPackageName: testPackageName, xctestArg: xctestArg)
         exit(success ? 0 : 1)
     }
 } catch {

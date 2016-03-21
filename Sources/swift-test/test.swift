@@ -11,20 +11,20 @@
 import PackageType
 import Utility
 
-func test(path: String..., xctestArg: String? = nil) throws -> Bool {
+func test(path: String..., testPackageName: String, xctestArg: String? = nil) throws -> Bool {
     let path = Path.join(path)
     var args: [String] = []
     let testsPath: String
 
 #if os(OSX)
-    testsPath = Path.join(path, "Package.xctest")
+    testsPath = Path.join(path, "\(testPackageName).xctest")
     args = ["xcrun", "xctest"]
     if let xctestArg = xctestArg {
         args += ["-XCTest", xctestArg]
     }
     args += [testsPath]
 #else
-    testsPath = Path.join(path, "test-Package")
+    testsPath = Path.join(path, "test-\(testPackageName)")
     args += [testsPath]
     if let xctestArg = xctestArg {
         args += [xctestArg]
