@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [XcodeModule], products _: [Product], printer print: (String) -> Void) {
     let nontests = modules.filter{ !($0 is TestModule) }
     let tests = modules.filter{ $0 is TestModule }
 
@@ -67,7 +67,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         for (ref, path) in fileRefs(forModuleSources: module, srcroot: srcroot) {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = sourcecode.swift;")
+            print("            lastKnownFileType = \(module.fileType);")
             print("            name = '\(Path(path).relative(to: module.sources.root))';")
             print("            sourceTree = '<group>';")
             print("        };")

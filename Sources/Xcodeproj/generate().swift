@@ -16,7 +16,7 @@ import POSIX
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir dstdir: String, projectName: String, srcroot: String, modules: [SwiftModule], products: [Product]) throws -> String {
+public func generate(dstdir dstdir: String, projectName: String, srcroot: String, modules: [XcodeModule], products: [Product]) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
