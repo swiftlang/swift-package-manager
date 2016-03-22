@@ -10,6 +10,7 @@
 
 import func POSIX.realpath
 import func POSIX.getenv
+import libc
 
 public class Git {
     public class Repo {
@@ -23,7 +24,7 @@ public class Git {
 
         public lazy var origin: String? = { repo in
             do {
-                guard let url = try popen([Git.tool, "-C", repo.path, "config", "--get", "remote.origin.url"]).chuzzle() else {
+                guard let url = try Git.runPopen([Git.tool, "-C", repo.path, "config", "--get", "remote.origin.url"]).chuzzle() else {
                     return nil
                 }
                 if URL.scheme(url) == nil {
@@ -40,15 +41,54 @@ public class Git {
         }(self)
 
         public var branch: String! {
-            return try? popen([Git.tool, "-C", path, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
+            return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
 
         public func fetch() throws {
-            try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+            do {
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+            } catch let errror {
+                Git.handle(errror)
+            }
         }
     }
 
     public class var tool: String {
         return getenv("SWIFT_GIT") ?? "git"
+    }
+
+    public class var version: String! {
+        return try? Git.runPopen([Git.tool, "version"])
+    }
+
+    public class var majorVersionNumber: Int? {
+        let prefix = "git version"
+        var version = self.version
+        if version.hasPrefix(prefix) {
+            let prefixRange = version.startIndex...version.startIndex.advanced(by: prefix.characters.count)
+            version.removeSubrange(prefixRange)
+        }
+        guard let first = version.characters.first else {
+            return nil
+        }
+        return Int(String(first))
+    }
+
+    @noreturn public class func handle(error: ErrorProtocol) {
+        // Git 2.0 or higher is required
+        if Git.majorVersionNumber < 2 {
+            print("error: ", Error.ObsoleteGitVersion)
+        } else {
+            print("error: ", Error.UnknownGitError)
+        }
+        exit(1)
+    }
+
+    public class func runPopen(arguments: [String]) throws -> String {
+        do {
+            return try popen(arguments)
+        } catch let error  {
+            handle(error)
+        }
     }
 }
