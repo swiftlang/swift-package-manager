@@ -1,5 +1,0 @@
-module CLibraryFlat {
-  header "abc.h"
-  link "CLibraryFlat"
-  export *
-}

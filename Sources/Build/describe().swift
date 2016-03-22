@@ -43,14 +43,8 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             targets.append(compile, for: module)
 
         case let module as ClangModule:
-            //FIXME: Generate modulemaps if possible
-            //Since we're not generating modulemaps currently we'll just emit empty module map file
-            //if it not present
-            if module.type == .Library && !module.moduleMapPath.isFile {
-                try POSIX.mkdir(module.moduleMapPath.parentDirectory)
-                try fopen(module.moduleMapPath, mode: .Write) { fp in
-                    try fputs("\n", fp)
-                }
+            if module.type == .Library {
+                try module.generateModuleMap()
             }
 
             let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)

@@ -10,6 +10,9 @@
 
 import func POSIX.getenv
 import func POSIX.popen
+import func POSIX.mkdir
+import func POSIX.fopen
+import func libc.fclose
 import PackageType
 import Utility
 
@@ -31,6 +34,83 @@ func platformFrameworksPath() throws -> String {
 extension CModule {
     var moduleMapPath: String {
         return Path.join(path, "module.modulemap")
+    }
+}
+
+extension ClangModule {
+    
+    public enum ModuleMapError: ErrorProtocol {
+        case UnsupportedIncludeLayoutForModule(String)
+    }
+    
+    public func generateModuleMap() throws {
+        
+        //Return if module map is already present
+        guard !moduleMapPath.isFile else {
+            return
+        }
+        
+        let includeDir = path
+        
+        //Generate empty module map if include dir is not present
+        guard includeDir.isDirectory else {
+            print("warning: No include directory, generating empty module map")
+            try POSIX.mkdir(includeDir)
+            try fopen(moduleMapPath, mode: .Write) { fp in
+                try fputs("\n", fp)
+            }
+            return
+        }
+        
+        let walked = walk(includeDir, recursively: false).map{$0}
+        
+        let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
+        let dirs = walked.filter{$0.isDirectory}
+        
+        if dirs.isEmpty {
+            guard !files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
+            try createModuleMap(.FlatHeaderLayout)
+            return
+        }
+        
+        guard let moduleHeaderDir = dirs.first where moduleHeaderDir.basename == name && files.isEmpty else {
+            throw ModuleMapError.UnsupportedIncludeLayoutForModule(name)
+        }
+        
+        let umbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
+        if umbrellaHeader.isFile {
+            try createModuleMap(.HeaderFile)
+        } else {
+            try createModuleMap(.ModuleNameDir)
+        }
+    }
+    
+    private enum UmbrellaType {
+        case FlatHeaderLayout
+        case ModuleNameDir
+        case HeaderFile
+    }
+    
+    private func createModuleMap(type: UmbrellaType) throws {
+        let moduleMap = try fopen(moduleMapPath, mode: .Write)
+        defer { fclose(moduleMap) }
+        
+        try fputs("module \(name) {\n", moduleMap)
+        try fputs("    umbrella ", moduleMap)
+        
+        switch type {
+        case .FlatHeaderLayout:
+            try fputs("\".\"\n", moduleMap)
+        case .ModuleNameDir:
+            try fputs("\"\(name)\"\n", moduleMap)
+        case .HeaderFile:
+            try fputs("header \"\(name)/\(name).h\"\n", moduleMap)
+            
+        }
+        
+        try fputs("    link \"\(name)\"\n", moduleMap)
+        try fputs("    export *\n", moduleMap)
+        try fputs("}\n", moduleMap)
     }
 }
 
