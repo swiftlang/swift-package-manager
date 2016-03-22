@@ -43,7 +43,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             //FIXME: Generate modulemaps if possible
             //Since we're not generating modulemaps currently we'll just emit empty module map file
             //if it not present
-            if !module.moduleMapPath.isFile {
+            if module.type == .Library && !module.moduleMapPath.isFile {
                 try POSIX.mkdir(module.moduleMapPath.parentDirectory)
                 try fopen(module.moduleMapPath, mode: .Write) { fp in
                     try fputs("\n", fp)

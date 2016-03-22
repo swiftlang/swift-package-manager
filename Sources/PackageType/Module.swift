@@ -37,6 +37,25 @@ public class Module {
     }
 }
 
+public enum ModuleType {
+    case Library, Executable
+}
+
+public protocol ModuleTypeProtocol {
+    var sources: Sources { get }
+    var type: ModuleType { get }
+    var mainFile: String { get }
+}
+
+extension ModuleTypeProtocol {
+    public var type: ModuleType {
+        let isLibrary = !sources.relativePaths.contains { path in
+            path.basename.lowercased() == mainFile
+        }
+        return isLibrary ? .Library : .Executable
+    }
+}
+
 extension Module: Hashable, Equatable {
     public var hashValue: Int { return c99name.hashValue }
 }
@@ -52,16 +71,11 @@ public class SwiftModule: Module {
         self.sources = sources
         super.init(name: name)
     }
+}
 
-    public enum ModuleType {
-        case Library, Executable
-    }
-
-    public var type: ModuleType {
-        let isLibrary = !sources.relativePaths.contains { path in
-            path.basename.lowercased() == "main.swift"
-        }
-        return isLibrary ? .Library : .Executable
+extension SwiftModule: ModuleTypeProtocol {
+    public var mainFile: String {
+        return "main.swift"
     }
 }
 
@@ -81,6 +95,12 @@ public class ClangModule: CModule {
         self.sources = sources
         //TODO: generate module map using swiftpm if layout can support
         super.init(name: name, path: sources.root + "/include")
+    }
+}
+
+extension ClangModule: ModuleTypeProtocol {
+    public var mainFile: String {
+        return "main.c"
     }
 }
 
