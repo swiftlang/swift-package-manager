@@ -67,7 +67,10 @@ class TestClangModulesTestCase: XCTestCase {
     func testCExecutable() {
         fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build/debug/CExecutable")
+            let exec = ".build/debug/CExecutable"
+            XCTAssertFileExists(prefix, exec)
+            let output = try popen([Path.join(prefix, exec)])
+            XCTAssertEqual(output, "hello 5")
         }
     }
 }
