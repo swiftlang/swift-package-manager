@@ -342,4 +342,11 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertEqual(output, "Goodbye\n")
         }
     }
+
+    func testStaticProduct() {
+        fixture(name: "Miscellaneous/StaticProduct") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build/debug/libBar.a")
+        }
+    }
 }
