@@ -63,6 +63,13 @@ class TestClangModulesTestCase: XCTestCase {
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
+    
+    func testCExecutable() {
+        fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build/debug/CExecutable")
+        }
+    }
 }
 
 
@@ -75,6 +82,7 @@ extension TestClangModulesTestCase {
             ("testExternalSimpleCDep", testExternalSimpleCDep),
             ("testiquoteDep", testiquoteDep),
             ("testCUsingCDep", testCUsingCDep),
+            ("testCExecutable", testCExecutable),
         ]
     }
 }
