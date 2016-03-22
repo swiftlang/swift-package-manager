@@ -128,6 +128,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     #if os(Linux)
          args += ["-fPIC"]
     #endif
+        if let sysroot = Toolchain.sysroot {
+            args += ["-isysroot", sysroot]
+        }
         args += ["-fmodules", "-fmodule-name=\(module.name)"]
         args += ["-L\(prefix)"]
         
