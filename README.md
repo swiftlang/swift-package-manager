@@ -23,24 +23,30 @@ Additionally, it is important to note that the Swift language syntax is not stab
 
 ## Installing
 
-The package manager is bundled with the [developer snapshots available at swift.org](https://swift.org/download/).
-**Please note the package manager does not come with the 2.2 release snapshots, ensure you download a 
-developer snapshot.**
+The package manager is bundled with the [**Trunk Development** Snapshots available at swift.org](https://swift.org/download/). Following installation you will need to do one of the following to use the package manager on the command line:
 
-If you want to verify you already have the package manager installed, enter the following in a terminal:
+* Xcode 7.3:
+
+        export TOOLCHAINS=swift
+
+* Xcode 7.2:
+
+        export PATH=/Library/Toolchains/swift-latest.xctoolchain/usr/bin:$PATH
+
+* Linux:
+
+        export PATH=path/to/toolchain/usr/bin:$PATH
+
+You can verify your installation by typing `swift build --version` in a terminal:
 
 ```sh
-swift build --help
+$ swift build --version
+Apple Swift Package Manager
 ```
 
-If you get usage output, it is installed, otherwise you will see an error such as:
+The following indicates you have not installed a snapshot successfully:
 
     <unknown>:0: error: no such file or directory: 'build'
-
-After installing a downloadable toolchain on OS X, by default you will probably see this error.
-To execute the swift from your download you either need to put that `swift` first in your `PATH`,
-or you need to set the `TOOLCHAINS` environment variable: see the next section.
-
 
 ### Managing Swift Environments
 
@@ -66,7 +72,7 @@ your `TOOLCHAINS` enivonment variable.
 To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier`
 in an `.xctoolchain`’s Info.plist.
 
-Please note, this feature may by a little flakey with Xcode prior to 7.3.
+This feature requires Xcode 7.3.
 
 
 ## Development
