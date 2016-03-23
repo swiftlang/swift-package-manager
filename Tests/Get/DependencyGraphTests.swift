@@ -285,6 +285,43 @@ class VersionGraphTests: XCTestCase {
         }
         XCTAssertTrue(success)
     }
+
+    func testPreReleaseVersionUnavailable() {
+        class MyMockFetcher: _MockFetcher {
+            override func fetch(url url: String) throws -> Fetchable {
+                return MockCheckout(.A, [v1alpha])
+            }
+        }
+
+        var success = false
+        do {
+            try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
+        } catch Error.InvalidDependencyGraphMissingTag {
+            success = true
+        } catch {
+            XCTFail()
+        }
+        XCTAssertTrue(success)
+    }
+
+    func testSkipPreReleaseVersions() {
+        class MockFetcher: _MockFetcher {
+            override func fetch(url url: String) throws -> Fetchable {
+                switch MockProject(rawValue: url)! {
+                case .A: return MockCheckout(.A, [v1, v1alpha, v2alpha])
+                default:
+                    fatalError()
+                }
+            }
+        }
+
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
+
+        XCTAssertEqual(rv, [
+            MockCheckout(.A, v1)
+        ])
+    }
+
 //
 //    func testGetRequiresUpdateToAlreadyInstalledPackage() {
 //        class MyMockFetcher: MockFetcher {
@@ -305,6 +342,8 @@ class VersionGraphTests: XCTestCase {
 
 
 ///////////////////////////////////////////////////////////////// private
+private let v1alpha: Version = "1.0.0-alpha"
+private let v2alpha: Version = "2.0.0-alpha"
 
 private let v1 = Version(1,0,0)
 private let v2 = Version(2,0,0)
@@ -343,8 +382,11 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
 
     var description: String { return "\(project)\(version)" }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
-        return availableVersions.filter{ versionRange ~= $0 }.last
+    func constrain(to versionRange: Range<Version>, includePrerelease: Bool) -> Version? {
+        return availableVersions.filter { version in
+            let include = includePrerelease ? true : version.prereleaseIdentifiers.isEmpty
+            return include && versionRange ~= version
+        }.last
     }
 
     var version: Version {

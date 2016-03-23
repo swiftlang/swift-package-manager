@@ -72,16 +72,16 @@ class ValidLayoutsTestCase: XCTestCase {
     func testPackageIdentifiers() {
         #if os(OSX)
             // this because sort orders vary on Linux on Mac currently
-            let tags = ["1.3.4-alpha.beta.gamma1", "1.2.3+24", "1.2.3", "1.2.3-beta5"]
+            let tags = ["1.3.4", "1.2.3", "1.2.3", "1.2.3"]
         #else
-            let tags = ["1.2.3", "1.2.3-beta5", "1.3.4-alpha.beta.gamma1", "1.2.3+24"]
+            let tags = ["1.2.3", "1.2.3", "1.3.4", "1.2.3"]
         #endif
         
         fixture(name: "DependencyResolution/External/Complex", tags: tags) { prefix in
             XCTAssertBuilds(prefix, "app", configurations: [.Debug])
-            XCTAssertDirectoryExists(prefix, "app/Packages/DeckOfPlayingCards-1.2.3-beta5")
-            XCTAssertDirectoryExists(prefix, "app/Packages/FisherYates-1.3.4-alpha.beta.gamma1")
-            XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3+24")
+            XCTAssertDirectoryExists(prefix, "app/Packages/DeckOfPlayingCards-1.2.3")
+            XCTAssertDirectoryExists(prefix, "app/Packages/FisherYates-1.3.4")
+            XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3")
         }
     }
 

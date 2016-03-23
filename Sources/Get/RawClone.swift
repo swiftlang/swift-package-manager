@@ -75,11 +75,13 @@ class RawClone: Fetchable {
         }
     }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
-        return availableVersions.filter {
+    func constrain(to versionRange: Range<Version>, includePrerelease: Bool) -> Version? {
+        return availableVersions.filter { version in
+            let include = includePrerelease ? true : version.prereleaseIdentifiers.isEmpty
+
             // not using `contains` as it uses successor() and for Range<Version>
             // this involves iterating from 0 to Int.max!
-            versionRange ~= $0
+           return include && versionRange ~= version
         }.last
     }
 

@@ -37,7 +37,7 @@ extension Package: Fetchable {
         return Version(versionString)!
     }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
+    func constrain(to versionRange: Range<Version>, includePrerelease: Bool) -> Version? {
         return nil
     }
 
