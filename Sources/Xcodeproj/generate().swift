@@ -16,7 +16,7 @@ import POSIX
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir dstdir: String, projectName: String, srcroot: String, modules: [SwiftModule], products: [Product]) throws -> String {
+public func generate(dstdir dstdir: String, projectName: String, srcroot: String, modules: [SwiftModule], externalModules: [SwiftModule], products: [Product]) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
@@ -25,7 +25,7 @@ public func generate(dstdir dstdir: String, projectName: String, srcroot: String
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, products: products, printer: fwrite)
+        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
