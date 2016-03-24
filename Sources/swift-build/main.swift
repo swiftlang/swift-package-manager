@@ -102,8 +102,7 @@ do {
 
             switch outpath {
             case let outpath? where outpath.hasSuffix(".xcodeproj"):
-                // if user specified path ending with .xcodeproj, generate that
-                "\(packageName).xcodeproj"
+                // if user specified path ending with .xcodeproj, use that
                 projectName = String(outpath.basename.characters.dropLast(10))
                 dstdir = outpath.parentDirectory
             case let outpath?:
