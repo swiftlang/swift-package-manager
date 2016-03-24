@@ -169,15 +169,6 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     print("            name = Tests;")
     print("            sourceTree = '<group>';")
     print("        };")
-
-////// “Tests” group
-    print("        \(testsGroupReference) = {")
-    print("            isa = PBXGroup;")
-    print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Tests;")
-    print("            sourceTree = '<group>';")
-    print("        };")
-
     
     var productReferences: [String] = []
     
