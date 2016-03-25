@@ -22,6 +22,10 @@ public struct VersionRange {
             return nil
         }
     }
+   
+    public var singleVersion: Bool {
+        return start == end
+    }
 }
 
 // MARK: Equatable

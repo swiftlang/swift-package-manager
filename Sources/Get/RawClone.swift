@@ -77,6 +77,10 @@ class RawClone: Fetchable {
     }
 
     func constrain(to versionRange: VersionRange) -> Version? {
+        guard !versionRange.singleVersion else {
+            return availableVersions.contains(versionRange.start) ? versionRange.start : nil
+        } 
+        
         let versionRange = versionRange.range
         return availableVersions.filter {
             // not using `contains` as it uses successor() and for Range<Version>

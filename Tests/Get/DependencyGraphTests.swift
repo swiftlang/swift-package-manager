@@ -285,6 +285,63 @@ class VersionGraphTests: XCTestCase {
         }
         XCTAssertTrue(success)
     }
+
+    //MARK : Pre-release Versions tests
+    
+    func testSinglePrereleaseVersion() {
+        class MockFetcher: _MockFetcher {
+            override func fetch(url url: String) throws -> Fetchable {
+                switch MockProject(rawValue: url)! {
+                case .A: return MockCheckout(.A, [v2alpha])
+                default:
+                    fatalError()
+                }
+            }
+        }
+        
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v2alpha...v2alpha)])
+        
+        XCTAssertEqual(rv, [
+            MockCheckout(.A, v2alpha)
+        ])
+    }
+    
+    func testManyPrereleaseVersions() {
+        class MockFetcher: _MockFetcher {
+            override func fetch(url url: String) throws -> Fetchable {
+                switch MockProject(rawValue: url)! {
+                case .A: return MockCheckout(.A, [v1alpha, v1, v199, v2alpha, v2])
+                default:
+                    fatalError()
+                }
+            }
+        }
+        
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v2alpha...v2alpha)])
+        
+        XCTAssertEqual(rv, [
+            MockCheckout(.A, v2alpha)
+        ])
+    }
+    
+    func testUnavailablePrereleaseVersions() {
+        class MyMockFetcher: _MockFetcher {
+            override func fetch(url url: String) throws -> Fetchable {
+                return MockCheckout(.A, [v1, v123, v2])
+            }
+        }
+        
+        var success = false
+        do {
+            try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1alpha...v1alpha)])
+        } catch Error.InvalidDependencyGraphMissingTag {
+            success = true
+        } catch {
+            XCTFail()
+        }
+        XCTAssertTrue(success)    
+    }
+
 //
 //    func testGetRequiresUpdateToAlreadyInstalledPackage() {
 //        class MyMockFetcher: MockFetcher {
@@ -305,6 +362,8 @@ class VersionGraphTests: XCTestCase {
 
 
 ///////////////////////////////////////////////////////////////// private
+private let v1alpha: Version = "1.0.0-alpha"
+private let v2alpha: Version = "2.0.0-alpha"
 
 private let v1 = Version(1,0,0)
 private let v2 = Version(2,0,0)
@@ -344,6 +403,10 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
     var description: String { return "\(project)\(version)" }
 
     func constrain(to versionRange: VersionRange) -> Version? {
+        guard !versionRange.singleVersion else {
+            return availableVersions.contains(versionRange.start) ? versionRange.start : nil
+        } 
+        
         let versionRange = versionRange.range
         return availableVersions.filter{ versionRange ~= $0 }.last
     }

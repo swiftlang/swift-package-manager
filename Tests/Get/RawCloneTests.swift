@@ -97,7 +97,10 @@ extension VersionGraphTests {
             ("testVersionConstrain", testVersionConstrain),
             ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
             ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
-            ("testVersionUnavailable", testVersionUnavailable)
+            ("testVersionUnavailable", testVersionUnavailable),
+            ("testSinglePrereleaseVersion", testSinglePrereleaseVersion),
+            ("testManyPrereleaseVersions", testManyPrereleaseVersions),
+            ("testUnavailablePrereleaseVersions", testUnavailablePrereleaseVersions),
         ]
     }
 }
