@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
+@testable import PackageDescription
 @testable import Get
 import struct PackageType.Manifest
 import class PackageType.Package
@@ -41,12 +41,12 @@ class GetTests: XCTestCase {
         let r7 = Version(3, 0, 0)..<Version(4, 0, 0)
         let r8 = Version(1, 0, 0)..<Version(4, 0, 0)
         
-        let r12: Range<Version>? = nil
-        let r13 = r1.startIndex...r1.startIndex
-        let r14 = r1.startIndex..<r4.endIndex
+        let r12: VersionRange? = nil
+        let r13 = r1.range.startIndex...r1.range.startIndex
+        let r14 = r1.range.startIndex..<r4.range.endIndex
         let r15 = r5
-        let r16 = r6.startIndex..<r1.endIndex
-        let r17: Range<Version>? = nil
+        let r16 = r6.range.startIndex..<r1.range.endIndex
+        let r17: VersionRange? = nil
         let r18 = r1
         
         XCTAssertEqual(r1.constrain(to: r2), r12)

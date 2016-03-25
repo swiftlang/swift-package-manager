@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
+@testable import PackageDescription
 @testable import Get
 import XCTest
 
@@ -226,8 +226,8 @@ class VersionGraphTests: XCTestCase {
         var invalidGraph = false
         do {
             try MyMockFetcher().recursivelyFetch([
-                (MockProject.A.url, Version.maxRange),
-                (MockProject.B.url, Version.maxRange)
+                (MockProject.A.url, Version.min..<Version.max),
+                (MockProject.B.url, Version.min..<Version.max)
             ])
         } catch Error.InvalidDependencyGraph(let url) {
             invalidGraph = true
@@ -324,11 +324,11 @@ private enum MockProject: String {
 
 private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
     let project: MockProject
-    let children: [(String, Range<Version>)]
+    let children: [(String, VersionRange)]
     var availableVersions: [Version]
     var _version: Version?
 
-    init(_ project: MockProject, _ availableVersions: [Version], _ dependencies: (String, Range<Version>)...) {
+    init(_ project: MockProject, _ availableVersions: [Version], _ dependencies: (String, VersionRange)...) {
         self.availableVersions = availableVersions
         self.project = project
         self.children = dependencies
@@ -343,7 +343,8 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
 
     var description: String { return "\(project)\(version)" }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
+    func constrain(to versionRange: VersionRange) -> Version? {
+        let versionRange = versionRange.range
         return availableVersions.filter{ versionRange ~= $0 }.last
     }
 

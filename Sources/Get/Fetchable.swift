@@ -8,11 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct PackageDescription.VersionRange
 import struct PackageDescription.Version
 
 protocol Fetchable {
     var version: Version { get }
-    var children: [(String, Range<Version>)] { get }
+    var children: [(String, VersionRange)] { get }
 
     /**
      This should be a separate protocol. But Swift 2 was not happy
@@ -21,7 +22,7 @@ protocol Fetchable {
      */
     var availableVersions: [Version] { get }
 
-    func constrain(to versionRange: Range<Version>) -> Version?
+    func constrain(to versionRange: VersionRange) -> Version?
 
     //FIXME protocols cannot impose new property constraints,
     // so Package has a version { get } already, we cannot add

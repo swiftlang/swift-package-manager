@@ -9,6 +9,7 @@
 */
 
 import struct PackageDescription.Version
+import struct PackageDescription.VersionRange
 
 /**
  Testable protocol to recursively fetch versioned resources.
@@ -21,7 +22,7 @@ protocol Fetcher {
     func fetch(url url: String) throws -> Fetchable
     func finalize(fetchable: Fetchable) throws -> T
 
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T]
+    func recursivelyFetch(urls: [(String, VersionRange)]) throws -> [T]
 }
 
 extension Fetcher {
@@ -30,15 +31,15 @@ extension Fetcher {
      
      This is our standard implementation that we override when testing.
      */
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T] {
+    func recursivelyFetch(urls: [(String, VersionRange)]) throws -> [T] {
 
-        var graph = [String: (Fetchable, Range<Version>)]()
+        var graph = [String: (Fetchable, VersionRange)]()
 
-        func recurse(urls: [(String, Range<Version>)]) throws -> [String] {
+        func recurse(urls: [(String, VersionRange)]) throws -> [String] {
 
             return try urls.flatMap { url, specifiedVersionRange -> [String] in
 
-                func adjust(pkg: Fetchable, _ versionRange: Range<Version>) throws {
+                func adjust(pkg: Fetchable, _ versionRange: VersionRange) throws {
                     guard let v = pkg.constrain(to: versionRange) else {
                         throw Error.InvalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }
