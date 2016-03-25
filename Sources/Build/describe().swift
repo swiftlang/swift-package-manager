@@ -18,7 +18,7 @@ import Utility
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module> , _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
+public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module> , _ allProducts: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
 
     guard modules.count > 0 else {
         throw Error.NoModules
@@ -63,6 +63,16 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
         }
     }
 
+    let (testProducts, nonTestProducts) = allProducts.partition{
+        if case .Test = $0.type {
+            return true
+        }
+        return false
+    }
+    
+    let aggregatedTestProduct = Product(name: "Package", type: .Test, modules: testProducts.map{ $0.modules }.flatMap{ $0 })
+    let products = nonTestProducts + [aggregatedTestProduct]
+    
     for product in products {
         let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + platformArgs())
         commands.append(command)
