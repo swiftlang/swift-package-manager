@@ -36,7 +36,12 @@ extension Git {
                 "--depth", "10",
                 url, dstdir, environment: environment, message: "Cloning \(url)")
         } catch POSIX.Error.ExitStatus {
-            throw Error.GitCloneFailure(url, dstdir)
+            // Git 2.0 or higher is required
+            if Git.majorVersionNumber < 2 {
+                throw Utility.Error.ObsoleteGitVersion
+            } else {
+                throw Error.GitCloneFailure(url, dstdir)
+            }
         }
 
         return Repo(path: dstdir)!  //TODO no bangs
@@ -45,7 +50,7 @@ extension Git {
 
 extension Git.Repo {
     var versions: [Version] {
-        let out = (try? popen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
+        let out = (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
         let tags = out.characters.split(separator: Character.newline)
         let versions = tags.flatMap(Version.init).sorted()
         if !versions.isEmpty {
@@ -66,6 +71,6 @@ extension Git.Repo {
      no versions, returns false.
      */
     var versionsArePrefixed: Bool {
-        return (try? popen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
+        return (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
     }
 }

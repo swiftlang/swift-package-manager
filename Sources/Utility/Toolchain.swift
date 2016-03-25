@@ -36,11 +36,6 @@ public struct Toolchain: Installation {
         return cmd
     }
 
-    //TODO better
-    public static var prefix: String {
-        return swiftc.parentDirectory.parentDirectory.parentDirectory
-    }
-
     /// the location of swiftc relative to our installation
     public static let swiftc = getenv("SWIFT_EXEC") ?? Toolchain.which("swiftc")
 

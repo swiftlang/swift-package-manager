@@ -34,6 +34,7 @@ let rootGroupReference =                            "___RootGroup_"
 let productsGroupReference =                        "____Products_"
 let testProductsGroupReference =                    "TestProducts_"
 let sourcesGroupReference =                         "_____Sources_"
+let dependenciesGroupReference =                    "Dependencies_"
 let testsGroupReference =                           "_______Tests_"
 let linkPhaseFileRefPrefix =                        "_LinkFileRef_"
 let sourceGroupFileRefPrefix =                      "__PBXFileRef_"
@@ -67,6 +68,11 @@ private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) ->
             return "\(c)"
         }
     }.joined(separator: "")
+}
+
+func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, String) {
+    let suffix = fileRef(suffixForModuleSourceFile: name, srcroot: srcroot)
+    return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
 }
 
 func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {

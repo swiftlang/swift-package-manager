@@ -12,17 +12,19 @@ import PackageType
 import Utility
 import func libc.exit
 
-public func transmute(packages: [Package], rootdir: String) throws -> ([Module], [Product]) {
+public func transmute(rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
 
     var products: [Product] = []
     var map: [Package: [Module]] = [:]
+    
+    let packages = externalPackages + [rootPackage]
 
     for package in packages {
 
         let modules: [Module]
         do {
             modules = try package.modules()
-        } catch Package.ModuleError.NoModules(let pkg) where pkg.path == rootdir {
+        } catch Package.ModuleError.NoModules(let pkg) where pkg === rootPackage {
             //Ignore and print warning if root package doesn't contain any sources
             print("warning: root package '\(pkg)' does not contain any sources")
             if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
@@ -66,18 +68,8 @@ public func transmute(packages: [Package], rootdir: String) throws -> ([Module],
     // ensure modules depend on the modules of any dependent packages
     fillModuleGraph(packages, modulesForPackage: { map[$0]! })
 
-    var set = Set<Module>()
-    var stack = packages.flatMap{ map[$0] ?? [] }
-    var modules = [Module]()
+    let modules = recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
+    let externalModules = recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
-    while !stack.isEmpty {
-        let module = stack.removeFirst()
-        if !set.contains(module) {
-            set.insert(module)
-            stack += module.dependencies
-            modules.append(module)
-        }
-    }
-
-    return (modules, products)
+    return (modules, externalModules, products)
 }

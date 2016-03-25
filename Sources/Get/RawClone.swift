@@ -63,8 +63,8 @@ class RawClone: Fetchable {
     func setVersion(ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try popen([Git.tool, "-C", path, "reset", "--hard", v])
-        try popen([Git.tool, "-C", path, "branch", "-m", v])
+        try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", v])
+        try Git.runPopen([Git.tool, "-C", path, "branch", "-m", v])
 
         print("Resolved version:", ver)
 

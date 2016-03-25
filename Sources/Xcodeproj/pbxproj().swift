@@ -15,9 +15,11 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
-    let nontests = modules.filter{ !($0 is TestModule) }
-    let tests = modules.filter{ $0 is TestModule }
+public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], externalModules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+
+    let rootModulesSet = Set(modules).subtract(Set(externalModules))
+    let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
+    let (tests, nonTests) = modules.partition{ $0 is TestModule }
 
     print("// !$*UTF8*$!")
     print("{")
@@ -44,10 +46,20 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     print("            targets = (" + modules.map{ $0.targetReference }.joined(separator: ", ") + ");")
     print("        };")
 
+////// Package.swift file
+    let packageSwift = fileRef(inProjectRoot: "Package.swift", srcroot: srcroot)
+    print("        \(packageSwift.0) = {")
+    print("            isa = PBXFileReference;")
+    print("            lastKnownFileType = sourcecode.swift;")
+    print("            name = '\(packageSwift.1)';")
+    print("            path = '\(packageSwift.2)';")
+    print("            sourceTree = '<group>';")
+    print("        };")
+
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(sourcesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.0), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 
@@ -147,16 +159,16 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
 ////// “Sources” group
     print("        \(sourcesGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (" + nontests.map{ $0.groupReference }.joined(separator: ", ") + ");")
+    print("            children = (" + nonTestRootModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
     print("            name = Sources;")
     print("            sourceTree = '<group>';")
     print("        };")
 
-////// “Tests” group
-    print("        \(testsGroupReference) = {")
+    ////// “Dependencies” group
+    print("        \(dependenciesGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Tests;")
+    print("            children = (" + externalModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
+    print("            name = Dependencies;")
     print("            sourceTree = '<group>';")
     print("        };")
 
@@ -167,7 +179,6 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     print("            name = Tests;")
     print("            sourceTree = '<group>';")
     print("        };")
-
     
     var productReferences: [String] = []
     
@@ -184,7 +195,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
     }
 
 ////// “Products” group
-    productReferences += nontests.map { $0.productReference }
+    productReferences += nonTests.map { $0.productReference }
 
     print("        \(productsGroupReference) = {")
     print("            isa = PBXGroup;")
