@@ -9,13 +9,13 @@
 */
 
 import func libc.time
-import func libc.ctime
 import typealias libc.time_t
+import var libc.errno
 
-public func ctime() throws -> String {
-    var time = 0
-    libc.time(&time)
-    let result = libc.ctime(&time)
-
-    return String(cString: result)
+public func time() throws -> time_t {
+    let time = libc.time(nil)
+    guard time != -1 else {
+        throw SystemError.time(errno)
+    }
+    return time
 }
