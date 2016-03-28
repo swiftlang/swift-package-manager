@@ -10,19 +10,41 @@
 
 import POSIX
 import PackageType
+import class Utility.Git
 import struct Utility.Path
 import func libc.fclose
 
-public func generateVersionData(rootDir: String, packages: [Package]) throws {
+public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
     let dirPath = Path.join(rootDir, ".build/versionData")
     try mkdir(dirPath)
 
-    for (pkgName, data) in generateData(packages) {
+    try saveRootPackage(dirPath, package: rootPackage)
+    for (pkgName, data) in generateData(externalPackages) {
         try saveVersionData(dirPath, packageName: pkgName, data: data)
     }
 }
 
-func generateData(packages: [Package]) -> [String : String] {
+func saveRootPackage(_ dirPath: String, package: Package) throws {
+    guard let repo = Git.Repo(path: package.path),
+        headSha = repo.sha,
+        version = package.version else { return }
+
+    let prefix = repo.versionsArePrefixed ? "v" : ""
+    let versionSha = try repo.versionSha(tag: "\(prefix)\(version)")
+
+    var data = packageVersionData(package)
+    if headSha != versionSha {
+        data += "public let sha: String = \"\(headSha)\" \n"
+    }
+    if repo.hasLocalChanges {
+        //TODO: save time
+        data += "public let modified: String = \"\" \n"
+    }
+
+    try saveVersionData(dirPath, packageName: package.name, data: data)
+}
+
+func generateData(_ packages: [Package]) -> [String : String] {
     var versionData = [String : String]()
     for pkg in packages {
         versionData[pkg.name] = packageVersionData(pkg)
@@ -30,7 +52,7 @@ func generateData(packages: [Package]) -> [String : String] {
     return versionData
 }
 
-func packageVersionData(package: Package) -> String {
+func packageVersionData(_ package: Package) -> String {
     var data = "public let url: String = \"\(package.url)\" \n" +
         "public let version: (Int, Int, Int, [String], String?)?"
     if let version = package.version {
@@ -39,7 +61,7 @@ func packageVersionData(package: Package) -> String {
     return data
 }
 
-private func saveVersionData(dirPath: String, packageName: String, data: String) throws {
+private func saveVersionData(_ dirPath: String, packageName: String, data: String) throws {
     let filePath = Path.join(dirPath, "\(packageName).swift")
     let file = try fopen(filePath, mode: .Write)
     defer {

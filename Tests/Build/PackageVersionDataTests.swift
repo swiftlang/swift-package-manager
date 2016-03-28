@@ -20,7 +20,7 @@ final class PackageVersionDataTests: XCTestCase {
         return Package(manifest: m, url: "https://github.com/testPkg")
     }
 
-    func testPackageData(package: PackageType.Package, url: String, version: Version?) {
+    func testPackageData(_ package: PackageType.Package, url: String, version: Version?) {
         var expected = "public let url: String = \"\(url)\" \n" +
             "public let version: (Int, Int, Int, [String], String?)?"
         if let version = version {
@@ -46,7 +46,11 @@ final class PackageVersionDataTests: XCTestCase {
     func testSavePackageVersionDataToFile() {
         mktmpdir { dir in
             let package = makePackage()
-            try generateVersionData(dir, packages: [package])
+
+            let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
+            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg")
+
+            try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
             XCTAssertFileExists(dir, ".build/versionData/", "\(package.name).swift")
         }
     }
