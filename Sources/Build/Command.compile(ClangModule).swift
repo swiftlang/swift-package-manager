@@ -15,7 +15,7 @@ import POSIX
 //FIXME: Incremental builds
 
 extension Command {
-    static func compile(clangModule module: ClangModule, configuration conf: Configuration, prefix: String) -> (Command, Command) {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String) -> (Command, Command) {
 
         let wd = Path.join(prefix, "\(module.c99name).build")
         let mkdir = Command.createDirectory(wd)
@@ -36,14 +36,8 @@ extension Command {
             //transitive closure of the target being built allowing the use of `#include "..."`
             //add `-I` argument to the include directory of every target outside the package in the
             //transitive closure of the target being built allowing the use of `#include <...>`
-            //FIXME: To detect external deps we're checking if their path's parent.parent directory
-            //is `Packages` as external deps will get copied to `Packages` dir. There should be a
-            //better way to do this.
-            if dep.path.parentDirectory.parentDirectory.basename == "Packages" {
-                includeFlag = "-I"
-            } else {
-                includeFlag = "-iquote"
-            }
+
+            includeFlag = externalModules.contains(dep) ? "-I" : "-iquote"
             args += [includeFlag, dep.path]
             args += ["-l\(dep.c99name)"] //FIXME: giving path to other module's -fmodule-map-file is not linking that module
         }
