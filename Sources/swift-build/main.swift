@@ -22,7 +22,7 @@ import Build
 import Get
 
 
-private let origwd = (try? getcwd()) ?? "/"
+private let origwd = getcwd()
 
 extension String {
     private var prettied: String {
@@ -72,7 +72,7 @@ do {
             try build(YAMLPath: yaml, target: "default")
 
         case .Init(let initMode):
-            let initPackage = try InitPackage(mode: initMode)
+            let initPackage = InitPackage(mode: initMode)
             try initPackage.writePackageStructure()
                         
         case .Fetch:

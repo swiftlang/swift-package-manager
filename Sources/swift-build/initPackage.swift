@@ -22,11 +22,10 @@ final class InitPackage {
     
     let mode: InitMode
     let pkgname: String
-    let rootd: String
+    let rootd = POSIX.getcwd()
     
-    init(mode: InitMode) throws {
+    init(mode: InitMode) {
         self.mode = mode
-        rootd = try POSIX.getcwd()
         pkgname = rootd.basename
     }
     

@@ -87,7 +87,7 @@ func swiftBuildPath() -> String {
     }
     fatalError()
 #else
-    return Path.join(try! Process.arguments.first!.abspath().parentDirectory, "swift-build")
+    return Path.join(Process.arguments.first!.abspath().parentDirectory, "swift-build")
 #endif
 }
 

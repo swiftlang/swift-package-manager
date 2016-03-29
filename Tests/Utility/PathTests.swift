@@ -184,7 +184,7 @@ class StatTests: XCTestCase {
     }
 
     func test_realpath() {
-        XCTAssertEqual(try! realpath("."), try! getcwd())
+        XCTAssertEqual(try! realpath("."), getcwd())
     }
 
     func test_basename() {
@@ -208,7 +208,7 @@ class RelativePathTests: XCTestCase {
     }
 
     func testMixed() {
-        XCTAssertEqual("3/4", Path(try! getcwd() + "/1/2/3/4").relative(to: "1/2"))
+        XCTAssertEqual("3/4", Path(getcwd() + "/1/2/3/4").relative(to: "1/2"))
     }
     
     func testRelativeCommonSubprefix() {
