@@ -54,6 +54,17 @@ def error(message):
     sys.stdout.flush()
     raise SystemExit(1)
 
+def symlink_force(target, link_name):
+    if os.path.isdir(link_name):
+        link_name = os.path.join(link_name, os.path.basename(target))
+    try:
+        os.symlink(target, link_name)
+    except OSError, e:
+        if e.errno == errno.EEXIST:
+            os.remove(link_name)
+            os.symlink(target, link_name)
+        else:
+            raise e
 
 def mkdir_p(path):
     """
@@ -449,15 +460,11 @@ def get_swift_build_tool_path():
         if os.path.exists(sbt_path):
             return sbt_path
 
-    if os.environ.get("SWIFT_BUILD_TOOL"):
-        return os.environ.get("SWIFT_BUILD_TOOL")
-
-    # Next, search for it in PATH.
-    try:
-        return subprocess.check_output(["which", "swift-build-tool"],
-                                       universal_newlines=True).strip()
-    except:
-        pass
+    SWIFT_EXEC = os.getenv("SWIFT_EXEC")
+    if SWIFT_EXEC:
+        maybe_path = os.path.join(SWIFT_EXEC, "../swift-build-tool")
+        if exists(maybe_path):
+            return maybe_path
 
     # If that failed, on Darwin use xcrun to search for the tool.
     if platform.system() == 'Darwin':
@@ -469,10 +476,27 @@ def get_swift_build_tool_path():
                 return sbt_path
         except subprocess.CalledProcessError:
             pass
+    else:
+        # Otherwise, search for it in PATH.
+        try:
+            return subprocess.check_output(["which", "swift-build-tool"],
+                                           universal_newlines=True).strip()
+        except:
+            pass
 
     # If all else failed, report an error.
     error("unable to find 'swift-build-tool' tool for bootstrap build")
 
+
+def get_swiftc_path():
+    path = os.getenv("SWIFT_EXEC")
+    if path:
+        return os.realpath(path)
+    else:
+        if platform.system() == 'Darwin':
+            return subprocess.check_output(["xcrun", "--find", "swiftc"], stderr=subprocess.PIPE, universal_newlines=True).strip()
+        else:
+            return subprocess.check_output(["which", args.swiftc_path], universal_newlines=True).strip()    
 
 def main():
     parser = argparse.ArgumentParser(
@@ -487,7 +511,7 @@ def main():
                         nargs="*", default=["all"])
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
-                        default=os.getenv("SWIFT_EXEC") or "swiftc",
+                        default=get_swiftc_path(),
                         metavar="PATH")
     parser.add_argument("--sbt", dest="sbt_path",
                         help="path to the 'swift-build-tool' tool "
@@ -511,7 +535,7 @@ def main():
                         help="Path to XCTest build directory")
     args = parser.parse_args()
     build_actions = set(args.build_actions)
-
+            
     # Validate the build actions.
     for action in build_actions:
         if action not in ("clean", "all", "test", "install"):
@@ -545,12 +569,6 @@ def main():
     args.sbt_path = os.path.abspath(
         args.sbt_path or get_swift_build_tool_path())
 
-    # Due to bug in Xcode where SWIFT_EXEC is not set correctly by downloadable
-    # toolchain
-    if os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"):
-        args.swiftc = os.path.join(
-            os.getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE"), "usr/bin/swiftc")
-
     # Create or update the bootstrap files.
     create_bootstrap_files(sandbox_path, args)
 
@@ -569,25 +587,19 @@ def main():
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
         sandbox_path, args, bootstrap=True)
 
-    # Symlink the expected lib location so that we don't yet
-    # have to support installation logic in SwiftPM proper
-    symlink_path = os.path.join(build_path, "lib", "swift", "pm")
-    if not os.path.islink(symlink_path):
-        path = os.path.join(build_path, "lib", "swift")
-        shutil.rmtree(path, True)
-        mkdir_p(path)
-        os.symlink(os.path.join(build_path, "debug"), symlink_path)
-    symlink_path = os.path.join(build_path, "bin")
-    if not os.path.islink(symlink_path):
-        path = os.path.join(build_path, "debug")
-        shutil.rmtree(path, True)
-        os.symlink(path, symlink_path)
+    # Construct a fake toolchain so swift-build can build itself
+    # without requiring it to have hacky-edge-case logic
+    def make_fake_toolchain():
+        bindir = os.path.join(sandbox_path, "bin")
+        symlink_force(args.swiftc_path, bindir)
+        symlink_force(args.sbt_path, bindir)
+
+    make_fake_toolchain()
 
     # Build the package manager with itself.
-    env_cmd = ["env",
-               "SWIFT_EXEC=" + args.swiftc_path,
-               "SWIFT_BUILD_TOOL=" + args.sbt_path,
-               "SWIFT_BUILD_PATH=" + build_path]
+               
+    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(sandbox_path, "bin", "swiftc"),
+                      "SWIFT_BUILD_PATH=" + build_path]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
 
@@ -628,12 +640,8 @@ def main():
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
-        env_cmd = ["env",
-                   "SWIFT_EXEC=" + args.swiftc_path,
-                   "SWIFT_BUILD_TOOL=" + args.sbt_path,
-                   "SWIFT_BUILD_PATH=" + build_path,
-                   "SPM_INSTALL_PATH=" + build_path]
-
+        env_cmd = ["env", "SWIFT_EXEC=" + args.swiftc_path,
+                          "SWIFT_BUILD_PATH=" + build_path]
         cmd = env_cmd + [os.path.join(build_path, "debug", "swift-test")]
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
