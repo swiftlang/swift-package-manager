@@ -222,7 +222,7 @@ extension String {
 
     /**
      - Returns: true if the string is a file on the filesystem
-     - Note: if the entry is a symlink, but the symlink points to Array
+     - Note: if the entry is a symlink, but the symlink points to a
        file, then this function returns true. Use `isSymlink` if the
        distinction is important.
      */

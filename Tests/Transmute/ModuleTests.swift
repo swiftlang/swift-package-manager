@@ -240,7 +240,15 @@ extension ModuleTests {
     }
 }
 
-import struct Utility.Toolchain
+#if os(OSX)
+    private func bundleRoot() -> String {
+        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+            return bundle.bundlePath.parentDirectory
+        }
+        fatalError()
+    }
+#endif
+
 import func POSIX.getenv
 
 extension Manifest {
@@ -253,17 +261,12 @@ extension Manifest {
         #if Xcode
             let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
         #else
-            let swiftc = Toolchain.swiftc
+            let swiftc = Path.join(bundleRoot(), "swiftc")
         #endif
-        let libdir = { _ -> String in
-            for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
-                return bundle.bundlePath.parentDirectory
-            }
-            fatalError()
-        }()
+        let libdir = bundleRoot()
     #else
-        let swiftc = Toolchain.swiftc
-        let libdir = Process.arguments.first!.parentDirectory
+        let libdir = Process.arguments.first!.parentDirectory.abspath()
+        let swiftc = Path.join(libdir, "swiftc")
     #endif
 
         let path = Path.join(pathComponents)

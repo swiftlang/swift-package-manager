@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Build.Toolchain
 import enum Build.Configuration
 import Multitool
 
@@ -38,7 +39,7 @@ enum CleanMode: String {
 }
 
 enum Mode {
-    case Build(Configuration)
+    case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Fetch
     case Init(InitPackage.InitMode)
@@ -105,10 +106,10 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             case (nil, .Build):
                 switch try cruncher.peek() {
                 case .Name("debug")?:
-                    mode = .Build(.Debug)
+                    mode = .Build(.Debug, try UserToolchain())
                     cruncher.postPeekPop()
                 case .Name("release")?:
-                    mode = .Build(.Release)
+                    mode = .Build(.Release, try UserToolchain())
                     cruncher.postPeekPop()
                 case .Name(let name)?:
                     throw CommandLineError.InvalidUsage("Unknown build configuration: \(name)", .ImplySwiftBuild)
@@ -184,7 +185,11 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
         }
     }
 
-    return (mode ?? .Build(.Debug), opts)
+    if let mode = mode {
+        return (mode, opts)
+    } else {
+        return (.Build(.Debug, try UserToolchain()), opts)
+    }
 }
 
 extension CleanMode: CustomStringConvertible {

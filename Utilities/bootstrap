@@ -43,14 +43,13 @@ import subprocess
 import sys
 import tempfile
 
-
 def note(message):
-    print("%s: note: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
 
 
 def error(message):
-    print("%s: error: %s" % (os.path.basename(sys.argv[0]), message))
+    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
     sys.stdout.flush()
     raise SystemExit(1)
 
@@ -489,14 +488,17 @@ def get_swift_build_tool_path():
 
 
 def get_swiftc_path():
-    path = os.getenv("SWIFT_EXEC")
-    if path:
-        return os.realpath(path)
-    else:
-        if platform.system() == 'Darwin':
-            return subprocess.check_output(["xcrun", "--find", "swiftc"], stderr=subprocess.PIPE, universal_newlines=True).strip()
+    try:
+        if os.getenv("SWIFT_EXEC"):
+            return os.realpath(os.getenv("SWIFT_EXEC"))
+        elif platform.system() == 'Darwin':
+            return subprocess.check_output(["xcrun", "--find", "swiftc"],
+                stderr=subprocess.PIPE, universal_newlines=True).strip()
         else:
-            return subprocess.check_output(["which", args.swiftc_path], universal_newlines=True).strip()    
+            return subprocess.check_output(["which", "swiftc"],
+            universal_newlines=True).strip()
+    except:
+        error("unable to find 'swiftc' tool for bootstrap build")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -511,7 +513,6 @@ def main():
                         nargs="*", default=["all"])
     parser.add_argument("--swiftc", dest="swiftc_path",
                         help="path to the swift compiler [%(default)s]",
-                        default=get_swiftc_path(),
                         metavar="PATH")
     parser.add_argument("--sbt", dest="sbt_path",
                         help="path to the 'swift-build-tool' tool "
@@ -534,6 +535,10 @@ def main():
     parser.add_argument("--xctest", dest="xctest_path",
                         help="Path to XCTest build directory")
     args = parser.parse_args()
+
+    if not args.swiftc_path:
+        args.swiftc_path = get_swiftc_path()
+
     build_actions = set(args.build_actions)
             
     # Validate the build actions.
@@ -587,23 +592,31 @@ def main():
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
         sandbox_path, args, bootstrap=True)
 
+    libdir = os.path.join(build_path, "lib")
+    bindir = os.path.join(build_path, "debug")
+    mkdir_p(bindir)
+    bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
+
     # Construct a fake toolchain so swift-build can build itself
     # without requiring it to have hacky-edge-case logic
     def make_fake_toolchain():
-        bindir = os.path.join(sandbox_path, "bin")
         symlink_force(args.swiftc_path, bindir)
         symlink_force(args.sbt_path, bindir)
+        symlink_force(os.path.join(sandbox_path, "bin", "swift-build"), bootstrapped_product)
+        if os.path.isdir(libdir) and not os.path.islink(libdir):
+            shutil.rmtree(libdir)   # TODO remove, here to prevent revlock incremental CI build failures
+        symlink_force(os.path.join(sandbox_path, "lib"), build_path)
 
     make_fake_toolchain()
 
     # Build the package manager with itself.
                
-    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(sandbox_path, "bin", "swiftc"),
+    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                       "SWIFT_BUILD_PATH=" + build_path]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
 
-    cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
+    cmd = [bootstrapped_product]
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
@@ -640,7 +653,7 @@ def main():
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
-        env_cmd = ["env", "SWIFT_EXEC=" + args.swiftc_path,
+        env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                           "SWIFT_BUILD_PATH=" + build_path]
         cmd = env_cmd + [os.path.join(build_path, "debug", "swift-test")]
         result = subprocess.call(cmd, cwd=g_project_root)

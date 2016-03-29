@@ -15,7 +15,7 @@ import POSIX
 //FIXME: Incremental builds
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String) -> (Command, Command) {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) -> (Command, Command) {
 
         let wd = Path.join(prefix, "\(module.c99name).build")
         let mkdir = Command.createDirectory(wd)
@@ -61,7 +61,7 @@ extension Command {
             description: "Compiling \(module.name)",
             inputs: inputs,
             outputs: [productPath, module.targetName],
-            args: [Toolchain.clang] + args)
+            args: [CC] + args)
 
         let command = Command(node: module.targetName, tool: clang)
 

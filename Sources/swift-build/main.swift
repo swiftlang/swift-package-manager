@@ -46,16 +46,11 @@ do {
     if let dir = opts.chdir {
         try chdir(dir)
     }
-    
+
     func parseManifest(path path: String, baseURL: String) throws -> Manifest {
-        let bindir = try! Process.arguments.first!.parentDirectory.abspath()
-        let libdir: String
-        if Path.join(bindir, "PackageDescription.swiftmodule").isDirectory { //FIXME HACK
-            libdir = bindir
-        } else {
-            libdir = try! Path.join(bindir, "../lib/swift/pm").abspath()
-        }
-        return try Manifest(path: path, baseURL: baseURL, swiftc: Toolchain.swiftc, libdir: libdir)
+        let swiftc = Multitool.SWIFT_EXEC
+        let libdir = Multitool.libdir
+        return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
     }
     
     func fetch(root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
@@ -64,11 +59,11 @@ do {
     }
 
     switch mode {
-        case .Build(let conf):
+        case .Build(let conf, let toolchain):
             let dirs = try directories()
             let (rootPackage, externalPackages) = try fetch(dirs.root)
             let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-            let yaml = try describe(dirs.build, conf, modules, Set<Module>(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
+            let yaml = try describe(dirs.build, conf, modules, Set<Module>(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
             try build(YAMLPath: yaml, target: "default")
 
         case .Init(let initMode):

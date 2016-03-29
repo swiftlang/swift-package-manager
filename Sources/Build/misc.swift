@@ -9,21 +9,23 @@
 */
 
 import func POSIX.getenv
+import func POSIX.popen
 import PackageType
 import Utility
 
-func platformArgs() -> [String] {
-    var args = [String]()
+public protocol Toolchain {
+    var platformArgs: [String] { get }
+    var sysroot: String?  { get }
+    var SWIFT_EXEC: String { get }
+    var clang: String { get }
+}
 
-#if os(OSX)
-    args += ["-target", "x86_64-apple-macosx10.10"]
-
-    if let sysroot = Toolchain.sysroot {
-        args += ["-sdk", sysroot]
+func platformFrameworksPath() throws -> String {
+    guard let  popened = try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]),
+        let chuzzled = popened.chuzzle() else {
+            throw Error.InvalidPlatformPath
     }
-#endif
-
-    return args
+    return Path.join(chuzzled, "Developer/Library/Frameworks")
 }
 
 extension CModule {
