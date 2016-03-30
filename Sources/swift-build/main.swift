@@ -63,6 +63,16 @@ do {
         return try get(manifest, manifestParser: parseManifest)
     }
 
+    func clean(mode: CleanMode) throws {
+        switch mode {
+        case .Dist:
+            try rmtree(try directories().root, "Packages")
+            fallthrough
+        case .Build:
+            try rmtree(try directories().root, ".build")
+        }
+    }
+
     switch mode {
         case .Build(let conf):
             let dirs = try directories()
@@ -76,16 +86,14 @@ do {
             try initPackage.writePackageStructure()
                         
         case .Fetch:
+            try clean(.Dist)
             try fetch(try directories().root)
 
         case .Usage:
             usage()
 
-        case .Clean(.Dist):
-            try rmtree(try directories().root, "Packages")
-            fallthrough
-        case .Clean(.Build):
-            try rmtree(try directories().root, ".build")
+        case .Clean(let cleanMode):
+            try clean(cleanMode)
 
         case .Version:
             print("Apple Swift Package Manager 0.1")
