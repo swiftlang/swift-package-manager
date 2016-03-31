@@ -12,25 +12,19 @@ import PackageType
 import Utility
 import POSIX
 
-//FIXME: Incremental builds
-
-extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) -> (Command, Command) {
-
-        let wd = Path.join(prefix, "\(module.c99name).build")
-        let mkdir = Command.createDirectory(wd)
-
-        let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths + [mkdir.node]
-        let productPath = Path.join(prefix, module.type == .Library ? "lib\(module.c99name).so" : module.c99name)
-
+private extension ClangModule {
+    var basicArgs: [String] {
         var args: [String] = []
-    #if os(Linux)
-        args += ["-fPIC"]
-    #endif
-        args += ["-fmodules", "-fmodule-name=\(module.name)"]
-        args += ["-L\(prefix)"]
+        #if os(Linux)
+            args += ["-fPIC"]
+        #endif
+        args += ["-fmodules", "-fmodule-name=\(name)"]
+        return args
+    }
 
-        for case let dep as ClangModule in module.dependencies {
+    func includeFlagsWithExternalModules(externalModules: Set<Module>) -> [String] {
+        var args: [String] = []
+        for case let dep as ClangModule in dependencies {
             let includeFlag: String
             //add `-iquote` argument to the include directory of every target in the package in the
             //transitive closure of the target being built allowing the use of `#include "..."`
@@ -39,32 +33,91 @@ extension Command {
 
             includeFlag = externalModules.contains(dep) ? "-I" : "-iquote"
             args += [includeFlag, dep.path]
-            args += ["-l\(dep.c99name)"] //FIXME: giving path to other module's -fmodule-map-file is not linking that module
         }
+        return args
+    }
 
+    var linkFlags: [String] {
+        var args: [String] = []
+        for case let dep as ClangModule in dependencies {
+            args += ["-l\(dep.c99name)"]
+        }
+        return args
+    }
+
+    func optimizationFlags(conf: Configuration) -> [String] {
         switch conf {
         case .Debug:
-            args += ["-g", "-O0"]
+            return ["-g", "-O0"]
         case .Release:
-            args += ["-O2"]
+            return ["-O2"]
+        }
+    }
+}
+
+private extension Sources {
+    func compilePathsForBuildDir(wd: String) -> [(filename: String, source: String, object: String, deps: String)] {
+        return relativePaths.map { source in
+            let path = Path.join(root, source)
+            let object = Path.join(wd, "\(source).o")
+            let deps = Path.join(wd, "\(source).d")
+            return (source, path, object, deps)
+        }
+    }
+}
+
+extension Command {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) -> ([Command], Command) {
+
+        let wd = Path.join(prefix, "\(module.c99name).build")
+        let mkdir = Command.createDirectory(wd)
+
+        ///------------------------------ Compile -----------------------------------------
+        var compileCommands = [Command]()
+        let dependencies = module.dependencies.map{ $0.targetName }
+        let basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
+        for path in module.sources.compilePathsForBuildDir(wd) {
+            var args = basicArgs
+            args += ["-MMD", "-MT", "dependencies", "-MF", path.deps]
+            args += ["-c", path.source, "-o", path.object]
+
+            let node = "<\(module.name).\(path.filename)>"
+
+            let clang = ClangTool(desc: "Compiling \(module.name) \(path.filename)",
+                                  inputs: dependencies + [path.source, mkdir.node],
+                                  outputs: [path.object, node],
+                                  args: args,
+                                  deps: path.deps)
+
+            let command = Command(node: node, tool: clang)
+
+            compileCommands.append(command)
         }
 
-        args += module.sources.paths
-        
+
+        ///FIXME: This probably doesn't belong here
+        ///------------------------------ Product -----------------------------------------
+
+        var args = module.basicArgs
+        args += module.optimizationFlags(conf)
+        args += ["-L\(prefix)"]
+        args += module.linkFlags
+        args += module.sources.compilePathsForBuildDir(wd).map{$0.object}
+
         if module.type == .Library {
             args += ["-shared"]
         }
-        
+
+        let productPath = Path.join(prefix, module.type == .Library ? "lib\(module.c99name).so" : module.c99name)
         args += ["-o", productPath]
 
-        let clang = ShellTool(
-            description: "Compiling \(module.name)",
-            inputs: inputs,
-            outputs: [productPath, module.targetName],
-            args: [CC] + args)
-
+        let clang = ClangTool(desc: "Linking \(module.name)",
+                              inputs: dependencies + compileCommands.map{$0.node} + [mkdir.node],
+                              outputs: [productPath, module.targetName],
+                              args: [CC] + args,
+                              deps: nil)
         let command = Command(node: module.targetName, tool: clang)
 
-        return (command, mkdir)
+        return (compileCommands + [command], mkdir)
     }
 }

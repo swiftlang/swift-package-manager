@@ -110,3 +110,26 @@ struct MkdirTool: ToolProtocol {
         return yaml
     }
 }
+
+struct ClangTool: ToolProtocol {
+    let desc: String
+    let inputs: [String]
+    let outputs: [String]
+    let args: [String]
+    let deps: String?
+
+    var name: String { return "clang" }
+
+    var YAMLDescription: String {
+        var yaml = ""
+        yaml += "    tool: " + name.YAML + "\n"
+        yaml += "    description: " + desc.YAML + "\n"
+        yaml += "    inputs: " + inputs.YAML + "\n"
+        yaml += "    outputs: " + outputs.YAML + "\n"
+        yaml += "    args: " + args.joined(separator: " ").YAML + "\n"
+        if let deps = deps {
+            yaml += "    deps: " + deps.YAML + "\n"
+        }
+        return yaml
+    }
+}

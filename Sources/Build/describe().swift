@@ -54,9 +54,9 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             }
 
             let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
-            commands.append(compile)
+            commands += compile
             commands.append(mkdir)
-            targets.main.cmds.append(compile)
+            targets.main.cmds += compile
 
         case is CModule:
             continue
