@@ -124,7 +124,7 @@ final class InitPackage {
         try fputs("import XCTest\n", linuxMainFP)
         try fputs("@testable import \(pkgname)TestSuite\n\n", linuxMainFP)
         try fputs("XCTMain([\n", linuxMainFP)
-        try fputs("\t testCase(\(pkgname).allTests),\n", linuxMainFP)
+        try fputs("\t testCase(\(pkgname)Tests.allTests),\n", linuxMainFP)
         try fputs("])\n", linuxMainFP)
     }
     
@@ -133,8 +133,8 @@ final class InitPackage {
         print("Creating Tests/\(pkgname)/")
         try mkdir(testModule)
         
-        let testsFile = Path.join(testModule, "\(pkgname).swift")
-        print("Creating Tests/\(pkgname)/\(pkgname).swift")
+        let testsFile = Path.join(testModule, "\(pkgname)Tests.swift")
+        print("Creating Tests/\(pkgname)/\(pkgname)Tests.swift")
         let testsFileFP = try fopen(testsFile, mode: .Write)
         defer {
             fclose(testsFileFP)
@@ -142,7 +142,7 @@ final class InitPackage {
         try fputs("import XCTest\n", testsFileFP)
         try fputs("@testable import \(pkgname)\n\n", testsFileFP)
     
-        try fputs("class \(pkgname): XCTestCase {\n\n", testsFileFP)
+        try fputs("class \(pkgname)Tests: XCTestCase {\n\n", testsFileFP)
     
         try fputs("\tfunc testExample() {\n", testsFileFP)
         try fputs("\t\t// This is an example of a functional test case.\n", testsFileFP)
@@ -151,8 +151,8 @@ final class InitPackage {
     
         try fputs("}\n", testsFileFP)
     
-        try fputs("extension \(pkgname) {\n", testsFileFP)
-        try fputs("\tstatic var allTests : [(String, \(pkgname) -> () throws -> Void)] {\n", testsFileFP)
+        try fputs("extension \(pkgname)Tests {\n", testsFileFP)
+        try fputs("\tstatic var allTests : [(String, \(pkgname)Tests -> () throws -> Void)] {\n", testsFileFP)
         try fputs("\t\treturn [\n", testsFileFP)
         try fputs("\t\t\t(\"testExample\", testExample),\n", testsFileFP)
         try fputs("\t\t]\n", testsFileFP)
