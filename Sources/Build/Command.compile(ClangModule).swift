@@ -81,15 +81,13 @@ extension Command {
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps]
             args += ["-c", path.source, "-o", path.object]
 
-            let node = "<\(module.name).\(path.filename)>"
-
             let clang = ClangTool(desc: "Compiling \(module.name) \(path.filename)",
                                   inputs: dependencies + [path.source, mkdir.node],
-                                  outputs: [path.object, node],
+                                  outputs: [path.object],
                                   args: args,
                                   deps: path.deps)
 
-            let command = Command(node: node, tool: clang)
+            let command = Command(node: path.object, tool: clang)
 
             compileCommands.append(command)
         }
