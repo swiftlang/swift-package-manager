@@ -67,9 +67,14 @@ private extension Sources {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) -> ([Command], Command) {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) throws -> ([Command], Command) {
 
-        let wd = Path.join(prefix, "\(module.c99name).build")
+        let wd = module.workingDirectory(prefix)
+        
+        if module.type == .Library {
+            try module.generateModuleMap(inDir: wd)
+        }
+        
         let mkdir = Command.createDirectory(wd)
 
         ///------------------------------ Compile -----------------------------------------

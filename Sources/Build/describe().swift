@@ -43,11 +43,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
             targets.append(compile, for: module)
 
         case let module as ClangModule:
-            if module.type == .Library {
-                try module.generateModuleMap()
-            }
-
-            let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
+            let (compile, mkdir) = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
             commands += compile
             commands.append(mkdir)
             targets.main.cmds += compile

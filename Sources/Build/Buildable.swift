@@ -9,10 +9,17 @@
 */
 
 import PackageType
+import struct Utility.Path
 
 protocol Buildable {
     var targetName: String { get }
     var isTest: Bool { get }
+}
+
+extension CModule {
+    func workingDirectory(prefix: String) -> String {
+        return Path.join(prefix, "\(c99name).build")
+    }
 }
 
 extension Module: Buildable {
@@ -20,9 +27,25 @@ extension Module: Buildable {
         return self is TestModule
     }
 
-    var Xcc: [String] {
+    func XccFlagsForPrefix(prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
-            if let module = module as? CModule {
+            if let module = module as? ClangModule {
+                var moduleMap: String? = nil
+                
+                if module.moduleMapPath.isFile {
+                    moduleMap = module.moduleMapPath
+                }
+    
+                let genModuleMap = Path.join(module.workingDirectory(prefix), module.moduleMap)
+                if genModuleMap.isFile {
+                    moduleMap = genModuleMap
+                }
+                //No module map found, return with no args
+                if let moduleMap = moduleMap {
+                    return ["-Xcc", "-fmodule-map-file=\(moduleMap)"]
+                }
+                return []
+            } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
             } else {
                 return []

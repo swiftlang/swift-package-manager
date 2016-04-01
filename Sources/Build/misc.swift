@@ -32,8 +32,13 @@ func platformFrameworksPath() throws -> String {
 }
 
 extension CModule {
+    
+    var moduleMap: String {
+        return "module.modulemap"
+    }
+    
     var moduleMapPath: String {
-        return Path.join(path, "module.modulemap")
+        return Path.join(path, moduleMap)
     }
 }
 
@@ -43,7 +48,7 @@ extension ClangModule {
         case UnsupportedIncludeLayoutForModule(String)
     }
     
-    public func generateModuleMap() throws {
+    public func generateModuleMap(inDir wd: String) throws {
         
         //Return if module map is already present
         guard !moduleMapPath.isFile else {
@@ -52,13 +57,9 @@ extension ClangModule {
         
         let includeDir = path
         
-        //Generate empty module map if include dir is not present
+        //Warn and return if no include directory
         guard includeDir.isDirectory else {
-            print("warning: No include directory, generating empty module map")
-            try POSIX.mkdir(includeDir)
-            try fopen(moduleMapPath, mode: .Write) { fp in
-                try fputs("\n", fp)
-            }
+            print("warning: No include directory found, a library can not be imported without any public headers.")
             return
         }
         
@@ -69,7 +70,7 @@ extension ClangModule {
         
         if dirs.isEmpty {
             guard !files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
-            try createModuleMap(.FlatHeaderLayout)
+            try createModuleMap(inDir: wd, type: .FlatHeaderLayout)
             return
         }
         
@@ -79,9 +80,9 @@ extension ClangModule {
         
         let umbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
         if umbrellaHeader.isFile {
-            try createModuleMap(.HeaderFile)
+            try createModuleMap(inDir: wd, type: .HeaderFile)
         } else {
-            try createModuleMap(.ModuleNameDir)
+            try createModuleMap(inDir: wd, type: .ModuleNameDir)
         }
     }
     
@@ -91,8 +92,10 @@ extension ClangModule {
         case HeaderFile
     }
     
-    private func createModuleMap(type: UmbrellaType) throws {
-        let moduleMap = try fopen(moduleMapPath, mode: .Write)
+    private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
+        try POSIX.mkdir(wd)
+        let moduleMapFile = Path.join(wd, self.moduleMap)
+        let moduleMap = try fopen(moduleMapFile, mode: .Write)
         defer { fclose(moduleMap) }
         
         try fputs("module \(name) {\n", moduleMap)
@@ -100,11 +103,13 @@ extension ClangModule {
         
         switch type {
         case .FlatHeaderLayout:
-            try fputs("\".\"\n", moduleMap)
+            try fputs("\"\(path)\"\n", moduleMap)
         case .ModuleNameDir:
-            try fputs("\"\(name)\"\n", moduleMap)
+            let path = Path.join(self.path, name)
+            try fputs("\"\(path)\"\n", moduleMap)
         case .HeaderFile:
-            try fputs("header \"\(name)/\(name).h\"\n", moduleMap)
+            let path = Path.join(self.path, name, "\(name).h")
+            try fputs("header \"\(path)\"\n", moduleMap)
             
         }
         
