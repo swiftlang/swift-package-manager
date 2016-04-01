@@ -62,7 +62,7 @@ public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleD
  A generator for a single directory’s contents
 */
 private class DirectoryContentsGenerator: IteratorProtocol {
-    private let dirptr: DirHandle
+    private let dirptr: DirHandle?
     private let path: String
 
     private init(path: String) {
@@ -72,16 +72,16 @@ private class DirectoryContentsGenerator: IteratorProtocol {
     }
 
     deinit {
-        if dirptr != nil { closedir(dirptr) }
+        if let openeddir = dirptr { closedir(openeddir) }
     }
 
     func next() -> dirent? {
-        if dirptr == nil { return nil }  // yuck, silently ignoring the error to maintain this pattern
+        guard let validdir = dirptr else { return nil }  // yuck, silently ignoring the error to maintain this pattern
 
         while true {
             var entry = dirent()
-            var result: UnsafeMutablePointer<dirent> = nil
-            guard readdir_r(dirptr, &entry, &result) == 0 else { continue }
+            var result: UnsafeMutablePointer<dirent>? = nil
+            guard readdir_r(validdir, &entry, &result) == 0 else { continue }
             guard result != nil else { return nil }
 
             switch (Int32(entry.d_type), entry.d_name.0, entry.d_name.1, entry.d_name.2) {

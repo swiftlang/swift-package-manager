@@ -42,11 +42,16 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
 public func system() {}
 
 
+#if os(OSX)
+typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
+#else
+typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
+#endif
 
 /// Convenience wrapper for posix_spawn.
-func posix_spawnp(_ path: String, args: [String], environment: [String: String] = [:], fileActions: posix_spawn_file_actions_t? = nil) throws -> pid_t {
-    let argv = args.map{ $0.withCString(strdup) }
-    defer { for arg in argv { free(arg) } }
+func posix_spawnp(_ path: String, args: [String], environment: [String: String] = [:], fileActions: swiftpm_posix_spawn_file_actions_t? = nil) throws -> pid_t {
+    let argv: [UnsafeMutablePointer<CChar>?] = args.map{ $0.withCString(strdup) }
+    defer { for case let arg? in argv { free(arg) } }
 
     var environment = environment
 #if Xcode
@@ -60,8 +65,8 @@ func posix_spawnp(_ path: String, args: [String], environment: [String: String] 
         }
     }
 
-    let env = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }
-    defer { env.forEach{ free($0) } }
+    let env: [UnsafeMutablePointer<CChar>?] = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }
+    defer { for case let arg? in env { free(arg) } }
     
     var pid = pid_t()
     let rv: Int32
