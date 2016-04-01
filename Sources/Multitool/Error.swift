@@ -22,6 +22,9 @@ public enum CommandLineError: ErrorProtocol {
 
 public enum Error: ErrorProtocol {
     case NoManifestFound
+    case InvalidToolchain
+    case InvalidInstallation(String)
+    case InvalidSwiftExec(String)
 }
 
 extension Error: CustomStringConvertible {
@@ -29,6 +32,12 @@ extension Error: CustomStringConvertible {
         switch self {
         case .NoManifestFound:
             return "no \(Manifest.filename) file found"
+        case .InvalidToolchain:
+            return "invalid inferred toolchain"
+        case .InvalidInstallation(let prefix):
+            return "invalid or incomplete Swift toolchain:\n    \(prefix)"
+        case .InvalidSwiftExec(let value):
+            return "invalid SWIFT_EXEC value: \(value)"
         }
     }
 }

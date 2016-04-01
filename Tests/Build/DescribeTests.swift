@@ -8,13 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Build
 import XCTest
+import Build
 
 final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
-            let _ = try describe("foo", .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [])
+            struct InvalidToolchain: Toolchain {
+                var platformArgs: [String] { fatalError() }
+                var sysroot: String?  { fatalError() }
+                var SWIFT_EXEC: String { fatalError() }
+                var clang: String { fatalError() }
+            }
+
+            let _ = try describe("foo", .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.NoModules {
             XCTAssert(true, "This error should be throw")

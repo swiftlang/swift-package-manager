@@ -17,14 +17,14 @@ import Utility
 
 
 extension Command {
-    static func link(product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String]) throws -> Command {
+    static func link(product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
 
         let objects: [String]
         switch conf {
         case .Release:
             objects = product.buildables.map{ Path.join(prefix, "\($0.c99name).o") }
         case .Debug:
-            objects = product.buildables.flatMap{ return SwiftcTool(module: $0, prefix: prefix, otherArgs: []).objects }
+            objects = product.buildables.flatMap{ return SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC).objects }
         }
 
         let outpath = Path.join(prefix, product.outname)
@@ -32,7 +32,7 @@ extension Command {
         var args: [String]
         switch product.type {
         case .Library(.Dynamic), .Executable, .Test:
-            args = [Toolchain.swiftc] + otherArgs
+            args = [SWIFT_EXEC] + otherArgs
 
             if conf == .Debug {
                 args += ["-g"]
@@ -50,7 +50,7 @@ extension Command {
         let inputs = product.modules.flatMap { module -> [String] in
             switch conf {
             case .Debug:
-                let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: [])
+                let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC)
                 // must return tool’s outputs and inputs as shell nodes don't calculate more than that
                 return tool.inputs + tool.outputs
             case .Release:
@@ -64,13 +64,7 @@ extension Command {
         case .Test:
           #if os(OSX)
             args += ["-Xlinker", "-bundle"]
-
-            if let platformPath = Toolchain.platformPath {
-                let path = Path.join(platformPath, "Developer/Library/Frameworks")
-                args += ["-F", path]
-            } else {
-                throw Error.InvalidPlatformPath
-            }
+            args += ["-F", try platformFrameworksPath()]
 
             // TODO should be llbuild rules∫
             if conf == .Debug {

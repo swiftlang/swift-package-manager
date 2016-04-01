@@ -18,7 +18,7 @@ import Utility
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module> , _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
+public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
 
     guard modules.count > 0 else {
         throw Error.NoModules
@@ -29,13 +29,16 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     let prefix = try mkdir(prefix, conf.dirname)  //TODO llbuild this
     let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
+    let SWIFT_EXEC = toolchain.SWIFT_EXEC
+    let CC = getenv("CC") ?? "clang"
+
     var commands = [Command]()
     var targets = Targets()
 
     for module in modules {
         switch module {
         case let module as SwiftModule:
-            let (compile, mkdirs) = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + platformArgs())
+            let (compile, mkdirs) = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
             commands.append(contentsOf: mkdirs + [compile])
             targets.append(compile, for: module)
 
@@ -50,7 +53,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 }
             }
 
-            let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix)
+            let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
             commands.append(compile)
             commands.append(mkdir)
             targets.main.cmds.append(compile)
@@ -64,7 +67,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     }
 
     for product in products {
-        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + platformArgs())
+        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
         commands.append(command)
         targets.append(command, for: product)
     }

@@ -12,7 +12,7 @@ import PackageType
 import Utility
 
 extension Command {
-    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String]) throws -> (Command, [Command]) {
+    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> (Command, [Command]) {
 
         let otherArgs = otherArgs + module.Xcc
 
@@ -24,15 +24,11 @@ extension Command {
         case .Debug:
             var args = ["-j8","-Onone","-g","-D","SWIFT_PACKAGE", "-enable-testing"]
 
-        #if os(OSX)
-            if let platformPath = Toolchain.platformPath {
-                let path = Path.join(platformPath, "Developer/Library/Frameworks")
-                args += ["-F", path]
-            } else {
-                throw Error.InvalidPlatformPath
-            }
-        #endif
-            let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs)
+          #if os(OSX)
+            args += ["-F", try platformFrameworksPath()]
+          #endif
+
+            let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC)
             let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
             return (cmd(tool), mkdirs)
 
@@ -49,7 +45,7 @@ extension Command {
                 description: "Compiling \(module.name)",
                 inputs: inputs,
                 outputs: [productPath, module.targetName],
-                args: [Toolchain.swiftc, "-o", productPath] + args + module.sources.paths + otherArgs)
+                args: [SWIFT_EXEC, "-o", productPath] + args + module.sources.paths + otherArgs)
 
             return (cmd(tool), [])
         }
