@@ -108,13 +108,13 @@ extension Command {
 
         let productPath = Path.join(prefix, module.type == .Library ? "lib\(module.c99name).so" : module.c99name)
         args += ["-o", productPath]
-
-        let clang = ClangTool(desc: "Linking \(module.name)",
+        
+        let shell = ShellTool(description: "Linking \(module.name)",
                               inputs: dependencies + compileCommands.map{$0.node} + [mkdir.node],
                               outputs: [productPath, module.targetName],
-                              args: [CC] + args,
-                              deps: nil)
-        let command = Command(node: module.targetName, tool: clang)
+                              args: [CC] + args)
+        
+        let command = Command(node: module.targetName, tool: shell)
 
         return (compileCommands + [command], mkdir)
     }
