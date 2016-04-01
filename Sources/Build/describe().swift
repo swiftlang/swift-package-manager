@@ -18,7 +18,7 @@ import Utility
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
+public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module> , _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String]) throws -> String {
 
     guard modules.count > 0 else {
         throw Error.NoModules
@@ -50,7 +50,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
                 }
             }
 
-            let (compile, mkdir) = Command.compile(clangModule: module, configuration: conf, prefix: prefix)
+            let (compile, mkdir) = Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix)
             commands.append(compile)
             commands.append(mkdir)
             targets.main.cmds.append(compile)

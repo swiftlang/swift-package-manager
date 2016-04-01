@@ -68,7 +68,7 @@ do {
             let dirs = try directories()
             let (rootPackage, externalPackages) = try fetch(dirs.root)
             let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-            let yaml = try describe(dirs.build, conf, modules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
+            let yaml = try describe(dirs.build, conf, modules, Set<Module>(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc)
             try build(YAMLPath: yaml, target: "default")
 
         case .Init(let initMode):
