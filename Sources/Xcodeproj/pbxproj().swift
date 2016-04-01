@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], externalModules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj<T where T:XcodeModuleProtocol, T:Module>(srcroot srcroot: String, projectRoot: String, modules: [T], externalModules: [T], products _: [Product], printer print: (String) -> Void) {
 
     let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
@@ -95,7 +95,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         print("            name = \(module.name);")
         print("            productName = \(module.c99name);")
         print("            productReference = \(module.productReference);")
-        print("            productType = '\(module.type)';")
+        print("            productType = '\(module.productType)';")
         print("        };")
 
         // the product file reference

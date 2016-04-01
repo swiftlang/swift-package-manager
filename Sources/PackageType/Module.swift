@@ -56,6 +56,10 @@ extension ModuleTypeProtocol {
     }
 }
 
+
+public protocol XcodeModuleProtocol: ModuleTypeProtocol, Hashable {
+
+}
 extension Module: Hashable, Equatable {
     public var hashValue: Int { return c99name.hashValue }
 }
@@ -79,6 +83,10 @@ extension SwiftModule: ModuleTypeProtocol {
     }
 }
 
+extension SwiftModule: XcodeModuleProtocol {
+    
+}
+
 public class CModule: Module {
     public let path: String
 
@@ -96,6 +104,10 @@ public class ClangModule: CModule {
         //TODO: generate module map using swiftpm if layout can support
         super.init(name: name, path: sources.root + "/include")
     }
+}
+
+extension ClangModule: XcodeModuleProtocol {
+    
 }
 
 extension ClangModule: ModuleTypeProtocol {

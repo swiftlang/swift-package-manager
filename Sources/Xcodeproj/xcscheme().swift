@@ -10,7 +10,7 @@
 
 import PackageType
 
-func xcscheme(container container: String, modules: [SwiftModule], printer print: (String) -> Void) {
+func xcscheme<T where T:XcodeModuleProtocol, T:Module>(container container: String, modules: [T], printer print: (String) -> Void) {
     print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
     print("<Scheme LastUpgradeVersion = \"9999\" version = \"1.3\">")
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
