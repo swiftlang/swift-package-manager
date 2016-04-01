@@ -146,15 +146,35 @@ extension SwiftModule {
         }
     }
 
+    var headerSearchPaths: (key: String, value: String)? {
+        let headerPathKey = "HEADER_SEARCH_PATHS"
+        let headerPaths = dependencies.filter{$0 is CModule}.map{($0 as! CModule).path}
+
+        guard !headerPaths.isEmpty else { return nil }
+
+        if headerPaths.count == 1, let first = headerPaths.first {
+            return (headerPathKey, first)
+        }
+
+        let headerPathValue = "( " + headerPaths.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
+        
+        return (headerPathKey, headerPathValue)
+    }
+
     var debugBuildSettings: String {
         var buildSettings = commonBuildSettings
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
-
+        if let headerSearchPaths = headerSearchPaths {
+            buildSettings[headerSearchPaths.key] = headerSearchPaths.value
+        }
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
     var releaseBuildSettings: String {
-        let buildSettings = commonBuildSettings
+        var buildSettings = commonBuildSettings
+        if let headerSearchPaths = headerSearchPaths {
+            buildSettings[headerSearchPaths.key] = headerSearchPaths.value
+        }
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
