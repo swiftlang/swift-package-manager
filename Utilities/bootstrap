@@ -651,15 +651,20 @@ def main():
     if result != 0:
         error("build failed with exit status %d" % (result,))
 
-    swift_build_path = os.path.join(build_path, "debug", "swift-build")
-    swift_test_path = os.path.join(build_path, "debug", "swift-test")
+    if args.release:
+        conf = "release"
+    else:
+        conf = "debug"
+
+    swift_build_path = os.path.join(build_path, conf, "swift-build")
+    swift_test_path = os.path.join(build_path, conf, "swift-test")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
         env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                           "SWIFT_BUILD_PATH=" + build_path]
-        cmd = env_cmd + [os.path.join(build_path, "debug", "swift-test")]
+        cmd = env_cmd + [swift_test_path]
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))
