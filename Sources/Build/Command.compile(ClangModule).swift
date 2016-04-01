@@ -78,7 +78,7 @@ extension Command {
         let basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
         for path in module.sources.compilePathsForBuildDir(wd) {
             var args = basicArgs
-            args += ["-MMD", "-MT", "dependencies", "-MF", path.deps]
+            args += ["-MD", "-MT", "dependencies", "-MF", path.deps]
             args += ["-c", path.source, "-o", path.object]
 
             let node = "<\(module.name).\(path.filename)>"
