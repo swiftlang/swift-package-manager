@@ -22,16 +22,18 @@ func test(path: String..., xctestArg: String? = nil) throws -> Bool {
     if let xctestArg = xctestArg {
         args += ["-XCTest", xctestArg]
     }
+    args += [testsPath]
 #else
-    //FIXME: Pass xctestArg when swift-corelibs-xctest supports it
     testsPath = Path.join(path, "test-Package")
+    args += [testsPath]
+    if let xctestArg = xctestArg {
+        args += [xctestArg]
+    }
 #endif
 
     guard testsPath.testExecutableExists else {
         throw Error.TestsExecutableNotFound
     }
-
-    args += [testsPath]
 
     let result: Void? = try? system(args)
     return result != nil

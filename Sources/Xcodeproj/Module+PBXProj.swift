@@ -23,7 +23,6 @@
  layer for these properties we satisfy the above constraints.
 */
 
-import struct Utility.Toolchain
 import struct Utility.Path
 import PackageType
 
@@ -35,6 +34,7 @@ let rootGroupReference =                            "___RootGroup_"
 let productsGroupReference =                        "____Products_"
 let testProductsGroupReference =                    "TestProducts_"
 let sourcesGroupReference =                         "_____Sources_"
+let dependenciesGroupReference =                    "Dependencies_"
 let testsGroupReference =                           "_______Tests_"
 let linkPhaseFileRefPrefix =                        "_LinkFileRef_"
 let sourceGroupFileRefPrefix =                      "__PBXFileRef_"
@@ -68,6 +68,11 @@ private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) ->
             return "\(c)"
         }
     }.joined(separator: "")
+}
+
+func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, String) {
+    let suffix = fileRef(suffixForModuleSourceFile: name, srcroot: srcroot)
+    return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
 }
 
 func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {
@@ -141,15 +146,35 @@ extension SwiftModule {
         }
     }
 
+    var headerSearchPaths: (key: String, value: String)? {
+        let headerPathKey = "HEADER_SEARCH_PATHS"
+        let headerPaths = dependencies.filter{$0 is CModule}.map{($0 as! CModule).path}
+
+        guard !headerPaths.isEmpty else { return nil }
+
+        if headerPaths.count == 1, let first = headerPaths.first {
+            return (headerPathKey, first)
+        }
+
+        let headerPathValue = "( " + headerPaths.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
+        
+        return (headerPathKey, headerPathValue)
+    }
+
     var debugBuildSettings: String {
         var buildSettings = commonBuildSettings
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
-
+        if let headerSearchPaths = headerSearchPaths {
+            buildSettings[headerSearchPaths.key] = headerSearchPaths.value
+        }
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
     var releaseBuildSettings: String {
-        let buildSettings = commonBuildSettings
+        var buildSettings = commonBuildSettings
+        if let headerSearchPaths = headerSearchPaths {
+            buildSettings[headerSearchPaths.key] = headerSearchPaths.value
+        }
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
@@ -169,15 +194,7 @@ extension SwiftModule {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'@loader_path/../Frameworks'"
 
         } else {
-
-            //FIXME we should not have to set this ourselves, and in fact
-            // it is problematic because now you must regenerate the xcodeproj
-            // whenever the toolchain changes :(
-            // static linking would be better since that is what we are meant
-            // to do while swift has no ABI compatability.
-            // probably the real solution is to generate frameworks since then
-            // Xcode will embed the swift runtime libs
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'\(Toolchain.prefix)/usr/lib/swift/macosx'"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
 
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"

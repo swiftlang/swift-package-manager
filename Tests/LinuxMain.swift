@@ -40,4 +40,5 @@ XCTMain([
     testCase(WalkTests.allTests),
     testCase(ModuleMapsTestCase.allTests),
     testCase(DescribeTests.allTests),
+    testCase(GitUtilityTests.allTests),
 ])

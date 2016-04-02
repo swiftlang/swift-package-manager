@@ -591,6 +591,7 @@ def main():
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
 
+    cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
@@ -599,7 +600,6 @@ def main():
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
-    cmd = [os.path.join(sandbox_path, "bin", "swift-build")]
     if args.foundation_path and args.xctest_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")

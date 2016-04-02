@@ -63,6 +63,25 @@ class TestClangModulesTestCase: XCTestCase {
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
+    
+    func testCExecutable() {
+        fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
+            XCTAssertBuilds(prefix)
+            let exec = ".build/debug/CExecutable"
+            XCTAssertFileExists(prefix, exec)
+            let output = try popen([Path.join(prefix, exec)])
+            XCTAssertEqual(output, "hello 5")
+        }
+    }
+
+    func testCUsingCDep2() {
+        //The C dependency "Foo" has different layout
+        fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
+            XCTAssertBuilds(prefix, "Bar")
+            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
+        }
+    }
 }
 
 
@@ -75,6 +94,7 @@ extension TestClangModulesTestCase {
             ("testExternalSimpleCDep", testExternalSimpleCDep),
             ("testiquoteDep", testiquoteDep),
             ("testCUsingCDep", testCUsingCDep),
+            ("testCExecutable", testCExecutable),
         ]
     }
 }

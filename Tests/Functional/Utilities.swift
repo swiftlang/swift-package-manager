@@ -126,6 +126,8 @@ func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, pri
         if printIfError {
             print(out)
             print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
+            print("Using:", swiftBuildPath())
+            print("SWIFT_BUILD_TOOL:", env["SWIFT_BUILD_TOOL"] ?? "nil")
         }
         throw error
     }
