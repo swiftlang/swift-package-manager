@@ -11,40 +11,36 @@
 import PackageType
 import Utility
 
-func test(path: String..., xctestArg: String? = nil) throws -> Bool {
-    let path = Path.join(path)
-    var args: [String] = []
-    let testsPath: String
+func test(path path: String, xctestArg: String? = nil) throws -> Bool {
 
+    guard path.isValidTest else {
+        throw Error.TestsExecutableNotFound
+    }
+
+    var args: [String] = []
 #if os(OSX)
-    testsPath = Path.join(path, "Package.xctest")
     args = ["xcrun", "xctest"]
     if let xctestArg = xctestArg {
         args += ["-XCTest", xctestArg]
     }
-    args += [testsPath]
+    args += [path]
 #else
-    testsPath = Path.join(path, "test-Package")
-    args += [testsPath]
+    args += [path]
     if let xctestArg = xctestArg {
         args += [xctestArg]
     }
 #endif
-
-    guard testsPath.testExecutableExists else {
-        throw Error.TestsExecutableNotFound
-    }
 
     let result: Void? = try? system(args)
     return result != nil
 }
 
 private extension String {
-    var testExecutableExists: Bool {
+    var isValidTest: Bool {
         #if os(OSX)
-            return self.isDirectory //Package.xctest is dir on OSX
+            return isDirectory  // ${foo}.xctest is dir on OSX
         #else
-            return self.isFile //test-Package is executable on OSX
+            return isFile       // otherwise ${foo}.xctest is executable file
         #endif
     }
 }

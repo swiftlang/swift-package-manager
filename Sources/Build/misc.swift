@@ -36,7 +36,9 @@ extension CModule {
 
 extension Product {
     var Info: (_: Void, plist: String) {
-        let bundleExecutable = "Package"
+        precondition(isTest)
+
+        let bundleExecutable = name
         let bundleID = "org.swift.pm.\(name)"
         let bundleName = name
 
