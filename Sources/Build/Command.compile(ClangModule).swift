@@ -84,7 +84,7 @@ extension Command {
             let clang = ClangTool(desc: "Compiling \(module.name) \(path.filename)",
                                   inputs: dependencies + [path.source, mkdir.node],
                                   outputs: [path.object],
-                                  args: args,
+                                  args: [CC] + args,
                                   deps: path.deps)
 
             let command = Command(node: path.object, tool: clang)
