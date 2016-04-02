@@ -34,10 +34,11 @@ public class Product {
                 return "lib\(name).so"
             #endif
         case .Test:
+            let base = "\(name).xctest"
             #if os(OSX)
-                return "\(name).xctest/Contents/MacOS/\(name)"
+                return "\(base)/Contents/MacOS/\(name)"
             #else
-                return "test-\(name)"
+                return base
             #endif
         }
     }
