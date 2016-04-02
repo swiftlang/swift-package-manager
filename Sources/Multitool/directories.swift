@@ -20,7 +20,7 @@ public func directories() throws -> (root: String, build: String) {
 }
 
 private func packageRoot() throws -> String {
-    var rootd = try getcwd()
+    var rootd = getcwd()
     while !Path.join(rootd, Manifest.filename).isFile {
         rootd = rootd.parentDirectory
         guard rootd != "/" else {

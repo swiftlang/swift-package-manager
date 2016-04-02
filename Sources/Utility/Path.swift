@@ -116,12 +116,8 @@ public struct Path {
         // The above function requires both paths to be either relative
         // or absolute. So if they differ we make them both absolute.
         if abs.0 != abs.1 {
-            do {
-                if !abs.path { path = try path.abspath() }
-                if !abs.pivot { pivot = try pivot.abspath() }
-            } catch {
-                return path.normpath
-            }
+            if !abs.path { path = path.abspath() }
+            if !abs.pivot { pivot = pivot.abspath() }
         }
         
         return go(clean(string), clean(pivot))
@@ -201,10 +197,10 @@ extension String {
     /**
      Return a normalized absolutized version of this path. Equivalent to:
 
-         Path.join(try getcwd(), self).normpath
+         Path.join(getcwd(), self).normpath
      */
-    public func abspath() throws -> String {
-        return Path.join(try getcwd(), self).normpath
+    public func abspath() -> String {
+        return Path.join(getcwd(), self).normpath
     }
 
     /// - Returns: true if the string looks like an absolute path
@@ -226,7 +222,7 @@ extension String {
 
     /**
      - Returns: true if the string is a file on the filesystem
-     - Note: if the entry is a symlink, but the symlink points to Array
+     - Note: if the entry is a symlink, but the symlink points to a
        file, then this function returns true. Use `isSymlink` if the
        distinction is important.
      */
@@ -295,12 +291,6 @@ extension String {
         not changing during execution.
      */
     public var prettyPath: String {
-        if let wd = try? getcwd() {
-            return Path(self).relative(to: wd)
-        } else if let abspath = try? abspath() {
-            return abspath
-        } else {
-            return self
-        }
+        return Path(self).relative(to: getcwd())
     }
 }

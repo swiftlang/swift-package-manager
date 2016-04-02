@@ -15,23 +15,27 @@ import PackageDescription
 import PackageType
 import XCTest
 
+#if os(OSX)
+private func bundleRoot() -> String {
+    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+        return bundle.bundlePath.parentDirectory
+    }
+    fatalError()
+}
+#endif
+
 class ManifestTests: XCTestCase {
 
 #if os(OSX)
   #if Xcode
     let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
   #else
-    let swiftc = Toolchain.swiftc
+    let swiftc = Path.join(bundleRoot(), "swiftc")
   #endif
-    let libdir = { _ -> String in
-        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
-            return bundle.bundlePath.parentDirectory
-        }
-        fatalError()
-    }()
+    let libdir = bundleRoot()
 #else
-    let swiftc = Toolchain.swiftc
-    let libdir = Process.arguments.first!.parentDirectory
+    let libdir = Process.arguments.first!.parentDirectory.abspath()
+    let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath()
 #endif
 
     private func loadManifest(inputName: String, line: UInt = #line, body: (Manifest) -> Void) {

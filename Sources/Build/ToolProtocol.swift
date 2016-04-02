@@ -58,13 +58,13 @@ struct SwiftcTool: ToolProtocol {
     let module: SwiftModule
     let prefix: String
     let otherArgs: [String]
+    let executable: String
 
     var inputs: [String] {
         return module.recursiveDependencies.map{ $0.targetName }
     }
 
     var outputs: [String]        { return [module.targetName] + objects }
-    var executable: String       { return Toolchain.swiftc }
     var moduleName: String       { return module.c99name }
     var moduleOutputPath: String { return Path.join(prefix, "\(module.c99name).swiftmodule") }
     var importPaths: String      { return prefix }

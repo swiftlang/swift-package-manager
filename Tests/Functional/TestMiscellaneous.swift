@@ -189,7 +189,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             foo = true
         } catch {
-            XCTFail()
+            XCTFail("\(error)")
         }
         XCTAssertTrue(foo)
     }

@@ -12,6 +12,7 @@ import struct Utility.Path
 import func Utility.rmtree
 import func Utility.walk
 import func XCTest.XCTFail
+import func POSIX.getenv
 import func POSIX.popen
 import POSIX
 
@@ -87,23 +88,21 @@ func swiftBuildPath() -> String {
     }
     fatalError()
 #else
-    return Path.join(try! Process.arguments.first!.abspath().parentDirectory, "swift-build")
+    return Path.join(Process.arguments.first!.abspath().parentDirectory, "swift-build")
 #endif
 }
 
 
 func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
     var env = [String:String]()
-    env["SWIFT_BUILD_TOOL"] = getenv("SWIFT_BUILD_TOOL")
 #if Xcode
-    //FIXME Xcode should set this during tests
-    // rdar://problem/24134324
-
-    if env["SWIFT_EXEC"] == nil {
+    switch getenv("SWIFT_EXEC") {
+    case "swiftc"?, nil:
+        //FIXME Xcode should set this during tests
+        // rdar://problem/24134324
         let bindir = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin")
         env["SWIFT_EXEC"] = Path.join(bindir, "swiftc")
-        env["SWIFT_BUILD_TOOL"] = Path.join(bindir, "swift-build-tool")
-    } else {
+    default:
         fatalError("HURRAY! This is fixed")
     }
 #endif
@@ -124,10 +123,9 @@ func executeSwiftBuild(chdir: String, configuration: Configuration = .Debug, pri
         return out
     } catch {
         if printIfError {
-            print(out)
+            print("output:", out)
             print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
-            print("Using:", swiftBuildPath())
-            print("SWIFT_BUILD_TOOL:", env["SWIFT_BUILD_TOOL"] ?? "nil")
+            print("swift-build:", swiftBuildPath())
         }
         throw error
     }
