@@ -41,7 +41,7 @@ let package = Package(
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["PackageDescription", "PackageType"]),
+            dependencies: ["PackageDescription", "PackageType", "Multitool", "Utility"]),
         Target(
             /** Builds Modules and Products */
             name: "Build",

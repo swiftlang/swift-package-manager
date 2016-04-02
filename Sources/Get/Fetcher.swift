@@ -9,6 +9,8 @@
 */
 
 import struct PackageDescription.Version
+import Multitool
+import Utility
 
 /**
  Testable protocol to recursively fetch versioned resources.
@@ -82,8 +84,11 @@ extension Fetcher {
                     guard specifiedVersionRange ~= pkg.version else {
                         throw Error.UpdateRequired(url)
                     }
-                    graph[url] = (pkg, specifiedVersionRange)
-                    return try recurse(pkg.children) + [url]
+                    try rmtree(try directories().root, "Packages")
+                    let clone = try self.fetch(url: url)
+                    try adjust(clone, specifiedVersionRange)
+                    graph[url] = (clone, specifiedVersionRange)
+                    return try recurse(clone.children) + [url]
 
                 } else {
 
