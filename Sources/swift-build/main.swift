@@ -72,6 +72,10 @@ do {
                         
         case .Fetch:
             try fetch(try directories().root)
+        
+        case .Update:
+            try rmtree(try directories().root, "Packages")
+            try fetch(try directories().root)
 
         case .Usage:
             usage()

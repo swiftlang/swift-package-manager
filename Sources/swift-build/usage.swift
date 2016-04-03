@@ -23,6 +23,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
     print("  --init <mode>                  Creates a new Swift package (executable|library)")
     print("  --fetch                        Fetch package dependencies")
+    print("  --update                       Update package dependencies")
     print("  --generate-xcodeproj [<path>]  Generates an Xcode project for this package [-X]")
     print("")
     print("OPTIONS:")
@@ -42,6 +43,7 @@ enum Mode {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Fetch
+    case Update
     case Init(InitPackage.InitMode)
     case Usage
     case Version
@@ -148,6 +150,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
                 mode = .Version
             case (nil, .Fetch):
                 mode = .Fetch
+            case (nil, .Update):
+                mode = .Update
             case (nil, .GenerateXcodeproj):
                 mode = .GenerateXcodeproj(nil)
                 switch try cruncher.peek() {
@@ -205,6 +209,7 @@ extension Mode: CustomStringConvertible {
             case .Clean(let cleanMode): return "--clean=\(cleanMode)"
             case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Fetch: return "--fetch"
+            case .Update: return "--update"
             case .Init: return "--init"
             case .Usage: return "--help"
             case .Version: return "--version"
@@ -219,6 +224,7 @@ private struct Cruncher {
             case Build = "--configuration"
             case Clean = "--clean"
             case Fetch = "--fetch"
+            case Update = "--update"
             case GenerateXcodeproj = "--generate-xcodeproj"
             case Init = "--init"
             case Usage = "--help"
@@ -232,6 +238,8 @@ private struct Cruncher {
                     self = .Clean
                 case Fetch.rawValue:
                     self = .Fetch
+                case Update.rawValue:
+                    self = .Update
                 case GenerateXcodeproj.rawValue, "-X":
                     self =  .GenerateXcodeproj
                 case Init.rawValue:
@@ -323,6 +331,7 @@ private func ==(lhs: Mode, rhs: Cruncher.Crunch.TheMode) -> Bool {
         case .Build: return rhs == .Build
         case .Clean: return rhs == .Clean
         case .Fetch: return rhs == .Fetch
+        case .Update: return rhs == .Update
         case .GenerateXcodeproj: return rhs == .GenerateXcodeproj
         case .Init: return rhs == .Init
         case .Version: return rhs == .Version
