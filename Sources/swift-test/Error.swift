@@ -19,7 +19,7 @@ extension Error: CustomStringConvertible {
         case .DebugYAMLNotFound:
             return "build the package using `swift build` before running tests"
         case .TestsExecutableNotFound:
-            return "no tests found to execute, create a test-module in `Tests` directory"
+            return "no tests found to execute, create a module in your `Tests' directory"
         }
     }
 }

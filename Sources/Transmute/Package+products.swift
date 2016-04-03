@@ -28,9 +28,8 @@ extension Package {
 
         if !testModules.isEmpty {
             let modules: [SwiftModule] = testModules.map{$0} // or linux compiler crash (2016-02-03)
-            //TODO name should be package name
             //TODO and then we should prefix all modules with their package probably
-            let product = Product(name: "Package", type: .Test, modules: modules)
+            let product = Product(name: self.name, type: .Test, modules: modules)
             products.append(product)
         }
 

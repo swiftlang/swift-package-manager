@@ -21,11 +21,31 @@ do {
         usage()
     case .Run(let xctestArg):
         let dir = try directories()
+
+        func determineTestPath() -> String {
+
+            //FIXME better, ideally without parsing manifest since
+            // that makes us depend on the whole Manifest system
+
+            let packageName = dir.root.basename  //FIXME probably not true
+            let maybePath = Path.join(dir.build, "\(packageName).xctest")
+
+            if maybePath.exists {
+                return maybePath
+            } else {
+                return walk(dir.build).filter{
+                    $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
+                    $0.hasSuffix(".xctest")
+                }.first!
+            }
+        }
+
         let yamlPath = Path.join(dir.build, "debug.yaml")
         guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
 
         try build(YAMLPath: yamlPath, target: "test")
-        let success = try test(dir.build, "debug", xctestArg: xctestArg)
+
+        let success = try test(path: determineTestPath(), xctestArg: xctestArg)
         exit(success ? 0 : 1)
     }
 } catch {
