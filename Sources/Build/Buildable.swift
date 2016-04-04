@@ -17,7 +17,8 @@ protocol Buildable {
 }
 
 extension CModule {
-    func workingDirectory(prefix: String) -> String {
+    ///Returns the build directory path of a CModule
+    func buildDirectory(prefix: String) -> String {
         return Path.join(prefix, "\(c99name).build")
     }
 }
@@ -27,24 +28,20 @@ extension Module: Buildable {
         return self is TestModule
     }
 
-    func XccFlagsForPrefix(prefix: String) -> [String] {
+    func XccFlags(prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {
-                var moduleMap: String? = nil
-                
+                ///For ClangModule we check if there is a user provided module map
+                ///otherwise we return with path of generated one.
+                ///We will fail before this is ever called if there is no module map.
+                ///FIXME: The user provided modulemap should be copied to build dir
+                ///but that requires copying the complete include dir because it'll
+                ///mostly likely contain relative paths.
                 if module.moduleMapPath.isFile {
-                    moduleMap = module.moduleMapPath
+                    return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
                 }
-    
-                let genModuleMap = Path.join(module.workingDirectory(prefix), module.moduleMap)
-                if genModuleMap.isFile {
-                    moduleMap = genModuleMap
-                }
-                //No module map found, return with no args
-                if let moduleMap = moduleMap {
-                    return ["-Xcc", "-fmodule-map-file=\(moduleMap)"]
-                }
-                return []
+                let genModuleMap = Path.join(module.buildDirectory(prefix), module.moduleMap)
+                return ["-Xcc", "-fmodule-map-file=\(genModuleMap)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
             } else {

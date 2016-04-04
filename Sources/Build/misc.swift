@@ -50,14 +50,14 @@ extension ClangModule {
     
     public func generateModuleMap(inDir wd: String) throws {
         
-        //Return if module map is already present
+        ///Return if module map is already present
         guard !moduleMapPath.isFile else {
             return
         }
         
         let includeDir = path
         
-        //Warn and return if no include directory
+        ///Warn and return if no include directory
         guard includeDir.isDirectory else {
             print("warning: No include directory found, a library can not be imported without any public headers.")
             return
@@ -68,17 +68,31 @@ extension ClangModule {
         let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
         let dirs = walked.filter{$0.isDirectory}
         
+        ///There are three possible cases for which we will generate modulemaps:
+        ///Flat includes dir with only header files, in that case we generate
+        /// `umbrella "path/to/includes/"`
+        ///Module name dir is the only dir in includes, in that case we generate
+        /// `umbrella header "path/to/includes/modulename/modulename.h"` if there is a `modulename.h`
+        ///inside that directory, otherwise we generate
+        /// `umbrella "path/to/includes/modulename"`
+        
         if dirs.isEmpty {
             guard !files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
             try createModuleMap(inDir: wd, type: .FlatHeaderLayout)
             return
         }
         
-        guard let moduleHeaderDir = dirs.first where moduleHeaderDir.basename == name && files.isEmpty else {
+        guard let moduleHeaderDir = dirs.first where moduleHeaderDir.basename == c99name && files.isEmpty else {
             throw ModuleMapError.UnsupportedIncludeLayoutForModule(name)
         }
         
-        let umbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
+        let umbrellaHeader = Path.join(moduleHeaderDir, "\(c99name).h")
+        
+        let invalidUmbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
+        if c99name != name && invalidUmbrellaHeader.isFile {
+            print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as Umbrella header")
+        }
+        
         if umbrellaHeader.isFile {
             try createModuleMap(inDir: wd, type: .HeaderFile)
         } else {
@@ -98,24 +112,22 @@ extension ClangModule {
         let moduleMap = try fopen(moduleMapFile, mode: .Write)
         defer { fclose(moduleMap) }
         
-        try fputs("module \(name) {\n", moduleMap)
-        try fputs("    umbrella ", moduleMap)
-        
+        var output = "module \(c99name) {\n"
         switch type {
         case .FlatHeaderLayout:
-            try fputs("\"\(path)\"\n", moduleMap)
+            output += "    umbrella \"\(path)\"\n"
         case .ModuleNameDir:
-            let path = Path.join(self.path, name)
-            try fputs("\"\(path)\"\n", moduleMap)
+            let path = Path.join(self.path, c99name)
+            output += "    umbrella \"\(path)\"\n"
         case .HeaderFile:
-            let path = Path.join(self.path, name, "\(name).h")
-            try fputs("header \"\(path)\"\n", moduleMap)
-            
+            let path = Path.join(self.path, c99name, "\(c99name).h")
+            output += "    umbrella header \"\(path)\"\n"
         }
-        
-        try fputs("    link \"\(name)\"\n", moduleMap)
-        try fputs("    export *\n", moduleMap)
-        try fputs("}\n", moduleMap)
+        output += "    link \"\(c99name)\"\n"
+        output += "    export *\n"
+        output += "}\n"
+
+        try fputs(output, moduleMap)
     }
 }
 

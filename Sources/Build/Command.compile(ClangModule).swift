@@ -69,7 +69,7 @@ private extension Sources {
 extension Command {
     static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) throws -> ([Command], Command) {
 
-        let wd = module.workingDirectory(prefix)
+        let wd = module.buildDirectory(prefix)
         
         if module.type == .Library {
             try module.generateModuleMap(inDir: wd)
