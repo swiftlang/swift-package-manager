@@ -95,8 +95,8 @@ do {
             let (rootPackage, externalPackages) = try fetch(dirs.root)
             let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
             
-            let swiftModules = modules.flatMap{ $0 as? SwiftModule }
-            let externalSwiftModules = externalModules.flatMap{ $0 as? SwiftModule }
+            let xcodeModules = modules.flatMap { $0 as? XcodeModuleProtocol }
+            let externalXcodeModules  = externalModules.flatMap { $0 as? XcodeModuleProtocol }
 
             let projectName: String
             let dstdir: String
@@ -115,7 +115,7 @@ do {
                 projectName = packageName
             }
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: swiftModules, externalModules: externalSwiftModules, products: products)
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products)
 
             print("generated:", outpath.prettied)
     }

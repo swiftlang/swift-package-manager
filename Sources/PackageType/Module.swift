@@ -15,7 +15,17 @@
  TODO should be a protocol
 */
 
-public class Module {
+public protocol ModuleProtocol {
+    var name: String { get }
+    var c99name: String { get }
+    var dependencies: [Module] { get set }
+    var recursiveDependencies: [Module] { get }
+    // var name: String { get }
+    // var name: String { get }
+    // var name: String { get }
+}
+
+public class Module: ModuleProtocol {
     /**
      This name is not the final name in many cases, instead
      use c99name if you need uniqueness.
@@ -57,9 +67,10 @@ extension ModuleTypeProtocol {
 }
 
 
-public protocol XcodeModuleProtocol: ModuleTypeProtocol, Hashable {
-
+public protocol XcodeModuleProtocol: ModuleProtocol, ModuleTypeProtocol {
+    var fileType: String { get }
 }
+
 extension Module: Hashable, Equatable {
     public var hashValue: Int { return c99name.hashValue }
 }
@@ -84,7 +95,9 @@ extension SwiftModule: ModuleTypeProtocol {
 }
 
 extension SwiftModule: XcodeModuleProtocol {
-    
+    public var fileType: String {
+        return "sourcecode.swift"
+    }
 }
 
 public class CModule: Module {
@@ -107,7 +120,9 @@ public class ClangModule: CModule {
 }
 
 extension ClangModule: XcodeModuleProtocol {
-    
+    public var fileType: String {
+        return "sourcecode.c.c"
+    }
 }
 
 extension ClangModule: ModuleTypeProtocol {
