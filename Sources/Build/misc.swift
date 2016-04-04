@@ -48,6 +48,10 @@ extension ClangModule {
         case UnsupportedIncludeLayoutForModule(String)
     }
     
+    ///FIXME: we recompute the generated modulemap's path
+    ///when building swift modules in `XccFlags(prefix: String)`
+    ///there shouldn't be need to redo this there but is difficult 
+    ///in current architecture
     public func generateModuleMap(inDir wd: String) throws {
         
         ///Return if module map is already present
@@ -88,9 +92,10 @@ extension ClangModule {
         
         let umbrellaHeader = Path.join(moduleHeaderDir, "\(c99name).h")
         
+        ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
         let invalidUmbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
         if c99name != name && invalidUmbrellaHeader.isFile {
-            print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as Umbrella header")
+            print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
         }
         
         if umbrellaHeader.isFile {

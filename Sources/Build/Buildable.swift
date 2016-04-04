@@ -37,6 +37,10 @@ extension Module: Buildable {
                 ///FIXME: The user provided modulemap should be copied to build dir
                 ///but that requires copying the complete include dir because it'll
                 ///mostly likely contain relative paths.
+                ///FIXME: This is already computed when trying to generate modulemap
+                ///in ClangModule's `generateModuleMap(inDir wd: String)`
+                ///there shouldn't be need to redo this but is difficult in 
+                ///current architecture
                 if module.moduleMapPath.isFile {
                     return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
                 }
