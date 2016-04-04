@@ -59,7 +59,7 @@ class ManifestTests: XCTestCase {
         loadManifest("package-deps-manifest") { manifest in
             XCTAssertEqual(manifest.package.name, "PackageDeps")
             XCTAssertEqual(manifest.package.targets, [])
-            XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
+			XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", branch: "dev", majorVersion: 1)])
         }
 
         // Check a manifest with targets.
