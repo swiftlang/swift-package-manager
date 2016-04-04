@@ -20,9 +20,6 @@ public protocol ModuleProtocol {
     var c99name: String { get }
     var dependencies: [Module] { get set }
     var recursiveDependencies: [Module] { get }
-    // var name: String { get }
-    // var name: String { get }
-    // var name: String { get }
 }
 
 public class Module: ModuleProtocol {
