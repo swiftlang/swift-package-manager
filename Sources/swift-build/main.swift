@@ -84,6 +84,9 @@ do {
             try rmdir(dirs.build)
         }
 
+    case .Doctor:
+        doctor()
+
     case .Version:
         print("Apple Swift Package Manager 0.1")
         
