@@ -21,7 +21,7 @@ public func transmute(rootPackage: Package, externalPackages: [Package]) throws 
 
     for package in packages {
 
-        let modules: [Module]
+        var modules: [Module]
         do {
             modules = try package.modules()
         } catch Package.ModuleError.NoModules(let pkg) where pkg === rootPackage {
@@ -31,38 +31,44 @@ public func transmute(rootPackage: Package, externalPackages: [Package]) throws 
             modules = []
         }
 
-        let testModules = try package.testModules()
-        products += try package.products(modules, tests: testModules)
+        if package == rootPackage {
+            //TODO allow testing of external package tests
 
-        // Set dependencies for test modules.
-        for testModule in testModules {
-            if testModule.basename == "Functional" {
-                // FIXME: swiftpm's own Functional tests module does not
-                //        follow the normal rules--there is no corresponding
-                //        'Sources/Functional' module to depend upon. For the
-                //        time being, assume test modules named 'Functional'
-                //        depend upon 'Utility', and hope that no users define
-                //        test modules named 'Functional'.
-                testModule.dependencies = modules.filter{ $0.name == "Utility" }
-            } else if testModule.basename == "Transmute" {
-                // FIXME: Turns out TransmuteTests violate encapsulation :(
-                testModule.dependencies = modules.filter{
-                    switch $0.name {
-                    case "Get", "Transmute", "ManifestParser":
-                        return true
-                    default:
-                        return false
+            let testModules = try package.testModules()
+            products += try package.products(modules, tests: testModules)
+
+            // Set dependencies for test modules.
+            for testModule in testModules {
+                if testModule.basename == "Functional" {
+                    // FIXME: swiftpm's own Functional tests module does not
+                    //        follow the normal rules--there is no corresponding
+                    //        'Sources/Functional' module to depend upon. For the
+                    //        time being, assume test modules named 'Functional'
+                    //        depend upon 'Utility', and hope that no users define
+                    //        test modules named 'Functional'.
+                    testModule.dependencies = modules.filter{ $0.name == "Utility" }
+                } else if testModule.basename == "Transmute" {
+                    // FIXME: Turns out TransmuteTests violate encapsulation :(
+                    testModule.dependencies = modules.filter{
+                        switch $0.name {
+                        case "Get", "Transmute", "ManifestParser":
+                            return true
+                        default:
+                            return false
+                        }
                     }
+                } else {
+                    // Normally, test modules are only dependent upon modules with
+                    // the same basename. For example, a test module in
+                    // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
+                    testModule.dependencies = modules.filter{ $0.name == testModule.basename }
                 }
-            } else {
-                // Normally, test modules are only dependent upon modules with
-                // the same basename. For example, a test module in
-                // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
-                testModule.dependencies = modules.filter{ $0.name == testModule.basename }
+
+                modules += testModules.map{$0}
             }
         }
 
-        map[package] = modules + testModules.map{$0}
+        map[package] = modules
     }
 
     // ensure modules depend on the modules of any dependent packages
