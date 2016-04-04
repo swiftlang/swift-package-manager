@@ -9,6 +9,7 @@
 */
 
 import protocol Build.Toolchain
+import struct Utility.Path
 import enum Multitool.Error
 import POSIX
 
@@ -39,10 +40,14 @@ struct UserToolchain: Toolchain {
 
     init() throws {
         do {
-            SWIFT_EXEC = try getenv("SWIFT_EXEC") ?? popen(["which", "swiftc"]).chomp().abspath()
+            SWIFT_EXEC = getenv("SWIFT_EXEC")
+                // see if user has put something earlier in the path
+                ?? (try? POSIX.popen(["which", "swiftc"]))?.chomp().abspath()
+                // use the swiftc installed alongside ourselves
+                ?? Path.join(Process.arguments[0], "../swiftc").abspath()
             clang = try getenv("CC") ?? popen(["which", "clang"]).chomp().abspath()
             sysroot = nil
-        } catch is POSIX.ShellError {
+        } catch POSIX.Error.ExitStatus {
             throw Multitool.Error.InvalidToolchain
         }
         guard !SWIFT_EXEC.isEmpty && !clang.isEmpty else {
