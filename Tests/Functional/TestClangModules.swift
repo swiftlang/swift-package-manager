@@ -86,9 +86,9 @@ class TestClangModulesTestCase: XCTestCase {
     func testModuleMapGenerationCases() {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libFoo.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libJaz.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "libUmbrellaHeader.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "libFlatInclude.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "libUmbellaModuleNameInclude.so")
             XCTAssertFileExists(prefix, ".build", "debug", "libNoIncludeDir.so")
             XCTAssertFileExists(prefix, ".build", "debug", "Baz")
         }

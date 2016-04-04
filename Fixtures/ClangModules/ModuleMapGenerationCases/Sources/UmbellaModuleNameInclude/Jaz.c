@@ -1,4 +1,4 @@
-#include "include/Jaz/Paz.h"
+#include "include/UmbellaModuleNameInclude/Paz.h"
 
 int jaz() {
     int a = 6;

@@ -1,4 +1,4 @@
-#include "include/Bar.h"
+#include "include/FlatInclude.h"
 
 int bar() {
     int a = 6;

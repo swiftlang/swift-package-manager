@@ -1,6 +1,6 @@
-import Foo
-import Bar
-import Jaz
+import UmbellaModuleNameInclude
+import FlatInclude
+import UmbrellaHeader
 
 let _ = foo()
 let _ = bar()
