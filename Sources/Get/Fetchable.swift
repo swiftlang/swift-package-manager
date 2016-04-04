@@ -12,7 +12,7 @@ import struct PackageDescription.Version
 
 protocol Fetchable {
     var version: Version { get }
-    var children: [(String, Range<Version>)] { get }
+    var children: [(String, String, Range<Version>)] { get }
 
     /**
      This should be a separate protocol. But Swift 2 was not happy

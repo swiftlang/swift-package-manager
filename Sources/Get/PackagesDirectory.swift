@@ -39,7 +39,7 @@ extension PackagesDirectory: Fetcher {
         return nil
     }
 
-    func fetch(url url: String) throws -> Fetchable {
+	func fetch(url url: String, branch: String) throws -> Fetchable {
         let dstdir = Path.join(prefix, Package.nameForURL(url))
         if let repo = Git.Repo(path: dstdir) where repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
@@ -47,7 +47,7 @@ extension PackagesDirectory: Fetcher {
         }
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
-        try Git.clone(url, to: dstdir).fetch()
+		try Git.clone(url, branch: branch, to: dstdir).fetch()
 
         return try RawClone(path: dstdir, manifestParser: manifestParser)
     }

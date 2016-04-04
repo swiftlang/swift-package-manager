@@ -20,23 +20,25 @@ public final class Package {
     public class Dependency {
         public let versionRange: Range<Version>
         public let url: String
+		public let branch: String
 
-        init(_ url: String, _ versionRange: Range<Version>) {
+		init(_ url: String, _ branch: String, _ versionRange: Range<Version>) {
             self.url = url
+			self.branch = branch
             self.versionRange = versionRange
         }
 
-        public class func Package(url url: String, versions: Range<Version>) -> Dependency {
-            return Dependency(url, versions)
+		public class func Package(url url: String, branch: String = "master", versions: Range<Version>) -> Dependency {
+            return Dependency(url, branch, versions)
         }
-        public class func Package(url url: String, majorVersion: Int) -> Dependency {
-            return Dependency(url, Version(majorVersion, 0, 0)..<Version(majorVersion, .max, .max))
+        public class func Package(url url: String, branch: String = "master", majorVersion: Int) -> Dependency {
+            return Dependency(url, branch, Version(majorVersion, 0, 0)..<Version(majorVersion, .max, .max))
         }
-        public class func Package(url url: String, majorVersion: Int, minor: Int) -> Dependency {
-            return Dependency(url, Version(majorVersion, minor, 0)..<Version(majorVersion, minor, .max))
+        public class func Package(url url: String, branch: String = "master", majorVersion: Int, minor: Int) -> Dependency {
+            return Dependency(url, branch, Version(majorVersion, minor, 0)..<Version(majorVersion, minor, .max))
         }
-        public class func Package(url url: String, _ version: Version) -> Dependency {
-            return Dependency(url, version...version)
+        public class func Package(url url: String, branch: String = "master", _ version: Version) -> Dependency {
+            return Dependency(url, branch, version...version)
         }
     }
     
@@ -80,7 +82,7 @@ public final class Package {
 
 extension Package.Dependency: TOMLConvertible {
     public func toTOML() -> String {
-        return "[\"\(url)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
+        return "[\"\(url)\", \"\(branch)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
     }
 }
 
