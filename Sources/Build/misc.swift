@@ -71,44 +71,45 @@ extension ClangModule {
         
         let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
         let dirs = walked.filter{$0.isDirectory}
-        
-        ///There are three possible cases for which we will generate modulemaps:
-        ///Flat includes dir with only header files, in that case we generate
-        /// `umbrella "path/to/includes/"`
-        ///Module name dir is the only dir in includes, in that case we generate
-        /// `umbrella header "path/to/includes/modulename/modulename.h"` if there is a `modulename.h`
-        ///inside that directory, otherwise we generate
-        /// `umbrella "path/to/includes/modulename"`
-        
-        if dirs.isEmpty {
-            guard !files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
-            try createModuleMap(inDir: wd, type: .FlatHeaderLayout)
+
+        ///We generate modulemap for a C module `foo` if:
+        ///* `umbrella header "path/to/include/foo/foo.h"` exists and `foo` is the only
+        ///   directory under include directory
+        ///* `umbrella header "path/to/include/foo.h"` exists and include contains no other
+        ///   directory
+        ///* `umbrella "path/to/include"` in all other cases
+
+        let umbrellaHeaderFlat = Path.join(includeDir, "\(c99name).h")
+        if umbrellaHeaderFlat.isFile {
+            guard dirs.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
+            try createModuleMap(inDir: wd, type: .Header(umbrellaHeaderFlat))
             return
         }
-        
-        guard let moduleHeaderDir = dirs.first where moduleHeaderDir.basename == c99name && files.isEmpty else {
-            throw ModuleMapError.UnsupportedIncludeLayoutForModule(name)
+        diagnoseInvalidUmbrellaHeader(includeDir)
+
+        let umbrellaHeader = Path.join(includeDir, c99name, "\(c99name).h")
+        if umbrellaHeader.isFile {
+            guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
+            try createModuleMap(inDir: wd, type: .Header(umbrellaHeader))
+            return
         }
-        
-        let umbrellaHeader = Path.join(moduleHeaderDir, "\(c99name).h")
-        
-        ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
-        let invalidUmbrellaHeader = Path.join(moduleHeaderDir, "\(name).h")
+        diagnoseInvalidUmbrellaHeader(Path.join(includeDir, c99name))
+
+        try createModuleMap(inDir: wd, type: .Directory(includeDir))
+    }
+
+    ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
+    private func diagnoseInvalidUmbrellaHeader(path: String) {
+        let umbrellaHeader = Path.join(path, "\(c99name).h")
+        let invalidUmbrellaHeader = Path.join(path, "\(name).h")
         if c99name != name && invalidUmbrellaHeader.isFile {
             print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
         }
-        
-        if umbrellaHeader.isFile {
-            try createModuleMap(inDir: wd, type: .HeaderFile)
-        } else {
-            try createModuleMap(inDir: wd, type: .ModuleNameDir)
-        }
     }
-    
+
     private enum UmbrellaType {
-        case FlatHeaderLayout
-        case ModuleNameDir
-        case HeaderFile
+        case Header(String)
+        case Directory(String)
     }
     
     private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
@@ -119,14 +120,10 @@ extension ClangModule {
         
         var output = "module \(c99name) {\n"
         switch type {
-        case .FlatHeaderLayout:
+        case .Header(let header):
+            output += "    umbrella header \"\(header)\"\n"
+        case .Directory(let path):
             output += "    umbrella \"\(path)\"\n"
-        case .ModuleNameDir:
-            let path = Path.join(self.path, c99name)
-            output += "    umbrella \"\(path)\"\n"
-        case .HeaderFile:
-            let path = Path.join(self.path, c99name, "\(c99name).h")
-            output += "    umbrella header \"\(path)\"\n"
         }
         output += "    link \"\(c99name)\"\n"
         output += "    export *\n"
