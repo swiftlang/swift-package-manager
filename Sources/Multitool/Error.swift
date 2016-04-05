@@ -42,7 +42,7 @@ extension Error: CustomStringConvertible {
     }
 }
 
-@noreturn public func handleError(msg: Any, usage: ((String) -> Void) -> Void) {
+@noreturn public func handleError(_ msg: Any, usage: ((String) -> Void) -> Void) {
     switch msg {
     case CommandLineError.InvalidUsage(let hint, let mode):
         print(error: "invalid usage: \(hint)")
@@ -65,14 +65,14 @@ extension Error: CustomStringConvertible {
     exit(1)
 }
 
-private func red(input: Any) -> String {
+private func red(_ input: Any) -> String {
     let input = "\(input)"
     let ESC = "\u{001B}"
     let CSI = "\(ESC)["
     return CSI + "31m" + input + CSI + "0m"
 }
 
-private func print(error error: Any) {
+private func print(error: Any) {
     if !isatty(fileno(libc.stderr)) {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
         print("\(cmd): error:", error, to: &stderr)

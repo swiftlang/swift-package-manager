@@ -41,7 +41,7 @@ import func libc.strerror
 extension SystemError: CustomStringConvertible {
     public var description: String {
 
-        func strerror(errno: Int32) -> String {
+        func strerror(_ errno: Int32) -> String {
             let cmsg = libc.strerror(errno)
             let msg = String(validatingUTF8: cmsg) ?? "Unknown Error"
             return "\(msg) (\(errno))"

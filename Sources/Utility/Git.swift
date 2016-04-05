@@ -74,7 +74,7 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func handle(error: ErrorProtocol) {
+    @noreturn public class func handle(_ error: ErrorProtocol) {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
             print("error: ", Error.ObsoleteGitVersion)
@@ -84,7 +84,7 @@ public class Git {
         exit(1)
     }
 
-    public class func runPopen(arguments: [String]) throws -> String {
+    public class func runPopen(_ arguments: [String]) throws -> String {
         do {
             return try popen(arguments)
         } catch let error  {

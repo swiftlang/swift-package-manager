@@ -12,7 +12,7 @@ import var libc.errno
 import var libc.PATH_MAX
 import func libc.readlink
 
-public func readlink(path: String) throws -> String {
+public func readlink(_ path: String) throws -> String {
     let N = Int(PATH_MAX)
     let mem = UnsafeMutablePointer<Int8>(allocatingCapacity: N + 1)
     let n = readlink(path, mem, N)

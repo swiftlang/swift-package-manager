@@ -54,7 +54,7 @@ extension Package {
             }
         }
 
-        func moduleForName(name: String) -> Module? {
+        func moduleForName(_ name: String) -> Module? {
             return modules.pick{ $0.name == name }
         }
 
@@ -75,7 +75,7 @@ extension Package {
         return modules
     }
     
-    func modulify(path: String, name: String) throws -> Module {
+    func modulify(_ path: String, name: String) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
@@ -90,11 +90,11 @@ extension Package {
         return SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path)) 
     }
 
-    func isValidSource(path: String) -> Bool {
+    func isValidSource(_ path: String) -> Bool {
         return isValidSource(path, validExtensions: Sources.validExtensions)
     }
     
-    func isValidSource(path: String, validExtensions: Set<String>) -> Bool {
+    func isValidSource(_ path: String, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         let path = path.normpath
         if path == manifest.path.normpath { return false }
@@ -104,7 +104,7 @@ extension Package {
         return validExtensions.contains(ext)
     }
 
-    private func targetForName(name: String) -> Target? {
+    private func targetForName(_ name: String) -> Target? {
         return manifest.package.targets.pick{ $0.name == name }
     }
 }

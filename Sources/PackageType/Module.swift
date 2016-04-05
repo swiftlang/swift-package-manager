@@ -147,7 +147,7 @@ extension Module: CustomStringConvertible {
 //    }
 //}
 
-public func recursiveDependencies(modules: [Module]) -> [Module] {
+public func recursiveDependencies(_ modules: [Module]) -> [Module] {
     var stack = modules
     var set = Set<Module>()
     var rv = [Module]()

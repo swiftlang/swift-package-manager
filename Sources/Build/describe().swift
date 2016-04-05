@@ -18,7 +18,7 @@ import Utility
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
+public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
 
     guard modules.count > 0 else {
         throw Error.NoModules
@@ -88,7 +88,7 @@ public func describe(prefix: String, _ conf: Configuration, _ modules: [Module],
     }
 }
 
-private func write(path path: String, write: ((String) -> Void) -> Void) throws -> String {
+private func write(path: String, write: ((String) -> Void) -> Void) throws -> String {
     var storedError: ErrorProtocol?
 
     try fopen(path, mode: .Write) { fp in
@@ -115,7 +115,7 @@ private struct Targets {
     var test = Target(node: "test", cmds: [])
     var main = Target(node: "default", cmds: [])
 
-    mutating func append(command: Command, for buildable: Buildable) {
+    mutating func append(_ command: Command, for buildable: Buildable) {
         if buildable.isTest {
             test.cmds.append(command)
         } else {

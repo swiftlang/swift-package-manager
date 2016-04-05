@@ -22,7 +22,7 @@ private extension ClangModule {
         return args
     }
 
-    func includeFlagsWithExternalModules(externalModules: Set<Module>) -> [String] {
+    func includeFlagsWithExternalModules(_ externalModules: Set<Module>) -> [String] {
         var args: [String] = []
         for case let dep as ClangModule in dependencies {
             let includeFlag: String
@@ -45,7 +45,7 @@ private extension ClangModule {
         return args
     }
 
-    func optimizationFlags(conf: Configuration) -> [String] {
+    func optimizationFlags(_ conf: Configuration) -> [String] {
         switch conf {
         case .Debug:
             return ["-g", "-O0"]
@@ -56,7 +56,7 @@ private extension ClangModule {
 }
 
 private extension Sources {
-    func compilePathsForBuildDir(wd: String) -> [(filename: String, source: String, object: String, deps: String)] {
+    func compilePathsForBuildDir(_ wd: String) -> [(filename: String, source: String, object: String, deps: String)] {
         return relativePaths.map { source in
             let path = Path.join(root, source)
             let object = Path.join(wd, "\(source).o")

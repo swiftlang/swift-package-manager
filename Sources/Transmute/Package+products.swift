@@ -11,7 +11,7 @@
 import PackageType
 
 extension Package {
-    func products(modules: [Module], tests testModules: [TestModule]) throws -> [Product] {
+    func products(_ modules: [Module], tests testModules: [TestModule]) throws -> [Product] {
 
         var products = [Product]()
 

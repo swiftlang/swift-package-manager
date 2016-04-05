@@ -12,7 +12,7 @@
 
 #if os(Linux)
     public extension String {
-        public func hasPrefix(str: String) -> Bool {
+        public func hasPrefix(_ str: String) -> Bool {
             if utf8.count < str.utf8.count {
                 return false
             }
@@ -24,7 +24,7 @@
             return true
         }
 
-        public func hasSuffix(str: String) -> Bool {
+        public func hasSuffix(_ str: String) -> Bool {
             let count = utf8.count
             let strCount = str.utf8.count
             if count < strCount {

@@ -38,7 +38,7 @@ public struct File {
      In the event of read-error we do not feed a partially generated
      line before ending iteration.
     */
-    public func enumerate(separator: Character = "\n") throws -> FileLineGenerator {
+    public func enumerate(_ separator: Character = "\n") throws -> FileLineGenerator {
         return try FileLineGenerator(path: path, separator: separator)
     }
 }

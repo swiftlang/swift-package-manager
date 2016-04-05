@@ -12,7 +12,7 @@ import struct libc.FILE
 import func libc.fputs
 import var libc.EOF
 
-public func fputs(string: String, _ fp: UnsafeMutablePointer<FILE>) throws {
+public func fputs(_ string: String, _ fp: UnsafeMutablePointer<FILE>) throws {
     guard libc.fputs(string, fp) != EOF else {
         throw SystemError.fputs
     }

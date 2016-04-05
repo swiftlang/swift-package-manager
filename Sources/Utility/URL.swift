@@ -9,13 +9,13 @@
 */
 
 public struct URL {
-    public static func scheme(url: String) -> String? {
+    public static func scheme(_ url: String) -> String? {
         // this is not fully RFC compliant, so it either has to be
         // or we need to use CFLite FIXME
 
         let count = url.characters.count
 
-        func foo(start: Int) -> String? {
+        func foo(_ start: Int) -> String? {
             guard count > start + 3 else { return nil }
 
             let a = url.startIndex

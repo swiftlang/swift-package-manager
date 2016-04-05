@@ -38,7 +38,7 @@ class ManifestTests: XCTestCase {
     let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath()
 #endif
 
-    private func loadManifest(inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
+    private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = Path.join(#file, "../Inputs", inputName).normpath
             body(try Manifest(path: input, baseURL: input.parentDirectory, swiftc: swiftc, libdir: libdir))

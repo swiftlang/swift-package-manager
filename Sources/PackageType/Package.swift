@@ -47,7 +47,7 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 }
 
 extension Package {
-    public static func nameForURL(url: String) -> String {
+    public static func nameForURL(_ url: String) -> String {
         let base = url.basename
 
         switch URL.scheme(url) ?? "" {

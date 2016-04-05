@@ -11,7 +11,7 @@
 /**
  Removes characters from name that are invalid in C99 module-names.
 */
-func c99name(name name: String) -> String {
+func c99name(name: String) -> String {
     var mapped = name.unicodeScalars.filter {
         switch $0.value {
         case//  a-z       A-Z      0-9   _

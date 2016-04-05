@@ -14,8 +14,8 @@ extension String {
      all trailing \n (UNIX) or all trailing \r\n (Windows) (it will
      not remove mixed occurrences of both separators.
     */
-    public func chomp(separator: String? = nil) -> String {
-        func scrub(separator: String) -> String {
+    public func chomp(_ separator: String? = nil) -> String {
+        func scrub(_ separator: String) -> String {
             var E = endIndex
             while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
                 E = E.predecessor()

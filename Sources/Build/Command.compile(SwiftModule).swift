@@ -16,7 +16,7 @@ extension Command {
 
         let otherArgs = otherArgs + module.Xcc
 
-        func cmd(tool: ToolProtocol) -> Command {
+        func cmd(_ tool: ToolProtocol) -> Command {
             return Command(node: module.targetName, tool: tool)
         }
 

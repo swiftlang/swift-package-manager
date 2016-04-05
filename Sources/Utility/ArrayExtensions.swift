@@ -9,7 +9,7 @@
 */
 
 extension Array {
-    public func pick(body: (Element) -> Bool) -> Element? {
+    public func pick(_ body: (Element) -> Bool) -> Element? {
         for x in self where body(x) {
             return x
         }
@@ -29,7 +29,7 @@ extension Array {
         return (t, u)
     }
 
-    public func partition(body: (Element) -> Bool) -> ([Element], [Element]) {
+    public func partition(_ body: (Element) -> Bool) -> ([Element], [Element]) {
         var a = [Element]()
         var b = [Element]()
         for e in self {

@@ -17,7 +17,7 @@ import Utility
  - Throws: Error.InvalidDependencyGraph
  - Returns: The modules that this manifest requires building
 */
-public func get(manifest: Manifest, manifestParser: (path: String, url: String) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
+public func get(_ manifest: Manifest, manifestParser: (path: String, url: String) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
     let dir = Path.join(manifest.path.parentDirectory, "Packages")
     let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 

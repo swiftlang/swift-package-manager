@@ -20,11 +20,11 @@ import var libc.S_IRWXO
 
  It is *not* an error if the directory already exists.
 */
-public func mkdir(path: String...) throws -> String {
+public func mkdir(_ path: String...) throws -> String {
     return try mkdir(path)
 }
 
-public func mkdir(path: [String]) throws -> String {
+public func mkdir(_ path: [String]) throws -> String {
     let parts = path.flatMap{ $0.characters.split(separator: "/") }
     var prefix = path.first!.hasPrefix("/")
         ? ""

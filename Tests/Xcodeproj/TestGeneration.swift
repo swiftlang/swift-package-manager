@@ -16,7 +16,7 @@ import XCTest
 
 
 // copy pasta
-func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
+func mktmpdir(_ file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
             defer { _ = try? rmtree(dir) }
@@ -27,7 +27,7 @@ func mktmpdir(file: StaticString = #file, line: UInt = #line, @noescape body: (S
     }
 }
 
-func XCTAssertDirectoryExists(paths: String..., file: StaticString = #file, line: UInt = #line) {
+func XCTAssertDirectoryExists(_ paths: String..., file: StaticString = #file, line: UInt = #line) {
     let path = Path.join(paths)
     if !path.isDirectory {
         XCTFail("Expected directory doesn’t exist: \(path)", file: file, line: line)
