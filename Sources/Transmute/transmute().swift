@@ -35,7 +35,6 @@ public func transmute(rootPackage: Package, externalPackages: [Package]) throws 
             //TODO allow testing of external package tests
 
             let testModules = try package.testModules()
-            products += try package.products(modules, tests: testModules)
 
             // Set dependencies for test modules.
             for testModule in testModules {
@@ -69,6 +68,7 @@ public func transmute(rootPackage: Package, externalPackages: [Package]) throws 
         }
 
         map[package] = modules
+        products += try package.products(modules)
     }
 
     // ensure modules depend on the modules of any dependent packages

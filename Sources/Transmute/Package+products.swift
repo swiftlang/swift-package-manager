@@ -9,11 +9,16 @@
 */
 
 import PackageType
+import Utility
 
 extension Package {
-    func products(modules: [Module], tests testModules: [TestModule]) throws -> [Product] {
+    func products(allModules: [Module]) throws -> [Product] {
 
         var products = [Product]()
+
+        let testModules: [TestModule]
+        let modules: [Module]
+        (testModules, modules) = allModules.partition()
 
     ////// first auto-determine executables
 
