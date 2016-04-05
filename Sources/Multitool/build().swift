@@ -11,9 +11,24 @@
 import func POSIX.getenv
 import PackageType
 import Utility
+import func libc.exit
 
 public func build(YAMLPath: String, target: String) throws {
-    var args = [llbuild, "-f", YAMLPath, target]
-    if verbosity != .Concise { args.append("-v") }
-    try system(args)
+    do {
+        var args = [llbuild, "-f", YAMLPath, target]
+        if verbosity != .Concise { args.append("-v") }
+        try system(args)
+    } catch {
+
+        // we only check for these error conditions here
+        // as it is better to let swift-build-tool figure
+        // out its own error conditions and then try
+        // to infer what happened afterwards.
+
+        if YAMLPath.isFile {
+            throw error
+        } else {
+            throw Error.BuildYAMLNotFound(YAMLPath)
+        }
+    }
 }

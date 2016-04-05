@@ -33,6 +33,10 @@ public enum SystemError: ErrorProtocol {
     case symlinkat(Int32, String)
     case unlink(Int32, String)
     case waitpid(Int32)
+    case time(Int32)
+    case gmtime_r(Int32)
+    case ctime_r(Int32)
+    case strftime
 }
 
 import func libc.strerror
@@ -96,6 +100,14 @@ extension SystemError: CustomStringConvertible {
             return "unlink error: \(strerror(errno)): \(path)"
         case waitpid(let errno):
             return "waitpid error: \(strerror(errno))"
+        case time(let errno):
+            return "time error: \(strerror(errno))"
+        case gmtime_r(let errno):
+            return "gmtime_r error: \(strerror(errno))"
+        case ctime_r(let errno):
+            return "ctime_r error: \(strerror(errno))"
+        case strftime:
+            return "strftime error."
         }
     }
 }

@@ -41,13 +41,14 @@ do {
         }
 
         let yamlPath = Path.join(dir.build, "debug.yaml")
-        guard yamlPath.exists else { throw Error.DebugYAMLNotFound }
-
         try build(YAMLPath: yamlPath, target: "test")
 
         let success = try test(path: determineTestPath(), xctestArg: xctestArg)
         exit(success ? 0 : 1)
     }
+} catch Multitool.Error.BuildYAMLNotFound {
+    print("error: you must run `swift build` first", to: &stderr)
+    exit(1)
 } catch {
     handleError(error, usage: usage)
 }
