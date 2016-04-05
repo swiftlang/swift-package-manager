@@ -29,3 +29,9 @@ extension Module {
         case MixedSources(String)
     }
 }
+
+extension Product {
+    public enum Error: ErrorProtocol {
+        case NoModules(String)
+    }
+}
