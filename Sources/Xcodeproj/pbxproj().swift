@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, modules: [SwiftModule], externalModules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(_ srcroot: String, projectRoot: String, modules: [SwiftModule], externalModules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
 
     let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }

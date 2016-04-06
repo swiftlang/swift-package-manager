@@ -26,16 +26,16 @@ public final class Package {
             self.versionRange = versionRange
         }
 
-        public class func Package(url: String, versions: Range<Version>) -> Dependency {
+        public class func Package(_ url: String, versions: Range<Version>) -> Dependency {
             return Dependency(url, versions)
         }
-        public class func Package(url: String, majorVersion: Int) -> Dependency {
+        public class func Package(_ url: String, majorVersion: Int) -> Dependency {
             return Dependency(url, Version(majorVersion, 0, 0)..<Version(majorVersion, .max, .max))
         }
-        public class func Package(url: String, majorVersion: Int, minor: Int) -> Dependency {
+        public class func Package(_ url: String, majorVersion: Int, minor: Int) -> Dependency {
             return Dependency(url, Version(majorVersion, minor, 0)..<Version(majorVersion, minor, .max))
         }
-        public class func Package(url: String, _ version: Version) -> Dependency {
+        public class func Package(_ url: String, _ version: Version) -> Dependency {
             return Dependency(url, version...version)
         }
     }

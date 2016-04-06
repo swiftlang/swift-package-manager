@@ -47,7 +47,7 @@ do {
         try chdir(dir)
     }
 
-    func parseManifest(path: String, baseURL: String) throws -> Manifest {
+    func parseManifest(_ path: String, baseURL: String) throws -> Manifest {
         let swiftc = Multitool.SWIFT_EXEC
         let libdir = Multitool.libdir
         return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)

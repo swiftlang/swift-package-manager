@@ -17,8 +17,8 @@ import struct PackageDescription.Version
 protocol Fetcher {
     associatedtype T: Fetchable
 
-    func find(url: String) throws -> Fetchable?
-    func fetch(url: String) throws -> Fetchable
+    func find(_ url: String) throws -> Fetchable?
+    func fetch(_ url: String) throws -> Fetchable
     func finalize(_ fetchable: Fetchable) throws -> T
 
     func recursivelyFetch(_ urls: [(String, Range<Version>)]) throws -> [T]

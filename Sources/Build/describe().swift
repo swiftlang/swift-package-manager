@@ -88,7 +88,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 }
 
-private func write(path: String, write: ((String) -> Void) -> Void) throws -> String {
+private func write(_ path: String, write: ((String) -> Void) -> Void) throws -> String {
     var storedError: ErrorProtocol?
 
     try fopen(path, mode: .Write) { fp in

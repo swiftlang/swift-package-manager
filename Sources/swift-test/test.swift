@@ -11,7 +11,7 @@
 import PackageType
 import Utility
 
-func test(path: String, xctestArg: String? = nil) throws -> Bool {
+func test(_ path: String, xctestArg: String? = nil) throws -> Bool {
 
     guard path.isValidTest else {
         throw Error.TestsExecutableNotFound

@@ -75,7 +75,7 @@ private func red(_ input: Any) -> String {
     return CSI + "31m" + input + CSI + "0m"
 }
 
-private func print(error: Any) {
+private func print(_ error: Any) {
     if !isatty(fileno(libc.stderr)) {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
         print("\(cmd): error:", error, to: &stderr)
