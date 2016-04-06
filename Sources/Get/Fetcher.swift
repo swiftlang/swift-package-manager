@@ -39,7 +39,8 @@ extension Fetcher {
             return try urls.flatMap { url, specifiedVersionRange -> [String] in
 
                 func adjust(pkg: Fetchable, _ versionRange: Range<Version>) throws {
-                    guard let v = pkg.constrain(to: versionRange) else {
+                    // Don't include Pre-release Versions by default
+                    guard let v = pkg.constrain(to: versionRange, includePrerelease: false) else {
                         throw Error.InvalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }
                     try pkg.setVersion(v)

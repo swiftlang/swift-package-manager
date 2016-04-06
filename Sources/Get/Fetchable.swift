@@ -21,7 +21,7 @@ protocol Fetchable {
      */
     var availableVersions: [Version] { get }
 
-    func constrain(to versionRange: Range<Version>) -> Version?
+    func constrain(to versionRange: Range<Version>, includePrerelease: Bool) -> Version?
 
     //FIXME protocols cannot impose new property constraints,
     // so Package has a version { get } already, we cannot add
