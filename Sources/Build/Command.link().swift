@@ -81,7 +81,7 @@ extension Command {
             let main = Path.join(testDirectory, "LinuxMain.swift")
             args.append(main)
             for module in product.modules {
-                args += module.Xcc
+                args += module.XccFlags(prefix)
             }
             args.append("-emit-executable")
             args += ["-I", prefix]
