@@ -42,17 +42,31 @@ class StringTests: XCTestCase {
         XCTAssertEqual(" a\t\r\n".chuzzle(), "a")
         XCTAssertEqual("b".chuzzle(), "b")
     }
+    
+    func testSplitAround() {
+        
+        func eq(lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
+            XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
+        }
+        
+        eq("".splitAround("::"), ("", nil))
+        eq("foo".splitAround("::"), ("foo", nil))
+        eq("foo::".splitAround("::"), ("foo", ""))
+        eq("::bar".splitAround("::"), ("", "bar"))
+        eq("foo::bar".splitAround("::"), ("foo", "bar"))
+    }
 }
-
 
 class URLTests: XCTestCase {
 
     func testSchema() {
-        let a = "http://github.com/foo/bar"
-        let b = "https://github.com/foo/bar"
-        let c = "git@github.com/foo/bar"
-        XCTAssertEqual(Utility.URL.scheme(a), "http")
-        XCTAssertEqual(Utility.URL.scheme(b), "https")
-        XCTAssertEqual(Utility.URL.scheme(c), "git")
+        XCTAssertEqual(Utility.URL.scheme("http://github.com/foo/bar"), "http")
+        XCTAssertEqual(Utility.URL.scheme("https://github.com/foo/bar"), "https")
+        XCTAssertEqual(Utility.URL.scheme("HTTPS://github.com/foo/bar"), "https")
+        XCTAssertEqual(Utility.URL.scheme("git@github.com/foo/bar"), "git")
+        XCTAssertEqual(Utility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
+        XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
+        XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
     }
 }
