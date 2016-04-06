@@ -40,7 +40,7 @@ let linkPhaseFileRefPrefix =                        "_LinkFileRef_"
 let sourceGroupFileRefPrefix =                      "__PBXFileRef_"
 let compilePhaseFileRefPrefix =                     "__src_cc_ref_"
 
-extension Module {
+extension XcodeModuleProtocol {
     var dependencyReference: String           { return "__Dependency_\(c99name)" }
     var productReference: String              { return "_____Product_\(c99name)" }
     var targetReference: String               { return "______Target_\(c99name)" }
@@ -52,7 +52,7 @@ extension Module {
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
 }
 
-func fileRef(forLinkPhaseChild module: Module) -> String {
+func fileRef(forLinkPhaseChild module: XcodeModuleProtocol) -> String {
     return linkPhaseFileRefPrefix + module.c99name
 }
 
@@ -75,7 +75,7 @@ func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, St
     return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
 }
 
-func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String, String)] {
+func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: String) -> [(String, String)] {
     return module.sources.relativePaths.map { relativePath in
         let path = Path.join(module.sources.root, relativePath)
         let suffix = fileRef(suffixForModuleSourceFile: path, srcroot: srcroot)
@@ -83,7 +83,7 @@ func fileRefs(forModuleSources module: SwiftModule, srcroot: String) -> [(String
     }
 }
 
-func fileRefs(forCompilePhaseSourcesInModule module: SwiftModule, srcroot: String) -> [(String, String)] {
+func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroot: String) -> [(String, String)] {
     return fileRefs(forModuleSources: module, srcroot: srcroot).map { ref1, relativePath in
         let path = Path.join(module.sources.root, relativePath)
         let suffix = fileRef(suffixForModuleSourceFile: path, srcroot: srcroot)
@@ -91,12 +91,13 @@ func fileRefs(forCompilePhaseSourcesInModule module: SwiftModule, srcroot: Strin
     }
 }
 
-extension SwiftModule {
+extension XcodeModuleProtocol  {
+
     private var isLibrary: Bool {
         return type == .Library
     }
 
-    var type: String {
+    var productType: String {
         if self is TestModule {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
@@ -119,6 +120,8 @@ extension SwiftModule {
         return "compiled.mach-o.\(suffix())"
     }
 
+
+
     var productPath: String {
         if self is TestModule {
             return "\(c99name).xctest"
@@ -130,11 +133,11 @@ extension SwiftModule {
     }
 
     var linkPhaseFileRefs: String {
-        return recursiveDependencies.map{ fileRef(forLinkPhaseChild: $0) }.joined(separator: ", ")
+        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ fileRef(forLinkPhaseChild: $0) }.joined(separator: ", ")
     }
 
     var nativeTargetDependencies: String {
-        return dependencies.map{ $0.dependencyReference }.joined(separator: ", ")
+        return dependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ $0.dependencyReference }.joined(separator: ", ")
     }
 
     var productName: String {
@@ -211,7 +214,7 @@ extension SwiftModule {
 }
 
 
-extension SwiftModule {
+extension XcodeModuleProtocol {
     var blueprintIdentifier: String {
         return targetReference
     }

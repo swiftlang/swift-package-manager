@@ -15,9 +15,10 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [SwiftModule], externalModules: [SwiftModule], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], printer print: (String) -> Void) {
 
-    let rootModulesSet = Set(modules).subtract(Set(externalModules))
+    // let rootModulesSet = Set(modules).subtract(Set(externalModules))
+    let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
     let (tests, nonTests) = modules.partition{ $0 is TestModule }
 
@@ -79,7 +80,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         for (ref, path) in fileRefs(forModuleSources: module, srcroot: srcroot) {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = sourcecode.swift;")
+            print("            lastKnownFileType = \(module.fileType);")
             print("            name = '\(Path(path).relative(to: module.sources.root))';")
             print("            sourceTree = '<group>';")
             print("        };")
@@ -95,7 +96,7 @@ public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [Swif
         print("            name = \(module.name);")
         print("            productName = \(module.c99name);")
         print("            productReference = \(module.productReference);")
-        print("            productType = '\(module.type)';")
+        print("            productType = '\(module.productType)';")
         print("        };")
 
         // the product file reference
