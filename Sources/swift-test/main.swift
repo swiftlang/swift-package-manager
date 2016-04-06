@@ -8,18 +8,24 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import func POSIX.chdir
 import func libc.exit
 import Multitool
 import Utility
 
 do {
     let args = Array(Process.arguments.dropFirst())
-    let mode = try parse(commandLineArguments: args)
+    let (mode, opts) = try parse(commandLineArguments: args)
+
+    if let dir = opts.chdir {
+        try chdir(dir)
+    }
 
     switch mode {
     case .Usage:
         usage()
-    case .Run(let xctestArg):
+
+    case .Run(let specifier):
         let dir = try directories()
 
         func determineTestPath() -> String {
@@ -42,8 +48,7 @@ do {
 
         let yamlPath = Path.join(dir.build, "debug.yaml")
         try build(YAMLPath: yamlPath, target: "test")
-
-        let success = try test(path: determineTestPath(), xctestArg: xctestArg)
+        let success = try test(path: determineTestPath(), xctestArg: specifier)
         exit(success ? 0 : 1)
     }
 } catch Multitool.Error.BuildYAMLNotFound {

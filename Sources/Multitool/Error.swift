@@ -15,7 +15,7 @@ import libc
 
 public enum CommandLineError: ErrorProtocol {
     public enum UsageMode {
-        case Print, ImplySwiftBuild, ImplySwiftTest
+        case Print, Suggest
     }
     case InvalidUsage(String, UsageMode)
 }
@@ -26,6 +26,10 @@ public enum Error: ErrorProtocol {
     case InvalidInstallation(String)
     case InvalidSwiftExec(String)
     case BuildYAMLNotFound(String)
+    case MultipleModesSpecified([String])
+
+    case ExpectedAssociatedValue(String)
+    case UnexpectedAssociatedValue(String, String)
 }
 
 extension Error: CustomStringConvertible {
@@ -41,6 +45,12 @@ extension Error: CustomStringConvertible {
             return "invalid SWIFT_EXEC value: \(value)"
         case BuildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
+        case .MultipleModesSpecified(let modes):
+            return "multiple modes specified: \(modes)"
+        case ExpectedAssociatedValue(let arg):
+            return "expected associated value for argument: \(arg)"
+        case UnexpectedAssociatedValue(let arg, let value):
+            return "unexpected associated value for argument: \(arg) \(value)"
         }
     }
 }
@@ -52,10 +62,9 @@ extension Error: CustomStringConvertible {
 
         if isatty(fileno(libc.stdin)) {
             switch mode {
-            case .ImplySwiftBuild:
-                print("enter `swift build --help' for usage information", to: &stderr)
-            case .ImplySwiftTest:
-                print("enter `swift test --help' for usage information", to: &stderr)
+            case .Suggest:
+                let argv0 = Process.arguments.first ?? "swift build"
+                print("enter `\(argv0) --help' for usage information", to: &stderr)
             case .Print:
                 print("", to: &stderr)
                 usage { print($0, to: &stderr) }

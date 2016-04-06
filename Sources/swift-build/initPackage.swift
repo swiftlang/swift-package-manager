@@ -14,12 +14,6 @@ import PackageType
 import POSIX
 
 final class InitPackage {
-    
-    enum InitMode {
-        case Library
-        case Executable
-    }
-    
     let mode: InitMode
     let pkgname: String
     let rootd = POSIX.getcwd()
