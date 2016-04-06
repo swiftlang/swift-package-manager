@@ -83,7 +83,7 @@ class RawClone: Fetchable {
         }.last
     }
 
-    var children: [(String, Range<Version>)] {
+    var children: [(String, String, Range<Version>)] {
         guard manifest != nil else {
             // manifest may not exist, if so the package is BAD,
             // still: we should not crash. Build failure will occur

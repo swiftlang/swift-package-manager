@@ -25,8 +25,8 @@ extension Package {
 }
 
 extension Package: Fetchable {
-    var children: [(String, Range<Version>)] {
-        return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
+    var children: [(String, String, Range<Version>)] {
+		return manifest.package.dependencies.map{ ($0.url, $0.branch, $0.versionRange) }
     }
 
     private var versionString: String.CharacterView {

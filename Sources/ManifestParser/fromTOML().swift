@@ -62,12 +62,13 @@ extension PackageDescription.Package {
 
 extension PackageDescription.Package.Dependency {
     public static func fromTOML(item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
-        guard case .Array(let array) = item where array.items.count == 3 else {
+        guard case .Array(let array) = item where array.items.count == 4 else {
             fatalError("Unexpected TOMLItem")
         }
         guard case .String(let url) = array.items[0],
-              case .String(let vv1) = array.items[1],
-              case .String(let vv2) = array.items[2],
+		      case .String(let branch) = array.items[1],
+              case .String(let vv1) = array.items[2],
+              case .String(let vv2) = array.items[3],
               let v1 = Version(vv1), v2 = Version(vv2)
         else {
             fatalError("Unexpected TOMLItem")
@@ -81,7 +82,7 @@ extension PackageDescription.Package.Dependency {
             }
         }
 
-        return PackageDescription.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
+		return PackageDescription.Package.Dependency.Package(url: fixURL(), branch: branch, versions: v1..<v2)
     }
 }
 

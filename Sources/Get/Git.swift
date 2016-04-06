@@ -15,7 +15,7 @@ import enum POSIX.Error
 import Utility
 
 extension Git {
-    class func clone(url: String, to dstdir: String) throws -> Repo {
+	class func clone(url: String, branch: String, to dstdir: String) throws -> Repo {
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {
@@ -34,7 +34,10 @@ extension Git {
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, environment: environment, message: "Cloning \(url)")
+                "--branch", branch, "--single-branch",
+                url, dstdir,
+                environment: environment,
+                message: "Cloning \(url)" + (branch == "master" ? "" : " \(branch)"))
         } catch POSIX.Error.ExitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {

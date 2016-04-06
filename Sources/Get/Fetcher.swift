@@ -18,10 +18,10 @@ protocol Fetcher {
     associatedtype T: Fetchable
 
     func find(url url: String) throws -> Fetchable?
-    func fetch(url url: String) throws -> Fetchable
+	func fetch(url url: String, branch: String) throws -> Fetchable
     func finalize(fetchable: Fetchable) throws -> T
 
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T]
+    func recursivelyFetch(urls: [(String, String, Range<Version>)]) throws -> [T]
 }
 
 extension Fetcher {
@@ -30,13 +30,13 @@ extension Fetcher {
      
      This is our standard implementation that we override when testing.
      */
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T] {
+    func recursivelyFetch(urls: [(String, String, Range<Version>)]) throws -> [T] {
 
         var graph = [String: (Fetchable, Range<Version>)]()
 
-        func recurse(urls: [(String, Range<Version>)]) throws -> [String] {
+        func recurse(urls: [(String, String, Range<Version>)]) throws -> [String] {
 
-            return try urls.flatMap { url, specifiedVersionRange -> [String] in
+            return try urls.flatMap { url, branch, specifiedVersionRange -> [String] in
 
                 func adjust(pkg: Fetchable, _ versionRange: Range<Version>) throws {
                     guard let v = pkg.constrain(to: versionRange) else {
@@ -89,7 +89,7 @@ extension Fetcher {
 
                     // clone the package
 
-                    let clone = try self.fetch(url: url)
+					let clone = try self.fetch(url: url, branch: branch)
                     try adjust(clone, specifiedVersionRange)
                     graph[url] = (clone, specifiedVersionRange)
                     return try recurse(clone.children) + [url]

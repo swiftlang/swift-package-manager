@@ -43,7 +43,7 @@ public func get(manifest: Manifest, manifestParser: (path: String, url: String) 
 import PackageDescription
 
 extension Manifest {
-    var dependencies: [(String, Range<Version>)] {
-        return package.dependencies.map{ ($0.url, $0.versionRange) }
+    var dependencies: [(String, String, Range<Version>)] {
+        return package.dependencies.map{ ($0.url, $0.branch, $0.versionRange) }
     }
 }
