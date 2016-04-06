@@ -33,7 +33,7 @@ do {
             if maybePath.exists {
                 return maybePath
             } else {
-                return walk(dir.build).filter{
+                return walk(dir.build).filter {
                     $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
                     $0.hasSuffix(".xctest")
                 }.first!
