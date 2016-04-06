@@ -343,10 +343,14 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testStaticProduct() {
-        fixture(name: "Miscellaneous/StaticProduct") { prefix in
+    func testProducts() {
+        fixture(name: "Products/StaticLibrary") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build/debug/libBar.a")
+            XCTAssertFileExists(prefix, ".build/debug/libProductName.a")
+        }
+        fixture(name: "Products/DynamicLibrary") { prefix in
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix, ".build/debug/libProductName.dylib")
         }
     }
     
