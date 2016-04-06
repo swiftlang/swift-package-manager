@@ -467,7 +467,7 @@ private struct Parser {
     }
 
     /// Find the new table to insert into given the top-level table and a list of specifiers.
-    private mutating func findInsertPoint(topLevelTable: TOMLItemTable, _ specifiers: [String], isAppend: Bool, startToken: Lexer.Token) -> TOMLItemTable {
+    private mutating func findInsertPoint(_ topLevelTable: TOMLItemTable, _ specifiers: [String], isAppend: Bool, startToken: Lexer.Token) -> TOMLItemTable {
         // FIXME: Handle TOML requirements (sole definition).
         var into = topLevelTable
         for (i,specifier) in specifiers.enumerated() {
@@ -517,7 +517,7 @@ private struct Parser {
     /// item), including the terminating brackets.
     ///
     /// - Parameter isAppend: Whether the specifier should end with double brackets.
-    private mutating func parseTableSpecifier(isAppend: Bool) -> [String]? {
+    private mutating func parseTableSpecifier(_ isAppend: Bool) -> [String]? {
         let startToken = lookahead
             
         // Parse all of the specifiers.
@@ -573,7 +573,7 @@ private struct Parser {
     // MARK: Parser Implementation
     
     /// Report an error at the given token.
-    private mutating func error(message: String, at: Lexer.Token) {
+    private mutating func error(_ message: String, at: Lexer.Token) {
         errors.append(message)
     }
     
@@ -588,7 +588,7 @@ private struct Parser {
     }
 
     /// Consume a token if it matches a particular block.
-    private mutating func consumeIf(match: (Lexer.Token) -> Bool) -> Bool {
+    private mutating func consumeIf(_ match: (Lexer.Token) -> Bool) -> Bool {
         if match(lookahead) {
             eat()
             return true
@@ -610,7 +610,7 @@ private struct Parser {
     }
 
     /// Parse the contents of a table, stopping at the next table marker.
-    private mutating func parseTableContents(table: TOMLItemTable) {
+    private mutating func parseTableContents(_ table: TOMLItemTable) {
         // Parse assignments until we reach the EOF or a new table record.
         while lookahead != .EOF && lookahead != .LSquare {
             // If we have a bare newline, ignore it.
@@ -624,7 +624,7 @@ private struct Parser {
     }
 
     /// Parse an individual table assignment.
-    private mutating func parseAssignment(table: TOMLItemTable) {
+    private mutating func parseAssignment(_ table: TOMLItemTable) {
         // Parse the LHS.
         let key: String
         switch eat() {
@@ -727,7 +727,7 @@ private struct Parser {
         return .Array(contents: array)
     }
     
-    private func parseNumberItem(spelling: String) -> TOMLItem? {
+    private func parseNumberItem(_ spelling: String) -> TOMLItem? {
         
         let normalized = String(spelling.characters.filter { $0 != "_" })
 
@@ -749,7 +749,7 @@ public struct TOMLParsingError : ErrorProtocol {
 
 /// Public interface to parsing TOML.
 public extension TOMLItem {
-    static func parse(data: Swift.String) throws -> TOMLItem {
+    static func parse(_ data: Swift.String) throws -> TOMLItem {
         // Parse the string.
         var parser = Parser(data)
         let result = parser.parse()
@@ -768,7 +768,7 @@ public extension TOMLItem {
 /// Internal function for testing the lexer.
 ///
 /// returns: A list of the lexed tokens' string representations.
-internal func lexTOML(data: String) -> [String] {
+internal func lexTOML(_ data: String) -> [String] {
     let lexer = Lexer(data)
     return lexer.map { String($0) }
 }

@@ -30,7 +30,7 @@ class PackagesDirectory {
 extension PackagesDirectory: Fetcher {
     typealias T = Package
 
-    func find(url url: String) throws -> Fetchable? {
+    func find(url: String) throws -> Fetchable? {
         for prefix in walk(self.prefix, recursively: false) {
             guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
             guard repo.origin == url else { continue }
@@ -39,7 +39,7 @@ extension PackagesDirectory: Fetcher {
         return nil
     }
 
-    func fetch(url url: String) throws -> Fetchable {
+    func fetch(url: String) throws -> Fetchable {
         let dstdir = Path.join(prefix, Package.nameForURL(url))
         if let repo = Git.Repo(path: dstdir) where repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
@@ -52,7 +52,7 @@ extension PackagesDirectory: Fetcher {
         return try RawClone(path: dstdir, manifestParser: manifestParser)
     }
 
-    func finalize(fetchable: Fetchable) throws -> Package {
+    func finalize(_ fetchable: Fetchable) throws -> Package {
         switch fetchable {
         case let clone as RawClone:
             let prefix = Path.join(self.prefix, clone.finalName)

@@ -12,7 +12,7 @@ import PackageType
 import Utility
 
 extension Package {
-    func shouldConsiderDirectory(path: String) -> Bool {
+    func shouldConsiderDirectory(_ path: String) -> Bool {
         let base = path.basename.lowercased()
         if base == "tests" { return false }
         if base == "include" { return false }

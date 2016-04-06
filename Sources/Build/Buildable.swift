@@ -18,7 +18,7 @@ protocol Buildable {
 
 extension CModule {
     ///Returns the build directory path of a CModule
-    func buildDirectory(prefix: String) -> String {
+    func buildDirectory(_ prefix: String) -> String {
         return Path.join(prefix, "\(c99name).build")
     }
 }
@@ -28,7 +28,7 @@ extension Module: Buildable {
         return self is TestModule
     }
 
-    func XccFlags(prefix: String) -> [String] {
+    func XccFlags(_ prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {
                 ///For ClangModule we check if there is a user provided module map

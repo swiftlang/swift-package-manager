@@ -10,7 +10,7 @@
 
 import PackageType
 
-func fillModuleGraph(packages: [Package], modulesForPackage: (Package) -> [Module]) {
+func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
     for package in packages {
         let packageModules = modulesForPackage(package)
         for dep in package.recursiveDependencies {

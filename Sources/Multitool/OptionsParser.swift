@@ -16,7 +16,7 @@ public protocol ModeArgument: Argument, Equatable, CustomStringConvertible {
 
 }
 
-public func parse<Mode: ModeArgument, Flag: Argument>(arguments arguments: [String]) throws -> (Mode?, [Flag]) {
+public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
     var it = arguments.makeIterator()
@@ -58,7 +58,7 @@ public func parse<Mode: ModeArgument, Flag: Argument>(arguments arguments: [Stri
     return (mode, flags)
 }
 
-private func split(arg: String) -> (String, String?) {
+private func split(_ arg: String) -> (String, String?) {
     let chars = arg.characters
     if let ii = chars.index(of: "=") {
         let flag = chars.prefix(upTo: ii)

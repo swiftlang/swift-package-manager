@@ -15,7 +15,7 @@ import enum POSIX.Error
 import Utility
 
 extension Git {
-    class func clone(url: String, to dstdir: String) throws -> Repo {
+    class func clone(_ url: String, to dstdir: String) throws -> Repo {
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {

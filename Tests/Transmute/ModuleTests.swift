@@ -21,7 +21,7 @@ extension Module {
         self.init(name: name)
     }
 
-    private func dependsOn(target: Module) {
+    private func dependsOn(_ target: Module) {
         dependencies.append(target)
     }
 

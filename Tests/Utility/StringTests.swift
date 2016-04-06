@@ -45,7 +45,7 @@ class StringTests: XCTestCase {
     
     func testSplitAround() {
         
-        func eq(lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
+        func eq(_ lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }

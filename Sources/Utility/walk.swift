@@ -33,7 +33,7 @@ import var libc.DT_DIR
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
 */
-public func walk(paths: String..., recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
+public func walk(_ paths: String..., recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
     return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: { _ in recursively })
 }
 
@@ -54,7 +54,7 @@ public func walk(paths: String..., recursively: Bool = true) -> RecursibleDirect
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
 */
-public func walk(paths: String..., recursing: (String) -> Bool) -> RecursibleDirectoryContentsGenerator {
+public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleDirectoryContentsGenerator {
     return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: recursing)
 }
 

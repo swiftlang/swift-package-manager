@@ -12,7 +12,7 @@ import struct libc.DirHandle
 import var libc.errno
 import func libc.opendir
 
-public func opendir(path: String) throws -> DirHandle {
+public func opendir(_ path: String) throws -> DirHandle {
     let d = libc.opendir(path)
     guard d != nil else { throw SystemError.opendir(errno, path) }
     return d

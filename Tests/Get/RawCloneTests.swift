@@ -43,7 +43,7 @@ class GitTests: XCTestCase {
 
 //MARK: - Helpers
 
-func makeGitRepo(dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
+func makeGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
     do {
         let file = Path.join(dstdir, "file.swift")
         try popen(["touch", file])
@@ -64,7 +64,7 @@ func makeGitRepo(dstdir: String, tag: String? = nil, file: StaticString = #file,
     return nil
 }
 
-private func tryCloningRepoWithTag(tag: String?, shouldCrash: Bool) {
+private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
     var done = !shouldCrash
     mktmpdir { path in
         makeGitRepo(path, tag: tag)!

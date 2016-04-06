@@ -12,7 +12,7 @@
 import var libc.errno
 import func libc.rmdir
 
-public func rmdir(path: String) throws {
+public func rmdir(_ path: String) throws {
     guard rmdir(path) == 0 else {
         throw SystemError.rmdir(errno, path)
     }

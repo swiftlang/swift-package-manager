@@ -18,7 +18,7 @@ import var libc.ENOENT
 /**
  Recursively deletes the provided directory.
  */
-public func rmtree(components: String...) throws {
+public func rmtree(_ components: String...) throws {
     let path = Path.join(components)
     var dirs = [String]()
     for entry in walk(path, recursively: true) {

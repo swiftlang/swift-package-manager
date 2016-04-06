@@ -12,7 +12,7 @@ import Utility
 import PackageDescription
 
 extension PackageDescription.Package {
-    public static func fromTOML(item: TOMLItem, baseURL: String? = nil) -> PackageDescription.Package {
+    public static func fromTOML(_ item: TOMLItem, baseURL: String? = nil) -> PackageDescription.Package {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
         guard case .Table(let topLevelTable) = item else { fatalError("unexpected item") }
@@ -61,7 +61,7 @@ extension PackageDescription.Package {
 }
 
 extension PackageDescription.Package.Dependency {
-    public static func fromTOML(item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
+    public static func fromTOML(_ item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
         guard case .Array(let array) = item where array.items.count == 3 else {
             fatalError("Unexpected TOMLItem")
         }
@@ -86,7 +86,7 @@ extension PackageDescription.Package.Dependency {
 }
 
 extension PackageDescription.Target {
-    private static func fromTOML(item: TOMLItem) -> PackageDescription.Target {
+    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
         guard case .Table(let table) = item else { fatalError("unexpected item") }
@@ -106,7 +106,7 @@ extension PackageDescription.Target {
 }
 
 extension PackageDescription.Target.Dependency {
-    private static func fromTOML(item: TOMLItem) -> PackageDescription.Target.Dependency {
+    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
         guard case .String(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
     }
@@ -142,7 +142,7 @@ extension PackageDescription.Product {
         self.init(name: name, type: type, modules: modules)
     }
 
-    public static func fromTOML(item: TOMLItem) -> [PackageDescription.Product] {
+    public static func fromTOML(_ item: TOMLItem) -> [PackageDescription.Product] {
         guard case .Table(let root) = item else { fatalError("unexpected item") }
         guard let productsItem = root.items["products"] else { return [] }
         guard case .Array(let array) = productsItem else { fatalError("products wrong type") }

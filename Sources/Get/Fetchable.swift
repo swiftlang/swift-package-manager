@@ -26,5 +26,5 @@ protocol Fetchable {
     //FIXME protocols cannot impose new property constraints,
     // so Package has a version { get } already, we cannot add
     // a set, so instead we have to have this protocol func
-    func setVersion(newValue: Version) throws
+    func setVersion(_ newValue: Version) throws
 }

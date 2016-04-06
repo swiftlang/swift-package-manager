@@ -13,7 +13,7 @@ import XCTest
 
 class FileTests: XCTestCase {
 
-    private func loadInputFile(name: String) -> File {
+    private func loadInputFile(_ name: String) -> File {
         let input = Path.join(#file, "../Inputs", name).normpath
         return File(path: input)
     }

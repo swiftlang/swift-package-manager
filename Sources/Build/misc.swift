@@ -99,7 +99,7 @@ extension ClangModule {
     }
 
     ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
-    private func diagnoseInvalidUmbrellaHeader(path: String) {
+    private func diagnoseInvalidUmbrellaHeader(_ path: String) {
         let umbrellaHeader = Path.join(path, "\(c99name).h")
         let invalidUmbrellaHeader = Path.join(path, "\(name).h")
         if c99name != name && invalidUmbrellaHeader.isFile {

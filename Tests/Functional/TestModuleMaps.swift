@@ -21,7 +21,7 @@ private let dylib = "so"
 
 class ModuleMapsTestCase: XCTestCase {
 
-    private func fixture(name name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
+    private func fixture(name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
         FunctionalTestSuite.fixture(name: name) { prefix in
             let input = Path.join(prefix, CModuleName, "C/foo.c")
             let outdir = try mkdir(prefix, rootpkg, ".build/debug")
@@ -54,7 +54,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix, "packageA", Xld: Xld)
 
-            func verify(conf: String, file: StaticString = #file, line: UInt = #line) throws {
+            func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
                 let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
                 let out = try popen([Path.join(prefix, "packageA/.build", conf, "packageA")])
                 XCTAssertEqual(out, expectedOutput)

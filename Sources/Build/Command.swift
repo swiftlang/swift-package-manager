@@ -12,7 +12,7 @@ struct Command {
     let node: String
     let tool: ToolProtocol
 
-    static func createDirectory(path: String) -> Command {
+    static func createDirectory(_ path: String) -> Command {
         return Command(node: path, tool: MkdirTool(path: path))
     }
 }

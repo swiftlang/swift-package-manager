@@ -10,7 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import Multitool
 
-func usage(print: (String) -> Void = { print($0) }) {
+func usage(_ print: (String) -> Void = { print($0) }) {
     //.........10.........20.........30.........40.........50.........60.........70..
     print("OVERVIEW: Build and run tests")
     print("")

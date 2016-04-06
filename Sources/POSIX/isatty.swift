@@ -10,6 +10,6 @@
 
 import func libc.isatty
 
-public func isatty(fildes: Int32) -> Bool {
+public func isatty(_ fildes: Int32) -> Bool {
     return libc.isatty(fildes) != 0
 }

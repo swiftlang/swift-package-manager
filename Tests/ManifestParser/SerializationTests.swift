@@ -13,7 +13,7 @@ import PackageDescription
 import Utility
 import XCTest
 
-private func parseTOML(data: String) -> TOMLItem {
+private func parseTOML(_ data: String) -> TOMLItem {
     do {
         return try TOMLItem.parse(data)
     } catch let err {

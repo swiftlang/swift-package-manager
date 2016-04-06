@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], printer print: (String) -> Void) {
 
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
