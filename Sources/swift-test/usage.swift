@@ -33,14 +33,14 @@ func parse(commandLineArguments args: [String]) throws -> Mode {
     }
 
     guard let argument = args.first where args.count == 1 else {
-        throw CommandLineError.InvalidUsage("Unknown arguments: \(args)", .ImplySwiftTest)
+        throw CommandLineError.InvalidUsage("Unknown arguments: \(args)", .Suggest)
     }
 
     switch argument {
     case "--help", "-h":
         return .Usage
     case argument where argument.hasPrefix("-"):
-        throw CommandLineError.InvalidUsage("Unknown argument: \(argument)", .ImplySwiftTest)
+        throw CommandLineError.InvalidUsage("Unknown argument: \(argument)", .Suggest)
     default:
         return .Run(argument)
     }
