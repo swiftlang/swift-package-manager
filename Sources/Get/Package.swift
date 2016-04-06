@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct PackageDescription.VersionRange
 import struct PackageDescription.Version
 import PackageType
 import Utility
@@ -25,8 +26,8 @@ extension Package {
 }
 
 extension Package: Fetchable {
-    var children: [(String, Range<Version>)] {
-        return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
+    var children: [(String, VersionRange)] {
+        return manifest.package.dependencies.map{ ($0.url, $0.range) }
     }
 
     private var versionString: String.CharacterView {
@@ -37,7 +38,7 @@ extension Package: Fetchable {
         return Version(versionString)!
     }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
+    func constrain(to versionRange: VersionRange) -> Version? {
         return nil
     }
 

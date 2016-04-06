@@ -18,15 +18,17 @@ import Darwin.C
 public final class Package {
     /// The description for a package dependency.
     public class Dependency {
+        public let range: VersionRange
         public let versionRange: Range<Version>
         public let url: String
 
-        init(_ url: String, _ versionRange: Range<Version>) {
+        init(_ url: String, _ versionRange: VersionRange) {
             self.url = url
-            self.versionRange = versionRange
+            self.range = versionRange
+            self.versionRange = versionRange.range
         }
 
-        public class func Package(url url: String, versions: Range<Version>) -> Dependency {
+        public class func Package(url url: String, versions: VersionRange) -> Dependency {
             return Dependency(url, versions)
         }
         public class func Package(url url: String, majorVersion: Int) -> Dependency {

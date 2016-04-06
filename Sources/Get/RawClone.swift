@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct PackageDescription.VersionRange
 import struct PackageDescription.Version
 import PackageType
 import Utility
@@ -75,7 +76,12 @@ class RawClone: Fetchable {
         }
     }
 
-    func constrain(to versionRange: Range<Version>) -> Version? {
+    func constrain(to versionRange: VersionRange) -> Version? {
+        guard !versionRange.singleVersion else {
+            return availableVersions.contains(versionRange.start) ? versionRange.start : nil
+        } 
+        
+        let versionRange = versionRange.range
         return availableVersions.filter {
             // not using `contains` as it uses successor() and for Range<Version>
             // this involves iterating from 0 to Int.max!
@@ -83,7 +89,7 @@ class RawClone: Fetchable {
         }.last
     }
 
-    var children: [(String, Range<Version>)] {
+    var children: [(String, VersionRange)] {
         guard manifest != nil else {
             // manifest may not exist, if so the package is BAD,
             // still: we should not crash. Build failure will occur
