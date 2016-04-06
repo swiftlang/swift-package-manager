@@ -19,9 +19,9 @@ import POSIX
 
     public let SWIFT_EXEC = getenv("SWIFT_EXEC")!.abspath()
     public let llbuild = Path.join(getenv("SWIFT_EXEC")!, "../swift-build-tool").abspath()
-    public let libdir = Process.arguments.first!.parentDirectory
+    public let libdir = argv0.parentDirectory
 #else
-    public let SWIFT_EXEC = Path.join(Process.arguments.first!, "../swiftc").abspath()
-    public let llbuild = Path.join(Process.arguments.first!, "../swift-build-tool").abspath()
-    public let libdir = Path.join(Process.arguments.first!, "../../lib/swift/pm").abspath()
+    public let SWIFT_EXEC = Path.join(argv0, "../swiftc").abspath()
+    public let llbuild = Path.join(argv0, "../swift-build-tool").abspath()
+    public let libdir = Path.join(argv0, "../../lib/swift/pm").abspath()
 #endif

@@ -11,10 +11,19 @@
 import func libc.chdir
 import var libc.errno
 
+
+private var _argv0: String!
+
+public var argv0: String {
+    return _argv0 ?? Process.arguments.first!
+}
+
 /**
  Causes the named directory to become the current working directory.
 */
 public func chdir(path: String) throws {
+    if _argv0 == nil { _argv0 = try realpath(Process.arguments.first!) }
+
     guard libc.chdir(path) == 0 else {
         throw SystemError.chdir(errno)
     }
