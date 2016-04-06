@@ -17,6 +17,7 @@ func usage(print: (String) -> Void = { print($0) }) {
     print("USAGE: swift test [options]")
     print("")
     print("OPTIONS:")
+    print("  --chdir <value>    Change working directory before any other operation [-C]")
     print("  TestModule.TestCase         Run a test case subclass")
     print("  TestModule.TestCase/test1   Run a specific test method")
 }
@@ -26,22 +27,51 @@ enum Mode {
     case Run(String?)
 }
 
-func parse(commandLineArguments args: [String]) throws -> Mode {
+struct Options {
+    var chdir: String? = nil
+}
 
-    if args.count == 0 {
-        return .Run(nil)
+func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
+    var mode: Mode?
+    var options = Options()
+    var args = args
+
+    func checkModes(old: Mode?, new: Mode) throws {
+        switch (old, new) {
+        case (let a?, let b) where a != b:
+            throw CommandLineError.InvalidUsage("Both Help and Run modes specified", .ImplySwiftTest)
+        default:
+            return
+        }
     }
 
-    guard let argument = args.first where args.count == 1 else {
-        throw CommandLineError.InvalidUsage("Unknown arguments: \(args)", .ImplySwiftTest)
-    }
+    while !args.isEmpty {
+        let argument = args.removeFirst()
 
-    switch argument {
-    case "--help", "-h":
-        return .Usage
-    case argument where argument.hasPrefix("-"):
-        throw CommandLineError.InvalidUsage("Unknown argument: \(argument)", .ImplySwiftTest)
-    default:
-        return .Run(argument)
+        switch argument {
+        case "--help", "-h":
+            try checkModes(mode, new: .Usage)
+            mode = .Usage
+        case "--chdir", "-C":
+            guard args.count > 0 else {
+                throw CommandLineError.InvalidUsage("Option `--chdir' requires subsequent directory argument", .ImplySwiftTest)
+            }
+            options.chdir = args.removeFirst()
+        case argument where argument.hasPrefix("-"):
+            throw CommandLineError.InvalidUsage("Unknown argument: \(argument)", .ImplySwiftTest)
+        default:
+            try checkModes(mode, new: .Run(argument))
+            mode = .Run(argument)
+        }
+    }
+    return (mode ?? .Run(nil), options)
+}
+
+extension Mode: Equatable {}
+func == (lhs: Mode, rhs: Mode) -> Bool {
+    switch (lhs, rhs) {
+    case (.Usage, .Usage): return true
+    case (.Run, .Run): return true
+    default: return false
     }
 }
