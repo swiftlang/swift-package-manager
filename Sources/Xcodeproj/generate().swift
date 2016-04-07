@@ -12,11 +12,13 @@ import PackageType
 import Utility
 import POSIX
 
-/** 
+public typealias OptionsType = (Xcc: [String], Xld: [String], Xswiftc: [String])
+
+/**
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product]) throws -> String {
+public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: OptionsType) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
@@ -25,7 +27,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, printer: fwrite)
+        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets

@@ -109,8 +109,7 @@ do {
                 dstdir = dirs.root
                 projectName = packageName
             }
-
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products)
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
 
             print("generated:", outpath.prettied)
     }
