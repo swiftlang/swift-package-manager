@@ -40,7 +40,7 @@ public class Module: ModuleProtocol {
     }
 
     public var c99name: String {
-        return PackageType.c99name(name: name)
+        return PackageType.c99name(name)
     }
 }
 
@@ -138,7 +138,7 @@ public class TestModule: SwiftModule {
     }
 
     override public var c99name: String {
-        return PackageType.c99name(name: basename) + "TestSuite"
+        return PackageType.c99name(basename) + "TestSuite"
     }
 }
 

@@ -73,7 +73,7 @@ extension Fetcher {
                         return []
                     }
 
-                } else if let pkg = try self.find(url: url) {
+                } else if let pkg = try self.find(url) {
 
                     // this package was already installed from a previous instantiation
                     // of the package manager. Verify it is within the required version
@@ -89,7 +89,7 @@ extension Fetcher {
 
                     // clone the package
 
-                    let clone = try self.fetch(url: url)
+                    let clone = try self.fetch(url)
                     try adjust(clone, specifiedVersionRange)
                     graph[url] = (clone, specifiedVersionRange)
                     return try recurse(clone.children) + [url]

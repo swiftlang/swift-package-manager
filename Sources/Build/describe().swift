@@ -62,7 +62,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         targets.append(command, for: product)
     }
 
-    return try write(path: "\(prefix).yaml") { writeln in
+    return try write("\(prefix).yaml") { writeln in
         writeln("client:")
         writeln("  name: swift-build")
         writeln("tools: {}")

@@ -54,7 +54,7 @@ do {
     }
     
     func fetch(_ root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
-        let manifest = try parseManifest(path: root, baseURL: root)
+        let manifest = try parseManifest(root, baseURL: root)
         return try get(manifest, manifestParser: parseManifest)
     }
 
@@ -64,7 +64,7 @@ do {
             let (rootPackage, externalPackages) = try fetch(dirs.root)
             let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
             let yaml = try describe(dirs.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
-            try build(YAMLPath: yaml, target: "default")
+            try build(yaml, target: "default")
 
         case .Init(let initMode):
             let initPackage = InitPackage(mode: initMode)
@@ -110,7 +110,7 @@ do {
                 projectName = packageName
             }
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products)
+            let outpath = try Xcodeproj.generate(dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products)
 
             print("generated:", outpath.prettied)
     }

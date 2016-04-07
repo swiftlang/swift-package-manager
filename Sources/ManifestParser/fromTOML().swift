@@ -81,7 +81,7 @@ extension PackageDescription.Package.Dependency {
             }
         }
 
-        return PackageDescription.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
+        return PackageDescription.Package.Dependency.Package(fixURL(), versions: v1..<v2)
     }
 }
 
