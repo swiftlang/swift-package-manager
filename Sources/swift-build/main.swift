@@ -115,5 +115,5 @@ do {
     }
 
 } catch {
-    handleError(error, usage: usage)
+    handle(error: error, usage: usage)
 }

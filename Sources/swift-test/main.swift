@@ -27,7 +27,7 @@ do {
 
     case .Run(let specifier):
         let dir = try directories()
-        let configuration = "debug" //FIXME should swift-test support configuration option?
+        let configuration = "debug"  //FIXME should swift-test support configuration option?
 
         func determineTestPath() -> String {
 
@@ -56,5 +56,5 @@ do {
     print("error: you must run `swift build` first", to: &stderr)
     exit(1)
 } catch {
-    handleError(error, usage: usage)
+    handle(error: error, usage: usage)
 }

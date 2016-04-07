@@ -10,15 +10,9 @@
 
 import func POSIX.isatty
 import var Utility.stderr
+import OptionsParser
 import PackageType
 import libc
-
-public enum CommandLineError: ErrorProtocol {
-    public enum UsageMode {
-        case Print, Suggest
-    }
-    case InvalidUsage(String, UsageMode)
-}
 
 public enum Error: ErrorProtocol {
     case NoManifestFound
@@ -26,10 +20,6 @@ public enum Error: ErrorProtocol {
     case InvalidInstallation(String)
     case InvalidSwiftExec(String)
     case BuildYAMLNotFound(String)
-    case MultipleModesSpecified([String])
-
-    case ExpectedAssociatedValue(String)
-    case UnexpectedAssociatedValue(String, String)
 }
 
 extension Error: CustomStringConvertible {
@@ -45,20 +35,14 @@ extension Error: CustomStringConvertible {
             return "invalid SWIFT_EXEC value: \(value)"
         case BuildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
-        case .MultipleModesSpecified(let modes):
-            return "multiple modes specified: \(modes)"
-        case ExpectedAssociatedValue(let arg):
-            return "expected associated value for argument: \(arg)"
-        case UnexpectedAssociatedValue(let arg, let value):
-            return "unexpected associated value for argument: \(arg) \(value)"
         }
     }
 }
 
-@noreturn public func handleError(_ msg: Any, usage: ((String) -> Void) -> Void) {
-    switch msg {
-    case CommandLineError.InvalidUsage(let hint, let mode):
-        print(error: "invalid usage: \(hint)")
+@noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
+    switch error {
+    case OptionsParser.Error.InvalidUsage(_, let mode):
+        print(error: error)
 
         if isatty(fileno(libc.stdin)) {
             switch mode {
@@ -71,7 +55,7 @@ extension Error: CustomStringConvertible {
             }
         }
     default:
-        print(error: msg)
+        print(error: error)
     }
 
     exit(1)

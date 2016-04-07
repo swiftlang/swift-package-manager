@@ -49,7 +49,7 @@ let package = Package(
         Target(
             /** Common components of both executables */
             name: "Multitool",
-            dependencies: ["PackageType"]),
+            dependencies: ["PackageType", "OptionsParser"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",

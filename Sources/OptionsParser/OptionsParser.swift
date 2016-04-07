@@ -8,14 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public protocol Argument {
-    init?(argument: String, pop: () -> String?) throws
-}
-
-public protocol ModeArgument: Argument, Equatable, CustomStringConvertible {
-
-}
-
 public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
@@ -34,7 +26,7 @@ public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throw
         }
 
         if value != nil && !popped {
-            throw CommandLineError.InvalidUsage("\(arg) does not take an associated value",.Suggest)
+            throw Error.InvalidUsage("\(arg) does not take an associated value",.Suggest)
         }
     }
 
@@ -47,11 +39,11 @@ public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throw
         if let flag = try Flag(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             flags.append(flag)
         } else {
-            throw CommandLineError.InvalidUsage("unknown argument: \(arg)", .Suggest)
+            throw Error.InvalidUsage("unknown argument: \(arg)", .Suggest)
         }
 
         if value != nil && !popped {
-            throw CommandLineError.InvalidUsage("\(arg) does not take an associated value",.Suggest)
+            throw Error.InvalidUsage("\(arg) does not take an associated value",.Suggest)
         }
     }
 
