@@ -25,13 +25,13 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, printer: fwrite)
+        pbxproj(srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
     try open(schemesDirectory, schemeName) { fwrite in
-        xcscheme(container: xcodeprojName, modules: modules, printer: fwrite)
+        xcscheme(xcodeprojName, modules: modules, printer: fwrite)
     }
 
 ////// we generate this file to ensure our main scheme is listed

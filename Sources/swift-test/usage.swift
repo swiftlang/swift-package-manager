@@ -72,7 +72,7 @@ struct Options {
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
     let mode: Mode?
     let flags: [Flag]
-    (mode, flags) = try parse(arguments: args)
+    (mode, flags) = try parse(args)
 
     var opts = Options()
     for flag in flags {

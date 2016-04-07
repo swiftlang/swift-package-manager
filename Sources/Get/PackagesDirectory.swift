@@ -34,7 +34,7 @@ extension PackagesDirectory: Fetcher {
         for prefix in walk(self.prefix, recursively: false) {
             guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
             guard repo.origin == url else { continue }
-            return try Package.make(repo: repo, manifestParser: manifestParser)
+            return try Package.make(repo, manifestParser: manifestParser)
         }
         return nil
     }
@@ -57,9 +57,9 @@ extension PackagesDirectory: Fetcher {
         case let clone as RawClone:
             let prefix = Path.join(self.prefix, clone.finalName)
             try mkdir(prefix.parentDirectory)
-            try rename(old: clone.path, new: prefix)
+            try rename(clone.path, new: prefix)
             //TODO don't reparse the manifest!
-            return try Package.make(repo: Git.Repo(path: prefix)!, manifestParser: manifestParser)!
+            return try Package.make(Git.Repo(path: prefix)!, manifestParser: manifestParser)!
         case let pkg as Package:
             return pkg
         default:

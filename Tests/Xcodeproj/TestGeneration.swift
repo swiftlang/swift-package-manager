@@ -51,7 +51,7 @@ class TestGeneration: XCTestCase {
             let modules = dummy()
             let products: [Product] = []
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products)
+            let outpath = try Xcodeproj.generate(dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products)
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))

@@ -102,8 +102,8 @@ final class InitPackage {
         try mkdir(tests)
         ///Only libraries are testable for now
         if mode == .Library {
-            try writeLinuxMain(testsPath: tests)
-            try writeTestFileStubs(testsPath: tests)
+            try writeLinuxMain(tests)
+            try writeTestFileStubs(tests)
         }
     }
     

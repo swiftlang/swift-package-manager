@@ -48,8 +48,8 @@ do {
         }
 
         let yamlPath = Path.join(dir.build, "\(configuration).yaml")
-        try build(YAMLPath: yamlPath, target: "test")
-        let success = try test(path: determineTestPath(), xctestArg: specifier)
+        try build(yamlPath, target: "test")
+        let success = try test(determineTestPath(), xctestArg: specifier)
         exit(success ? 0 : 1)
     }
 } catch Multitool.Error.BuildYAMLNotFound {
