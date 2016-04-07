@@ -16,7 +16,7 @@ import libc
  the tool. Uses PATH to find the tool if the first argument
  path is not absolute.
 */
-public func system(args: String...) throws {
+public func system(_ args: String...) throws {
     try system(args)
 }
 
@@ -25,7 +25,7 @@ public func system(args: String...) throws {
  the tool. Uses PATH to find the tool if the first argument
  path is not absolute.
 */
-public func system(arguments: [String], environment: [String:String] = [:]) throws {
+public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
     // make sure subprocess output doesn't get interleaved with our own
     fflush(stdout)
 
@@ -44,7 +44,7 @@ public func system() {}
 
 
 /// Convenience wrapper for posix_spawn.
-func posix_spawnp(path: String, args: [String], environment: [String: String] = [:], fileActions: posix_spawn_file_actions_t? = nil) throws -> pid_t {
+func posix_spawnp(_ path: String, args: [String], environment: [String: String] = [:], fileActions: posix_spawn_file_actions_t? = nil) throws -> pid_t {
     let argv = args.map{ $0.withCString(strdup) }
     defer { for arg in argv { free(arg) } }
 
@@ -78,21 +78,21 @@ func posix_spawnp(path: String, args: [String], environment: [String: String] = 
 }
 
 
-private func _WSTATUS(status: CInt) -> CInt {
+private func _WSTATUS(_ status: CInt) -> CInt {
     return status & 0x7f
 }
 
-private func WIFEXITED(status: CInt) -> Bool {
+private func WIFEXITED(_ status: CInt) -> Bool {
     return _WSTATUS(status) == 0
 }
 
-private func WEXITSTATUS(status: CInt) -> CInt {
+private func WEXITSTATUS(_ status: CInt) -> CInt {
     return (status >> 8) & 0xff
 }
 
 
 /// convenience wrapper for waitpid
-func waitpid(pid: pid_t) throws -> Int32 {
+func waitpid(_ pid: pid_t) throws -> Int32 {
     while true {
         var exitStatus: Int32 = 0
         let rv = waitpid(pid, &exitStatus, 0)

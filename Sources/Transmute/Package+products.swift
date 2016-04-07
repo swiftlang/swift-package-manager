@@ -12,7 +12,7 @@ import PackageType
 import Utility
 
 extension Package {
-    func products(allModules: [Module]) throws -> [Product] {
+    func products(_ allModules: [Module]) throws -> [Product] {
 
         var products = [Product]()
 

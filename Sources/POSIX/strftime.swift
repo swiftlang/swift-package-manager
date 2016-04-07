@@ -11,7 +11,7 @@
 import func libc.strftime
 import struct libc.tm
 
-public func strftime(format: String, time: tm) throws -> String {
+public func strftime(_ format: String, time: tm) throws -> String {
     let resultSize = format.characters.count + 200
     let result = UnsafeMutablePointer<Int8>(allocatingCapacity: resultSize)
     defer {

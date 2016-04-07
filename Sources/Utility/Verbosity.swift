@@ -44,7 +44,7 @@ import func libc.fputs
 import var libc.stderr
 
 public class StandardErrorOutputStream: OutputStream {
-    public func write(string: String) {
+    public func write(_ string: String) {
         libc.fputs(string, libc.stderr)
     }
 }
@@ -57,14 +57,14 @@ import func POSIX.system
 import func POSIX.popen
 import func POSIX.prettyArguments
 
-public func system(args: String...) throws {
+public func system(_ args: String...) throws {
     try Utility.system(args)
 }
 
 private let ESC = "\u{001B}"
 private let CSI = "\(ESC)["
 
-private func prettyArguments(arguments: [String]) -> String {
+private func prettyArguments(_ arguments: [String]) -> String {
     guard arguments.count > 0 else { return "" }
 
     var arguments = arguments
@@ -73,23 +73,23 @@ private func prettyArguments(arguments: [String]) -> String {
     return arg0 + " " + POSIX.prettyArguments(arguments)
 }
 
-private func printArgumentsIfVerbose(arguments: [String]) {
+private func printArgumentsIfVerbose(_ arguments: [String]) {
     if verbosity != .Concise {
         print(prettyArguments(arguments))
     }
 }
 
-public func system(arguments: [String], environment: [String:String] = [:]) throws {
+public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
     printArgumentsIfVerbose(arguments)
     try POSIX.system(arguments, environment: environment)
 }
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
     printArgumentsIfVerbose(arguments)
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
 }
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws {
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws {
     printArgumentsIfVerbose(arguments)
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment, body: body)
 }
@@ -99,7 +99,7 @@ import func libc.fflush
 import var libc.stdout
 import enum POSIX.Error
 
-public func system(arguments: String..., environment: [String:String] = [:], message: String?) throws {
+public func system(_ arguments: String..., environment: [String:String] = [:], message: String?) throws {
     var out = ""
     do {
         if Utility.verbosity == .Concise {
@@ -122,7 +122,7 @@ public func system(arguments: String..., environment: [String:String] = [:], mes
     }
 }
 
-private func which(arg0: String) -> String {
+private func which(_ arg0: String) -> String {
     if arg0.isAbsolute {
         return arg0
     } else if let fullpath = try? POSIX.popen(["which", arg0]) {
@@ -132,6 +132,6 @@ private func which(arg0: String) -> String {
     }
 }
 
-private func blue(input: String) -> String {
+private func blue(_ input: String) -> String {
     return CSI + "34m" + input + CSI + "0m"
 }

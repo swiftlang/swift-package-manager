@@ -10,7 +10,7 @@
 
 extension Collection {
     
-    public func pick(body: (Iterator.Element) -> Bool) -> Iterator.Element? {
+    public func pick(_ body: (Iterator.Element) -> Bool) -> Iterator.Element? {
         for x in self where body(x) {
             return x
         }
@@ -30,7 +30,7 @@ extension Collection {
         return (t, u)
     }
     
-    public func partition(body: (Iterator.Element) -> Bool) -> ([Iterator.Element], [Iterator.Element]) {
+    public func partition(_ body: (Iterator.Element) -> Bool) -> ([Iterator.Element], [Iterator.Element]) {
         var a: [Iterator.Element] = []
         var b: [Iterator.Element] = []
         for e in self {
@@ -47,7 +47,7 @@ extension Collection {
 extension Collection where Iterator.Element : Equatable {
     
     /// Split around a delimiting subsequence with maximum number of splits == 2
-    func splitAround(delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
+    func splitAround(_ delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
         
         let orig = Array(self)
         let end = orig.endIndex

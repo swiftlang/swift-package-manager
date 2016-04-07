@@ -17,7 +17,7 @@ public enum FopenMode: String {
     case Write = "w"
 }
 
-public func fopen(path: String, mode: FopenMode = .Read) throws -> UnsafeMutablePointer<FILE> {
+public func fopen(_ path: String, mode: FopenMode = .Read) throws -> UnsafeMutablePointer<FILE> {
     let f = libc.fopen(path, mode.rawValue)
     guard f != nil else { throw SystemError.fopen(errno, path) }
     return f

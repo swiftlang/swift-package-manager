@@ -15,7 +15,7 @@ import Build
 import POSIX
 
 #if os(Linux)
-public func describe(prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
+public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
     do {
         return try Build.describe(prefix, conf, modules, externalModules, products, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc, toolchain: toolchain)
     } catch {

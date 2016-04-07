@@ -12,15 +12,15 @@
 import XCTest
 
 // Test the basic types.
-private func toArray(items: [TOMLItem]) -> TOMLItem {
+private func toArray(_ items: [TOMLItem]) -> TOMLItem {
     return .Array(contents: TOMLItemArray(items: items))
 }
 
-private func toTable(items: [String: TOMLItem]) -> TOMLItem {
+private func toTable(_ items: [String: TOMLItem]) -> TOMLItem {
     return .Table(contents: TOMLItemTable(items: items))
 }
 
-private func parseTOML(data: String) -> TOMLItem {
+private func parseTOML(_ data: String) -> TOMLItem {
     do {
         return try TOMLItem.parse(data)
     } catch let err {

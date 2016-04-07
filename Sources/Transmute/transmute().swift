@@ -12,7 +12,7 @@ import PackageType
 import Utility
 import func libc.exit
 
-public func transmute(rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
+public func transmute(_ rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
 
     var products: [Product] = []
     var map: [Package: [Module]] = [:]

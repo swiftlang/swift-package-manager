@@ -38,7 +38,7 @@ class CollectionTests: XCTestCase {
     
     func testPartitionByClosure() {
         
-        func eq(lhs: ([Int], [Int]), _ rhs: ([Int], [Int]), file: StaticString = #file, line: UInt = #line) {
+        func eq(_ lhs: ([Int], [Int]), _ rhs: ([Int], [Int]), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }
@@ -53,7 +53,7 @@ class CollectionTests: XCTestCase {
     
     func testSplitAround() {
         
-        func eq(lhs: ([Character], [Character]?), _ rhs: ([Character], [Character]?), file: StaticString = #file, line: UInt = #line) {
+        func eq(_ lhs: ([Character], [Character]?), _ rhs: ([Character], [Character]?), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1 ?? [], rhs.1 ?? [], file: file, line: line)
         }

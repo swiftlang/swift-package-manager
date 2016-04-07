@@ -24,12 +24,12 @@ public struct Path {
        future we support platforms that have a different separator we will
        convert any "/" characters in your strings to the platform separator.
     */
-    public static func join(components: String...) -> String {
+    public static func join(_ components: String...) -> String {
         return Path.join(components)
     }
 
     /// - See: Path.join(components: String...)
-    public static func join(components: [String]) -> String {
+    public static func join(_ components: [String]) -> String {
         return components.reduce("") { memo, component in
             let component = component.onesep
             if component.isEmpty {
@@ -80,7 +80,7 @@ public struct Path {
 
         let abs = (path: string.isAbsolute, pivot: pivot.isAbsolute)
 
-        func go(path: [String], _ pivot: [String]) -> String {
+        func go(_ path: [String], _ pivot: [String]) -> String {
             let join = { [String].joined($0)(separator: "/") }
 
             if path.starts(with: pivot) {
@@ -123,12 +123,12 @@ public struct Path {
         return go(clean(string), clean(pivot))
     }
 
-    public func join(components: String...) -> String {
+    public func join(_ components: String...) -> String {
         return Path.join([string] + components)
     }
 }
 
-private func clean(parts: [String.CharacterView]) -> [String] {
+private func clean(_ parts: [String.CharacterView]) -> [String] {
     var out = [String]()
     for x in parts.map(String.init) {
         switch x {
@@ -147,7 +147,7 @@ private func clean(parts: [String.CharacterView]) -> [String] {
     return out
 }
 
-private func clean(string: String) -> [String] {
+private func clean(_ string: String) -> [String] {
     return clean(string.characters.split(separator: "/"))
 }
 

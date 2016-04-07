@@ -17,11 +17,11 @@ import struct PackageDescription.Version
 protocol Fetcher {
     associatedtype T: Fetchable
 
-    func find(url url: String) throws -> Fetchable?
-    func fetch(url url: String) throws -> Fetchable
-    func finalize(fetchable: Fetchable) throws -> T
+    func find(url: String) throws -> Fetchable?
+    func fetch(url: String) throws -> Fetchable
+    func finalize(_ fetchable: Fetchable) throws -> T
 
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T]
+    func recursivelyFetch(_ urls: [(String, Range<Version>)]) throws -> [T]
 }
 
 extension Fetcher {
@@ -30,15 +30,15 @@ extension Fetcher {
      
      This is our standard implementation that we override when testing.
      */
-    func recursivelyFetch(urls: [(String, Range<Version>)]) throws -> [T] {
+    func recursivelyFetch(_ urls: [(String, Range<Version>)]) throws -> [T] {
 
         var graph = [String: (Fetchable, Range<Version>)]()
 
-        func recurse(urls: [(String, Range<Version>)]) throws -> [String] {
+        func recurse(_ urls: [(String, Range<Version>)]) throws -> [String] {
 
             return try urls.flatMap { url, specifiedVersionRange -> [String] in
 
-                func adjust(pkg: Fetchable, _ versionRange: Range<Version>) throws {
+                func adjust(_ pkg: Fetchable, _ versionRange: Range<Version>) throws {
                     guard let v = pkg.constrain(to: versionRange) else {
                         throw Error.InvalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }

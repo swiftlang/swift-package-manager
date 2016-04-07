@@ -15,9 +15,9 @@ public struct URL {
     /// e.g. git@github.com:apple/swift returns "git"
     ///
     /// This is *not* a generic URI scheme parser!
-    public static func scheme(url: String) -> String? {
+    public static func scheme(_ url: String) -> String? {
 
-        func prefixOfSplitBy(delimiter: String) -> String? {
+        func prefixOfSplitBy(_ delimiter: String) -> String? {
             let (head, tail) = url.splitAround(delimiter)
             if tail == nil {
                 //not found

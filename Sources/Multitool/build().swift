@@ -13,7 +13,7 @@ import PackageType
 import Utility
 import func libc.exit
 
-public func build(YAMLPath YAMLPath: String, target: String) throws {
+public func build(YAMLPath: String, target: String) throws {
     do {
         var args = [llbuild, "-f", YAMLPath, target]
         if verbosity != .Concise { args.append("-v") }

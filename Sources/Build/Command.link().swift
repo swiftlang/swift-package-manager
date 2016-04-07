@@ -17,7 +17,7 @@ import Utility
 
 
 extension Command {
-    static func link(product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+    static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
 
         let objects: [String]
         switch conf {

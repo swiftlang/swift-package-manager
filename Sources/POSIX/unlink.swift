@@ -12,7 +12,7 @@
 import func libc.unlink
 import var libc.errno
 
-public func unlink(path: String) throws {
+public func unlink(_ path: String) throws {
     guard libc.unlink(path) == 0 else {
         throw SystemError.unlink(errno, path)
     }

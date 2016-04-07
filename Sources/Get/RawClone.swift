@@ -60,7 +60,7 @@ class RawClone: Fetchable {
     }
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
-    func setVersion(ver: Version) throws {
+    func setVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
         try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", v])

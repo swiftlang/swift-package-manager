@@ -12,7 +12,7 @@ import protocol Build.Toolchain
 import enum Build.Configuration
 import Multitool
 
-func usage(print: (String) -> Void = { print($0) }) {
+func usage(_ print: (String) -> Void = { print($0) }) {
          //.........10.........20.........30.........40.........50.........60.........70..
     print("OVERVIEW: Build sources into binary products")
     print("")

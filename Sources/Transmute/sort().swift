@@ -13,10 +13,10 @@ import PackageType
 /**
  Depth-first topological sort of target dependencies.
  */
-func sort(module: Module) {
+func sort(_ module: Module) {
     var visited = Set<Module>()
 
-    func recurse(module: Module) -> [Module] {
+    func recurse(_ module: Module) -> [Module] {
         return module.dependencies.flatMap { dep -> [Module] in
             if visited.contains(dep) {
                 return []

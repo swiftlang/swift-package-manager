@@ -21,7 +21,7 @@ public var argv0: String {
 /**
  Causes the named directory to become the current working directory.
 */
-public func chdir(path: String) throws {
+public func chdir(_ path: String) throws {
     if _argv0 == nil { _argv0 = try realpath(Process.arguments.first!) }
 
     guard libc.chdir(path) == 0 else {

@@ -107,7 +107,7 @@ final class InitPackage {
         }
     }
     
-    private func writeLinuxMain(testsPath testsPath: String) throws {
+    private func writeLinuxMain(testsPath: String) throws {
         let linuxMain = Path.join(testsPath, "LinuxMain.swift")
         let linuxMainFP = try fopen(linuxMain, mode: .Write)
         defer {
@@ -121,7 +121,7 @@ final class InitPackage {
         try fputs("])\n", linuxMainFP)
     }
     
-    private func writeTestFileStubs(testsPath testsPath: String) throws {
+    private func writeTestFileStubs(testsPath: String) throws {
         let testModule = Path.join(testsPath, pkgname)
         print("Creating Tests/\(pkgname)/")
         try mkdir(testModule)

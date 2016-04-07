@@ -10,7 +10,7 @@
 
 import POSIX
 
-public func fopen(path: String..., mode: FopenMode = .Read, body: (UnsafeMutablePointer<FILE>) throws -> Void) throws {
+public func fopen(_ path: String..., mode: FopenMode = .Read, body: (UnsafeMutablePointer<FILE>) throws -> Void) throws {
     var fp = try POSIX.fopen(Path.join(path), mode: mode)
     defer { if fp != nil { fclose(fp) } }
     try body(fp)
