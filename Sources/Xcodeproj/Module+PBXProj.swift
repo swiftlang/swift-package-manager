@@ -91,6 +91,10 @@ func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroo
     }
 }
 
+func serializeArray(_ array: [String]) -> String {
+    return "( " + array.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
+}
+
 extension XcodeModuleProtocol  {
 
     private var isLibrary: Bool {
@@ -159,13 +163,13 @@ extension XcodeModuleProtocol  {
             return (headerPathKey, first)
         }
 
-        let headerPathValue = "( " + headerPaths.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
+        let headerPathValue = serializeArray(headerPaths)
         
         return (headerPathKey, headerPathValue)
     }
 
-    var debugBuildSettings: String {
-        var buildSettings = commonBuildSettings
+    func getDebugBuildSettings(_ options: OptionsType) -> String {
+        var buildSettings = getCommonBuildSettings(options)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
@@ -173,18 +177,21 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    var releaseBuildSettings: String {
-        var buildSettings = commonBuildSettings
+    func getReleaseBuildSettings(_ options: OptionsType) -> String {
+        var buildSettings = getCommonBuildSettings(options)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    private var commonBuildSettings: [String: String] {
+    private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
         var buildSettings = ["PRODUCT_NAME": productName]
         buildSettings["PRODUCT_MODULE_NAME"] = c99name
-        buildSettings["OTHER_SWIFT_FLAGS"] = "-DXcode"
+        buildSettings["OTHER_SWIFT_FLAGS"] = serializeArray(options.Xswiftc+["-DXcode"])
+        buildSettings["OTHER_CFLAGS"] = serializeArray(options.Xcc)
+        buildSettings["OTHER_LDFLAGS"] = serializeArray(options.Xld)
+
         buildSettings["MACOSX_DEPLOYMENT_TARGET"] = "'10.10'"
 
         // prevents Xcode project upgrade warnings
@@ -198,7 +205,6 @@ extension XcodeModuleProtocol  {
 
         } else {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
-
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
                 buildSettings["DYLIB_INSTALL_NAME_BASE"] = "'$(CONFIGURATION_BUILD_DIR)'"

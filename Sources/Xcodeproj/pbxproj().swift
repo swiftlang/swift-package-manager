@@ -15,7 +15,7 @@
 import PackageType
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], printer print: (String) -> Void) {
+public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: OptionsType, printer print: (String) -> Void) {
 
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
@@ -138,12 +138,12 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
         print("        };")
         print("        \(module.debugConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.debugBuildSettings) };")
+        print("            buildSettings = { \(module.getDebugBuildSettings(options)) };")
         print("            name = Debug;")
         print("        };")
         print("        \(module.releaseConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.releaseBuildSettings) };")
+        print("            buildSettings = { \(module.getReleaseBuildSettings(options)) };")
         print("            name = Release;")
         print("        };")
 
