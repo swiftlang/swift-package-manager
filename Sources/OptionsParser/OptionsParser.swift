@@ -40,8 +40,6 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
         var popped = false
         let (arg, value) = split(arg)
 
-        print(arg, value)
-
         if let flag = try Flag(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             flags.append(flag)
         } else {
@@ -61,7 +59,6 @@ private func split(_ arg: String) -> (String, String?) {
     if let ii = chars.index(of: "=") {
         let flag = chars.prefix(upTo: ii)
         let value = chars.suffix(from: ii.advanced(by: 1))
-        print("foo", String(flag), String(value))
         return (String(flag), String(value))
     } else {
         return (arg, nil)
