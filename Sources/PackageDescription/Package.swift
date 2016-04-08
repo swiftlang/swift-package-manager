@@ -22,7 +22,7 @@ public final class Package {
         public let url: String
 
         init(_ url: String, _ versionRange: Range<Version>) {
-            self.url = url
+            self.url = url.normalizedURL()
             self.versionRange = versionRange
         }
 
@@ -202,4 +202,16 @@ private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     }
     dumpInfo = (package, fileNo)
     atexit(dump)
+}
+
+// MARK: URL Normalization
+
+extension String {
+    private func normalizedURL() -> String {
+        var url = self.lowercased()
+        if !url.hasSuffix(".git") {
+            url += ".git"
+        }
+        return url
+    }
 }

@@ -27,6 +27,14 @@ class PackageTests: XCTestCase {
         XCTAssertFalse(majorAndMinorVersionSpecified.versionRange ~= "0.11.0")
     }
 
+    func testNameConflicts() {
+        let packageOne: Package.Dependency = .Package(url: "https://github.com/example/SomeDependency",
+                                                      majorVersion: 1)
+        let packageTwo: Package.Dependency = .Package(url: "https://github.com/example/somedependency.git",
+                                                      majorVersion: 1)
+        XCTAssert(packageOne == packageTwo)
+    }
+
 }
 
 extension PackageTests {
