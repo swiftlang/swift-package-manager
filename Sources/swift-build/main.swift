@@ -10,7 +10,9 @@
 
 import func POSIX.getcwd
 import func POSIX.getenv
+import func POSIX.unlink
 import func POSIX.chdir
+import func POSIX.rmdir
 import func libc.exit
 import ManifestParser
 import PackageType
@@ -76,11 +78,26 @@ do {
         case .Usage:
             usage()
 
-        case .Clean(.Dist):
-            try rmtree(try directories().root, "Packages")
-            fallthrough
-        case .Clean(.Build):
-            try rmtree(try directories().root, ".build")
+        case .Clean(let mode):
+            let dirs = try directories()
+
+            switch mode {
+            case .Dist:
+                try rmtree(dirs.Packages)
+                fallthrough
+
+            case .Build:
+                let artifacts = ["debug", "release"].map{ Path.join(dirs.build, $0) }.map{ ($0, "\($0).yaml") }
+                for (dir, yml) in artifacts {
+                    if dir.isDirectory { try rmtree(dir) }
+                    if yml.isFile { try unlink(yml) }
+                }
+
+                let db = Path.join(dirs.build, "build.db")
+                if db.isFile { try unlink(db) }
+
+                try rmdir(dirs.build)
+            }
 
         case .Version:
             print("Apple Swift Package Manager 0.1")
