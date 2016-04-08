@@ -18,14 +18,15 @@ public struct URL {
     public static func scheme(_ url: String) -> String? {
 
         func prefixOfSplitBy(_ delimiter: String) -> String? {
-            let (head, tail) = url.splitAround(delimiter)
+            let (head, tail) = url.split(around: delimiter)
             if tail == nil {
                 //not found
                 return nil
+            } else {
+                //found, return head
+                //lowercase the "scheme", as specified by the URI RFC (just in case)
+                return head.lowercased()
             }
-            //found, return head
-            //lowercase the "scheme", as specified by the URI RFC (just in case)
-            return head.lowercased()
         }
         
         for delim in ["://", "@"] {
@@ -33,6 +34,7 @@ public struct URL {
                 return found
             }
         }
+
         return nil
     }
 }

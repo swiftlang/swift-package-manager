@@ -22,9 +22,9 @@ class StringTests: XCTestCase {
     }
     
     func testSeparatorChomp() {
-        XCTAssertEqual("abc".chomp("c"), "ab")
-        XCTAssertEqual("abc\n".chomp("c"), "abc\n")
-        XCTAssertEqual("abc\n c".chomp("c"), "abc\n ")
+        XCTAssertEqual("abc".chomp(separator: "c"), "ab")
+        XCTAssertEqual("abc\n".chomp(separator: "c"), "abc\n")
+        XCTAssertEqual("abc\n c".chomp(separator: "c"), "abc\n ")
     }
 
     func testEmptyChomp() {
@@ -50,11 +50,11 @@ class StringTests: XCTestCase {
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
         }
         
-        eq("".splitAround("::"), ("", nil))
-        eq("foo".splitAround("::"), ("foo", nil))
-        eq("foo::".splitAround("::"), ("foo", ""))
-        eq("::bar".splitAround("::"), ("", "bar"))
-        eq("foo::bar".splitAround("::"), ("foo", "bar"))
+        eq("".split(around: "::"), ("", nil))
+        eq("foo".split(around: "::"), ("foo", nil))
+        eq("foo::".split(around: "::"), ("foo", ""))
+        eq("::bar".split(around: "::"), ("", "bar"))
+        eq("foo::bar".split(around: "::"), ("foo", "bar"))
     }
 }
 

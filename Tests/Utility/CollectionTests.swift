@@ -58,11 +58,11 @@ class CollectionTests: XCTestCase {
             XCTAssertEqual(lhs.1 ?? [], rhs.1 ?? [], file: file, line: line)
         }
         
-        eq([].splitAround([":"]), ([], nil))
-        eq(["f", "o", "o"].splitAround([":"]), (["f", "o", "o"], nil))
-        eq(["f", "o", "o", ":"].splitAround([":"]), (["f", "o", "o"], []))
-        eq([":", "b", "a", "r"].splitAround([":"]), ([], ["b", "a", "r"]))
-        eq(["f", "o", "o", ":", "b", "a", "r"].splitAround([":"]), (["f", "o", "o"], ["b", "a", "r"]))
+        eq([].split(around: [":"]), ([], nil))
+        eq(["f", "o", "o"].split(around: [":"]), (["f", "o", "o"], nil))
+        eq(["f", "o", "o", ":"].split(around: [":"]), (["f", "o", "o"], []))
+        eq([":", "b", "a", "r"].split(around: [":"]), ([], ["b", "a", "r"]))
+        eq(["f", "o", "o", ":", "b", "a", "r"].split(around: [":"]), (["f", "o", "o"], ["b", "a", "r"]))
 
     }
 }

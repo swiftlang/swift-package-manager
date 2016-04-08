@@ -14,7 +14,7 @@ extension String {
      all trailing \n (UNIX) or all trailing \r\n (Windows) (it will
      not remove mixed occurrences of both separators.
     */
-    public func chomp(_ separator: String? = nil) -> String {
+    public func chomp(separator: String? = nil) -> String {
         func scrub(_ separator: String) -> String {
             var E = endIndex
             while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
@@ -73,8 +73,8 @@ extension String {
     
     /// Splits string around a delimiter string into up to two substrings
     /// If delimiter is not found, the second returned substring is nil
-    func splitAround(_ delimiter: String) -> (String, String?) {
-        let comps = self.characters.splitAround(Array(delimiter.characters))
+    public func split(around delimiter: String) -> (String, String?) {
+        let comps = self.characters.split(around: Array(delimiter.characters))
         let head = String(comps.0)
         if let tail = comps.1 {
             return (head, String(tail))
