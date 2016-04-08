@@ -46,16 +46,7 @@ extension Command {
             return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
 
-        let inputs = product.modules.flatMap { module -> [String] in
-            switch conf {
-            case .Debug:
-                let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC)
-                // must return tool’s outputs and inputs as shell nodes don't calculate more than that
-                return tool.inputs + tool.outputs
-            case .Release:
-                return objects
-            }
-        }
+        let inputs = objects
 
         switch product.type {
         case .Library(.Static):
