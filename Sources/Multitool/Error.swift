@@ -40,19 +40,25 @@ extension Error: CustomStringConvertible {
 }
 
 @noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
-    switch error {
-    case OptionsParser.Error.InvalidUsage(_, let mode):
-        print(error: error)
 
-        if isatty(fileno(libc.stdin)) {
-            switch mode {
-            case .Suggest:
-                let argv0 = Process.arguments.first ?? "swift build"
-                print("enter `\(argv0) --help' for usage information", to: &stderr)
-            case .Print:
+    func isTTY() -> Bool {
+        return isatty(fileno(libc.stdin))
+    }
+
+    switch error {
+    case OptionsParser.Error.MultipleModesSpecified(let modes):
+        print(error: error)
+        if isTTY() {
+            if (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
                 print("", to: &stderr)
                 usage { print($0, to: &stderr) }
             }
+        }
+    case is OptionsParser.Error:
+        print(error: error)
+        if isTTY() {
+            let argv0 = Process.arguments.first ?? "swift build"
+            print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
     default:
         print(error: error)

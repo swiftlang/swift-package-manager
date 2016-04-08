@@ -9,13 +9,11 @@
  */
 
 public enum Error: ErrorProtocol {
-    public enum UsageMode {
-        case Print, Suggest
-    }
-    case InvalidUsage(String, UsageMode)
+    case UnknownArgument(String)
     case MultipleModesSpecified([String])
     case ExpectedAssociatedValue(String)
     case UnexpectedAssociatedValue(String, String)
+    case InvalidUsage(String)
 }
 
 extension Error: CustomStringConvertible {
@@ -24,10 +22,12 @@ extension Error: CustomStringConvertible {
         case ExpectedAssociatedValue(let arg):
             return "expected associated value for argument: \(arg)"
         case UnexpectedAssociatedValue(let arg, let value):
-            return "unexpected associated value for argument: \(arg) \(value)"
+            return "unexpected associated value for argument: \(arg)=\(value)"
         case .MultipleModesSpecified(let modes):
             return "multiple modes specified: \(modes)"
-        case .InvalidUsage(let hint, _):
+        case .UnknownArgument(let cmd):
+            return "unknown command: \(cmd)"
+        case .InvalidUsage(let hint):
             return "invalid usage: \(hint)"
         }
     }

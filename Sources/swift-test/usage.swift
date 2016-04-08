@@ -24,7 +24,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --chdir         Change working directory before any other operation [-C]")
 }
 
-enum Mode: ModeArgument {
+enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Run(String?)
 

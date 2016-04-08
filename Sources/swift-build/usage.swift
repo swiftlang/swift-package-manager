@@ -33,7 +33,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  -Xswiftc <flag>    Pass flag through to all Swift compiler instantiations")
 }
 
-enum Mode: ModeArgument {
+enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Fetch
@@ -150,11 +150,10 @@ extension Build.Configuration {
         case "release"?:
             self = .Release
         case nil:
-            throw OptionsParser.Error.InvalidUsage("--configuration expects an argument", .Suggest)
+            throw OptionsParser.Error.ExpectedAssociatedValue("--configuration")
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid build configuration: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid build configuration: \(rawValue!)")
         }
-
     }
 }
 
@@ -168,7 +167,7 @@ enum CleanMode: CustomStringConvertible {
         case nil, "dist"?, "distribution"?:
             self = Dist
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")
         }
     }
 
@@ -190,7 +189,7 @@ enum InitMode: CustomStringConvertible {
         case nil, "executable"?, "exec"?, "exe"?:
             self = Executable
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)")
         }
     }
 
