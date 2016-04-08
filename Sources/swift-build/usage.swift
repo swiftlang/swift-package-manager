@@ -10,7 +10,7 @@
 
 import protocol Build.Toolchain
 import enum Build.Configuration
-import Multitool
+import OptionsParser
 
 func usage(_ print: (String) -> Void = { print($0) }) {
          //.........10.........20.........30.........40.........50.........60.........70..
@@ -33,7 +33,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  -Xswiftc <flag>    Pass flag through to all Swift compiler instantiations")
 }
 
-enum Mode: ModeArgument {
+enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Fetch
@@ -86,7 +86,7 @@ enum Flag: Argument {
     init?(argument: String, pop: () -> String?) throws {
 
         func forcePop() throws -> String {
-            guard let value = pop() else { throw Multitool.Error.ExpectedAssociatedValue(argument) }
+            guard let value = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
             return value
         }
 
@@ -150,11 +150,10 @@ extension Build.Configuration {
         case "release"?:
             self = .Release
         case nil:
-            throw CommandLineError.InvalidUsage("--configuration expects an argument", .Suggest)
+            throw OptionsParser.Error.ExpectedAssociatedValue("--configuration")
         default:
-            throw CommandLineError.InvalidUsage("invalid build configuration: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid build configuration: \(rawValue!)")
         }
-
     }
 }
 
@@ -168,7 +167,7 @@ enum CleanMode: CustomStringConvertible {
         case nil, "dist"?, "distribution"?:
             self = Dist
         default:
-            throw CommandLineError.InvalidUsage("invalid clean mode: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")
         }
     }
 
@@ -190,7 +189,7 @@ enum InitMode: CustomStringConvertible {
         case nil, "executable"?, "exec"?, "exe"?:
             self = Executable
         default:
-            throw CommandLineError.InvalidUsage("invalid initialization mode: \(rawValue)", .Suggest)
+            throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)")
         }
     }
 

@@ -10,15 +10,9 @@
 
 import func POSIX.isatty
 import var Utility.stderr
+import OptionsParser
 import PackageType
 import libc
-
-public enum CommandLineError: ErrorProtocol {
-    public enum UsageMode {
-        case Print, Suggest
-    }
-    case InvalidUsage(String, UsageMode)
-}
 
 public enum Error: ErrorProtocol {
     case NoManifestFound
@@ -26,10 +20,6 @@ public enum Error: ErrorProtocol {
     case InvalidInstallation(String)
     case InvalidSwiftExec(String)
     case BuildYAMLNotFound(String)
-    case MultipleModesSpecified([String])
-
-    case ExpectedAssociatedValue(String)
-    case UnexpectedAssociatedValue(String, String)
 }
 
 extension Error: CustomStringConvertible {
@@ -45,33 +35,33 @@ extension Error: CustomStringConvertible {
             return "invalid SWIFT_EXEC value: \(value)"
         case BuildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
-        case .MultipleModesSpecified(let modes):
-            return "multiple modes specified: \(modes)"
-        case ExpectedAssociatedValue(let arg):
-            return "expected associated value for argument: \(arg)"
-        case UnexpectedAssociatedValue(let arg, let value):
-            return "unexpected associated value for argument: \(arg) \(value)"
         }
     }
 }
 
-@noreturn public func handleError(_ msg: Any, usage: ((String) -> Void) -> Void) {
-    switch msg {
-    case CommandLineError.InvalidUsage(let hint, let mode):
-        print(error: "invalid usage: \(hint)")
+@noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
 
-        if isatty(fileno(libc.stdin)) {
-            switch mode {
-            case .Suggest:
-                let argv0 = Process.arguments.first ?? "swift build"
-                print("enter `\(argv0) --help' for usage information", to: &stderr)
-            case .Print:
+    func isTTY() -> Bool {
+        return isatty(fileno(libc.stdin))
+    }
+
+    switch error {
+    case OptionsParser.Error.MultipleModesSpecified(let modes):
+        print(error: error)
+        if isTTY() {
+            if (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
                 print("", to: &stderr)
                 usage { print($0, to: &stderr) }
             }
         }
+    case is OptionsParser.Error:
+        print(error: error)
+        if isTTY() {
+            let argv0 = Process.arguments.first ?? "swift build"
+            print("enter `\(argv0) --help' for usage information", to: &stderr)
+        }
     default:
-        print(error: msg)
+        print(error: error)
     }
 
     exit(1)

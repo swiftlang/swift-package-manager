@@ -8,7 +8,7 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Multitool
+import OptionsParser
 
 func usage(_ print: (String) -> Void = { print($0) }) {
     //.........10.........20.........30.........40.........50.........60.........70..
@@ -24,7 +24,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --chdir         Change working directory before any other operation [-C]")
 }
 
-enum Mode: ModeArgument {
+enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Run(String?)
 
@@ -57,7 +57,7 @@ enum Flag: Argument {
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--chdir", "-C":
-            guard let path = pop() else { throw Multitool.Error.ExpectedAssociatedValue(argument) }
+            guard let path = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
             self = .chdir(path)
         default:
             return nil

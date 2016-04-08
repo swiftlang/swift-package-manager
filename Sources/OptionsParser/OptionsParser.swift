@@ -8,34 +8,30 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public protocol Argument {
-    init?(argument: String, pop: () -> String?) throws
-}
-
-public protocol ModeArgument: Argument, Equatable, CustomStringConvertible {
-
-}
-
-public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
+public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
     var it = arguments.makeIterator()
 
     var kept = [String]()
-    while let arg = it.next() {
+    while let rawArg = it.next() {
         var popped = false
-        let (arg, value) = split(arg)
+        let (arg, value) = split(rawArg)
 
         if let mkmode = try Mode(argument: arg, pop: { popped = true; return value ?? it.next() }) {
-            guard mode == nil || mode == mkmode else { throw Error.MultipleModesSpecified([mode, mkmode].map{"\($0)"})}
+            guard mode == nil || mode == mkmode else {
+                let modes = [mode, mkmode].map{"\($0)"}
+                throw Error.MultipleModesSpecified(modes)
+            }
             mode = mkmode
+
+            if let value = value where !popped {
+                throw Error.UnexpectedAssociatedValue(arg, value)
+            }
         } else {
-            kept.append(arg)
+            kept.append(rawArg)
         }
 
-        if value != nil && !popped {
-            throw CommandLineError.InvalidUsage("\(arg) does not take an associated value",.Suggest)
-        }
     }
 
     var flags = [Flag]()
@@ -44,14 +40,16 @@ public func parse<Mode: ModeArgument, Flag: Argument>(arguments: [String]) throw
         var popped = false
         let (arg, value) = split(arg)
 
+        print(arg, value)
+
         if let flag = try Flag(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             flags.append(flag)
         } else {
-            throw CommandLineError.InvalidUsage("unknown argument: \(arg)", .Suggest)
+            throw Error.UnknownArgument(arg)
         }
 
-        if value != nil && !popped {
-            throw CommandLineError.InvalidUsage("\(arg) does not take an associated value",.Suggest)
+        if let value = value where !popped {
+            throw Error.UnexpectedAssociatedValue(arg, value)
         }
     }
 
@@ -63,6 +61,7 @@ private func split(_ arg: String) -> (String, String?) {
     if let ii = chars.index(of: "=") {
         let flag = chars.prefix(upTo: ii)
         let value = chars.suffix(from: ii.advanced(by: 1))
+        print("foo", String(flag), String(value))
         return (String(flag), String(value))
     } else {
         return (arg, nil)

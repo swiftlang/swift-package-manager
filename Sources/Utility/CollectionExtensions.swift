@@ -47,7 +47,7 @@ extension Collection {
 extension Collection where Iterator.Element : Equatable {
     
     /// Split around a delimiting subsequence with maximum number of splits == 2
-    func splitAround(_ delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
+    func split(around delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
         
         let orig = Array(self)
         let end = orig.endIndex
