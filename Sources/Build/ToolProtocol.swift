@@ -67,7 +67,7 @@ struct SwiftcTool: ToolProtocol {
     var outputs: [String]        { return [module.targetName] + objects }
     var moduleName: String       { return module.c99name }
     var moduleOutputPath: String { return Path.join(prefix, "\(module.c99name).swiftmodule") }
-    var importPaths: String      { return prefix }
+    var importPaths: [String]    { return [prefix] }
     var tempsPath: String        { return Path.join(prefix, "\(module.c99name).build") }
     var objects: [String]        { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
     var sources: [String]        { return module.sources.paths }
