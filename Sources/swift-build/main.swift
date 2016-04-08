@@ -55,10 +55,6 @@ do {
     case .Init(let initMode):
         let initPackage = try InitPackage(mode: initMode)
         try initPackage.writePackageStructure()
-                    
-    case .Update:
-        try rmtree(opts.path.Packages)
-        fallthrough
         
     case .Fetch:
         try fetch(opts.path.root)
@@ -117,6 +113,11 @@ do {
         let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
 
         print("generated:", outpath.prettyPath)
+
+    case .Update:
+        guard opts.path.Packages.isDirectory else { throw Error.FetchRequired }
+        let rootManifest = try parseManifest(path: opts.path.root, baseURL: opts.path.root)
+        try update(manifest: rootManifest)
     }
 
 } catch {

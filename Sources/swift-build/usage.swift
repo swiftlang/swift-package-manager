@@ -24,7 +24,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
     print("  --init[=<mode>]                Create a package template (executable|library)")
     print("  --fetch                        Fetch package dependencies")
-    print("  --update                       Update package dependencies")
+    print("  --update                       Update package dependencies [-U]")
     print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
     print("")
     print("OPTIONS:")
@@ -41,11 +41,11 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Clean(CleanMode)
     case Doctor
     case Fetch
-    case Update
+    case GenerateXcodeproj(String?)
     case Init(InitMode)
+    case Update
     case Usage
     case Version
-    case GenerateXcodeproj(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -63,6 +63,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = try .Init(InitMode(pop()))
         case "--help", "--usage", "-h":
             self = .Usage
+        case "--update", "-U", "--upgrade":
+            self = .Update
         case "--version":
             self = .Version
         case "--generate-xcodeproj", "-X":
@@ -77,10 +79,10 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Build(let conf, _): return "--configuration=\(conf)"
             case .Clean(let mode): return "--clean=\(mode)"
             case .Doctor: return "--doctor"
-            case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Fetch: return "--fetch"
-            case .Update: return "--update"
+            case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Init(let mode): return "--init=\(mode)"
+            case .Update: return "--update"
             case .Usage: return "--help"
             case .Version: return "--version"
         }

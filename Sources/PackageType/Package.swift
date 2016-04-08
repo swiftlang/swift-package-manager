@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import struct PackageDescription.Version
 import Utility
 import struct PackageDescription.Version
 
@@ -18,12 +19,22 @@ public class Package {
     public var version: Version?
     public var dependencies: [Package] = []
     public let manifest: Manifest
+    public let version: Version
 
     public init(manifest: Manifest, url: String) {
+        let path = manifest.path.parentDirectory
+        let name = manifest.package.name ?? Package.nameForURL(url)
+
         self.manifest = manifest
         self.url = url
-        self.path = manifest.path.parentDirectory
-        self.name = manifest.package.name ?? Package.nameForURL(url)
+        self.path = path
+        self.name = name
+
+        // it is a contract that a Package be instantiated from a valid
+        // clone with the correct naming structure
+        self.version = Version(path.basename.characters.dropFirst(name.characters.count + 1))!
+
+        //TODO verify that the git tag is correct
     }
 
     public enum Error: ErrorProtocol {
