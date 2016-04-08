@@ -61,11 +61,14 @@ let package = Package(
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj", "Update"]),
         Target(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Multitool"]),
+        Target(
+            name: "Update",
+            dependencies: ["PackageType"]),
     ])
 
 
