@@ -48,6 +48,7 @@ do {
     case .Build(let conf, let toolchain):
         let dirs = try directories()
         let (rootPackage, externalPackages) = try fetch(dirs.root)
+        try generateVersionData(dirs.root, rootPackage: rootPackage, externalPackages: externalPackages)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         let yaml = try describe(dirs.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         try build(YAMLPath: yaml, target: "default")

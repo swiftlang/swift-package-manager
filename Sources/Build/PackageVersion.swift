@@ -25,39 +25,49 @@ public func generateVersionData(_ rootDir: String, rootPackage: Package, externa
 }
 
 func saveRootPackage(_ dirPath: String, package: Package) throws {
-    guard let repo = Git.Repo(path: package.path),
-        headSha = repo.sha,
-        version = package.version else { return }
+    guard let repo = Git.Repo(path: package.path) else { return }
+    var data = versionData(package: package)
+    data += "public let sha: String? = "
 
-    let prefix = repo.versionsArePrefixed ? "v" : ""
-    let versionSha = try repo.versionSha(tag: "\(prefix)\(version)")
+    if let version = package.version {
+        let prefix = repo.versionsArePrefixed ? "v" : ""
+        let versionSha = try repo.versionSha(tag: "\(prefix)\(version)")
 
-    var data = packageVersionData(package)
-    if headSha != versionSha {
-        data += "public let sha: String = \"\(headSha)\" \n"
+        if repo.sha != versionSha {
+            data += "\"\(repo.sha)\"\n"
+        } else {
+            data += "nil\n"
+        }
+    } else {
+        data += "\"\(repo.sha)\"\n"
     }
-    if repo.hasLocalChanges {
-        //TODO: save time
-        data += "public let modified: String = \"\" \n"
-    }
+
+    data += "public let modified: Bool = "
+    data += repo.hasLocalChanges ? "true" : "false"
+    data += "\n"
 
     try saveVersionData(dirPath, packageName: package.name, data: data)
 }
 
 func generateData(_ packages: [Package]) -> [String : String] {
-    var versionData = [String : String]()
+    var data = [String : String]()
     for pkg in packages {
-        versionData[pkg.name] = packageVersionData(pkg)
+        data[pkg.name] = versionData(package: pkg)
     }
-    return versionData
+    return data
 }
 
-func packageVersionData(_ package: Package) -> String {
-    var data = "public let url: String = \"\(package.url)\" \n" +
-        "public let version: (Int, Int, Int, [String], String?)?"
+func versionData(package: Package) -> String {
+    var data = "public let url: String = \"\(package.url)\"\n"
+    data += "public let version: (major: Int, minor: Int, patch: Int, prereleaseIdentifiers: [String], buildMetadata: String?) = "
     if let version = package.version {
-        data += " = \(version.major, version.minor, version.patch, version.prereleaseIdentifiers, version.buildMetadataIdentifier) \n"
+        data += "\(version.major, version.minor, version.patch, version.prereleaseIdentifiers, version.buildMetadataIdentifier)\n"
+        data += "public let versionString: String = \"\(version)\"\n"
+    } else {
+        data += "(0, 0, 0, [], nil) \n"
+        data += "public let versionString: String = \"0.0.0\"\n"
     }
+
     return data
 }
 

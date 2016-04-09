@@ -21,13 +21,17 @@ final class PackageVersionDataTests: XCTestCase {
     }
 
     func testPackageData(_ package: PackageType.Package, url: String, version: Version?) {
-        var expected = "public let url: String = \"\(url)\" \n" +
-            "public let version: (Int, Int, Int, [String], String?)?"
+        var expected = "public let url: String = \"\(url)\"\n"
+        expected += "public let version: (major: Int, minor: Int, patch: Int, prereleaseIdentifiers: [String], buildMetadata: String?) = "
         if let version = version {
-            expected += " = (\(version.major), \(version.minor), \(version.patch), \(version.prereleaseIdentifiers), \(version.buildMetadataIdentifier)) \n"
+            expected += "\(version.major, version.minor, version.patch, version.prereleaseIdentifiers, version.buildMetadataIdentifier)\n"
+            expected += "public let versionString: String = \"\(version)\"\n"
+        } else {
+            expected += "(0, 0, 0, [], nil) \n"
+            expected += "public let versionString: String = \"0.0.0\"\n"
         }
 
-        let metadata = packageVersionData(package)
+        let metadata = versionData(package: package)
         XCTAssertEqual(metadata, expected)
     }
 
