@@ -162,9 +162,9 @@ enum CleanMode: CustomStringConvertible {
 
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
-        case "build"?:
+        case nil, "build"?:
             self = Build
-        case nil, "dist"?, "distribution"?:
+        case "dist"?, "distribution"?:
             self = Dist
         default:
             throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")

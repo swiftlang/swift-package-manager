@@ -291,6 +291,14 @@ extension String {
         not changing during execution.
      */
     public var prettyPath: String {
-        return Path(self).relative(to: getcwd())
+        let userDirectory = POSIX.getiwd()
+
+        if self.parentDirectory == userDirectory {
+            return "./\(basename)"
+        } else if hasPrefix(userDirectory) {
+            return Path(self).relative(to: userDirectory)
+        } else {
+            return self
+        }
     }
 }

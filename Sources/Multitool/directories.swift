@@ -13,10 +13,19 @@ import Utility
 import POSIX
 import libc
 
-public func directories() throws -> (root: String, build: String) {
-    let pkg = try packageRoot()
-    let bld = getenv("SWIFT_BUILD_PATH") ?? Path.join(pkg, ".build")
-    return (pkg, bld)
+public struct Directories {
+    public let root: String
+    public let build: String
+    public var Packages: String { return Path.join(root, "Packages") }
+
+    private init(root: String) {
+        self.root = root
+        self.build = getenv("SWIFT_BUILD_PATH") ?? Path.join(root, ".build")
+    }
+}
+
+public func directories() throws -> Directories {
+    return Directories(root: try packageRoot())
 }
 
 private func packageRoot() throws -> String {
