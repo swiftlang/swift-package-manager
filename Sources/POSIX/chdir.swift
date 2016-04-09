@@ -11,20 +11,31 @@
 import func libc.chdir
 import var libc.errno
 
-
-private var _argv0: String!
-
-public var argv0: String {
-    return _argv0 ?? Process.arguments.first!
-}
-
 /**
  Causes the named directory to become the current working directory.
 */
 public func chdir(_ path: String) throws {
-    if _argv0 == nil { _argv0 = try realpath(Process.arguments.first!) }
+    if memo == nil {
+        let argv0 = try realpath(Process.arguments.first!)
+        let cwd = try realpath(getcwd())
+        memo = (argv0: argv0, wd: cwd)
+    }
 
     guard libc.chdir(path) == 0 else {
         throw SystemError.chdir(errno)
     }
+}
+
+
+private var memo: (argv0: String, wd: String)?
+
+/**
+ The initial working directory before any calls to POSIX.chdir.
+*/
+public func getiwd() -> String {
+    return memo?.wd ?? getcwd()
+}
+
+public var argv0: String {
+    return memo?.argv0 ?? Process.arguments.first!
 }

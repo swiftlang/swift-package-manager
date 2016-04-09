@@ -23,22 +23,6 @@ import Utility
 import Build
 import Get
 
-
-private let origwd = getcwd()
-
-extension String {
-    private var prettied: String {
-        if self.parentDirectory == origwd {
-            return "./\(basename)"
-        } else if hasPrefix(origwd) {
-            return Path(self).relative(to: origwd)
-        } else {
-            return self
-        }
-    }
-}
-
-
 do {
     let args = Array(Process.arguments.dropFirst())
     let (mode, opts) = try parse(commandLineArguments: args)
@@ -128,7 +112,7 @@ do {
         }
         let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
 
-        print("generated:", outpath.prettied)
+        print("generated:", outpath.prettyPath)
     }
 
 } catch {
