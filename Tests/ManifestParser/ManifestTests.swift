@@ -11,6 +11,7 @@
 @testable import ManifestParser
 @testable import Utility
 import func POSIX.getenv
+import func POSIX.popen
 import PackageDescription
 import PackageType
 import XCTest
@@ -28,7 +29,16 @@ class ManifestTests: XCTestCase {
 
 #if os(OSX)
   #if Xcode
-    let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
+    let swiftc: String = {
+        let swiftc: String
+        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
+            swiftc = Path.join(base, "usr/bin/swiftc")
+        } else {
+            swiftc = try! popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+        }
+        precondition(swiftc != "/usr/bin/swiftc")
+        return swiftc
+    }()
   #else
     let swiftc = Path.join(bundleRoot(), "swiftc")
   #endif

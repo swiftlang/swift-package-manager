@@ -100,8 +100,14 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
     case "swiftc"?, nil:
         //FIXME Xcode should set this during tests
         // rdar://problem/24134324
-        let bindir = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin")
-        env["SWIFT_EXEC"] = Path.join(bindir, "swiftc")
+        let swiftc: String
+        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
+            swiftc = Path.join(base, "usr/bin/swiftc")
+        } else {
+            swiftc = try popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+        }
+        precondition(swiftc != "/usr/bin/swiftc")
+        env["SWIFT_EXEC"] = swiftc
     default:
         fatalError("HURRAY! This is fixed")
     }

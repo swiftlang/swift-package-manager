@@ -10,6 +10,7 @@
 
 @testable import Transmute
 import struct Utility.Path
+import func POSIX.popen
 import ManifestParser
 import PackageType
 import XCTest
@@ -259,7 +260,13 @@ extension Manifest {
 
     #if os(OSX)
         #if Xcode
-            let swiftc = Path.join(getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")!, "usr/bin/swiftc")
+            let swiftc: String
+            if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
+                swiftc = Path.join(base, "usr/bin/swiftc")
+            } else {
+                swiftc = try popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+            }
+            precondition(swiftc != "/usr/bin/swiftc")
         #else
             let swiftc = Path.join(bundleRoot(), "swiftc")
         #endif
