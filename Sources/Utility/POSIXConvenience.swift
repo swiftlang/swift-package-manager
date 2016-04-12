@@ -11,11 +11,9 @@
 import POSIX
 
 public func fopen(_ path: String..., mode: FopenMode = .Read, body: (UnsafeMutablePointer<FILE>) throws -> Void) throws {
-    var fp = try POSIX.fopen(Path.join(path), mode: mode)
-    defer { if fp != nil { fclose(fp) } }
+    let fp = try POSIX.fopen(Path.join(path), mode: mode)
+    defer { fclose(fp) }
     try body(fp)
-    fclose(fp)  // defer is not necessarily immediate
-    fp = nil
 }
 
 @_exported import func POSIX.fputs

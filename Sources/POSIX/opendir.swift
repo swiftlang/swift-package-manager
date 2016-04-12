@@ -13,8 +13,9 @@ import var libc.errno
 import func libc.opendir
 
 public func opendir(_ path: String) throws -> DirHandle {
-    let d = libc.opendir(path)
-    guard d != nil else { throw SystemError.opendir(errno, path) }
+    guard let d = libc.opendir(path) else {
+        throw SystemError.opendir(errno, path)
+    }
     return d
 }
 
