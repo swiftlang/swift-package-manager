@@ -44,6 +44,28 @@ public class Git {
             return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
 
+        public var sha: String! {
+            return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
+        }
+        
+        public func versionSha(tag: String) throws -> String {
+            return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
+        }
+        
+        public var hasLocalChanges: Bool {
+            let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
+            return !(changes?.isEmpty ?? true)
+        }
+
+        /**
+         - Returns: true if the package versions in this repository
+         are all prefixed with "v", otherwise false. If there are
+         no versions, returns false.
+         */
+        public var versionsArePrefixed: Bool {
+            return (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
+        }
+
         public func fetch() throws {
             do {
                 try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)

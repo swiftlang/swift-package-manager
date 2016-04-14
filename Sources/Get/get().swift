@@ -24,6 +24,7 @@ public func get(_ manifest: Manifest, manifestParser: (path: String, url: String
     //TODO don't lose the dependency information during the Fetcher process!
     
     let rootPackage = Package(manifest: manifest, url: manifest.path.parentDirectory)
+    rootPackage.version = Git.Repo(path: rootPackage.path)?.versions.last
     let extPackages = try box.recursivelyFetch(manifest.dependencies)
     
     let pkgs = extPackages + [rootPackage]

@@ -44,24 +44,8 @@ class GitTests: XCTestCase {
 //MARK: - Helpers
 
 func makeGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
-    do {
-        let file = Path.join(dstdir, "file.swift")
-        try popen(["touch", file])
-        try popen(["git", "-C", dstdir, "init"])
-        try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-        try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-        try popen(["git", "-C", dstdir, "config", "commit.gpgsign", "false"])
-        try popen(["git", "-C", dstdir, "add", "."])
-        try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
-        if let tag = tag {
-            try popen(["git", "-C", dstdir, "tag", tag])
-        }
-        return Git.Repo(path: dstdir)
-    }
-    catch {
-        XCTFail("\(error)", file: file, line: line)
-    }
-    return nil
+    initGitRepo(dstdir, tag: tag)
+    return Git.Repo(path: dstdir)
 }
 
 private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {

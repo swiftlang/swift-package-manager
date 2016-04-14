@@ -64,13 +64,4 @@ extension Git.Repo {
     var hasVersion: Bool {
         return !versions.isEmpty
     }
-
-    /**
-     - Returns: true if the package versions in this repository
-     are all prefixed with "v", otherwise false. If there are
-     no versions, returns false.
-     */
-    var versionsArePrefixed: Bool {
-        return (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
-    }
 }
