@@ -23,6 +23,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
     print("  --init <mode>                  Create a package template (executable|library)")
     print("  --fetch                        Fetch package dependencies")
+    print("  --update                       Update package dependencies")
     print("  --generate-xcodeproj [<path>]  Generates an Xcode project [-X]")
     print("")
     print("OPTIONS:")
@@ -37,6 +38,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Fetch
+    case Update
     case Init(InitMode)
     case Usage
     case Version
@@ -50,6 +52,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = try .Clean(CleanMode(pop()))
         case "--fetch":
             self = .Fetch
+        case "--update":
+            self = .Update
         case "--init", "--initialize":
             self = try .Init(InitMode(pop()))
         case "--help", "--usage", "-h":
@@ -69,6 +73,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Clean(let cleanMode): return "--clean=\(cleanMode)"
             case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Fetch: return "--fetch"
+            case .Update: return "--update"
             case .Init(let mode): return "--init=\(mode)"
             case .Usage: return "--help"
             case .Version: return "--version"
