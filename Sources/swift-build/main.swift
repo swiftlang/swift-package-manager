@@ -54,7 +54,7 @@ do {
         try build(YAMLPath: yaml)
 
     case .Init(let initMode):
-        let initPackage = InitPackage(mode: initMode)
+        let initPackage = try InitPackage(mode: initMode)
         try initPackage.writePackageStructure()
                     
     case .Update:
