@@ -70,6 +70,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         for target in [targets.test, targets.main] {
             writeln("  \(target.node): " + target.cmds.map{$0.node}.YAML)
         }
+        writeln("default: \(targets.main.node)")
         writeln("commands: ")
         for command in commands {
             writeln("  \(command.node):")
@@ -103,7 +104,7 @@ private func write(path: String, write: ((String) -> Void) -> Void) throws -> St
 
 private struct Targets {
     var test = Target(node: "test", cmds: [])
-    var main = Target(node: "default", cmds: [])
+    var main = Target(node: "main", cmds: [])
 
     mutating func append(_ command: Command, for buildable: Buildable) {
         if buildable.isTest {

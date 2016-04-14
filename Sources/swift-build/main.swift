@@ -50,7 +50,7 @@ do {
         let (rootPackage, externalPackages) = try fetch(dirs.root)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         let yaml = try describe(dirs.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
-        try build(YAMLPath: yaml, target: "default")
+        try build(YAMLPath: yaml)
 
     case .Init(let initMode):
         let initPackage = InitPackage(mode: initMode)
