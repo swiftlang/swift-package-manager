@@ -47,7 +47,7 @@ do {
     switch mode {
     case .Build(let conf, let toolchain):
         let (rootPackage, externalPackages) = try fetch(opts.path.root)
-        try generateVersionData(dirs.root, rootPackage: rootPackage, externalPackages: externalPackages)
+        try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         try build(YAMLPath: yaml)
