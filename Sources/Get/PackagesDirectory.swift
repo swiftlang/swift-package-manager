@@ -34,13 +34,19 @@ extension PackagesDirectory: Fetcher {
         for prefix in walk(self.prefix, recursively: false) {
             guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
             guard repo.origin == url else { continue }
-            return try Package.make(repo: repo, manifestParser: manifestParser)
+            do {
+                return try Package.make(repo: repo, manifestParser: manifestParser)
+            } catch Package.Error.NoVersion {
+                // is RawClone from a failed previous attemptat resolution
+                // TODO is this something we really intend to support?
+                continue
+            }
         }
         return nil
     }
 
     func fetch(url: String) throws -> Fetchable {
-        let dstdir = Path.join(prefix, Package.nameForURL(url))
+        let dstdir = Path.join(prefix, Package.name(url: url))
         if let repo = Git.Repo(path: dstdir) where repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestParser)
@@ -59,7 +65,7 @@ extension PackagesDirectory: Fetcher {
             try mkdir(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
             //TODO don't reparse the manifest!
-            return try Package.make(repo: Git.Repo(path: prefix)!, manifestParser: manifestParser)!
+            return try Package.make(repo: Git.Repo(path: prefix)!, manifestParser: manifestParser)
         case let pkg as Package:
             return pkg
         default:

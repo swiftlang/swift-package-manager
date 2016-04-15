@@ -104,7 +104,7 @@ class RawClone: Fetchable {
     }
 
     var finalName: String {
-        let name = manifest.package.name ?? Package.nameForURL(url)
+        let name = Package.name(manifest: manifest, url: url)
         return "\(name)-\(version)"
     }
 }

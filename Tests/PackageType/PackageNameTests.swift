@@ -14,22 +14,22 @@ import XCTest
 class PackageTests: XCTestCase {
 
     func testUrlEndsInDotGit1() {
-        let uid = Package.nameForURL("https://github.com/foo/bar.git")
+        let uid = Package.name(url: "https://github.com/foo/bar.git")
         XCTAssertEqual(uid, "bar")
     }
 
     func testUrlEndsInDotGit2() {
-        let uid = Package.nameForURL("http://github.com/foo/bar.git")
+        let uid = Package.name(url: "http://github.com/foo/bar.git")
         XCTAssertEqual(uid, "bar")
     }
 
     func testUrlEndsInDotGit3() {
-        let uid = Package.nameForURL("git@github.com/foo/bar.git")
+        let uid = Package.name(url: "git@github.com/foo/bar.git")
         XCTAssertEqual(uid, "bar")
     }
 
     func testUid() {
-        let uid = Package.nameForURL("http://github.com/foo/bar")
+        let uid = Package.name(url: "http://github.com/foo/bar")
         XCTAssertEqual(uid, "bar")
     }
 }

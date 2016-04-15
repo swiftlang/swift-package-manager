@@ -17,7 +17,7 @@ final class PackageVersionDataTests: XCTestCase {
 
     func makePackage() -> PackageType.Package {
         let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-        return Package(manifest: m, url: "https://github.com/testPkg")
+        return Package(manifest: m, url: "https://github.com/testPkg", version: Version(1,2,3))
     }
 
     func testPackageData(_ package: PackageType.Package, url: String, version: Version?) {
@@ -37,14 +37,7 @@ final class PackageVersionDataTests: XCTestCase {
 
     func testPackageVersionData() {
         let package = makePackage()
-        package.version = Version(1, 2, 3)
         testPackageData(package, url: "https://github.com/testPkg", version: Version(1, 2, 3))
-    }
-
-    func testPackageEmptyVersionData() {
-        let package = makePackage()
-        package.version = nil
-        testPackageData(package, url: "https://github.com/testPkg", version: nil)
     }
 
     func testSavePackageVersionDataToFile() {
@@ -52,7 +45,7 @@ final class PackageVersionDataTests: XCTestCase {
             let package = makePackage()
 
             let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg")
+            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg", version: Version(1,2,3))
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
             XCTAssertFileExists(dir, ".build/versionData/", "\(package.name).swift")
@@ -64,7 +57,6 @@ extension PackageVersionDataTests {
     static var allTests: [(String, PackageVersionDataTests -> () throws -> Void)] {
         return [
                    ("testPackageVersionData", testPackageVersionData),
-                   ("testPackageEmptyVersionData", testPackageEmptyVersionData),
                    ("testSavePackageVersionDataToFile", testSavePackageVersionDataToFile),
         ]
     }

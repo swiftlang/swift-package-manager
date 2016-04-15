@@ -16,30 +16,22 @@ public class Package {
     public let url: String
     public let path: String
     public let name: String
-    public var version: Version?
+    public let version: Version
     public var dependencies: [Package] = []
     public let manifest: Manifest
-    public let version: Version
 
-    public init(manifest: Manifest, url: String) {
-        let path = manifest.path.parentDirectory
-        let name = manifest.package.name ?? Package.nameForURL(url)
-
+    public init(manifest: Manifest, url: String, version: Version) {
         self.manifest = manifest
         self.url = url
-        self.path = path
-        self.name = name
-
-        // it is a contract that a Package be instantiated from a valid
-        // clone with the correct naming structure
-        self.version = Version(path.basename.characters.dropFirst(name.characters.count + 1))!
-
-        //TODO verify that the git tag is correct
+        self.path = manifest.path.parentDirectory
+        self.name = Package.name(manifest: manifest, url: url)
+        self.version = version
     }
 
     public enum Error: ErrorProtocol {
         case NoManifest(String)
         case NoOrigin(String)
+        case NoVersion(String)
     }
 }
 
@@ -60,7 +52,11 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 }
 
 extension Package {
-    public static func nameForURL(_ url: String) -> String {
+    public static func name(manifest: Manifest, url: String) -> String {
+        return manifest.package.name ?? name(url: url)
+    }
+
+    public static func name(url: String) -> String {
         let base = url.basename
 
         switch URL.scheme(url) ?? "" {
