@@ -10,7 +10,6 @@
 
 enum Error: ErrorProtocol {
     case ManifestAlreadyExists
-    case InvalidPackageName(String)
 }
 
 extension Error: CustomStringConvertible {
@@ -18,8 +17,6 @@ extension Error: CustomStringConvertible {
         switch self {
         case .ManifestAlreadyExists:
             return "a manifest file already exists in this directory"
-        case .InvalidPackageName(let name):
-            return "Invalid Package Name. \(name) is not a valid C99 extended identifier"
         }
     }
 }

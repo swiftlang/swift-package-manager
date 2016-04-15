@@ -19,9 +19,7 @@ final class InitPackage {
     let rootd = POSIX.getcwd()
     
     init(mode: InitMode) throws {
-        if c99name(name: rootd.basename) == nil {
-            throw Error.InvalidPackageName(rootd.basename)
-        }
+        try c99name(name: rootd.basename)
         self.mode = mode
         pkgname = rootd.basename
     }
