@@ -36,6 +36,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
 enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
+    case Doctor
     case Fetch
     case Init(InitMode)
     case Usage
@@ -48,6 +49,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = try .Build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .Clean(CleanMode(pop()))
+        case "--doctor":
+            self = .Doctor
         case "--fetch":
             self = .Fetch
         case "--init", "--initialize":
@@ -67,6 +70,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
         switch self {
             case .Build(let conf): return "--configuration=\(conf)"
             case .Clean(let cleanMode): return "--clean=\(cleanMode)"
+            case .Doctor: return "--doctor"
             case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Fetch: return "--fetch"
             case .Init(let mode): return "--init=\(mode)"
