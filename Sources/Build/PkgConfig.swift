@@ -9,13 +9,21 @@
 */
 
 import Utility
+import func POSIX.getenv
 
 enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
 }
 
 struct PkgConfig {
-    static let searchPaths = ["/usr/local/lib/pkgconfig"]
+    static let searchPaths = ["/usr/local/lib/pkgconfig",
+                              "/usr/local/share/pkgconfig",
+                              "/usr/lib/pkgconfig",
+                              "/usr/share/pkgconfig",
+                              // FIXME: These should only be searched for linux?
+                              "/usr/lib/x86_64-linux-gnu/pkgconfig",
+                              "/usr/local/lib/x86_64-linux-gnu/pkgconfig",
+                              ]
     
     let name: String
     let pcFile: String
@@ -29,8 +37,15 @@ struct PkgConfig {
         parser = PkgConfigParser(pcFile: pcFile)
     }
     
+    static var envSearchPaths: [String] {
+        if let configPath = getenv("PKG_CONFIG_PATH") {
+            return configPath.characters.split(separator: ":").map(String.init)
+        }
+        return []
+    }
+    
     static func locatePCFile(name: String) throws -> String {
-        for path in searchPaths {
+        for path in (searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, "\(name).pc")
             if pcFile.isFile {
                 return pcFile
