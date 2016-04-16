@@ -57,6 +57,11 @@ do {
         let initPackage = InitPackage(mode: initMode)
         try initPackage.writePackageStructure()
                     
+    case .Update:
+        let dirs = try directories()
+        try rmtree(dirs.Packages)
+        fallthrough
+        
     case .Fetch:
         try fetch(try directories().root)
 
