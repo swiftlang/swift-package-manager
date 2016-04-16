@@ -22,6 +22,11 @@ extension PackageDescription.Package {
         if case .String(let value)? = table.items["name"] {
             name = value
         }
+        
+        var pkgConfig: String? = nil
+        if case .String(let value)? = table.items["pkgConfig"] {
+            pkgConfig = value
+        }
 
         // Parse the targets.
         var targets: [PackageDescription.Target] = []
@@ -56,7 +61,7 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
     }
 }
 

@@ -81,7 +81,11 @@ extension Command {
         case .Executable:
             args.append("-emit-executable")
         }
-
+        
+        for module in product.modules {
+            args += module.pkgConfigArgs
+        }
+        
         args += objects
 
         if case .Library(.Static) = product.type {

@@ -42,7 +42,11 @@ public final class Package {
     
     /// The name of the package, if specified.
     public let name: String?
-
+  
+    /// pkgconfig name to use for C Modules. If present, swiftpm will try to search for
+    /// <name>.pc file to get the additional flags needed for the system module.
+    public let pkgConfig: String?
+  
     /// The list of targets.
     public var targets: [Target]
 
@@ -56,8 +60,9 @@ public final class Package {
     public var exclude: [String]
 
     /// Construct a package.
-    public init(name: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String? = nil, pkgConfig: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
+        self.pkgConfig = pkgConfig
         self.targets = targets
         self.dependencies = dependencies
         self.testDependencies = testDependencies
@@ -95,6 +100,9 @@ extension Package: TOMLConvertible {
         result += "[package]\n"
         if let name = self.name {
             result += "name = \"\(name)\"\n"
+        }
+        if let pkgConfig = self.pkgConfig {
+            result += "pkgConfig = \"\(pkgConfig)\"\n"
         }
         result += "dependencies = ["
         for dependency in dependencies {

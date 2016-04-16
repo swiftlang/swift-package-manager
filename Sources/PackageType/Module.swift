@@ -97,9 +97,10 @@ extension SwiftModule: XcodeModuleProtocol {
 
 public class CModule: Module {
     public let path: String
-
-    public init(name: String, path: String) throws {
+    public let pkgConfig: String?
+    public init(name: String, path: String, pkgConfig: String? = nil) throws {
         self.path = path
+        self.pkgConfig = pkgConfig
         try super.init(name: name)
     }
 }

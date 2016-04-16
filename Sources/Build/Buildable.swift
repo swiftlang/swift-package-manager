@@ -59,6 +59,27 @@ extension Module: Buildable {
     }
 }
 
+extension SwiftModule {
+    var pkgConfigArgs: [String] {
+        return recursiveDependencies.flatMap { module -> [String] in
+            guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
+                return []
+            }
+            guard var pkgConfig = try? PkgConfig(name: pkgConfigName) else {
+                // .pc not found
+                return []
+            }
+            do {
+                try pkgConfig.load()
+            }
+            catch {
+                
+            }
+            return pkgConfig.cFlags + pkgConfig.libs
+        }
+    }
+}
+
 extension Product: Buildable {
     var isTest: Bool {
         if case .Test = type {
