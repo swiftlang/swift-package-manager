@@ -46,6 +46,9 @@ public final class Package {
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to search for
     /// <name>.pc file to get the additional flags needed for the system module.
     public let pkgConfig: String?
+    
+    /// Providers array for System module
+    public let providers: [SystemPackageProvider]?
   
     /// The list of targets.
     public var targets: [Target]
@@ -60,9 +63,10 @@ public final class Package {
     public var exclude: [String]
 
     /// Construct a package.
-    public init(name: String? = nil, pkgConfig: String? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String? = nil, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
         self.pkgConfig = pkgConfig
+        self.providers = providers
         self.targets = targets
         self.dependencies = dependencies
         self.testDependencies = testDependencies
@@ -85,6 +89,31 @@ public final class Package {
         }
     }
 }
+
+public enum SystemPackageProvider {
+    case Brew(String)
+    case Apt(String)
+}
+
+extension SystemPackageProvider: TOMLConvertible {
+    var nameValue: (String, String) {
+        switch self {
+        case .Brew(let name):
+            return ("Brew", name)
+        case .Apt(let name):
+            return ("Apt", name)
+        }
+    }
+    
+    public func toTOML() -> String {
+        let (name, value) = nameValue
+        var str = ""
+        str += "name = \(name)\n"
+        str += "value = \"\(value)\"\n"
+        return str
+    }
+}
+
 
 // MARK: TOMLConvertible
 
@@ -122,7 +151,14 @@ extension Package: TOMLConvertible {
             result += "[[package.targets]]\n"
             result += target.toTOML()
         }
-
+        
+        if let providers = self.providers {
+            for provider in providers {
+                result += "[[package.providers]]\n"
+                result += provider.toTOML()
+            }
+        }
+        
         return result
     }
 }

@@ -75,7 +75,7 @@ extension SwiftModule {
             catch {
                 
             }
-            return pkgConfig.cFlags + pkgConfig.libs
+            return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
         }
     }
 }
