@@ -60,22 +60,25 @@ extension Module: Buildable {
 }
 
 extension SwiftModule {
-    var pkgConfigArgs: [String] {
-        return recursiveDependencies.flatMap { module -> [String] in
+    func pkgConfigArgs() throws -> [String] {
+        return try recursiveDependencies.flatMap { module -> [String] in
             guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
                 return []
             }
-            guard var pkgConfig = try? PkgConfig(name: pkgConfigName) else {
-                // .pc not found
-                return []
-            }
+            
             do {
+                var pkgConfig = try PkgConfig(name: pkgConfigName)
                 try pkgConfig.load()
+                return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
             }
-            catch {
-                
+            catch PkgConfigError.CouldNotFindConfigFile {
+                if let providers = module.providers,
+                    provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
+                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
+                    print(provider.installText)
+                }
             }
-            return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
+            return []
         }
     }
 }

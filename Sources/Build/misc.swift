@@ -173,3 +173,41 @@ extension Product {
         return ((), plist: s)
     }
 }
+
+extension SystemPackageProvider {
+    
+    var installText: String {
+        switch self {
+        case .Brew(let name):
+            return "    brew install \(name)\n"
+        case .Apt(let name):
+            return "    apt-get install \(name)\n"
+        }
+    }
+    
+    static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
+        guard let uname = try? popen(["uname"]).chomp().lowercased() else { return nil }
+        switch uname {
+        case "darwin":
+            for provider in providers {
+                if case .Brew = provider {
+                    return provider
+                }
+            }
+        case "linux":
+            if "/etc/debian_version".isFile {
+                for provider in providers {
+                    if case .Apt = provider {
+                        return provider
+                    }
+                }
+            }
+            break
+            
+        default:
+            return nil
+        }
+        return nil
+    }
+}
+

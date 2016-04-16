@@ -83,7 +83,7 @@ extension Command {
         }
         
         for module in product.modules {
-            args += module.pkgConfigArgs
+            args += try module.pkgConfigArgs()
         }
         
         args += objects

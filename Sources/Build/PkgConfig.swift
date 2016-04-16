@@ -19,6 +19,8 @@ struct PkgConfig {
     
     let name: String
     let pcFile: String
+    var cFlags = [String]()
+    var libs = [String]()
     private var parser: PkgConfigParser
     
     init(name: String) throws {
@@ -61,9 +63,6 @@ struct PkgConfig {
             self.libs += pkg.libs
         }
     }
-    
-    var cFlags = [String]()
-    var libs = [String]()
 }
 
 private struct PkgConfigParser {
