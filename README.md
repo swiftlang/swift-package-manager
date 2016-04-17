@@ -67,7 +67,7 @@ Swift version 3.0-dev
 
 On OS X `/usr/bin/swift` is just a stub that forwards invocations to the active
 toolchain. Thus when you call `swift build` it will use the swift defined by
-your `TOOLCHAINS` enivonment variable.
+your `TOOLCHAINS` environment variable.
 
 To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier`
 in an `.xctoolchain`’s Info.plist.
