@@ -16,10 +16,10 @@ extension Package {
         let testsPath = Path.join(path, "Tests")
         //Don't try to walk Tests if it is in excludes
         if testsPath.isDirectory && excludes.contains(testsPath) { return [] }
-        return walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
+        return try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
             let sources = walk(dir, recursing: shouldConsiderDirectory).filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
             if sources.count > 0 {
-                return TestModule(basename: dir.basename, sources: Sources(paths: sources, root: dir))
+                return try TestModule(basename: dir.basename, sources: Sources(paths: sources, root: dir))
             } else {
                 print("warning: no sources in test module: \(path)")
                 return nil

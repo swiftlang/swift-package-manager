@@ -11,7 +11,7 @@
 /**
  Removes characters from name that are invalid in C99 module-names.
 */
-func c99name(name: String) -> String {
+public func c99name(name: String) throws  -> String {
     var mapped = name.unicodeScalars.filter {
         switch $0.value {
         case//  a-z       A-Z      0-9   _
@@ -199,9 +199,22 @@ func c99name(name: String) -> String {
     }
 
     guard mapped.count > 0 else {
-        fatalError("Invalid module name")  //TODO use optionals and move error handling to caller
+        throw Error.InvalidPackageName(name)
     }
 
     // String(mapped) AND map(String.init) didn't work ¯\_(ツ)_/¯
     return mapped.reduce(""){ $0 + String($1) }
+}
+
+enum Error: ErrorProtocol {
+    case InvalidPackageName(String)
+}
+
+extension Error: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .InvalidPackageName(let name):
+            return "Invalid Package Name. \(name) is not a valid C99 extended identifier"
+        }
+    }
 }

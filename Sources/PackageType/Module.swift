@@ -29,18 +29,16 @@ public class Module: ModuleProtocol {
     */
     public let name: String
     public var dependencies: [Module]  /// in build order
+    public var c99name: String
 
-    public init(name: String) {
+    public init(name: String) throws {
         self.name = name
         self.dependencies = []
+        self.c99name = try PackageType.c99name(name: name)
     }
 
     public var recursiveDependencies: [Module] {
         return PackageType.recursiveDependencies(dependencies)
-    }
-
-    public var c99name: String {
-        return PackageType.c99name(name: name)
     }
 }
 
@@ -79,9 +77,9 @@ public func ==(lhs: Module, rhs: Module) -> Bool {
 public class SwiftModule: Module {
     public let sources: Sources
 
-    public init(name: String, sources: Sources) {
+    public init(name: String, sources: Sources) throws {
         self.sources = sources
-        super.init(name: name)
+        try super.init(name: name)
     }
 }
 
@@ -100,18 +98,18 @@ extension SwiftModule: XcodeModuleProtocol {
 public class CModule: Module {
     public let path: String
 
-    public init(name: String, path: String) {
+    public init(name: String, path: String) throws {
         self.path = path
-        super.init(name: name)
+        try super.init(name: name)
     }
 }
 
 public class ClangModule: CModule {
     public let sources: Sources
     
-    public init(name: String, sources: Sources) {
+    public init(name: String, sources: Sources) throws {
         self.sources = sources
-        super.init(name: name, path: sources.root + "/include")
+        try super.init(name: name, path: sources.root + "/include")
     }
 }
 
@@ -129,16 +127,13 @@ extension ClangModule: ModuleTypeProtocol {
 
 public class TestModule: SwiftModule {
 
-    public init(basename: String, sources: Sources) {
-        super.init(name: "\(basename).testsuite", sources: sources)
+    public init(basename: String, sources: Sources) throws {
+        try super.init(name: "\(basename).testsuite", sources: sources)
+        c99name = try PackageType.c99name(name: basename) + "TestSuite"
     }
 
     public var basename: String {
         return String(name.characters.dropLast(10))
-    }
-
-    override public var c99name: String {
-        return PackageType.c99name(name: basename) + "TestSuite"
     }
 }
 
