@@ -86,7 +86,7 @@ extension Command {
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps]
             args += ["-c", path.source, "-o", path.object]
 
-            let clang = ClangTool(desc: "Compiling \(module.name) \(path.filename)",
+            let clang = ClangTool(desc: "Compile \(module.name) \(path.filename)",
                                   inputs: dependencies + [path.source, mkdir.node],
                                   outputs: [path.object],
                                   args: [CC] + args,

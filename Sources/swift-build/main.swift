@@ -46,11 +46,10 @@ do {
 
     switch mode {
     case .Build(let conf, let toolchain):
-        let dirs = try directories()
-        let (rootPackage, externalPackages) = try fetch(dirs.root)
-        try generateVersionData(dirs.root, rootPackage: rootPackage, externalPackages: externalPackages)
+        let (rootPackage, externalPackages) = try fetch(opts.path.root)
+        try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-        let yaml = try describe(dirs.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
+        let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         try build(YAMLPath: yaml)
 
     case .Init(let initMode):
@@ -58,36 +57,30 @@ do {
         try initPackage.writePackageStructure()
                     
     case .Update:
-        let dirs = try directories()
-        try rmtree(dirs.Packages)
+        try rmtree(opts.path.Packages)
         fallthrough
         
     case .Fetch:
-        try fetch(try directories().root)
+        try fetch(opts.path.root)
 
     case .Usage:
         usage()
 
-    case .Clean(let mode):
-        let dirs = try directories()
+    case .Clean(.Dist):
+        try rmtree(opts.path.Packages)
+        fallthrough
 
-        switch mode {
-        case .Dist:
-            try rmtree(dirs.Packages)
-            fallthrough
-
-        case .Build:
-            let artifacts = ["debug", "release"].map{ Path.join(dirs.build, $0) }.map{ ($0, "\($0).yaml") }
-            for (dir, yml) in artifacts {
-                if dir.isDirectory { try rmtree(dir) }
-                if yml.isFile { try unlink(yml) }
-            }
-
-            let db = Path.join(dirs.build, "build.db")
-            if db.isFile { try unlink(db) }
-
-            try rmdir(dirs.build)
+    case .Clean(.Build):
+        let artifacts = ["debug", "release"].map{ Path.join(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
+        for (dir, yml) in artifacts {
+            if dir.isDirectory { try rmtree(dir) }
+            if yml.isFile { try unlink(yml) }
         }
+
+        let db = Path.join(opts.path.build, "build.db")
+        if db.isFile { try unlink(db) }
+
+        try rmdir(opts.path.build)
 
     case .Doctor:
         doctor()
@@ -96,8 +89,7 @@ do {
         print("Apple Swift Package Manager 0.1")
         
     case .GenerateXcodeproj(let outpath):
-        let dirs = try directories()
-        let (rootPackage, externalPackages) = try fetch(dirs.root)
+        let (rootPackage, externalPackages) = try fetch(opts.path.root)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         
         let xcodeModules = modules.flatMap { $0 as? XcodeModuleProtocol }
@@ -116,10 +108,10 @@ do {
             dstdir = outpath
             projectName = packageName
         case _:
-            dstdir = dirs.root
+            dstdir = opts.path.root
             projectName = packageName
         }
-        let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: dirs.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
+        let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
 
         print("generated:", outpath.prettyPath)
     }

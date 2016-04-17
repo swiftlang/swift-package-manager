@@ -8,6 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+#if os(Linux)
+import libc  // String.hasPrefix
+#endif
+
 public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
@@ -42,8 +46,33 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
 
         if let flag = try Flag(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             flags.append(flag)
-        } else {
-            throw Error.UnknownArgument(arg)
+        } else if arg.hasPrefix("-") {
+
+            // attempt to split eg. `-xyz` to `-x -y -z`
+
+            guard !arg.hasPrefix("--") else { throw Error.UnknownArgument(arg) }
+            guard arg != "-" else { throw Error.UnknownArgument(arg) }
+
+            var characters = arg.characters.dropFirst()
+
+            func pop() -> String? {
+                if characters.isEmpty {
+                    return nil
+                } else {
+                    // thus we support eg. `-mwip` as `-m=wip`
+                    let str = String(characters)
+                    characters.removeAll()
+                    return str
+                }
+            }
+
+            while !characters.isEmpty {
+                let c = characters.removeFirst()
+                guard let flag = try Flag(argument: "-\(c)", pop: pop) else {
+                    throw Error.UnknownArgument(arg)
+                }
+                flags.append(flag)
+            }
         }
 
         if let value = value where !popped {

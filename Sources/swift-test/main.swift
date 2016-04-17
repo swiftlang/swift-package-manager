@@ -26,7 +26,6 @@ do {
         usage()
 
     case .Run(let specifier):
-        let dir = try directories()
         let configuration = "debug"  //FIXME should swift-test support configuration option?
 
         func determineTestPath() -> String {
@@ -34,20 +33,20 @@ do {
             //FIXME better, ideally without parsing manifest since
             // that makes us depend on the whole Manifest system
 
-            let packageName = dir.root.basename  //FIXME probably not true
-            let maybePath = Path.join(dir.build, configuration, "\(packageName).xctest")
+            let packageName = opts.path.root.basename  //FIXME probably not true
+            let maybePath = Path.join(opts.path.build, configuration, "\(packageName).xctest")
 
             if maybePath.exists {
                 return maybePath
             } else {
-                return walk(dir.build).filter {
+                return walk(opts.path.build).filter {
                     $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
                     $0.hasSuffix(".xctest")
                 }.first!
             }
         }
 
-        let yamlPath = Path.join(dir.build, "\(configuration).yaml")
+        let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
         try build(YAMLPath: yamlPath, target: "test")
         let success = try test(path: determineTestPath(), xctestArg: specifier)
         exit(success ? 0 : 1)

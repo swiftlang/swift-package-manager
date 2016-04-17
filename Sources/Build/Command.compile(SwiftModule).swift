@@ -44,7 +44,7 @@ extension Command {
             }
 
             let tool = ShellTool(
-                description: "Compiling \(module.name)",
+                description: "Compile \(module.name)",
                 inputs: inputs,
                 outputs: [productPath, module.targetName],
                 args: [SWIFT_EXEC, "-o", productPath] + args + module.sources.paths + otherArgs)

@@ -55,6 +55,10 @@ let package = Package(
             name: "Xcodeproj",
             dependencies: ["PackageType"]),
         Target(
+            /** Command line options parser */
+            name: "OptionsParser",
+            dependencies: ["libc"]),
+        Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
             dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
