@@ -29,6 +29,9 @@ extension Bool: YAMLRepresentable {
 extension Array where Element: YAMLRepresentable {
     var YAML: String {
         func quote(_ input: String) -> String {
+            guard !(input.hasPrefix("<") && input.hasSuffix(">")) else {
+                return input
+            }
             for c in input.characters {
                 if c == "@" || c == " " || c == "-" || c == "&" {
                     return "\"\(input)\""
