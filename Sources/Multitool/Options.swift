@@ -19,7 +19,7 @@ public class Options {
 
     public class Path {
         public lazy var root = getroot()
-        public var Packages: String { return Utility.Path.join(self.root) }
+        public var Packages: String { return Utility.Path.join(self.root, "Packages") }
 
         public var build: String {
             get { return _build ?? Utility.Path.join(getroot(), ".build") }
