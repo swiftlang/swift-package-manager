@@ -22,7 +22,7 @@ public final class Package {
         public let url: String
 
         init(_ url: String, _ versionRange: Range<Version>) {
-            self.url = url.normalizedURL()
+            self.url = url
             self.versionRange = versionRange
         }
 
@@ -180,7 +180,8 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 
 extension Package.Dependency : Equatable { }
 public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-    return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
+    return lhs.url.normalizedURL() == rhs.url.normalizedURL() &&
+        lhs.versionRange == rhs.versionRange
 }
 
 // MARK: Package Dumping

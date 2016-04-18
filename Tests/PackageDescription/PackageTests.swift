@@ -41,6 +41,7 @@ extension PackageTests {
     static var allTests : [(String, PackageTests -> () throws -> Void)] {
         return [
             ("testMatchDependencyWithPreReleaseVersion", testMatchDependencyWithPreReleaseVersion),
+            ("testNameConflicts", testNameConflicts)
         ]
     }
 }
