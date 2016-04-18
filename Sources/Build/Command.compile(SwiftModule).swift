@@ -14,8 +14,8 @@ import Utility
 extension Command {
     static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> (Command, [Command]) {
 
-        let otherArgs = otherArgs + module.XccFlags(prefix)
-
+        let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigArgs())
+        
         func cmd(_ tool: ToolProtocol) -> Command {
             return Command(node: module.targetName, tool: tool)
         }

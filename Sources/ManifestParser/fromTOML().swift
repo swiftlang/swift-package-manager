@@ -22,6 +22,11 @@ extension PackageDescription.Package {
         if case .String(let value)? = table.items["name"] {
             name = value
         }
+        
+        var pkgConfig: String? = nil
+        if case .String(let value)? = table.items["pkgConfig"] {
+            pkgConfig = value
+        }
 
         // Parse the targets.
         var targets: [PackageDescription.Target] = []
@@ -30,7 +35,15 @@ extension PackageDescription.Package {
                 targets.append(PackageDescription.Target.fromTOML(item))
             }
         }
-
+        
+        var providers: [PackageDescription.SystemPackageProvider]? = nil
+        if case .Array(let array)? = table.items["providers"] {
+            providers = []
+            for item in array.items {
+                providers?.append(PackageDescription.SystemPackageProvider.fromTOML(item))
+            }
+        }
+        
         // Parse the dependencies.
         var dependencies: [PackageDescription.Package.Dependency] = []
         if case .Array(let array)? = table.items["dependencies"] {
@@ -56,7 +69,7 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
     }
 }
 
@@ -82,6 +95,22 @@ extension PackageDescription.Package.Dependency {
         }
 
         return PackageDescription.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
+    }
+}
+
+extension PackageDescription.SystemPackageProvider {
+    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
+        guard case .Table(let table) = item else { fatalError("unexpected item") }
+        guard case .String(let name)? = table.items["name"] else { fatalError("missing name") }
+        guard case .String(let value)? = table.items["value"] else { fatalError("missing value") }
+        switch name {
+        case "Brew":
+            return .Brew(value)
+        case "Apt":
+            return .Apt(value)
+        default:
+            fatalError("unexpected string")
+        }
     }
 }
 

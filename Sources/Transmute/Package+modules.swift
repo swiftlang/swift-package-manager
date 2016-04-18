@@ -16,7 +16,7 @@ extension Package {
     func modules() throws -> [Module] {
 
         guard !Path.join(path, "module.modulemap").isFile else {
-            return [try CModule(name: name, path: path)]
+            return [try CModule(name: name, path: path, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers)]
         }
 
         let srcroot = try sourceRoot()

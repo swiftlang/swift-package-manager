@@ -15,6 +15,8 @@
  TODO should be a protocol
 */
 
+@_exported import enum PackageDescription.SystemPackageProvider
+
 public protocol ModuleProtocol {
     var name: String { get }
     var c99name: String { get }
@@ -97,9 +99,12 @@ extension SwiftModule: XcodeModuleProtocol {
 
 public class CModule: Module {
     public let path: String
-
-    public init(name: String, path: String) throws {
+    public let pkgConfig: String?
+    public let providers: [SystemPackageProvider]?
+    public init(name: String, path: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil) throws {
         self.path = path
+        self.pkgConfig = pkgConfig
+        self.providers = providers
         try super.init(name: name)
     }
 }
