@@ -80,6 +80,9 @@ do {
         let db = Path.join(opts.path.build, "build.db")
         if db.isFile { try unlink(db) }
 
+        let versionData = Path.join(opts.path.build, "versionData")
+        if versionData.isDirectory { try rmtree(versionData) }
+
         try rmdir(opts.path.build)
 
     case .Doctor:
