@@ -16,7 +16,7 @@ enum PkgConfigError: ErrorProtocol {
 }
 
 struct PkgConfig {
-    static let searchPaths = ["/usr/local/lib/pkgconfig",
+    private static let searchPaths = ["/usr/local/lib/pkgconfig",
                               "/usr/local/share/pkgconfig",
                               "/usr/lib/pkgconfig",
                               "/usr/share/pkgconfig",
@@ -24,24 +24,44 @@ struct PkgConfig {
     
     let name: String
     let pcFile: String
-    var cFlags = [String]()
-    var libs = [String]()
-    private var parser: PkgConfigParser
+    let cFlags: [String]
+    let libs: [String]
     
     init(name: String) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(name: name)
-        parser = PkgConfigParser(pcFile: pcFile)
+        
+        var parser = PkgConfigParser(pcFile: pcFile)
+        try parser.parse()
+        
+        var cFlags = [String]()
+        var libs = [String]()
+        
+        // FIXME: handle spaces in paths.
+        cFlags += parser.cFlags.characters.split(separator: " ").map(String.init)
+        libs += parser.libs.characters.split(separator: " ").map(String.init)
+        
+        // If parser found dependencies in pc file, get their flags too.
+        if(!parser.dependencies.isEmpty) {
+            for dep in parser.dependencies {
+                let pkg = try PkgConfig(name: dep)
+                cFlags += pkg.cFlags
+                libs += pkg.libs
+            }
+        }
+        
+        self.cFlags = cFlags
+        self.libs = libs
     }
     
-    static var envSearchPaths: [String] {
+    private static var envSearchPaths: [String] {
         if let configPath = getenv("PKG_CONFIG_PATH") {
             return configPath.characters.split(separator: ":").map(String.init)
         }
         return []
     }
     
-    static func locatePCFile(name: String) throws -> String {
+    private static func locatePCFile(name: String) throws -> String {
         for path in (searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, "\(name).pc")
             if pcFile.isFile {
@@ -50,39 +70,14 @@ struct PkgConfig {
         }
         throw PkgConfigError.CouldNotFindConfigFile
     }
-    
-    mutating func load() throws {
-        cFlags = [String]()
-        libs = [String]()
-        try parser.parse()
-        if let cFlags = parser.cFlags {
-            // FIXME: handle spaces in paths.
-            self.cFlags += cFlags.characters.split(separator: " ").map(String.init)
-        }
-        if let libs = parser.libs {
-            // FIXME: handle spaces in paths.
-            self.libs += libs.characters.split(separator: " ").map(String.init)
-        }
-        
-        if(parser.dependencies.isEmpty) {
-            return
-        }
-        
-        for dep in parser.dependencies {
-            var pkg = try PkgConfig(name: dep)
-            try pkg.load()
-            self.cFlags += pkg.cFlags
-            self.libs += pkg.libs
-        }
-    }
 }
 
 private struct PkgConfigParser {
     let pcFile: String
     var variables = [String: String]()
     var dependencies = [String]()
-    var cFlags: String?
-    var libs: String?
+    var cFlags = ""
+    var libs = ""
     
     init(pcFile: String) {
         self.pcFile = pcFile
