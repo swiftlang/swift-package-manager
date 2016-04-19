@@ -61,7 +61,7 @@ struct PkgConfig {
         return []
     }
     
-    private static func locatePCFile(name: String) throws -> String {
+    static func locatePCFile(name: String) throws -> String {
         for path in (searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, "\(name).pc")
             if pcFile.isFile {
@@ -72,14 +72,15 @@ struct PkgConfig {
     }
 }
 
-private struct PkgConfigParser {
-    let pcFile: String
-    var variables = [String: String]()
+struct PkgConfigParser {
+    private let pcFile: String
+    private(set) var variables = [String: String]()
     var dependencies = [String]()
     var cFlags = ""
     var libs = ""
     
     init(pcFile: String) {
+        precondition(pcFile.isFile)
         self.pcFile = pcFile
     }
     
@@ -101,7 +102,7 @@ private struct PkgConfigParser {
         }
     }
     
-    func parseDependencies(_ depString: String) -> [String] {
+    private func parseDependencies(_ depString: String) -> [String] {
         let exploded = depString.characters.split(separator: " ").map(String.init)
         let operators = ["=", "<", ">", "<=", ">="]
         var deps = [String]()
@@ -120,7 +121,7 @@ private struct PkgConfigParser {
         return deps
     }
     
-    func resolveVariables(_ line: String) -> String {
+    private func resolveVariables(_ line: String) -> String {
         func resolve(_ string: String) -> String {
             var resolvedString = string
             guard let dollar = resolvedString.characters.index(of: "$") else { return string }
@@ -137,7 +138,7 @@ private struct PkgConfigParser {
         return resolved
     }
     
-    func value(line: String) -> String {
+    private func value(line: String) -> String {
         guard let colonIndex = line.characters.index(of: ":") else {
             return ""
         }
