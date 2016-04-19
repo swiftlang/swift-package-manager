@@ -32,7 +32,9 @@ public func rmtree(_ components: String...) throws {
         do {
             try POSIX.rmdir(dir)
         } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
-            // Ignore ENOENT.
+            // if the directory is not there then proceed
+            // this could happen if it was in fact symlinked
+            // from another part of the tree etc.
         }
     }
     try POSIX.rmdir(path)
