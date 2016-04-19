@@ -67,7 +67,7 @@ do {
         usage()
 
     case .Clean(.Dist):
-        try rmtree(opts.path.Packages)
+        if opts.path.Packages.isDirectory { try rmtree(opts.path.Packages) }
         fallthrough
 
     case .Clean(.Build):
@@ -83,7 +83,7 @@ do {
         let versionData = Path.join(opts.path.build, "versionData")
         if versionData.isDirectory { try rmtree(versionData) }
 
-        try rmdir(opts.path.build)
+        if opts.path.build.isDirectory { try rmdir(opts.path.build) }
 
     case .Doctor:
         doctor()
