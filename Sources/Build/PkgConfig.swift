@@ -13,6 +13,7 @@ import func POSIX.getenv
 
 enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
+    case ParsingError
 }
 
 struct PkgConfig {
@@ -91,13 +92,13 @@ struct PkgConfigParser {
                 let equalsIndex = line.characters.index(of: "=")!
                 let name = line[line.startIndex..<equalsIndex]
                 let value = line[equalsIndex.successor()..<line.endIndex]
-                variables[name] = resolveVariables(value)
+                variables[name] = try resolveVariables(value)
             } else if line.hasPrefix("Requires: ") {
                 dependencies = parseDependencies(value(line: line))
             } else if line.hasPrefix("Libs: ") {
-                libs = resolveVariables(value(line: line)).chomp()
+                libs = try resolveVariables(value(line: line)).chomp()
             } else if line.hasPrefix("Cflags: ") {
-                cFlags = resolveVariables( value(line: line)).chomp()
+                cFlags = try resolveVariables( value(line: line)).chomp()
             }
         }
     }
@@ -121,21 +122,41 @@ struct PkgConfigParser {
         return deps
     }
     
-    private func resolveVariables(_ line: String) -> String {
-        func resolve(_ string: String) -> String {
-            var resolvedString = string
-            guard let dollar = resolvedString.characters.index(of: "$") else { return string }
-            guard let variableEndIndex = resolvedString.characters.index(of: "}") else {return string }
-            let variable = string[dollar.successor().successor()..<variableEndIndex]
-            let value = variables[variable]!
-            resolvedString = resolvedString[resolvedString.startIndex..<dollar] + value + resolvedString[variableEndIndex.successor()..<resolvedString.endIndex]
-            return resolvedString
+    /// Perform variable expansion on the line by processing the each fragment of the string until complete.
+    /// Variables occur in form of ${variableName}, we search for a variable linearly
+    /// in the string and if found, lookup the value of the variable in our dictionary and
+    /// replace the variable name with its value.
+    private func resolveVariables(_ line: String) throws -> String {
+        typealias StringIndex = String.CharacterView.Index
+        
+        // Returns variable name, start index and end index of a variable in a string if present.
+        // We make sure it of form ${name} otherwise it is not a variable.
+        func findVariable(_ fragment: String) -> (name: String, startIndex: StringIndex, endIndex: StringIndex)? {
+            guard let dollar = fragment.characters.index(of: "$") else { return nil }
+            guard dollar != fragment.endIndex && fragment.characters[dollar.successor()] == "{" else { return nil }
+            guard let variableEndIndex = fragment.characters.index(of: "}") else { return nil }
+            return (fragment[dollar.successor().successor()..<variableEndIndex], dollar, variableEndIndex)
         }
-        var resolved = line
-        while resolved.characters.contains("$") {
-            resolved = resolve(resolved)
+
+        var result = ""
+        var fragment = line
+        while !fragment.isEmpty {
+            // Look for a variable in our current fragment.
+            if let variable = findVariable(fragment) {
+                // Append the contents before the variable.
+                result += fragment[fragment.characters.startIndex..<variable.startIndex]
+                guard let variableValue = variables[variable.name] else { throw PkgConfigError.ParsingError }
+                // Append the value of the variable.
+                result += variableValue
+                // Update the fragment with post variable string.
+                fragment = fragment[variable.endIndex.successor()..<fragment.characters.endIndex]
+            } else {
+                // No variable found, just append rest of the fragment to result.
+                result += fragment
+                fragment = ""
+            }
         }
-        return resolved
+        return result
     }
     
     private func value(line: String) -> String {
