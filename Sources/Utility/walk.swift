@@ -13,7 +13,6 @@ import struct libc.dirent
 import func libc.readdir_r
 import func libc.closedir
 import func libc.opendir
-import var libc.DT_DIR
 
 
 /**
@@ -84,10 +83,10 @@ private class DirectoryContentsGenerator: IteratorProtocol {
             guard readdir_r(validdir, &entry, &result) == 0 else { continue }
             guard result != nil else { return nil }
 
-            switch (Int32(entry.d_type), entry.d_name.0, entry.d_name.1, entry.d_name.2) {
-            case (Int32(DT_DIR), 46, 0, _):   // "."
+            switch (entry.d_name.0, entry.d_name.1, entry.d_name.2) {
+            case (46, 0, _):   // "."
                 continue
-            case (Int32(DT_DIR), 46, 46, 0):  // ".."
+            case (46, 46, 0):  // ".."
                 continue
             default:
                 return entry
@@ -124,8 +123,9 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
             let name = withUnsafePointer(&dirName) { (ptr) -> String in
                 return String(validatingUTF8: UnsafePointer<CChar>(ptr)) ?? ""
             }
-            if Int32(entry.d_type) == Int32(DT_DIR) {
-                towalk.append(Path.join(current.path, name))
+            let path = Path.join(current.path, name)
+            if path.isDirectory && !path.isSymlink {
+                towalk.append(path)
             }
             return Path.join(current.path, name)
         }
