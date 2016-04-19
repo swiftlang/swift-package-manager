@@ -18,7 +18,7 @@ import func libc.rmdir
  - Note: We only call rmdir() on the directory once done, it is up to
  you to recursively delete the contents and thus ensure the rmdir succeeds
 */
-public func mkdtemp<T>(_ template: String, prefix: String! = nil, @noescape body: (String) throws -> T) rethrows -> T {
+public func mkdtemp<T>(_ template: String, prefix: String! = nil, body: @noescape(String) throws -> T) rethrows -> T {
     var prefix = prefix
     if prefix == nil { prefix = getenv("TMPDIR") ?? "/tmp/" }
     if !prefix.hasSuffix("/") {

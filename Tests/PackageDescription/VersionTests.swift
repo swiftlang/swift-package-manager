@@ -15,7 +15,7 @@ import XCTest
 class VersionTests: XCTestCase {
 
     func testEquality() {
-        func test(@autoclosure _ v: () -> Version) {
+        func test( _ v: @autoclosure() -> Version) {
             XCTAssertEqual(v(), v())
         }
 
