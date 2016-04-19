@@ -20,9 +20,6 @@ struct PkgConfig {
                               "/usr/local/share/pkgconfig",
                               "/usr/lib/pkgconfig",
                               "/usr/share/pkgconfig",
-                              // FIXME: These should only be searched for linux?
-                              "/usr/lib/x86_64-linux-gnu/pkgconfig",
-                              "/usr/local/lib/x86_64-linux-gnu/pkgconfig",
                               ]
     
     let name: String
@@ -86,13 +83,6 @@ private struct PkgConfigParser {
     var dependencies = [String]()
     var cFlags: String?
     var libs: String?
-    
-    enum Token {
-        case CFlats(String)
-        case Libs(String)
-        case Dependencies(String)
-        case Variable(name: String, value: String)
-    }
     
     init(pcFile: String) {
         self.pcFile = pcFile
