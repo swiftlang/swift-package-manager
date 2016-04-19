@@ -94,7 +94,7 @@ struct PkgConfigParser {
                 let value = line[equalsIndex.successor()..<line.endIndex]
                 variables[name] = try resolveVariables(value)
             } else if line.hasPrefix("Requires: ") {
-                dependencies = parseDependencies(value(line: line))
+                dependencies = try parseDependencies(value(line: line))
             } else if line.hasPrefix("Libs: ") {
                 libs = try resolveVariables(value(line: line)).chomp()
             } else if line.hasPrefix("Cflags: ") {
@@ -103,20 +103,49 @@ struct PkgConfigParser {
         }
     }
     
-    private func parseDependencies(_ depString: String) -> [String] {
-        let exploded = depString.characters.split(separator: " ").map(String.init)
+    /// Parses `Requires: ` string into array of dependencies.
+    /// The dependecy string has seperator which can be (multiple) space or a comma.
+    /// Additionally each there can be an optional version constaint to a dependency.
+    private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
-        var deps = [String]()
-        var skipNext = false
-        for depString in exploded {
-            if skipNext {
-                skipNext = false
-                continue
+        let seperators = [" ", ","]
+        
+        // Look at a char at an index if present.
+        func peek(idx: Int) -> Character? {
+            guard idx <= depString.characters.count else { return nil }
+            return depString.characters[depString.characters.startIndex.advanced(by: idx)]
+        }
+        
+        // This converts the string which can be seperated by comma or spaces
+        // into an array of string.
+        func tokenize() -> [String] {
+            var tokens = [String]()
+            var token = ""
+            for (idx, char) in depString.characters.enumerated() {
+                // Encountered a seperator, use the token.
+                if seperators.contains(String(char)) {
+                    // If next character is a space skip.
+                    if let peeked = peek(idx: idx+1) where peeked == " " { continue }
+                    // Append to array of tokens and reset token variable.
+                    tokens.append(token)
+                    token = ""
+                } else {
+                    token += String(char)
+                }
             }
-            if operators.contains(depString) {
-                skipNext = true
+            return tokens
+        }
+        
+        var deps = [String]()
+        var it = tokenize().makeIterator()
+        while let arg = it.next() {
+            // If we encounter an operator then we need to skip the next token.
+            if operators.contains(arg) {
+                // We should have a version number next, skip.
+                guard let _ = it.next() else { throw PkgConfigError.ParsingError }
             } else {
-                deps.append(depString)
+                // Otherwise it is a dependency.
+                deps.append(arg)
             }
         }
         return deps
