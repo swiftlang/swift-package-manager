@@ -13,7 +13,7 @@ import func POSIX.getenv
 
 enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
-    case ParsingError
+    case ParsingError(String)
 }
 
 struct PkgConfig {
@@ -22,7 +22,6 @@ struct PkgConfig {
                               "/usr/lib/pkgconfig",
                               "/usr/share/pkgconfig",
                               ]
-    
     let name: String
     let pcFile: String
     let cFlags: [String]
@@ -86,20 +85,43 @@ struct PkgConfigParser {
     }
     
     mutating func parse() throws {
+        
+        func removeComment(line: String) -> String {
+            if let commentIndex = line.characters.index(of: "#") {
+                return line[line.characters.startIndex..<commentIndex]
+            }
+            return line
+        }
+        
         let file = File(path: self.pcFile)
         for line in try file.enumerate() {
-            if !line.characters.contains(":") && line.characters.contains("=")  {
-                let equalsIndex = line.characters.index(of: "=")!
+            // Ignore any commented line.
+            if line.hasPrefix("#") || line.isEmpty { continue }
+            // Remove any trailing comment from the line.
+            let line = removeComment(line: line)
+            
+            if let colonIndex = line.characters.index(of: ":") where line[colonIndex.successor()] == " " {
+                // Found a key-value pair.
+                try parseKeyValue(line: line)
+            } else if let equalsIndex = line.characters.index(of: "=") {
+                // Found a variable.
                 let name = line[line.startIndex..<equalsIndex]
                 let value = line[equalsIndex.successor()..<line.endIndex]
                 variables[name] = try resolveVariables(value)
-            } else if line.hasPrefix("Requires: ") {
-                dependencies = try parseDependencies(value(line: line))
-            } else if line.hasPrefix("Libs: ") {
-                libs = try resolveVariables(value(line: line)).chomp()
-            } else if line.hasPrefix("Cflags: ") {
-                cFlags = try resolveVariables( value(line: line)).chomp()
+            } else {
+                // Unexpected thing in the pc file, abort.
+                throw PkgConfigError.ParsingError("Unexpecting line: \(line) in \(pcFile)")
             }
+        }
+    }
+    
+    private mutating func parseKeyValue(line: String) throws {
+        if line.hasPrefix("Requires: ") {
+            dependencies = try parseDependencies(value(line: line))
+        } else if line.hasPrefix("Libs: ") {
+            libs = try resolveVariables(value(line: line)).chomp()
+        } else if line.hasPrefix("Cflags: ") {
+            cFlags = try resolveVariables(value(line: line)).chomp()
         }
     }
     
@@ -112,7 +134,7 @@ struct PkgConfigParser {
         
         // Look at a char at an index if present.
         func peek(idx: Int) -> Character? {
-            guard idx <= depString.characters.count else { return nil }
+            guard idx <= depString.characters.count - 1 else { return nil }
             return depString.characters[depString.characters.startIndex.advanced(by: idx)]
         }
         
@@ -133,16 +155,20 @@ struct PkgConfigParser {
                     token += String(char)
                 }
             }
+            // Append the last collected token if present.
+            if !token.isEmpty { tokens += [token] }
             return tokens
         }
-        
+
         var deps = [String]()
         var it = tokenize().makeIterator()
         while let arg = it.next() {
             // If we encounter an operator then we need to skip the next token.
             if operators.contains(arg) {
                 // We should have a version number next, skip.
-                guard let _ = it.next() else { throw PkgConfigError.ParsingError }
+                guard let _ = it.next() else {
+                    throw PkgConfigError.ParsingError("Expected version number after \(deps.last) \(arg) in \"\(depString)\" in \(pcFile)")
+                }
             } else {
                 // Otherwise it is a dependency.
                 deps.append(arg)
@@ -174,7 +200,9 @@ struct PkgConfigParser {
             if let variable = findVariable(fragment) {
                 // Append the contents before the variable.
                 result += fragment[fragment.characters.startIndex..<variable.startIndex]
-                guard let variableValue = variables[variable.name] else { throw PkgConfigError.ParsingError }
+                guard let variableValue = variables[variable.name] else {
+                    throw PkgConfigError.ParsingError("Expected variable in \(pcFile)")
+                }
                 // Append the value of the variable.
                 result += variableValue
                 // Update the fragment with post variable string.
