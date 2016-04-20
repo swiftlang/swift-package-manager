@@ -20,6 +20,7 @@ import Multitool
 import Transmute
 import Xcodeproj
 import Utility
+import Update
 import Build
 import Get
 
@@ -57,7 +58,10 @@ do {
         try initPackage.writePackageStructure()
         
     case .Fetch:
-        try fetch(opts.path.root)
+        let (_, pkgs) = try fetch(opts.path.root)
+        if pkgs.isEmpty {
+            print("warning: nothing fetched (Package.swift defines no dependencies)", to: &stderr)
+        }
 
     case .Usage:
         usage()
@@ -116,8 +120,7 @@ do {
 
     case .Update:
         guard opts.path.Packages.isDirectory else { throw Error.FetchRequired }
-        let rootManifest = try parseManifest(path: opts.path.root, baseURL: opts.path.root)
-        try update(manifest: rootManifest)
+        try update(root: opts.path.Packages)
     }
 
 } catch {
