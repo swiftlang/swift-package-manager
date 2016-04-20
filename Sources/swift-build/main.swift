@@ -20,7 +20,6 @@ import Multitool
 import Transmute
 import Xcodeproj
 import Utility
-import Update
 import Build
 import Get
 
@@ -119,7 +118,6 @@ do {
         print("generated:", outpath.prettyPath)
 
     case .Update:
-        guard opts.path.Packages.isDirectory else { throw Error.FetchRequired }
         try update(root: opts.path.Packages)
     }
 

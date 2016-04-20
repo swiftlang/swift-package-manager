@@ -9,42 +9,57 @@
 */
 
 import struct PackageDescription.Version
+import func libc.fflush
+import var libc.stdout
 import Utility
 import POSIX
 import Get
 
-enum Error: ErrorProtocol {
+public enum Error: ErrorProtocol {
     case NoRepo(String)
     case NoVersion(String)
     case NoPackageName(String)
 }
 
-public struct Delta<T> {
-    public var added: [T] = []
-    public var removed: [T] = []
-    public var upgraded: [T] = []
-    public var downgraded: [T] = []
+public enum Status {
+    case Start(packageCount: Int)
+    case Fetching(String)
 }
 
-public func update(root: String) throws {
-    for path in walk(root, recursively: false) {
-        guard path.isDirectory else { continue }
-        guard let repo = Git.Repo(path: path) else { throw Error.NoRepo(path) }
-        let oldVersion = repo.version
-        try repo.fetch()
-        try repo.upgrade()
-        print("updated:", try repo.pkgname(), oldVersion, "->", repo.version)
+public func update(root: String, progress: (Status) -> Void) throws -> Delta {
+    let dirs = walk(root, recursively: false).filter{ $0.isDirectory }
+
+    progress(.Start(packageCount: dirs.count))
+
+    var delta = Delta()
+
+    for clonepath in dirs {
+
+        progress(.Fetching(clonepath))
+
+        let (name, old, new) = try update(package: clonepath)
+
+        if new == old {
+            delta.unchanged.append((name, old))
+        } else if new > old {
+            delta.upgraded.append((name, old, new))
+        } else if old > new {
+            delta.downgraded.append((name, old, new))
+        }
     }
+
+    return delta
 }
 
 extension Git.Repo {
-    func upgrade() throws {
+    func upgrade() throws -> Version {
         guard let latestVersion = versions.last else { throw Error.NoVersion(path) }
         let vstr = (versionsArePrefixed ? "v" : "") + latestVersion.description
         let name = try pkgname()
         try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", "refs/tags/\(vstr)"])
         try Git.runPopen([Git.tool, "-C", path, "branch", "-m", vstr])
         try rename(old: path, new: "\(name)-\(vstr)")
+        return latestVersion
     }
 
     /**
@@ -67,4 +82,15 @@ extension Git.Repo {
         guard let version = Version(branch) else { fatalError() }
         return version
     }
+}
+
+private func update(package path: String) throws -> (String, Version, Version) {
+    guard let repo = Git.Repo(path: path) else { throw Error.NoRepo(path) }
+
+    let oldVersion = repo.version
+
+    try repo.fetch()
+    let newVersion = try repo.upgrade()
+
+    return (try repo.pkgname(), oldVersion, newVersion)
 }
