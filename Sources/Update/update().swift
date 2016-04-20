@@ -31,14 +31,14 @@ public func update(root: String, progress: (Status) -> Void) throws -> Delta {
 
     progress(.Start(packageCount: dirs.count))
 
-    var delta = Delta()
-
-    for clonepath in dirs {
-
+    let updates = try dirs.map { clonepath throws -> (String, Version, Version) in
         progress(.Fetching(clonepath))
+        return try update(package: clonepath)
+    }
 
-        let (name, old, new) = try update(package: clonepath)
-
+    return updates.reduce(Delta()) { delta, update in
+        var delta = delta
+        let (name, old, new) = update
         if new == old {
             delta.unchanged.append((name, old))
         } else if new > old {
@@ -46,9 +46,8 @@ public func update(root: String, progress: (Status) -> Void) throws -> Delta {
         } else if old > new {
             delta.downgraded.append((name, old, new))
         }
+        return delta
     }
-
-    return delta
 }
 
 extension Git.Repo {
