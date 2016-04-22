@@ -289,9 +289,9 @@ extension String {
             var idx = utf8.startIndex
             let end = utf8.endIndex
             while idx != end {
-                if utf8[idx] == "/".utf8.first! {
+                if utf8[idx] == UInt8(ascii: "/") {
                     idx = idx.successor()
-                    if idx == end || utf8[idx] == "/".utf8.first! {
+                    if idx == end || utf8[idx] == UInt8(ascii: "/") {
                         return false
                     }
                 }
