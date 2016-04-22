@@ -24,9 +24,12 @@ public protocol Toolchain {
 }
 
 func platformFrameworksPath() throws -> String {
-    guard let  popened = try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]),
-        let chuzzled = popened.chuzzle() else {
-            throw Error.InvalidPlatformPath
+    // Lazily compute the platform the first time it is needed.
+    struct Static {
+        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
+    }
+    guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
+        throw Error.InvalidPlatformPath
     }
     return Path.join(chuzzled, "Developer/Library/Frameworks")
 }
