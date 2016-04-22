@@ -289,6 +289,26 @@ class VersionTests: XCTestCase {
 //        XCTAssertNotEqual(v4, Version(0,Int.max,Int.max))
     }
 
+    /**
+     - seealso:
+     [Enforced Semantic Versioning](https://github.com/apple/swift-package-manager/blob/master/Documentation/PackageManagerCommunityProposal.md#enforced-semantic-versioning)
+     */
+    func testNewVersionEnforcedSemanticVersioning() {
+        let v1 = Version(1,0,0)
+        XCTAssertEqual(v1.newVersionEnforcedSemanticVersioning(updateType: .Major), Version(2,0,0))
+        XCTAssertEqual(v1.newVersionEnforcedSemanticVersioning(updateType: .Minor), Version(1,1,0))
+        XCTAssertEqual(v1.newVersionEnforcedSemanticVersioning(updateType: .Patch), Version(1,0,1))
+        
+        let v2 = Version(9,9,9)
+        XCTAssertEqual(v2.newVersionEnforcedSemanticVersioning(updateType: .Major), Version(10,0,0))
+        XCTAssertEqual(v2.newVersionEnforcedSemanticVersioning(updateType: .Minor), Version(9,10,0))
+        XCTAssertEqual(v2.newVersionEnforcedSemanticVersioning(updateType: .Patch), Version(9,9,10))
+        
+        // TODO:
+        //let v3 = Version(Int.max,0,0)
+        //let v4 = Version(1,Int.max,0)
+        //let v5 = Version(1,0,Int.max)
+    }
 }
 
 

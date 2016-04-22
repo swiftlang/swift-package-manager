@@ -116,3 +116,31 @@ extension Version: CustomStringConvertible {
         return base
     }
 }
+
+// MARK: Enforced Semantic Versioning
+
+enum UpdateType {
+    /// e.g. Remove a method from the public API or change a public method's signature
+    case Major
+    /// e.g. A new method is added to the public API
+    case Minor
+    /// e.g. Change only the implementation of a method
+    case Patch
+}
+
+extension Version {
+    /**
+     - seealso:
+     [Enforced Semantic Versioning](https://github.com/apple/swift-package-manager/blob/master/Documentation/PackageManagerCommunityProposal.md#enforced-semantic-versioning)
+     */
+    func newVersionEnforcedSemanticVersioning(updateType: UpdateType) -> Version {
+        switch updateType {
+        case .Major:
+            return Version(major + 1, 0, 0)
+        case .Minor:
+            return Version(major, minor + 1, 0)
+        case .Patch:
+            return successor()
+        }
+    }
+}
