@@ -15,6 +15,14 @@ protocol YAMLRepresentable {
 extension String: YAMLRepresentable {
     var YAML: String {
         if self == "" { return "\"\"" }
+        for c in utf8 {
+            switch c {
+            case UInt8(ascii: "@"), UInt8(ascii: " "), UInt8(ascii: "-"), UInt8(ascii: "&"):
+                return "\"\(self)\""
+            default:
+                continue
+            }
+        }
         return self
     }
 }
@@ -28,15 +36,6 @@ extension Bool: YAMLRepresentable {
 
 extension Array where Element: YAMLRepresentable {
     var YAML: String {
-        func quote(_ input: String) -> String {
-            for c in input.characters {
-                if c == "@" || c == " " || c == "-" || c == "&" {
-                    return "\"\(input)\""
-                }
-            }
-            return input
-        }
-        let stringArray = self.flatMap { String($0) }
-        return "[" + stringArray.map(quote).joined(separator: ", ") + "]"
+        return "[" + map{$0.YAML}.joined(separator: ", ") + "]"
     }
 }
