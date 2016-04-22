@@ -341,7 +341,8 @@ extension VersionTests {
             ("testRange", testRange),
             ("testSuccessor", testSuccessor),
             ("testPredecessor", testPredecessor),
-            ("testNewVersionEnforcedSemanticVersioning", testNewVersionEnforcedSemanticVersioning)
+            ("testNewVersionEnforcedSemanticVersioning", testNewVersionEnforcedSemanticVersioning),
+            
         ]
     }
 }
