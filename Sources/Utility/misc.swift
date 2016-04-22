@@ -37,7 +37,11 @@ public func rmtree(_ components: String...) throws {
             // from another part of the tree etc.
         }
     }
-    try POSIX.rmdir(path)
+    do {
+        try POSIX.rmdir(path)
+    } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
+        // Ignore ENOENT.
+    }
 }
 
 

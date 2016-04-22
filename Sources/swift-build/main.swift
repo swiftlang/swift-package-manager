@@ -13,7 +13,9 @@ import func POSIX.getenv
 import func POSIX.unlink
 import func POSIX.chdir
 import func POSIX.rmdir
+import enum POSIX.SystemError
 import func libc.exit
+import var libc.ENOENT
 import ManifestParser
 import PackageType
 import Multitool
@@ -83,7 +85,11 @@ do {
         let versionData = Path.join(opts.path.build, "versionData")
         if versionData.isDirectory { try rmtree(versionData) }
 
-        try rmdir(opts.path.build)
+        do {
+            try rmdir(opts.path.build)
+        } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
+            // Ignore ENOENT.
+        }
 
     case .Doctor:
         doctor()
