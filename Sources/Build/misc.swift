@@ -189,7 +189,7 @@ extension SystemPackageProvider {
     }
     
     var isAvailable: Bool {
-        guard let platform = Platform.currentPlatform() else { return false }
+        guard let platform = Platform.currentPlatform else { return false }
         switch self {
         case .Brew(_):
             if case .Darwin = platform  {

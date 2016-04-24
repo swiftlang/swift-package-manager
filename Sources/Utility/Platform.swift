@@ -18,7 +18,9 @@ public enum Platform {
         case Debian
     }
     
-    public static func currentPlatform() -> Platform? {
+    // Lazily return current platform.
+    public static var currentPlatform = Platform.findCurrentPlatform()
+    private static func findCurrentPlatform() -> Platform? {
         guard let uname = try? popen(["uname"]).chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
