@@ -82,9 +82,9 @@ extension SystemError: CustomStringConvertible {
             return "popen error: \(strerror(errno))"
         case .read(let errno):
             return "read error: \(strerror(errno))"
-        case readdir(let errno, _):
+        case .readdir(let errno, _):
             return "readdir error: \(strerror(errno))"
-        case readlink(let errno, let path):
+        case .readlink(let errno, let path):
             return "readlink error: \(path), \(strerror(errno))"
         case .realpath(let errno, let path):
             return "realpath error: \(strerror(errno)): \(path)"
@@ -94,19 +94,19 @@ extension SystemError: CustomStringConvertible {
             return "rmdir error: \(strerror(errno)): \(path)"
         case .stat(let errno, _):
             return "stat error: \(strerror(errno))"
-        case symlinkat(let errno, _):
+        case .symlinkat(let errno, _):
             return "symlinkat error: \(strerror(errno))"
-        case unlink(let errno, let path):
+        case .unlink(let errno, let path):
             return "unlink error: \(strerror(errno)): \(path)"
-        case waitpid(let errno):
+        case .waitpid(let errno):
             return "waitpid error: \(strerror(errno))"
-        case time(let errno):
+        case .time(let errno):
             return "time error: \(strerror(errno))"
-        case gmtime_r(let errno):
+        case .gmtime_r(let errno):
             return "gmtime_r error: \(strerror(errno))"
-        case ctime_r(let errno):
+        case .ctime_r(let errno):
             return "ctime_r error: \(strerror(errno))"
-        case strftime:
+        case .strftime:
             return "strftime error."
         }
     }

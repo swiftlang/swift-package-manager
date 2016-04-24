@@ -178,9 +178,9 @@ enum CleanMode: CustomStringConvertible {
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
-            self = Build
+            self = .Build
         case "dist"?, "distribution"?:
-            self = Dist
+            self = .Dist
         default:
             throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")
         }
@@ -200,9 +200,9 @@ enum InitMode: CustomStringConvertible {
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "library"?, "lib"?:
-            self = Library
+            self = .Library
         case nil, "executable"?, "exec"?, "exe"?:
-            self = Executable
+            self = .Executable
         default:
             throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)")
         }

@@ -33,7 +33,7 @@ extension Error: CustomStringConvertible {
             return "invalid or incomplete Swift toolchain:\n    \(prefix)"
         case .InvalidSwiftExec(let value):
             return "invalid SWIFT_EXEC value: \(value)"
-        case BuildYAMLNotFound(let value):
+        case .BuildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         }
     }
