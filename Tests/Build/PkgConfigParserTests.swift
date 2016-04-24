@@ -16,6 +16,7 @@ final class PkgConfigParserTests: XCTestCase {
     
     func testGTK3PCFile() {
         loadPCFile("gtk+-3.0.pc") { parser in
+            guard let parser = parser else { XCTFail("Unexpected parsing error"); return}
             XCTAssertEqual(parser.variables, ["libdir": "/usr/local/Cellar/gtk+3/3.18.9/lib", "gtk_host": "x86_64-apple-darwin15.3.0", "includedir": "/usr/local/Cellar/gtk+3/3.18.9/include", "prefix": "/usr/local/Cellar/gtk+3/3.18.9", "gtk_binary_version": "3.0.0", "exec_prefix": "/usr/local/Cellar/gtk+3/3.18.9", "targets": "quartz"])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk", "cairo", "cairo-gobject", "gdk-pixbuf-2.0", "gio-2.0"])
             XCTAssertEqual(parser.cFlags, "-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0 ")
@@ -25,6 +26,7 @@ final class PkgConfigParserTests: XCTestCase {
     
     func testEmptyCFlags() {
         loadPCFile("empty_cflags.pc") { parser in
+            guard let parser = parser else { XCTFail("Unexpected parsing error"); return}
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin"])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, "")
@@ -34,6 +36,7 @@ final class PkgConfigParserTests: XCTestCase {
     
     func testVariableinDependency() {
         loadPCFile("deps_variable.pc") { parser in
+            guard let parser = parser else { XCTFail("Unexpected parsing error"); return}
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk"])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, "-I")
@@ -41,15 +44,23 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
     
-    private func loadPCFile(_ inputName: String, line: UInt = #line, body: (PkgConfigParser) -> Void) {
-        do {
-            let input = Path.join(#file, "../pkgconfigInputs", inputName).normpath
-            var parser = PkgConfigParser(pcFile: input)
-            try parser.parse()
-            body(parser)
-        } catch {
-            XCTFail("Unexpected error: \(error)", file: #file, line: line)
+    func testUnresolvablePCFile() {
+        loadPCFile("failure_case.pc") { parser in
+            if parser != nil {
+                XCTFail("parsing should have failed: \(parser)")
+            }
         }
+    }
+    
+    private func loadPCFile(_ inputName: String, body: (PkgConfigParser?) -> Void) {
+        let input = Path.join(#file, "../pkgconfigInputs", inputName).normpath
+        var parser: PkgConfigParser? = PkgConfigParser(pcFile: input)
+        do {
+            try parser?.parse()
+        } catch {
+            parser = nil
+        }
+        body(parser)
     }
 }
 
