@@ -109,7 +109,7 @@ struct PkgConfigParser {
                 let value = line[equalsIndex.successor()..<line.endIndex]
                 variables[name] = try resolveVariables(value)
             } else {
-                // Unexpected thing in the pc file, abort.
+                // unexpected thing in the pc file, abort.
                 throw PkgConfigError.ParsingError("Unexpecting line: \(line) in \(pcFile)")
             }
         }
@@ -126,11 +126,11 @@ struct PkgConfigParser {
     }
     
     /// Parses `Requires: ` string into array of dependencies.
-    /// The dependecy string has seperator which can be (multiple) space or a comma.
+    /// The dependency string has seperator which can be (multiple) space or a comma.
     /// Additionally each there can be an optional version constaint to a dependency.
     private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
-        let seperators = [" ", ","]
+        let separators = [" ", ","]
         
         // Look at a char at an index if present.
         func peek(idx: Int) -> Character? {
@@ -145,7 +145,7 @@ struct PkgConfigParser {
             var token = ""
             for (idx, char) in depString.characters.enumerated() {
                 // Encountered a seperator, use the token.
-                if seperators.contains(String(char)) {
+                if separators.contains(String(char)) {
                     // If next character is a space skip.
                     if let peeked = peek(idx: idx+1) where peeked == " " { continue }
                     // Append to array of tokens and reset token variable.
