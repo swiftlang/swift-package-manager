@@ -100,7 +100,8 @@ struct PkgConfigParser {
             // Remove any trailing comment from the line.
             let line = removeComment(line: line)
             
-            if let colonIndex = line.characters.index(of: ":") where line[colonIndex.successor()] == " " {
+            if let colonIndex = line.characters.index(of: ":") where
+                line.endIndex == colonIndex.successor() || line[colonIndex.successor()] == " " {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
             } else if let equalsIndex = line.characters.index(of: "=") {

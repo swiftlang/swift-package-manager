@@ -23,6 +23,15 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
     
+    func testEmptyCFlags() {
+        loadPCFile("empty_cflags.pc") { parser in
+            XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin"])
+            XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
+            XCTAssertEqual(parser.cFlags, "")
+            XCTAssertEqual(parser.libs, "-L/usr/local/bin -lgtk-3 ")
+        }
+    }
+    
     private func loadPCFile(_ inputName: String, line: UInt = #line, body: (PkgConfigParser) -> Void) {
         do {
             let input = Path.join(#file, "../pkgconfigInputs", inputName).normpath
