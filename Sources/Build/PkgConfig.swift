@@ -95,10 +95,10 @@ struct PkgConfigParser {
         
         let file = File(path: self.pcFile)
         for line in try file.enumerate() {
-            // Ignore any commented line.
-            if line.hasPrefix("#") || line.isEmpty { continue }
-            // Remove any trailing comment from the line.
-            let line = removeComment(line: line)
+            // Remove commented or any trailing comment from the line.
+            let uncommentedLine = removeComment(line: line)
+            // Ignore any empty or whitespace line.
+            guard let line = uncommentedLine.chuzzle() else { continue }
             
             if let colonIndex = line.characters.index(of: ":") where
                 line.endIndex == colonIndex.successor() || line[colonIndex.successor()] == " " {
@@ -120,9 +120,9 @@ struct PkgConfigParser {
         if line.hasPrefix("Requires: ") {
             dependencies = try parseDependencies(resolveVariables(value(line: line)))
         } else if line.hasPrefix("Libs: ") {
-            libs = try resolveVariables(value(line: line)).chomp()
+            libs = try resolveVariables(value(line: line))
         } else if line.hasPrefix("Cflags: ") {
-            cFlags = try resolveVariables(value(line: line)).chomp()
+            cFlags = try resolveVariables(value(line: line))
         }
     }
     
