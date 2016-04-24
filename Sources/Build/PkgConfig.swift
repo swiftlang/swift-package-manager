@@ -118,7 +118,7 @@ struct PkgConfigParser {
     
     private mutating func parseKeyValue(line: String) throws {
         if line.hasPrefix("Requires: ") {
-            dependencies = try parseDependencies(value(line: line))
+            dependencies = try parseDependencies(resolveVariables(value(line: line)))
         } else if line.hasPrefix("Libs: ") {
             libs = try resolveVariables(value(line: line)).chomp()
         } else if line.hasPrefix("Cflags: ") {
