@@ -49,7 +49,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--configuration", "--conf":
+        case "--configuration", "--conf", "-c":
             self = try .Build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .Clean(CleanMode(pop()))
