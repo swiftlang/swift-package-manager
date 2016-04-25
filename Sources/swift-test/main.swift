@@ -34,7 +34,7 @@ do {
             // that makes us depend on the whole Manifest system
 
             let packageName = opts.path.root.basename  //FIXME probably not true
-            let maybePath = Path.join(opts.path.build, configuration, "\(packageName).xctest")
+            let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
 
             if maybePath.exists {
                 return maybePath
