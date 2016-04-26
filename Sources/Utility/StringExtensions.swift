@@ -18,7 +18,7 @@ extension String {
         func scrub(_ separator: String) -> String {
             var E = endIndex
             while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
-                E = E.predecessor()
+                E = location(before: E)
             }
             return self[startIndex..<E]
         }

@@ -290,12 +290,12 @@ extension String {
             let end = utf8.endIndex
             while idx != end {
                 if utf8[idx] == UInt8(ascii: "/") {
-                    idx = idx.successor()
+                    utf8.formLocation(after: &idx)
                     if idx == end || utf8[idx] == UInt8(ascii: "/") {
                         return false
                     }
                 }
-                idx = idx.successor()
+                utf8.formLocation(after: &idx)
             }
             return true
         }

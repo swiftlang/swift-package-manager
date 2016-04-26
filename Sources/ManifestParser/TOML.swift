@@ -83,27 +83,19 @@ public func ==(lhs: TOMLItem, rhs: TOMLItem) -> Bool {
 
 // MARK: Lexer
 
-private extension String {
-    /// Convenience for accessing UTF8 constant values.
-    var utf8Constant: UInt8 {
-        assert(utf8.startIndex.successor() == utf8.endIndex)
-        return utf8[utf8.startIndex]
-    }
-}
-
 /// Extensions to check TOML character classes.
 private extension UInt8 {
     /// Check if this is a space.
     func isSpace() -> Bool {
-        return self == " ".utf8Constant || self == "\t".utf8Constant
+        return self == UInt8(ascii: " ") || self == UInt8(ascii: "\t")
     }
 
     /// Check if this is a valid initial character of a number constant.
     func isNumberInitialChar() -> Bool {
         switch self {
-        case "+".utf8Constant: fallthrough
-        case "-".utf8Constant: fallthrough
-        case "0".utf8Constant..."9".utf8Constant:
+        case UInt8(ascii: "+"),
+             UInt8(ascii: "-"),
+             UInt8(ascii: "0")...UInt8(ascii:"9"):
             return true
         default:
             return false
@@ -113,13 +105,13 @@ private extension UInt8 {
     /// Check if this is a valid character of a number constant.
     func isNumberChar() -> Bool {
         switch self {
-        case "_".utf8Constant: fallthrough
-        case "+".utf8Constant: fallthrough
-        case "-".utf8Constant: fallthrough
-        case ".".utf8Constant: fallthrough
-        case "e".utf8Constant: fallthrough
-        case "E".utf8Constant: fallthrough
-        case "0".utf8Constant..."9".utf8Constant:
+        case UInt8(ascii: "_"),
+             UInt8(ascii: "+"),
+             UInt8(ascii: "-"),
+             UInt8(ascii: "."),
+             UInt8(ascii: "e"),
+             UInt8(ascii: "E"),
+             UInt8(ascii: "0")...UInt8(ascii: "9"):
             return true
         default:
             return false
@@ -129,11 +121,11 @@ private extension UInt8 {
     /// Check if this is a "bare key" identifier character.
     func isIdentifierChar() -> Bool {
         switch self {
-        case "a".utf8Constant..."z".utf8Constant: fallthrough
-        case "A".utf8Constant..."Z".utf8Constant: fallthrough
-        case "0".utf8Constant..."9".utf8Constant: fallthrough
-        case "_".utf8Constant: fallthrough
-        case "-".utf8Constant:
+        case UInt8(ascii: "a")...UInt8(ascii: "z"),
+             UInt8(ascii: "A")...UInt8(ascii: "Z"),
+             UInt8(ascii: "0")...UInt8(ascii: "9"),
+             UInt8(ascii: "_"),
+             UInt8(ascii: "-"):
             return true
         default:
             return false
@@ -213,12 +205,12 @@ private struct Lexer {
 
         // Consume and cache the next character.
         lookahead = utf8[index]
-        nextIndex = index.successor()
+        nextIndex = utf8.location(after: index)
 
         // Normalize line endings.
-        if lookahead == "\r".utf8Constant && utf8[nextIndex!] == "\n".utf8Constant {
-            nextIndex = nextIndex!.successor()
-            lookahead = "\n".utf8Constant
+        if lookahead == UInt8(ascii: "\r") && utf8[nextIndex!] == UInt8(ascii: "\n") {
+            nextIndex = utf8.location(after: nextIndex!)
+            lookahead = UInt8(ascii: "\n")
         }
 
         return lookahead
@@ -240,15 +232,15 @@ private struct Lexer {
         guard let c = eat() else { return .EOF }
         
         switch c {
-        case "\n".utf8Constant:
+        case UInt8(ascii: "\n"):
             return .Newline
             
         // Comments.
-        case "#".utf8Constant:
+        case UInt8(ascii: "#"):
             // Scan to the end of the line.
             while let c = look() {
                 eat()
-                if c == "\n".utf8Constant {
+                if c == UInt8(ascii: "\n") {
                     break
                 }
             }
@@ -263,7 +255,7 @@ private struct Lexer {
             return .Whitespace
 
         // Strings.
-        case "\"".utf8Constant:
+        case UInt8(ascii: "\""):
             // Scan to the end of the string.
             //
             // FIXME: Diagnose non-terminated strings.
@@ -273,11 +265,11 @@ private struct Lexer {
                 endIndex = index
                 eat()
 
-                if c == "\"".utf8Constant {
+                if c == UInt8(ascii: "\"") {
                     break
                 }
             }
-            return .StringLiteral(value: String(utf8[startIndex.successor()..<endIndex]))
+            return .StringLiteral(value: String(utf8[utf8.location(after: startIndex)..<endIndex]))
 
         // Numeric literals.
         //
@@ -309,15 +301,15 @@ private struct Lexer {
             }
             
         // Punctuation.
-        case ",".utf8Constant:
+        case UInt8(ascii: ","):
             return .Comma
-        case "=".utf8Constant:
+        case UInt8(ascii: "="):
             return .Equals
-        case "[".utf8Constant:
+        case UInt8(ascii: "["):
             return .LSquare
-        case "]".utf8Constant:
+        case UInt8(ascii: "]"):
             return .RSquare
-        case ".".utf8Constant:
+        case UInt8(ascii: "."):
             return .Period
             
         default:
