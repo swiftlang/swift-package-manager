@@ -25,7 +25,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.A, v1)
@@ -36,7 +36,7 @@ class VersionGraphTests: XCTestCase {
         class MockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1...v1))
+                case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1..<v1.successor()))
                 case .B: return MockCheckout(.B, [v1])
                 default:
                     fatalError()
@@ -44,7 +44,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.B, v1),
@@ -64,7 +64,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.B, v199),
@@ -76,8 +76,8 @@ class VersionGraphTests: XCTestCase {
         class MockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1...v1))
-                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v1...v1))
+                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1..<v1.successor()))
+                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v1..<v1.successor()))
                     case .C: return MockCheckout(.C, [v1])
                 default:
                     fatalError()
@@ -85,7 +85,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.C, v1),
@@ -98,7 +98,7 @@ class VersionGraphTests: XCTestCase {
         class MockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1...v1), (MockProject.C.url, v1...v1))
+                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1..<v1.successor()), (MockProject.C.url, v1..<v1.successor()))
                     case .B: return MockCheckout(.B, [v1])
                     case .C: return MockCheckout(.C, [v1])
                 default:
@@ -107,7 +107,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.B, v1),
@@ -120,8 +120,8 @@ class VersionGraphTests: XCTestCase {
         class MockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1...v1), (MockProject.C.url, v1...v1))
-                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v1...v1))
+                    case .A: return MockCheckout(.A, [v1], (MockProject.B.url, v1..<v1.successor()), (MockProject.C.url, v1..<v1.successor()))
+                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v1..<v1.successor()))
                     case .C: return MockCheckout(.C, [v1])
                 default:
                     fatalError()
@@ -129,7 +129,7 @@ class VersionGraphTests: XCTestCase {
             }
         }
 
-        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1...v1)])
+        let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
 
         XCTAssertEqual(rv, [
             MockCheckout(.C, v1),
@@ -144,7 +144,7 @@ class VersionGraphTests: XCTestCase {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
                     case .A: return MockCheckout(.A, [v1], (MockProject.C.url, v123..<v2))
-                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, v123...v126))
+                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, v123..<v126.successor()))
                     case .C: return MockCheckout(.C, [v126])
                 default:
                     fatalError()
@@ -153,8 +153,8 @@ class VersionGraphTests: XCTestCase {
         }
 
         let rv: [MockCheckout] = try! MockFetcher().recursivelyFetch([
-            (MockProject.A.url, v1...v1),
-            (MockProject.B.url, v2...v2)
+            (MockProject.A.url, v1..<v1.successor()),
+            (MockProject.B.url, v2..<v2.successor())
         ])
 
         XCTAssertEqual(rv, [
@@ -169,18 +169,18 @@ class VersionGraphTests: XCTestCase {
         class MyMockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                    case .A: return MockCheckout(.A, [v1], (MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126...v2), (MockProject.B.url, v1...v2))
-                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, Version(1,2,3)...v126), (MockProject.E.url, v2...v2))
-                    case .C: return MockCheckout(.C, [v126], (MockProject.D.url, v2...v2), (MockProject.E.url, v1..<Version(2,1,0)))
+                    case .A: return MockCheckout(.A, [v1], (MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126..<v2.successor()), (MockProject.B.url, v1..<v2.successor()))
+                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, Version(1,2,3)..<v126.successor()), (MockProject.E.url, v2..<v2.successor()))
+                    case .C: return MockCheckout(.C, [v126], (MockProject.D.url, v2..<v2.successor()), (MockProject.E.url, v1..<Version(2,1,0)))
                     case .D: return MockCheckout(.D, [v2], (MockProject.F.url, v1..<v2))
-                    case .E: return MockCheckout(.E, [v2], (MockProject.F.url, v1...v1))
+                    case .E: return MockCheckout(.E, [v2], (MockProject.F.url, v1..<v1.successor()))
                     case .F: return MockCheckout(.F, [v1])
                 }
             }
         }
 
         let rv: [MockCheckout] = try! MyMockFetcher().recursivelyFetch([
-            (MockProject.A.url, v1...v1),
+            (MockProject.A.url, v1..<v1.successor()),
         ])
 
         XCTAssertEqual(rv, [
@@ -194,19 +194,19 @@ class VersionGraphTests: XCTestCase {
     }
 
     func testVersionConstrain() {
-        let r1 = Version(1,2,3)...Version(1,2,5)
-        let r2 = Version(1,2,6)...Version(1,2,6)
-        let r3 = Version(1,2,4)...Version(1,2,4)
+        let r1 = Version(1,2,3)..<Version(1,2,5).successor()
+        let r2 = Version(1,2,6)..<Version(1,2,6).successor()
+        let r3 = Version(1,2,4)..<Version(1,2,4).successor()
 
         XCTAssertNil(r1.constrain(to: r2))
         XCTAssertNotNil(r1.constrain(to: r3))
 
-        let r4 = Version(2,0,0)...Version(2,0,0)
-        let r5 = Version(1,2,6)...Version(2,0,0)
+        let r4 = Version(2,0,0)..<Version(2,0,0).successor()
+        let r5 = Version(1,2,6)..<Version(2,0,0).successor()
 
         XCTAssertNotNil(r4.constrain(to: r5))
 
-        let r6 = Version(1,2,3)...Version(1,2,3)
+        let r6 = Version(1,2,3)..<Version(1,2,3).successor()
         XCTAssertEqual(r6.constrain(to: r6), r6)
     }
 
@@ -215,7 +215,7 @@ class VersionGraphTests: XCTestCase {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
                     case .A: return MockCheckout(.A, [v1], (MockProject.C.url, Version(1,2,3)..<v2))
-                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v2...v2))  // this is outside the above bounds
+                    case .B: return MockCheckout(.B, [v1], (MockProject.C.url, v2..<v2.successor()))  // this is outside the above bounds
                     case .C: return MockCheckout(.C, ["1.2.3", "1.9.9", "2.0.1"])
                 default:
                     fatalError()
@@ -244,11 +244,11 @@ class VersionGraphTests: XCTestCase {
         class MyMockFetcher: _MockFetcher {
             override func fetch(url: String) throws -> Fetchable {
                 switch MockProject(rawValue: url)! {
-                    case .A: return MockCheckout(.A, [v1], (MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126...v2), (MockProject.B.url, v1...v2))
-                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, Version(1,2,3)...v126), (MockProject.E.url, v2...v2))
-                    case .C: return MockCheckout(.C, ["1.2.4"], (MockProject.D.url, v2...v2), (MockProject.E.url, v1..<Version(2,1,0)))
+                    case .A: return MockCheckout(.A, [v1], (MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126..<v2.successor()), (MockProject.B.url, v1..<v2.successor()))
+                    case .B: return MockCheckout(.B, [v2], (MockProject.C.url, Version(1,2,3)..<v126.successor()), (MockProject.E.url, v2..<v2.successor()))
+                    case .C: return MockCheckout(.C, ["1.2.4"], (MockProject.D.url, v2..<v2.successor()), (MockProject.E.url, v1..<Version(2,1,0)))
                     case .D: return MockCheckout(.D, [v2], (MockProject.F.url, v1..<v2))
-                    case .E: return MockCheckout(.E, ["2.0.1"], (MockProject.F.url, v2...v2))
+                    case .E: return MockCheckout(.E, ["2.0.1"], (MockProject.F.url, v2..<v2.successor()))
                     case .F: return MockCheckout(.F, [v2])
                 }
             }
@@ -257,7 +257,7 @@ class VersionGraphTests: XCTestCase {
         var invalidGraph = false
         do {
             try MyMockFetcher().recursivelyFetch([
-                (MockProject.A.url, v1...v1),
+                (MockProject.A.url, v1..<v1.successor()),
             ])
         } catch Error.InvalidDependencyGraphMissingTag(let url, _, _) {
             XCTAssertEqual(url, MockProject.F.url)
@@ -290,11 +290,11 @@ class VersionGraphTests: XCTestCase {
 //        class MyMockFetcher: MockFetcher {
 //            override func specsForCheckout(_ checkout: MockCheckout) -> [(String, Range<Version>)] {
 //                switch checkout.project {
-//                case .A: return [(MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126...v2), (MockProject.B.url, v1...v2)]
-//                case .B: return [(MockProject.C.url, Version(1,2,3)...v126), (MockProject.E.url, v2...v2)]
-//                case .C: return [(MockProject.D.url, v2...v2), (MockProject.E.url, v1..<Version(2,1,0))]
+//                case .A: return [(MockProject.C.url, Version(1,2,3)..<v2), (MockProject.D.url, v126..<v2.successor()), (MockProject.B.url, v1..<v2.successor())]
+//                case .B: return [(MockProject.C.url, Version(1,2,3)..<v126.successor()), (MockProject.E.url, v2..<v2.successor())]
+//                case .C: return [(MockProject.D.url, v2..<v2.successor()), (MockProject.E.url, v1..<Version(2,1,0))]
 //                case .D: return [(MockProject.F.url, v1..<v2)]
-//                case .E: return [(MockProject.F.url, v2...v2)]
+//                case .E: return [(MockProject.F.url, v2..<v2.successor())]
 //                case .F: return []
 //                }
 //            }
