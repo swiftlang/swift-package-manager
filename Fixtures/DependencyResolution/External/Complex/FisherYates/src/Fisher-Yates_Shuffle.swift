@@ -13,7 +13,7 @@ public extension Collection {
     }
 }
 
-public extension MutableCollection where Index == Int {
+public extension MutableCollection where Index == Int, IndexDistance == Int {
     mutating func shuffleInPlace() {
         guard count > 1 else { return }
 

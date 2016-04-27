@@ -87,7 +87,7 @@ private func split(_ arg: String) -> (String, String?) {
     let chars = arg.characters
     if let ii = chars.index(of: "=") {
         let flag = chars.prefix(upTo: ii)
-        let value = chars.suffix(from: ii.advanced(by: 1))
+        let value = chars.suffix(from: chars.index(after: ii))
         return (String(flag), String(value))
     } else {
         return (arg, nil)

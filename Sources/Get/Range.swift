@@ -8,7 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Range where Element: BidirectionalIndex, Element: Comparable {
+import PackageDescription
+
+// FIXME: workaround for inability to constrain the extension to `Bound == Version`.
+protocol _VersionProtocol {}
+extension Version : _VersionProtocol {}
+
+extension Range where Bound : _VersionProtocol {
 
     /**
      - Returns: A new Range with startIndex and endIndex constrained such that
@@ -16,8 +22,8 @@ extension Range where Element: BidirectionalIndex, Element: Comparable {
      If the two ranges do not overlap at all returns `nil`.
      */
     func constrain(to constraint: Range) -> Range? {
-        let start = Swift.max(self.startIndex, constraint.startIndex)
-        let end = Swift.min(self.endIndex, constraint.endIndex)
+        let start = Swift.max(self.lowerBound, constraint.lowerBound)
+        let end = Swift.min(self.upperBound, constraint.upperBound)
         if start < end {
             return start..<end
         } else {

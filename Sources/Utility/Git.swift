@@ -87,7 +87,7 @@ public class Git {
         let prefix = "git version"
         var version = self.version
         if version.hasPrefix(prefix) {
-            let prefixRange = version.startIndex...version.startIndex.advanced(by: prefix.characters.count)
+            let prefixRange = version.startIndex...version.index(version.startIndex, offsetBy: prefix.characters.count)
             version.removeSubrange(prefixRange)
         }
         guard let first = version.characters.first else {
