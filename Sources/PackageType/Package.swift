@@ -10,7 +10,7 @@
 
 import struct PackageDescription.Version
 import Utility
-import struct PackageDescription.Version
+
 
 public class Package {
     public let url: String
