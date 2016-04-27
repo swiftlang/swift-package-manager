@@ -101,13 +101,13 @@ struct PkgConfigParser {
             guard let line = uncommentedLine.chuzzle() else { continue }
             
             if let colonIndex = line.characters.index(of: ":") where
-                line.endIndex == line.characters.location(after: colonIndex) || line[line.characters.location(after: colonIndex)] == " " {
+                line.endIndex == line.characters.index(after: colonIndex) || line[line.characters.index(after: colonIndex)] == " " {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
             } else if let equalsIndex = line.characters.index(of: "=") {
                 // Found a variable.
                 let name = line[line.startIndex..<equalsIndex]
-                let value = line[line.location(after: equalsIndex)..<line.endIndex]
+                let value = line[line.index(after: equalsIndex)..<line.endIndex]
                 variables[name] = try resolveVariables(value)
             } else {
                 // unexpected thing in the pc file, abort.
@@ -136,7 +136,7 @@ struct PkgConfigParser {
         // Look at a char at an index if present.
         func peek(idx: Int) -> Character? {
             guard idx <= depString.characters.count - 1 else { return nil }
-            return depString.characters[depString.characters.location(depString.characters.startIndex, offsetBy: idx)]
+            return depString.characters[depString.characters.index(depString.characters.startIndex, offsetBy: idx)]
         }
         
         // This converts the string which can be seperated by comma or spaces
@@ -189,9 +189,9 @@ struct PkgConfigParser {
         // We make sure it of form ${name} otherwise it is not a variable.
         func findVariable(_ fragment: String) -> (name: String, startIndex: StringIndex, endIndex: StringIndex)? {
             guard let dollar = fragment.characters.index(of: "$") else { return nil }
-            guard dollar != fragment.endIndex && fragment.characters[fragment.location(after: dollar)] == "{" else { return nil }
+            guard dollar != fragment.endIndex && fragment.characters[fragment.index(after: dollar)] == "{" else { return nil }
             guard let variableEndIndex = fragment.characters.index(of: "}") else { return nil }
-            return (fragment[fragment.location(dollar, offsetBy: 2)..<variableEndIndex], dollar, variableEndIndex)
+            return (fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex], dollar, variableEndIndex)
         }
 
         var result = ""
@@ -207,7 +207,7 @@ struct PkgConfigParser {
                 // Append the value of the variable.
                 result += variableValue
                 // Update the fragment with post variable string.
-                fragment = fragment[fragment.location(after: variable.endIndex)..<fragment.characters.endIndex]
+                fragment = fragment[fragment.index(after: variable.endIndex)..<fragment.characters.endIndex]
             } else {
                 // No variable found, just append rest of the fragment to result.
                 result += fragment
@@ -221,6 +221,6 @@ struct PkgConfigParser {
         guard let colonIndex = line.characters.index(of: ":") else {
             return ""
         }
-        return line[line.location(colonIndex, offsetBy: 2)..<line.endIndex]
+        return line[line.index(colonIndex, offsetBy: 2)..<line.endIndex]
     }
 }

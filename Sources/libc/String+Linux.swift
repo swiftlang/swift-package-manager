@@ -19,7 +19,7 @@
             }
             // FIXME: the complexity of this algorithm is O(n^2).
             for i in 0..<str.utf8.count {
-                if utf8[utf8.location(utf8.startIndex, offsetBy: i)] != str.utf8[str.utf8.location(str.utf8.startIndex, offsetBy: i)] {
+                if utf8[utf8.index(utf8.startIndex, offsetBy: i)] != str.utf8[str.utf8.index(str.utf8.startIndex, offsetBy: i)] {
                     return false
                 }
             }
@@ -34,7 +34,7 @@
             }
             // FIXME: the complexity of this algorithm is O(n^2).
             for i in 0..<strCount {
-                if utf8[utf8.location(utf8.startIndex, offsetBy: count-i-1)] != str.utf8[str.utf8.location(str.utf8.startIndex, offsetBy: strCount-i-1)] {
+                if utf8[utf8.index(utf8.startIndex, offsetBy: count-i-1)] != str.utf8[str.utf8.index(str.utf8.startIndex, offsetBy: strCount-i-1)] {
                     return false
                 }
             }

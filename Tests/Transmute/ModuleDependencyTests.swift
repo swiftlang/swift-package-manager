@@ -111,7 +111,7 @@ class ModuleDependencyTests: XCTestCase {
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps
-            XCTAssertEqual(t6rd.index(of: t3)!, t6rd.location(after: t6rd.index(of: t4)!))
+            XCTAssertEqual(t6rd.index(of: t3)!, t6rd.index(after: t6rd.index(of: t4)!))
             XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t2)!)
             XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t1)!)
             XCTAssert(t6rd.index(of: t2)! < t6rd.index(of: t1)!)
@@ -142,7 +142,7 @@ class ModuleDependencyTests: XCTestCase {
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps
-            XCTAssertEqual(t6rd.index(of: t3)!, t6rd.location(after: t6rd.index(of: t4)!))
+            XCTAssertEqual(t6rd.index(of: t3)!, t6rd.index(after: t6rd.index(of: t4)!))
             XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t2)!)
             XCTAssert(t6rd.index(of: t5)! < t6rd.index(of: t1)!)
             XCTAssert(t6rd.index(of: t2)! < t6rd.index(of: t1)!)

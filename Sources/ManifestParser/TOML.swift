@@ -205,11 +205,11 @@ private struct Lexer {
 
         // Consume and cache the next character.
         lookahead = utf8[index]
-        nextIndex = utf8.location(after: index)
+        nextIndex = utf8.index(after: index)
 
         // Normalize line endings.
         if lookahead == UInt8(ascii: "\r") && utf8[nextIndex!] == UInt8(ascii: "\n") {
-            nextIndex = utf8.location(after: nextIndex!)
+            nextIndex = utf8.index(after: nextIndex!)
             lookahead = UInt8(ascii: "\n")
         }
 
@@ -269,7 +269,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .StringLiteral(value: String(utf8[utf8.location(after: startIndex)..<endIndex]))
+            return .StringLiteral(value: String(utf8[utf8.index(after: startIndex)..<endIndex]))
 
         // Numeric literals.
         //
