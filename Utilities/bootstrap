@@ -462,7 +462,7 @@ def get_swift_build_tool_path():
     SWIFT_EXEC = os.getenv("SWIFT_EXEC")
     if SWIFT_EXEC:
         maybe_path = os.path.join(SWIFT_EXEC, "../swift-build-tool")
-        if exists(maybe_path):
+        if os.path.exists(maybe_path):
             return maybe_path
 
     # If that failed, on Darwin use xcrun to search for the tool.
@@ -490,7 +490,7 @@ def get_swift_build_tool_path():
 def get_swiftc_path():
     try:
         if os.getenv("SWIFT_EXEC"):
-            return os.realpath(os.getenv("SWIFT_EXEC"))
+            return os.path.realpath(os.getenv("SWIFT_EXEC"))
         elif platform.system() == 'Darwin':
             return subprocess.check_output(["xcrun", "--find", "swiftc"],
                 stderr=subprocess.PIPE, universal_newlines=True).strip()
