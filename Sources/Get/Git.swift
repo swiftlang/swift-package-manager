@@ -15,7 +15,7 @@ import enum POSIX.Error
 import Utility
 
 extension Git {
-    class func clone(_ url: String, to dstdir: String) throws -> Repo {
+    public class func clone(_ url: String, to dstdir: String) throws -> Repo {
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {
@@ -63,5 +63,11 @@ extension Git.Repo {
     /// Check if repo contains a version tag
     var hasVersion: Bool {
         return !versions.isEmpty
+    }
+
+    public func set(branch: Version) throws {
+        let tag = (versionsArePrefixed ? "v" : "") + branch.description
+        try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", "refs/tags/\(tag)"])
+        try Git.runPopen([Git.tool, "-C", path, "branch", "-m", tag])
     }
 }
