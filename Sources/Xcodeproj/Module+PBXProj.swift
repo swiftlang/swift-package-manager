@@ -189,10 +189,10 @@ extension XcodeModuleProtocol  {
         var buildSettings = ["PRODUCT_NAME": productName]
         buildSettings["PRODUCT_MODULE_NAME"] = c99name
         buildSettings["OTHER_SWIFT_FLAGS"] = serializeArray(options.Xswiftc+["-DXcode"])
+
+        // Propagate any user provided build flag overrides.
         buildSettings["OTHER_CFLAGS"] = serializeArray(options.Xcc)
         buildSettings["OTHER_LDFLAGS"] = serializeArray(options.Xld)
-
-        buildSettings["MACOSX_DEPLOYMENT_TARGET"] = "'10.10'"
 
         // prevents Xcode project upgrade warnings
         buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
