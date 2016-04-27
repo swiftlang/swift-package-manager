@@ -14,6 +14,7 @@
 
 import struct PackageType.Manifest
 import func libc.fflush
+import var Utility.verbosity
 import var libc.stdout
 import Update
 
@@ -27,14 +28,18 @@ func update(root: String, pkgdir: String) throws {
     do {
         defer { print("") }
 
-        delta = try update(manifest: manifest, parser: parseManifest, pkgdir: pkgdir) { status in
-            switch status {
-            case .Start(let count):
+        let deps = manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
+
+        delta = try update(dependencies: deps, manifestParser: parseManifest, pkgdir: pkgdir) { status in
+            switch (verbosity, status) {
+            case (_, .Start(let count)):
                 print("Updating \(count) packages")
-            case .Fetching, .Cloning:
+            case (.Concise, _):
                 print(".", terminator: "")
+                fflush(libc.stdout)
+            default:
+                print(status)
             }
-            fflush(libc.stdout)
         }
     }
 
@@ -46,8 +51,8 @@ func update(root: String, pkgdir: String) throws {
 
 extension Delta: CustomStringConvertible {
     public var description: String {
-        if added.isEmpty && changed.isEmpty && !unchanged.isEmpty {
-            return "notice: no versions changed"
+        if added.isEmpty && changed.isEmpty {
+            return "notice: no change"
         }
 
         var lines = [String]()
@@ -57,9 +62,6 @@ extension Delta: CustomStringConvertible {
             } else {
                 lines.append("⬇ \(name) \(v1) → \(v2)")
             }
-        }
-        for (name, v1) in unchanged {
-            lines.append("= \(name) \(v1)")
         }
         return lines.joined(separator: "\n")
     }

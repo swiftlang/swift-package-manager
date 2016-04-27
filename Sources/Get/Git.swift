@@ -65,9 +65,11 @@ extension Git.Repo {
         return !versions.isEmpty
     }
 
-    public func set(branch: Version) throws {
+    public func set(branch: Version, updateBranch: Bool = true) throws {
         let tag = (versionsArePrefixed ? "v" : "") + branch.description
         try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", "refs/tags/\(tag)"])
-        try Git.runPopen([Git.tool, "-C", path, "branch", "-m", tag])
+        if updateBranch {
+            try Git.runPopen([Git.tool, "-C", path, "branch", "-m", tag])
+        }
     }
 }

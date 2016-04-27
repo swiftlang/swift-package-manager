@@ -79,18 +79,18 @@ private func printArgumentsIfVerbose(_ arguments: [String]) {
     }
 }
 
-public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
-    printArgumentsIfVerbose(arguments)
+public func system(_ arguments: [String], environment: [String:String] = [:], echo: Bool = true) throws {
+    if echo { printArgumentsIfVerbose(arguments) }
     try POSIX.system(arguments, environment: environment)
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
-    printArgumentsIfVerbose(arguments)
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], echo: Bool = true) throws -> String {
+    if echo { printArgumentsIfVerbose(arguments) }
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws {
-    printArgumentsIfVerbose(arguments)
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], echo: Bool = true, body: String -> Void) throws {
+    if echo { printArgumentsIfVerbose(arguments) }
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment, body: body)
 }
 
@@ -111,7 +111,7 @@ public func system(_ arguments: String..., environment: [String:String] = [:], m
                 out += line
             }
         } else {
-            try system(arguments, environment: environment)
+            try Utility.system(arguments, environment: environment)
         }
     } catch {
         if verbosity == .Concise {

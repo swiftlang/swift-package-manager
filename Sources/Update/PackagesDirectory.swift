@@ -24,4 +24,8 @@ struct PackagesDirectory {
         }
         return nil
     }
+
+    var count: Int {
+        return walk(root, recursively: false).filter{ $0.isDirectory }.count
+    }
 }

@@ -24,48 +24,71 @@ import func POSIX.rename
 import Utility
 import Get
 
-public func update(manifest rootManifest: Manifest, parser: (String, baseURL: String) throws -> Manifest, pkgdir: String, progress: (Status) -> Void) throws -> Delta
+public func update(dependencies: [(String, Range<Version>)], manifestParser: (String, baseURL: String) throws -> Manifest, pkgdir: String, progress: (Status) -> Void) throws -> Delta
 {
-    //FIXME count is hardly a good metric
-    progress(.Start(packageCount: walk(pkgdir, recursively: false).filter{ $0.isDirectory }.count))
-
     let pkgsdir = PackagesDirectory(root: pkgdir)
-    let updater = Updater(dependencies: rootManifest.package.dependencies.map{ ($0.url, $0.versionRange) })
+    let updater = Updater(dependencies: dependencies)
     var delta = Delta()
 
-    while let ejecta = try updater.crank() {
-        switch ejecta {
-        case .Pending(let fetch):
-            progress(.Fetching)
-            let upgrade = try fetch()
-            let result = try upgrade()
+    progress(.Start(packageCount: pkgsdir.count))
 
-            switch result {
-            case .NoChange(let url, let version):
-                delta.unchanged.append((url, version))
-            case .Changed(let url, let old, let new):
-                precondition(old != new)
-                delta.changed.append((url, old, new))
-            }
-
-        case .PleaseQueue(let url, let queue):
-            let repo: Git.Repo
-            if let å = pkgsdir.find(url: url) {
-                repo = å
+    while let turn = try updater.crank() {
+        switch turn {
+        case .Fetch(let url):
+            if let repo = pkgsdir.find(url: url) {
+                progress(.Fetching(url))
+                try repo.fetch(quick: true)
             } else {
                 progress(.Cloning(url))
+
                 let name = Package.name(url: url)
                 let dstdir = Path.join(pkgsdir.root, "\(name)-0.0.0") //FIXME 0.0.0
-                repo = try Git.clone(url, to: dstdir)
+                try Git.clone(url, to: dstdir)
+
                 delta.added.append(url)
             }
 
-            let checkout = try Checkout(manifest: parser(repo.path, baseURL: repo.origin ?? "error"))
+        case .ReadManifest(let job):
+            try job { url, versionRange in
+                guard let repo = pkgsdir.find(url: url) else { fatalError() }  //FIXME
+                let newVersion: Version! = repo ~= versionRange
+                progress(.Parsing(url, newVersion))
 
-            try queue(checkout)
+                if newVersion != repo.version {
+                    // checks out only Package.swift for the selected version
+                    // FIXME checkout somewhere else!
+                    var vstr = "\(newVersion)"
+                    if repo.versionsArePrefixed { vstr = "v\(vstr)" }
+                    try system(Git.tool, "-C", repo.path, "checkout", "refs/tags/\(vstr)", "--", "Package.swift")
+                }
 
-        case .Processed:
-            break
+                let manifest = try manifestParser(repo.path, baseURL: url)
+
+                if newVersion != repo.version {
+                    try system(Git.tool, "-C", repo.path, "checkout", "Package.swift")
+                }
+
+                let specs = manifest.package.dependencies.map{ (url: $0.url, versionRange: $0.versionRange) }
+
+                return (specs, newVersion)
+            }
+
+        case .Update(let url, let versionRange):
+            guard let repo = pkgsdir.find(url: url) else { fatalError() } //FIXME associate repo object or something
+            let oldVersion = repo.version
+
+            // ⬇⬇ FIXME
+            let newVersion: Version! = repo ~= versionRange
+            guard newVersion != oldVersion else { continue }
+            progress(.Updating(url, newVersion))
+            // ⬆⬆ FIXME
+
+
+            let newpath = Path.join(repo.path, "../\(repo.name)-\(newVersion)").normpath
+            try repo.set(branch: newVersion)
+            try rename(old: repo.path, new: newpath)
+
+            delta.changed.append((url, old: oldVersion, new: newVersion))
         }
     }
 
@@ -74,6 +97,31 @@ public func update(manifest rootManifest: Manifest, parser: (String, baseURL: St
 
 public enum Status {
     case Start(packageCount: Int)
-    case Fetching
-    case Cloning(String)
+    case Fetching(URL)
+    case Cloning(URL)
+    case Parsing(URL, Version)
+    case Updating(URL, Version)
+}
+
+
+extension Git.Repo {
+    var version: Version {
+        var branch = self.branch
+        if branch.hasPrefix("heads/") {
+            branch = String(branch.characters.dropFirst(6))
+        }
+        if branch.hasPrefix("v") {
+            branch = String(branch.characters.dropFirst())
+        }
+        return Version(branch)!
+    }
+
+    var name: String {
+        //FIXME lame
+        return String(path.basename.characters.dropLast(version.description.characters.count + 1))
+    }
+}
+
+func ~=(repo: Git.Repo, vv: Range<Version>) -> Version? {
+    return repo.versions.filter{ $0.isStable && vv ~= $0 }.sorted().last
 }
