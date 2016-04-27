@@ -12,22 +12,26 @@
  build troubles or for other troubleshooting purposes.
 */
 
+import struct PackageType.Manifest
 import func libc.fflush
 import var libc.stdout
 import Update
 
-func update(root: String) throws {
+
+func update(root: String, pkgdir: String) throws {
     guard root.isDirectory else { throw Error.FetchRequired }
+
+    let manifest = try parseManifest(path: root, baseURL: root)
 
     let delta: Delta
     do {
         defer { print("") }
 
-        delta = try update(root: root) { status in
+        delta = try update(manifest: manifest, parser: parseManifest, pkgdir: pkgdir) { status in
             switch status {
             case .Start(let count):
                 print("Updating \(count) packages")
-            case .Fetching:
+            case .Fetching, .Cloning:
                 print(".", terminator: "")
             }
             fflush(libc.stdout)
@@ -37,15 +41,22 @@ func update(root: String) throws {
     print(delta)
 }
 
+
+//MARK: helpers
+
 extension Delta: CustomStringConvertible {
     public var description: String {
-        if added.isEmpty && removed.isEmpty && upgraded.isEmpty && downgraded.isEmpty && !unchanged.isEmpty {
+        if added.isEmpty && changed.isEmpty && !unchanged.isEmpty {
             return "notice: no versions changed"
         }
 
         var lines = [String]()
-        for (name, v1, v2) in upgraded {
-            lines.append("⬆ \(name) \(v1) → \(v2)")
+        for (name, v1, v2) in changed {
+            if v2 > v1 {
+                lines.append("⬆ \(name) \(v1) → \(v2)")
+            } else {
+                lines.append("⬇ \(name) \(v1) → \(v2)")
+            }
         }
         for (name, v1) in unchanged {
             lines.append("= \(name) \(v1)")

@@ -11,9 +11,8 @@
 import struct PackageDescription.Version
 
 public struct Delta {
-    public var added: [(String, Version)] = []
-    public var removed: [(String)] = []
-    public var upgraded: [(String, Version, Version)] = []
+    public var added: [String] = []
+    public var changed: [(String, old: Version, new: Version)] = []
+    public var renamed: [(old: String, new: String)] = []
     public var unchanged: [(String, Version)] = []
-    public var downgraded: [(String, Version, Version)] = []
 }

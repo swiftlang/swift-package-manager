@@ -6,90 +6,74 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ 
+ ---------------
+ 
+ Iteratively update a package tree.
+ 
+ A major issue currently is that this is all done in place and
+ there is no undo.
+ 
+ TODO report unreferenced dependencies
 */
 
 import struct PackageDescription.Version
-import func libc.fflush
-import var libc.stdout
+import struct PackageType.Manifest
+import class PackageType.Package
+import func POSIX.rename
 import Utility
-import POSIX
 import Get
 
-public enum Error: ErrorProtocol {
-    case NoRepo(String)
-    case NoVersion(String)
-    case NoPackageName(String)
+public func update(manifest rootManifest: Manifest, parser: (String, baseURL: String) throws -> Manifest, pkgdir: String, progress: (Status) -> Void) throws -> Delta
+{
+    //FIXME count is hardly a good metric
+    progress(.Start(packageCount: walk(pkgdir, recursively: false).filter{ $0.isDirectory }.count))
+
+    let pkgsdir = PackagesDirectory(root: pkgdir)
+    let updater = Updater(dependencies: rootManifest.package.dependencies.map{ ($0.url, $0.versionRange) })
+    var delta = Delta()
+
+    while let ejecta = try updater.crank() {
+        switch ejecta {
+        case .Pending(let fetch):
+            progress(.Fetching)
+            let upgrade = try fetch()
+            let result = try upgrade()
+
+            switch result {
+            case .NoChange(let url, let version):
+                delta.unchanged.append((url, version))
+            case .Changed(let url, let old, let new):
+                precondition(old != new)
+                delta.changed.append((url, old, new))
+            }
+
+        case .PleaseQueue(let url, let queue):
+            let repo: Git.Repo
+            if let å = pkgsdir.find(url: url) {
+                repo = å
+            } else {
+                progress(.Cloning(url))
+                let name = Package.name(url: url)
+                let dstdir = Path.join(pkgsdir.root, "\(name)-0.0.0") //FIXME 0.0.0
+                repo = try Git.clone(url, to: dstdir)
+                delta.added.append(url)
+            }
+
+            let checkout = try Checkout(manifest: parser(repo.path, baseURL: repo.origin ?? "error"))
+
+            try queue(checkout)
+
+        case .Processed:
+            break
+        }
+    }
+
+    return delta
 }
 
 public enum Status {
     case Start(packageCount: Int)
-    case Fetching(String)
-}
-
-public func update(root: String, progress: (Status) -> Void) throws -> Delta {
-    let dirs = walk(root, recursively: false).filter{ $0.isDirectory }
-
-    progress(.Start(packageCount: dirs.count))
-
-    let updates = try dirs.map { clonepath throws -> (String, Version, Version) in
-        progress(.Fetching(clonepath))
-        return try update(package: clonepath)
-    }
-
-    return updates.reduce(Delta()) { delta, update in
-        var delta = delta
-        let (name, old, new) = update
-        if new == old {
-            delta.unchanged.append((name, old))
-        } else if new > old {
-            delta.upgraded.append((name, old, new))
-        } else if old > new {
-            delta.downgraded.append((name, old, new))
-        }
-        return delta
-    }
-}
-
-extension Git.Repo {
-    func upgrade() throws -> Version {
-        guard let latestVersion = versions.last else { throw Error.NoVersion(path) }
-        let vstr = (versionsArePrefixed ? "v" : "") + latestVersion.description
-        let name = try pkgname()
-        try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", "refs/tags/\(vstr)"])
-        try Git.runPopen([Git.tool, "-C", path, "branch", "-m", vstr])
-        try rename(old: path, new: "\(name)-\(vstr)")
-        return latestVersion
-    }
-
-    /**
-     TODO should be at a higher module level.
-     FIXME DRY
-     FIXME also this is gross and flakier than necessary.
-    */
-    func pkgname() throws -> String {
-        let version = self.version.description.characters
-        let rawname = path.basename.characters.dropLast(version.count + 1)
-        guard let pkgname = String(rawname).chuzzle() where !pkgname.isEmpty else { throw Error.NoPackageName(path) }
-        return pkgname
-    }
-
-    var version: Version {
-        var branch = self.branch.characters
-        if branch.starts(with: "heads/".characters) {
-            branch = branch.dropFirst(6)
-        }
-        guard let version = Version(branch) else { fatalError() }
-        return version
-    }
-}
-
-private func update(package path: String) throws -> (String, Version, Version) {
-    guard let repo = Git.Repo(path: path) else { throw Error.NoRepo(path) }
-
-    let oldVersion = repo.version
-
-    try repo.fetch()
-    let newVersion = try repo.upgrade()
-
-    return (try repo.pkgname(), oldVersion, newVersion)
+    case Fetching
+    case Cloning(String)
 }

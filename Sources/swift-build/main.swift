@@ -21,7 +21,6 @@ import Transmute
 import Xcodeproj
 import Utility
 import Build
-import Get
 
 do {
     let args = Array(Process.arguments.dropFirst())
@@ -107,7 +106,7 @@ do {
         print("generated:", outpath.prettyPath)
 
     case .Update:
-        try update(root: opts.path.Packages)
+        try update(root: opts.path.root, pkgdir: opts.path.Packages)
     }
 
 } catch {
