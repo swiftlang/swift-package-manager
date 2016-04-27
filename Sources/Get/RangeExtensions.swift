@@ -21,7 +21,7 @@ extension Range where Bound : _VersionProtocol {
      the returned range is entirely within this Range and the provided Range.
      If the two ranges do not overlap at all returns `nil`.
      */
-    func constrain(to constraint: Range) -> Range? {
+    public func constrained(to constraint: Range) -> Range? {
         let start = Swift.max(self.lowerBound, constraint.lowerBound)
         let end = Swift.min(self.upperBound, constraint.upperBound)
         if start < end {

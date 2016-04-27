@@ -50,7 +50,7 @@ extension Fetcher {
                     // this package has already been checked out this instantiation
                     // verify that it satisfies the requested version range
 
-                    guard let updatedRange = cumulativeVersionRange.constrain(to: specifiedVersionRange) else {
+                    guard let updatedRange = cumulativeVersionRange.constrained(to: specifiedVersionRange) else {
                         throw Error.InvalidDependencyGraph(url)
                     }
 

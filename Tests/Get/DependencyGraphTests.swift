@@ -198,16 +198,16 @@ class VersionGraphTests: XCTestCase {
         let r2 = Version(1,2,6)..<Version(1,2,6).successor()
         let r3 = Version(1,2,4)..<Version(1,2,4).successor()
 
-        XCTAssertNil(r1.constrain(to: r2))
-        XCTAssertNotNil(r1.constrain(to: r3))
+        XCTAssertNil(r1.constrained(to: r2))
+        XCTAssertNotNil(r1.constrained(to: r3))
 
         let r4 = Version(2,0,0)..<Version(2,0,0).successor()
         let r5 = Version(1,2,6)..<Version(2,0,0).successor()
 
-        XCTAssertNotNil(r4.constrain(to: r5))
+        XCTAssertNotNil(r4.constrained(to: r5))
 
-        let r6 = Version(1,2,3)..<Version(1,2,3).successor()
-        XCTAssertEqual(r6.constrain(to: r6), r6)
+        let r6 = Version(1,2,3)...Version(1,2,3)
+        XCTAssertEqual(r6.constrained(to: r6), r6)
     }
 
     func testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple() {
