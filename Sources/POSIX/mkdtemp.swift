@@ -21,16 +21,16 @@ import func libc.rmdir
 public func mkdtemp<T>(_ template: String, prefix: String! = nil, body: @noescape(String) throws -> T) rethrows -> T {
     var prefix = prefix
     if prefix == nil { prefix = getenv("TMPDIR") ?? "/tmp/" }
-    if !prefix.hasSuffix("/") {
+    if !prefix!.hasSuffix("/") {
         prefix! += "/"
     }
-    let path = prefix + "\(template).XXXXXX"
+    let path = prefix! + "\(template).XXXXXX"
 
     return try path.withCString { template in
         let mutable = UnsafeMutablePointer<Int8>(template)
         let dir = libc.mkdtemp(mutable)  //TODO get actual TMP dir
         if dir == nil { throw SystemError.mkdtemp(errno) }
         defer { rmdir(dir) }
-        return try body(String(validatingUTF8: dir)!)
+        return try body(String(validatingUTF8: dir!)!)
     }
 }

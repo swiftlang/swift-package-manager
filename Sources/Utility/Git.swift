@@ -85,7 +85,7 @@ public class Git {
 
     public class var majorVersionNumber: Int? {
         let prefix = "git version"
-        var version = self.version
+        var version = self.version!
         if version.hasPrefix(prefix) {
             let prefixRange = version.startIndex...version.index(version.startIndex, offsetBy: prefix.characters.count)
             version.removeSubrange(prefixRange)

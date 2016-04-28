@@ -35,6 +35,6 @@ public func getcwd() -> String {
     let cwd = libc.getcwd(nil, Int(PATH_MAX))
     if cwd == nil { error() }
     defer { free(cwd) }
-    guard let path = String(validatingUTF8: cwd) else { error() }
+    guard let path = String(validatingUTF8: cwd!) else { error() }
     return path
 }

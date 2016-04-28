@@ -49,7 +49,7 @@ class RawClone: Fetchable {
     }
 
     var version: Version {
-        var branch = repo.branch
+        var branch = repo.branch!
         if branch.hasPrefix("heads/") {
             branch = String(branch.characters.dropFirst(6))
         }
