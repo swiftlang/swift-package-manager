@@ -8,6 +8,19 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+extension ByteStringTests {
+    static var allTests : [(String, ByteStringTests -> () throws -> Void)] {
+        return [
+                   ("testInitializers", testInitializers),
+                   ("testAccessors", testAccessors),
+                   ("testAsString", testAsString),
+                   ("testDescription", testDescription),
+                   ("testHashable", testHashable),
+                   ("testByteStreamable", testByteStreamable),
+        ]
+    }
+}
+
 extension CollectionTests {
     static var allTests : [(String, CollectionTests -> () throws -> Void)] {
         return [
@@ -35,6 +48,17 @@ extension RmtreeTests {
     static var allTests : [(String, RmtreeTests -> () throws -> Void)] {
         return [
                    ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
+        ]
+    }
+}
+
+extension OutputByteStreamTests {
+    static var allTests : [(String, OutputByteStreamTests -> () throws -> Void)] {
+        return [
+                   ("testBasics", testBasics),
+                   ("testStreamOperator", testStreamOperator),
+                   ("testJSONEncoding", testJSONEncoding),
+                   ("testFormattedOutput", testFormattedOutput),
         ]
     }
 }
