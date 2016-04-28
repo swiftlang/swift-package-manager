@@ -9,7 +9,6 @@
 */
 
 @testable import PackageDescription
-import func libc.rand
 import XCTest
 
 class VersionTests: XCTestCase {
@@ -159,68 +158,14 @@ class VersionTests: XCTestCase {
         XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifier: "1011"), Version("0.9.21+1011"))
     }
 
-    func testSort() {
-        let transformed = "0.9.1 0.9.10 0.9.11 0.9.11.1 0.9.12 0.9.13 0.9.13.1 0.9.13.2 0.9.14 0.9.14.1 0.9.14.2 0.9.14.3 0.9.15 0.9.15.1 0.9.15.2 0.9.15.3 0.9.16 0.9.16.1 0.9.16.2 0.9.16.3 0.9.16.4 0.9.16.5 0.9.16.6 0.9.17 0.9.17.1 0.9.18 0.9.19 0.9.2 0.9.20 0.9.21 0.9.3 0.9.4 0.9.5 0.9.6 0.9.7 0.9.7.1 0.9.7.2 0.9.7.3 0.9.7.4 0.9.7.5 0.9.8 0.9.8.1 0.9.9 1.0 1.0.1 1.0.2 1.0.3 1.1 1.2 1.2.1 1.2.2 1.2.3 1.2.4 1.2.5 1.3.0 1.3.1 1.3.2 1.4.0 1.4.1 1.4.2 1.4.3 1.5.0 1.5.1 1.5.2 1.5.3 1.6.0 2.0.0 2.0.1 2.0.2 2.0.3 2.0.4 2.0.5 2.0.6 2.1.0 2.1.1 2.1.2 2.1.3 2.2.0 2.2.1 2.2.2 ".characters.split(separator: " ").flatMap(Version.init).shuffle().sorted()
-
-        let expected = [
-            Version(0,9,1),
-            Version(0,9,2),
-            Version(0,9,3),
-            Version(0,9,4),
-            Version(0,9,5),
-            Version(0,9,6),
-            Version(0,9,7),
-            Version(0,9,8),
-            Version(0,9,9),
-            Version(0,9,10),
-            Version(0,9,11),
-            Version(0,9,12),
-            Version(0,9,13),
-            Version(0,9,14),
-            Version(0,9,15),
-            Version(0,9,16),
-            Version(0,9,17),
-            Version(0,9,18),
-            Version(0,9,19),
-            Version(0,9,20),
-            Version(0,9,21),
-            Version(1,0,1),
-            Version(1,0,2),
-            Version(1,0,3),
-            Version(1,2,1),
-            Version(1,2,2),
-            Version(1,2,3),
-            Version(1,2,4),
-            Version(1,2,5),
-            Version(1,3,0),
-            Version(1,3,1),
-            Version(1,3,2),
-            Version(1,4,0),
-            Version(1,4,1),
-            Version(1,4,2),
-            Version(1,4,3),
-            Version(1,5,0),
-            Version(1,5,1),
-            Version(1,5,2),
-            Version(1,5,3),
-            Version(1,6,0),
-            Version(2,0,0),
-            Version(2,0,1),
-            Version(2,0,2),
-            Version(2,0,3),
-            Version(2,0,4),
-            Version(2,0,5),
-            Version(2,0,6),
-            Version(2,1,0),
-            Version(2,1,1),
-            Version(2,1,2),
-            Version(2,1,3),
-            Version(2,2,0),
-            Version(2,2,1),
-            Version(2,2,2)
-        ]
-
-        XCTAssertEqual(transformed, expected)
+    func testOrder() {
+        XCTAssertLessThan(Version(0,0,0), Version(0,0,1))
+        XCTAssertLessThan(Version(0,0,1), Version(0,1,0))
+        XCTAssertLessThan(Version(0,1,0), Version(0,10,0))
+        XCTAssertLessThan(Version(0,10,0), Version(1,0,0))
+        XCTAssertLessThan(Version(1,0,0), Version(2,0,0))
+        XCTAssert(!(Version(1,0,0) < Version(1,0,0)))
+        XCTAssert(!(Version(2,0,0) < Version(1,0,0)))
     }
 
     func testRange() {
@@ -292,23 +237,6 @@ class VersionTests: XCTestCase {
 }
 
 
-extension Array {
-    func shuffle() -> Array {
-        switch count {
-        case 0, 1:
-            return self;
-        default:
-            var out = self;
-            for i in (0..<count).reversed() {
-                let j = Int(rand()) % (i + 1)
-                (out[i], out[j]) = (out[j], out[i])
-            }
-            return out
-        }
-    }
-}
-
-
 extension VersionTests {
     static var allTests : [(String, VersionTests -> () throws -> Void)] {
         return [
@@ -317,7 +245,7 @@ extension VersionTests {
             ("testComparable", testComparable),
             ("testDescription", testDescription),
             ("testFromString", testFromString),
-            ("testSort", testSort),
+            ("testOrder", testOrder),
             ("testRange", testRange),
             ("testSuccessor", testSuccessor),
             ("testPredecessor", testPredecessor),
