@@ -9,7 +9,7 @@
 */
 
 import XCTest
-import func POSIX.popen
+import func Utility.popen
 
 class DependencyResolutionTestCase: XCTestCase {
 
@@ -48,7 +48,7 @@ class DependencyResolutionTestCase: XCTestCase {
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix, "app")
-            let output = try POSIX.popen(["\(prefix)/app/.build/debug/Dealer"])
+            let output = try Utility.popen(["\(prefix)/app/.build/debug/Dealer"])
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }

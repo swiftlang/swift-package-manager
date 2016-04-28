@@ -13,7 +13,7 @@ import struct PackageType.Manifest
 import struct Utility.Path
 import class PackageDescription.Package
 import class Utility.Git
-import func POSIX.popen
+import func Utility.popen
 import XCTest
 
 

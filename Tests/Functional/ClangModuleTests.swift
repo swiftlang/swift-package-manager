@@ -13,7 +13,7 @@ import func POSIX.symlink
 import func Utility.walk
 import func POSIX.rename
 import func POSIX.mkdir
-import func POSIX.popen
+import func Utility.popen
 import XCTest
 
 class TestClangModulesTestCase: XCTestCase {

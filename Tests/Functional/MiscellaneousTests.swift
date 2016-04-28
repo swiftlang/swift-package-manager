@@ -13,7 +13,7 @@ import func Utility.fopen
 import func Utility.fputs
 import func libc.sleep
 import enum POSIX.Error
-import func POSIX.popen
+import func Utility.popen
 import XCTest
 
 class MiscellaneousTestCase: XCTestCase {

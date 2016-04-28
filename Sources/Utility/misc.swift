@@ -14,6 +14,7 @@
 
 import POSIX
 import var libc.ENOENT
+import Foundation
 
 /**
  Recursively deletes the provided directory.
@@ -47,4 +48,14 @@ public func rmtree(_ components: String...) throws {
     }
 #else
     //ERROR: Unsupported platform
+#endif
+
+
+// Patch SwiftFoundation API
+#if os(Linux)
+    extension NSTask {
+        public var isRunning: Bool {
+            return running
+        }
+    }
 #endif

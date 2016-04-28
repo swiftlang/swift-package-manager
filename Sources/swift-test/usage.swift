@@ -38,7 +38,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             guard let specifier = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
             self = .Run(specifier)
         default:
-            return nil
+            self = .Run(argument)
         }
     }
 

@@ -111,17 +111,6 @@ extension RelativePathTests {
     }
 }
 
-extension ShellTests {
-    static var allTests : [(String, (ShellTests) -> () throws -> Void)] {
-        return [
-                   ("testPopen", testPopen),
-                   ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
-                   ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
-        ]
-    }
-}
-
-
 extension StringTests {
     static var allTests : [(String, (StringTests) -> () throws -> Void)] {
         return [

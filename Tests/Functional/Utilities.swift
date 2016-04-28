@@ -13,7 +13,7 @@ import func Utility.rmtree
 import func Utility.walk
 import func XCTest.XCTFail
 import func POSIX.getenv
-import func POSIX.popen
+import func Utility.popen
 import POSIX
 
 #if os(OSX)
