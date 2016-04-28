@@ -52,6 +52,7 @@ extension Command {
         case .Library(.Static):
             args.append(outpath)
         case .Test:
+            args += ["-module-name", product.name]
           #if os(OSX)
             args += ["-Xlinker", "-bundle"]
             args += ["-F", try platformFrameworksPath()]
