@@ -19,9 +19,21 @@ extension Package {
 
     public enum InvalidLayoutType {
         case MultipleSourceRoots([String])
-        case InvalidLayout
+        case InvalidLayout([String])
     }
 }
+
+extension Package.InvalidLayoutType: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .MultipleSourceRoots(let paths):
+            return "multiple source roots found: " + paths.joined(separator: ", ")
+        case .InvalidLayout(let paths):
+            return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+        }
+    }
+}
+
 
 extension Module {
     public enum Error: ErrorProtocol {
