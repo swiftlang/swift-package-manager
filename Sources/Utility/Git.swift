@@ -106,9 +106,8 @@ public class Git {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
             print("error: ", Error.ObsoleteGitVersion)
-        } else {
-            print("error: ", Error.UnknownGitError)
         }
+        print("error: ", error)
         exit(1)
     }
 
