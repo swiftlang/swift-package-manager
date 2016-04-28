@@ -206,7 +206,7 @@ class VersionGraphTests: XCTestCase {
 
         XCTAssertNotNil(r4.constrained(to: r5))
 
-        let r6 = Version(1,2,3)...Version(1,2,3)
+        let r6 = Version(1,2,3)..<Version(1,2,4)
         XCTAssertEqual(r6.constrained(to: r6), r6)
     }
 

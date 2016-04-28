@@ -31,7 +31,7 @@ class UpdateTestCase: XCTestCase {
 
         // a~>1 where a = 1.0 and a can be 1.1
 
-        let r2 = Version(1,0,0)...Version(2,0,0)
+        let r2 = Version(1,0,0)..<Version(2,0,0)
 
         let updater = Updater(dependencies: [("a", r2)])
         let ex = (expectation(withDescription: ".Fetch"), expectation(withDescription: ".ReadManifest"), expectation(withDescription: ".Update"))
@@ -68,9 +68,9 @@ class UpdateTestCase: XCTestCase {
         // root -> a -> b~1.1
         // root -> b~>1
 
-        let r1 = Version(1,0,0)...Version(1,0,0)
-        let r2 = Version(1,0,0)...Version(2,0,0)
-        let r3 = Version(1,0,0)...Version(1,1,0)
+        let r1 = Version(1,0,0)..<Version(1,0,1)
+        let r2 = Version(1,0,0)..<Version(2,0,0)
+        let r3 = Version(1,0,0)..<Version(1,1,0)
 
         let updater = Updater(dependencies: [("a", r1), ("b", r2)])
         let ex = (expectation(withDescription: ""), expectation(withDescription: ""))
@@ -118,9 +118,9 @@ class UpdateTestCase: XCTestCase {
         // root -> a -> b~2
         // root -> b~>1
 
-        let r1 = Version(1,0,0)...Version(1,0,0)
-        let r2 = Version(1,0,0)...Version(1,1,0)
-        let r3 = Version(2,0,0)...Version(2,0,0)
+        let r1 = Version(1,0,0)..<Version(1,0,1)
+        let r2 = Version(1,0,0)..<Version(1,1,0)
+        let r3 = Version(2,0,0)..<Version(2,0,1)
 
         let updater = Updater(dependencies: [("a", r1), ("b", r2)])
         let ex = expectation(withDescription: "")
