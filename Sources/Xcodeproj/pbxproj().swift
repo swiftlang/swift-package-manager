@@ -53,7 +53,7 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("            isa = PBXFileReference;")
     print("            lastKnownFileType = sourcecode.swift;")
     print("            name = '\(packageSwift.1)';")
-    print("            path = '\(packageSwift.2)';")
+    print("            path = '\(Path(packageSwift.2).relative(to: projectRoot))';")
     print("            sourceTree = '<group>';")
     print("        };")
 
