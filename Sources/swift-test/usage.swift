@@ -35,7 +35,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
         case "--help", "--usage", "-h":
             self = .Usage
         default:
-            return nil
+            self = .Run(argument)
         }
     }
 
