@@ -55,12 +55,20 @@ extension Delta: CustomStringConvertible {
             return "notice: no change"
         }
 
+    #if os(OSX)
+        let up = "⬆"
+        let dn = "⬇"
+    #else
+        let up = "/\\"
+        let dn = "\\/"
+    #endif
+
         var lines = [String]()
         for (name, v1, v2) in changed {
             if v2 > v1 {
-                lines.append("⬆ \(name) \(v1) → \(v2)")
+                lines.append("\(up) \(name) \(v1) → \(v2)")
             } else {
-                lines.append("⬇ \(name) \(v1) → \(v2)")
+                lines.append("\(dn) \(name) \(v1) → \(v2)")
             }
         }
         return lines.joined(separator: "\n")
