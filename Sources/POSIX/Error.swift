@@ -12,8 +12,6 @@ public enum SystemError: ErrorProtocol {
     case chdir(Int32)
     case close(Int32)
     case dirfd(Int32, String)
-    case fopen(Int32, String)
-    case fputs
     case fgetc(Int32)
     case fread(Int32)
     case getcwd(Int32)
@@ -58,10 +56,6 @@ extension SystemError: CustomStringConvertible {
             return "close error: \(strerror(errno))"
         case .dirfd(let errno, _):
             return "dirfd error: \(strerror(errno))"
-        case .fopen(let errno, let path):
-            return "fopen error: \(strerror(errno)), \(path)"
-        case .fputs:
-            return "fputs error"
         case .fgetc(let errno):
             return "fgetc error: \(strerror(errno))"
         case .fread(let errno):

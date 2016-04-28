@@ -9,13 +9,11 @@
 */
 
 import func POSIX.realpath
+import func POSIX.unlink
 import PackageDescription
 import PackageType
 import Utility
-import func POSIX.fopen
-import func libc.fileno
-import func libc.unlink
-import func libc.fclose
+import func Utility.fopen
 
 extension Manifest {
     public init(path pathComponents: String..., baseURL: String, swiftc: String, libdir: String) throws {
@@ -71,14 +69,14 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     //Create and open a temporary file to write toml to
     let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
     let fp = try fopen(filePath, mode: .Write)
-    defer { fclose(fp) }
+    defer { fp.closeFile() }
 
     //Pass the fd in arguments
-    cmd += ["-fileno", "\(fileno(fp))"]
+    cmd += ["-fileno", "\(fp.fileDescriptor)"]
     try system(cmd)
 
-    let toml = try File(path: filePath).enumerate().reduce("") { $0 + "\n" + $1 }
-    unlink(filePath) //Delete the temp file after reading it
+    let toml = try fopen(filePath).reduce("") { $0 + "\n" + $1 }
+    try unlink(filePath) //Delete the temp file after reading it
 
     return toml != "" ? toml : nil
 }

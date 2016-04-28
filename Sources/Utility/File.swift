@@ -8,75 +8,82 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct libc.FILE
-import func POSIX.fopen
-import func libc.fclose
-import func libc.ferror
-import func libc.fgetc
-import var libc.EOF
+import Foundation
 
-/**
- An instance of `File` represents a file with a defined path on
- the filesystem that may or may not exist.
-*/
-public struct File {
-    let path: String
-
-    public init(path: String...) {
-        self.path = Path.join(path)
-    }
-
-    /**
-     Returns a generator for the file contents separated by the 
-     provided character.
-     
-     Character must be representable as a single 8 bit integer.
-     
-     Generator ends at EOF or on read error, we cannot report the
-     read error, so to detect this query `ferror`.
-     
-     In the event of read-error we do not feed a partially generated
-     line before ending iteration.
-    */
-    public func enumerate(_ separator: UnicodeScalar = "\n") throws -> FileLineGenerator {
-        return try FileLineGenerator(path: path, separator: separator)
-    }
+public enum FopenMode: String {
+    case Read = "r"
+    case Write = "w"
 }
 
-/**
- - See: File.enumerate
-*/
-public class FileLineGenerator: IteratorProtocol, Sequence {
-    private let fp: UnsafeMutablePointer<FILE>
-    private let separator: Int32
-
-    init(path: String, separator c: UnicodeScalar) throws {
-        separator = Int32(UInt8(ascii: c))
-        fp = try fopen(path)
-    }
-
-    deinit {
-        fclose(fp)
-    }
-
-    public func next() -> String? {
-        var out = ""
-        while true {
-            let c = fgetc(fp)
-            if c == EOF {
-                let err = ferror(fp)
-                if err == 0 {
-                    // if we have some string, return it, then next next() we will
-                    // immediately EOF and stop generating
-                    return out.isEmpty ? nil : out
-                } else {
-                    return nil
-                }
+public func fopen(_ path: String, mode: FopenMode = .Read) throws -> NSFileHandle {
+    let handle: NSFileHandle!
+    switch mode {
+    case .Read: handle = NSFileHandle(forReadingAtPath: path)
+    case .Write:
+        #if os(OSX) || os(iOS)
+            guard NSFileManager.`default`().createFile(atPath: path, contents: nil) else {
+                throw Error.CouldNotCreateFile(path: path)
             }
-            if c == separator { return out }
+        #else
+            guard NSFileManager.defaultManager().createFile(atPath: path, contents: nil) else {
+                throw Error.CouldNotCreateFile(path: path)
+            }
+        #endif
+        handle = NSFileHandle(forWritingAtPath: path)
+    }
+    guard handle != nil else {
+        throw Error.FileDoesNotExist(path: path)
+    }
+    return handle
+}
 
-            // fgetc is documented to return unsigned char converted to an int
-            out.append(UnicodeScalar(UInt8(c)))
+public func fopen(_ path: String..., mode: FopenMode = .Read, body: (NSFileHandle) throws -> Void) throws {
+    let fp = try fopen(Path.join(path), mode: mode)
+    defer { fp.closeFile() }
+    try body(fp)
+}
+
+public func fputs(_ string: String, _ handle: NSFileHandle) throws {
+    guard let data = string.data(using: NSUTF8StringEncoding) else {
+        throw Error.UnicodeEncodingError
+    }
+
+    #if os(OSX) || os(iOS)
+        handle.write(data)
+    #else
+        handle.writeData(data)
+    #endif
+}
+
+public func fputs(_ bytes: [UInt8], _ handle: NSFileHandle) throws {
+    var bytes = bytes
+    let data = NSData(bytes: &bytes, length: bytes.count)
+
+    #if os(OSX) || os(iOS)
+        handle.write(data)
+    #else
+        handle.writeData(data)
+    #endif
+}
+
+
+extension NSFileHandle: Sequence {
+    public func enumerate(separatedBy separator: String = "\n") throws -> IndexingIterator<[String]> {
+        guard let contents = String(data: readDataToEndOfFile(), encoding: NSUTF8StringEncoding) else {
+            throw Error.UnicodeDecodingError
         }
+
+        if contents == "" {
+            return [].makeIterator()
+        }
+
+        return contents.components(separatedBy: separator).makeIterator()
+    }
+
+    public func makeIterator() -> IndexingIterator<[String]> {
+        guard let iterator = try? enumerate() else {
+            return [].makeIterator()
+        }
+        return iterator
     }
 }

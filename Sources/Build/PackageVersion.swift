@@ -12,7 +12,8 @@ import POSIX
 import PackageType
 import class Utility.Git
 import struct Utility.Path
-import func libc.fclose
+import func Utility.fopen
+import func Utility.fputs
 
 public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
     let dirPath = Path.join(rootDir, ".build/versionData")
@@ -73,9 +74,7 @@ func versionData(package: Package) -> String {
 
 private func saveVersionData(_ dirPath: String, packageName: String, data: String) throws {
     let filePath = Path.join(dirPath, "\(packageName).swift")
-    let file = try fopen(filePath, mode: .Write)
-    defer {
-        libc.fclose(file)
-    }
+    let file = try Utility.fopen(filePath, mode: .Write)
+    defer { file.closeFile() }
     try fputs(data, file)
 }

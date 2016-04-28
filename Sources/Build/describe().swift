@@ -10,8 +10,6 @@
 
 import func POSIX.getenv
 import func POSIX.mkdir
-import func POSIX.fopen
-import func libc.fclose
 import PackageType
 import Utility
 
