@@ -18,8 +18,8 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("USAGE: swift test [specifier] [options]")
     print("")
     print("SPECIFIER:")
-    print("  TestModule.TestCase         Run a test case subclass")
-    print("  TestModule.TestCase/test1   Run a specific test method")
+    print("  -s TestModule.TestCase         Run a test case subclass")
+    print("  -s TestModule.TestCase/test1   Run a specific test method")
     print("")
     print("OPTIONS:")
     print("  --chdir              Change working directory before any other operation [-C]")
@@ -34,6 +34,9 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
         switch argument {
         case "--help", "--usage", "-h":
             self = .Usage
+        case "-s":
+            guard let specifier = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
+            self = .Run(specifier)
         default:
             return nil
         }
