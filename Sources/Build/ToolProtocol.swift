@@ -11,50 +11,44 @@
 import PackageType
 import Utility
 
-
+/// Describes a tool which can be understood by llbuild's BuildSystem library.
 protocol ToolProtocol {
-    var name: String { get }
+    /// The list of inputs to declare.
     var inputs: [String] { get }
+    
+    /// The list of outputs to declare.
     var outputs: [String] { get }
-    var YAMLDescription: String { get }
+    
+    /// Write a description of the tool to the given output `stream`.
+    ///
+    /// This should append JSON or YAML content; if it is YAML it should be indented by 4 spaces.
+    func append(to stream: OutputByteStream)
 }
 
 struct ShellTool: ToolProtocol {
-    var name: String {
-        return "shell"
-    }
-
-    var YAMLDescription: String {
-        let args: String
-        if self.args.count == 1 {
-            // if one argument is specified we assume pre-escaped and have
-            // llbuild execute it passed through to the shell
-            args = self.args.first!
-        } else {
-            args = self.args.YAML
-        }
-
-        var yaml = ""
-        yaml += "    tool: " + name.YAML + "\n"
-        yaml += "    description: " + description.YAML + "\n"
-        yaml += "    inputs: " + inputs.YAML + "\n"
-        yaml += "    outputs: " + outputs.YAML + "\n"
-        yaml += "    args: " + args + "\n"
-        return yaml
-    }
-
     let description: String
     let inputs: [String]
     let outputs: [String]
     let args: [String]
+
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: shell\n"
+        stream <<< "    description: " <<< Format.asJSON(description) <<< "\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    
+        // If one argument is specified we assume pre-escaped and have llbuild
+        // execute it passed through to the shell.
+        if self.args.count == 1 {
+            stream <<< "    args: " <<< Format.asJSON(args[0]) <<< "\n"
+        } else {
+            stream <<< "    args: " <<< Format.asJSON(args) <<< "\n"
+        }
+    }
 }
 
 
 struct SwiftcTool: ToolProtocol {
-    var name: String {
-        return "swift-compiler"
-    }
-
     let module: SwiftModule
     let prefix: String
     let otherArgs: [String]
@@ -73,21 +67,19 @@ struct SwiftcTool: ToolProtocol {
     var sources: [String]        { return module.sources.paths }
     var isLibrary: Bool          { return module.type == .Library }
 
-    var YAMLDescription: String {
-        var yaml = ""
-        yaml += "    tool: " + name.YAML + "\n"
-        yaml += "    executable: " + executable.YAML + "\n"
-        yaml += "    module-name: " + moduleName.YAML + "\n"
-        yaml += "    module-output-path: " + moduleOutputPath.YAML + "\n"
-        yaml += "    inputs: " + inputs.YAML + "\n"
-        yaml += "    outputs: " + outputs.YAML + "\n"
-        yaml += "    import-paths: " + importPaths.YAML + "\n"
-        yaml += "    temps-path: " + tempsPath.YAML + "\n"
-        yaml += "    objects: " + objects.YAML + "\n"
-        yaml += "    other-args: " + otherArgs.YAML + "\n"
-        yaml += "    sources: " + sources.YAML + "\n"
-        yaml += "    is-library: " + isLibrary.YAML + "\n"
-        return yaml
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: swift-compiler\n"
+        stream <<< "    executable: " <<< Format.asJSON(executable) <<< "\n"
+        stream <<< "    module-name: " <<< Format.asJSON(moduleName) <<< "\n"
+        stream <<< "    module-output-path: " <<< Format.asJSON(moduleOutputPath) <<< "\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+        stream <<< "    import-paths: " <<< Format.asJSON(importPaths) <<< "\n"
+        stream <<< "    temps-path: " <<< Format.asJSON(tempsPath) <<< "\n"
+        stream <<< "    objects: " <<< Format.asJSON(objects) <<< "\n"
+        stream <<< "    other-args: " <<< Format.asJSON(otherArgs) <<< "\n"
+        stream <<< "    sources: " <<< Format.asJSON(sources) <<< "\n"
+        stream <<< "    is-library: " <<< Format.asJSON(isLibrary) <<< "\n"
     }
 }
 
@@ -99,15 +91,12 @@ struct Target {
 struct MkdirTool: ToolProtocol {
     let path: String
 
-    var name: String { return "mkdir" }
     var inputs: [String] { return [] }
     var outputs: [String] { return [path] }
 
-    var YAMLDescription: String {
-        var yaml = ""
-        yaml += "    tool: \(name.YAML)\n"
-        yaml += "    outputs: \(outputs.YAML)\n"
-        return yaml
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: mkdir\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
     }
 }
 
@@ -118,19 +107,16 @@ struct ClangTool: ToolProtocol {
     let args: [String]
     let deps: String?
 
-    var name: String { return "clang" }
-
-    var YAMLDescription: String {
-        var yaml = ""
-        yaml += "    tool: " + name.YAML + "\n"
-        yaml += "    description: " + desc.YAML + "\n"
-        yaml += "    inputs: " + inputs.YAML + "\n"
-        yaml += "    outputs: " + outputs.YAML + "\n"
-        yaml += "    args: " + args.joined(separator: " ").YAML + "\n"
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: clang\n"
+        stream <<< "    description: " <<< Format.asJSON(desc) <<< "\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+        // FIXME: This does not work for paths with spaces.
+        stream <<< "    args: " <<< Format.asJSON(args.joined(separator: " ")) <<< "\n"
         if let deps = deps {
-            yaml += "    deps: " + deps.YAML + "\n"
+            stream <<< "    deps: " <<< Format.asJSON(deps) <<< "\n"
         }
-        return yaml
     }
 }
 
@@ -138,13 +124,9 @@ struct ArchiveTool: ToolProtocol {
     let inputs: [String]
     let outputs: [String]
 
-    var name: String { return "archive" }
-
-    var YAMLDescription: String {
-        var yaml = [(String, String)]()
-        yaml.append(("tool", name.YAML))
-        yaml.append(("inputs", inputs.YAML))
-        yaml.append(("outputs", outputs.YAML))
-        return yaml.map{ return "    \($0): \($1)" }.joined(separator: "\n")
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: archive\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
     }
 }

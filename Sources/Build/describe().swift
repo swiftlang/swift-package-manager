@@ -74,7 +74,8 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         stream <<< "commands: \n"
         for command in commands {
             stream <<< "  " <<< Format.asJSON(command.node) <<< ":\n"
-            stream <<< command.tool.YAMLDescription <<< "\n"
+            command.tool.append(to: stream)
+            stream <<< "\n"
         }
     }
 }

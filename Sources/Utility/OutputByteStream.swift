@@ -290,6 +290,18 @@ private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
 
 /// Provides operations for returning derived streamable objects to implement various forms of formatted output.
 public struct Format {
+    /// Write the input boolean encoded as a JSON object.
+    static public func asJSON(_ value: Bool) -> ByteStreamable {
+        return JSONEscapedBoolStreamable(value: value)
+    }
+    private struct JSONEscapedBoolStreamable: ByteStreamable {
+        let value: Bool
+        
+        func writeTo(_ stream: OutputByteStream) {
+            stream <<< (value ? "true" : "false")
+        }
+    }
+    
     /// Write the input string encoded as a JSON object.
     static public func asJSON(_ string: String) -> ByteStreamable {
         return JSONEscapedStringStreamable(value: string)
