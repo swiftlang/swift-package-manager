@@ -41,8 +41,8 @@ public struct ByteString: ArrayLiteralConvertible {
     }
     
     /// Create a byte string from an byte buffer.
-    public init(_ buffer: UnsafeBufferPointer<UInt8>) {
-        _bytes = [UInt8](buffer)
+    public init<S : Sequence where S.Iterator.Element == UInt8>(_ contents: S) {
+        _bytes = [UInt8](contents)
     }
     
     /// Create a byte string from the UTF8 encoding of a string.
