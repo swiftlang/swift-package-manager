@@ -44,7 +44,7 @@ final class PackageVersionDataTests: XCTestCase {
         mktmpdir { dir in
             let package = makePackage()
 
-            let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
+            let m = Manifest(path: dir, package: PackageDescription.Package(), products: [])
             let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg", version: Version(1,2,3))
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
