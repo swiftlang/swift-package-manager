@@ -166,23 +166,23 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("        };")
 
     if !externalModules.isEmpty {
-    ////// “Dependencies” group
-    print("        \(dependenciesGroupReference) = {")
-    print("            isa = PBXGroup;")
-    print("            children = (" + externalModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Dependencies;")
-    print("            sourceTree = '<group>';")
-    print("        };")
+        ////// “Dependencies” group
+        print("        \(dependenciesGroupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            children = (" + externalModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
+        print("            name = Dependencies;")
+        print("            sourceTree = '<group>';")
+        print("        };")
     }
 
 ////// “Tests” group
     if !tests.isEmpty {
-    print("        \(testsGroupReference) = {")
-    print("            isa = PBXGroup;")
-    print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Tests;")
-    print("            sourceTree = '<group>';")
-    print("        };")
+        print("        \(testsGroupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
+        print("            name = Tests;")
+        print("            sourceTree = '<group>';")
+        print("        };")
     }
 
     var productReferences: [String] = []
