@@ -7,14 +7,15 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  
- ---------------
+ -----------------------------------------------------------------
  
  Iteratively update a package tree.
- 
- A major issue currently is that this is all done in place and
- there is no undo.
- 
+
+ TODO read the manifest without modifying the checkout
  TODO report unreferenced dependencies
+ TODO recognize cyclic dependencies
+ TODO use this code for most of `get()` also
+ TODO recover when a graph restriction changes the version of an already parsed manifest
 */
 
 import struct PackageDescription.Version
@@ -50,7 +51,7 @@ public func update(dependencies: [(String, Range<Version>)], manifestParser: (St
 
         case .ReadManifest(let job):
             try job { url, versionRange in
-                guard let repo = pkgsdir.find(url: url) else { fatalError() }  //FIXME
+                guard let repo = pkgsdir.find(url: url) else { fatalError() }  //FIXME make generic, pass repo to Updater to pass back
                 let newVersion: Version! = repo ~= versionRange
                 progress(.Parsing(url, newVersion))
 
@@ -101,27 +102,4 @@ public enum Status {
     case Cloning(URL)
     case Parsing(URL, Version)
     case Updating(URL, Version)
-}
-
-
-extension Git.Repo {
-    var version: Version {
-        var branch = self.branch
-        if branch.hasPrefix("heads/") {
-            branch = String(branch.characters.dropFirst(6))
-        }
-        if branch.hasPrefix("v") {
-            branch = String(branch.characters.dropFirst())
-        }
-        return Version(branch)!
-    }
-
-    var name: String {
-        //FIXME lame
-        return String(path.basename.characters.dropLast(version.description.characters.count + 1))
-    }
-}
-
-func ~=(repo: Git.Repo, vv: Range<Version>) -> Version? {
-    return repo.versions.filter{ $0.isStable && vv ~= $0 }.sorted().last
 }

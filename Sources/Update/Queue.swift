@@ -1,3 +1,19 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ 
+ -----------------------------------------------------------------
+
+ The Updater uses this queue to order operations.
+
+ FIXME The code in here is not pretty, nor good, nor idiomatic to use
+*/
+
 class Queue {
     private var queue = Array<URL>()
     private var set = Set<URL>()

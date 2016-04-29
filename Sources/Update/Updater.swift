@@ -1,9 +1,26 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+ -----------------------------------------------------------------
+
+ The depedency engine, allowing update() on top to do the actual
+ heavy lifting of manifest parsing, git operations and filesystem
+ operations.
+*/
+
 import struct PackageDescription.Version
 import struct PackageType.Manifest
 import struct Utility.Path
 import func POSIX.rename
 
 public typealias URL = String
+
 
 class Updater {
     private var queue = Queue()
