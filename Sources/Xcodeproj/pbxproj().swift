@@ -165,6 +165,7 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("            sourceTree = '<group>';")
     print("        };")
 
+    if !externalModules.isEmpty {
     ////// “Dependencies” group
     print("        \(dependenciesGroupReference) = {")
     print("            isa = PBXGroup;")
@@ -172,15 +173,18 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("            name = Dependencies;")
     print("            sourceTree = '<group>';")
     print("        };")
+    }
 
 ////// “Tests” group
+    if !tests.isEmpty {
     print("        \(testsGroupReference) = {")
     print("            isa = PBXGroup;")
     print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
     print("            name = Tests;")
     print("            sourceTree = '<group>';")
     print("        };")
-    
+    }
+
     var productReferences: [String] = []
     
     if !tests.isEmpty {
