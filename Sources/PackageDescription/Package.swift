@@ -10,6 +10,7 @@
 
 #if os(Linux)
 import Glibc
+import libc
 #else
 import Darwin.C
 #endif
