@@ -36,6 +36,10 @@ class TestClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix, ".build", "debug", "libSeaLib.so")
+            let exec = ".build/debug/SeaExec"
+            XCTAssertFileExists(prefix, exec)
+            let output = try popen([Path.join(prefix, exec)])
+            XCTAssertEqual(output, "a = 5\n")
         }
     }
     
