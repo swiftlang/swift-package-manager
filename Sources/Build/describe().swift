@@ -57,7 +57,16 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 
     for product in products {
-        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
+        var rpathArgs = [String]()
+        
+        // On Linux, always embed an RPATH adjacent to the linked binary. Note
+        // that the '$ORIGIN' here is literal, it is a reference which is
+        // understood by the dynamic linker.
+#if os(Linux)
+        rpathArgs += ["-Xlinker", "-rpath=$ORIGIN"]
+#endif
+        
+        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
         commands.append(command)
         targets.append(command, for: product)
     }
