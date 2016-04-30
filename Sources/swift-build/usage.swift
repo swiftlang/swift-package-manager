@@ -21,7 +21,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("")
     print("MODES:")
     print("  --configuration <value>        Build with configuration (debug|release) [-c]")
-    print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
+    print("  --clean[=<mode>]               Delete artifacts (build|dist) [-k]")
     print("  --init[=<mode>]                Create a package template (executable|library)")
     print("  --fetch                        Fetch package dependencies")
     print("  --update                       Update package dependencies")
