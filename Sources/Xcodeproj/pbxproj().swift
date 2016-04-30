@@ -195,6 +195,13 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         
         // Prevents Xcode project upgrade warnings.
         try fputs("COMBINE_HIDPI_IMAGES = YES\n", fp)
+
+        // Always disable use of headermaps.
+        //
+        // The semantics of the build should be explicitly defined by the
+        // project structure, we don't want any additional behaviors not shared
+        // with `swift build`.
+        try fputs("USE_HEADERMAP = NO\n", fp)
     }
     let configs = [projectXCConfig]
     for configInfo in configs {
