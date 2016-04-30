@@ -12,10 +12,11 @@
 //TODO escaping
 
 
+import POSIX
 import PackageType
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: OptionsType, printer print: (String) -> Void) {
+public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: OptionsType, printer print: (String) -> Void) throws {
 
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
@@ -60,7 +61,7 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(packageSwift.0), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.0), \(configsGroupReference), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 
@@ -157,6 +158,59 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
         print("        };")
     }
 
+////// “Configs” group
+    
+    // The project-level xcconfig files.
+    //
+    // FIXME: Generate these into a sane path.
+    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: srcroot)
+    try mkdir(projectXCConfig.2.parentDirectory)
+    try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
+        // Set SUPPORTED_PLATFORMS to all platforms.
+        //
+        // The goal here is to define targets which *can be* built for any
+        // platform (although some might not work correctly). It is then up to
+        // the integrating project to only set these targets up as dependencies
+        // where appropriate.
+        let supportedPlatforms = [
+            "macosx",
+            "iphoneos", "iphonesimulator",
+            "tvos", "tvsimulator",
+            "watchos", "watchsimulator"]
+        try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
+        
+        // Propagate any user provided build flag overrides.
+        //
+        // FIXME: Need to get quoting correct here.
+        if !options.Xcc.isEmpty {
+            try fputs("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))\n", fp)
+        }
+        if !options.Xld.isEmpty {
+            try fputs("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))\n", fp)
+        }
+        try fputs("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))\n", fp)
+        
+        // Prevents Xcode project upgrade warnings.
+        try fputs("COMBINE_HIDPI_IMAGES = YES\n", fp)
+    }
+    let configs = [projectXCConfig]
+    for configInfo in configs {
+        print("        \(configInfo.0) = {")
+        print("            isa = PBXFileReference;")
+        print("            lastKnownFileType = text.xcconfig;")
+        print("            name = '\(configInfo.1.basename)';")
+        print("            path = '\(Path(configInfo.2).relative(to: projectRoot))';")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
+    
+    print("        \(configsGroupReference) = {")
+    print("            isa = PBXGroup;")
+    print("            children = (" + configs.map{ $0.0 }.joined(separator: ", ") + ");")
+    print("            name = Configs;")
+    print("            sourceTree = '<group>';")
+    print("        };")
+
 ////// “Sources” group
     print("        \(sourcesGroupReference) = {")
     print("            isa = PBXGroup;")
@@ -212,11 +266,13 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
 ////// primary build configurations
     print("        \(rootDebugBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
+    print("            baseConfigurationReference = \(projectXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Debug;")
     print("        };")
     print("        \(rootReleaseBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
+    print("            baseConfigurationReference = \(projectXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Release;")
     print("        };")

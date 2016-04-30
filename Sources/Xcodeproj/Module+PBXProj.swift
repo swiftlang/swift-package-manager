@@ -33,6 +33,7 @@ let rootReleaseBuildConfigurationReference =        "_____Release_"
 let rootGroupReference =                            "___RootGroup_"
 let productsGroupReference =                        "____Products_"
 let testProductsGroupReference =                    "TestProducts_"
+let configsGroupReference =                         "_____Configs_"
 let sourcesGroupReference =                         "_____Sources_"
 let dependenciesGroupReference =                    "Dependencies_"
 let testsGroupReference =                           "_______Tests_"
@@ -188,26 +189,6 @@ extension XcodeModuleProtocol  {
     private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
         var buildSettings = ["PRODUCT_NAME": productName]
         buildSettings["PRODUCT_MODULE_NAME"] = c99name
-        buildSettings["OTHER_SWIFT_FLAGS"] = serializeArray(options.Xswiftc+["-DXcode"])
-
-        // Set SUPPORTED_PLATFORMS to all platforms.
-        //
-        // The goal here is to define targets which *can be* built for any
-        // platform (although some might not work correctly). It is then up to
-        // the integrating project to only set these targets up as dependencies
-        // where appropriate.
-        buildSettings["SUPPORTED_PLATFORMS"] = serializeArray([
-                "macosx",
-                "iphoneos", "iphonesimulator",
-                "tvos", "tvsimulator",
-                "watchos", "watchsimulator"])
-        
-        // Propagate any user provided build flag overrides.
-        buildSettings["OTHER_CFLAGS"] = serializeArray(options.Xcc)
-        buildSettings["OTHER_LDFLAGS"] = serializeArray(options.Xld)
-
-        // prevents Xcode project upgrade warnings
-        buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
 
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"

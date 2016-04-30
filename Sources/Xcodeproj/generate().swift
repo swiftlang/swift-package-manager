@@ -27,7 +27,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
@@ -57,11 +57,11 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 }
 
 
-private func open(_ path: String..., body: ((String) -> Void) -> Void) throws {
+private func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     var error: ErrorProtocol? = nil
 
     try Utility.fopen(Path.join(path), mode: .Write) { fp in
-        body { line in
+        try body { line in
             if error == nil {
                 do {
                     try fputs(line, fp)
