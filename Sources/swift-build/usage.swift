@@ -51,7 +51,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
         switch argument {
         case "--configuration", "--conf", "-c":
             self = try .Build(Configuration(pop()), UserToolchain())
-        case "--clean":
+        case "--clean", "-k":
             self = try .Clean(CleanMode(pop()))
         case "--doctor":
             self = .Doctor
