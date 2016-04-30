@@ -11,12 +11,12 @@
 import Utility
 import func POSIX.getenv
 
-enum PkgConfigError: ErrorProtocol {
+public enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
     case ParsingError(String)
 }
 
-struct PkgConfig {
+public struct PkgConfig {
     private static let searchPaths = ["/usr/local/lib/pkgconfig",
                               "/usr/local/share/pkgconfig",
                               "/usr/lib/pkgconfig",
@@ -24,10 +24,10 @@ struct PkgConfig {
                               ]
     let name: String
     let pcFile: String
-    let cFlags: [String]
-    let libs: [String]
+    public let cFlags: [String]
+    public let libs: [String]
     
-    init(name: String) throws {
+    public init(name: String) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(name: name)
         

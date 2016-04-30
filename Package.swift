@@ -53,7 +53,7 @@ let package = Package(
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["PackageType"]),
+            dependencies: ["PackageType", "Build"]),
         Target(
             /** Command line options parser */
             name: "OptionsParser",

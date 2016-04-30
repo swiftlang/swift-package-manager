@@ -179,7 +179,7 @@ extension Product {
 
 extension SystemPackageProvider {
     
-    var installText: String {
+    public var installText: String {
         switch self {
         case .Brew(let name):
             return "    brew install \(name)\n"
@@ -203,7 +203,7 @@ extension SystemPackageProvider {
         return false
     }
     
-    static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
+    public static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
         return providers.filter{ $0.isAvailable }.first
     }
 }

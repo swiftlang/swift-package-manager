@@ -25,6 +25,7 @@
 
 import struct Utility.Path
 import PackageType
+import Build
 
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
@@ -186,9 +187,45 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
+    func pkgConfigArgs() -> (Xcc: [String], Xld: [String]) {
+        var xcc = [String]()
+        var xld = [String]()
+        for module in recursiveDependencies {
+            guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
+                continue
+            }
+
+            do {
+                let pkgConfig = try PkgConfig(name: pkgConfigName)
+                xcc.append(contentsOf: pkgConfig.cFlags)
+                xld.append(contentsOf: pkgConfig.libs)
+            }
+            catch PkgConfigError.CouldNotFindConfigFile {
+                if let providers = module.providers,
+                    provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
+                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
+                    print(provider.installText)
+                }
+            }
+            catch {
+
+            }
+        }
+        return (Xcc: xcc, Xld: xld)
+    }
+
     private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
+        let pkgArgs = pkgConfigArgs()
         var buildSettings = ["PRODUCT_NAME": productName]
         buildSettings["PRODUCT_MODULE_NAME"] = c99name
+        buildSettings["OTHER_SWIFT_FLAGS"] = serializeArray(options.Xswiftc+options.Xcc+pkgArgs.Xcc+["-DXcode"])
+        buildSettings["OTHER_CFLAGS"] = serializeArray(options.Xcc+pkgArgs.Xcc)
+        buildSettings["OTHER_LDFLAGS"] = serializeArray(options.Xld+pkgArgs.Xld)
+
+        buildSettings["MACOSX_DEPLOYMENT_TARGET"] = "'10.10'"
+
+        // prevents Xcode project upgrade warnings
+        buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
 
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
