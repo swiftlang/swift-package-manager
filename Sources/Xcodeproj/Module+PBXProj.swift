@@ -199,7 +199,6 @@ extension XcodeModuleProtocol  {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
-                buildSettings["DYLIB_INSTALL_NAME_BASE"] = "'$(CONFIGURATION_BUILD_DIR)'"
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"

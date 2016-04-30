@@ -181,7 +181,14 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
             "tvos", "tvsimulator",
             "watchos", "watchsimulator"]
         try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
-        
+
+        // Default to @rpath-based install names.
+        //
+        // The expectation is that the application or executable consuming these
+        // products will need to establish the appropriate runpath search paths
+        // so that all the products can be found in a relative manner.
+        try fputs("DYLIB_INSTALL_NAME_BASE = @rpath\n", fp)
+
         // Propagate any user provided build flag overrides.
         //
         // FIXME: Need to get quoting correct here.
