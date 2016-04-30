@@ -166,6 +166,9 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: srcroot)
     try mkdir(projectXCConfig.2.parentDirectory)
     try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
+        // Set the standard PRODUCT_NAME.
+        try fputs("PRODUCT_NAME = $(TARGET_NAME)\n", fp)
+        
         // Set SUPPORTED_PLATFORMS to all platforms.
         //
         // The goal here is to define targets which *can be* built for any

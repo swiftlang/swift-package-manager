@@ -187,8 +187,7 @@ extension XcodeModuleProtocol  {
     }
 
     private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
-        var buildSettings = ["PRODUCT_NAME": productName]
-        buildSettings["PRODUCT_MODULE_NAME"] = c99name
+        var buildSettings = [String: String]()
 
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
