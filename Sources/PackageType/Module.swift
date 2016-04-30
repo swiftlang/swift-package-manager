@@ -131,14 +131,15 @@ extension ClangModule: ModuleTypeProtocol {
 }
 
 public class TestModule: SwiftModule {
-
+    /// The base prefix for the test module, used to associate with the target it tests.
+    //
+    // FIXME: This seems like a fragile way to model this relationship.
+    public let basename: String
+    
     public init(basename: String, sources: Sources) throws {
-        try super.init(name: "\(basename).testsuite", sources: sources)
+        self.basename = basename
+        try super.init(name: basename + "TestSuite", sources: sources)
         c99name = try PackageType.c99name(name: basename) + "TestSuite"
-    }
-
-    public var basename: String {
-        return String(name.characters.dropLast(10))
     }
 }
 
