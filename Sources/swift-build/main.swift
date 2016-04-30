@@ -94,6 +94,10 @@ do {
 
     case .Doctor:
         doctor()
+    
+    case .ShowDependencies(let mode):
+        let (rootPackage, externalPackages) = try fetch(opts.path.root)
+        dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
 
     case .Version:
         print("Apple Swift Package Manager 0.1")

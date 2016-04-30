@@ -1,0 +1,60 @@
+/*
+ This source file is part of the Swift.org open source project
+ 
+ Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+ 
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
+import PackageType
+import struct PackageDescription.Version
+
+func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
+    let dumper: DependenciesDumper
+    switch mode {
+    case .Text:
+        dumper = PlainTextDumper()
+    }
+    dumper.dump(dependenciesOf: rootPackage)
+}
+
+
+private protocol DependenciesDumper {
+    func dump(dependenciesOf: Package)
+}
+
+
+private final class PlainTextDumper: DependenciesDumper {
+    func dump(dependenciesOf rootpkg: Package) {
+        func recursiveWalk(packages: [Package], prefix: String = "") {
+            var hanger = prefix + "├── "
+
+            for (index, package) in packages.enumerated() {
+                if index == packages.count - 1 {
+                    hanger = prefix + "└── "
+                }                
+
+                let pkgVersion = package.version?.description ?? "unspecified"
+
+
+                print("\(hanger)\(package.name)<\(package.url)@\(pkgVersion)>") 
+
+                if !package.dependencies.isEmpty {
+                    let replacement = (index == packages.count - 1) ?  "    " : "│   "
+                    var childPrefix = hanger
+                    childPrefix.replaceSubrange(childPrefix.index(childPrefix.endIndex, offsetBy: -4)..<childPrefix.endIndex, with: replacement)
+                    recursiveWalk(packages: package.dependencies, prefix: childPrefix)
+                }
+            }
+        }
+
+        if !rootpkg.dependencies.isEmpty {
+            print(".")
+            recursiveWalk(packages: rootpkg.dependencies)
+        } else {
+            print("No external dependencies found")
+        }
+    }
+}
