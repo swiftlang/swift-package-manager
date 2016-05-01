@@ -10,7 +10,7 @@
 
 import func POSIX.getcwd
 import func POSIX.getenv
-import func POSIX.chdir
+import func Utility.chdir
 import func Utility.unlink
 import func libc.exit
 import ManifestSerializer

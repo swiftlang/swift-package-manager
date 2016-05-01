@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.chdir
-import var libc.errno
+import Foundation
+import func POSIX.getcwd
+import enum POSIX.SystemError
 
 /**
  Causes the named directory to become the current working directory.
@@ -21,8 +22,8 @@ public func chdir(_ path: String) throws {
         memo = (argv0: argv0, wd: cwd)
     }
 
-    guard libc.chdir(path) == 0 else {
-        throw SystemError.chdir(errno)
+    if !NSFileManager.`default`().changeCurrentDirectoryPath(path) {
+        throw SystemError.chdir(-1)
     }
 }
 
@@ -30,7 +31,7 @@ public func chdir(_ path: String) throws {
 private var memo: (argv0: String, wd: String)?
 
 /**
- The initial working directory before any calls to POSIX.chdir.
+ The initial working directory before any calls to Utility.chdir.
 */
 public func getiwd() -> String {
     return memo?.wd ?? getcwd()

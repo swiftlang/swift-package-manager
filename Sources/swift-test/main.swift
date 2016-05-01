@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.chdir
+import func Utility.chdir
 import func libc.exit
 import Multitool
 import Utility
