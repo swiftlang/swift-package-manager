@@ -8,8 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Utility
-import POSIX
+import func Utility.realpath
+import func POSIX.mkdtemp
+import func POSIX.mkdir
+import func POSIX.symlink
+import func Utility.rmtree
 import XCTest
 
 class RmtreeTests: XCTestCase {

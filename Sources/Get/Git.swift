@@ -9,7 +9,7 @@
 */
 
 import struct PackageDescription.Version
-import func POSIX.realpath
+import func Utility.realpath
 import func POSIX.getenv
 import enum POSIX.Error
 import Utility

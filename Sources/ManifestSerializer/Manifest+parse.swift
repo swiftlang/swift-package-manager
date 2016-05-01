@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.realpath
+import func Utility.realpath
 import func POSIX.unlink
 import PackageDescription
 import PackageType

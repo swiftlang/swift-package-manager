@@ -8,9 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Utility
+@testable import struct Utility.Path
+@testable import func Utility.realpath
+@testable import func Utility.walk
 import XCTest
-import POSIX
+import func POSIX.getenv
+import func POSIX.getcwd
+import func POSIX.mkdtemp
+import func POSIX.rmdir
+import func POSIX.symlink
+import func POSIX.mkdir
 
 class PathTests: XCTestCase {
 

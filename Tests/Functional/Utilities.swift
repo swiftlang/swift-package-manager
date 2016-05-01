@@ -14,7 +14,9 @@ import func Utility.walk
 import func XCTest.XCTFail
 import func POSIX.getenv
 import func POSIX.popen
-import POSIX
+import func Utility.realpath
+import enum POSIX.Error
+import func POSIX.mkdtemp
 
 #if os(OSX)
 import class Foundation.NSBundle
