@@ -8,12 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func Utility.realpath
-import func POSIX.unlink
 import PackageDescription
 import PackageType
 import Utility
-import func Utility.fopen
 
 extension Manifest {
     public init(path pathComponents: String..., baseURL: String, swiftc: String, libdir: String) throws {
@@ -75,7 +72,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     cmd += ["-fileno", "\(fp.fileDescriptor)"]
     try system(cmd)
 
-    let toml = try fopen(filePath).reduce("") { $0 + "\n" + $1 }
+    let toml = try fopen(filePath).enumerate().reduce("") { $0 + "\n" + $1 }
     try unlink(filePath) //Delete the temp file after reading it
 
     return toml != "" ? toml : nil

@@ -44,8 +44,8 @@ extension FileTests {
 }
 
 
-extension RmtreeTests {
-    static var allTests : [(String, (RmtreeTests) -> () throws -> Void)] {
+extension UnlinkTests {
+    static var allTests : [(String, (UnlinkTests) -> () throws -> Void)] {
         return [
                    ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
         ]

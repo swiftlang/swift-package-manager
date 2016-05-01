@@ -12,10 +12,10 @@ import func Utility.realpath
 import func POSIX.mkdtemp
 import func POSIX.mkdir
 import func POSIX.symlink
-import func Utility.rmtree
+import func Utility.unlink
 import XCTest
 
-class RmtreeTests: XCTestCase {
+class UnlinkTests: XCTestCase {
 
     func testDoesNotFollowSymlinks() {
         do {
@@ -32,7 +32,7 @@ class RmtreeTests: XCTestCase {
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
                 XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
 
-                try rmtree(root, "foo")
+                try Utility.unlink("\(root)/foo")
 
                 XCTAssertFalse("\(root)/foo".exists)
                 XCTAssertFalse("\(root)/foo".isDirectory)

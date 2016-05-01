@@ -11,12 +11,12 @@
 import struct Utility.Path
 import func POSIX.mkdir
 import func POSIX.system
-import func Utility.rmtree
+import func Utility.unlink
 
 func fixture(files: [String]) throws -> String {
     let testdir = Path.join(#file, "../../../.build/test.out").normpath
     if testdir.isDirectory {
-        try rmtree(testdir)
+        try unlink(testdir)
     }
     try mkdir(testdir)
     for file in files {

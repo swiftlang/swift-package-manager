@@ -8,12 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
-import func libc.unlink
-import var libc.errno
+import Foundation
 
 public func unlink(_ path: String) throws {
-    guard libc.unlink(path) == 0 else {
-        throw SystemError.unlink(errno, path)
-    }
+    try NSFileManager.`default`().removeItem(atPath: path)
 }

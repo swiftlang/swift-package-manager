@@ -15,7 +15,7 @@ import XCTest
 import func POSIX.getenv
 import func POSIX.getcwd
 import func POSIX.mkdtemp
-import func POSIX.rmdir
+import func Utility.unlink
 import func POSIX.symlink
 import func POSIX.mkdir
 
@@ -176,8 +176,8 @@ class StatTests: XCTestCase {
             XCTAssertTrue("\(root)/symlink".isDirectory)
             XCTAssertTrue("\(root)/symlink".isSymlink)
 
-            try POSIX.rmdir("\(root)/foo/bar")
-            try POSIX.rmdir("\(root)/foo")
+            try Utility.unlink("\(root)/foo/bar")
+            try Utility.unlink("\(root)/foo")
 
             XCTAssertTrue("\(root)/symlink".isSymlink)
             XCTAssertFalse("\(root)/symlink".isDirectory)
