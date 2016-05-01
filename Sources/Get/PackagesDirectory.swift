@@ -9,7 +9,7 @@
 */
 
 import struct PackageDescription.Version
-import func POSIX.mkdir
+import func Utility.mkdir
 import func POSIX.rename
 import PackageType
 import Utility

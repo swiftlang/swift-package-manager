@@ -17,7 +17,7 @@ import func POSIX.getcwd
 import func Utility.mkdtemp
 import func Utility.unlink
 import func Utility.symlink
-import func POSIX.mkdir
+import func Utility.mkdir
 
 class PathTests: XCTestCase {
 

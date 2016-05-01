@@ -9,7 +9,7 @@
 */
 
 import struct Utility.Path
-import func POSIX.mkdir
+import func Utility.mkdir
 import func POSIX.system
 import func Utility.unlink
 

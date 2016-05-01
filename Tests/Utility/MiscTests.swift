@@ -10,7 +10,7 @@
 
 import func Utility.realpath
 import func Utility.mkdtemp
-import func POSIX.mkdir
+import func Utility.mkdir
 import func Utility.symlink
 import func Utility.unlink
 import XCTest

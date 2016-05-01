@@ -13,6 +13,7 @@ import PackageType
 import POSIX
 import func Utility.fopen
 import func Utility.fputs
+import func Utility.mkdir
 
 final class InitPackage {
     let mode: InitMode

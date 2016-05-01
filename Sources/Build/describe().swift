@@ -9,7 +9,6 @@
 */
 
 import func POSIX.getenv
-import func POSIX.mkdir
 import PackageType
 import Utility
 
