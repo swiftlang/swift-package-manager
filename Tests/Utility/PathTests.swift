@@ -16,7 +16,7 @@ import func POSIX.getenv
 import func POSIX.getcwd
 import func Utility.mkdtemp
 import func Utility.unlink
-import func POSIX.symlink
+import func Utility.symlink
 import func POSIX.mkdir
 
 class PathTests: XCTestCase {
@@ -123,7 +123,7 @@ class WalkTests: XCTestCase {
 
                 try mkdir(root, "foo")
                 try mkdir(root, "bar/baz/goo")
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar")
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
@@ -145,8 +145,8 @@ class WalkTests: XCTestCase {
 
             try mkdir(root, "foo/bar")
             try mkdir(root, "abc/bar")
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
-            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo")
+            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc")
 
             XCTAssertTrue(Path.join(root, "symlink").isSymlink)
 
@@ -169,7 +169,7 @@ class StatTests: XCTestCase {
 
         try! mkdtemp("foo") { root in
             try mkdir(root, "foo/bar")
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo")
 
             XCTAssertTrue("\(root)/foo/bar".isDirectory)
             XCTAssertTrue("\(root)/symlink/bar".isDirectory)

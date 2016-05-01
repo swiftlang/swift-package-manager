@@ -9,7 +9,7 @@
 */
 
 import struct Utility.Path
-import func POSIX.symlink
+import func Utility.symlink
 import func Utility.walk
 import func POSIX.rename
 import func POSIX.mkdir
@@ -124,7 +124,7 @@ extension ValidLayoutsTestCase {
                 let tip = Path(file).relative(to: prefix)
                 try rename(old: file, new: Path.join(dir, tip))
             }
-            try symlink(create: "\(prefix)/Sources", pointingAt: dir, relativeTo: prefix)
+            try symlink(create: "\(prefix)/Sources", pointingAt: dir)
             try body(prefix)
         }
     }

@@ -11,7 +11,7 @@
 import func Utility.realpath
 import func Utility.mkdtemp
 import func POSIX.mkdir
-import func POSIX.symlink
+import func Utility.symlink
 import func Utility.unlink
 import XCTest
 
@@ -26,7 +26,7 @@ class UnlinkTests: XCTestCase {
                 try mkdir(root, "bar")
                 try mkdir(root, "bar/baz")
                 try mkdir(root, "bar/baz/goo")
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar")
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
