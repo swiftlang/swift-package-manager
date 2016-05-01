@@ -14,7 +14,7 @@
 import XCTest
 import func POSIX.getenv
 import func POSIX.getcwd
-import func POSIX.mkdtemp
+import func Utility.mkdtemp
 import func Utility.unlink
 import func POSIX.symlink
 import func POSIX.mkdir

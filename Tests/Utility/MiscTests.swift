@@ -9,7 +9,7 @@
  */
 
 import func Utility.realpath
-import func POSIX.mkdtemp
+import func Utility.mkdtemp
 import func POSIX.mkdir
 import func POSIX.symlink
 import func Utility.unlink
