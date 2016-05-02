@@ -9,7 +9,6 @@
 */
 
 import struct Utility.Path
-import func Utility.unlink
 import func Utility.walk
 import func XCTest.XCTFail
 import func POSIX.getenv
@@ -31,8 +30,6 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
     do {
         try Utility.mkdtemp(gsub(fixtureName)) { prefix in
-            defer { _ = try? unlink(prefix) }
-
             let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
             guard rootd.isDirectory else {
@@ -166,10 +163,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
 
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
     do {
-        try Utility.mkdtemp("spm-tests") { dir in
-            defer { _ = try? unlink(dir) }
-            try body(dir)
-        }
+        try Utility.mkdtemp("spm-tests", body: body)
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }
