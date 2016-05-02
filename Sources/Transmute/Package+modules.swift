@@ -19,6 +19,10 @@ extension Package {
             return [try CModule(name: name, path: path, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers)]
         }
 
+        if manifest.package.exclude.contains(".") {
+            return []
+        }
+
         let srcroot = try sourceRoot()
 
         if srcroot != path {
