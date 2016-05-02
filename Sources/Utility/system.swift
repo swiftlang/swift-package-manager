@@ -55,3 +55,30 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
         throw POSIX.Error.ExitStatus(task.terminationStatus, arguments)
     }
 }
+
+
+import func libc.fflush
+
+public func system(_ arguments: String..., environment: [String:String] = [:], message: String?) throws {
+    var out = ""
+    do {
+        if Utility.verbosity == .Concise {
+            if let message = message {
+                print(message)
+                fflush(stdout)  // ensure we display `message` before git asks for credentials
+            }
+            try Utility.popen(arguments, redirectStandardError: true, environment: environment) { line in
+                out += line
+            }
+        } else {
+            try system(arguments, environment: environment)
+        }
+    } catch {
+        if verbosity == .Concise {
+            print(prettyArguments(arguments), to: &stderr)
+            print(out, to: &stderr)
+        }
+        throw error
+    }
+}
+
