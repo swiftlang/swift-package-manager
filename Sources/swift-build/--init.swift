@@ -14,12 +14,13 @@ import POSIX
 import func Utility.fopen
 import func Utility.fputs
 import func Utility.mkdir
+import func Utility.getcwd
 
 final class InitPackage {
     let mode: InitMode
     let pkgname: String
-    let rootd = POSIX.getcwd()
     
+    let rootd = Utility.getcwd()
     init(mode: InitMode) throws {
         try c99name(name: rootd.basename)
         self.mode = mode

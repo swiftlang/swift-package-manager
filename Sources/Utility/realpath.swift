@@ -11,7 +11,6 @@
 
 import Foundation
 import enum POSIX.SystemError
-import func POSIX.getcwd
 
 /**
  Resolves all symbolic links, extra "/" characters, and references to /./

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getcwd
+import func Utility.getcwd
 import func POSIX.getenv
 import func Utility.chdir
 import func Utility.unlink

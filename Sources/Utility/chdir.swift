@@ -9,7 +9,6 @@
 */
 
 import Foundation
-import func POSIX.getcwd
 import enum POSIX.SystemError
 
 /**

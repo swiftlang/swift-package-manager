@@ -10,8 +10,8 @@
 
 import func libc.exit
 import PackageType
+import func POSIX.getenv
 import Utility
-import POSIX
 
 public class Options {
     public var chdir: String?

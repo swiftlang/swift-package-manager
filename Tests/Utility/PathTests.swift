@@ -13,7 +13,7 @@
 @testable import func Utility.walk
 import XCTest
 import func POSIX.getenv
-import func POSIX.getcwd
+import func Utility.getcwd
 import func Utility.mkdtemp
 import func Utility.unlink
 import func Utility.symlink
