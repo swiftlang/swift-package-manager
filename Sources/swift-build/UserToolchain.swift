@@ -36,7 +36,7 @@ struct UserToolchain: Toolchain {
         do {
             SWIFT_EXEC = getenv("SWIFT_EXEC")
                 // use the swiftc installed alongside ourselves
-                ?? Path.join(Process.arguments[0], "../swiftc").abspath()
+                ?? Path.join(Process.arguments[0], "../swiftc").abspath
 
             clang = try getenv("CC") ?? POSIX.popen(whichClangArgs).chomp()
 
