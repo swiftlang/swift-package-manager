@@ -23,6 +23,9 @@ import Utility
 import Build
 import Get
 
+/// Declare additional conformance for our Options type.
+extension Options: XcodeprojOptions {}
+
 do {
     let args = Array(Process.arguments.dropFirst())
     let (mode, opts) = try parse(commandLineArguments: args)
@@ -114,7 +117,7 @@ do {
             dstdir = opts.path.root
             projectName = packageName
         }
-        let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: (Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc))
+        let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
 
         print("generated:", outpath.prettyPath)
     }

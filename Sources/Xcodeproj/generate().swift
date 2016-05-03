@@ -12,13 +12,17 @@ import PackageType
 import Utility
 import POSIX
 
-public typealias OptionsType = (Xcc: [String], Xld: [String], Xswiftc: [String])
+public protocol XcodeprojOptions {
+    var Xcc: [String] { get }
+    var Xld: [String] { get }
+    var Xswiftc: [String] { get }
+}
 
 /**
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: OptionsType) throws -> String {
+public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(dstdir, xcodeprojName)

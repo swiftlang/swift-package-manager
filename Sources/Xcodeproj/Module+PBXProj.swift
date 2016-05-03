@@ -169,7 +169,7 @@ extension XcodeModuleProtocol  {
         return (headerPathKey, headerPathValue)
     }
 
-    func getDebugBuildSettings(_ options: OptionsType) -> String {
+    func getDebugBuildSettings(_ options: XcodeprojOptions) -> String {
         var buildSettings = getCommonBuildSettings(options)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
@@ -178,7 +178,7 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    func getReleaseBuildSettings(_ options: OptionsType) -> String {
+    func getReleaseBuildSettings(_ options: XcodeprojOptions) -> String {
         var buildSettings = getCommonBuildSettings(options)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
@@ -186,7 +186,7 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
+    private func getCommonBuildSettings(_ options: XcodeprojOptions) ->[String: String] {
         var buildSettings = [String: String]()
 
         if self is TestModule {

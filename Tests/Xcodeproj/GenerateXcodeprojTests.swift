@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import func POSIX.mkdtemp
 import PackageType
@@ -51,7 +51,12 @@ class TestGeneration: XCTestCase {
             let modules = try dummy()
             let products: [Product] = []
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: ([], [], []))
+            struct Options: XcodeprojOptions {
+                var Xcc = [String]()
+                var Xld = [String]()
+                var Xswiftc = [String]()
+            }
+                    let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))
