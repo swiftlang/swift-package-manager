@@ -99,7 +99,7 @@ class ValidLayoutsTestCase: XCTestCase {
 //MARK: Utility
 
 extension ValidLayoutsTestCase {
-    func runLayoutFixture(name: String, line: UInt = #line, @noescape body: (String) throws -> Void) {
+    func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(String) throws -> Void) {
         let name = "ValidLayouts/\(name)"
 
         // 1. Rooted layout
@@ -138,6 +138,7 @@ extension DependencyResolutionTestCase {
             ("testInternalComplex", testInternalComplex),
             ("testExternalSimple", testExternalSimple),
             ("testExternalComplex", testExternalComplex),
+            ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
         ]
     }
 }

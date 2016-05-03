@@ -12,10 +12,11 @@
 //TODO escaping
 
 
+import POSIX
 import PackageType
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: OptionsType, printer print: (String) -> Void) {
+public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
 
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
@@ -53,14 +54,14 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("            isa = PBXFileReference;")
     print("            lastKnownFileType = sourcecode.swift;")
     print("            name = '\(packageSwift.1)';")
-    print("            path = '\(packageSwift.2)';")
+    print("            path = '\(Path(packageSwift.2).relative(to: projectRoot))';")
     print("            sourceTree = '<group>';")
     print("        };")
 
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(packageSwift.0), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.0), \(configsGroupReference), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 
@@ -157,6 +158,81 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
         print("        };")
     }
 
+////// “Configs” group
+    
+    // The project-level xcconfig files.
+    //
+    // FIXME: Generate these into a sane path.
+    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: srcroot)
+    try mkdir(projectXCConfig.2.parentDirectory)
+    try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
+        // Set the standard PRODUCT_NAME.
+        try fputs("PRODUCT_NAME = $(TARGET_NAME)\n", fp)
+        
+        // Set SUPPORTED_PLATFORMS to all platforms.
+        //
+        // The goal here is to define targets which *can be* built for any
+        // platform (although some might not work correctly). It is then up to
+        // the integrating project to only set these targets up as dependencies
+        // where appropriate.
+        let supportedPlatforms = [
+            "macosx",
+            "iphoneos", "iphonesimulator",
+            "tvos", "tvsimulator",
+            "watchos", "watchsimulator"]
+        try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
+
+        // Default to @rpath-based install names.
+        //
+        // The expectation is that the application or executable consuming these
+        // products will need to establish the appropriate runpath search paths
+        // so that all the products can be found in a relative manner.
+        try fputs("DYLIB_INSTALL_NAME_BASE = @rpath\n", fp)
+
+        // Propagate any user provided build flag overrides.
+        //
+        // FIXME: Need to get quoting correct here.
+        if !options.Xcc.isEmpty {
+            try fputs("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))\n", fp)
+        }
+        if !options.Xld.isEmpty {
+            try fputs("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))\n", fp)
+        }
+        try fputs("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))\n", fp)
+        
+        // Prevents Xcode project upgrade warnings.
+        try fputs("COMBINE_HIDPI_IMAGES = YES\n", fp)
+
+        // Always disable use of headermaps.
+        //
+        // The semantics of the build should be explicitly defined by the
+        // project structure, we don't want any additional behaviors not shared
+        // with `swift build`.
+        try fputs("USE_HEADERMAP = NO\n", fp)
+
+        // If the user provided an overriding xcconfig path, include it here.
+        if let path = options.xcconfigOverrides {
+            try fputs("\n#include \"\(path)\"\n", fp)
+        }
+    }
+    let configs = [projectXCConfig]
+    for configInfo in configs {
+        print("        \(configInfo.0) = {")
+        print("            isa = PBXFileReference;")
+        print("            lastKnownFileType = text.xcconfig;")
+        print("            name = '\(configInfo.1.basename)';")
+        print("            path = '\(Path(configInfo.2).relative(to: projectRoot))';")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
+    
+    print("        \(configsGroupReference) = {")
+    print("            isa = PBXGroup;")
+    print("            children = (" + configs.map{ $0.0 }.joined(separator: ", ") + ");")
+    print("            name = Configs;")
+    print("            sourceTree = '<group>';")
+    print("        };")
+
 ////// “Sources” group
     print("        \(sourcesGroupReference) = {")
     print("            isa = PBXGroup;")
@@ -165,22 +241,26 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
     print("            sourceTree = '<group>';")
     print("        };")
 
-    ////// “Dependencies” group
-    print("        \(dependenciesGroupReference) = {")
-    print("            isa = PBXGroup;")
-    print("            children = (" + externalModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Dependencies;")
-    print("            sourceTree = '<group>';")
-    print("        };")
+    if !externalModules.isEmpty {
+        ////// “Dependencies” group
+        print("        \(dependenciesGroupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            children = (" + externalModules.map{ $0.groupReference }.joined(separator: ", ") + ");")
+        print("            name = Dependencies;")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
 
 ////// “Tests” group
-    print("        \(testsGroupReference) = {")
-    print("            isa = PBXGroup;")
-    print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
-    print("            name = Tests;")
-    print("            sourceTree = '<group>';")
-    print("        };")
-    
+    if !tests.isEmpty {
+        print("        \(testsGroupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            children = (" + tests.map{ $0.groupReference }.joined(separator: ", ") + ");")
+        print("            name = Tests;")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
+
     var productReferences: [String] = []
     
     if !tests.isEmpty {
@@ -208,11 +288,13 @@ public func pbxproj(srcroot: String, projectRoot: String, modules: [XcodeModuleP
 ////// primary build configurations
     print("        \(rootDebugBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
+    print("            baseConfigurationReference = \(projectXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Debug;")
     print("        };")
     print("        \(rootReleaseBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
+    print("            baseConfigurationReference = \(projectXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Release;")
     print("        };")

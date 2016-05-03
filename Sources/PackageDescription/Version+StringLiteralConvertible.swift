@@ -47,7 +47,7 @@ extension Version {
 
         if let prereleaseStartIndex = prereleaseStartIndex {
             let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
-            let prereleaseCharacters = characters[prereleaseStartIndex.successor()..<prereleaseEndIndex]
+            let prereleaseCharacters = characters[characters.index(after: prereleaseStartIndex)..<prereleaseEndIndex]
             prereleaseIdentifiers = prereleaseCharacters.split(separator: ".").map{ String($0) }
         } else {
             prereleaseIdentifiers = []
@@ -55,7 +55,7 @@ extension Version {
 
         var buildMetadataIdentifier: String? = nil
         if let metadataStartIndex = metadataStartIndex {
-            let buildMetadataCharacters = characters.suffix(from: metadataStartIndex.successor())
+            let buildMetadataCharacters = characters.suffix(from: characters.index(after: metadataStartIndex))
             if !buildMetadataCharacters.isEmpty {
                 buildMetadataIdentifier = String(buildMetadataCharacters)
             }

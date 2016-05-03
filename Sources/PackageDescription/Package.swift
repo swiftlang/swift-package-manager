@@ -26,8 +26,15 @@ public final class Package {
             self.versionRange = versionRange
         }
 
+        convenience init(_ url: String, _ versionRange: ClosedRange<Version>) {
+            self.init(url, versionRange.lowerBound..<versionRange.upperBound.successor())
+        }
+
         public class func Package(url: String, versions: Range<Version>) -> Dependency {
             return Dependency(url, versions)
+        }
+        public class func Package(url: String, versions: ClosedRange<Version>) -> Dependency {
+            return Package(url: url, versions: versions.lowerBound..<versions.upperBound.successor())
         }
         public class func Package(url: String, majorVersion: Int) -> Dependency {
             return Dependency(url, Version(majorVersion, 0, 0)..<Version(majorVersion, .max, .max))
@@ -119,7 +126,7 @@ extension SystemPackageProvider: TOMLConvertible {
 
 extension Package.Dependency: TOMLConvertible {
     public func toTOML() -> String {
-        return "[\"\(url)\", \"\(versionRange.startIndex)\", \"\(versionRange.endIndex)\"],"
+        return "[\"\(url)\", \"\(versionRange.lowerBound)\", \"\(versionRange.upperBound)\"],"
     }
 }
 

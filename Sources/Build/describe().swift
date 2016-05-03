@@ -57,48 +57,44 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 
     for product in products {
-        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
+        var rpathArgs = [String]()
+        
+        // On Linux, always embed an RPATH adjacent to the linked binary. Note
+        // that the '$ORIGIN' here is literal, it is a reference which is
+        // understood by the dynamic linker.
+#if os(Linux)
+        rpathArgs += ["-Xlinker", "-rpath=$ORIGIN"]
+#endif
+        
+        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
         commands.append(command)
         targets.append(command, for: product)
     }
 
-    return try write(path: "\(prefix).yaml") { writeln in
-        writeln("client:")
-        writeln("  name: swift-build")
-        writeln("tools: {}")
-        writeln("targets:")
+    return try! write(path: "\(prefix).yaml") { stream in
+        stream <<< "client:\n"
+        stream <<< "  name: swift-build\n"
+        stream <<< "tools: {}\n"
+        stream <<< "targets:\n"
         for target in [targets.test, targets.main] {
-            writeln("  \(target.node): " + target.cmds.map{$0.node}.YAML)
+            stream <<< "  " <<< Format.asJSON(target.node) <<< ": " <<< Format.asJSON(target.cmds.map{$0.node}) <<< "\n"
         }
-        writeln("default: \(targets.main.node)")
-        writeln("commands: ")
+        stream <<< "default: " <<< Format.asJSON(targets.main.node) <<< "\n"
+        stream <<< "commands: \n"
         for command in commands {
-            writeln("  \(command.node):")
-            writeln(command.tool.YAMLDescription)
+            stream <<< "  " <<< Format.asJSON(command.node) <<< ":\n"
+            command.tool.append(to: stream)
+            stream <<< "\n"
         }
     }
 }
 
-private func write(path: String, write: ((String) -> Void) -> Void) throws -> String {
-    var storedError: ErrorProtocol?
-
+private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
     try fopen(path, mode: .Write) { fp in
-        write { line in
-            do {
-                if storedError == nil {
-                    try fputs(line, fp)
-                    try fputs("\n", fp)
-                }
-            } catch {
-                storedError = error
-            }
-        }
+        let stream = OutputByteStream()
+        write(stream)
+        try fputs(stream.bytes.bytes, fp)
     }
-
-    guard storedError == nil else {
-        throw storedError!
-    }
-
     return path
 }
 

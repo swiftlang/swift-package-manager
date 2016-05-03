@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import func POSIX.mkdtemp
 import PackageType
@@ -16,7 +16,7 @@ import XCTest
 
 
 // copy pasta
-func mktmpdir(_ file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
+func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
             defer { _ = try? rmtree(dir) }
@@ -51,7 +51,13 @@ class TestGeneration: XCTestCase {
             let modules = try dummy()
             let products: [Product] = []
 
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: ([], [], []))
+            struct Options: XcodeprojOptions {
+                let Xcc = [String]()
+                let Xld = [String]()
+                let Xswiftc = [String]()
+                let xcconfigOverrides: String? = nil
+            }
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))

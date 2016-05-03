@@ -21,7 +21,7 @@ import class Foundation.NSBundle
 #endif
 
 
-func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
+func fixture(name fixtureName: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
 
     func gsub(_ input: String) -> String {
         return input.characters.split(separator: "/").map(String.init).joined(separator: "_")
@@ -155,7 +155,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
     }
 }
 
-func mktmpdir(_ file: StaticString = #file, line: UInt = #line, @noescape body: (String) throws -> Void) {
+func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
             defer { _ = try? rmtree(dir) }

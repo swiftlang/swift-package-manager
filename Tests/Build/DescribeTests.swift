@@ -24,7 +24,7 @@ final class DescribeTests: XCTestCase {
             let _ = try describe("foo", .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.NoModules {
-            XCTAssert(true, "This error should be throw")
+            XCTAssert(true, "This error should be thrown")
         } catch {
             XCTFail("No other error should be thrown")
         }

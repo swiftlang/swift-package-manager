@@ -38,7 +38,7 @@ public struct File {
      In the event of read-error we do not feed a partially generated
      line before ending iteration.
     */
-    public func enumerate(_ separator: Character = "\n") throws -> FileLineGenerator {
+    public func enumerate(_ separator: UnicodeScalar = "\n") throws -> FileLineGenerator {
         return try FileLineGenerator(path: path, separator: separator)
     }
 }
@@ -50,8 +50,8 @@ public class FileLineGenerator: IteratorProtocol, Sequence {
     private let fp: UnsafeMutablePointer<FILE>
     private let separator: Int32
 
-    init(path: String, separator c: Character) throws {
-        separator = Int32(String(c).utf8.first!)
+    init(path: String, separator c: UnicodeScalar) throws {
+        separator = Int32(UInt8(ascii: c))
         fp = try fopen(path)
     }
 

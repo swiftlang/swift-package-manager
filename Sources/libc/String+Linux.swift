@@ -13,11 +13,13 @@
 #if os(Linux)
     public extension String {
         public func hasPrefix(_ str: String) -> Bool {
+            // FIXME: the cost of this "fast path" is O(n).
             if utf8.count < str.utf8.count {
                 return false
             }
+            // FIXME: the complexity of this algorithm is O(n^2).
             for i in 0..<str.utf8.count {
-                if utf8[utf8.startIndex.advanced(by: i)] != str.utf8[str.utf8.startIndex.advanced(by: i)] {
+                if utf8[utf8.index(utf8.startIndex, offsetBy: i)] != str.utf8[str.utf8.index(str.utf8.startIndex, offsetBy: i)] {
                     return false
                 }
             }
@@ -30,8 +32,9 @@
             if count < strCount {
                 return false
             }
-            for i in 0..<str.utf8.count {
-                if utf8[utf8.startIndex.advanced(by: count-i-1)] != str.utf8[str.utf8.startIndex.advanced(by: strCount-i-1)] {
+            // FIXME: the complexity of this algorithm is O(n^2).
+            for i in 0..<strCount {
+                if utf8[utf8.index(utf8.startIndex, offsetBy: count-i-1)] != str.utf8[str.utf8.index(str.utf8.startIndex, offsetBy: strCount-i-1)] {
                     return false
                 }
             }

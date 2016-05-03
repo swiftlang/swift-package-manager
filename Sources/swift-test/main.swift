@@ -28,21 +28,27 @@ do {
     case .Run(let specifier):
         let configuration = "debug"  //FIXME should swift-test support configuration option?
 
-        func determineTestPath() -> String {
+        func determineTestPath() throws -> String {
 
             //FIXME better, ideally without parsing manifest since
             // that makes us depend on the whole Manifest system
 
             let packageName = opts.path.root.basename  //FIXME probably not true
-            let maybePath = Path.join(opts.path.build, configuration, "\(packageName).xctest")
+            let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
 
             if maybePath.exists {
                 return maybePath
             } else {
-                return walk(opts.path.build).filter {
+                let possiblePaths = walk(opts.path.build).filter {
                     $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
                     $0.hasSuffix(".xctest")
-                }.first!
+                }
+                
+                guard let path = possiblePaths.first else {
+                    throw Error.TestsExecutableNotFound
+                }
+                
+                return path
             }
         }
 

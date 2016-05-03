@@ -19,9 +19,9 @@ public enum Error: ErrorProtocol {
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
-        case ExpectedAssociatedValue(let arg):
+        case .ExpectedAssociatedValue(let arg):
             return "expected associated value for argument: \(arg)"
-        case UnexpectedAssociatedValue(let arg, let value):
+        case .UnexpectedAssociatedValue(let arg, let value):
             return "unexpected associated value for argument: \(arg)=\(value)"
         case .MultipleModesSpecified(let modes):
             return "multiple modes specified: \(modes)"

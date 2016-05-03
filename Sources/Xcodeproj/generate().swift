@@ -12,13 +12,27 @@ import PackageType
 import Utility
 import POSIX
 
-public typealias OptionsType = (Xcc: [String], Xld: [String], Xswiftc: [String])
+public protocol XcodeprojOptions {
+    /// The list of additional arguments to pass to the compiler.
+    var Xcc: [String] { get }
+
+    /// The list of additional arguments to pass to the linker.
+    var Xld: [String] { get }
+
+    /// The list of additional arguments to pass to `swiftc`.
+    var Xswiftc: [String] { get }
+
+    /// If provided, a path to an xcconfig file to be included by the project.
+    ///
+    /// This allows the client to override settings defined in the project itself.
+    var xcconfigOverrides: String? { get }
+}
 
 /**
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: OptionsType) throws -> String {
+public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
@@ -27,7 +41,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        pbxproj(srcroot: srcroot, projectRoot: dstdir, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
@@ -57,11 +71,11 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
 }
 
 
-private func open(_ path: String..., body: ((String) -> Void) -> Void) throws {
+private func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     var error: ErrorProtocol? = nil
 
     try Utility.fopen(Path.join(path), mode: .Write) { fp in
-        body { line in
+        try body { line in
             if error == nil {
                 do {
                     try fputs(line, fp)

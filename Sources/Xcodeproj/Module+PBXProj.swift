@@ -33,6 +33,7 @@ let rootReleaseBuildConfigurationReference =        "_____Release_"
 let rootGroupReference =                            "___RootGroup_"
 let productsGroupReference =                        "____Products_"
 let testProductsGroupReference =                    "TestProducts_"
+let configsGroupReference =                         "_____Configs_"
 let sourcesGroupReference =                         "_____Sources_"
 let dependenciesGroupReference =                    "Dependencies_"
 let testsGroupReference =                           "_______Tests_"
@@ -168,7 +169,7 @@ extension XcodeModuleProtocol  {
         return (headerPathKey, headerPathValue)
     }
 
-    func getDebugBuildSettings(_ options: OptionsType) -> String {
+    func getDebugBuildSettings(_ options: XcodeprojOptions) -> String {
         var buildSettings = getCommonBuildSettings(options)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
@@ -177,7 +178,7 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    func getReleaseBuildSettings(_ options: OptionsType) -> String {
+    func getReleaseBuildSettings(_ options: XcodeprojOptions) -> String {
         var buildSettings = getCommonBuildSettings(options)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
@@ -185,17 +186,8 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
     }
 
-    private func getCommonBuildSettings(_ options: OptionsType) ->[String: String] {
-        var buildSettings = ["PRODUCT_NAME": productName]
-        buildSettings["PRODUCT_MODULE_NAME"] = c99name
-        buildSettings["OTHER_SWIFT_FLAGS"] = serializeArray(options.Xswiftc+["-DXcode"])
-        buildSettings["OTHER_CFLAGS"] = serializeArray(options.Xcc)
-        buildSettings["OTHER_LDFLAGS"] = serializeArray(options.Xld)
-
-        buildSettings["MACOSX_DEPLOYMENT_TARGET"] = "'10.10'"
-
-        // prevents Xcode project upgrade warnings
-        buildSettings["COMBINE_HIDPI_IMAGES"] = "YES"
+    private func getCommonBuildSettings(_ options: XcodeprojOptions) ->[String: String] {
+        var buildSettings = [String: String]()
 
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
@@ -207,7 +199,6 @@ extension XcodeModuleProtocol  {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
-                buildSettings["DYLIB_INSTALL_NAME_BASE"] = "'$(CONFIGURATION_BUILD_DIR)'"
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"

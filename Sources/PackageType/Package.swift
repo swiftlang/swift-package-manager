@@ -56,7 +56,7 @@ extension Package {
         case "http", "https", "git", "ssh":
             if url.hasSuffix(".git") {
                 let a = base.startIndex
-                let b = base.endIndex.advanced(by: -4)
+                let b = base.index(base.endIndex, offsetBy: -4)
                 return base[a..<b]
             } else {
                 fallthrough

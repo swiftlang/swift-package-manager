@@ -21,7 +21,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("")
     print("MODES:")
     print("  --configuration <value>        Build with configuration (debug|release) [-c]")
-    print("  --clean[=<mode>]               Delete artefacts (build|dist) [-k]")
+    print("  --clean[=<mode>]               Delete artifacts (build|dist)")
     print("  --init[=<mode>]                Create a package template (executable|library)")
     print("  --fetch                        Fetch package dependencies")
     print("  --update                       Update package dependencies")
@@ -49,7 +49,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--configuration", "--conf":
+        case "--configuration", "--conf", "-c":
             self = try .Build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .Clean(CleanMode(pop()))
@@ -94,6 +94,7 @@ enum Flag: Argument {
     case Xswiftc(String)
     case verbose(Int)
     case buildPath(String)
+    case xcconfigOverrides(String)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -117,6 +118,8 @@ enum Flag: Argument {
             self = try .Xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(forcePop())
+        case "--xcconfig-overrides":
+            self = try .xcconfigOverrides(forcePop())
         default:
             return nil
         }
@@ -128,6 +131,7 @@ class Options: Multitool.Options {
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
+    var xcconfigOverrides: String? = nil
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -150,6 +154,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.Xswiftc.append(value)
         case .buildPath(let path):
             opts.path.build = path
+        case .xcconfigOverrides(let path):
+            opts.xcconfigOverrides = path
         }
     }
 
@@ -178,9 +184,9 @@ enum CleanMode: CustomStringConvertible {
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
-            self = Build
+            self = .Build
         case "dist"?, "distribution"?:
-            self = Dist
+            self = .Dist
         default:
             throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")
         }
@@ -200,9 +206,9 @@ enum InitMode: CustomStringConvertible {
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "library"?, "lib"?:
-            self = Library
+            self = .Library
         case nil, "executable"?, "exec"?, "exe"?:
-            self = Executable
+            self = .Executable
         default:
             throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)")
         }

@@ -63,7 +63,7 @@ extension Collection where Iterator.Element : Equatable {
                 return (leading, trailing)
             } else {
                 //not found, move index down
-                index = index.successor()
+                index += 1
             }
         }
         return (orig, nil)

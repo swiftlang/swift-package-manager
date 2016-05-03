@@ -24,9 +24,12 @@ public protocol Toolchain {
 }
 
 func platformFrameworksPath() throws -> String {
-    guard let  popened = try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]),
-        let chuzzled = popened.chuzzle() else {
-            throw Error.InvalidPlatformPath
+    // Lazily compute the platform the first time it is needed.
+    struct Static {
+        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
+    }
+    guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
+        throw Error.InvalidPlatformPath
     }
     return Path.join(chuzzled, "Developer/Library/Frameworks")
 }
@@ -185,29 +188,23 @@ extension SystemPackageProvider {
         }
     }
     
-    static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
-        guard let uname = try? popen(["uname"]).chomp().lowercased() else { return nil }
-        switch uname {
-        case "darwin":
-            for provider in providers {
-                if case .Brew = provider {
-                    return provider
-                }
+    var isAvailable: Bool {
+        guard let platform = Platform.currentPlatform else { return false }
+        switch self {
+        case .Brew(_):
+            if case .Darwin = platform  {
+                return true
             }
-        case "linux":
-            if "/etc/debian_version".isFile {
-                for provider in providers {
-                    if case .Apt = provider {
-                        return provider
-                    }
-                }
+        case .Apt(_):
+            if case .Linux(.Debian) = platform  {
+                return true
             }
-            break
-            
-        default:
-            return nil
         }
-        return nil
+        return false
+    }
+    
+    static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
+        return providers.filter{ $0.isAvailable }.first
     }
 }
 

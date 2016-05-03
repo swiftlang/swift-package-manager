@@ -277,8 +277,32 @@ extension String {
         return Path.join(self, "..").normpath
     }
 
-    /// - Returns: Ensures single path separators in a path string
+    /// - Returns: Ensures single path separators in a path string, and removes trailing slashes.
     private var onesep: String {
+        // Fast path, for already clean strings.
+        //
+        // It would be more efficient to avoid scrubbing every string that
+        // passes through join(), but this retains the pre-existing semantics.
+        func isClean(_ str: String) -> Bool {
+            // Check if the string contains any occurrence of "//" or ends with "/".
+            let utf8 = str.utf8
+            var idx = utf8.startIndex
+            let end = utf8.endIndex
+            while idx != end {
+                if utf8[idx] == UInt8(ascii: "/") {
+                    utf8.formIndex(after: &idx)
+                    if idx == end || utf8[idx] == UInt8(ascii: "/") {
+                        return false
+                    }
+                }
+                utf8.formIndex(after: &idx)
+            }
+            return true
+        }
+        if isClean(self) {
+            return self
+        }
+        
         let abs = isAbsolute
         let cleaned = characters.split(separator: "/").map(String.init).joined(separator: "/")
         return abs ? "/\(cleaned)" : cleaned

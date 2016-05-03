@@ -67,8 +67,7 @@ extension SwiftModule {
             }
             
             do {
-                var pkgConfig = try PkgConfig(name: pkgConfigName)
-                try pkgConfig.load()
+                let pkgConfig = try PkgConfig(name: pkgConfigName)
                 return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
             }
             catch PkgConfigError.CouldNotFindConfigFile {

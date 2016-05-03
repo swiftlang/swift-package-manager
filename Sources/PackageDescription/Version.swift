@@ -84,9 +84,11 @@ public func <(lhs: Version, rhs: Version) -> Bool {
 
 // MARK: BidirectionalIndexType
 
-extension Version: BidirectionalIndex {
+// FIXME: do we want to keep these APIs now that Version does not conform to
+// BidirectionalCollection?
+extension Version {
     public func successor() -> Version {
-        return Version(major, minor, patch.successor())
+        return Version(major, minor, patch + 1)
     }
 
     public func predecessor() -> Version {

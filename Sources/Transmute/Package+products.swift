@@ -34,7 +34,9 @@ extension Package {
         if !testModules.isEmpty {
             let modules: [SwiftModule] = testModules.map{$0} // or linux compiler crash (2016-02-03)
             //TODO and then we should prefix all modules with their package probably
-            let product = Product(name: self.name, type: .Test, modules: modules)
+            //Suffix 'Tests' to test product so the module name of linux executable don't collide with
+            //main package, if present.
+            let product = Product(name: "\(self.name)Tests", type: .Test, modules: modules)
             products.append(product)
         }
 

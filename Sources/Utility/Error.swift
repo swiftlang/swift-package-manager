@@ -16,9 +16,9 @@ public enum Error: ErrorProtocol {
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
-        case ObsoleteGitVersion:
+        case .ObsoleteGitVersion:
             return "Git 2.0 or higher is required. Please update git and retry."
-        case UnknownGitError:
+        case .UnknownGitError:
             return "Failed to invoke git command. Please try updating git"
         }
     }
