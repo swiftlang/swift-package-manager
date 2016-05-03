@@ -73,6 +73,8 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
                 }
                 flags.append(flag)
             }
+        } else {
+          throw Error.UnknownArgument(arg)
         }
 
         if let value = value where !popped {
