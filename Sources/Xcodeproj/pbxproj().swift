@@ -163,7 +163,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     // The project-level xcconfig files.
     //
     // FIXME: Generate these into a sane path.
-    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: srcroot)
+    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: Path.join(srcroot, projectRoot))
     try mkdir(projectXCConfig.2.parentDirectory)
     try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
         // Set the standard PRODUCT_NAME.
