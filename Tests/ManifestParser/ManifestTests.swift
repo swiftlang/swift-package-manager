@@ -44,8 +44,8 @@ class ManifestTests: XCTestCase {
   #endif
     let libdir = bundleRoot()
 #else
-    let libdir = Process.arguments.first!.parentDirectory.abspath()
-    let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath()
+    let libdir = Process.arguments.first!.parentDirectory.abspath
+    let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath
 #endif
 
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {

@@ -116,8 +116,8 @@ public struct Path {
         // The above function requires both paths to be either relative
         // or absolute. So if they differ we make them both absolute.
         if abs.0 != abs.1 {
-            if !abs.path { path = path.abspath() }
-            if !abs.pivot { pivot = pivot.abspath() }
+            if !abs.path { path = path.abspath }
+            if !abs.pivot { pivot = pivot.abspath }
         }
         
         return go(clean(string), clean(pivot))
@@ -199,7 +199,7 @@ extension String {
 
          Path.join(getcwd(), self).normpath
      */
-    public func abspath() -> String {
+    public var abspath: String {
         return Path.join(getcwd(), self).normpath
     }
 
