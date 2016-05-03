@@ -19,13 +19,7 @@ import Utility
 extension Command {
     static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
 
-        let objects: [String]
-        switch conf {
-        case .Release:
-            objects = product.buildables.map{ Path.join(prefix, "\($0.c99name).o") }
-        case .Debug:
-            objects = product.buildables.flatMap{ return SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC).objects }
-        }
+        let objects = product.buildables.flatMap{ return SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC).objects }
 
         let outpath = Path.join(prefix, product.outname)
 
