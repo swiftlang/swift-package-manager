@@ -30,7 +30,7 @@ public func mkdtemp<T>(_ template: String, prefix: String! = nil, body: @noescap
         let mutable = UnsafeMutablePointer<Int8>(template)
         let dir = libc.mkdtemp(mutable)  //TODO get actual TMP dir
         if dir == nil { throw SystemError.mkdtemp(errno) }
-        defer { rmdir(dir) }
+        defer { rmdir(dir!) }
         return try body(String(validatingUTF8: dir!)!)
     }
 }
