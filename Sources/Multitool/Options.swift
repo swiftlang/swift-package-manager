@@ -27,7 +27,7 @@ public class Options {
         }
 
         private var _Packages: String?
-            private var _build: String?
+        private var _build: String?
     }
 
     public init()

@@ -38,6 +38,7 @@ func fixture(files: [String]) throws -> (PackageType.Package, [Module]) {
     let prefix: String = try fixture(files: files)
     let manifest = Manifest(path: Path.join(prefix, "Package.swift"), package: Package(name: "name\(index)"), products: [])
     let package = Package(manifest: manifest, url: prefix)
-    let modules = try package.modules()
+    let apparatus = try Apparatus(package: package, supplementaryExcludes: [])
+    let modules = try apparatus.modules()
     return (package, modules)
 }

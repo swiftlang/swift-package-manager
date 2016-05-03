@@ -10,13 +10,11 @@
 
 import PackageType
 
-extension Package {
-    public enum ModuleError: ErrorProtocol {
-        case NoModules(Package)
-        case ModuleNotFound(String)
-        case InvalidLayout(InvalidLayoutType)
-        case ExecutableAsDependency(String)
-    }
+public enum ModuleError: ErrorProtocol {
+    case NoModules(Package)
+    case ModuleNotFound(String)
+    case InvalidLayout(InvalidLayoutType)
+    case ExecutableAsDependency(String)
 
     public enum InvalidLayoutType {
         case MultipleSourceRoots([String])
@@ -24,7 +22,8 @@ extension Package {
     }
 }
 
-extension Package.InvalidLayoutType: CustomStringConvertible {
+
+extension ModuleError.InvalidLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .MultipleSourceRoots(let paths):

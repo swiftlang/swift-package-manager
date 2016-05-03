@@ -11,7 +11,7 @@
 import PackageType
 import Utility
 
-extension Package {
+extension Apparatus {
     func products(_ allModules: [Module]) throws -> [Product] {
 
         var products = [Product]()
@@ -36,13 +36,13 @@ extension Package {
             //TODO and then we should prefix all modules with their package probably
             //Suffix 'Tests' to test product so the module name of linux executable don't collide with
             //main package, if present.
-            let product = Product(name: "\(self.name)Tests", type: .Test, modules: modules)
+            let product = Product(name: "\(package.name)Tests", type: .Test, modules: modules)
             products.append(product)
         }
 
     ////// add products from the manifest
 
-        for p in manifest.products {
+        for p in package.manifest.products {
             let modules: [SwiftModule] = p.modules.flatMap{ moduleName in
                 guard case let picked as SwiftModule = (modules.pick{ $0.name == moduleName }) else {
                     print("warning: No module \(moduleName) found for product \(p.name)")
