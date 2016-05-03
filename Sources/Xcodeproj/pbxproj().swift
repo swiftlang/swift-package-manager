@@ -209,6 +209,11 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         // project structure, we don't want any additional behaviors not shared
         // with `swift build`.
         try fputs("USE_HEADERMAP = NO\n", fp)
+
+        // If the user provided an overriding xcconfig path, include it here.
+        if let path = options.xcconfigOverrides {
+            try fputs("\n#include \"\(path)\"\n", fp)
+        }
     }
     let configs = [projectXCConfig]
     for configInfo in configs {

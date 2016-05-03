@@ -94,6 +94,7 @@ enum Flag: Argument {
     case Xswiftc(String)
     case verbose(Int)
     case buildPath(String)
+    case xcconfigOverrides(String)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -117,6 +118,8 @@ enum Flag: Argument {
             self = try .Xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(forcePop())
+        case "--xcconfig-overrides":
+            self = try .xcconfigOverrides(forcePop())
         default:
             return nil
         }
@@ -128,6 +131,7 @@ class Options: Multitool.Options {
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
+    var xcconfigOverrides: String? = nil
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -150,6 +154,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.Xswiftc.append(value)
         case .buildPath(let path):
             opts.path.build = path
+        case .xcconfigOverrides(let path):
+            opts.xcconfigOverrides = path
         }
     }
 

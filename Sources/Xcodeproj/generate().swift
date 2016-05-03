@@ -13,9 +13,19 @@ import Utility
 import POSIX
 
 public protocol XcodeprojOptions {
+    /// The list of additional arguments to pass to the compiler.
     var Xcc: [String] { get }
+
+    /// The list of additional arguments to pass to the linker.
     var Xld: [String] { get }
+
+    /// The list of additional arguments to pass to `swiftc`.
     var Xswiftc: [String] { get }
+
+    /// If provided, a path to an xcconfig file to be included by the project.
+    ///
+    /// This allows the client to override settings defined in the project itself.
+    var xcconfigOverrides: String? { get }
 }
 
 /**

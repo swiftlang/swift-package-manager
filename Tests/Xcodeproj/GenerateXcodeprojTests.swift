@@ -52,9 +52,10 @@ class TestGeneration: XCTestCase {
             let products: [Product] = []
 
             struct Options: XcodeprojOptions {
-                var Xcc = [String]()
-                var Xld = [String]()
-                var Xswiftc = [String]()
+                let Xcc = [String]()
+                let Xld = [String]()
+                let Xswiftc = [String]()
+                let xcconfigOverrides: String? = nil
             }
             let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 
