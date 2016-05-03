@@ -23,5 +23,5 @@ public func ctime_r() throws -> String {
         throw SystemError.ctime_r(errno)
     }
 
-    return String(cString: result)
+    return String(cString: result!)
 }
