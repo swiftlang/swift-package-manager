@@ -24,7 +24,7 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
 
         if let mkmode = try Mode(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             guard mode == nil || mode == mkmode else {
-                let modes = [mode, mkmode].map{"\($0)"}
+                let modes = [mode!, mkmode].map{"\($0)"}
                 throw Error.MultipleModesSpecified(modes)
             }
             mode = mkmode
