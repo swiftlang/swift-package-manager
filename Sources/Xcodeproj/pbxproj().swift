@@ -182,6 +182,16 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
             "watchos", "watchsimulator"]
         try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
 
+        // Set a conservative default deployment target.
+        //
+        // We currently *must* do this for SwiftPM to be able to self-host in
+        // Xcode (otherwise, the PackageDescription library will be incompatible
+        // with the default deployment target we pass when building).
+        //
+        // FIXME: Eventually there should be a way for the project using Xcode
+        // generation to have control over this.
+        try fputs("MACOSX_DEPLOYMENT_TARGET = 10.10\n", fp)
+        
         // Default to @rpath-based install names.
         //
         // The expectation is that the application or executable consuming these
