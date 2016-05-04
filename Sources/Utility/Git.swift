@@ -20,6 +20,9 @@ public class Git {
             guard let realroot = try? realpath(path) else { return nil }
             self.path = realroot
             guard Path.join(path, ".git").isDirectory else { return nil }
+            // If number of objects is zero then its an empty repo.
+            guard let numObjects = try? Git.runPopen([Git.tool, "-C", path, "count-objects"]) else { return nil }
+            if numObjects.hasPrefix("0") { return nil }
         }
 
         public lazy var origin: String? = { repo in
