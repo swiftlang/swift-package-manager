@@ -33,7 +33,7 @@ extension Command {
         args += ["-F", try platformFrameworksPath()]
         #endif
 
-        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC)
+        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
 
         //FIXME these should be inferred as implicit inputs by llbuild
         let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)

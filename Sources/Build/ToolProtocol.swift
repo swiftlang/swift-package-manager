@@ -53,19 +53,22 @@ struct SwiftcTool: ToolProtocol {
     let prefix: String
     let otherArgs: [String]
     let executable: String
+    let conf: Configuration
+    let numThreads = 8
 
     var inputs: [String] {
         return module.recursiveDependencies.map{ $0.targetName }
     }
 
-    var outputs: [String]        { return [module.targetName] + objects }
-    var moduleName: String       { return module.c99name }
-    var moduleOutputPath: String { return Path.join(prefix, "\(module.c99name).swiftmodule") }
-    var importPaths: [String]    { return [prefix] }
-    var tempsPath: String        { return Path.join(prefix, "\(module.c99name).build") }
-    var objects: [String]        { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
-    var sources: [String]        { return module.sources.paths }
-    var isLibrary: Bool          { return module.type == .Library }
+    var outputs: [String]                   { return [module.targetName] + objects }
+    var moduleName: String                  { return module.c99name }
+    var moduleOutputPath: String            { return Path.join(prefix, "\(module.c99name).swiftmodule") }
+    var importPaths: [String]               { return [prefix] }
+    var tempsPath: String                   { return Path.join(prefix, "\(module.c99name).build") }
+    var objects: [String]                   { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
+    var sources: [String]                   { return module.sources.paths }
+    var isLibrary: Bool                     { return module.type == .Library }
+    var enableWholeModuleOptimization: Bool { return conf == .Release }
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: swift-compiler\n"
@@ -80,6 +83,8 @@ struct SwiftcTool: ToolProtocol {
         stream <<< "    other-args: " <<< Format.asJSON(otherArgs) <<< "\n"
         stream <<< "    sources: " <<< Format.asJSON(sources) <<< "\n"
         stream <<< "    is-library: " <<< Format.asJSON(isLibrary) <<< "\n"
+        stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(enableWholeModuleOptimization) <<< "\n"
+        stream <<< "    num-threads: " <<< Format.asJSON("\(numThreads)") <<< "\n"
     }
 }
 
