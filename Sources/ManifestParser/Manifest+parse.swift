@@ -64,7 +64,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     cmd += ["-I", libdir]
     cmd += ["-L", libdir, "-lPackageDescription"]
 #if os(OSX)
-    cmd += ["-target", "x86_64-apple-macosx10.10"]
+    cmd += ["-target", "x86_64-apple-macosx10.11"]
 #endif
     cmd += [manifestPath]
 

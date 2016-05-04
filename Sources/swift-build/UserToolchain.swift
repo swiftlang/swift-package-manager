@@ -26,7 +26,7 @@ struct UserToolchain: Toolchain {
 
 #if os(OSX)
     var platformArgs: [String] {
-        return ["-target", "x86_64-apple-macosx10.10", "-sdk", sysroot!]
+        return ["-target", "x86_64-apple-macosx10.11", "-sdk", sysroot!]
     }
 #else
     let platformArgs: [String] = []
