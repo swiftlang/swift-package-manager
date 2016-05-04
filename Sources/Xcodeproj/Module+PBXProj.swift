@@ -207,6 +207,22 @@ extension XcodeModuleProtocol  {
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
+
+                // Set a product name consistent with the conventions for
+                // dynamic libraries.
+                //
+                // This is important for SwiftPM itself, because the LLVM JIT
+                // only will search for `lib<foo>` when doing dynamic loading,
+                // and that is the mechanism that we currently use to "load" the
+                // `Package.swift` manifest.
+                //
+                // FIXME: This might not be what we generally want, and if we
+                // moved to producing frameworks it wouldn't work at all. We
+                // need to design a mechanism by which SwiftPM can override the
+                // PRODUCT_NAME for PackageDescription without imposing this
+                // default behavior on all packages.
+                buildSettings["PRODUCT_NAME"] = "lib$(TARGET_NAME)"
+                buildSettings["PRODUCT_MODULE_NAME"] = "$(TARGET_NAME:c99extidentifier)"
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
