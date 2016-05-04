@@ -22,6 +22,12 @@ class DependencyResolutionTestCase: XCTestCase {
         }
     }
 
+    func testInternalExecAsDep() {
+        fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { prefix in
+            XCTAssertBuildFails(prefix)
+        }
+    }
+
     func testInternalComplex() {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)

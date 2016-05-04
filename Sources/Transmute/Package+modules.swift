@@ -70,10 +70,13 @@ extension Package {
             module.dependencies = try target.dependencies.map { $0
                 switch $0 {
                 case .Target(let name):
-                    guard let module = moduleForName(name) else {
+                    guard let dependency = moduleForName(name) else {
                         throw ModuleError.ModuleNotFound(name)
                     }
-                    return module
+                    if let moduleType = dependency as? ModuleTypeProtocol where moduleType.type != .Library {
+                        throw ModuleError.ExecutableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
+                    }
+                    return dependency
                 }
             }
         }
