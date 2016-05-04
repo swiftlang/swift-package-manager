@@ -118,21 +118,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
     // create special conditions in swift-build for swiftpm tests.
     env["IS_SWIFTPM_TEST"] = "1"
 #if Xcode
-    switch getenv("SWIFT_EXEC") {
-    case "swiftc"?, nil:
-        //FIXME Xcode should set this during tests
-        // rdar://problem/24134324
-        let swiftc: String
-        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = Path.join(base, "usr/bin/swiftc")
-        } else {
-            swiftc = try popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
-        }
-        precondition(swiftc != "/usr/bin/swiftc")
-        env["SWIFT_EXEC"] = swiftc
-    default:
-        fatalError("HURRAY! This is fixed")
-    }
+    env["SWIFT_EXEC"] = figure_out_SWIFT_EXEC()
 #endif
     var args = [swiftBuildPath(), "--chdir", chdir]
     args.append("--configuration")
@@ -221,3 +207,33 @@ func XCTAssertNoSuchPath(_ paths: String..., file: StaticString = #file, line: U
 func system(_ args: String...) throws {
     try popen(args, redirectStandardError: true)
 }
+
+#if Xcode
+func figure_out_SWIFT_EXEC() -> String {
+    switch getenv("SWIFT_EXEC") {
+    case "swiftc"?, nil:
+
+        func readToolchainSetting() -> String? {
+            // see rdar://problem/24134324
+            let plist = Path.join(Path.home, "Library/Preferences/com.apple.dt.Xcode.plist")
+            let args = ["defaults", "read", plist, "DVTDefaultToolchainOverride"]
+            return (try? popen(args))?.chuzzle()
+        }
+
+        //FIXME Xcode should set this during tests
+        // rdar://problem/24134324
+        let swiftc: String
+        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() ?? readToolchainSetting() {
+            swiftc = Path.join(base, "usr/bin/swiftc")
+        } else {
+            guard let foo = (try? popen(["xcrun", "--find", "swiftc"]))?.chuzzle() else { fatalError() }
+            swiftc = foo
+        }
+        precondition(swiftc != "/usr/bin/swiftc")
+        return swiftc
+
+    default:
+        fatalError("HURRAY! This is fixed")
+    }
+}
+#endif
