@@ -11,13 +11,14 @@
 @testable import ManifestSerializer
 import PackageDescription
 import XCTest
+import Foundation
 
 class JSONSerializationTests: XCTestCase {
     
     func testSimple() {
         let package = Package(name: "Simple")
         let exp = NSMutableDictionary.withNew { (dict) in
-            dict["name"] = "Simple"
+            dict.set(object: "Simple".asNS(), forKey: "name")
             dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
@@ -31,22 +32,24 @@ class JSONSerializationTests: XCTestCase {
         ]
         let package = Package(name: "WithDeps", pkgConfig: nil, providers: nil, targets: [], dependencies: deps, testDependencies: [], exclude: [])
         let exp = NSMutableDictionary.withNew { (dict) in
-            dict["name"] = "WithDeps"
-            let dep1 = [
-                           "url": "https://github.com/apple/swift.git",
-                           "version": [
-                                          "lowerBound":"3.0.0",
-                                          "upperBound":"3.9223372036854775807.9223372036854775807"
-                ]
-            ] as NSDictionary
-            let dep2 = [
-                           "url": "https://github.com/apple/llvm.git",
-                           "version": [
-                                          "lowerBound":"2.0.0",
-                                          "upperBound":"2.9223372036854775807.9223372036854775807"
-                ]
-            ] as NSDictionary
-            dict["dependencies"] = [dep1, dep2] as NSArray
+            dict.set(object: "WithDeps".asNS(), forKey: "name")
+            let dep1version: NSDictionary = [
+                "lowerBound".asNS():"3.0.0".asNS(),
+                "upperBound".asNS():"3.9223372036854775807.9223372036854775807".asNS()
+            ]
+            let dep1: NSDictionary = [
+                "url".asNS(): "https://github.com/apple/swift.git".asNS(),
+                "version".asNS(): dep1version
+            ]
+            let dep2version: NSDictionary = [
+                "lowerBound".asNS():"2.0.0".asNS(),
+                "upperBound".asNS():"2.9223372036854775807.9223372036854775807".asNS()
+            ]
+            let dep2: NSDictionary = [
+                "url".asNS(): "https://github.com/apple/llvm.git".asNS(),
+                "version".asNS(): dep2version
+            ]
+            dict["dependencies".asNS()] = [dep1, dep2].asNS()
             dict.fillWithEmptyArrays(keyNames: ["testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
@@ -59,12 +62,13 @@ class JSONSerializationTests: XCTestCase {
                             ]
         let package = Package(name: "PkgPackage", pkgConfig: "PkgPackage-1.0", providers: providers)
         let exp = NSMutableDictionary.withNew { (dict) in
-            dict["name"] = "PkgPackage"
-            dict["pkgConfig"] = "PkgPackage-1.0"
-            dict["package.providers"] = [
-                ["Brew": "BrewPackage"],
-                ["Apt": "AptPackage"]
+            dict.set(object: "PkgPackage".asNS(), forKey: "name")
+            dict.set(object: "PkgPackage-1.0".asNS(), forKey: "pkgConfig")
+            let providers: [AnyObject] = [
+                ["Brew".asNS() : "BrewPackage".asNS()] as NSDictionary,
+                ["Apt".asNS() : "AptPackage".asNS()] as NSDictionary
             ]
+            dict.set(object: providers.asNS(), forKey: "package.providers") 
             dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
@@ -73,8 +77,8 @@ class JSONSerializationTests: XCTestCase {
     func testExclude() {
         let package = Package(name: "Exclude", exclude: ["pikachu", "bulbasaur"])
         let exp = NSMutableDictionary.withNew { (dict) in
-            dict["name"] = "Exclude"
-            dict["exclude"] = ["pikachu", "bulbasaur"]
+            dict.set(object: "Exclude".asNS(), forKey: "name")
+            dict.set(object: ["pikachu".asNS(), "bulbasaur".asNS()].asNS(), forKey: "exclude") 
             dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
@@ -85,10 +89,10 @@ class JSONSerializationTests: XCTestCase {
         let t2 = Target(name: "Two", dependencies: [.Target(name: "One")])
         let package = Package(name: "Targets", targets: [t1, t2])
         let exp = NSMutableDictionary.withNew { (dict) in
-            dict["name"] = "Targets"
-            let ts1 = ["name": "One", "dependencies": NSArray()] as NSDictionary
-            let ts2 = ["name": "Two", "dependencies": ["One"] as NSArray] as NSDictionary
-            dict["package.targets"] = [ts1, ts2] as NSArray
+            dict.set(object: "Targets".asNS(), forKey: "name")
+            let ts1 = ["name".asNS(): "One".asNS(), "dependencies": NSArray()] as NSDictionary
+            let ts2 = ["name".asNS(): "Two".asNS(), "dependencies": ["One"].asNS()] as NSDictionary
+            dict.set(object: [ts1, ts2].asNS(), forKey: "package.targets")
             dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", ])
         }
         assertEqual(package: package, expected: exp)
@@ -99,7 +103,7 @@ extension NSMutableDictionary {
     
     func fillWithEmptyArrays(keyNames: [String]) {
         keyNames.forEach {
-            self[$0 as NSString] = NSArray()
+            self[$0.asNS()] = NSArray()
         }
     }
 }
