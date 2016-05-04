@@ -175,7 +175,8 @@ extension XcodeModuleProtocol  {
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+        // FIXME: Need to honor actual quoting rules here.
+        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
     func getReleaseBuildSettings(_ options: XcodeprojOptions) -> String {
@@ -183,7 +184,8 @@ extension XcodeModuleProtocol  {
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+        // FIXME: Need to honor actual quoting rules here.
+        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
     private func getCommonBuildSettings(_ options: XcodeprojOptions) ->[String: String] {
@@ -193,16 +195,33 @@ extension XcodeModuleProtocol  {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
 
             //FIXME this should not be required
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'@loader_path/../Frameworks'"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "@loader_path/../Frameworks"
 
         } else {
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
+            // We currently force a search path to the toolchain, since we
+            // cannot establish an expected location for the Swift standard
+            // libraries.
+            //
+            // This means the built binaries are not suitable for distribution,
+            // among other things.
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
                 buildSettings["SWIFT_FORCE_DYNAMIC_LINK_STDLIB"] = "YES"
+
+                // Set the runpath search paths so that we can find libraries
+                // built adjacent to ourselves (e.g., in the Xcode
+                // `BUILT_PRODUCTS_DIR`).
+                //
+                // It would be nice to pick another value here which would make
+                // more sense when use in a real deployment scenario (one
+                // example would be `@executable_path/../lib` but there are
+                // other problems to solve first, e.g. how to deal with the
+                // Swift standard library paths).
+                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"]! + " @executable_path"
             }
         }
 
