@@ -20,7 +20,7 @@ extension Version {
         return Version(0, 0, 0)
     }
 
-    static var maxRange: Range<Version> {
+    public static var maxRange: Range<Version> {
         return self.min..<self.max
     }
 

@@ -29,17 +29,13 @@ func saveRootPackage(_ dirPath: String, package: Package) throws {
     var data = versionData(package: package)
     data += "public let sha: String? = "
 
-    if let version = package.version {
-        let prefix = repo.versionsArePrefixed ? "v" : ""
-        let versionSha = try repo.versionSha(tag: "\(prefix)\(version)")
+    let prefix = repo.versionsArePrefixed ? "v" : ""
+    let versionSha = try repo.versionSha(tag: "\(prefix)\(package.version)")
 
-        if repo.sha != versionSha {
-            data += "\"\(repo.sha)\"\n"
-        } else {
-            data += "nil\n"
-        }
-    } else {
+    if repo.sha != versionSha {
         data += "\"\(repo.sha)\"\n"
+    } else {
+        data += "nil\n"
     }
 
     data += "public let modified: Bool = "
@@ -60,13 +56,8 @@ func generateData(_ packages: [Package]) -> [String : String] {
 func versionData(package: Package) -> String {
     var data = "public let url: String = \"\(package.url)\"\n"
     data += "public let version: (major: Int, minor: Int, patch: Int, prereleaseIdentifiers: [String], buildMetadata: String?) = "
-    if let version = package.version {
-        data += "\(version.major, version.minor, version.patch, version.prereleaseIdentifiers, version.buildMetadataIdentifier)\n"
-        data += "public let versionString: String = \"\(version)\"\n"
-    } else {
-        data += "(0, 0, 0, [], nil) \n"
-        data += "public let versionString: String = \"0.0.0\"\n"
-    }
+    data += "\(package.version.major, package.version.minor, package.version.patch, package.version.prereleaseIdentifiers, package.version.buildMetadataIdentifier)\n"
+    data += "public let versionString: String = \"\(package.version)\"\n"
 
     return data
 }

@@ -15,15 +15,14 @@ import Utility
 extension Package {
     // FIXME we *always* have a manifest, don't reparse it
 
-    static func make(repo: Git.Repo, manifestParser: (path: String, url: String) throws -> Manifest) throws -> Package? {
-        guard let origin = repo.origin else { throw Error.NoOrigin(repo.path) }
-        let manifest = try manifestParser(path: repo.path, url: origin)
-        let pkg = Package(manifest: manifest, url: origin)
-        if let version = Version(pkg.versionString) {
-            pkg.version = version
-        }
-        guard Version(pkg.versionString) != nil else { return nil }
-        return pkg
+    static func make(repo: Git.Repo, manifestParser: (path: String, url: String) throws -> Manifest) throws -> Package {
+        let path = repo.path
+        guard let origin = repo.origin else { throw Error.NoOrigin(path) }
+        let manifest = try manifestParser(path: path, url: origin)
+        let name = Package.name(manifest: manifest, url: origin)
+        let versionString = path.basename.characters.dropFirst(name.characters.count + 1)
+        guard let version = Version(versionString) else { throw Package.Error.NoVersion(path) }
+        return Package(manifest: manifest, url: origin, version: version)
     }
 }
 

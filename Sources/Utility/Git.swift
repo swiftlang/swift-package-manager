@@ -1,3 +1,4 @@
+
 /*
  This source file is part of the Swift.org open source project
 
@@ -66,9 +67,14 @@ public class Git {
             return (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
         }
 
-        public func fetch() throws {
+        public func fetch(quick: Bool = true) throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+                if quick {
+                    // this probably is not a good idea
+                    try system(Git.tool, "-C", path, "fetch", "origin", "refs/tags/*:refs/tags/*", message: nil)
+                } else {
+                    try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+                }
             } catch let errror {
                 Git.handle(errror)
             }
@@ -100,16 +106,16 @@ public class Git {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
             print("error: ", Error.ObsoleteGitVersion)
-        } else {
-            print("error: ", Error.UnknownGitError)
         }
+        print("error: ", error)
         exit(1)
     }
 
-    public class func runPopen(_ arguments: [String]) throws -> String {
+    public class func runPopen(_ arguments: [String], echo: Bool = false) throws -> String {
         do {
-            return try popen(arguments)
-        } catch let error  {
+            let echo = verbosity == .Debug || echo
+            return try popen(arguments, echo: echo)
+        } catch let error {
             handle(error)
         }
     }

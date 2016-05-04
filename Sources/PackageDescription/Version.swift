@@ -23,6 +23,8 @@ public struct Version {
         self.prereleaseIdentifiers = prereleaseIdentifiers
         self.buildMetadataIdentifier = buildMetadataIdentifier
     }
+
+    public var isStable: Bool { return prereleaseIdentifiers.isEmpty }
 }
 
 // MARK: Equatable

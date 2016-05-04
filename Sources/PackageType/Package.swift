@@ -8,27 +8,30 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Utility
 import struct PackageDescription.Version
+import Utility
+
 
 public class Package {
     public let url: String
     public let path: String
     public let name: String
-    public var version: Version?
+    public let version: Version
     public var dependencies: [Package] = []
     public let manifest: Manifest
 
-    public init(manifest: Manifest, url: String) {
+    public init(manifest: Manifest, url: String, version: Version) {
         self.manifest = manifest
         self.url = url
         self.path = manifest.path.parentDirectory
-        self.name = manifest.package.name ?? Package.nameForURL(url)
+        self.name = Package.name(manifest: manifest, url: url)
+        self.version = version
     }
 
     public enum Error: ErrorProtocol {
         case NoManifest(String)
         case NoOrigin(String)
+        case NoVersion(String)
     }
 }
 
@@ -49,7 +52,11 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 }
 
 extension Package {
-    public static func nameForURL(_ url: String) -> String {
+    public static func name(manifest: Manifest, url: String) -> String {
+        return manifest.package.name ?? name(url: url)
+    }
+
+    public static func name(url: String) -> String {
         let base = url.basename
 
         switch URL.scheme(url) ?? "" {

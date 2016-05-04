@@ -21,7 +21,6 @@ import Transmute
 import Xcodeproj
 import Utility
 import Build
-import Get
 
 /// Declare additional conformance for our Options type.
 extension Options: XcodeprojOptions {}
@@ -36,17 +35,6 @@ do {
         try chdir(dir)
     }
 
-    func parseManifest(path: String, baseURL: String) throws -> Manifest {
-        let swiftc = Multitool.SWIFT_EXEC
-        let libdir = Multitool.libdir
-        return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
-    }
-    
-    func fetch(_ root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
-        let manifest = try parseManifest(path: root, baseURL: root)
-        return try get(manifest, manifestParser: parseManifest)
-    }
-
     switch mode {
     case .Build(let conf, let toolchain):
         let (rootPackage, externalPackages) = try fetch(opts.path.root)
@@ -58,13 +46,12 @@ do {
     case .Init(let initMode):
         let initPackage = try InitPackage(mode: initMode)
         try initPackage.writePackageStructure()
-                    
-    case .Update:
-        try rmtree(opts.path.Packages)
-        fallthrough
         
     case .Fetch:
-        try fetch(opts.path.root)
+        let (_, pkgs) = try fetch(opts.path.root)
+        if pkgs.isEmpty {
+            print("warning: nothing fetched (Package.swift defines no dependencies)", to: &stderr)
+        }
 
     case .Usage:
         usage()
@@ -124,6 +111,9 @@ do {
         let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
 
         print("generated:", outpath.prettyPath)
+
+    case .Update:
+        try update(root: opts.path.root, pkgdir: opts.path.Packages)
     }
 
 } catch {

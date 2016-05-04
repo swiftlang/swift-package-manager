@@ -59,9 +59,13 @@ let package = Package(
             name: "OptionsParser",
             dependencies: ["libc"]),
         Target(
+            /** Determines and applies updates */
+            name: "Update",
+            dependencies: ["Get"]),
+        Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj", "Update"]),
         Target(
             /** Runs package tests */
             name: "swift-test",

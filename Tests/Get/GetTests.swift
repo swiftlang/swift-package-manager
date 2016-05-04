@@ -49,20 +49,20 @@ class GetTests: XCTestCase {
         let r17: Range<Version>? = nil
         let r18 = r1
         
-        XCTAssertEqual(r1.constrain(to: r2), r12)
-        XCTAssertEqual(r2.constrain(to: r1), r12)
-        XCTAssertEqual(r1.constrain(to: r3), r13)
-        XCTAssertEqual(r3.constrain(to: r1), r13)
-        XCTAssertEqual(r1.constrain(to: r4), r14)
-        XCTAssertEqual(r4.constrain(to: r1), r14)
-        XCTAssertEqual(r1.constrain(to: r5), r15)
-        XCTAssertEqual(r5.constrain(to: r1), r15)
-        XCTAssertEqual(r1.constrain(to: r6), r16)
-        XCTAssertEqual(r6.constrain(to: r1), r16)
-        XCTAssertEqual(r1.constrain(to: r7), r17)
-        XCTAssertEqual(r7.constrain(to: r1), r17)
-        XCTAssertEqual(r1.constrain(to: r8), r18)
-        XCTAssertEqual(r8.constrain(to: r1), r18)
+        XCTAssertEqual(r1.constrained(to: r2), r12)
+        XCTAssertEqual(r2.constrained(to: r1), r12)
+        XCTAssertEqual(r1.constrained(to: r3), r13)
+        XCTAssertEqual(r3.constrained(to: r1), r13)
+        XCTAssertEqual(r1.constrained(to: r4), r14)
+        XCTAssertEqual(r4.constrained(to: r1), r14)
+        XCTAssertEqual(r1.constrained(to: r5), r15)
+        XCTAssertEqual(r5.constrained(to: r1), r15)
+        XCTAssertEqual(r1.constrained(to: r6), r16)
+        XCTAssertEqual(r6.constrained(to: r1), r16)
+        XCTAssertEqual(r1.constrained(to: r7), r17)
+        XCTAssertEqual(r7.constrained(to: r1), r17)
+        XCTAssertEqual(r1.constrained(to: r8), r18)
+        XCTAssertEqual(r8.constrained(to: r1), r18)
     }
 
     func testGitRepoInitialization() {
