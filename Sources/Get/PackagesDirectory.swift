@@ -25,15 +25,23 @@ class PackagesDirectory {
         self.prefix = prefix
         self.manifestParser = manifestParser
     }
+    
+    /// The set of all repositories available within the `Packages` directory, by origin.
+    private lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
+        var result = Dictionary<String, Git.Repo>()
+        for prefix in walk(self.prefix, recursively: false) {
+            guard let repo = Git.Repo(path: prefix), origin = repo.origin else { continue } // TODO: Warn user.
+            result[origin] = repo
+        }
+        return result
+    }()
 }
 
 extension PackagesDirectory: Fetcher {
     typealias T = Package
-
+    
     func find(url: String) throws -> Fetchable? {
-        for prefix in walk(self.prefix, recursively: false) {
-            guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
-            guard repo.origin == url else { continue }
+        if let repo = availableRepositories[url] {
             return try Package.make(repo: repo, manifestParser: manifestParser)
         }
         return nil
@@ -59,7 +67,12 @@ extension PackagesDirectory: Fetcher {
             try mkdir(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
             //TODO don't reparse the manifest!
-            return try Package.make(repo: Git.Repo(path: prefix)!, manifestParser: manifestParser)!
+            let repo = Git.Repo(path: prefix)!
+
+            // Update the available repositories.
+            availableRepositories[repo.origin!] = repo
+            
+            return try Package.make(repo: repo, manifestParser: manifestParser)!
         case let pkg as Package:
             return pkg
         default:
