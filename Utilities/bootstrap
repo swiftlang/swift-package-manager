@@ -357,8 +357,12 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-Xlinker", "-all_load"])
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
-            link_command.extend(
-                ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
+            if platform.system() == 'Linux':
+                link_command.extend(
+                    ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
+            else:
+                link_command.extend(
+                    ["-Xlinker", "-rpath=@executable_path/../lib/swift/macosx]"])
             if args.foundation_path:
                 link_command.extend(["-L", args.foundation_path])
 
@@ -607,7 +611,11 @@ def main():
         sandbox_path, args, bootstrap=True)
 
     libdir = os.path.join(build_path, "lib")
-    mkdir_p(os.path.join(sandbox_path, "lib", "swift", "linux"))
+    if platform.system() == 'Linux':
+        libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
+    else:
+        libswiftdir = os.path.join(sandbox_path, "lib", "swift", "macosx")
+    mkdir_p(libswiftdir)
     bindir = os.path.join(build_path, "debug")
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
@@ -622,8 +630,7 @@ def main():
             shutil.rmtree(libdir)   # TODO remove, here to prevent revlock incremental CI build failures
         symlink_force(os.path.join(sandbox_path, "lib"), build_path)
         symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
-            os.path.join(sandbox_path, "lib", "swift", "linux"))
-
+            libswiftdir)
 
     make_fake_toolchain()
 
