@@ -15,6 +15,7 @@ extension Package {
         case NoModules(Package)
         case ModuleNotFound(String)
         case InvalidLayout(InvalidLayoutType)
+        case ExecutableAsDependency(String)
     }
 
     public enum InvalidLayoutType {
