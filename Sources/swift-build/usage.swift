@@ -40,6 +40,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
     case Clean(CleanMode)
     case Doctor
+    case ShowDependencies(ShowDependenciesMode)
     case Fetch
     case Update
     case Init(InitMode)
@@ -55,6 +56,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = try .Clean(CleanMode(pop()))
         case "--doctor":
             self = .Doctor
+        case "--show-dependencies", "-D":
+            self = try .ShowDependencies(ShowDependenciesMode(pop()))
         case "--fetch":
             self = .Fetch
         case "--update":
@@ -77,6 +80,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Build(let conf, _): return "--configuration=\(conf)"
             case .Clean(let mode): return "--clean=\(mode)"
             case .Doctor: return "--doctor"
+            case .ShowDependencies: return "--show-dependencies"
             case .GenerateXcodeproj: return "--generate-xcodeproj"
             case .Fetch: return "--fetch"
             case .Update: return "--update"
@@ -224,4 +228,28 @@ enum InitMode: CustomStringConvertible {
 
 func ==(lhs: Mode, rhs: Mode) -> Bool {
     return lhs.description == rhs.description
+}
+
+enum ShowDependenciesMode: CustomStringConvertible {
+    case Text
+    
+    private init(_ rawValue: String?) throws {
+        guard let rawValue = rawValue else {
+            self = .Text
+            return
+        }
+        
+        switch rawValue.lowercased() {
+        case "text":
+           self = .Text
+        default:
+            throw OptionsParser.Error.InvalidUsage("invalid show dependencies mode: \(rawValue)")
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .Text: return "text"
+        }
+    }
 }
