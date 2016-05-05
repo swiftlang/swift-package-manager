@@ -627,18 +627,24 @@ def main():
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
-    if args.foundation_path and args.xctest_path:
+    if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
+        # Tell the linker where to look for XCTest, but autolinking
+        # knows to pass -lXCTest.
+        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
+        # Add an RPATH, so that the tests can be run directly.
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+
+    if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
         cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
         cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
 
     if args.release:
         cmd.extend(["--configuration", "release"])
