@@ -70,7 +70,7 @@ public class Git {
             do {
                 try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
             } catch let errror {
-                Git.handle(errror)
+                try Git.checkGitVersion(errror)
             }
         }
     }
@@ -96,21 +96,21 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func handle(_ error: ErrorProtocol) {
+    @noreturn public class func checkGitVersion(_ error: ErrorProtocol) throws {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
             print("error: ", Error.ObsoleteGitVersion)
+            exit(1)
         } else {
-            print("error: ", Error.UnknownGitError)
+            throw error
         }
-        exit(1)
     }
 
     public class func runPopen(_ arguments: [String]) throws -> String {
         do {
             return try popen(arguments)
         } catch let error  {
-            handle(error)
+            try checkGitVersion(error)
         }
     }
 }
