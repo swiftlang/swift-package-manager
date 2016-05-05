@@ -607,6 +607,7 @@ def main():
         sandbox_path, args, bootstrap=True)
 
     libdir = os.path.join(build_path, "lib")
+    mkdir_p(os.path.join(sandbox_path, "lib", "swift", "linux"))
     bindir = os.path.join(build_path, "debug")
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
@@ -620,6 +621,9 @@ def main():
         if os.path.isdir(libdir) and not os.path.islink(libdir):
             shutil.rmtree(libdir)   # TODO remove, here to prevent revlock incremental CI build failures
         symlink_force(os.path.join(sandbox_path, "lib"), build_path)
+        symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
+            os.path.join(sandbox_path, "lib", "swift", "linux"))
+
 
     make_fake_toolchain()
 
