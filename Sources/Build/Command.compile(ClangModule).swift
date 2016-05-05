@@ -80,7 +80,9 @@ extension Command {
         ///------------------------------ Compile -----------------------------------------
         var compileCommands = [Command]()
         let dependencies = module.dependencies.map{ $0.targetName }
-        let basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
+        var basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
+        basicArgs += module.moduleCacheArgs(prefix: prefix)
+
         for path in module.sources.compilePathsForBuildDir(wd) {
             var args = basicArgs
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps]

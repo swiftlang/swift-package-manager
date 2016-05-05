@@ -208,3 +208,26 @@ extension SystemPackageProvider {
     }
 }
 
+protocol ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String]
+}
+
+extension ClangModuleCachable {
+    func moduleCacheDir(prefix: String) -> String {
+        return Path.join(prefix, "ModuleCache")
+    }
+}
+
+extension ClangModule: ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String] {
+        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        return ["-fmodules-cache-path=\(moduleCachePath)"]
+    }
+}
+
+extension SwiftModule: ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String] {
+        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        return ["-module-cache-path", moduleCachePath]
+    }
+}
