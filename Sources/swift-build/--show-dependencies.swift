@@ -18,6 +18,8 @@ func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
         dumper = PlainTextDumper()
     case .DOT:
         dumper = DotDumper()
+    case .JSON:
+        dumper = JsonDumper()
     }
     dumper.dump(dependenciesOf: rootPackage)
 }
@@ -88,5 +90,28 @@ private final class DotDumper: DependenciesDumper {
         } else {
             print("No external dependencies found")
         }
+    }
+}
+
+private final class JsonDumper: DependenciesDumper {
+    func dump(dependenciesOf rootpkg: Package) {
+
+        func recursiveWalk(rootpkg: Package, isLast: Bool = true) {
+            print("{")
+            print("\"name\":\"\(rootpkg.name)\",")
+            print("\"url\":\"\(rootpkg.url)\",")
+            let version = rootpkg.version?.description ?? "unspecified"
+            print("\"version\":\"\(version)\",")
+            print("\"path\":\"\(rootpkg.path)\",")
+            print("\"dependencies\": [")
+
+            for (index, dependency) in rootpkg.dependencies.enumerated() {
+                recursiveWalk(rootpkg: dependency, isLast: (index + 1) == rootpkg.dependencies.endIndex)
+            }
+
+            print("]}" + (isLast ? "" : ","))
+        }
+
+        recursiveWalk(rootpkg: rootpkg)
     }
 }
