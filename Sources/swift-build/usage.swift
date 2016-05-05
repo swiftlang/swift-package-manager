@@ -231,7 +231,7 @@ func ==(lhs: Mode, rhs: Mode) -> Bool {
 }
 
 enum ShowDependenciesMode: CustomStringConvertible {
-    case Text
+    case Text, DOT
     
     private init(_ rawValue: String?) throws {
         guard let rawValue = rawValue else {
@@ -242,6 +242,8 @@ enum ShowDependenciesMode: CustomStringConvertible {
         switch rawValue.lowercased() {
         case "text":
            self = .Text
+        case "dot":
+           self = .DOT
         default:
             throw OptionsParser.Error.InvalidUsage("invalid show dependencies mode: \(rawValue)")
         }
@@ -250,6 +252,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
     var description: String {
         switch self {
         case .Text: return "text"
+        case .DOT: return "dot"
         }
     }
 }

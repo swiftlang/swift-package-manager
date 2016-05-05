@@ -16,6 +16,8 @@ func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
     switch mode {
     case .Text:
         dumper = PlainTextDumper()
+    case .DOT:
+        dumper = DotDumper()
     }
     dumper.dump(dependenciesOf: rootPackage)
 }
@@ -53,6 +55,36 @@ private final class PlainTextDumper: DependenciesDumper {
         if !rootpkg.dependencies.isEmpty {
             print(".")
             recursiveWalk(packages: rootpkg.dependencies)
+        } else {
+            print("No external dependencies found")
+        }
+    }
+}
+
+private final class DotDumper: DependenciesDumper {
+    func dump(dependenciesOf rootpkg: Package) {
+        func recursiveWalk(rootpkg: Package) {
+            printNode(rootpkg)
+            for dependency in rootpkg.dependencies {
+                printNode(dependency)
+                print("\"\(rootpkg.url)\" -> \"\(dependency.url)\"")
+
+                if !dependency.dependencies.isEmpty {
+                    recursiveWalk(rootpkg: dependency)
+                }
+            }
+        }
+
+        func printNode(_ package: Package) {
+            let pkgVersion = package.version?.description ?? "unspecified"
+            print("\"\(package.url)\"[label=\"\(package.name)\\n\(package.url)\\n\(pkgVersion)\"]")
+        }
+
+        if !rootpkg.dependencies.isEmpty {
+            print("digraph DependenciesGraph {")
+            print("node [shape = box]")
+            recursiveWalk(rootpkg: rootpkg)
+            print("}")
         } else {
             print("No external dependencies found")
         }
