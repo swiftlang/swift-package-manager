@@ -54,7 +54,7 @@ struct SwiftcTool: ToolProtocol {
     let otherArgs: [String]
     let executable: String
     let conf: Configuration
-    let numThreads = 8
+    static let numThreads = 8
 
     var inputs: [String] {
         return module.recursiveDependencies.map{ $0.targetName }
@@ -84,7 +84,7 @@ struct SwiftcTool: ToolProtocol {
         stream <<< "    sources: " <<< Format.asJSON(sources) <<< "\n"
         stream <<< "    is-library: " <<< Format.asJSON(isLibrary) <<< "\n"
         stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(enableWholeModuleOptimization) <<< "\n"
-        stream <<< "    num-threads: " <<< Format.asJSON("\(numThreads)") <<< "\n"
+        stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftcTool.numThreads)") <<< "\n"
     }
 }
 
