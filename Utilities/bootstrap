@@ -188,8 +188,16 @@ class Target(object):
               file=output)
         print("    sources: %s" % json.dumps(self.swift_sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
-        print("    import-paths: %s" % json.dumps(
-            [module_dir]), file=output)
+        import_paths = [module_dir]
+        if args.foundation_path:
+            import_paths.append(args.foundation_path)
+            import_paths.append(os.path.join(args.foundation_path,
+                                             "usr/lib/swift/CoreFoundation"))
+            import_paths.append(os.path.join(args.foundation_path,
+                                             "usr/lib/swift"))
+        if args.xctest_path:
+            import_paths.append(args.xctest_path)
+        print("    import-paths: %s" % json.dumps(import_paths), file=output)
         print("    other-args: %s" % json.dumps(' '.join(other_args)),
               file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
@@ -349,6 +357,11 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-Xlinker", "-all_load"])
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
+            if platform.system() == 'Linux':
+                link_command.extend(
+                    ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
+            if args.foundation_path:
+                link_command.extend(["-L", args.foundation_path])
 
         # Write out the link command.
         print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
@@ -608,6 +621,11 @@ def main():
         if os.path.isdir(libdir) and not os.path.islink(libdir):
             shutil.rmtree(libdir)   # TODO remove, here to prevent revlock incremental CI build failures
         symlink_force(os.path.join(sandbox_path, "lib"), build_path)
+        if args.foundation_path:
+            libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
+            mkdir_p(libswiftdir)
+            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
+                libswiftdir)
 
     make_fake_toolchain()
 
@@ -627,18 +645,24 @@ def main():
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
-    if args.foundation_path and args.xctest_path:
+    if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
+        # Tell the linker where to look for XCTest, but autolinking
+        # knows to pass -lXCTest.
+        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
+        # Add an RPATH, so that the tests can be run directly.
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+
+    if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
         cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
         cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
 
     if args.release:
         cmd.extend(["--configuration", "release"])
