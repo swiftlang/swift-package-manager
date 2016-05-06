@@ -12,6 +12,10 @@ import var libc.errno
 import func libc.mkdtemp
 import func libc.rmdir
 
+#if os(Linux)
+    import Foundation  // String.hasSuffix
+#endif
+
 /**
  Creates a temporary directory for the duration of the provided closure.
  
