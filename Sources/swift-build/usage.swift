@@ -26,6 +26,8 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --fetch                        Fetch package dependencies")
     print("  --update                       Update package dependencies")
     print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
+    print("  --show-dependencies[=<mode>]   Print dependency graph (text|dot|json)")
+    print("  --show-package                 Print the contents of Package.swift")
     print("")
     print("OPTIONS:")
     print("  --chdir <path>       Change working directory before any other operation [-C]")
@@ -41,6 +43,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Clean(CleanMode)
     case Doctor
     case ShowDependencies(ShowDependenciesMode)
+    case ShowPackage
     case Fetch
     case Update
     case Init(InitMode)
@@ -58,6 +61,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .Doctor
         case "--show-dependencies", "-D":
             self = try .ShowDependencies(ShowDependenciesMode(pop()))
+        case "--show-package":
+            self = .ShowPackage
         case "--fetch":
             self = .Fetch
         case "--update":
@@ -87,6 +92,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Init(let mode): return "--init=\(mode)"
             case .Usage: return "--help"
             case .Version: return "--version"
+            case .ShowPackage: return "--show-package"
         }
     }
 }

@@ -54,7 +54,7 @@ do {
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         try build(YAMLPath: yaml)
-
+        
     case .Init(let initMode):
         let initPackage = try InitPackage(mode: initMode)
         try initPackage.writePackageStructure()
@@ -98,6 +98,12 @@ do {
     case .ShowDependencies(let mode):
         let (rootPackage, externalPackages) = try fetch(opts.path.root)
         dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
+
+    case .ShowPackage:
+        let root = opts.path.root
+        let manifest = try parseManifest(path: root, baseURL: root)
+        let out = manifest.package.toTOML()
+        print(out)
 
     case .Version:
         print("Apple Swift Package Manager 0.1")
