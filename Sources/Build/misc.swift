@@ -208,3 +208,32 @@ extension SystemPackageProvider {
     }
 }
 
+protocol ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String]
+}
+
+extension ClangModuleCachable {
+    func moduleCacheDir(prefix: String) -> String {
+        return Path.join(prefix, "ModuleCache")
+    }
+}
+
+extension ClangModule: ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String] {
+        // FIXME: We use this hack to let swiftpm's functional test use shared cache
+        // so it doesn't become painfully slow.
+        if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
+        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        return ["-fmodules-cache-path=\(moduleCachePath)"]
+    }
+}
+
+extension SwiftModule: ClangModuleCachable {
+    func moduleCacheArgs(prefix: String) -> [String] {
+        // FIXME: We use this hack to let swiftpm's functional test use shared cache
+        // so it doesn't become painfully slow.
+        if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
+        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        return ["-module-cache-path", moduleCachePath]
+    }
+}

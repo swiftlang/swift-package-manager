@@ -113,6 +113,10 @@ func swiftBuildPath() -> String {
 
 func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
     var env = [String:String]()
+
+    // FIXME: We use this private enviroment variable hack to be able to
+    // create special conditions in swift-build for swiftpm tests.
+    env["IS_SWIFTPM_TEST"] = "1"
 #if Xcode
     switch getenv("SWIFT_EXEC") {
     case "swiftc"?, nil:
