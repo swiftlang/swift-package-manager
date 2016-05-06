@@ -20,36 +20,23 @@ extension Command {
             return Command(node: module.targetName, tool: tool)
         }
 
+        var args = ["-j8", "-D", "SWIFT_PACKAGE"]
+
         switch conf {
         case .Debug:
-            var args = ["-j8","-Onone","-g","-D","SWIFT_PACKAGE", "-enable-testing"]
-
-          #if os(OSX)
-            args += ["-F", try platformFrameworksPath()]
-          #endif
-
-            let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC)
-
-            //FIXME these should be inferred as implicit inputs by llbuild
-            let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
-            return (cmd(tool), mkdirs)
-
+            args += ["-Onone", "-g", "-enable-testing"]
         case .Release:
-            let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
-            var args = ["-c", "-emit-module", "-D", "SWIFT_PACKAGE", "-O", "-whole-module-optimization", "-I", prefix] + otherArgs
-            let productPath = Path.join(prefix, "\(module.c99name).o")
-
-            if module.type == .Library {
-                args += ["-parse-as-library"]
-            }
-
-            let tool = ShellTool(
-                description: "Compile \(module.name)",
-                inputs: inputs,
-                outputs: [productPath, module.targetName],
-                args: [SWIFT_EXEC, "-o", productPath] + args + module.sources.paths + otherArgs)
-
-            return (cmd(tool), [])
+            args += ["-O"]
         }
+
+        #if os(OSX)
+        args += ["-F", try platformFrameworksPath()]
+        #endif
+
+        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
+
+        //FIXME these should be inferred as implicit inputs by llbuild
+        let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
+        return (cmd(tool), mkdirs)
     }
 }
