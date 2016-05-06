@@ -67,7 +67,7 @@ private extension Sources {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) throws -> ([Command], Command) {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) throws -> [Command] {
 
         let wd = module.buildDirectory(prefix)
         
@@ -75,8 +75,6 @@ extension Command {
             try module.generateModuleMap(inDir: wd)
         }
         
-        let mkdir = Command.createDirectory(wd)
-
         ///------------------------------ Compile -----------------------------------------
         var compileCommands = [Command]()
         let dependencies = module.dependencies.map{ $0.targetName }
@@ -89,7 +87,7 @@ extension Command {
             args += ["-c", path.source, "-o", path.object]
 
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename)",
-                                  inputs: dependencies + [path.source, mkdir.node],
+                                  inputs: dependencies + [path.source],
                                   outputs: [path.object],
                                   args: [CC] + args,
                                   deps: path.deps)
@@ -117,12 +115,12 @@ extension Command {
         args += ["-o", productPath]
         
         let shell = ShellTool(description: "Linking \(module.name)",
-                              inputs: dependencies + compileCommands.map{$0.node} + [mkdir.node],
+                              inputs: dependencies + compileCommands.map{$0.node},
                               outputs: [productPath, module.targetName],
                               args: [CC] + args)
         
         let command = Command(node: module.targetName, tool: shell)
 
-        return (compileCommands + [command], mkdir)
+        return compileCommands + [command]
     }
 }
