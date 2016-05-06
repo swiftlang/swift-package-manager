@@ -20,7 +20,7 @@ extension Command {
             return Command(node: module.targetName, tool: tool)
         }
 
-        var args = ["-j8", "-D", "SWIFT_PACKAGE"]
+        var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
         switch conf {
         case .Debug:
