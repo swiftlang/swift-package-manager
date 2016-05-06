@@ -38,8 +38,8 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     for module in modules {
         switch module {
         case let module as SwiftModule:
-            let (compile, mkdirs) = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
-            commands.append(contentsOf: mkdirs + [compile])
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
+            commands.append(compile)
             targets.append(compile, for: module)
 
         case let module as ClangModule:
