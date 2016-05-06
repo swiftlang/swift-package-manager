@@ -15,6 +15,10 @@ import var libc.S_IRWXU
 import var libc.S_IRWXG
 import var libc.S_IRWXO
 
+#if os(Linux)
+    import Foundation  // String.hasPrefix
+#endif
+
 /**
  Recursively creates directories producing: `path`.
 

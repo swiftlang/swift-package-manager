@@ -11,6 +11,11 @@
 @testable import Utility
 import XCTest
 
+#if os(Linux)
+    import Foundation  // String.hasSuffix
+#endif
+
+
 class FileTests: XCTestCase {
 
     private func loadInputFile(_ name: String) -> File {

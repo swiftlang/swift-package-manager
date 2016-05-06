@@ -9,7 +9,7 @@
 */
 
 #if os(Linux)
-import libc  // String.hasPrefix
+    import Foundation  // String.hasPrefix
 #endif
 
 public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
