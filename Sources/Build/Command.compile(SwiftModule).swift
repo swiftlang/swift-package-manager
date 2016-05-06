@@ -12,14 +12,9 @@ import PackageType
 import Utility
 
 extension Command {
-    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> (Command, [Command]) {
+    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
 
         let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigArgs()) + module.moduleCacheArgs(prefix: prefix)
-
-        func cmd(_ tool: ToolProtocol) -> Command {
-            return Command(node: module.targetName, tool: tool)
-        }
-
         var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
         switch conf {
@@ -34,9 +29,6 @@ extension Command {
         #endif
 
         let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
-
-        //FIXME these should be inferred as implicit inputs by llbuild
-        let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
-        return (cmd(tool), mkdirs)
+        return Command(node: module.targetName, tool: tool)
     }
 }
