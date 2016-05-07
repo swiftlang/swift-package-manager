@@ -238,7 +238,7 @@ class VersionTests: XCTestCase {
 
 
 extension VersionTests {
-    static var allTests : [(String, VersionTests -> () throws -> Void)] {
+    static var allTests : [(String, (VersionTests) -> () throws -> Void)] {
         return [
             ("testEquality", testEquality),
             ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),

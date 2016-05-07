@@ -9,7 +9,7 @@
 */
 
 extension ModuleDependencyTests {
-    static var allTests : [(String, ModuleDependencyTests -> () throws -> Void)] {
+    static var allTests : [(String, (ModuleDependencyTests) -> () throws -> Void)] {
         return [
            ("test1", test1),
            ("test2", test2),
@@ -22,7 +22,7 @@ extension ModuleDependencyTests {
 }
 
 extension PrimitiveResolutionTests {
-    static var allTests : [(String, PrimitiveResolutionTests -> () throws -> Void)] {
+    static var allTests : [(String, (PrimitiveResolutionTests) -> () throws -> Void)] {
         return [
            ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
            ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
@@ -32,7 +32,7 @@ extension PrimitiveResolutionTests {
 }
 
 extension ValidSourcesTests {
-    static var allTests : [(String, ValidSourcesTests -> () throws -> Void)] {
+    static var allTests : [(String, (ValidSourcesTests) -> () throws -> Void)] {
         return [
             ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ]

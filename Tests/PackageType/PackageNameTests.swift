@@ -36,7 +36,7 @@ class PackageTests: XCTestCase {
 
 
 extension PackageTests {
-    static var allTests : [(String, PackageTests -> () throws -> Void)] {
+    static var allTests : [(String, (PackageTests) -> () throws -> Void)] {
         return [
             ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
             ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
