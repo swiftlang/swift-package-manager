@@ -25,6 +25,7 @@
 
 import struct Utility.Path
 import PackageType
+import PkgConfig
 
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
@@ -239,6 +240,11 @@ extension XcodeModuleProtocol  {
                 // Swift standard library paths).
                 buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"]! + " @executable_path"
             }
+        }
+
+        if let pkgArgs = try? self.pkgConfigArgs() {
+            buildSettings["OTHER_LDFLAGS"] = pkgArgs.libs.joined(separator: " ")
+            buildSettings["OTHER_SWIFT_FLAGS"] = pkgArgs.cFlags.joined(separator: " ")
         }
 
         return buildSettings
