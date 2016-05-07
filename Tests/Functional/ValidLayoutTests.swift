@@ -11,7 +11,7 @@
 import struct Utility.Path
 import func Utility.symlink
 import func Utility.walk
-import func POSIX.rename
+import func Utility.rename
 import func Utility.mkdir
 import func POSIX.popen
 import XCTest

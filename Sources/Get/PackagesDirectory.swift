@@ -10,7 +10,7 @@
 
 import struct PackageDescription.Version
 import func Utility.mkdir
-import func POSIX.rename
+import func Utility.rename
 import PackageType
 import Utility
 

@@ -8,10 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var libc.errno
-import func libc.rename
+import Foundation
 
 public func rename(old: String, new: String) throws {
-    let rv = libc.rename(old, new)
-    guard rv == 0 else { throw SystemError.rename(errno, old: old, new: new) }
+    try NSFileManager.`default`().moveItem(atPath: old, toPath: new)
 }
