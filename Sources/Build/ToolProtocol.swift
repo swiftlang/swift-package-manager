@@ -93,18 +93,6 @@ struct Target {
     var cmds: [Command]
 }
 
-struct MkdirTool: ToolProtocol {
-    let path: String
-
-    var inputs: [String] { return [] }
-    var outputs: [String] { return [path] }
-
-    func append(to stream: OutputByteStream) {
-        stream <<< "    tool: mkdir\n"
-        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-    }
-}
-
 struct ClangTool: ToolProtocol {
     let desc: String
     let inputs: [String]
