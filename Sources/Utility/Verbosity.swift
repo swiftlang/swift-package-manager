@@ -89,7 +89,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws {
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws {
     printArgumentsIfVerbose(arguments)
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment, body: body)
 }
