@@ -26,6 +26,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --fetch                        Fetch package dependencies")
     print("  --update                       Update package dependencies")
     print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
+    print("  --show-dependencies[=<mode>]   Print dependency graph (text|dot|json)")
     print("")
     print("OPTIONS:")
     print("  --chdir <path>       Change working directory before any other operation [-C]")
