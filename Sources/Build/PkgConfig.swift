@@ -34,12 +34,8 @@ struct PkgConfig {
         var parser = PkgConfigParser(pcFile: pcFile)
         try parser.parse()
         
-        var cFlags = [String]()
-        var libs = [String]()
-        
-        // FIXME: handle spaces in paths.
-        cFlags += parser.cFlags.characters.split(separator: " ").map(String.init)
-        libs += parser.libs.characters.split(separator: " ").map(String.init)
+        var cFlags = parser.cFlags
+        var libs = parser.libs
         
         // If parser found dependencies in pc file, get their flags too.
         if(!parser.dependencies.isEmpty) {
@@ -76,8 +72,8 @@ struct PkgConfigParser {
     private let pcFile: String
     private(set) var variables = [String: String]()
     var dependencies = [String]()
-    var cFlags = ""
-    var libs = ""
+    var cFlags = [String]()
+    var libs = [String]()
     
     init(pcFile: String) {
         precondition(pcFile.isFile)
@@ -120,9 +116,9 @@ struct PkgConfigParser {
         if line.hasPrefix("Requires: ") {
             dependencies = try parseDependencies(resolveVariables(value(line: line)))
         } else if line.hasPrefix("Libs: ") {
-            libs = try resolveVariables(value(line: line))
+            libs = try splitEscapingSpace(resolveVariables(value(line: line)))
         } else if line.hasPrefix("Cflags: ") {
-            cFlags = try resolveVariables(value(line: line))
+            cFlags = try splitEscapingSpace(resolveVariables(value(line: line)))
         }
     }
     
@@ -217,6 +213,44 @@ struct PkgConfigParser {
         return result
     }
     
+    /// Split line on unescaped spaces 
+    /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def" and ignore
+    /// multiple spaces such that "abc   def" will split into ["abc", "def"].
+    private func splitEscapingSpace(_ line: String) -> [String] {
+        let source = Array(line.characters)
+        var startIndex = 0
+        var index = 0
+        var splits = [String]()
+        var fragment = ""
+        
+        func saveFragment() {
+            if index - startIndex > 0 {
+                fragment += String(source[startIndex..<index])
+            }
+            if fragment.characters.count > 0 {
+                splits.append(fragment)
+            }
+        }
+        
+        while index < source.count {
+            if index + 1 < source.count && source[index] == "\\" && (source[index + 1] == " " || source[index + 1] == "\\") {
+                fragment += String(source[startIndex..<index])
+                fragment += String(source[index+1])
+                index += 2
+                startIndex = index
+            } else {
+                if source[index] == " " {
+                    saveFragment()
+                    fragment = ""
+                    startIndex = index + 1
+                }
+                index += 1
+            }
+        }
+        saveFragment()
+        return splits
+    }
+
     private func value(line: String) -> String {
         guard let colonIndex = line.characters.index(of: ":") else {
             return ""
