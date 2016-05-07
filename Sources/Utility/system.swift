@@ -52,7 +52,7 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
     task.waitUntilExit()
 
     guard task.terminationStatus == 0 else {
-        throw POSIX.Error.ExitStatus(task.terminationStatus, arguments)
+        throw POSIX.Error.ExitStatus(task.terminationStatus, task.launchPath!, arguments)
     }
 }
 

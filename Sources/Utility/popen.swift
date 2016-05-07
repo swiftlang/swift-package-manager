@@ -59,6 +59,6 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     }
 
     guard task.terminationStatus == 0 else {
-        throw POSIX.Error.ExitStatus(task.terminationStatus, arguments)
+        throw POSIX.Error.ExitStatus(task.terminationStatus, task.launchPath!, arguments)
     }
 }
