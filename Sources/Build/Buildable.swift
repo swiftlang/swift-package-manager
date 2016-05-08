@@ -59,29 +59,6 @@ extension Module: Buildable {
     }
 }
 
-extension SwiftModule {
-    func pkgConfigArgs() throws -> [String] {
-        return try recursiveDependencies.flatMap { module -> [String] in
-            guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
-                return []
-            }
-            
-            do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName)
-                return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
-            }
-            catch PkgConfigError.CouldNotFindConfigFile {
-                if let providers = module.providers,
-                    provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
-                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
-                    print(provider.installText)
-                }
-            }
-            return []
-        }
-    }
-}
-
 extension Product: Buildable {
     var isTest: Bool {
         if case .Test = type {

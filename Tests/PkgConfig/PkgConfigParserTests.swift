@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Build
+@testable import PkgConfig
 @testable import Utility
 import XCTest
 
@@ -78,7 +78,11 @@ final class PkgConfigParserTests: XCTestCase {
 extension PkgConfigParserTests {
     static var allTests : [(String, (PkgConfigParserTests) -> () throws -> Void)] {
         return [
-                   ("testGTK3PCFile", testGTK3PCFile),
+            ("testGTK3PCFile", testGTK3PCFile),
+            ("testEmptyCFlags", testEmptyCFlags),
+            ("testEmptyCFlags", testEmptyCFlags),
+            ("testVariableinDependency", testVariableinDependency),
+            ("testUnresolvablePCFile", testUnresolvablePCFile),
         ]
     }
 }

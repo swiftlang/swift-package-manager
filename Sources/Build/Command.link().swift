@@ -11,6 +11,7 @@
 import func POSIX.mkdir
 import PackageType
 import Utility
+import PkgConfig
 
 
 //FIXME messy :/
@@ -78,7 +79,7 @@ extension Command {
         }
         
         for module in product.modules {
-            args += try module.pkgConfigArgs()
+            args += try module.pkgConfigSwiftcArgs()
         }
         
         args += objects
