@@ -217,34 +217,26 @@ struct PkgConfigParser {
     /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def" and ignore
     /// multiple spaces such that "abc   def" will split into ["abc", "def"].
     private func splitEscapingSpace(_ line: String) -> [String] {
-        let source = Array(line.characters)
-        var startIndex = 0
-        var index = 0
         var splits = [String]()
-        var fragment = ""
+        var fragment = [Character]()
         
         func saveFragment() {
-            if index - startIndex > 0 {
-                fragment += String(source[startIndex..<index])
-            }
-            if fragment.characters.count > 0 {
-                splits.append(fragment)
+            if fragment.count > 0 {
+                splits.append(String(fragment))
+                fragment.removeAll()
             }
         }
         
-        while index < source.count {
-            if index + 1 < source.count && source[index] == "\\" && (source[index + 1] == " " || source[index + 1] == "\\") {
-                fragment += String(source[startIndex..<index])
-                fragment += String(source[index+1])
-                index += 2
-                startIndex = index
-            } else {
-                if source[index] == " " {
-                    saveFragment()
-                    fragment = ""
-                    startIndex = index + 1
+        var it = line.characters.makeIterator()
+        while let char = it.next() {
+            if char == "\\" {
+                if let next = it.next() {
+                    fragment.append(next)
                 }
-                index += 1
+            } else if char == " " {
+                saveFragment()
+            } else {
+                fragment.append(char)
             }
         }
         saveFragment()

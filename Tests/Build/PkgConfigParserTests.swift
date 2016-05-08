@@ -58,7 +58,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk"])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Wine Cellar/gtk+3/3.18.9/include/gtk-3.0", "-I/after/extra/spaces"])
-            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3", "-wantareal\\here", "-one\\slash", "-one\\", "-two"])
+            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3", "-wantareal\\here", "-one\\", "-two"])
         }
     }
     
