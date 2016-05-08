@@ -51,12 +51,12 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
 
     task.launch()
 
-    while task.isRunning {
+    repeat {
         guard let output = String(data: pipe.fileHandleForReading.availableData, encoding: NSUTF8StringEncoding) else {
             throw Error.UnicodeDecodingError
         }
         body(output)
-    }
+    } while task.isRunning
 
     guard task.terminationStatus == 0 else {
         throw POSIX.Error.ExitStatus(task.terminationStatus, task.launchPath!, arguments)
