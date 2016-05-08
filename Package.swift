@@ -45,7 +45,11 @@ let package = Package(
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["PackageType"]),
+            dependencies: ["PackageType", "PkgConfig"]),
+       Target(
+            /** Provides cFlags and link flags from .pc files for a System Module */
+            name: "PkgConfig",
+            dependencies: ["Utility", "PackageType"]),
         Target(
             /** Common components of both executables */
             name: "Multitool",
@@ -53,7 +57,7 @@ let package = Package(
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["PackageType"]),
+            dependencies: ["PackageType", "PkgConfig"]),
         Target(
             /** Command line options parser */
             name: "OptionsParser",
