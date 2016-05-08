@@ -44,7 +44,11 @@ do {
     
     func fetch(_ root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
         let manifest = try parseManifest(path: root, baseURL: root)
-        return try get(manifest, manifestParser: parseManifest)
+        if opts.ignoreDependencies {
+            return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
+        } else {
+            return try get(manifest, manifestParser: parseManifest)
+        }
     }
 
     switch mode {

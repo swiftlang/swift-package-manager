@@ -100,6 +100,7 @@ enum Flag: Argument {
     case verbose(Int)
     case buildPath(String)
     case xcconfigOverrides(String)
+    case ignoreDependencies
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -125,6 +126,8 @@ enum Flag: Argument {
             self = try .buildPath(forcePop())
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(forcePop())
+        case "--ignore-dependencies":
+            self = .ignoreDependencies
         default:
             return nil
         }
@@ -137,6 +140,7 @@ class Options: Multitool.Options {
     var Xld: [String] = []
     var Xswiftc: [String] = []
     var xcconfigOverrides: String? = nil
+    var ignoreDependencies: Bool = false
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -161,6 +165,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.path.build = path
         case .xcconfigOverrides(let path):
             opts.xcconfigOverrides = path
+        case .ignoreDependencies:
+            opts.ignoreDependencies = true
         }
     }
 
