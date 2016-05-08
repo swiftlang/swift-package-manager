@@ -27,7 +27,7 @@ public func jsonString(package: PackageDescription.Package) throws -> String {
 }
 
 extension NSMutableDictionary {
-    public static func withNew(block: @noescape (dict: NSMutableDictionary) -> ()) -> NSMutableDictionary {
+    static func withNew(block: @noescape (dict: NSMutableDictionary) -> ()) -> NSMutableDictionary {
         let dict = NSMutableDictionary()
         block(dict: dict)
         return dict
