@@ -101,7 +101,7 @@ class TestClangModulesTestCase: XCTestCase {
 
 
 extension TestClangModulesTestCase {
-    static var allTests : [(String, TestClangModulesTestCase -> () throws -> Void)] {
+    static var allTests : [(String, (TestClangModulesTestCase) -> () throws -> Void)] {
         return [
             ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
             ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),

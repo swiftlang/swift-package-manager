@@ -109,7 +109,7 @@ class TOMLTests: XCTestCase {
 
 
 extension TOMLTests {
-    static var allTests : [(String, TOMLTests -> () throws -> Void)] {
+    static var allTests : [(String, (TOMLTests) -> () throws -> Void)] {
         return [
             ("testLexer", testLexer),
             ("testParser", testParser),
@@ -119,7 +119,7 @@ extension TOMLTests {
 }
 
 extension ManifestTests {
-    static var allTests : [(String, ManifestTests -> () throws -> Void)] {
+    static var allTests : [(String, (ManifestTests) -> () throws -> Void)] {
         return [
             ("testManifestLoading", testManifestLoading),
         ]
@@ -127,7 +127,7 @@ extension ManifestTests {
 }
 
 extension PackageTests {
-    static var allTests : [(String, PackageTests -> () throws -> Void)] {
+    static var allTests : [(String, (PackageTests) -> () throws -> Void)] {
         return [
             ("testBasics", testBasics),
             ("testExclude", testExclude),

@@ -132,7 +132,7 @@ extension ValidLayoutsTestCase {
 
 
 extension DependencyResolutionTestCase {
-    static var allTests : [(String, DependencyResolutionTestCase -> () throws -> Void)] {
+    static var allTests : [(String, (DependencyResolutionTestCase) -> () throws -> Void)] {
         return [
             ("testInternalSimple", testInternalSimple),
             ("testInternalComplex", testInternalComplex),
@@ -144,7 +144,7 @@ extension DependencyResolutionTestCase {
 }
 
 extension InvalidLayoutsTestCase {
-    static var allTests : [(String, InvalidLayoutsTestCase -> () throws -> Void)] {
+    static var allTests : [(String, (InvalidLayoutsTestCase) -> () throws -> Void)] {
         return [
             ("testMultipleRoots", testMultipleRoots),
             ("testInvalidLayout1", testInvalidLayout1),
@@ -157,7 +157,7 @@ extension InvalidLayoutsTestCase {
 }
 
 extension MiscellaneousTestCase {
-    static var allTests : [(String, MiscellaneousTestCase -> () throws -> Void)] {
+    static var allTests : [(String, (MiscellaneousTestCase) -> () throws -> Void)] {
         return [
             ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
             ("testPackageWithNoSources", testPackageWithNoSources),
@@ -189,7 +189,7 @@ extension MiscellaneousTestCase {
 }
 
 extension ValidLayoutsTestCase {
-    static var allTests : [(String, ValidLayoutsTestCase -> () throws -> Void)] {
+    static var allTests : [(String, (ValidLayoutsTestCase) -> () throws -> Void)] {
         return [
             ("testSingleModuleLibrary", testSingleModuleLibrary),
             ("testSingleModuleExecutable", testSingleModuleExecutable),

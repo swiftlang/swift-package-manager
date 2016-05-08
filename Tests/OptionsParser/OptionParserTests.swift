@@ -118,11 +118,11 @@ enum Mode: String, Argument {
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--A":
-            self = A
+            self = .A
         case "--B":
-            self = B
+            self = .B
         case "--C":
-            self = C
+            self = .C
         default:
             return nil
         }
@@ -135,15 +135,15 @@ enum Flag: Argument, Equatable {
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--D":
-            self = D
+            self = .D
         case "--E":
-            self = E
+            self = .E
         case "--F":
             guard let str = pop() else { throw Error.ExpectedAssociatedValue("") }
-            self = F(str)
+            self = .F(str)
         case "--G":
             guard let str = pop(), int = Int(str) else { throw Error.ExpectedAssociatedValue("") }
-            self = G(int)
+            self = .G(int)
         case "-H":
             self = .H
         case "-I":
