@@ -22,7 +22,7 @@ public func jsonString(package: PackageDescription.Package) throws -> String {
     
     let json: AnyObject = package.toJSON()
     let data = try NSJSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
-    guard let string = String(data: data, encoding: NSUTF8StringEncoding) else { fatalError() }
+    guard let string = String(data: data, encoding: NSUTF8StringEncoding) else { fatalError("NSJSONSerialization emitted invalid data") }
     return string
 }
 
