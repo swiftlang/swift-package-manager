@@ -631,12 +631,13 @@ def main():
 
     # Build the package manager with itself.
                
-    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
+    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc")]
+
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
 
-    cmd = [bootstrapped_product]
+    cmd = [bootstrapped_product, "--build-path", build_path]
+
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
@@ -686,9 +687,8 @@ def main():
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
-        env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                          "SWIFT_BUILD_PATH=" + build_path]
-        cmd = env_cmd + [swift_test_path]
+        env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc")]
+        cmd = env_cmd + [swift_test_path, "--build-path", build_path]
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))

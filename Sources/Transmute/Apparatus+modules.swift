@@ -12,21 +12,20 @@ import class PackageDescription.Target
 import PackageType
 import Utility
 
-extension Package {
+extension Apparatus {
     func modules() throws -> [Module] {
+        let pkgroot = package.path
 
-        guard !Path.join(path, "module.modulemap").isFile else {
-            return [try CModule(name: name, path: path, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers)]
+        guard !Path.join(pkgroot, "module.modulemap").isFile else {
+            return [try CModule(name: package.name, path: pkgroot, pkgConfig: package.manifest.package.pkgConfig, providers: package.manifest.package.providers)]
         }
 
-        if manifest.package.exclude.contains(".") {
+        if package.manifest.package.exclude.contains(".") {
             return []
         }
 
-        let srcroot = try sourceRoot()
-
-        if srcroot != path {
-            let invalidRootFiles = walk(path, recursively: false).filter(isValidSource)
+        if srcroot != pkgroot {
+            let invalidRootFiles = walk(pkgroot, recursively: false).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.InvalidLayout(.InvalidLayout(invalidRootFiles))
             }
@@ -42,17 +41,18 @@ extension Package {
         }
 
         let modules: [Module]
-        if maybeModules.isEmpty {
+        if maybeModules.isEmpty {   // root directory is the only directory
             do {
-                modules = [try modulify(srcroot, name: self.name)]
+                print("HI!", srcroot)
+                modules = [try modulify(srcroot, name: package.name)]
             } catch Module.Error.NoSources {
-                throw ModuleError.NoModules(self)
+                throw ModuleError.NoModules(package)
             }
         } else {
             modules = try maybeModules.map { path in
                 let name: String
                 if path == srcroot {
-                    name = self.name
+                    name = package.name
                 } else {
                     name = path.basename
                 }
@@ -106,7 +106,7 @@ extension Package {
     func isValidSource(_ path: String, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         let path = path.normpath
-        if path == manifest.path.normpath { return false }
+        if path == package.manifest.path.normpath { return false }
         if excludes.contains(path) { return false }
         if !path.isFile { return false }
         guard let ext = path.fileExt else { return false }
@@ -114,6 +114,6 @@ extension Package {
     }
 
     private func targetForName(_ name: String) -> Target? {
-        return manifest.package.targets.pick{ $0.name == name }
+        return package.manifest.package.targets.pick{ $0.name == name }
     }
 }

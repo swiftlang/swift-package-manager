@@ -11,8 +11,9 @@
 import PackageType
 import Utility
 
-extension Package {
+extension Apparatus {
     func shouldConsiderDirectory(_ path: String) -> Bool {
+        if excludes.contains(path) { return false }
         let base = path.basename.lowercased()
         if base == "tests" { return false }
         if base == "include" { return false }
@@ -20,16 +21,7 @@ extension Package {
         if base.hasSuffix(".playground") { return false }
         if base.hasPrefix(".") { return false }  // eg .git
         if excludes.contains(path) { return false }
-        if path.normpath == packagesDirectory.normpath { return false }
         if !path.isDirectory { return false }
         return true
-    }
-
-    var packagesDirectory: String {
-        return Path.join(path, "Packages")
-    }
-
-    var excludes: [String] {
-        return manifest.package.exclude.map{ Path.join(self.path, $0).normpath }
     }
 }

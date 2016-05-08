@@ -58,12 +58,18 @@ func ==(lhs: Mode, rhs: Mode) -> Bool {
 
 enum Flag: Argument {
     case chdir(String)
+    case buildPath(String)
 
     init?(argument: String, pop: () -> String?) throws {
+        func forcePop() throws -> String {
+            guard let popped = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
+            return popped
+        }
         switch argument {
         case "--chdir", "-C":
-            guard let path = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
-            self = .chdir(path)
+            self = .chdir(try forcePop())
+        case "--build-path":
+            self = .buildPath(try forcePop())
         default:
             return nil
         }
@@ -80,6 +86,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
         switch flag {
         case .chdir(let path):
             opts.chdir = path
+        case .buildPath(let path):
+            opts.path.build = path
         }
     }
 
