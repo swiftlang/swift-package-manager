@@ -22,6 +22,7 @@ import Xcodeproj
 import Utility
 import Build
 import Get
+import Serialization
 
 /// Declare additional conformance for our Options type.
 extension Options: XcodeprojOptions {}
@@ -128,6 +129,13 @@ do {
         let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
 
         print("generated:", outpath.prettyPath)
+        
+    case .DumpPackage:
+        let root = opts.path.root
+        let manifest = try parseManifest(path: root, baseURL: root)
+        let package = manifest.package
+        let json = try jsonString(package: package)
+        print(json)
     }
 
 } catch {

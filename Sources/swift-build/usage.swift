@@ -48,6 +48,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Version
     case GenerateXcodeproj(String?)
+    case DumpPackage
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -71,6 +72,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .Version
         case "--generate-xcodeproj", "-X":
             self = .GenerateXcodeproj(pop())
+        case "--dump-package":
+            self = .DumpPackage
         default:
             return nil
         }
@@ -88,6 +91,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Init(let mode): return "--init=\(mode)"
             case .Usage: return "--help"
             case .Version: return "--version"
+            case .DumpPackage: return "--dump-package"
         }
     }
 }

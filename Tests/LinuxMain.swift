@@ -44,4 +44,5 @@ XCTMain([
     testCase(DescribeTests.allTests),
     testCase(GitUtilityTests.allTests),
     testCase(PackageVersionDataTests.allTests),
+    testCase(SerializationTests.allTests)
 ])

@@ -51,6 +51,10 @@ let package = Package(
             name: "Multitool",
             dependencies: ["PackageType", "OptionsParser"]),
         Target(
+            /** Serialization to JSON */
+            name: "Serialization",
+            dependencies: ["PackageDescription"]),
+        Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
             dependencies: ["PackageType"]),
@@ -61,7 +65,7 @@ let package = Package(
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj", "Serialization"]),
         Target(
             /** Runs package tests */
             name: "swift-test",
