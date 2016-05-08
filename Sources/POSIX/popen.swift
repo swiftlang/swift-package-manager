@@ -19,7 +19,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     return out
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws
 {
     do {
         // Create a pipe to use for reading the result.
