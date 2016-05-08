@@ -243,8 +243,8 @@ extension XcodeModuleProtocol  {
         }
 
         if let pkgArgs = try? self.pkgConfigArgs() {
-            buildSettings["OTHER_LDFLAGS"] = pkgArgs.libs.joined(separator: " ")
-            buildSettings["OTHER_SWIFT_FLAGS"] = pkgArgs.cFlags.joined(separator: " ")
+            buildSettings["OTHER_LDFLAGS"] = (["$(inherited)"] + pkgArgs.libs).joined(separator: " ")
+            buildSettings["OTHER_SWIFT_FLAGS"] = (["$(inherited)"] + pkgArgs.cFlags).joined(separator: " ")
         }
 
         return buildSettings
