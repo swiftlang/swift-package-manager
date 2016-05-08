@@ -67,7 +67,7 @@ private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
 
 
 extension VersionGraphTests {
-    static var allTests : [(String, VersionGraphTests -> () throws -> Void)] {
+    static var allTests : [(String, (VersionGraphTests) -> () throws -> Void)] {
         return [
             ("testNoGraph", testNoGraph),
             ("testOneDependency", testOneDependency),
@@ -87,7 +87,7 @@ extension VersionGraphTests {
 }
 
 extension GetTests {
-    static var allTests : [(String, GetTests -> () throws -> Void)] {
+    static var allTests : [(String, (GetTests) -> () throws -> Void)] {
         return [
             ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
             ("testRangeConstrain", testRangeConstrain),
@@ -97,7 +97,7 @@ extension GetTests {
 }
 
 extension GitTests {
-    static var allTests : [(String, GitTests -> () throws -> Void)] {
+    static var allTests : [(String, (GitTests) -> () throws -> Void)] {
         return [
             ("testHasVersion", testHasVersion),
             ("testHasNoVersion", testHasNoVersion),

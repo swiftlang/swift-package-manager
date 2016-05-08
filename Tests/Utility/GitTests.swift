@@ -93,7 +93,7 @@ class GitUtilityTests: XCTestCase {
 }
 
 extension GitUtilityTests {
-    static var allTests : [(String, GitUtilityTests -> () throws -> Void)] {
+    static var allTests : [(String, (GitUtilityTests) -> () throws -> Void)] {
         return [
                    ("testGitVersion", testGitVersion),
                    ("testHeadSha", testHeadSha),

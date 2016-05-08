@@ -61,7 +61,7 @@ final class PackageVersionDataTests: XCTestCase {
 }
 
 extension PackageVersionDataTests {
-    static var allTests: [(String, PackageVersionDataTests -> () throws -> Void)] {
+    static var allTests: [(String, (PackageVersionDataTests) -> () throws -> Void)] {
         return [
                    ("testPackageVersionData", testPackageVersionData),
                    ("testPackageEmptyVersionData", testPackageEmptyVersionData),

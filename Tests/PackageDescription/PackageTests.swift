@@ -30,7 +30,7 @@ class PackageTests: XCTestCase {
 }
 
 extension PackageTests {
-    static var allTests : [(String, PackageTests -> () throws -> Void)] {
+    static var allTests : [(String, (PackageTests) -> () throws -> Void)] {
         return [
             ("testMatchDependencyWithPreReleaseVersion", testMatchDependencyWithPreReleaseVersion),
         ]

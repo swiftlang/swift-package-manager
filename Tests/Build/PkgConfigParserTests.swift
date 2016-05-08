@@ -76,7 +76,7 @@ final class PkgConfigParserTests: XCTestCase {
 
 
 extension PkgConfigParserTests {
-    static var allTests : [(String, PkgConfigParserTests -> () throws -> Void)] {
+    static var allTests : [(String, (PkgConfigParserTests) -> () throws -> Void)] {
         return [
                    ("testGTK3PCFile", testGTK3PCFile),
         ]
