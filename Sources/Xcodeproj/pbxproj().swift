@@ -95,7 +95,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("            buildRules = ();")
         print("            dependencies = (\(module.nativeTargetDependencies));")
         print("            name = \(module.name);")
-        print("            productName = \(module.c99name);")
+        print("            productName = \(module.productName);")
         print("            productReference = \(module.productReference);")
         print("            productType = '\(module.productType)';")
         print("        };")
