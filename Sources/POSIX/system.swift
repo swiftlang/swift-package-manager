@@ -57,7 +57,7 @@ func posix_spawnp(_ path: String, args: [String], environment: [String: String] 
 #if Xcode
     let keys = ["SWIFT_EXEC", "HOME", "PATH"]
 #else
-    let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS"]
+    let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS", "DEVELOPER_DIR"]
 #endif
     for key in keys {
         if environment[key] == nil {
