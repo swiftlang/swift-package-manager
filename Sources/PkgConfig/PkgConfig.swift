@@ -221,7 +221,7 @@ struct PkgConfigParser {
         var fragment = [Character]()
         
         func saveFragment() {
-            if fragment.count > 0 {
+            if !fragment.isEmpty {
                 splits.append(String(fragment))
                 fragment.removeAll()
             }
