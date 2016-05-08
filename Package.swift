@@ -32,7 +32,7 @@ let package = Package(
             name: "PackageType",
             dependencies: ["PackageDescription", "Utility"]),
         Target(
-            name: "ManifestParser",
+            name: "ManifestSerializer",
             dependencies: ["PackageDescription", "PackageType"]),
         Target(
             /** Turns Packages into Modules & Products */
@@ -65,7 +65,7 @@ let package = Package(
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["ManifestParser", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["ManifestSerializer", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
         Target(
             /** Runs package tests */
             name: "swift-test",

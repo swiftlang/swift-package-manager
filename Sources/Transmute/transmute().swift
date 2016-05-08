@@ -50,7 +50,7 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
                     // FIXME: Turns out TransmuteTests violate encapsulation :(
                     testModule.dependencies = modules.filter{
                         switch $0.name {
-                        case "Get", "Transmute", "ManifestParser":
+                        case "Get", "Transmute", "ManifestSerializer":
                             return true
                         default:
                             return false

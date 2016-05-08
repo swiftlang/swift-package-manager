@@ -9,7 +9,7 @@ import XCTest
 @testable import UtilityTestSuite
 @testable import FunctionalTestSuite
 @testable import GetTestSuite
-@testable import ManifestParserTestSuite
+@testable import ManifestSerializerTestSuite
 @testable import PackageDescriptionTestSuite
 @testable import PackageTypeTestSuite
 @testable import BuildTestSuite
@@ -23,7 +23,7 @@ XCTMain([
     testCase(InvalidLayoutsTestCase.allTests),
     testCase(ManifestTests.allTests),
     testCase(MiscellaneousTestCase.allTests),
-    testCase(ManifestParserTestSuite.PackageTests.allTests),
+    testCase(ManifestSerializerTestSuite.PackageTests.allTests),
     testCase(ModuleDependencyTests.allTests),
     testCase(ValidSourcesTests.allTests),
     testCase(PrimitiveResolutionTests.allTests),

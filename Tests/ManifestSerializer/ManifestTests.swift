@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import ManifestParser
+@testable import ManifestSerializer
 @testable import Utility
 import func POSIX.getenv
 import func POSIX.popen

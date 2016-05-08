@@ -14,7 +14,7 @@ import func POSIX.unlink
 import func POSIX.chdir
 import func POSIX.rmdir
 import func libc.exit
-import ManifestParser
+import ManifestSerializer
 import PackageType
 import Multitool
 import Transmute
