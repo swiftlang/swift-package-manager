@@ -38,15 +38,15 @@ class JSONSerializationTests: XCTestCase {
                                           "lowerBound":"3.0.0",
                                           "upperBound":"3.9223372036854775807.9223372036854775807"
                 ]
-            ]
+            ] as NSDictionary
             let dep2 = [
                            "url": "https://github.com/apple/llvm.git",
                            "version": [
                                           "lowerBound":"2.0.0",
                                           "upperBound":"2.9223372036854775807.9223372036854775807"
                 ]
-            ]
-            dict["dependencies"] = [dep1, dep2]
+            ] as NSDictionary
+            dict["dependencies"] = [dep1, dep2] as NSArray
             fillWithEmptyArrays(keyNames: ["testDependencies", "exclude", "package.targets"], dict: dict)
         }
         assertEqual(package: package, expected: exp)
@@ -86,9 +86,9 @@ class JSONSerializationTests: XCTestCase {
         let package = Package(name: "Targets", targets: [t1, t2])
         let exp = NSMutableDictionary.withNew { (dict) in
             dict["name"] = "Targets"
-            let ts1 = ["name": "One", "dependencies": [String]()]
-            let ts2 = ["name": "Two", "dependencies": ["One"]]
-            dict["package.targets"] = [ts1, ts2]
+            let ts1 = ["name": "One", "dependencies": NSArray()] as NSDictionary
+            let ts2 = ["name": "Two", "dependencies": ["One"] as NSArray] as NSDictionary
+            dict["package.targets"] = [ts1, ts2] as NSArray
             fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", ], dict: dict)
         }
         assertEqual(package: package, expected: exp)
@@ -99,7 +99,7 @@ extension JSONSerializationTests {
     
     func fillWithEmptyArrays(keyNames: [String], dict: NSMutableDictionary) {
         keyNames.forEach {
-            dict[$0] = NSArray()
+            dict[$0 as NSString] = NSArray()
         }
     }
     

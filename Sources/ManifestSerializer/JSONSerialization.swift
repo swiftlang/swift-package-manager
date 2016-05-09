@@ -20,8 +20,14 @@ public protocol JSONSerializable {
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
     
+    #if os(Linux)
+        let options: NSJSONWritingOptions = .PrettyPrinted
+    #else
+        let options: NSJSONWritingOptions = .prettyPrinted
+    #endif
+    
     let json: AnyObject = package.toJSON()
-    let data = try NSJSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
+    let data = try NSJSONSerialization.data(withJSONObject: json, options: options)
     guard let string = String(data: data, encoding: NSUTF8StringEncoding) else { fatalError("NSJSONSerialization emitted invalid data") }
     return string
 }
@@ -39,7 +45,7 @@ extension SystemPackageProvider: JSONSerializable {
         let (name, value) = nameValue
         
         return NSMutableDictionary.withNew { (dict) in
-            dict[name] = value
+            dict[name as NSString] = value as NSString
         }
     }
 }
@@ -48,12 +54,12 @@ extension Package.Dependency: JSONSerializable {
     public func toJSON() -> AnyObject {
         
         let version: NSDictionary = [
-            "lowerBound": versionRange.lowerBound.description,
-            "upperBound": versionRange.upperBound.description
+            "lowerBound": versionRange.lowerBound.description as NSString,
+            "upperBound": versionRange.upperBound.description as NSString
         ]
         
         return NSMutableDictionary.withNew { (dict) in
-            dict["url"] = url
+            dict["url"] = url as NSString
             dict["version"] = version
         }
     }
@@ -64,17 +70,17 @@ extension Package: JSONSerializable {
         
         return NSMutableDictionary.withNew { (dict) in
             if let name = self.name {
-                dict["name"] = name
+                dict["name"] = name as NSString
             }
             if let pkgConfig = self.pkgConfig {
-                dict["pkgConfig"] = pkgConfig
+                dict["pkgConfig"] = pkgConfig as NSString
             }
-            dict["dependencies"] = dependencies.map { $0.toJSON() }
-            dict["testDependencies"] = testDependencies.map { $0.toJSON() }
-            dict["exclude"] = exclude
-            dict["package.targets"] = targets.map { $0.toJSON() }
+            dict["dependencies"] = dependencies.map { $0.toJSON() } as NSArray
+            dict["testDependencies"] = testDependencies.map { $0.toJSON() } as NSArray
+            dict["exclude"] = exclude as NSArray
+            dict["package.targets"] = targets.map { $0.toJSON() } as NSArray
             if let providers = self.providers {
-                dict["package.providers"] = providers.map { $0.toJSON() }
+                dict["package.providers"] = providers.map { $0.toJSON() } as NSArray
             }
         }
     }
@@ -84,7 +90,7 @@ extension Target.Dependency: JSONSerializable {
     public func toJSON() -> AnyObject {
         switch self {
         case .Target(let name):
-            return name
+            return name as NSString
         }
     }
 }
@@ -92,9 +98,9 @@ extension Target.Dependency: JSONSerializable {
 extension Target: JSONSerializable {
     public func toJSON() -> AnyObject {
         
-        let deps: NSArray = dependencies.map { $0.toJSON() }
+        let deps = dependencies.map { $0.toJSON() } as NSArray
         return NSMutableDictionary.withNew { (dict) in
-            dict["name"] = name
+            dict["name"] = name as NSString
             dict["dependencies"] = deps
         }
     }
