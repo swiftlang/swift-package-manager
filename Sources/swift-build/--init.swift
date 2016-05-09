@@ -36,7 +36,8 @@ final class InitPackage {
     private func writeManifestFile() throws {
         let manifest = Path.join(rootd, Manifest.filename)
         guard manifest.exists == false else {
-            throw Error.ManifestAlreadyExists
+            print(Error.ManifestAlreadyExists)
+            return
         }
         
         let packageFP = try fopen(manifest, mode: .Write)
@@ -72,14 +73,16 @@ final class InitPackage {
     
     private func writeSources() throws {
         let sources = Path.join(rootd, "Sources")
-        guard sources.exists == false else {
-            return
+        if sources.exists == false {
+            print("Creating Sources/")
+            try mkdir(sources)
         }
-        print("Creating Sources/")
-        try mkdir(sources)
     
         let sourceFileName = (mode == .Executable) ? "main.swift" : "\(pkgname).swift"
         let sourceFile = Path.join(sources, sourceFileName)
+        guard sourceFile.exists == false else {
+            return
+        }
         let sourceFileFP = try fopen(sourceFile, mode: .Write)
         defer {
             fclose(sourceFileFP)
