@@ -110,9 +110,9 @@ func swiftBuildPath() -> String {
 #endif
 }
 
-func executeSwiftBuild(_ args: [String], chdir: String, printIfError: Bool = false) throws -> String {
+func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
     let args = [swiftBuildPath(), "--chdir", chdir] + args
-    var env = [String:String]()
+    var env = env
 
     // FIXME: We use this private enviroment variable hack to be able to
     // create special conditions in swift-build for swiftpm tests.
@@ -150,7 +150,7 @@ func executeSwiftBuild(_ args: [String], chdir: String, printIfError: Bool = fal
     }
 }
 
-func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
+func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = [], env: [String: String] = [:]) throws -> String {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -159,7 +159,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
         args.append("release")
     }
     args += Xld.flatMap{ ["-Xlinker", $0] }
-    return try executeSwiftBuild(args, chdir: chdir, printIfError: printIfError)
+    return try executeSwiftBuild(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
@@ -173,13 +173,13 @@ func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(
     }
 }
 
-func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xld: [String] = []) {
+func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xld: [String] = [], env: [String: String] = [:]) {
     let prefix = Path.join(paths)
 
     for conf in configurations {
         do {
             print("    Building \(conf)")
-            try executeSwiftBuild(prefix, configuration: conf, printIfError: true, Xld: Xld)
+            try executeSwiftBuild(prefix, configuration: conf, printIfError: true, Xld: Xld, env: env)
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
