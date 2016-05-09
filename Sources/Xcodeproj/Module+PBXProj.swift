@@ -93,10 +93,6 @@ func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroo
     }
 }
 
-func serializeArray(_ array: [String]) -> String {
-    return "( " + array.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
-}
-
 extension XcodeModuleProtocol  {
 
     private var isLibrary: Bool {
@@ -165,7 +161,7 @@ extension XcodeModuleProtocol  {
             return (headerPathKey, first)
         }
 
-        let headerPathValue = serializeArray(headerPaths)
+        let headerPathValue = headerPaths.joined(separator: " ")
         
         return (headerPathKey, headerPathValue)
     }
