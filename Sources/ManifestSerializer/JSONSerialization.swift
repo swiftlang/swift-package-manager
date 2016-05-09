@@ -40,12 +40,22 @@ extension NSMutableDictionary {
     }
 }
 
+extension String {
+    public func asNS() -> NSString {
+        #if os(Linux)
+            return self.bridge()
+        #else
+            return self as NSString
+        #endif
+    }
+}
+
 extension SystemPackageProvider: JSONSerializable {
     public func toJSON() -> AnyObject {
         let (name, value) = nameValue
         
         return NSMutableDictionary.withNew { (dict) in
-            dict[name as NSString] = value as NSString
+            dict[name.asNS()] = value.asNS()
         }
     }
 }
@@ -54,12 +64,12 @@ extension Package.Dependency: JSONSerializable {
     public func toJSON() -> AnyObject {
         
         let version: NSDictionary = [
-            "lowerBound": versionRange.lowerBound.description as NSString,
-            "upperBound": versionRange.upperBound.description as NSString
+            "lowerBound": versionRange.lowerBound.description.asNS(),
+            "upperBound": versionRange.upperBound.description.asNS()
         ]
         
         return NSMutableDictionary.withNew { (dict) in
-            dict["url"] = url as NSString
+            dict["url"] = url.asNS()
             dict["version"] = version
         }
     }
@@ -70,10 +80,10 @@ extension Package: JSONSerializable {
         
         return NSMutableDictionary.withNew { (dict) in
             if let name = self.name {
-                dict["name"] = name as NSString
+                dict["name"] = name.asNS()
             }
             if let pkgConfig = self.pkgConfig {
-                dict["pkgConfig"] = pkgConfig as NSString
+                dict["pkgConfig"] = pkgConfig.asNS()
             }
             dict["dependencies"] = dependencies.map { $0.toJSON() } as NSArray
             dict["testDependencies"] = testDependencies.map { $0.toJSON() } as NSArray
@@ -90,7 +100,7 @@ extension Target.Dependency: JSONSerializable {
     public func toJSON() -> AnyObject {
         switch self {
         case .Target(let name):
-            return name as NSString
+            return name.asNS()
         }
     }
 }
@@ -100,7 +110,7 @@ extension Target: JSONSerializable {
         
         let deps = dependencies.map { $0.toJSON() } as NSArray
         return NSMutableDictionary.withNew { (dict) in
-            dict["name"] = name as NSString
+            dict["name"] = name.asNS()
             dict["dependencies"] = deps
         }
     }
