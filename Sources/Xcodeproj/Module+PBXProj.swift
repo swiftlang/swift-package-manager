@@ -128,7 +128,7 @@ extension XcodeModuleProtocol  {
         if self is TestModule {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "\(c99name).dylib"
+            return "lib\(c99name).dylib"
         } else {
             return name
         }
@@ -254,11 +254,7 @@ extension XcodeModuleProtocol {
     }
 
     var buildableName: String {
-        if isLibrary && !(self is TestModule) {
-            return "lib\(productPath)"
-        } else {
-            return productPath
-        }
+        return productPath
     }
 
     var blueprintName: String {
