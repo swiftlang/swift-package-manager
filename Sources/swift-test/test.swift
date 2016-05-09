@@ -10,6 +10,7 @@
 
 import PackageType
 import Utility
+import class Foundation.NSProcessInfo
 
 func test(path: String, xctestArg: String? = nil) throws -> Bool {
 
@@ -31,7 +32,9 @@ func test(path: String, xctestArg: String? = nil) throws -> Bool {
     }
 #endif
 
-    let result: Void? = try? system(args)
+    // Execute the XCTest with inherited environment as it is convenient to pass senstive
+    // information like username, password etc to test cases via enviornment variables.
+    let result: Void? = try? system(args, environment: NSProcessInfo.processInfo().environment)
     return result != nil
 }
 
