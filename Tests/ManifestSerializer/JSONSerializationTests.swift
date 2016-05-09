@@ -18,7 +18,7 @@ class JSONSerializationTests: XCTestCase {
         let package = Package(name: "Simple")
         let exp = NSMutableDictionary.withNew { (dict) in
             dict["name"] = "Simple"
-            fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"], dict: dict)
+            dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
     }
@@ -47,7 +47,7 @@ class JSONSerializationTests: XCTestCase {
                 ]
             ] as NSDictionary
             dict["dependencies"] = [dep1, dep2] as NSArray
-            fillWithEmptyArrays(keyNames: ["testDependencies", "exclude", "package.targets"], dict: dict)
+            dict.fillWithEmptyArrays(keyNames: ["testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
     }
@@ -65,7 +65,7 @@ class JSONSerializationTests: XCTestCase {
                 ["Brew": "BrewPackage"],
                 ["Apt": "AptPackage"]
             ]
-            fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"], dict: dict)
+            dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
     }
@@ -75,7 +75,7 @@ class JSONSerializationTests: XCTestCase {
         let exp = NSMutableDictionary.withNew { (dict) in
             dict["name"] = "Exclude"
             dict["exclude"] = ["pikachu", "bulbasaur"]
-            fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "package.targets"], dict: dict)
+            dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "package.targets"])
         }
         assertEqual(package: package, expected: exp)
     }
@@ -89,19 +89,22 @@ class JSONSerializationTests: XCTestCase {
             let ts1 = ["name": "One", "dependencies": NSArray()] as NSDictionary
             let ts2 = ["name": "Two", "dependencies": ["One"] as NSArray] as NSDictionary
             dict["package.targets"] = [ts1, ts2] as NSArray
-            fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", ], dict: dict)
+            dict.fillWithEmptyArrays(keyNames: ["dependencies", "testDependencies", "exclude", ])
         }
         assertEqual(package: package, expected: exp)
     }
 }
 
-extension JSONSerializationTests {
+extension NSMutableDictionary {
     
-    func fillWithEmptyArrays(keyNames: [String], dict: NSMutableDictionary) {
+    func fillWithEmptyArrays(keyNames: [String]) {
         keyNames.forEach {
-            dict[$0 as NSString] = NSArray()
+            self[$0 as NSString] = NSArray()
         }
     }
+}
+
+extension JSONSerializationTests {
     
     func assertEqual(package: Package, expected: NSMutableDictionary) {
         let json = package.toJSON() as! NSMutableDictionary
