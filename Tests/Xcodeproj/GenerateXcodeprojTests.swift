@@ -14,27 +14,6 @@ import Xcodeproj
 import Utility
 import XCTest
 
-
-// copy pasta
-func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
-    do {
-        try POSIX.mkdtemp("spm-tests") { dir in
-            defer { _ = try? rmtree(dir) }
-            try body(dir)
-        }
-    } catch {
-        XCTFail("\(error)", file: file, line: line)
-    }
-}
-
-func XCTAssertDirectoryExists(_ paths: String..., file: StaticString = #file, line: UInt = #line) {
-    let path = Path.join(paths)
-    if !path.isDirectory {
-        XCTFail("Expected directory doesn’t exist: \(path)", file: file, line: line)
-    }
-}
-
-
 #if os(OSX)
 class TestGeneration: XCTestCase {
 
