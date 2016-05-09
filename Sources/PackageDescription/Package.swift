@@ -102,8 +102,8 @@ public enum SystemPackageProvider {
     case Apt(String)
 }
 
-extension SystemPackageProvider: TOMLConvertible {
-    var nameValue: (String, String) {
+extension SystemPackageProvider {
+    public var nameValue: (String, String) {
         switch self {
         case .Brew(let name):
             return ("Brew", name)
@@ -111,6 +111,11 @@ extension SystemPackageProvider: TOMLConvertible {
             return ("Apt", name)
         }
     }
+}
+
+// MARK: TOMLConvertible
+
+extension SystemPackageProvider: TOMLConvertible {
     
     public func toTOML() -> String {
         let (name, value) = nameValue
@@ -120,9 +125,6 @@ extension SystemPackageProvider: TOMLConvertible {
         return str
     }
 }
-
-
-// MARK: TOMLConvertible
 
 extension Package.Dependency: TOMLConvertible {
     public func toTOML() -> String {

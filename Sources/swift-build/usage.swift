@@ -27,6 +27,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("  --update                       Update package dependencies")
     print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
     print("  --show-dependencies[=<mode>]   Print dependency graph (text|dot|json)")
+    print("  --dump-package[=<path>]        Print Package.swift as JSON")
     print("")
     print("OPTIONS:")
     print("  --chdir <path>       Change working directory before any other operation [-C]")
@@ -48,6 +49,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Version
     case GenerateXcodeproj(String?)
+    case DumpPackage(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -71,6 +73,8 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .Version
         case "--generate-xcodeproj", "-X":
             self = .GenerateXcodeproj(pop())
+        case "--dump-package":
+            self = .DumpPackage(pop())
         default:
             return nil
         }
@@ -88,6 +92,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
             case .Init(let mode): return "--init=\(mode)"
             case .Usage: return "--help"
             case .Version: return "--version"
+            case .DumpPackage: return "--dump-package"
         }
     }
 }

@@ -132,6 +132,14 @@ do {
         let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
 
         print("generated:", outpath.prettyPath)
+        
+    case .DumpPackage(let packagePath):
+        
+        let root = packagePath ?? opts.path.root
+        let manifest = try parseManifest(path: root, baseURL: root)
+        let package = manifest.package
+        let json = try jsonString(package: package)
+        print(json)
     }
 
 } catch {

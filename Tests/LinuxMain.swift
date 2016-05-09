@@ -24,6 +24,7 @@ XCTMain([
     testCase(ManifestTests.allTests),
     testCase(MiscellaneousTestCase.allTests),
     testCase(ManifestSerializerTestSuite.PackageTests.allTests),
+    testCase(ManifestSerializerTestSuite.JSONSerializationTests.allTests),
     testCase(ModuleDependencyTests.allTests),
     testCase(ValidSourcesTests.allTests),
     testCase(PrimitiveResolutionTests.allTests),
