@@ -40,52 +40,59 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
     let schemeName = "\(projectName).xcscheme"
 
 ////// the pbxproj file describes the project and its targets
-    try open(xcodeprojPath, "project.pbxproj") { fwrite in
-        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: fwrite)
+    try open(xcodeprojPath, "project.pbxproj") { stream in
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: stream)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
-    try open(schemesDirectory, schemeName) { fwrite in
-        xcscheme(container: xcodeprojName, modules: modules, printer: fwrite)
+    try open(schemesDirectory, schemeName) { stream in
+        xcscheme(container: xcodeprojName, modules: modules, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory, "xcschememanagement.plist") { fwrite in
-        fwrite("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        fwrite("<plist version=\"1.0\">")
-        fwrite("<dict>")
-        fwrite("  <key>SchemeUserState</key>")
-        fwrite("  <dict>")
-        fwrite("    <key>\(schemeName)</key>")
-        fwrite("    <dict></dict>")
-        fwrite("  </dict>")
-        fwrite("  <key>SuppressBuildableAutocreation</key>")
-        fwrite("  <dict></dict>")
-        fwrite("</dict>")
-        fwrite("</plist>")
+    try open(schemesDirectory, "xcschememanagement.plist") { print in
+        print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        print("<plist version=\"1.0\">")
+        print("<dict>")
+        print("  <key>SchemeUserState</key>")
+        print("  <dict>")
+        print("    <key>\(schemeName)</key>")
+        print("    <dict></dict>")
+        print("  </dict>")
+        print("  <key>SuppressBuildableAutocreation</key>")
+        print("  <dict></dict>")
+        print("</dict>")
+        print("</plist>")
     }
 
     return xcodeprojPath
 }
 
+import class Foundation.NSData
 
-private func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
-    var error: ErrorProtocol? = nil
-
-    try Utility.fopen(Path.join(path), mode: .Write) { fp in
-        try body { line in
-            if error == nil {
-                do {
-                    try fputs(line, fp)
-                    try fputs("\n", fp)
-                } catch let caught {
-                    error = caught
-                }
-            }
+/// Writes the contents to the file specified.
+/// Doesn't re-writes the file in case the new and old contents of file are same.
+func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
+    let path = Path.join(path)
+    let stream = OutputByteStream()
+    try body { line in
+        stream <<< line
+        stream <<< "\n"
+    }
+    // If file is already present compare its content with our stream
+    // and re-write only if its new.
+    if path.isFile, let data = NSData(contentsOfFile: path) {
+        var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8))
+        data.getBytes(&contents, length: data.length)
+        // If contents are same then no need to re-write.
+        if contents == stream.bytes.bytes { 
+            return 
         }
     }
-
-    guard error == nil else { throw error! }
+    // Write the real file.
+    try fopen(path, mode: .Write) { fp in
+        try fputs(stream.bytes.bytes, fp)
+    }
 }
