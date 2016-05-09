@@ -172,9 +172,9 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     // FIXME: Generate these into a sane path.
     let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: Path.join(srcroot, projectRoot))
     try mkdir(projectXCConfig.2.parentDirectory)
-    try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
+    try open(projectXCConfig.2) { print in
         // Set the standard PRODUCT_NAME.
-        try fputs("PRODUCT_NAME = $(TARGET_NAME)\n", fp)
+        print("PRODUCT_NAME = $(TARGET_NAME)")
         
         // Set SUPPORTED_PLATFORMS to all platforms.
         //
@@ -187,7 +187,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
             "iphoneos", "iphonesimulator",
             "tvos", "tvsimulator",
             "watchos", "watchsimulator"]
-        try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
+        print("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))")
 
         // Set a conservative default deployment target.
         //
@@ -197,39 +197,39 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         //
         // FIXME: Eventually there should be a way for the project using Xcode
         // generation to have control over this.
-        try fputs("MACOSX_DEPLOYMENT_TARGET = 10.10\n", fp)
+        print("MACOSX_DEPLOYMENT_TARGET = 10.10")
         
         // Default to @rpath-based install names.
         //
         // The expectation is that the application or executable consuming these
         // products will need to establish the appropriate runpath search paths
         // so that all the products can be found in a relative manner.
-        try fputs("DYLIB_INSTALL_NAME_BASE = @rpath\n", fp)
+        print("DYLIB_INSTALL_NAME_BASE = @rpath")
 
         // Propagate any user provided build flag overrides.
         //
         // FIXME: Need to get quoting correct here.
         if !options.Xcc.isEmpty {
-            try fputs("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))\n", fp)
+            print("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))")
         }
         if !options.Xld.isEmpty {
-            try fputs("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))\n", fp)
+            print("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))")
         }
-        try fputs("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))\n", fp)
+        print("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))")
         
         // Prevents Xcode project upgrade warnings.
-        try fputs("COMBINE_HIDPI_IMAGES = YES\n", fp)
+        print("COMBINE_HIDPI_IMAGES = YES")
 
         // Always disable use of headermaps.
         //
         // The semantics of the build should be explicitly defined by the
         // project structure, we don't want any additional behaviors not shared
         // with `swift build`.
-        try fputs("USE_HEADERMAP = NO\n", fp)
+        print("USE_HEADERMAP = NO")
 
         // If the user provided an overriding xcconfig path, include it here.
         if let path = options.xcconfigOverrides {
-            try fputs("\n#include \"\(path)\"\n", fp)
+            print("\n#include \"\(path)\"")
         }
     }
     let configs = [projectXCConfig]

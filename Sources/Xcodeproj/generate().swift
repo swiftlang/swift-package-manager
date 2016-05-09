@@ -70,13 +70,28 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
     return xcodeprojPath
 }
 
-private func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
+import class Foundation.NSData
+
+/// Writes the contents to the file specified.
+/// Doesn't re-writes the file in case the new and old contents of file are same.
+func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     let path = Path.join(path)
     let stream = OutputByteStream()
     try body { line in
         stream <<< line
         stream <<< "\n"
     }
+    // If file is already present compare its content with our stream
+    // and re-write only if its new.
+    if path.isFile, let data = NSData(contentsOfFile: path) {
+        var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8))
+        data.getBytes(&contents, length: data.length)
+        // If contents are same then no need to re-write.
+        if contents == stream.bytes.bytes { 
+            return 
+        }
+    }
+    // Write the real file.
     try fopen(path, mode: .Write) { fp in
         try fputs(stream.bytes.bytes, fp)
     }
