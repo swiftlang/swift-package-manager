@@ -115,18 +115,25 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("            runOnlyForDeploymentPostprocessing = 0;")
         print("        };")
 
-        // link build phase
-        print("        \(module.linkPhaseReference) = {")
-        print("            isa = PBXFrameworksBuildPhase;")
-        print("            files = (\(module.linkPhaseFileRefs));")
-        print("            runOnlyForDeploymentPostprocessing = 0;")
-        print("        };")
-
         // the fileRefs for the children in the build phases
-        for (ref1, ref2) in fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot) + [(module.productReference, fileRef(forLinkPhaseChild: module))] {
+        for (ref1, ref2) in fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot) {
             print("        \(ref2) = {")
             print("            isa = PBXBuildFile;")
             print("            fileRef = \(ref1);")
+            print("        };")
+        }
+
+        // link build phase
+        let linkPhaseFileRefs = module.linkPhaseFileRefs
+        print("        \(module.linkPhaseReference) = {")
+        print("            isa = PBXFrameworksBuildPhase;")
+        print("            files = (\(linkPhaseFileRefs.map{ $0.fileRef }.joined(separator: ", ")));")
+        print("            runOnlyForDeploymentPostprocessing = 0;")
+        print("        };")
+        for item in linkPhaseFileRefs {
+            print("        \(item.fileRef) = {")
+            print("            isa = PBXBuildFile;")
+            print("            fileRef = \(item.dependency.productReference);")
             print("        };")
         }
 
