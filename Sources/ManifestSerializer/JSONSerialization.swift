@@ -38,6 +38,10 @@ extension NSMutableDictionary {
         block(dict: dict)
         return dict
     }
+    
+    func set(object: AnyObject, forKey key: String) {
+        self[key.asNS()] = object
+    }
 }
 
 extension String {
@@ -55,7 +59,7 @@ extension SystemPackageProvider: JSONSerializable {
         let (name, value) = nameValue
         
         return NSMutableDictionary.withNew { (dict) in
-            dict[name.asNS()] = value.asNS()
+            dict.set(object: value.asNS(), forKey: name)
         }
     }
 }
@@ -69,8 +73,8 @@ extension Package.Dependency: JSONSerializable {
         ]
         
         return NSMutableDictionary.withNew { (dict) in
-            dict["url"] = url.asNS()
-            dict["version"] = version
+            dict.set(object: url.asNS(), forKey: "url")
+            dict.set(object: version, forKey: "version")
         }
     }
 }
@@ -80,17 +84,17 @@ extension Package: JSONSerializable {
         
         return NSMutableDictionary.withNew { (dict) in
             if let name = self.name {
-                dict["name"] = name.asNS()
+                dict.set(object: name.asNS(), forKey: "name")
             }
             if let pkgConfig = self.pkgConfig {
-                dict["pkgConfig"] = pkgConfig.asNS()
+                dict.set(object: pkgConfig.asNS(), forKey: "pkgConfig")
             }
-            dict["dependencies"] = dependencies.map { $0.toJSON() } as NSArray
-            dict["testDependencies"] = testDependencies.map { $0.toJSON() } as NSArray
-            dict["exclude"] = exclude as NSArray
-            dict["package.targets"] = targets.map { $0.toJSON() } as NSArray
+            dict.set(object: dependencies.map { $0.toJSON() } as NSArray, forKey: "dependencies")
+            dict.set(object: testDependencies.map { $0.toJSON() } as NSArray, forKey: "testDependencies")
+            dict.set(object: exclude as NSArray, forKey: "exclude")
+            dict.set(object: targets.map { $0.toJSON() } as NSArray, forKey: "package.targets")
             if let providers = self.providers {
-                dict["package.providers"] = providers.map { $0.toJSON() } as NSArray
+                dict.set(object: providers.map { $0.toJSON() } as NSArray, forKey: "package.providers")
             }
         }
     }
@@ -110,8 +114,8 @@ extension Target: JSONSerializable {
         
         let deps = dependencies.map { $0.toJSON() } as NSArray
         return NSMutableDictionary.withNew { (dict) in
-            dict["name"] = name.asNS()
-            dict["dependencies"] = deps
+            dict.set(object: name.asNS(), forKey: "name")
+            dict.set(object: deps, forKey: "dependencies")
         }
     }
 }
