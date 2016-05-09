@@ -21,12 +21,54 @@ class FunctionalTests: XCTestCase {
             XCTAssertXcodeprojGen(prefix)
             let pbx = Path.join(prefix, "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
-            // FIXME: Move this to a method.
-            try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", pbx])
+            XCTAssertXcodeBuild(project: pbx)
             let build = Path.join(prefix, "build", "Debug")
             XCTAssertDirectoryExists(build, "Library.swiftmodule")
             XCTAssertFileExists(build, "libLibrary.dylib")
         }
+    }
+
+    func testSwiftExecWithCDep() {
+        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+            // FIXME: Temporarily manually create the module map until we fix SR-1450
+            let seaLibModuleMap = Path.join(prefix, "Sources/SeaLib/include", "module.modulemap")
+            try! write(path: seaLibModuleMap) { stream in
+                stream <<< "module SeaLib {"
+                stream <<< "    umbrella \".\""
+                stream <<< "    link \"SeaLib\""
+                stream <<< "    export *"
+                stream <<< "}"
+            }
+            XCTAssertXcodeprojGen(prefix)
+            let pbx = Path.join(prefix, "SwiftCMixed.xcodeproj")
+            XCTAssertDirectoryExists(pbx)
+            XCTAssertXcodeBuild(project: pbx)
+            let build = Path.join(prefix, "build", "Debug")
+            XCTAssertDirectoryExists(build, "SeaExec.swiftmodule")
+            XCTAssertFileExists(build, "SeaExec")
+            XCTAssertFileExists(build, "libSeaLib.dylib")
+        }
+    }
+}
+
+func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
+    try fopen(path, mode: .Write) { fp in
+        let stream = OutputByteStream()
+        write(stream)
+        try fputs(stream.bytes.bytes, fp)
+    }
+    return path
+}
+
+func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt = #line) {
+    var out = ""
+    do {
+        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project], redirectStandardError: true) {
+            out += $0
+        }
+    } catch {
+        print("output:", out)
+        XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
     }
 }
 
