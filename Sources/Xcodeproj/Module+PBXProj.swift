@@ -54,8 +54,8 @@ extension XcodeModuleProtocol {
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
 }
 
-func fileRef(forLinkPhaseChild module: XcodeModuleProtocol) -> String {
-    return linkPhaseFileRefPrefix + module.c99name
+func fileRef(forLinkPhaseChild module: XcodeModuleProtocol, from: XcodeModuleProtocol) -> String {
+    return linkPhaseFileRefPrefix + module.c99name + "_via_" + from.c99name
 }
 
 private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) -> String {
@@ -128,14 +128,14 @@ extension XcodeModuleProtocol  {
         if self is TestModule {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "\(c99name).dylib"
+            return "lib\(c99name).dylib"
         } else {
             return name
         }
     }
 
-    var linkPhaseFileRefs: String {
-        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ fileRef(forLinkPhaseChild: $0) }.joined(separator: ", ")
+    var linkPhaseFileRefs: [(dependency: XcodeModuleProtocol, fileRef: String)] {
+        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ (dependency: $0, fileRef: fileRef(forLinkPhaseChild: $0, from: self)) }
     }
 
     var nativeTargetDependencies: String {
@@ -254,11 +254,7 @@ extension XcodeModuleProtocol {
     }
 
     var buildableName: String {
-        if isLibrary && !(self is TestModule) {
-            return "lib\(productPath)"
-        } else {
-            return productPath
-        }
+        return productPath
     }
 
     var blueprintName: String {
