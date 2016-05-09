@@ -110,8 +110,8 @@ func swiftBuildPath() -> String {
 #endif
 }
 
-
-func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
+func executeSwiftBuild(_ args: [String], chdir: String, printIfError: Bool = false) throws -> String {
+    let args = [swiftBuildPath(), "--chdir", chdir] + args
     var env = [String:String]()
 
     // FIXME: We use this private enviroment variable hack to be able to
@@ -134,15 +134,6 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
         fatalError("HURRAY! This is fixed")
     }
 #endif
-    var args = [swiftBuildPath(), "--chdir", chdir]
-    args.append("--configuration")
-    switch configuration {
-    case .Debug:
-        args.append("debug")
-    case .Release:
-        args.append("release")
-    }
-    args += Xld.flatMap{ ["-Xlinker", $0] }
     var out = ""
     do {
         try popen(args, redirectStandardError: true, environment: env) {
@@ -157,6 +148,18 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
         }
         throw error
     }
+}
+
+func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = []) throws -> String {
+    var args = ["--configuration"]
+    switch configuration {
+    case .Debug:
+        args.append("debug")
+    case .Release:
+        args.append("release")
+    }
+    args += Xld.flatMap{ ["-Xlinker", $0] }
+    return try executeSwiftBuild(args, chdir: chdir, printIfError: printIfError)
 }
 
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
