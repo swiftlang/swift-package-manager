@@ -19,7 +19,13 @@ class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
             XCTAssertXcodeprojGen(prefix)
-            XCTAssertDirectoryExists(prefix, "Library.xcodeproj")
+            let pbx = Path.join(prefix, "Library.xcodeproj")
+            XCTAssertDirectoryExists(pbx)
+            // FIXME: Move this to a method.
+            try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", pbx])
+            let build = Path.join(prefix, "build", "Debug")
+            XCTAssertDirectoryExists(build, "Library.swiftmodule")
+            XCTAssertFileExists(build, "libLibrary.dylib")
         }
     }
 }
