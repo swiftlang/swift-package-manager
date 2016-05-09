@@ -369,7 +369,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build/debug/ModuleName1.build/Foo.swift.o")
+            XCTAssertFileExists(prefix, ".build/debug/Module_Name_1.build/Foo.swift.o")
         }
     }
 }

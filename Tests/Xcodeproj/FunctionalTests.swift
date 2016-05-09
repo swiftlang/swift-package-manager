@@ -78,6 +78,18 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(moduleUser, "build", "Debug", "SystemModuleUser")
         }
     }
+
+    func testModuleNamesWithNonC99Names() {
+        fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { prefix in
+            XCTAssertXcodeprojGen(prefix)
+            let pbx = Path.join(prefix, "PackageWithNonc99NameModules.xcodeproj")
+            XCTAssertDirectoryExists(pbx)
+            XCTAssertXcodeBuild(project: pbx)
+            let build = Path.join(prefix, "build", "Debug")
+            XCTAssertFileExists(build, "libA-B.dylib")
+            XCTAssertFileExists(build, "libB-C.dylib")
+        }
+    }
 }
 
 func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
