@@ -10,10 +10,9 @@
 
 import struct Utility.Path
 import func Utility.fopen
-import func libc.fclose
+import func Utility.fputs
 import func libc.sleep
 import enum POSIX.Error
-import func POSIX.fputs
 import func POSIX.popen
 import XCTest
 
@@ -282,7 +281,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             try fopen(prefix, "Bar/Bar.swift", mode: .Write) { fp in
-                try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
+                try fputs("public let bar = \"Goodbye\"\n", fp)
             }
 
             XCTAssertBuilds(prefix)
@@ -308,7 +307,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write) { fp in
-                try POSIX.fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
+                try fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
             }
 
             XCTAssertBuilds(prefix, "app")
@@ -334,7 +333,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write) { fp in
-                try POSIX.fputs("public let foo = \"Goodbye\"", fp)
+                try fputs("public let foo = \"Goodbye\"", fp)
             }
 
             XCTAssertBuilds(prefix, "root")

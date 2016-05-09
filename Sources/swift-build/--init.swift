@@ -9,9 +9,10 @@
 */
 
 import struct Utility.Path
-import func libc.fclose
 import PackageType
 import POSIX
+import func Utility.fopen
+import func Utility.fputs
 
 final class InitPackage {
     let mode: InitMode
@@ -39,10 +40,8 @@ final class InitPackage {
             throw Error.ManifestAlreadyExists
         }
         
-        let packageFP = try fopen(manifest, mode: .Write)
-        defer {
-            fclose(packageFP)
-        }
+        let packageFP = try Utility.fopen(manifest, mode: .Write)
+        defer { packageFP.closeFile() }
         print("Creating \(Manifest.filename)")
         // print the manifest file
         try fputs("import PackageDescription\n", packageFP)
@@ -57,10 +56,8 @@ final class InitPackage {
         guard gitignore.exists == false else {
             return
         } 
-        let gitignoreFP = try fopen(gitignore, mode: .Write)
-        defer {
-            fclose(gitignoreFP)
-        }
+        let gitignoreFP = try Utility.fopen(gitignore, mode: .Write)
+        defer { gitignoreFP.closeFile() }
     
         print("Creating .gitignore")
         // print the .gitignore
@@ -80,10 +77,8 @@ final class InitPackage {
     
         let sourceFileName = (mode == .Executable) ? "main.swift" : "\(pkgname).swift"
         let sourceFile = Path.join(sources, sourceFileName)
-        let sourceFileFP = try fopen(sourceFile, mode: .Write)
-        defer {
-            fclose(sourceFileFP)
-        }
+        let sourceFileFP = try Utility.fopen(sourceFile, mode: .Write)
+        defer { sourceFileFP.closeFile() }
         print("Creating Sources/\(sourceFileName)")
         switch mode {
         case .Library:            
@@ -110,10 +105,8 @@ final class InitPackage {
     
     private func writeLinuxMain(testsPath: String) throws {
         let linuxMain = Path.join(testsPath, "LinuxMain.swift")
-        let linuxMainFP = try fopen(linuxMain, mode: .Write)
-        defer {
-            fclose(linuxMainFP)
-        }
+        let linuxMainFP = try Utility.fopen(linuxMain, mode: .Write)
+        defer { linuxMainFP.closeFile() }
         print("Creating Tests/LinuxMain.swift")
         try fputs("import XCTest\n", linuxMainFP)
         try fputs("@testable import \(pkgname)TestSuite\n\n", linuxMainFP)
@@ -129,10 +122,8 @@ final class InitPackage {
         
         let testsFile = Path.join(testModule, "\(pkgname)Tests.swift")
         print("Creating Tests/\(pkgname)/\(pkgname)Tests.swift")
-        let testsFileFP = try fopen(testsFile, mode: .Write)
-        defer {
-            fclose(testsFileFP)
-        }
+        let testsFileFP = try Utility.fopen(testsFile, mode: .Write)
+        defer { testsFileFP.closeFile() }
         try fputs("import XCTest\n", testsFileFP)
         try fputs("@testable import \(pkgname)\n\n", testsFileFP)
     

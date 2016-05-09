@@ -11,8 +11,6 @@
 import func POSIX.getenv
 import func POSIX.popen
 import func POSIX.mkdir
-import func POSIX.fopen
-import func libc.fclose
 import PackageType
 import Utility
 
@@ -119,7 +117,7 @@ extension ClangModule {
         try POSIX.mkdir(wd)
         let moduleMapFile = Path.join(wd, self.moduleMap)
         let moduleMap = try fopen(moduleMapFile, mode: .Write)
-        defer { fclose(moduleMap) }
+        defer { moduleMap.closeFile() }
         
         var output = "module \(c99name) {\n"
         switch type {

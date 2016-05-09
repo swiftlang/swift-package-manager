@@ -15,18 +15,17 @@ import XCTest
     import Foundation  // String.hasSuffix
 #endif
 
-
 class FileTests: XCTestCase {
 
-    private func loadInputFile(_ name: String) -> File {
+    private func loadInputFile(_ name: String) throws -> NSFileHandle {
         let input = Path.join(#file, "../Inputs", name).normpath
-        return File(path: input)
+        return try fopen(input, mode: .Read)
     }
     
     func testOpenFile() {
-        let file = loadInputFile("empty_file")
         do {
-            let generator = try file.enumerate()
+            let file = try loadInputFile("empty_file")
+            var generator = try file.enumerate()
             XCTAssertNil(generator.next())
         } catch {
             XCTFail("The file should be opened without problem")
@@ -34,8 +33,8 @@ class FileTests: XCTestCase {
     }
     
     func testOpenFileFail() {
-        let file = loadInputFile("file_not_existing")
         do {
+            let file = try loadInputFile("file_not_existing")
             let _ = try file.enumerate()
             XCTFail("The file should not be opened since it is not existing")
         } catch {
@@ -44,11 +43,12 @@ class FileTests: XCTestCase {
     }
     
     func testReadRegularTextFile() {
-        let file = loadInputFile("regular_text_file")
         do {
-            let generator = try file.enumerate()
+            let file = try loadInputFile("regular_text_file")
+            var generator = try file.enumerate()
             XCTAssertEqual(generator.next(), "Hello world")
             XCTAssertEqual(generator.next(), "It is a regular text file.")
+            XCTAssertEqual(generator.next(), "")
             XCTAssertNil(generator.next())
         } catch {
             XCTFail("The file should be opened without problem")
@@ -56,9 +56,9 @@ class FileTests: XCTestCase {
     }
     
     func testReadRegularTextFileWithSeparator() {
-        let file = loadInputFile("regular_text_file")
         do {
-            let generator = try file.enumerate(" ")
+            let file = try loadInputFile("regular_text_file")
+            var generator = try file.enumerate(separatedBy: " ")
             XCTAssertEqual(generator.next(), "Hello")
             XCTAssertEqual(generator.next(), "world\nIt")
             XCTAssertEqual(generator.next(), "is")

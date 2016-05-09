@@ -11,6 +11,7 @@
 import func libc.getcwd
 import func libc.free
 import func libc.exit
+import func libc.fputs
 import var libc.PATH_MAX
 import var libc.stderr
 import var libc.errno
@@ -28,7 +29,7 @@ import var libc.errno
 public func getcwd() -> String {
 
     @noreturn func error() {
-        try! fputs("error: no current directory\n", libc.stderr)
+        fputs("error: no current directory\n", libc.stderr)
         exit(2)
     }
 
