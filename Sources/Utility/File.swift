@@ -15,10 +15,10 @@ public enum FopenMode: String {
     case Write = "w"
 }
 
-public func fopen(_ path: String, mode: FopenMode = .Read) throws -> FileHandle {
-    let handle: FileHandle!
+public func fopen(_ path: String, mode: FopenMode = .Read) throws -> NSFileHandle {
+    let handle: NSFileHandle!
     switch mode {
-    case .Read: handle = FileHandle(forReadingAtPath: path)
+    case .Read: handle = NSFileHandle(forReadingAtPath: path)
     case .Write:
         #if os(OSX) || os(iOS)
             guard NSFileManager.`default`().createFile(atPath: path, contents: nil) else {
@@ -29,7 +29,7 @@ public func fopen(_ path: String, mode: FopenMode = .Read) throws -> FileHandle 
                 throw Error.CouldNotCreateFile(path: path)
             }
         #endif
-        handle = FileHandle(forWritingAtPath: path)
+        handle = NSFileHandle(forWritingAtPath: path)
     }
     guard handle != nil else {
         throw Error.FileDoesNotExist(path: path)
@@ -37,13 +37,13 @@ public func fopen(_ path: String, mode: FopenMode = .Read) throws -> FileHandle 
     return handle
 }
 
-public func fopen(_ path: String..., mode: FopenMode = .Read, body: (FileHandle) throws -> Void) throws {
+public func fopen(_ path: String..., mode: FopenMode = .Read, body: (NSFileHandle) throws -> Void) throws {
     let fp = try fopen(Path.join(path), mode: mode)
     defer { fp.closeFile() }
     try body(fp)
 }
 
-public func fputs(_ string: String, _ handle: FileHandle) throws {
+public func fputs(_ string: String, _ handle: NSFileHandle) throws {
     guard let data = string.data(using: NSUTF8StringEncoding) else {
         throw Error.UnicodeEncodingError
     }
@@ -55,7 +55,7 @@ public func fputs(_ string: String, _ handle: FileHandle) throws {
     #endif
 }
 
-public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
+public func fputs(_ bytes: [UInt8], _ handle: NSFileHandle) throws {
     var bytes = bytes
     let data = NSData(bytes: &bytes, length: bytes.count)
 
@@ -67,7 +67,7 @@ public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
 }
 
 
-extension FileHandle: Sequence {
+extension NSFileHandle: Sequence {
     public func enumerate(separatedBy separator: String = "\n") throws -> IndexingIterator<[String]> {
         guard let contents = String(data: readDataToEndOfFile(), encoding: NSUTF8StringEncoding) else {
             throw Error.UnicodeDecodingError
