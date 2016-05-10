@@ -1,0 +1,5 @@
+module CSystemModule {
+    header "shim.h"
+    link "SystemModule"
+    export *
+}
