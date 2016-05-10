@@ -17,6 +17,9 @@ enum PkgConfigError: ErrorProtocol {
     case ParsingError(String)
 }
 
+/// Get search paths from pkg-config itself.
+/// This is needed because on Linux machines, the search paths can be different
+/// from the standard locations that we are currently searching.
 private let pkgConfigSearchPaths: [String] = {
     let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"])
     return searchPaths?.characters.split(separator: ":").map(String.init) ?? []
@@ -64,7 +67,8 @@ struct PkgConfig {
     }
     
     static func locatePCFile(name: String) throws -> String {
-        for path in (pkgConfigSearchPaths + searchPaths + envSearchPaths) {
+        let allSearchPaths = (pkgConfigSearchPaths + searchPaths + envSearchPaths).unique()
+        for path in allSearchPaths {
             let pcFile = Path.join(path, "\(name).pc")
             if pcFile.isFile {
                 return pcFile

@@ -69,3 +69,21 @@ extension Collection where Iterator.Element : Equatable {
         return (orig, nil)
     }
 }
+
+extension Collection where Iterator.Element: Hashable {
+
+    /// Returns Unique elements from this collection maintaining its Order.
+    public func unique() -> [Iterator.Element]{
+        var registry = Set<Iterator.Element>()
+        var elements = Array<Iterator.Element>()
+
+        for item in self {
+            guard !registry.contains(item) else { continue }
+
+            registry.insert(item)
+            elements.append(item)
+        }
+
+        return elements
+    }
+}
