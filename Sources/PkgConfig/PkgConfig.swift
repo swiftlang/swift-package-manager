@@ -10,11 +10,17 @@
 
 import Utility
 import func POSIX.getenv
+import func POSIX.popen
 
 enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
     case ParsingError(String)
 }
+
+private let pkgConfigSearchPaths: [String] = {
+    let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"])
+    return searchPaths?.characters.split(separator: ":").map(String.init) ?? []
+}()
 
 struct PkgConfig {
     private static let searchPaths = ["/usr/local/lib/pkgconfig",
@@ -30,7 +36,7 @@ struct PkgConfig {
     init(name: String) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(name: name)
-        
+
         var parser = PkgConfigParser(pcFile: pcFile)
         try parser.parse()
         
@@ -58,7 +64,7 @@ struct PkgConfig {
     }
     
     static func locatePCFile(name: String) throws -> String {
-        for path in (searchPaths + envSearchPaths) {
+        for path in (pkgConfigSearchPaths + searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, "\(name).pc")
             if pcFile.isFile {
                 return pcFile
