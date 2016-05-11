@@ -59,3 +59,22 @@ public func rmtree(_ components: String...) throws {
         }
     }
 #endif
+
+
+// For deterministic builds, we maintain a whitelist of environment variables
+// that are passed through.
+#if Xcode
+private let defaultEnvironmentKeys = ["SWIFT_EXEC", "HOME", "PATH", "TOOLCHAINS", "DEVELOPER_DIR"]
+#else
+private let defaultEnvironmentKeys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS", "DEVELOPER_DIR"]
+#endif
+
+internal let defaultEnvironment: [String: String] = {
+    var env = [String: String]()
+    for key in defaultEnvironmentKeys {
+        guard let value = POSIX.getenv(key) else { continue }
+        env[key] = value
+    }
+    return env
+}()
+

@@ -21,7 +21,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     return out
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment customEnvironment: [String: String] = [:], body: (String) -> Void) throws
 {
     let task = NSTask()
 
@@ -29,16 +29,9 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     task.launchPath = which(arguments.removeFirst())
     task.arguments = arguments
 
-    var environment = environment
-    #if Xcode
-        let keys = ["SWIFT_EXEC", "HOME", "PATH"]
-    #else
-        let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS"]
-    #endif
-    for key in keys {
-        if environment[key] == nil {
-            environment[key] = POSIX.getenv(key)
-        }
+    var environment = defaultEnvironment
+    for (key, value) in customEnvironment {
+        environment[key] = value
     }
     task.environment = environment
 

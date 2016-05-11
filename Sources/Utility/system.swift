@@ -26,7 +26,7 @@ public func system(_ args: String...) throws {
  the tool. Uses PATH to find the tool if the first argument
  path is not absolute.
  */
-public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
+public func system(_ arguments: [String], environment customEnvironment: [String:String] = [:]) throws {
     printArgumentsIfVerbose(arguments)
 
     let task = NSTask()
@@ -35,16 +35,9 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
     task.launchPath = which(arguments.removeFirst())
     task.arguments = arguments
 
-    var environment = environment
-    #if Xcode
-        let keys = ["SWIFT_EXEC", "HOME", "PATH"]
-    #else
-        let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS"]
-    #endif
-    for key in keys {
-        if environment[key] == nil {
-            environment[key] = POSIX.getenv(key)
-        }
+    var environment = defaultEnvironment
+    for (key, value) in customEnvironment {
+        environment[key] = value
     }
     task.environment = environment
 
