@@ -9,19 +9,30 @@
 */
 
 import Foundation
+import func POSIX.getenv
+import func POSIX.getcwd
 
-private var memoized = [String: String]()
+private let PATH = [POSIX.getcwd()] + (getenv("PATH") ?? "").components(separatedBy: ":")
 
-public func which(_ arg0: String) -> String {
+private var memo = [String: String]()
+
+/**
+ Resolves the command to the absolute path by looking up
+ CWD and PATH.
+ */
+public func which(_ arg0: String) throws -> String {
     if arg0.isAbsolute {
         return arg0
-    } else if let fullpath = memoized[arg0] {
-        return fullpath
-    } else if let fullpath = try? Utility.popen(["/bin/sh", "-c", "which \(arg0)"]) {
-        memoized[arg0] = fullpath.chomp()
-        return fullpath.chomp()
-    } else {
-        return arg0
     }
+    if let path = memo[arg0] {
+        return path
+    }
+    for prefix in PATH {
+        let path = Path.join([prefix, arg0])
+        if path.isFile {
+            memo[arg0] = path
+            return path
+        }
+    }
+    throw Error.UnknownCommand(arg0: arg0)
 }
-

@@ -18,5 +18,5 @@ import func Utility.which
 
 func doctor() {
     print("LD:", getenv("LD") ?? "nil")
-    print("which ld:", which("ld"))
+    print("which ld:", try? which("ld"))
 }

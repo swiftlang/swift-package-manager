@@ -32,7 +32,7 @@ public func system(_ arguments: [String], environment customEnvironment: [String
     let task = NSTask()
 
     var arguments = arguments
-    task.launchPath = which(arguments.removeFirst())
+    task.launchPath = try which(arguments.removeFirst())
     task.arguments = arguments
 
     var environment = defaultEnvironment

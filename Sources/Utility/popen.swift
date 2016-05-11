@@ -26,7 +26,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     let task = NSTask()
 
     var arguments = arguments
-    task.launchPath = which(arguments.removeFirst())
+    task.launchPath = try which(arguments.removeFirst())
     task.arguments = arguments
 
     var environment = defaultEnvironment
