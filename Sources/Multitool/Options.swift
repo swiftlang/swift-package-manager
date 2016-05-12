@@ -49,8 +49,10 @@ private func getroot() -> String {
             // any path that requires this property errors, but we
             // don't have to correctly figure out all those paths
             // ahead of time, since that is flakier
+            
+            let header = ColorWrap.wrap("error:", with: .Red, for: .StdErr) 
 
-            print("error: no Package.swift found", to: &stderr)
+            print("\(header): no Package.swift found", to: &stderr)
             exit(1)
         }
     }

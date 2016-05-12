@@ -10,6 +10,7 @@
 
 import protocol Build.Toolchain
 import enum Build.Configuration
+import enum Utility.ColorWrap
 import OptionsParser
 import Multitool
 
@@ -32,6 +33,7 @@ func usage(_ print: (String) -> Void = { print($0) }) {
     print("OPTIONS:")
     print("  --chdir <path>       Change working directory before any other operation [-C]")
     print("  --build-path <path>  Specify build directory")
+    print("  --color <mode>       Specify color mode (auto|always|never)")
     print("  -v[v]                Increase verbosity of informational output")
     print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
     print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
@@ -104,6 +106,7 @@ enum Flag: Argument {
     case Xswiftc(String)
     case verbose(Int)
     case buildPath(String)
+    case colorMode(ColorWrap.Mode)
     case xcconfigOverrides(String)
     case ignoreDependencies
 
@@ -129,6 +132,12 @@ enum Flag: Argument {
             self = try .Xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(forcePop())
+        case "--color":
+            let rawValue = try forcePop()
+            guard let mode = ColorWrap.Mode(rawValue) else  {
+                throw OptionsParser.Error.InvalidUsage("invalid color mode: \(rawValue)")
+            }
+            self = .colorMode(mode)
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(forcePop())
         case "--ignore-dependencies":
@@ -146,6 +155,7 @@ class Options: Multitool.Options {
     var Xswiftc: [String] = []
     var xcconfigOverrides: String? = nil
     var ignoreDependencies: Bool = false
+    var colorMode: ColorWrap.Mode = .Auto
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -168,6 +178,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.Xswiftc.append(value)
         case .buildPath(let path):
             opts.path.build = path
+        case .colorMode(let mode):
+            opts.colorMode = mode
         case .xcconfigOverrides(let path):
             opts.xcconfigOverrides = path
         case .ignoreDependencies:
@@ -271,3 +283,4 @@ enum ShowDependenciesMode: CustomStringConvertible {
         }
     }
 }
+

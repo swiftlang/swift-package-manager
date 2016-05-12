@@ -8,8 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.isatty
 import var Utility.stderr
+import enum Utility.ColorWrap
+import enum Utility.Stream
+import func Utility.isTTY
 import OptionsParser
 import PackageType
 import libc
@@ -41,22 +43,18 @@ extension Error: CustomStringConvertible {
 
 @noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
 
-    func isTTY() -> Bool {
-        return isatty(fileno(libc.stdin))
-    }
-
     switch error {
     case OptionsParser.Error.MultipleModesSpecified(let modes):
         print(error: error)
-        if isTTY() {
-            if (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
-                print("", to: &stderr)
-                usage { print($0, to: &stderr) }
-            }
+
+        if isTTY(.StdErr)
+             && (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
+            print("", to: &stderr)
+            usage { print($0, to: &stderr) }
         }
     case is OptionsParser.Error:
         print(error: error)
-        if isTTY() {
+        if isTTY(.StdErr) {
             let argv0 = Process.arguments.first ?? "swift build"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
@@ -67,18 +65,11 @@ extension Error: CustomStringConvertible {
     exit(1)
 }
 
-private func red(_ input: Any) -> String {
-    let input = "\(input)"
-    let ESC = "\u{001B}"
-    let CSI = "\(ESC)["
-    return CSI + "31m" + input + CSI + "0m"
-}
-
 private func print(error: Any) {
-    if !isatty(fileno(libc.stderr)) {
+    if ColorWrap.isAllowed(for: .StdErr) {
+        print(ColorWrap.wrap("error:", with: .Red, for: .StdErr), error, to: &stderr)
+    } else {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
         print("\(cmd): error:", error, to: &stderr)
-    } else {
-        print(red("error:"), error, to: &stderr)
     }
 }

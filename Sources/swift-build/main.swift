@@ -31,6 +31,7 @@ do {
     let (mode, opts) = try parse(commandLineArguments: args)
 
     verbosity = Verbosity(rawValue: opts.verbosity)
+    colorMode = opts.colorMode
 
     if let dir = opts.chdir {
         try chdir(dir)
