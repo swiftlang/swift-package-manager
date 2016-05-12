@@ -67,7 +67,7 @@ private extension Sources {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String) throws -> [Command] {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String, Xcc: [String], Xld: [String]) throws -> [Command] {
 
         let wd = module.buildDirectory(prefix)
         
@@ -80,6 +80,7 @@ extension Command {
         let dependencies = module.dependencies.map{ $0.targetName }
         var basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
         basicArgs += module.moduleCacheArgs(prefix: prefix)
+        basicArgs += Xcc
 
         for path in module.sources.compilePathsForBuildDir(wd) {
             var args = basicArgs
@@ -106,6 +107,7 @@ extension Command {
         args += ["-L\(prefix)"]
         args += module.linkFlags
         args += module.sources.compilePathsForBuildDir(wd).map{$0.object}
+        args += Xld
 
         if module.type == .Library {
             args += ["-shared"]
