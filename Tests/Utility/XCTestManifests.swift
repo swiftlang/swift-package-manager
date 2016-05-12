@@ -27,7 +27,8 @@ extension CollectionTests {
                    ("testPick", testPick),
                    ("testPartitionByType", testPartitionByType),
                    ("testPartitionByClosure", testPartitionByClosure),
-                   ("testSplitAround", testSplitAround)
+                   ("testSplitAround", testSplitAround),
+                   ("testUnique", testUnique)
         ]
     }
 }
