@@ -147,7 +147,7 @@ class VersionTests: XCTestCase {
         XCTAssertNil(Version(".1.2.3"))
         XCTAssertNil(Version("v.1.2.3"))
         XCTAssertNil(Version("1.2..3"))
-        XCTAssertNil(Version("v1.2.3"))
+        XCTAssertEqual(Version(1,2,3), Version("v1.2.3"))
 
         XCTAssertEqual(Version(1,2,3), Version("01.002.0003"))
 

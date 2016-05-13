@@ -30,6 +30,7 @@ extension Version {
     }
 
     public init?(_ characters: String.CharacterView) {
+        let characters = characters.first == "v" ? characters.dropFirst() : characters
         let prereleaseStartIndex = characters.index(of: "-")
         let metadataStartIndex = characters.index(of: "+")
 
