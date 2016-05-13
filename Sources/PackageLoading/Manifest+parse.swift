@@ -60,7 +60,16 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     cmd += ["--driver-mode=swift"]
     cmd += verbosity.ccArgs
     cmd += ["-I", libdir]
-    cmd += ["-L", libdir, "-lPackageDescription"]
+
+    // When running from Xcode, load PackageDescription.framework
+    // else load the dylib version of it
+#if Xcode
+    cmd += ["-F", libdir]
+    cmd += ["-framework", "PackageDescription"]
+#else
+    cmd += ["-L", libdir, "-lPackageDescription"] 
+#endif
+
 #if os(OSX)
     cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif

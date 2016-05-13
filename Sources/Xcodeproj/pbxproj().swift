@@ -65,17 +65,35 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
 ////// modules group
     for module in modules {
 
+        let sourceFileRefPaths = fileRefs(forModuleSources: module, srcroot: srcroot)
+        var sourceRefs = sourceFileRefPaths.map{$0.0}
+
+        ////// Info.plist file reference if this a framework target
+        if module.isLibrary {
+            let (ref, path, name) = fileRef(ofInfoPlistFor: module, inDirectory: xcodeprojPath)
+            print("        \(ref) = {")
+            print("            isa = PBXFileReference;")
+            print("            lastKnownFileType = text.plist.xml;")
+            print("            name = '\(name)';")
+            print("            path = '\(Path(path).relative(to: projectRoot))';")
+            print("            sourceTree = SOURCE_ROOT;")
+            print("        };")
+
+            sourceRefs.append(ref)
+        }
+
+
         // the “Project Navigator” group for this module
         print("        \(module.groupReference) = {")
         print("            isa = PBXGroup;")
         print("            name = \(module.name);")
         print("            path = '\(Path(module.sources.root).relative(to: projectRoot))';")
         print("            sourceTree = '<group>';")
-        print("            children = (" + fileRefs(forModuleSources: module, srcroot: srcroot).map{$0.0}.joined(separator: ", ") + ");")
+        print("            children = (" + sourceRefs.joined(separator: ", ") + ");")
         print("        };")
 
         // the contents of the “Project Navigator” group for this module
-        for (ref, path) in fileRefs(forModuleSources: module, srcroot: srcroot) {
+        for (ref, path) in sourceFileRefPaths {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = \(module.fileType);")
@@ -143,12 +161,12 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("        };")
         print("        \(module.debugConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.getDebugBuildSettings(options)) };")
+        print("            buildSettings = { \(module.getDebugBuildSettings(options, xcodeProjectPath: xcodeprojPath)) };")
         print("            name = Debug;")
         print("        };")
         print("        \(module.releaseConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.getReleaseBuildSettings(options)) };")
+        print("            buildSettings = { \(module.getReleaseBuildSettings(options, xcodeProjectPath: xcodeprojPath)) };")
         print("            name = Release;")
         print("        };")
 
