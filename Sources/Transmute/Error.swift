@@ -40,6 +40,7 @@ extension Module {
     public enum Error: ErrorProtocol {
         case NoSources(String)
         case MixedSources(String)
+        case DuplicateModule(String)
     }
 }
 

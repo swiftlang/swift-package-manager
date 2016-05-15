@@ -74,8 +74,8 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
     // ensure modules depend on the modules of any dependent packages
     fillModuleGraph(packages, modulesForPackage: { map[$0]! })
 
-    let modules = recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
-    let externalModules = recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
+    let modules = try Transmute.recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
+    let externalModules = try Transmute.recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
     return (modules, externalModules, products)
 }
