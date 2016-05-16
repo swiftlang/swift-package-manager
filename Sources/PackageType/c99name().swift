@@ -12,7 +12,9 @@
  Removes characters from name that are invalid in C99 module-names.
 */
 public func c99name(name: String) throws  -> String {
-    var mapped = name.unicodeScalars.filter {
+    let escapeCharacter: UnicodeScalar = "_"
+
+    var mapped: [UnicodeScalar] = name.unicodeScalars.map {
         switch $0.value {
         case//  a-z       A-Z      0-9   _
             65...90, 97...122, 48...57, 95,
@@ -178,13 +180,13 @@ public func c99name(name: String) throws  -> String {
             0x4E00...0x9FA5,
             // Hangul,
             0xAC00...0xD7A3:
-            return true
+            return $0
         default:
-            return false
+            return escapeCharacter
         }
     }
 
-    loop: while let c = mapped.first {
+    loop: for (idx, c) in mapped.enumerated() {
         switch c.value {
         case 48...57,                                      // 0-9
         0x0660...0x0669, 0x06F0...0x06F9, 0x0966...0x096F, // Annex D.
@@ -192,7 +194,7 @@ public func c99name(name: String) throws  -> String {
         0x0B66...0x0B6F, 0x0BE7...0x0BEF, 0x0C66...0x0C6F,
         0x0CE6...0x0CEF, 0x0D66...0x0D6F, 0x0E50...0x0E59,
         0x0ED0...0x0ED9, 0x0F20...0x0F33:
-            mapped.removeFirst()
+            mapped[idx] = escapeCharacter
         default:
             break loop
         }
