@@ -116,8 +116,8 @@ struct PkgConfigParser {
                 let value = line[line.index(after: equalsIndex)..<line.endIndex]
                 variables[name] = try resolveVariables(value)
             } else {
-                // unexpected thing in the pc file, abort.
-                throw PkgConfigError.ParsingError("Unexpecting line: \(line) in \(pcFile)")
+                // Unexpected thing in the pc file, abort.
+                throw PkgConfigError.ParsingError("Unexpected line: \(line) in \(pcFile)")
             }
         }
     }
