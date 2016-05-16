@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getcwd
+import func Utility.getcwd
 import func POSIX.getenv
-import func POSIX.unlink
-import func POSIX.chdir
-import func POSIX.rmdir
+import func Utility.chdir
+import func Utility.unlink
 import func libc.exit
 import ManifestSerializer
 import PackageType
@@ -64,7 +63,7 @@ do {
         try initPackage.writePackageStructure()
                     
     case .Update:
-        try rmtree(opts.path.Packages)
+        try unlink(opts.path.Packages)
         fallthrough
         
     case .Fetch:
@@ -75,14 +74,14 @@ do {
 
     case .Clean(.Dist):
         if opts.path.Packages.exists {
-            try rmtree(opts.path.Packages)
+            try unlink(opts.path.Packages)
         }
         fallthrough
 
     case .Clean(.Build):
         let artifacts = ["debug", "release"].map{ Path.join(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
         for (dir, yml) in artifacts {
-            if dir.isDirectory { try rmtree(dir) }
+            if dir.isDirectory { try unlink(dir) }
             if yml.isFile { try unlink(yml) }
         }
 
@@ -90,10 +89,10 @@ do {
         if db.isFile { try unlink(db) }
 
         let versionData = Path.join(opts.path.build, "versionData")
-        if versionData.isDirectory { try rmtree(versionData) }
+        if versionData.isDirectory { try unlink(versionData) }
 
         if opts.path.build.exists {
-            try rmdir(opts.path.build)
+            try unlink(opts.path.build)
         }
 
     case .Doctor:

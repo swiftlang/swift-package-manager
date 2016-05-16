@@ -10,7 +10,6 @@
 
 import func POSIX.getenv
 import func POSIX.popen
-import func POSIX.mkdir
 import PackageType
 import Utility
 
@@ -114,7 +113,7 @@ extension ClangModule {
     }
     
     private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
-        try POSIX.mkdir(wd)
+        try Utility.mkdir(wd)
         let moduleMapFile = Path.join(wd, self.moduleMap)
         let moduleMap = try fopen(moduleMapFile, mode: .Write)
         defer { moduleMap.closeFile() }

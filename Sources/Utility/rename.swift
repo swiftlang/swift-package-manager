@@ -8,14 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.time
-import typealias libc.time_t
-import var libc.errno
+import Foundation
 
-public func time() throws -> time_t {
-    let time = libc.time(nil)
-    guard time != -1 else {
-        throw SystemError.time(errno)
-    }
-    return time
+public func rename(old: String, new: String) throws {
+    try NSFileManager.`default`().moveItem(atPath: old, toPath: new)
 }

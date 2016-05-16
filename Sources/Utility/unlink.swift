@@ -8,15 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct libc.DirHandle
-import var libc.errno
-import func libc.opendir
+import Foundation
 
-public func opendir(_ path: String) throws -> DirHandle {
-    guard let d = libc.opendir(path) else {
-        throw SystemError.opendir(errno, path)
-    }
-    return d
+public func unlink(_ path: String) throws {
+    try NSFileManager.`default`().removeItem(atPath: path)
 }
-
-@_exported import func libc.closedir

@@ -8,11 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Utility
-import POSIX
+import func Utility.realpath
+import func Utility.mkdtemp
+import func Utility.mkdir
+import func Utility.symlink
+import func Utility.unlink
 import XCTest
 
-class RmtreeTests: XCTestCase {
+class UnlinkTests: XCTestCase {
 
     func testDoesNotFollowSymlinks() {
         do {
@@ -23,13 +26,13 @@ class RmtreeTests: XCTestCase {
                 try mkdir(root, "bar")
                 try mkdir(root, "bar/baz")
                 try mkdir(root, "bar/baz/goo")
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar")
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
                 XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
 
-                try rmtree(root, "foo")
+                try Utility.unlink("\(root)/foo")
 
                 XCTAssertFalse("\(root)/foo".exists)
                 XCTAssertFalse("\(root)/foo".isDirectory)

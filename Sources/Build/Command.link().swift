@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.mkdir
+import func Utility.mkdir
 import PackageType
 import Utility
 import PkgConfig

@@ -8,12 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
 
-import func libc.unlink
-import var libc.errno
+/**
+ Creates a symbolic link.
 
-public func unlink(_ path: String) throws {
-    guard libc.unlink(path) == 0 else {
-        throw SystemError.unlink(errno, path)
-    }
+ - Note: if relative paths are passed, the current working directory is used for normalization.
+*/
+public func symlink(create from: String, pointingAt to: String) throws {
+    try NSFileManager.`default`().createSymbolicLink(atPath: from, withDestinationPath: to)
 }

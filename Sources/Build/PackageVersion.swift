@@ -14,6 +14,7 @@ import class Utility.Git
 import struct Utility.Path
 import func Utility.fopen
 import func Utility.fputs
+import func Utility.mkdir
 
 public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
     let dirPath = Path.join(rootDir, ".build/versionData")

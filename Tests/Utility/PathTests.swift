@@ -8,9 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Utility
+@testable import struct Utility.Path
+@testable import func Utility.realpath
+@testable import func Utility.walk
 import XCTest
-import POSIX
+import func POSIX.getenv
+import func Utility.getcwd
+import func Utility.mkdtemp
+import func Utility.unlink
+import func Utility.symlink
+import func Utility.mkdir
 
 class PathTests: XCTestCase {
 
@@ -116,7 +123,7 @@ class WalkTests: XCTestCase {
 
                 try mkdir(root, "foo")
                 try mkdir(root, "bar/baz/goo")
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar")
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
@@ -138,8 +145,8 @@ class WalkTests: XCTestCase {
 
             try mkdir(root, "foo/bar")
             try mkdir(root, "abc/bar")
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
-            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo")
+            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc")
 
             XCTAssertTrue(Path.join(root, "symlink").isSymlink)
 
@@ -162,15 +169,15 @@ class StatTests: XCTestCase {
 
         try! mkdtemp("foo") { root in
             try mkdir(root, "foo/bar")
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
+            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo")
 
             XCTAssertTrue("\(root)/foo/bar".isDirectory)
             XCTAssertTrue("\(root)/symlink/bar".isDirectory)
             XCTAssertTrue("\(root)/symlink".isDirectory)
             XCTAssertTrue("\(root)/symlink".isSymlink)
 
-            try POSIX.rmdir("\(root)/foo/bar")
-            try POSIX.rmdir("\(root)/foo")
+            try Utility.unlink("\(root)/foo/bar")
+            try Utility.unlink("\(root)/foo")
 
             XCTAssertTrue("\(root)/symlink".isSymlink)
             XCTAssertFalse("\(root)/symlink".isDirectory)

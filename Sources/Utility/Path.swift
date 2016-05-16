@@ -315,7 +315,7 @@ extension String {
         not changing during execution.
      */
     public var prettyPath: String {
-        let userDirectory = POSIX.getiwd()
+        let userDirectory = getiwd()
 
         if self.parentDirectory == userDirectory {
             return "./\(basename)"
