@@ -80,9 +80,9 @@ extension PkgConfigParserTests {
         return [
             ("testGTK3PCFile", testGTK3PCFile),
             ("testEmptyCFlags", testEmptyCFlags),
-            ("testEmptyCFlags", testEmptyCFlags),
             ("testVariableinDependency", testVariableinDependency),
             ("testUnresolvablePCFile", testUnresolvablePCFile),
+            ("testEscapedSpaces", testEscapedSpaces),
         ]
     }
 }
