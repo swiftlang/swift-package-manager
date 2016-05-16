@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.popen
-
 public enum Platform {
     case Darwin
     case Linux(LinuxFlavor)

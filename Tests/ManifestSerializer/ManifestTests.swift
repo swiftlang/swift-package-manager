@@ -11,7 +11,7 @@
 @testable import ManifestSerializer
 @testable import Utility
 import func POSIX.getenv
-import func POSIX.popen
+import func Utility.popen
 import PackageDescription
 import PackageType
 import XCTest

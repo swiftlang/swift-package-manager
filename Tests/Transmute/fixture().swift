@@ -10,7 +10,7 @@
 
 import struct Utility.Path
 import func POSIX.mkdir
-import func POSIX.system
+import func Utility.system
 import func Utility.rmtree
 
 func fixture(files: [String]) throws -> String {

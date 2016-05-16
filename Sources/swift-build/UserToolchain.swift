@@ -12,6 +12,7 @@ import protocol Build.Toolchain
 import struct Utility.Path
 import enum Multitool.Error
 import POSIX
+import func Utility.popen
 
 #if os(OSX)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
@@ -38,10 +39,10 @@ struct UserToolchain: Toolchain {
                 // use the swiftc installed alongside ourselves
                 ?? Path.join(Process.arguments[0], "../swiftc").abspath
 
-            clang = try getenv("CC") ?? POSIX.popen(whichClangArgs).chomp()
+            clang = try getenv("CC") ?? Utility.popen(whichClangArgs).chomp()
 
             #if os(OSX)
-                sysroot = try getenv("SYSROOT") ?? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]).chomp()
+                sysroot = try getenv("SYSROOT") ?? Utility.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]).chomp()
             #else
                 sysroot = nil
             #endif

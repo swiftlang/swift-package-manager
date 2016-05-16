@@ -32,7 +32,6 @@ XCTMain([
     testCase(PackageTypeTestSuite.PackageTests.allTests),
     testCase(PathTests.allTests),
     testCase(RelativePathTests.allTests),
-    testCase(ShellTests.allTests),
     testCase(StatTests.allTests),
     testCase(StringTests.allTests),
     testCase(TOMLTests.allTests),

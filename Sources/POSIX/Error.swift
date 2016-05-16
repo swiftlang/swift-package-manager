@@ -108,7 +108,7 @@ extension SystemError: CustomStringConvertible {
 
 
 public enum Error: ErrorProtocol {
-    case ExitStatus(Int32, [String])
+    case ExitStatus(Int32, String, [String])
     case ExitSignal
 }
 
@@ -120,8 +120,8 @@ public enum ShellError: ErrorProtocol {
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .ExitStatus(let code, let args):
-            return "exit(\(code)): \(prettyArguments(args))"
+        case .ExitStatus(let code, let path, let args):
+            return "exit(\(code)): \(path) \(prettyArguments(args))"
 
         case .ExitSignal:
             return "Child process exited with signal"

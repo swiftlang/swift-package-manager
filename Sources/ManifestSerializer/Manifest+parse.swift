@@ -14,6 +14,7 @@ import PackageDescription
 import PackageType
 import Utility
 import func Utility.fopen
+import Foundation
 
 extension Manifest {
     public init(path pathComponents: String..., baseURL: String, swiftc: String, libdir: String) throws {
@@ -66,17 +67,17 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
 #endif
     cmd += [manifestPath]
 
-    //Create and open a temporary file to write toml to
-    let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
-    let fp = try fopen(filePath, mode: .Write)
-    defer { fp.closeFile() }
+    //Previous implementation used a temporary file, however NSTask doesn't
+    //allow child process to access parent's file descriptors. So instruct
+    //swiftc to dump the package information on stdout.
+    #if os(OSX) || os(iOS)
+        let handle = NSFileHandle.standardOutput()
+    #else
+        let handle = NSFileHandle.fileHandleWithStandardOutput()
+    #endif
 
-    //Pass the fd in arguments
-    cmd += ["-fileno", "\(fp.fileDescriptor)"]
-    try system(cmd)
-
-    let toml = try fopen(filePath).reduce("") { $0 + "\n" + $1 }
-    try unlink(filePath) //Delete the temp file after reading it
+    cmd += ["-fileno",  String(handle.fileDescriptor)]
+    let toml = try Utility.popen(cmd)
 
     return toml != "" ? toml : nil
 }

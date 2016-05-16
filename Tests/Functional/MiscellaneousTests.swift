@@ -13,7 +13,7 @@ import func Utility.fopen
 import func Utility.fputs
 import func libc.sleep
 import enum POSIX.Error
-import func POSIX.popen
+import func Utility.popen
 import XCTest
 
 class MiscellaneousTestCase: XCTestCase {
@@ -181,7 +181,7 @@ class MiscellaneousTestCase: XCTestCase {
         var foo = false
         do {
             try executeSwiftBuild("/")
-        } catch POSIX.Error.ExitStatus(let code, _) {
+        } catch POSIX.Error.ExitStatus(let code, _, _) {
 
             // if our code crashes we'll get an exit code of 256
             XCTAssertEqual(code, Int32(1))
@@ -198,7 +198,7 @@ class MiscellaneousTestCase: XCTestCase {
             var foo = false
             do {
                 try executeSwiftBuild(prefix)
-            } catch POSIX.Error.ExitStatus(let code, _) {
+            } catch POSIX.Error.ExitStatus(let code, _, _) {
 
                 // if our code crashes we'll get an exit code of 256
                 XCTAssertEqual(code, Int32(1))

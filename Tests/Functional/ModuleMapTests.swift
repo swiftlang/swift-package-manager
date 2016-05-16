@@ -9,7 +9,7 @@
 */
 
 import func POSIX.mkdir
-import func POSIX.popen
+import func Utility.popen
 import Utility
 import XCTest
 

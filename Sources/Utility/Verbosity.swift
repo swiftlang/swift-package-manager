@@ -52,86 +52,27 @@ public class StandardErrorOutputStream: OutputStream {
 public var stderr = StandardErrorOutputStream()
 
 
-
-import func POSIX.system
-import func POSIX.popen
 import func POSIX.prettyArguments
-
-public func system(_ args: String...) throws {
-    try Utility.system(args)
-}
 
 private let ESC = "\u{001B}"
 private let CSI = "\(ESC)["
 
-private func prettyArguments(_ arguments: [String]) -> String {
+internal func prettyArguments(_ arguments: [String]) -> String {
     guard arguments.count > 0 else { return "" }
 
     var arguments = arguments
-    let arg0 = blue(which(arguments.removeFirst()))
+    let arg0 = blue(arguments.removeFirst())
 
     return arg0 + " " + POSIX.prettyArguments(arguments)
 }
 
-private func printArgumentsIfVerbose(_ arguments: [String]) {
+internal func printArgumentsIfVerbose(_ arguments: [String]) {
     if verbosity != .Concise {
         print(prettyArguments(arguments))
     }
 }
 
-public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
-    printArgumentsIfVerbose(arguments)
-    try POSIX.system(arguments, environment: environment)
-}
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
-    printArgumentsIfVerbose(arguments)
-    return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
-}
-
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws {
-    printArgumentsIfVerbose(arguments)
-    return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment, body: body)
-}
-
-
-import func libc.fflush
-import var libc.stdout
-import enum POSIX.Error
-
-public func system(_ arguments: String..., environment: [String:String] = [:], message: String?) throws {
-    var out = ""
-    do {
-        if Utility.verbosity == .Concise {
-            if let message = message {
-                print(message)
-                fflush(stdout)  // ensure we display `message` before git asks for credentials
-            }
-            try POSIX.popen(arguments, redirectStandardError: true, environment: environment) { line in
-                out += line
-            }
-        } else {
-            try system(arguments, environment: environment)
-        }
-    } catch {
-        if verbosity == .Concise {
-            print(prettyArguments(arguments), to: &stderr)
-            print(out, to: &stderr)
-        }
-        throw error
-    }
-}
-
-private func which(_ arg0: String) -> String {
-    if arg0.isAbsolute {
-        return arg0
-    } else if let fullpath = try? POSIX.popen(["which", arg0]) {
-        return fullpath.chomp()
-    } else {
-        return arg0
-    }
-}
-
-private func blue(_ input: String) -> String {
+internal func blue(_ input: String) -> String {
     return CSI + "34m" + input + CSI + "0m"
 }

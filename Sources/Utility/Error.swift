@@ -15,6 +15,7 @@ public enum Error: ErrorProtocol {
     case UnicodeEncodingError
     case CouldNotCreateFile(path: String)
     case FileDoesNotExist(path: String)
+    case UnknownCommand(arg0: String)
 }
 
 extension Error: CustomStringConvertible {
@@ -28,6 +29,7 @@ extension Error: CustomStringConvertible {
         case .UnicodeEncodingError: return "Could not encode string into unicode"
         case .CouldNotCreateFile(let path): return "Could not create file: \(path)"
         case .FileDoesNotExist(let path): return "File does not exist: \(path)"
+        case .UnknownCommand(let arg0): return "Command is not found on the PATH: \(arg0)"
         }
     }
 }

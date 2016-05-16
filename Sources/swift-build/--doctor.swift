@@ -12,13 +12,11 @@
  build troubles or for other troubleshooting purposes.
 */
 
-import POSIX
+import func POSIX.getenv
+import func Utility.popen
+import func Utility.which
 
 func doctor() {
     print("LD:", getenv("LD") ?? "nil")
-    print("which ld:", which("ld"))
-}
-
-private func which(_ cmd: String) -> String {
-    return (try? popen(["which", cmd]))?.chomp() ?? "nil"
+    print("which ld:", try? which("ld"))
 }
