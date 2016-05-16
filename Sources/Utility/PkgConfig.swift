@@ -14,6 +14,7 @@ import func POSIX.popen
 public enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
     case ParsingError(String)
+    case NonWhitelistedFlags(String)
 }
 
 /// Get search paths from pkg-config itself.
