@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import ManifestSerializer
 import XCTest
+
+@testable import Basic
 
 // Test the basic types.
 private func toArray(_ items: [TOMLItem]) -> TOMLItem {

@@ -16,7 +16,6 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(JSONSerializationTests.allTests),
         testCase(ManifestTests.allTests),
         testCase(SerializationTests.allTests),
-        testCase(TOMLTests.allTests),
     ]
 }
 #endif

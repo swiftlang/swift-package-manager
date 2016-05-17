@@ -8,10 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import ManifestSerializer
+import XCTest
+
+import Basic
 import PackageDescription
 import Utility
-import XCTest
+
+@testable import ManifestSerializer
 
 private func parseTOML(_ data: String) -> TOMLItem {
     do {

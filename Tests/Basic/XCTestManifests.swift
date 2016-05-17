@@ -16,6 +16,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(ByteStringTests.allTests),
         testCase(OptionParserTests.allTests),
         testCase(OutputByteStreamTests.allTests),
+        testCase(TOMLTests.allTests),
     ]
 }
 #endif

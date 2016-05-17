@@ -8,11 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.realpath
-import func POSIX.unlink
+import Basic
 import PackageDescription
 import PackageType
 import Utility
+
+import func POSIX.realpath
+import func POSIX.unlink
 import func Utility.fopen
 
 extension Manifest {
