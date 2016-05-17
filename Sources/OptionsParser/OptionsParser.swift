@@ -12,6 +12,41 @@
     import Foundation  // String.hasPrefix
 #endif
 
+public enum OptionParserError: ErrorProtocol {
+    case UnknownArgument(String)
+    case MultipleModesSpecified([String])
+    case ExpectedAssociatedValue(String)
+    case UnexpectedAssociatedValue(String, String)
+    case InvalidUsage(String)
+}
+
+extension OptionParserError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .ExpectedAssociatedValue(let arg):
+            return "expected associated value for argument: \(arg)"
+        case .UnexpectedAssociatedValue(let arg, let value):
+            return "unexpected associated value for argument: \(arg)=\(value)"
+        case .MultipleModesSpecified(let modes):
+            return "multiple modes specified: \(modes)"
+        case .UnknownArgument(let cmd):
+            return "unknown command: \(cmd)"
+        case .InvalidUsage(let hint):
+            return "invalid usage: \(hint)"
+        }
+    }
+}
+
+public protocol Argument {
+    /**
+     Attempt to convert the provided argument. If you need
+     an associated value, call `pop()`, if there is no
+     associated value we will throw. If the argument was
+     passed `--foo=bar` and you don’t `pop` we also `throw`
+    */
+    init?(argument: String, pop: () -> String?) throws
+}
+
 public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
@@ -25,12 +60,12 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
         if let mkmode = try Mode(argument: arg, pop: { popped = true; return value ?? it.next() }) {
             guard mode == nil || mode == mkmode else {
                 let modes = [mode!, mkmode].map{"\($0)"}
-                throw Error.MultipleModesSpecified(modes)
+                throw OptionParserError.MultipleModesSpecified(modes)
             }
             mode = mkmode
 
             if let value = value where !popped {
-                throw Error.UnexpectedAssociatedValue(arg, value)
+                throw OptionParserError.UnexpectedAssociatedValue(arg, value)
             }
         } else {
             kept.append(rawArg)
@@ -50,8 +85,8 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
 
             // attempt to split eg. `-xyz` to `-x -y -z`
 
-            guard !arg.hasPrefix("--") else { throw Error.UnknownArgument(arg) }
-            guard arg != "-" else { throw Error.UnknownArgument(arg) }
+            guard !arg.hasPrefix("--") else { throw OptionParserError.UnknownArgument(arg) }
+            guard arg != "-" else { throw OptionParserError.UnknownArgument(arg) }
 
             var characters = arg.characters.dropFirst()
 
@@ -69,16 +104,16 @@ public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argume
             while !characters.isEmpty {
                 let c = characters.removeFirst()
                 guard let flag = try Flag(argument: "-\(c)", pop: pop) else {
-                    throw Error.UnknownArgument(arg)
+                    throw OptionParserError.UnknownArgument(arg)
                 }
                 flags.append(flag)
             }
         } else {
-          throw Error.UnknownArgument(arg)
+          throw OptionParserError.UnknownArgument(arg)
         }
 
         if let value = value where !popped {
-            throw Error.UnexpectedAssociatedValue(arg, value)
+            throw OptionParserError.UnexpectedAssociatedValue(arg, value)
         }
     }
 

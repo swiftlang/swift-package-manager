@@ -110,7 +110,7 @@ enum Flag: Argument {
     init?(argument: String, pop: () -> String?) throws {
 
         func forcePop() throws -> String {
-            guard let value = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
+            guard let value = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
             return value
         }
 
@@ -187,9 +187,9 @@ extension Build.Configuration {
         case "release"?:
             self = .Release
         case nil:
-            throw OptionsParser.Error.ExpectedAssociatedValue("--configuration")
+            throw OptionParserError.ExpectedAssociatedValue("--configuration")
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid build configuration: \(rawValue!)")
+            throw OptionParserError.InvalidUsage("invalid build configuration: \(rawValue!)")
         }
     }
 }
@@ -204,7 +204,7 @@ enum CleanMode: CustomStringConvertible {
         case "dist"?, "distribution"?:
             self = .Dist
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid clean mode: \(rawValue)")
+            throw OptionParserError.InvalidUsage("invalid clean mode: \(rawValue)")
         }
     }
 
@@ -226,7 +226,7 @@ enum InitMode: CustomStringConvertible {
         case nil, "executable"?, "exec"?, "exe"?:
             self = .Executable
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid initialization mode: \(rawValue)")
+            throw OptionParserError.InvalidUsage("invalid initialization mode: \(rawValue)")
         }
     }
 
@@ -259,7 +259,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
         case "json":
            self = .JSON
         default:
-            throw OptionsParser.Error.InvalidUsage("invalid show dependencies mode: \(rawValue)")
+            throw OptionParserError.InvalidUsage("invalid show dependencies mode: \(rawValue)")
         }
     }
     

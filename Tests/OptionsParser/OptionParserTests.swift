@@ -41,7 +41,7 @@ class OptionsParserTests: XCTestCase {
         do {
             let _: (Mode?, [Flag]) = try parse(arguments: ["--A", "--B"])
             XCTFail()
-        } catch Error.MultipleModesSpecified(let args) {
+        } catch OptionParserError.MultipleModesSpecified(let args) {
             XCTAssertEqual(args, ["A", "B"])
         } catch {
             XCTFail()
@@ -58,7 +58,7 @@ class OptionsParserTests: XCTestCase {
         do {
             let _: (Mode?, [Flag]) = try parse(arguments: ["--F"])
             XCTFail()
-        } catch Error.ExpectedAssociatedValue {
+        } catch OptionParserError.ExpectedAssociatedValue {
             // güd
         } catch {
             XCTFail("\(error)")
@@ -69,7 +69,7 @@ class OptionsParserTests: XCTestCase {
         do {
             let _: (Mode?, [Flag]) = try parse(arguments: ["--E=foo", "--G=123"])
             XCTFail()
-        } catch Error.UnexpectedAssociatedValue {
+        } catch OptionParserError.UnexpectedAssociatedValue {
             // güd
         } catch {
             XCTFail("\(error)")
@@ -80,7 +80,7 @@ class OptionsParserTests: XCTestCase {
         do {
             let _: (Mode?, [Flag]) = try parse(arguments: ["--A=foo", "--G=123"])
             XCTFail()
-        } catch Error.UnexpectedAssociatedValue {
+        } catch OptionParserError.UnexpectedAssociatedValue {
             // güd
         } catch {
             XCTFail("\(error)")
@@ -158,10 +158,10 @@ enum Flag: Argument, Equatable {
         case "--E":
             self = .E
         case "--F":
-            guard let str = pop() else { throw Error.ExpectedAssociatedValue("") }
+            guard let str = pop() else { throw OptionParserError.ExpectedAssociatedValue("") }
             self = .F(str)
         case "--G":
-            guard let str = pop(), int = Int(str) else { throw Error.ExpectedAssociatedValue("") }
+            guard let str = pop(), int = Int(str) else { throw OptionParserError.ExpectedAssociatedValue("") }
             self = .G(int)
         case "-H":
             self = .H
@@ -170,7 +170,7 @@ enum Flag: Argument, Equatable {
         case "-J":
             self = .J
         case "-K":
-            guard let str = pop() else { throw Error.ExpectedAssociatedValue("") }
+            guard let str = pop() else { throw OptionParserError.ExpectedAssociatedValue("") }
             self = .K(str)
         default:
             return nil

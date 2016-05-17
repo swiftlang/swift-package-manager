@@ -12,10 +12,11 @@ import PackageType
 import Utility
 
 extension ModuleProtocol {
-
     /// Returns the pkgConfig flags (cFlags + libs) escaping the cflags with -Xcc.
-    /// FIXME: This isn't correct. We need to scan both list of flags and escape the
-    /// flags (using -Xcc and -Xlinker) which can't be passed directly to swift compiler.
+    //
+    // FIXME: This isn't correct. We need to scan both list of flags and escape
+    // the flags (using -Xcc and -Xlinker) which can't be passed directly to
+    // swift compiler.
     public func pkgConfigSwiftcArgs() throws -> [String] {
         let pkgArgs = try pkgConfigArgs()
         return pkgArgs.cFlags.map{["-Xcc", $0]}.flatten() + pkgArgs.libs
@@ -51,9 +52,8 @@ extension ModuleProtocol {
     }
 }
 
-extension SystemPackageProvider {
-    
-    var installText: String {
+private extension SystemPackageProvider {
+    private var installText: String {
         switch self {
         case .Brew(let name):
             return "    brew install \(name)\n"
@@ -61,7 +61,8 @@ extension SystemPackageProvider {
             return "    apt-get install \(name)\n"
         }
     }
-    
+
+    /// Check if the provider is available for the current platform.
     var isAvailable: Bool {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {

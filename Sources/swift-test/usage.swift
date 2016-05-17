@@ -35,7 +35,7 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
         case "--help", "--usage", "-h":
             self = .Usage
         case "-s":
-            guard let specifier = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
+            guard let specifier = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
             self = .Run(specifier)
         default:
             return nil
@@ -62,7 +62,7 @@ enum Flag: Argument {
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--chdir", "-C":
-            guard let path = pop() else { throw OptionsParser.Error.ExpectedAssociatedValue(argument) }
+            guard let path = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
             self = .chdir(path)
         default:
             return nil

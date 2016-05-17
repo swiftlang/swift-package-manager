@@ -46,7 +46,7 @@ extension Error: CustomStringConvertible {
     }
 
     switch error {
-    case OptionsParser.Error.MultipleModesSpecified(let modes):
+    case OptionParserError.MultipleModesSpecified(let modes):
         print(error: error)
         if isTTY() {
             if (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
@@ -54,7 +54,7 @@ extension Error: CustomStringConvertible {
                 usage { print($0, to: &stderr) }
             }
         }
-    case is OptionsParser.Error:
+    case is OptionParserError:
         print(error: error)
         if isTTY() {
             let argv0 = Process.arguments.first ?? "swift build"
