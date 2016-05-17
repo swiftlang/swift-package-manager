@@ -45,6 +45,12 @@ class DependencyResolutionTestCase: XCTestCase {
         }
     }
 
+    func testExternalDuplicateModule() {
+        fixture(name: "DependencyResolution/External/DuplicateModules") { prefix in
+            XCTAssertBuildFails(prefix)
+        }
+    }
+
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix, "app")

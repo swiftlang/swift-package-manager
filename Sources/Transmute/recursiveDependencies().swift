@@ -9,7 +9,7 @@
 */
 
 import class PackageType.Module
-import protocol PackageType.XcodeModuleProtocol
+import protocol PackageType.ModuleTypeProtocol
 
 public func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
     var stack = modules
@@ -24,8 +24,8 @@ public func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
             stack += top.dependencies
         } else {
             guard let index = set.index(of: top),
-                  let moduleInSet = set[index] as? XcodeModuleProtocol,
-                  let module = top as? XcodeModuleProtocol
+                  let moduleInSet = set[index] as? ModuleTypeProtocol,
+                  let module = top as? ModuleTypeProtocol
                       where module.sources.root != moduleInSet.sources.root else {
                 continue;
             }
