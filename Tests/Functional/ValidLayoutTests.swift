@@ -137,6 +137,7 @@ extension DependencyResolutionTestCase {
             ("testInternalSimple", testInternalSimple),
             ("testInternalComplex", testInternalComplex),
             ("testExternalSimple", testExternalSimple),
+            ("testExternalDuplicateModule", testExternalDuplicateModule),
             ("testExternalComplex", testExternalComplex),
             ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
         ]
