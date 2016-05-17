@@ -26,7 +26,12 @@ let package = Package(
             name: "PackageDescription",
             dependencies: []),
 
+        // MARK: Support libraries
         
+        Target(
+            /** Cross-platform access to bare `libc` functionality. */
+            name: "libc",
+            dependencies: []),
         Target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
@@ -39,17 +44,39 @@ let package = Package(
             /** Basic support library */
             name: "Basic",
             dependencies: ["libc", "POSIX"]),
+
+        // MARK: Project Model
+        
         Target(
             /** Base types for the package-engine */
             name: "PackageType",
             dependencies: ["Basic", "PackageDescription", "Utility"]),
         Target(
+            /** Manifest serialization */
             name: "ManifestSerializer",
             dependencies: ["Basic", "PackageDescription", "PackageType"]),
         Target(
             /** Turns Packages into Modules & Products */
             name: "Transmute",
             dependencies: ["Basic", "PackageDescription", "PackageType"]),
+
+        // MARK: Miscellaneous
+
+        Target(
+            /** Command line options parser */
+            name: "OptionsParser",
+            dependencies: ["Basic", "libc"]),
+        Target(
+            /** Provides cFlags and link flags from .pc files for a System Module */
+            name: "PkgConfig",
+            dependencies: ["Basic", "Utility", "PackageType"]),
+        Target(
+            /** Common components of both executables */
+            name: "Multitool",
+            dependencies: ["Basic", "PackageType", "OptionsParser"]),
+
+        // MARK: Package Manager Functionality
+        
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
@@ -58,22 +85,13 @@ let package = Package(
             /** Builds Modules and Products */
             name: "Build",
             dependencies: ["Basic", "PackageType", "PkgConfig"]),
-       Target(
-            /** Provides cFlags and link flags from .pc files for a System Module */
-            name: "PkgConfig",
-            dependencies: ["Basic", "Utility", "PackageType"]),
-        Target(
-            /** Common components of both executables */
-            name: "Multitool",
-            dependencies: ["Basic", "PackageType", "OptionsParser"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
             dependencies: ["Basic", "PackageType", "PkgConfig"]),
-        Target(
-            /** Command line options parser */
-            name: "OptionsParser",
-            dependencies: ["Basic", "libc"]),
+
+        // MARK: Tools
+        
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
