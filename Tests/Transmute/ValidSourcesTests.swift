@@ -13,14 +13,17 @@ import XCTest
 
 class ValidSourcesTests: XCTestCase {
     func testDotFilesAreIgnored() throws {
-        let (package, modules) = try fixture(files: [".Bar.swift", "Foo.swift"])
-
-        XCTAssertEqual(modules.count, 1)
-
-        guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
-        XCTAssertEqual(swiftModule.sources.paths.count, 1)
-        XCTAssertEqual(swiftModule.sources.paths.first?.basename, "Foo.swift")
-        XCTAssertEqual(swiftModule.name, package.name)
+        do {
+            try fixture(files: [".Bar.swift", "Foo.swift"]) { (package, modules) in
+                XCTAssertEqual(modules.count, 1)
+                guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
+                XCTAssertEqual(swiftModule.sources.paths.count, 1)
+                XCTAssertEqual(swiftModule.sources.paths.first?.basename, "Foo.swift")
+                XCTAssertEqual(swiftModule.name, package.name)
+            }
+        } catch {
+            XCTFail("\(error)")
+        }
     }
 }
 

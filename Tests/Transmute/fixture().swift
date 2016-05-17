@@ -8,21 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import XCTest
+
 import struct Utility.Path
 import func POSIX.mkdir
 import func POSIX.system
 import func Utility.rmtree
 
-func fixture(files: [String]) throws -> String {
-    let testdir = Path.join(#file, "../../../.build/test.out").normpath
-    if testdir.isDirectory {
-        try rmtree(testdir)
+//// Create a test fixture with empty files at the given paths.
+func fixture(files: [String], body: @noescape (String) throws -> ()) {
+    mktmpdir { prefix in
+        try mkdir(prefix)
+        for file in files {
+            try system("touch", Path.join(prefix, file))
+        }
+        try body(prefix)
     }
-    try mkdir(testdir)
-    for file in files {
-        try system("touch", Path.join(testdir, file))
-    }
-    return testdir
 }
 
 
@@ -30,14 +31,12 @@ func fixture(files: [String]) throws -> String {
 import PackageDescription
 import PackageType
 
-private var index = 0
-
-func fixture(files: [String]) throws -> (PackageType.Package, [Module]) {
-    index += 1
-
-    let prefix: String = try fixture(files: files)
-    let manifest = Manifest(path: Path.join(prefix, "Package.swift"), package: Package(name: "name\(index)"), products: [])
-    let package = Package(manifest: manifest, url: prefix)
-    let modules = try package.modules()
-    return (package, modules)
+/// Check the behavior of a test project with the given file paths.
+func fixture(files: [String], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageType.Package, [Module]) throws -> ()) throws {
+    fixture(files: files) { (prefix: String) in
+        let manifest = Manifest(path: Path.join(prefix, "Package.swift"), package: Package(name: "name"), products: [])
+        let package = Package(manifest: manifest, url: prefix)
+        let modules = try package.modules()
+        try body(package, modules)
+    }
 }
