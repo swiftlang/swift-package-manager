@@ -8,11 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import protocol Build.Toolchain
+import Basic
+import Multitool
+
 import enum Build.Configuration
 import enum Utility.ColorWrap
-import OptionsParser
-import Multitool
+import protocol Build.Toolchain
 
 func usage(_ print: (String) -> Void = { print($0) }) {
     //     .........10.........20.........30.........40.........50.........60.........70..
@@ -135,7 +136,7 @@ enum Flag: Argument {
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionsParser.Error.InvalidUsage("invalid color mode: \(rawValue)")
+                throw OptionParserError.InvalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
         case "--xcconfig-overrides":
@@ -161,7 +162,7 @@ class Options: Multitool.Options {
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
     let mode: Mode?
     let flags: [Flag]
-    (mode, flags) = try OptionsParser.parse(arguments: args)
+    (mode, flags) = try Basic.parseOptions(arguments: args)
 
     let opts = Options()
     for flag in flags {

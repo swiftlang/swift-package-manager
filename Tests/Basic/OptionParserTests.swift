@@ -1,37 +1,48 @@
- import OptionsParser
+/*
+This source file is part of the Swift.org open source project
+
+Copyright 2016 Apple Inc. and the Swift project authors
+Licensed under Apache License v2.0 with Runtime Library Exception
+
+See http://swift.org/LICENSE.txt for license information
+See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
+
 import XCTest
 
-class OptionsParserTests: XCTestCase {
+import Basic
+
+class OptionParserTests: XCTestCase {
     func testNoArguments() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: [])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: [])
 
         XCTAssertNil(mode)
         XCTAssertEqual(flags.count, 0)
     }
 
     func testModeA() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["--A"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--A"])
 
         XCTAssertEqual(mode, .A)
         XCTAssertEqual(flags.count, 0)
     }
 
     func testModeB() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["--B"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--B"])
 
         XCTAssertEqual(mode, .B)
         XCTAssertEqual(flags.count, 0)
     }
 
     func testModeAFlagD() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["--A", "--D"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--A", "--D"])
 
         XCTAssertEqual(mode, .A)
         XCTAssertEqual(flags, [Flag.D])
     }
 
     func testModeAFlagDE() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["--A", "--D", "--E"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--A", "--D", "--E"])
 
         XCTAssertEqual(mode, .A)
         XCTAssertEqual(flags, [Flag.D, Flag.E])
@@ -39,7 +50,7 @@ class OptionsParserTests: XCTestCase {
 
     func testMultiModes() {
         do {
-            let _: (Mode?, [Flag]) = try parse(arguments: ["--A", "--B"])
+            let _: (Mode?, [Flag]) = try parseOptions(arguments: ["--A", "--B"])
             XCTFail()
         } catch OptionParserError.MultipleModesSpecified(let args) {
             XCTAssertEqual(args, ["A", "B"])
@@ -49,14 +60,14 @@ class OptionsParserTests: XCTestCase {
     }
 
     func testAssociatedValue() throws {
-        let (_, flags): (Mode?, [Flag]) = try parse(arguments: ["--F", "foo", "--G", "123"])
+        let (_, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--F", "foo", "--G", "123"])
 
         XCTAssertEqual(flags, [.F("foo"), .G(123)])
     }
 
     func testThrowsIfNoAssociatedValue() {
         do {
-            let _: (Mode?, [Flag]) = try parse(arguments: ["--F"])
+            let _: (Mode?, [Flag]) = try parseOptions(arguments: ["--F"])
             XCTFail()
         } catch OptionParserError.ExpectedAssociatedValue {
             // güd
@@ -67,7 +78,7 @@ class OptionsParserTests: XCTestCase {
 
     func testThrowsIfAssociatedValueWithWrongFlag() {
         do {
-            let _: (Mode?, [Flag]) = try parse(arguments: ["--E=foo", "--G=123"])
+            let _: (Mode?, [Flag]) = try parseOptions(arguments: ["--E=foo", "--G=123"])
             XCTFail()
         } catch OptionParserError.UnexpectedAssociatedValue {
             // güd
@@ -78,7 +89,7 @@ class OptionsParserTests: XCTestCase {
 
     func testThrowsIfAssociatedValueWithWrongMode() {
         do {
-            let _: (Mode?, [Flag]) = try parse(arguments: ["--A=foo", "--G=123"])
+            let _: (Mode?, [Flag]) = try parseOptions(arguments: ["--A=foo", "--G=123"])
             XCTFail()
         } catch OptionParserError.UnexpectedAssociatedValue {
             // güd
@@ -88,29 +99,29 @@ class OptionsParserTests: XCTestCase {
     }
 
     func testAssignedAssociatedValue() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["--F=foo", "--G=123"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["--F=foo", "--G=123"])
 
         XCTAssertNil(mode)
         XCTAssertEqual(flags, [.F("foo"), .G(123)])
     }
 
     func testCanUnderstandMultipleShortFlags() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["-HJI"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["-HJI"])
 
         XCTAssertNil(mode)
         XCTAssertEqual(flags, [.H, .J, .I])
     }
 
     func testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue() throws {
-        let (mode, flags): (Mode?, [Flag]) = try parse(arguments: ["-HJIKHJI"])
+        let (mode, flags): (Mode?, [Flag]) = try parseOptions(arguments: ["-HJIKHJI"])
 
         XCTAssertNil(mode)
         XCTAssertEqual(flags, [.H, .J, .I, .K("HJI")])
     }
 }
 
-extension OptionsParserTests {
-    static var allTests : [(String, (OptionsParserTests) -> () throws -> Void)] {
+extension OptionParserTests {
+    static var allTests : [(String, (OptionParserTests) -> () throws -> Void)] {
         return [
             ("testNoArguments", testNoArguments),
             ("testModeA", testModeA),

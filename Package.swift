@@ -63,17 +63,13 @@ let package = Package(
         // MARK: Miscellaneous
 
         Target(
-            /** Command line options parser */
-            name: "OptionsParser",
-            dependencies: ["Basic", "libc"]),
-        Target(
             /** Provides cFlags and link flags from .pc files for a System Module */
             name: "PkgConfig",
             dependencies: ["Basic", "Utility", "PackageType"]),
         Target(
             /** Common components of both executables */
             name: "Multitool",
-            dependencies: ["Basic", "PackageType", "OptionsParser"]),
+            dependencies: ["Basic", "PackageType"]),
 
         // MARK: Package Manager Functionality
         

@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var Utility.stderr
+import Basic
+import PackageType
+import libc
+
 import enum Utility.ColorWrap
 import enum Utility.Stream
 import func Utility.isTTY
-import OptionsParser
-import PackageType
-import libc
+import var Utility.stderr
 
 public enum Error: ErrorProtocol {
     case NoManifestFound

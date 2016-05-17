@@ -8,7 +8,7 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import OptionsParser
+import Basic
 import Multitool
 
 func usage(_ print: (String) -> Void = { print($0) }) {
@@ -73,7 +73,7 @@ enum Flag: Argument {
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
     let mode: Mode?
     let flags: [Flag]
-    (mode, flags) = try OptionsParser.parse(arguments: args)
+    (mode, flags) = try Basic.parseOptions(arguments: args)
 
     let opts = Options()
     for flag in flags {

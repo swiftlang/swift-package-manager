@@ -47,7 +47,7 @@ public protocol Argument {
     init?(argument: String, pop: () -> String?) throws
 }
 
-public func parse<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
+public func parseOptions<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
 
     var mode: Mode!
     var it = arguments.makeIterator()

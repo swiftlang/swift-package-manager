@@ -14,6 +14,7 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ByteStringTests.allTests),
+        testCase(OptionParserTests.allTests),
         testCase(OutputByteStreamTests.allTests),
     ]
 }
