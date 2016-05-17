@@ -68,3 +68,16 @@ class ByteStringTests: XCTestCase {
         XCTAssertEqual(s.bytes, [1, 2, 3])
     }
 }
+
+extension ByteStringTests {
+    static var allTests : [(String, (ByteStringTests) -> () throws -> Void)] {
+        return [
+                   ("testInitializers", testInitializers),
+                   ("testAccessors", testAccessors),
+                   ("testAsString", testAsString),
+                   ("testDescription", testDescription),
+                   ("testHashable", testHashable),
+                   ("testByteStreamable", testByteStreamable),
+        ]
+    }
+}

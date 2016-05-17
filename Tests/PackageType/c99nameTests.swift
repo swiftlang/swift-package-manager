@@ -36,3 +36,13 @@ func assertc99Name(_ name: String) -> String {
         fatalError()
     }
 }
+
+extension c99nameTests {
+    static var allTests : [(String, (c99nameTests) -> () throws -> Void)] {
+        return [
+            ("testSimpleName", testSimpleName),
+            ("testNameWithInvalidCharacter", testNameWithInvalidCharacter),
+            ("testNameWithLeadingInvalidChar", testNameWithLeadingInvalidChar),
+        ]
+    }
+}

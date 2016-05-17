@@ -15,6 +15,7 @@ import Utility
 import XCTest
 
 #if os(OSX)
+
 class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
@@ -89,6 +90,18 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(build, "libA-B.dylib")
             XCTAssertFileExists(build, "libB-C.dylib")
         }
+    }
+}
+
+
+extension FunctionalTests {
+    static var allTests : [(String, (FunctionalTests) -> () throws -> Void)] {
+        return [
+            ("testSingleModuleLibrary", testSingleModuleLibrary),
+            ("testSwiftExecWithCDep", testSwiftExecWithCDep),
+            ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
+            ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
+        ]
     }
 }
 

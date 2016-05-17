@@ -72,3 +72,14 @@ class FileTests: XCTestCase {
         }
     }
 }
+
+extension FileTests {
+    static var allTests : [(String, (FileTests) -> () throws -> Void)] {
+        return [
+                   ("testOpenFile", testOpenFile),
+                   ("testOpenFileFail", testOpenFileFail),
+                   ("testReadRegularTextFile", testReadRegularTextFile),
+                   ("testReadRegularTextFileWithSeparator", testReadRegularTextFileWithSeparator)
+        ]
+    }
+}

@@ -15,10 +15,8 @@ import Utility
 import XCTest
 
 #if os(OSX)
-class TestGeneration: XCTestCase {
 
-    /// --> this comment is here <--
-
+class GenerateXcodeprojTests: XCTestCase {
     func testXcodeBuildCanParseIt() {
         mktmpdir { dstdir in
             func dummy() throws -> [XcodeModuleProtocol] {
@@ -41,6 +39,7 @@ class TestGeneration: XCTestCase {
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))
 
+            // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
             let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath])
 
@@ -50,4 +49,5 @@ class TestGeneration: XCTestCase {
         }
     }
 }
+
 #endif
