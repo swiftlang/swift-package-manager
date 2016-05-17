@@ -9,6 +9,7 @@
 */
 
 import Utility
+
 import func POSIX.getenv
 import func POSIX.popen
 
@@ -18,6 +19,7 @@ enum PkgConfigError: ErrorProtocol {
 }
 
 /// Get search paths from pkg-config itself.
+///
 /// This is needed because on Linux machines, the search paths can be different
 /// from the standard locations that we are currently searching.
 private let pkgConfigSearchPaths: [String] = {
@@ -25,17 +27,34 @@ private let pkgConfigSearchPaths: [String] = {
     return searchPaths?.characters.split(separator: ":").map(String.init) ?? []
 }()
 
+/// Information on an individual `pkg-config` supported package.
 struct PkgConfig {
-    private static let searchPaths = ["/usr/local/lib/pkgconfig",
-                              "/usr/local/share/pkgconfig",
-                              "/usr/lib/pkgconfig",
-                              "/usr/share/pkgconfig",
-                              ]
+    /// The name of the package.
     let name: String
+
+    /// The path to the definition file.
     let pcFile: String
+
+    /// The list of C compiler flags in the definition.
     let cFlags: [String]
+
+    /// The list of libraries to link.
     let libs: [String]
-    
+
+    /// The built-in search path list.
+    ///
+    /// By default, this is combined with the search paths infered from
+    /// `pkg-config` itself.
+    private static let searchPaths = [
+        "/usr/local/lib/pkgconfig",
+        "/usr/local/share/pkgconfig",
+        "/usr/lib/pkgconfig",
+        "/usr/share/pkgconfig",
+    ]
+
+    /// Load the information for the named package.
+    ///
+    /// - throws: PkgConfigError
     init(name: String) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(name: name)
@@ -47,8 +66,9 @@ struct PkgConfig {
         var libs = parser.libs
         
         // If parser found dependencies in pc file, get their flags too.
-        if(!parser.dependencies.isEmpty) {
+        if !parser.dependencies.isEmpty {
             for dep in parser.dependencies {
+                // FIXME: This is wasteful, we should be caching the PkgConfig result.
                 let pkg = try PkgConfig(name: dep)
                 cFlags += pkg.cFlags
                 libs += pkg.libs
@@ -66,10 +86,13 @@ struct PkgConfig {
         return []
     }
     
-    static func locatePCFile(name: String) throws -> String {
+    private static func locatePCFile(name: String) throws -> String {
+        // FIXME: We should consider building a registry for all items in the
+        // search paths, which is likely to be substantially more efficient if
+        // we end up searching for a reasonably sized number of packages.
         let allSearchPaths = (pkgConfigSearchPaths + searchPaths + envSearchPaths).unique()
         for path in allSearchPaths {
-            let pcFile = Path.join(path, "\(name).pc")
+            let pcFile = Path.join(path, name + ".pc")
             if pcFile.isFile {
                 return pcFile
             }
@@ -78,6 +101,11 @@ struct PkgConfig {
     }
 }
 
+/// Parser for the `pkg-config` `.pc` file format.
+///
+/// See: https://www.freedesktop.org/wiki/Software/pkg-config/
+//
+// FIXME: This is only internal so it can be unit tested.
 struct PkgConfigParser {
     private let pcFile: String
     private(set) var variables = [String: String]()
@@ -91,7 +119,6 @@ struct PkgConfigParser {
     }
     
     mutating func parse() throws {
-        
         func removeComment(line: String) -> String {
             if let commentIndex = line.characters.index(of: "#") {
                 return line[line.characters.startIndex..<commentIndex]
@@ -133,8 +160,10 @@ struct PkgConfigParser {
     }
     
     /// Parses `Requires: ` string into array of dependencies.
-    /// The dependency string has seperator which can be (multiple) space or a comma.
-    /// Additionally each there can be an optional version constaint to a dependency.
+    ///
+    /// The dependency string has seperator which can be (multiple) space or a
+    /// comma.  Additionally each there can be an optional version constaint to
+    /// a dependency.
     private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
         let separators = [" ", ","]
@@ -184,10 +213,12 @@ struct PkgConfigParser {
         return deps
     }
     
-    /// Perform variable expansion on the line by processing the each fragment of the string until complete.
-    /// Variables occur in form of ${variableName}, we search for a variable linearly
-    /// in the string and if found, lookup the value of the variable in our dictionary and
-    /// replace the variable name with its value.
+    /// Perform variable expansion on the line by processing the each fragment
+    /// of the string until complete.
+    ///
+    /// Variables occur in form of ${variableName}, we search for a variable
+    /// linearly in the string and if found, lookup the value of the variable in
+    /// our dictionary and replace the variable name with its value.
     private func resolveVariables(_ line: String) throws -> String {
         typealias StringIndex = String.CharacterView.Index
         
@@ -223,9 +254,11 @@ struct PkgConfigParser {
         return result
     }
     
-    /// Split line on unescaped spaces 
-    /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def" and ignore
-    /// multiple spaces such that "abc   def" will split into ["abc", "def"].
+    /// Split line on unescaped spaces
+    ///
+    /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def"
+    /// and ignore multiple spaces such that "abc def" will split into ["abc",
+    /// "def"].
     private func splitEscapingSpace(_ line: String) -> [String] {
         var splits = [String]()
         var fragment = [Character]()
