@@ -52,7 +52,6 @@ public class StandardErrorOutputStream: OutputStream {
 public var stderr = StandardErrorOutputStream()
 
 
-
 import func POSIX.system
 import func POSIX.popen
 import func POSIX.prettyArguments
@@ -61,21 +60,19 @@ public func system(_ args: String...) throws {
     try Utility.system(args)
 }
 
-private let ESC = "\u{001B}"
-private let CSI = "\(ESC)["
 
-private func prettyArguments(_ arguments: [String]) -> String {
+private func prettyArguments(_ arguments: [String], for stream: Stream) -> String {
     guard arguments.count > 0 else { return "" }
 
     var arguments = arguments
-    let arg0 = blue(which(arguments.removeFirst()))
+    let arg0 = which(arguments.removeFirst())
 
-    return arg0 + " " + POSIX.prettyArguments(arguments)
+    return ColorWrap.wrap(arg0, with: .Blue, for: stream) + " " + POSIX.prettyArguments(arguments)
 }
 
 private func printArgumentsIfVerbose(_ arguments: [String]) {
     if verbosity != .Concise {
-        print(prettyArguments(arguments))
+        print(prettyArguments(arguments, for: .StdOut))
     }
 }
 
@@ -115,7 +112,7 @@ public func system(_ arguments: String..., environment: [String:String] = [:], m
         }
     } catch {
         if verbosity == .Concise {
-            print(prettyArguments(arguments), to: &stderr)
+            print(prettyArguments(arguments, for: .StdOut), to: &stderr)
             print(out, to: &stderr)
         }
         throw error
@@ -130,8 +127,4 @@ private func which(_ arg0: String) -> String {
     } else {
         return arg0
     }
-}
-
-private func blue(_ input: String) -> String {
-    return CSI + "34m" + input + CSI + "0m"
 }
