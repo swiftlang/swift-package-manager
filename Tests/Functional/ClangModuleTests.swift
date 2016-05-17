@@ -97,6 +97,13 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build", "debug", "Baz")
         }
     }
+
+    func testDynamicLookup() {
+        fixture(name: "ClangModules/CDynamicLookup") { prefix in
+            XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
+            XCTAssertFileExists(prefix, ".build", "debug", "libCDynamicLookup.so")
+        }
+    }
 }
 
 

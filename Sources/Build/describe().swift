@@ -43,7 +43,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
             targets.append(compile, for: module)
 
         case let module as ClangModule:
-            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
+            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, Xcc: Xcc, Xld: Xld)
             commands += compile
             targets.main.cmds += compile
 
