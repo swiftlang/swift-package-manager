@@ -98,7 +98,8 @@ class ClangModulesTestCase: XCTestCase {
         }
     }
 
-    func testDynamicLookup() {
+    func testCanForwardExtraFlagsToClang() {
+        // Try building a fixture which needs extra flags to be able to build.
         fixture(name: "ClangModules/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
             XCTAssertFileExists(prefix, ".build", "debug", "libCDynamicLookup.so")
@@ -118,6 +119,7 @@ extension ClangModulesTestCase {
             ("testCUsingCDep", testCUsingCDep),
             ("testCExecutable", testCExecutable),
             ("testModuleMapGenerationCases", testModuleMapGenerationCases),
+            ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
         ]
     }
 }
