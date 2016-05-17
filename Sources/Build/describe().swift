@@ -8,10 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getenv
-import func POSIX.mkdir
+import Basic
 import PackageType
 import Utility
+
+import func POSIX.getenv
+import func POSIX.mkdir
 
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool

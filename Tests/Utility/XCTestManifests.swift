@@ -13,11 +13,9 @@ import XCTest
 #if !os(OSX)
 public func allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(ByteStringTests.allTests),
         testCase(CollectionTests.allTests),
         testCase(FileTests.allTests),
         testCase(GitUtilityTests.allTests),
-        testCase(OutputByteStreamTests.allTests),
         testCase(PathTests.allTests),
         testCase(RelativePathTests.allTests),
         testCase(RmtreeTests.allTests),

@@ -5,6 +5,7 @@
 
 import XCTest
 
+import BasicTestSuite
 import BuildTestSuite
 import FunctionalTestSuite
 import GetTestSuite
@@ -17,6 +18,7 @@ import TransmuteTestSuite
 import UtilityTestSuite
 
 var tests = [XCTestCaseEntry]()
+tests += BasicTestSuite.allTests()
 tests += BuildTestSuite.allTests()
 tests += FunctionalTestSuite.allTests()
 tests += GetTestSuite.allTests()

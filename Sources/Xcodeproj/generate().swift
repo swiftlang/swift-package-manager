@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+import POSIX
 import PackageType
 import Utility
-import POSIX
 
 public protocol XcodeprojOptions {
     /// The list of additional arguments to pass to the compiler.

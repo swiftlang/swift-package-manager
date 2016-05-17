@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Utility
+import Basic
 
 // Allow simple conversion from String, in the tests module.
 extension ByteString {

@@ -28,48 +28,52 @@ let package = Package(
             name: "Utility",
             dependencies: ["POSIX"]),
         Target(
+            /** Basic support library */
+            name: "Basic",
+            dependencies: ["libc", "POSIX"]),
+        Target(
             /** Base types for the package-engine */
             name: "PackageType",
-            dependencies: ["PackageDescription", "Utility"]),
+            dependencies: ["Basic", "PackageDescription", "Utility"]),
         Target(
             name: "ManifestSerializer",
-            dependencies: ["PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageType"]),
         Target(
             /** Turns Packages into Modules & Products */
             name: "Transmute",
-            dependencies: ["PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageType"]),
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageType"]),
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["PackageType", "PkgConfig"]),
+            dependencies: ["Basic", "PackageType", "PkgConfig"]),
        Target(
             /** Provides cFlags and link flags from .pc files for a System Module */
             name: "PkgConfig",
-            dependencies: ["Utility", "PackageType"]),
+            dependencies: ["Basic", "Utility", "PackageType"]),
         Target(
             /** Common components of both executables */
             name: "Multitool",
-            dependencies: ["PackageType", "OptionsParser"]),
+            dependencies: ["Basic", "PackageType", "OptionsParser"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["PackageType", "PkgConfig"]),
+            dependencies: ["Basic", "PackageType", "PkgConfig"]),
         Target(
             /** Command line options parser */
             name: "OptionsParser",
-            dependencies: ["libc"]),
+            dependencies: ["Basic", "libc"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["ManifestSerializer", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["Basic", "ManifestSerializer", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
         Target(
             /** Runs package tests */
             name: "swift-test",
-            dependencies: ["Multitool"]),
+            dependencies: ["Basic", "Multitool"]),
     ])
 
 
