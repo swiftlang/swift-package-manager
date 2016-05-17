@@ -135,7 +135,7 @@ enum Flag: Argument {
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionsParser.Error.InvalidUsage("invalid color mode: \(rawValue)")
+                throw OptionParserError.InvalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
         case "--xcconfig-overrides":
