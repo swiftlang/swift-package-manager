@@ -8,11 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.mkdtemp
-import PackageType
-import Xcodeproj
-import Utility
 import XCTest
+
+import Basic
+import PackageType
+import Utility
+import Xcodeproj
+
+import func POSIX.mkdtemp
 
 #if os(OSX)
 

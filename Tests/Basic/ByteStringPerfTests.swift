@@ -10,12 +10,12 @@
 
 import XCTest
 
-import Utility
+import Basic
 
 // FIXME: Performance tests are disabled for the time being because they have
 // too high an impact on overall testing time.
 //
-// See: 
+// See: https://bugs.swift.org/browse/SR-1354
 #if false
 
 class ByteStringPerfTests: XCTestCase {

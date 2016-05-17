@@ -10,7 +10,7 @@
 
 import XCTest
 
-import Utility
+import Basic
 
 class OutputByteStreamTests: XCTestCase {
     func testBasics() {
