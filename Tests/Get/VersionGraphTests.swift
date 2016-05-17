@@ -303,6 +303,25 @@ class VersionGraphTests: XCTestCase {
 //    }
 }
 
+extension VersionGraphTests {
+    static var allTests : [(String, (VersionGraphTests) -> () throws -> Void)] {
+        return [
+            ("testNoGraph", testNoGraph),
+            ("testOneDependency", testOneDependency),
+            ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
+            ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
+            ("testTwoDependencies", testTwoDependencies),
+            ("testTwoDirectDependencies", testTwoDirectDependencies),
+            ("testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther", testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther),
+            ("testSimpleVersionRestrictedGraph", testSimpleVersionRestrictedGraph),
+            ("testComplexVersionRestrictedGraph", testComplexVersionRestrictedGraph),
+            ("testVersionConstrain", testVersionConstrain),
+            ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
+            ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
+            ("testVersionUnavailable", testVersionUnavailable)
+        ]
+    }
+}
 
 ///////////////////////////////////////////////////////////////// private
 

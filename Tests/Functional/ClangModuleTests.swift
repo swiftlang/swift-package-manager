@@ -8,16 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import XCTest
+
 import struct Utility.Path
 import func POSIX.symlink
 import func Utility.walk
 import func POSIX.rename
 import func POSIX.mkdir
 import func POSIX.popen
-import XCTest
 
-class TestClangModulesTestCase: XCTestCase {
-    
+class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
@@ -100,8 +100,8 @@ class TestClangModulesTestCase: XCTestCase {
 }
 
 
-extension TestClangModulesTestCase {
-    static var allTests : [(String, (TestClangModulesTestCase) -> () throws -> Void)] {
+extension ClangModulesTestCase {
+    static var allTests : [(String, (ClangModulesTestCase) -> () throws -> Void)] {
         return [
             ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
             ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),

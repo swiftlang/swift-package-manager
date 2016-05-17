@@ -109,6 +109,25 @@ class OptionsParserTests: XCTestCase {
     }
 }
 
+extension OptionsParserTests {
+    static var allTests : [(String, (OptionsParserTests) -> () throws -> Void)] {
+        return [
+            ("testNoArguments", testNoArguments),
+            ("testModeA", testModeA),
+            ("testModeB", testModeB),
+            ("testModeAFlagD", testModeAFlagD),
+            ("testModeAFlagDE", testModeAFlagDE),
+            ("testMultiModes", testMultiModes),
+            ("testAssociatedValue", testAssociatedValue),
+            ("testThrowsIfNoAssociatedValue", testThrowsIfNoAssociatedValue),
+            ("testThrowsIfAssociatedValueWithWrongFlag", testThrowsIfAssociatedValueWithWrongFlag),
+            ("testThrowsIfAssociatedValueWithWrongMode", testThrowsIfAssociatedValueWithWrongMode),
+            ("testAssignedAssociatedValue", testAssignedAssociatedValue),
+            ("testCanUnderstandMultipleShortFlags", testCanUnderstandMultipleShortFlags),
+            ("testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue", testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue),
+        ]
+    }
+}
 
 //MARK: Mode/Flag
 

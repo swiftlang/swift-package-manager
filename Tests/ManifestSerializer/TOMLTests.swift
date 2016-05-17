@@ -117,23 +117,3 @@ extension TOMLTests {
         ]
     }
 }
-
-extension ManifestTests {
-    static var allTests : [(String, (ManifestTests) -> () throws -> Void)] {
-        return [
-            ("testManifestLoading", testManifestLoading),
-        ]
-    }
-}
-
-extension PackageTests {
-    static var allTests : [(String, (PackageTests) -> () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-            ("testExclude", testExclude),
-            ("testEmptyTestDependencies", testEmptyTestDependencies),
-            ("testTestDependencies", testTestDependencies),
-            ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
-        ]
-    }
-}

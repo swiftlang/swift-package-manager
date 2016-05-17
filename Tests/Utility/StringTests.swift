@@ -58,6 +58,19 @@ class StringTests: XCTestCase {
     }
 }
 
+extension StringTests {
+    static var allTests : [(String, (StringTests) -> () throws -> Void)] {
+        return [
+                   ("testTrailingChomp", testTrailingChomp),
+                   ("testEmptyChomp", testEmptyChomp),
+                   ("testSeparatorChomp", testSeparatorChomp),
+                   ("testChuzzle", testChuzzle),
+                   ("testSplitAround", testSplitAround)
+        ]
+    }
+    
+}
+
 class URLTests: XCTestCase {
 
     func testSchema() {
@@ -68,5 +81,13 @@ class URLTests: XCTestCase {
         XCTAssertEqual(Utility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
         XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
         XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
+    }
+}
+
+extension URLTests {
+    static var allTests : [(String, (URLTests) -> () throws -> Void)] {
+        return [
+                   ("testSchema", testSchema),
+        ]
     }
 }

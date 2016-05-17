@@ -72,3 +72,16 @@ class CollectionTests: XCTestCase {
        XCTAssertEqual(["f", "f", "o", "b", "f", "b"].unique(), ["f", "o", "b"])
     }
 }
+
+extension CollectionTests {
+    static var allTests : [(String, (CollectionTests) -> () throws -> Void)] {
+        return [
+                   ("testPick", testPick),
+                   ("testPartitionByType", testPartitionByType),
+                   ("testPartitionByClosure", testPartitionByClosure),
+                   ("testSplitAround", testSplitAround),
+                   ("testUnique", testUnique)
+        ]
+    }
+}
+

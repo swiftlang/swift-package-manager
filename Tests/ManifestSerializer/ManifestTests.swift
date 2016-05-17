@@ -90,3 +90,12 @@ class ManifestTests: XCTestCase {
         XCTAssertNil(foo)
     }
 }
+
+extension ManifestTests {
+    static var allTests : [(String, (ManifestTests) -> () throws -> Void)] {
+        return [
+            ("testManifestLoading", testManifestLoading),
+            ("testNoManifest", testNoManifest),
+        ]
+    }
+}

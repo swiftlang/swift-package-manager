@@ -103,4 +103,12 @@ class GetTests: XCTestCase {
 //    }
 }
 
-
+extension GetTests {
+    static var allTests : [(String, (GetTests) -> () throws -> Void)] {
+        return [
+            ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
+            ("testRangeConstrain", testRangeConstrain),
+            ("testGitRepoInitialization", testGitRepoInitialization),
+        ]
+    }
+}

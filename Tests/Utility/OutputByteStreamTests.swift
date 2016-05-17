@@ -107,3 +107,14 @@ class OutputByteStreamTests: XCTestCase {
         }
     }
 }
+
+extension OutputByteStreamTests {
+    static var allTests : [(String, (OutputByteStreamTests) -> () throws -> Void)] {
+        return [
+                   ("testBasics", testBasics),
+                   ("testStreamOperator", testStreamOperator),
+                   ("testJSONEncoding", testJSONEncoding),
+                   ("testFormattedOutput", testFormattedOutput),
+        ]
+    }
+}

@@ -42,3 +42,11 @@ class RmtreeTests: XCTestCase {
         }
     }
 }
+
+extension RmtreeTests {
+    static var allTests : [(String, (RmtreeTests) -> () throws -> Void)] {
+        return [
+                   ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
+        ]
+    }
+}

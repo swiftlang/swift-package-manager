@@ -23,3 +23,11 @@ class ValidSourcesTests: XCTestCase {
         XCTAssertEqual(swiftModule.name, package.name)
     }
 }
+
+extension ValidSourcesTests {
+    static var allTests : [(String, (ValidSourcesTests) -> () throws -> Void)] {
+        return [
+            ("testDotFilesAreIgnored", testDotFilesAreIgnored),
+        ]
+    }
+}

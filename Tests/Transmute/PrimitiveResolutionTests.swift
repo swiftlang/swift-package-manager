@@ -31,10 +31,20 @@ class PrimitiveResolutionTests: XCTestCase {
     }
 }
 
+extension PrimitiveResolutionTests {
+    static var allTests : [(String, (PrimitiveResolutionTests) -> () throws -> Void)] {
+        return [
+           ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
+           ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
+           ("testResolvesSingleClangModule", testResolvesSingleClangModule),
+        ]
+    }
+}
+
 
 //MARK: infrastructure
 
-extension PrimitiveResolutionTests {
+private extension PrimitiveResolutionTests {
     private func test<T: Module>(files: [String], line: UInt = #line) throws -> T! {
         let (package, modules) = try fixture(files: files)
         XCTAssertEqual(modules.count, 1)
