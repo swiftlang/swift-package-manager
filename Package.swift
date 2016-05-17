@@ -19,6 +19,14 @@ let package = Package(
      succeeds! Thanks.
     */
     targets: [
+        // The `PackageDescription` module is special, it defines the API which
+        // is available to the `Package.swift` manifest files.
+        Target(
+            /** Package Definition API */
+            name: "PackageDescription",
+            dependencies: []),
+
+        
         Target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
