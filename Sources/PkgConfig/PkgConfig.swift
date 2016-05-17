@@ -133,8 +133,7 @@ struct PkgConfigParser {
             // Ignore any empty or whitespace line.
             guard let line = uncommentedLine.chuzzle() else { continue }
             
-            if let colonIndex = line.characters.index(of: ":") where
-                line.endIndex == line.characters.index(after: colonIndex) || line[line.characters.index(after: colonIndex)] == " " {
+            if line.characters.contains(":") {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
             } else if let equalsIndex = line.characters.index(of: "=") {
@@ -150,12 +149,18 @@ struct PkgConfigParser {
     }
     
     private mutating func parseKeyValue(line: String) throws {
-        if line.hasPrefix("Requires: ") {
-            dependencies = try parseDependencies(resolveVariables(value(line: line)))
-        } else if line.hasPrefix("Libs: ") {
-            libs = try splitEscapingSpace(resolveVariables(value(line: line)))
-        } else if line.hasPrefix("Cflags: ") {
-            cFlags = try splitEscapingSpace(resolveVariables(value(line: line)))
+        precondition(line.characters.contains(":"))
+        let (key, maybeValue) = line.split(around: ":")
+        let value = try resolveVariables(maybeValue?.chuzzle() ?? "")
+        switch key {
+        case "Requires":
+            dependencies = try parseDependencies(value)
+        case "Libs":
+            libs = splitEscapingSpace(value)
+        case "Cflags":
+            cFlags = splitEscapingSpace(value)
+        default:
+            break
         }
     }
     
@@ -284,12 +289,5 @@ struct PkgConfigParser {
         }
         saveFragment()
         return splits
-    }
-
-    private func value(line: String) -> String {
-        guard let colonIndex = line.characters.index(of: ":") else {
-            return ""
-        }
-        return line[line.index(colonIndex, offsetBy: 2)..<line.endIndex]
     }
 }
