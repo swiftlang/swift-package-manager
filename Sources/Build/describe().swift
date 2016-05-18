@@ -27,7 +27,8 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
-    let prefix = try mkdir(Path.join(prefix, conf.dirname))  //TODO llbuild this
+    let prefix = Path.join(prefix, conf.dirname)
+    try mkdir(prefix)
     let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC

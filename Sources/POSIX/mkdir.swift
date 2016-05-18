@@ -22,23 +22,21 @@ import var libc.S_IRWXO
 /// Create a directory at the given path, recursively.
 ///
 /// - param path: The path to create, which must be absolute.
-public func mkdir(_ path: String) throws -> String {
+public func mkdir(_ path: String) throws {
     // FIXME: This function doesn't belong here, it isn't a POSIX wrapper it is a
     // higher-level utility.
     precondition(path.hasPrefix("/"), "unexpected relative path")
     
     let parts = path.characters.split(separator: "/")
-    var prefix = ""
 
+    var prefix = ""
     for dir in parts {
-        prefix = "\(prefix)/\(String(dir))"
+        prefix += "/" + String(dir)
         // TODO what is the general policy for attributes?
         guard mkdir(prefix, S_IRWXU | S_IRWXG | S_IRWXO) == 0 || errno == EEXIST else {
             throw SystemError.mkdir(errno, prefix)
         }
     }
-
-    return prefix	
 }
 
 @available(*, unavailable)
