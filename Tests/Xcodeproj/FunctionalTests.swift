@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageType
+import PackageModel
 import Utility
 import Xcodeproj
 

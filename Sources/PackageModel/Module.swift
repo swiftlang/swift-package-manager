@@ -36,11 +36,11 @@ public class Module: ModuleProtocol {
     public init(name: String) throws {
         self.name = name
         self.dependencies = []
-        self.c99name = try PackageType.c99name(name: name)
+        self.c99name = try PackageModel.c99name(name: name)
     }
 
     public var recursiveDependencies: [Module] {
-        return PackageType.recursiveDependencies(dependencies)
+        return PackageModel.recursiveDependencies(dependencies)
     }
 }
 
@@ -139,7 +139,7 @@ public class TestModule: SwiftModule {
     public init(basename: String, sources: Sources) throws {
         self.basename = basename
         try super.init(name: basename + "TestSuite", sources: sources)
-        c99name = try PackageType.c99name(name: basename) + "TestSuite"
+        c99name = try PackageModel.c99name(name: basename) + "TestSuite"
     }
 }
 

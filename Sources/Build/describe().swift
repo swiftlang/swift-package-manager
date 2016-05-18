@@ -9,7 +9,7 @@
 */
 
 import Basic
-import PackageType
+import PackageModel
 import Utility
 
 import func POSIX.getenv

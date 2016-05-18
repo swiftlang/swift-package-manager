@@ -11,7 +11,7 @@
 import func POSIX.getenv
 import func POSIX.popen
 import func POSIX.mkdir
-import PackageType
+import PackageModel
 import Utility
 
 public protocol Toolchain {

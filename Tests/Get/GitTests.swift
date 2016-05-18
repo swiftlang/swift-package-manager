@@ -11,7 +11,7 @@
 import XCTest
 
 @testable import Get
-import struct PackageType.Manifest
+import struct PackageModel.Manifest
 import struct Utility.Path
 import class PackageDescription.Package
 import class Utility.Git

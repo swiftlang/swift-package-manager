@@ -10,8 +10,8 @@
 
 @testable import struct PackageDescription.Version
 @testable import Get
-import struct PackageType.Manifest
-import class PackageType.Package
+import struct PackageModel.Manifest
+import class PackageModel.Package
 import XCTest
 import Utility
 
@@ -77,7 +77,7 @@ class GetTests: XCTestCase {
 
     //TODO enable
 //    func testTransmuteResolvesCModuleDependencies() {
-//        fixture(name: "Miscellaneous/PackageType") { prefix in
+//        fixture(name: "Miscellaneous/PackageModel") { prefix in
 //            let prefix = Path.join(prefix, "App")
 //            let manifest = try Manifest(path: prefix)
 //            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })

@@ -10,7 +10,7 @@
 
 import Basic
 import POSIX
-import PackageType
+import PackageModel
 import Utility
 
 public protocol XcodeprojOptions {

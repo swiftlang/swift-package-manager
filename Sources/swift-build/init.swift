@@ -9,7 +9,7 @@
 */
 
 import struct Utility.Path
-import PackageType
+import PackageModel
 import POSIX
 import func Utility.fopen
 import func Utility.fputs

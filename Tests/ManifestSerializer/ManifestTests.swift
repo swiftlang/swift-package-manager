@@ -13,7 +13,7 @@
 import func POSIX.getenv
 import func POSIX.popen
 import PackageDescription
-import PackageType
+import PackageModel
 import XCTest
 
 #if os(OSX)

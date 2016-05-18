@@ -15,7 +15,7 @@ import func POSIX.chdir
 import func POSIX.rmdir
 import func libc.exit
 import ManifestSerializer
-import PackageType
+import PackageModel
 import Multitool
 import Transmute
 import Xcodeproj

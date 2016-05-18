@@ -9,7 +9,7 @@
  */
 
 @testable import Transmute
-import class PackageType.Module
+import class PackageModel.Module
 import XCTest
 
 func testModules(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {

@@ -10,7 +10,7 @@
 
 import Basic
 import PackageDescription
-import PackageType
+import PackageModel
 import Utility
 
 import func POSIX.realpath
@@ -36,7 +36,7 @@ extension Manifest {
             path = joinedPath
         }
 
-        guard path.isFile else { throw PackageType.Package.Error.NoManifest(path) }
+        guard path.isFile else { throw PackageModel.Package.Error.NoManifest(path) }
 
         if let toml = try parse(path: path, swiftc: swiftc, libdir: libdir) {
             let toml = try TOMLItem.parse(toml)

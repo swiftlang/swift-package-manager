@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 import struct PackageDescription.Version
 
 func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {

@@ -13,7 +13,7 @@
 
 
 import POSIX
-import PackageType
+import PackageModel
 import Utility
 
 public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {

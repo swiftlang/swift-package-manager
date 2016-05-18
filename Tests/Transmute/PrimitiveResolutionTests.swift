@@ -11,7 +11,7 @@
 @testable import Transmute
 import struct Utility.Path
 import PackageDescription
-import PackageType
+import PackageModel
 import XCTest
 
 class PrimitiveResolutionTests: XCTestCase {

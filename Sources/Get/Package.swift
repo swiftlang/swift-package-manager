@@ -9,7 +9,7 @@
 */
 
 import struct PackageDescription.Version
-import PackageType
+import PackageModel
 import Utility
 
 extension Package {

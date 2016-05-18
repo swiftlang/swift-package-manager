@@ -9,7 +9,7 @@
 */
 
 import func POSIX.mkdir
-import PackageType
+import PackageModel
 import Utility
 import PkgConfig
 

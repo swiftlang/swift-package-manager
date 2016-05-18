@@ -37,7 +37,7 @@ let package = Package(
             name: "POSIX",
             dependencies: ["libc"]),
         Target(
-            /** Abstractions for common operations */
+            /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
             dependencies: ["POSIX"]),
         Target(
@@ -48,43 +48,43 @@ let package = Package(
         // MARK: Project Model
         
         Target(
-            /** Base types for the package-engine */
-            name: "PackageType",
+            /** Primitive Package model objects */
+            name: "PackageModel",
             dependencies: ["Basic", "PackageDescription", "Utility"]),
         Target(
             /** Manifest serialization */
             name: "ManifestSerializer",
-            dependencies: ["Basic", "PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
         Target(
             /** Turns Packages into Modules & Products */
             name: "Transmute",
-            dependencies: ["Basic", "PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
 
         // MARK: Miscellaneous
 
         Target(
             /** Provides cFlags and link flags from .pc files for a System Module */
             name: "PkgConfig",
-            dependencies: ["Basic", "Utility", "PackageType"]),
+            dependencies: ["Basic", "Utility", "PackageModel"]),
         Target(
             /** Common components of both executables */
             name: "Multitool",
-            dependencies: ["Basic", "PackageType"]),
+            dependencies: ["Basic", "PackageModel"]),
 
         // MARK: Package Manager Functionality
         
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["Basic", "PackageDescription", "PackageType"]),
+            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["Basic", "PackageType", "PkgConfig"]),
+            dependencies: ["Basic", "PackageModel", "PkgConfig"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["Basic", "PackageType", "PkgConfig"]),
+            dependencies: ["Basic", "PackageModel", "PkgConfig"]),
 
         // MARK: Tools
         
