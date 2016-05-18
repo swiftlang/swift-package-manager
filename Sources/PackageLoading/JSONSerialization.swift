@@ -12,14 +12,13 @@ import Foundation
 import PackageDescription
 
 /// A JSON representation of an element.
-public protocol JSONSerializable {
+protocol JSONSerializable {
     
     /// Return a JSON representation.
     func toJSON() -> AnyObject
 }
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
-    
     #if os(Linux)
         let options: NSJSONWritingOptions = .PrettyPrinted
     #else
@@ -45,7 +44,7 @@ extension NSMutableDictionary {
 }
 
 extension String {
-    public func asNS() -> NSString {
+    func asNS() -> NSString {
         #if os(Linux)
             return self.bridge()
         #else
@@ -55,7 +54,7 @@ extension String {
 }
 
 extension Array {
-    public func asNS() -> NSArray {
+    func asNS() -> NSArray {
         #if os(Linux)
             return self.bridge()
         #else
@@ -65,7 +64,7 @@ extension Array {
 }
 
 extension SystemPackageProvider: JSONSerializable {
-    public func toJSON() -> AnyObject {
+    func toJSON() -> AnyObject {
         let (name, value) = nameValue
         
         return NSMutableDictionary.withNew { (dict) in
@@ -75,8 +74,7 @@ extension SystemPackageProvider: JSONSerializable {
 }
 
 extension Package.Dependency: JSONSerializable {
-    public func toJSON() -> AnyObject {
-        
+    func toJSON() -> AnyObject {
         let version = NSMutableDictionary.withNew { (dict) in
             dict.set(object: versionRange.lowerBound.description.asNS(), forKey: "lowerBound")
             dict.set(object: versionRange.upperBound.description.asNS(), forKey: "upperBound")
@@ -89,8 +87,7 @@ extension Package.Dependency: JSONSerializable {
 }
 
 extension Package: JSONSerializable {
-    public func toJSON() -> AnyObject {
-        
+    func toJSON() -> AnyObject {
         return NSMutableDictionary.withNew { (dict) in
             if let name = self.name {
                 dict.set(object: name.asNS(), forKey: "name")
@@ -110,7 +107,7 @@ extension Package: JSONSerializable {
 }
 
 extension Target.Dependency: JSONSerializable {
-    public func toJSON() -> AnyObject {
+    func toJSON() -> AnyObject {
         switch self {
         case .Target(let name):
             return name.asNS()
@@ -119,8 +116,7 @@ extension Target.Dependency: JSONSerializable {
 }
 
 extension Target: JSONSerializable {
-    public func toJSON() -> AnyObject {
-        
+    func toJSON() -> AnyObject {
         let deps = dependencies.map { $0.toJSON() }.asNS()
         return NSMutableDictionary.withNew { (dict) in
             dict.set(object: name.asNS(), forKey: "name")
