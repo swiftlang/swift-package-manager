@@ -214,14 +214,14 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanBuildIfADependencyAlreadyCheckedOut() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try system("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
+            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
             XCTAssertBuilds(prefix, "app")
         }
     }
 
     func testCanBuildIfADependencyClonedButThenAborted() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try system("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
+            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
             XCTAssertBuilds(prefix, "app", configurations: [.Debug])
         }
     }
@@ -233,11 +233,11 @@ class MiscellaneousTestCase: XCTestCase {
             let path = Path.join(prefix, "FisherYates")
 
             // required for some Linux configurations
-            try system("git", "-C", path, "config", "user.email", "example@example.com")
-            try system("git", "-C", path, "config", "user.name", "Example Example")
+            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly("git", "-C", path, "config", "user.name", "Example Example")
 
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "-mwip")
+            try systemQuietly("git", "-C", path, "rm", "Package.swift")
+            try systemQuietly("git", "-C", path, "commit", "-mwip")
 
             XCTAssertBuilds(prefix, "app")
         }
@@ -248,11 +248,11 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let path = Path.join(prefix, "FisherYates")
 
-            try system("git", "-C", path, "config", "user.email", "example@example.com")
-            try system("git", "-C", path, "config", "user.name", "Example McExample")
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "--message", "wip")
-            try system("git", "-C", path, "tag", "--force", "1.2.3")
+            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly("git", "-C", path, "config", "user.name", "Example McExample")
+            try systemQuietly("git", "-C", path, "rm", "Package.swift")
+            try systemQuietly("git", "-C", path, "commit", "--message", "wip")
+            try systemQuietly("git", "-C", path, "tag", "--force", "1.2.3")
 
             XCTAssertBuildFails(prefix, "app")
         }

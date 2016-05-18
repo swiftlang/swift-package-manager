@@ -40,7 +40,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
             if Path.join(rootd, "Package.swift").isFile {
                 let dstdir = Path.join(prefix, rootd.basename).normpath
-                try system("cp", "-R", rootd, dstdir)
+                try systemQuietly("cp", "-R", rootd, dstdir)
                 try body(dstdir)
             } else {
                 var versions = tags
@@ -57,13 +57,13 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                 for d in walk(rootd, recursively: false).sorted() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
-                    try system("cp", "-R", try realpath(d), dstdir)
-                    try system(["git", "-C", dstdir, "init"])
-                    try system(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-                    try system(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-                    try system(["git", "-C", dstdir, "add", "."])
-                    try system(["git", "-C", dstdir, "commit", "-m", "msg"])
-                    try system(["git", "-C", dstdir, "tag", popVersion()])
+                    try systemQuietly("cp", "-R", try realpath(d), dstdir)
+                    try systemQuietly(["git", "-C", dstdir, "init"])
+                    try systemQuietly(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
+                    try systemQuietly(["git", "-C", dstdir, "config", "user.name", "Example Example"])
+                    try systemQuietly(["git", "-C", dstdir, "add", "."])
+                    try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
+                    try systemQuietly(["git", "-C", dstdir, "tag", popVersion()])
                 }
                 try body(prefix)
             }
@@ -220,10 +220,14 @@ func XCTAssertNoSuchPath(_ paths: String..., file: StaticString = #file, line: U
         XCTFail("path exists but should not: \(path)", file: file, line: line)
     }
 }
-
-func system(_ args: String...) throws {
+    
+func systemQuietly(_ args: [String]) throws {
     // Discard the output, by default.
     //
     // FIXME: Find a better default behavior here.
     let _ = try popen(args, redirectStandardError: true)
+}
+
+func systemQuietly(_ args: String...) throws {
+    try systemQuietly(args)
 }
