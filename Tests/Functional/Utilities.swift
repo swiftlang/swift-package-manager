@@ -58,12 +58,12 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try system("cp", "-R", try realpath(d), dstdir)
-                    try popen(["git", "-C", dstdir, "init"])
-                    try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-                    try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-                    try popen(["git", "-C", dstdir, "add", "."])
-                    try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
-                    try popen(["git", "-C", dstdir, "tag", popVersion()])
+                    try system(["git", "-C", dstdir, "init"])
+                    try system(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
+                    try system(["git", "-C", dstdir, "config", "user.name", "Example Example"])
+                    try system(["git", "-C", dstdir, "add", "."])
+                    try system(["git", "-C", dstdir, "commit", "-m", "msg"])
+                    try system(["git", "-C", dstdir, "tag", popVersion()])
                 }
                 try body(prefix)
             }
@@ -76,14 +76,14 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 func initGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
         let file = Path.join(dstdir, "file.swift")
-        try popen(["touch", file])
-        try popen(["git", "-C", dstdir, "init"])
-        try popen(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-        try popen(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-        try popen(["git", "-C", dstdir, "add", "."])
-        try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
+        try system(["touch", file])
+        try system(["git", "-C", dstdir, "init"])
+        try system(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
+        try system(["git", "-C", dstdir, "config", "user.name", "Example Example"])
+        try system(["git", "-C", dstdir, "add", "."])
+        try system(["git", "-C", dstdir, "commit", "-m", "msg"])
         if let tag = tag {
-            try popen(["git", "-C", dstdir, "tag", tag])
+            try system(["git", "-C", dstdir, "tag", tag])
         }
     }
     catch {
@@ -222,5 +222,8 @@ func XCTAssertNoSuchPath(_ paths: String..., file: StaticString = #file, line: U
 }
 
 func system(_ args: String...) throws {
-    try popen(args, redirectStandardError: true)
+    // Discard the output, by default.
+    //
+    // FIXME: Find a better default behavior here.
+    let _ = try popen(args, redirectStandardError: true)
 }
