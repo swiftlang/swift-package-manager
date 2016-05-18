@@ -19,16 +19,16 @@ import var libc.S_IRWXO
     import Foundation  // String.hasPrefix
 #endif
 
-/**
- Recursively creates directories producing: `path`.
-
- It is *not* an error if the directory already exists.
-*/
+/// Create a directory at the given path, recursively.
+///
+/// - param path: The path to create, which must be absolute.
 public func mkdir(_ path: String) throws -> String {
+    // FIXME: This function doesn't belong here, it isn't a POSIX wrapper it is a
+    // higher-level utility.
+    precondition(path.hasPrefix("/"), "unexpected relative path")
+    
     let parts = path.characters.split(separator: "/")
-    var prefix = path.hasPrefix("/")
-        ? ""
-        : getcwd()
+    var prefix = ""
 
     for dir in parts {
         prefix = "\(prefix)/\(String(dir))"

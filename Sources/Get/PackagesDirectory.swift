@@ -22,6 +22,7 @@ class PackagesDirectory {
     let manifestParser: (path: String, url: String) throws -> Manifest
 
     init(prefix: String, manifestParser: (path: String, url: String) throws -> Manifest) {
+        precondition(prefix.isAbsolute)
         self.prefix = prefix
         self.manifestParser = manifestParser
     }

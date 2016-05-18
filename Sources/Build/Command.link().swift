@@ -19,7 +19,8 @@ import PkgConfig
 
 extension Command {
     static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
-
+        precondition(prefix.isAbsolute)
+        
         let objects = product.buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
 
         let outpath = Path.join(prefix, product.outname)

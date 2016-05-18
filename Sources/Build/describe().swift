@@ -19,6 +19,7 @@ import func POSIX.mkdir
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
 public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
+    precondition(prefix.isAbsolute)
 
     guard modules.count > 0 else {
         throw Error.NoModules

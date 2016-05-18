@@ -16,6 +16,8 @@ import func Utility.fopen
 import func Utility.fputs
 
 public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
+    precondition(rootDir.isAbsolute)
+    
     let dirPath = Path.join(rootDir, ".build/versionData")
     try mkdir(dirPath)
 

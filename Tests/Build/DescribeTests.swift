@@ -9,7 +9,10 @@
 */
 
 import XCTest
+
 import Build
+import Utility
+import POSIX
 
 final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
@@ -21,8 +24,11 @@ final class DescribeTests: XCTestCase {
                 var clang: String { fatalError() }
             }
 
-            let _ = try describe("foo", .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
-            XCTFail("This call should throw")
+            try POSIX.mkdtemp("spm-tests") { prefix in
+                defer { _ = try? rmtree(prefix) }
+                let _ = try describe(Path.join(prefix, "foo"), .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+                XCTFail("This call should throw")
+            }
         } catch Build.Error.NoModules {
             XCTAssert(true, "This error should be thrown")
         } catch {

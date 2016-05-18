@@ -34,6 +34,7 @@ public protocol XcodeprojOptions {
  - Returns: the path to the generated project
 */
 public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
+    precondition(dstdir.isAbsolute)
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = try mkdir(Path.join(dstdir, xcodeprojName))
