@@ -9,7 +9,7 @@
 */
 
 import func libc.exit
-import PackageType
+import PackageModel
 import Utility
 import POSIX
 

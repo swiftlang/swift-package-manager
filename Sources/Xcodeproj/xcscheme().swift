@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 
 func xcscheme(container: String, modules: [XcodeModuleProtocol], printer print: (String) -> Void) {
     print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")

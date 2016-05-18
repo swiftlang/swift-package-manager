@@ -29,10 +29,10 @@ func fixture(files: [String], body: @noescape (String) throws -> ()) {
 
 @testable import Transmute
 import PackageDescription
-import PackageType
+import PackageModel
 
 /// Check the behavior of a test project with the given file paths.
-func fixture(files: [String], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageType.Package, [Module]) throws -> ()) throws {
+func fixture(files: [String], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
     fixture(files: files) { (prefix: String) in
         let manifest = Manifest(path: Path.join(prefix, "Package.swift"), package: Package(name: "name"), products: [])
         let package = Package(manifest: manifest, url: prefix)

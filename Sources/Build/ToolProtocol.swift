@@ -9,7 +9,7 @@
 */
 
 import Basic
-import PackageType
+import PackageModel
 import Utility
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.

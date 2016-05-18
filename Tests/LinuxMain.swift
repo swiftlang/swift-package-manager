@@ -20,7 +20,7 @@ import FunctionalTestSuite
 import GetTestSuite
 import ManifestSerializerTestSuite
 import PackageDescriptionTestSuite
-import PackageTypeTestSuite
+import PackageModelTestSuite
 import PkgConfigTestSuite
 import TransmuteTestSuite
 import UtilityTestSuite
@@ -32,7 +32,7 @@ tests += FunctionalTestSuite.allTests()
 tests += GetTestSuite.allTests()
 tests += ManifestSerializerTestSuite.allTests()
 tests += PackageDescriptionTestSuite.allTests()
-tests += PackageTypeTestSuite.allTests()
+tests += PackageModelTestSuite.allTests()
 tests += PkgConfigTestSuite.allTests()
 tests += TransmuteTestSuite.allTests()
 tests += UtilityTestSuite.allTests()

@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class PackageType.Module
-import protocol PackageType.ModuleTypeProtocol
+import class PackageModel.Module
+import protocol PackageModel.ModuleTypeProtocol
 
 public func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
     var stack = modules

@@ -9,7 +9,7 @@
 */
 
 import func POSIX.mkdtemp
-import PackageType
+import PackageModel
 import Xcodeproj
 import Utility
 import XCTest

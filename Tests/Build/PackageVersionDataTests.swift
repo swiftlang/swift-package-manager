@@ -8,19 +8,21 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import Build
-import PackageType
 import XCTest
+
+import PackageModel
 import PackageDescription
+
+@testable import Build
 
 final class PackageVersionDataTests: XCTestCase {
 
-    func makePackage() -> PackageType.Package {
+    func makePackage() -> PackageModel.Package {
         let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
         return Package(manifest: m, url: "https://github.com/testPkg")
     }
 
-    func testPackageData(_ package: PackageType.Package, url: String, version: Version?) {
+    func testPackageData(_ package: PackageModel.Package, url: String, version: Version?) {
         var expected = "public let url: String = \"\(url)\"\n"
         expected += "public let version: (major: Int, minor: Int, patch: Int, prereleaseIdentifiers: [String], buildMetadata: String?) = "
         if let version = version {

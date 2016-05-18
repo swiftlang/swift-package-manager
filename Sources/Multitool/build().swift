@@ -9,7 +9,7 @@
 */
 
 import func POSIX.getenv
-import PackageType
+import PackageModel
 import Utility
 import func libc.exit
 

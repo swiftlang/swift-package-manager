@@ -9,7 +9,7 @@
 */
 
 import POSIX
-import PackageType
+import PackageModel
 import class Utility.Git
 import struct Utility.Path
 import func Utility.fopen

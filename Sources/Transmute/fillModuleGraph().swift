@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 
 func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
     for package in packages {

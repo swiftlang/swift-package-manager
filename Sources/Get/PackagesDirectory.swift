@@ -11,7 +11,7 @@
 import struct PackageDescription.Version
 import func POSIX.mkdir
 import func POSIX.rename
-import PackageType
+import PackageModel
 import Utility
 
 /**

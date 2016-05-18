@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 
 extension Package {
     public enum ModuleError: ErrorProtocol {

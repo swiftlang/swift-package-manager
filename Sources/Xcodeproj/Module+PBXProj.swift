@@ -24,7 +24,7 @@
 */
 
 import struct Utility.Path
-import PackageType
+import PackageModel
 import PkgConfig
 
 let rootObjectReference =                           "__RootObject_"

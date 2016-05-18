@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import PackageType
+@testable import PackageModel
 import XCTest
 
 class c99nameTests: XCTestCase {

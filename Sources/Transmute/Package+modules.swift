@@ -9,7 +9,7 @@
 */
 
 import class PackageDescription.Target
-import PackageType
+import PackageModel
 import Utility
 
 extension Package {
