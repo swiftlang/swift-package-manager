@@ -146,7 +146,7 @@ class Target(object):
         self.swift_sources.sort()
 
     def write_swift_compile_commands(self, args, target_build_dir,
-                                     module_dir, output, objects,
+                                     module_dir, include_dir, output, objects,
                                      link_input_nodes, predecessor_node):
         # Compute the derived paths.
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
@@ -188,7 +188,7 @@ class Target(object):
               file=output)
         print("    sources: %s" % json.dumps(self.swift_sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
-        import_paths = [module_dir]
+        import_paths = [module_dir, include_dir]
         if args.foundation_path:
             import_paths.append(args.foundation_path)
             import_paths.append(os.path.join(args.foundation_path,
@@ -258,6 +258,30 @@ targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 
 
+# Create a quoted C string literal from an arbitrary string.
+def make_c_string_literal(str):
+    return "\"" + str.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+
+# Write out a header containing version information, and a module map for it.
+def write_bootstrap_version_info(include_path, version_str):
+    # Construct the header and write it out if it's changed.
+    output = StringIO()
+    print("static inline const char * DisplayString() {", file=output)
+    print("    return " + make_c_string_literal(version_str) + ";", file=output)
+    print("}", file=output)
+    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"),
+                          output.getvalue())
+    
+    # Also construct the module map and write it out if it's changed.
+    output = StringIO()
+    print("module VersionInfo [extern_c] {", file=output)
+    print("    header \"VersionInfo.h\"", file=output)
+    print("}", file=output)
+    write_file_if_changed(os.path.join(include_path, "module.map"),
+                          output.getvalue())
+
+
 def create_bootstrap_files(sandbox_path, args):
     # Write out the build file.
     output = StringIO()
@@ -292,6 +316,10 @@ def create_bootstrap_files(sandbox_path, args):
             target.name, json.dumps([target.virtual_node])), file=output)
     print(file=output)
 
+    # Create the shared include dir.
+    inc_dir = os.path.join(sandbox_path, "inc")
+    mkdir_p(inc_dir)
+    
     # Create the shared lib dir.
     lib_dir = os.path.join(sandbox_path, "lib")
     mkdir_p(lib_dir)
@@ -329,7 +357,7 @@ def create_bootstrap_files(sandbox_path, args):
         # Write the Swift compile commands, if used.
         if target.swift_sources:
             target.write_swift_compile_commands(
-                args, target_build_dir, module_dir, output, objects,
+                args, target_build_dir, module_dir, inc_dir, output, objects,
                 link_input_nodes, predecessor_node)
 
         # Form the command line to link.
@@ -389,6 +417,10 @@ def create_bootstrap_files(sandbox_path, args):
     # Write the output file.
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
                           output.getvalue())
+    
+    # Write out the version info header and module map file, if appropriate.
+    if args.version_str:
+        write_bootstrap_version_info(inc_dir, args.version_str)
 
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
@@ -513,6 +545,7 @@ def get_swiftc_path():
     except:
         error("unable to find 'swiftc' tool for bootstrap build")
 
+
 def main():
     parser = argparse.ArgumentParser(
         usage="%(prog)s [options] [clean|all|test|install]",
@@ -549,6 +582,8 @@ def main():
                         help="Path to XCTest build directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
+    parser.add_argument("--version-string", dest="version_str",
+                        help="version string to display for --version")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -647,6 +682,12 @@ def main():
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
+    # If appropriate, add flags for a custom version string:
+    if args.version_str:
+        incdir = os.path.join(sandbox_path, "inc")
+        cmd.extend(["-Xswiftc", "-I{}".format(incdir)])
+        cmd.extend(["-Xswiftc", "-DHasCustomVersionString"])
+    
     if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")

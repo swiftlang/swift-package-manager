@@ -15,6 +15,9 @@ import PackageLoading
 import PackageModel
 import Transmute
 import Utility
+#if HasCustomVersionString
+import VersionInfo
+#endif
 import Xcodeproj
 
 import func POSIX.getcwd
@@ -106,7 +109,11 @@ do {
         dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
 
     case .Version:
-        print("Apple Swift Package Manager 0.1")
+        #if HasCustomVersionString
+            print(String(cString: VersionInfo.DisplayString()))
+        #else
+            print("Apple Swift Package Manager 0.1")
+        #endif
         
     case .GenerateXcodeproj(let outpath):
         let (rootPackage, externalPackages) = try fetch(opts.path.root)
