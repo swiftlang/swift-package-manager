@@ -179,7 +179,7 @@ func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.
     for conf in configurations {
         do {
             print("    Building \(conf)")
-            try executeSwiftBuild(prefix, configuration: conf, printIfError: true, Xld: Xld, env: env)
+            _ = try executeSwiftBuild(prefix, configuration: conf, printIfError: true, Xld: Xld, env: env)
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
@@ -189,7 +189,7 @@ func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.
 func XCTAssertBuildFails(_ paths: String..., file: StaticString = #file, line: UInt = #line) {
     let prefix = Path.join(paths)
     do {
-        try executeSwiftBuild(prefix)
+        _ = try executeSwiftBuild(prefix)
 
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
 

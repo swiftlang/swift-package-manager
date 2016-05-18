@@ -225,7 +225,7 @@ class VersionGraphTests: XCTestCase {
 
         var invalidGraph = false
         do {
-            try MyMockFetcher().recursivelyFetch([
+            _ = try MyMockFetcher().recursivelyFetch([
                 (MockProject.A.url, Version.maxRange),
                 (MockProject.B.url, Version.maxRange)
             ])
@@ -256,7 +256,7 @@ class VersionGraphTests: XCTestCase {
 
         var invalidGraph = false
         do {
-            try MyMockFetcher().recursivelyFetch([
+            _ = try MyMockFetcher().recursivelyFetch([
                 (MockProject.A.url, v1..<v1.successor()),
             ])
         } catch Error.InvalidDependencyGraphMissingTag(let url, _, _) {
@@ -277,7 +277,7 @@ class VersionGraphTests: XCTestCase {
 
         var success = false
         do {
-            try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
+            _ = try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
         } catch Error.InvalidDependencyGraphMissingTag {
             success = true
         } catch {

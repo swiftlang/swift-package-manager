@@ -108,13 +108,12 @@ extension FunctionalTests {
     }
 }
 
-func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
+func write(path: String, write: (OutputByteStream) -> Void) throws {
     try fopen(path, mode: .Write) { fp in
         let stream = OutputByteStream()
         write(stream)
         try fputs(stream.bytes.bytes, fp)
     }
-    return path
 }
 
 func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt = #line) {
@@ -132,7 +131,7 @@ func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt
 func XCTAssertXcodeprojGen(_ prefix: String, env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        try executeSwiftBuild(["-X"], chdir: prefix, printIfError: true, env: env)
+        _ = try executeSwiftBuild(["-X"], chdir: prefix, printIfError: true, env: env)
     } catch {
         XCTFail("`swift build -X' failed:\n\n\(error)\n", file: file, line: line)
     }
