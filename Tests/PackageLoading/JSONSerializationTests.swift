@@ -8,10 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import ManifestSerializer
-import PackageDescription
-import XCTest
 import Foundation
+import XCTest
+
+import PackageDescription
+
+@testable import PackageLoading
 
 class JSONSerializationTests: XCTestCase {
     

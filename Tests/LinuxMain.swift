@@ -18,8 +18,8 @@ import BasicTestSuite
 import BuildTestSuite
 import FunctionalTestSuite
 import GetTestSuite
-import ManifestSerializerTestSuite
 import PackageDescriptionTestSuite
+import PackageLoadingTestSuite
 import PackageModelTestSuite
 import PkgConfigTestSuite
 import TransmuteTestSuite
@@ -30,8 +30,8 @@ tests += BasicTestSuite.allTests()
 tests += BuildTestSuite.allTests()
 tests += FunctionalTestSuite.allTests()
 tests += GetTestSuite.allTests()
-tests += ManifestSerializerTestSuite.allTests()
 tests += PackageDescriptionTestSuite.allTests()
+tests += PackageLoadingTestSuite.allTests()
 tests += PackageModelTestSuite.allTests()
 tests += PkgConfigTestSuite.allTests()
 tests += TransmuteTestSuite.allTests()

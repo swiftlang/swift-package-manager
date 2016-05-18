@@ -14,7 +14,7 @@ import Basic
 import PackageDescription
 import Utility
 
-@testable import ManifestSerializer
+@testable import PackageLoading
 
 private func parseTOML(_ data: String) -> TOMLItem {
     do {

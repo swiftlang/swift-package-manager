@@ -8,13 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import ManifestSerializer
-@testable import Utility
-import func POSIX.getenv
-import func POSIX.popen
+import XCTest
+
 import PackageDescription
 import PackageModel
-import XCTest
+
+import func POSIX.getenv
+import func POSIX.popen
+
+@testable import PackageLoading
+@testable import Utility
 
 #if os(OSX)
 private func bundleRoot() -> String {

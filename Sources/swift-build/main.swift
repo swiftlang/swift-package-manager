@@ -8,20 +8,21 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Build
+import Get
+import Multitool
+import PackageLoading
+import PackageModel
+import Transmute
+import Utility
+import Xcodeproj
+
 import func POSIX.getcwd
 import func POSIX.getenv
 import func POSIX.unlink
 import func POSIX.chdir
 import func POSIX.rmdir
 import func libc.exit
-import ManifestSerializer
-import PackageModel
-import Multitool
-import Transmute
-import Xcodeproj
-import Utility
-import Build
-import Get
 
 /// Declare additional conformance for our Options type.
 extension Options: XcodeprojOptions {}
