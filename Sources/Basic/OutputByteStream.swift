@@ -182,41 +182,49 @@ infix operator <<< { associativity left }
 // that will then cause ambiguous lookup versus the implementation just using
 // the defined protocol.
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: UInt8) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: [UInt8]) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<<S: Sequence where S.Iterator.Element == UInt8>(stream: OutputByteStream, value: S) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: String) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: Character) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
     stream.write(value)
     return stream
 }
 
+@discardableResult
 public func <<<(stream: OutputByteStream, value: Streamable) -> OutputByteStream {
     stream.write(value)
     return stream

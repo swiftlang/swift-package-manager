@@ -20,7 +20,9 @@ final class InitPackage {
     let rootd = POSIX.getcwd()
     
     init(mode: InitMode) throws {
-        try c99name(name: rootd.basename)
+        // Validate that the name is valid.
+        let _ = try c99name(name: rootd.basename)
+        
         self.mode = mode
         pkgname = rootd.basename
     }

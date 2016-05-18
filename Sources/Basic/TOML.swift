@@ -238,8 +238,7 @@ private struct Lexer {
         // Comments.
         case UInt8(ascii: "#"):
             // Scan to the end of the line.
-            while let c = look() {
-                eat()
+            while let c = eat() {
                 if c == UInt8(ascii: "\n") {
                     break
                 }
@@ -250,7 +249,7 @@ private struct Lexer {
         case let c where c.isSpace():
             // Scan to the end of the whitespace
             while let c = look() where c.isSpace() {
-                eat()
+                let _ = eat()
             }
             return .Whitespace
 
@@ -263,7 +262,7 @@ private struct Lexer {
             while let c = look() {
                 // Update the end index before consuming the character.
                 endIndex = index
-                eat()
+                let _ = eat()
 
                 if c == UInt8(ascii: "\"") {
                     break
@@ -278,7 +277,7 @@ private struct Lexer {
         case let c where c.isNumberInitialChar():
             // Scan to the end of the number.
             while let c = look() where c.isNumberChar() {
-                eat()
+                let _ = eat()
             }
             return .Number(value: String(utf8[startIndex..<index]))
 
@@ -286,7 +285,7 @@ private struct Lexer {
         case let c where c.isIdentifierChar():
             // Scan to the end of the identifier.
             while let c = look() where c.isIdentifierChar() {
-                eat()
+                let _ = eat()
             }
 
             // Match special strings.
@@ -421,7 +420,7 @@ private struct Parser {
         lookahead = .EOF
         
         // Prime the lookahead.
-        eat()
+        let _ = eat()
     }
 
     /// Parse the string to an item.
@@ -582,7 +581,7 @@ private struct Parser {
     /// Consume a token if it matches a particular block.
     private mutating func consumeIf(_ match: (Lexer.Token) -> Bool) -> Bool {
         if match(lookahead) {
-            eat()
+            let _ = eat()
             return true
         }
         return false
