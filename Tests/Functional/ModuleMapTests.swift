@@ -27,7 +27,7 @@ class ModuleMapsTestCase: XCTestCase {
             let outdir = Path.join(prefix, rootpkg, ".build/debug")
             try mkdir(outdir)
             let output = Path.join(outdir, "libfoo.\(dylib)")
-            try popen(["clang", "-shared", input, "-o", output])
+            try systemQuietly(["clang", "-shared", input, "-o", output])
 
             var Xld = ["-L", outdir]
         #if os(Linux)

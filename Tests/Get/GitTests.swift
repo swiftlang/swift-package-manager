@@ -15,7 +15,6 @@ import struct PackageModel.Manifest
 import struct Utility.Path
 import class PackageDescription.Package
 import class Utility.Git
-import func POSIX.popen
 
 class GitTests: XCTestCase {
     func testHasVersion() {
