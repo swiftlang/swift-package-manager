@@ -174,6 +174,9 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
+        # Enable the workaround for SR-1457 until it is fixed.
+        other_args.extend(["-DEnableWorkaroundForSR1457"])
+        
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
         print("    executable: %s" % json.dumps(args.swiftc_path), file=output)

@@ -69,7 +69,13 @@ struct SwiftcTool: ToolProtocol {
     var objects: [String]                   { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
     var sources: [String]                   { return module.sources.paths }
     var isLibrary: Bool                     { return module.type == .Library }
-    var enableWholeModuleOptimization: Bool { return conf == .Release }
+    var enableWholeModuleOptimization: Bool {
+        #if EnableWorkaroundForSR1457
+            return false
+        #else
+            return conf == .Release
+        #endif
+    }
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: swift-compiler\n"
