@@ -36,8 +36,8 @@ public protocol XcodeprojOptions {
 public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
 
     let xcodeprojName = "\(projectName).xcodeproj"
-    let xcodeprojPath = try mkdir(dstdir, xcodeprojName)
-    let schemesDirectory = try mkdir(xcodeprojPath, "xcshareddata/xcschemes")
+    let xcodeprojPath = try mkdir(Path.join(dstdir, xcodeprojName))
+    let schemesDirectory = try mkdir(Path.join(xcodeprojPath, "xcshareddata/xcschemes"))
     let schemeName = "\(projectName).xcscheme"
 
 ////// the pbxproj file describes the project and its targets

@@ -19,10 +19,10 @@ class RmtreeTests: XCTestCase {
             try mkdtemp("foo") { root in
                 let root = try realpath(root)
 
-                try mkdir(root, "foo")
-                try mkdir(root, "bar")
-                try mkdir(root, "bar/baz")
-                try mkdir(root, "bar/baz/goo")
+                try mkdir(Path.join(root, "foo"))
+                try mkdir(Path.join(root, "bar"))
+                try mkdir(Path.join(root, "bar/baz"))
+                try mkdir(Path.join(root, "bar/baz/goo"))
                 try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)

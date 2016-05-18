@@ -108,7 +108,7 @@ extension ValidLayoutsTestCase {
         // 2. Move everything to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
-            let dir = try mkdir(prefix, "Sources")
+            let dir = try mkdir(Path.join(prefix, "Sources"))
             for file in files {
                 let tip = Path(file).relative(to: prefix)
                 try rename(old: file, new: Path.join(dir, tip))
@@ -119,7 +119,7 @@ extension ValidLayoutsTestCase {
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
-            let dir = try mkdir(prefix, "Floobles")
+            let dir = try mkdir(Path.join(prefix, "Floobles"))
             for file in files {
                 let tip = Path(file).relative(to: prefix)
                 try rename(old: file, new: Path.join(dir, tip))

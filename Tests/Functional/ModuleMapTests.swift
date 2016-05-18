@@ -24,7 +24,7 @@ class ModuleMapsTestCase: XCTestCase {
     private func fixture(name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
         FunctionalTestSuite.fixture(name: name) { prefix in
             let input = Path.join(prefix, CModuleName, "C/foo.c")
-            let outdir = try mkdir(prefix, rootpkg, ".build/debug")
+            let outdir = try mkdir(Path.join(prefix, rootpkg, ".build/debug"))
             let output = Path.join(outdir, "libfoo.\(dylib)")
             try popen(["clang", "-shared", input, "-o", output])
 
