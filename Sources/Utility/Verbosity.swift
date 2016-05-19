@@ -45,7 +45,10 @@ import var libc.stderr
 
 public class StandardErrorOutputStream: OutputStream {
     public func write(_ string: String) {
-        libc.fputs(string, libc.stderr)
+        // Silently ignore write failures here.
+        //
+        // FIXME: We would like to throw this error, but can't given the design of `OutputStream`.
+        _ = libc.fputs(string, libc.stderr)
     }
 }
 
