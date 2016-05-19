@@ -72,7 +72,7 @@ do {
         fallthrough
         
     case .Fetch:
-        try fetch(opts.path.root)
+        _ = try fetch(opts.path.root)
 
     case .Usage:
         usage()

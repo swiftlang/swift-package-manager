@@ -61,7 +61,7 @@ func makeGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #fil
 private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
     var done = !shouldCrash
     mktmpdir { path in
-        makeGitRepo(path, tag: tag)!
+        _ = makeGitRepo(path, tag: tag)!
         do {
             _ = try RawClone(path: path, manifestParser: { _ throws in
                 return Manifest(path: path, package: PackageDescription.Package(), products: [])

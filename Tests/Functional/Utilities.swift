@@ -110,6 +110,7 @@ func swiftBuildPath() -> String {
 #endif
 }
 
+@discardableResult
 func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
     let args = [swiftBuildPath(), "--chdir", chdir] + args
     var env = env
@@ -150,6 +151,7 @@ func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = 
     }
 }
 
+@discardableResult
 func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = [], env: [String: String] = [:]) throws -> String {
     var args = ["--configuration"]
     switch configuration {
