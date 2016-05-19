@@ -15,21 +15,21 @@ import class PackageDescription.Target
 
 extension Package {
     /// An error in the package organization of modules.
-    public enum ModuleError: ErrorProtocol {
+    enum ModuleError: ErrorProtocol {
         case NoModules(Package)
         case ModuleNotFound(String)
         case InvalidLayout(InvalidLayoutType)
         case ExecutableAsDependency(String)
     }
 
-    public enum InvalidLayoutType {
+    enum InvalidLayoutType {
         case MultipleSourceRoots([String])
         case InvalidLayout([String])
     }
 }
 
 extension Package.InvalidLayoutType: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         switch self {
         case .MultipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.joined(separator: ", ")
@@ -41,7 +41,7 @@ extension Package.InvalidLayoutType: CustomStringConvertible {
 
 extension Module {
     /// An error in the organization of an individual module.
-    public enum Error: ErrorProtocol {
+    enum Error: ErrorProtocol {
         case NoSources(String)
         case MixedSources(String)
         case DuplicateModule(String)
@@ -50,7 +50,7 @@ extension Module {
 
 extension Product {
     /// An error in a product definition.
-    public enum Error: ErrorProtocol {
+    enum Error: ErrorProtocol {
         case NoModules(String)
     }
 }
