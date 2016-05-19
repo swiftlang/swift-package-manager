@@ -66,7 +66,6 @@ class GetTests: XCTestCase {
     }
 
     func testGitRepoInitialization() {
-
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertNotNil(Git.Repo(path: Path.join(prefix, "app")))
         }
@@ -74,32 +73,6 @@ class GetTests: XCTestCase {
         XCTAssertNil(Git.Repo(path: #file))
         XCTAssertNil(Git.Repo(path: #file.parentDirectory))
     }
-
-    //TODO enable
-//    func testTransmuteResolvesCModuleDependencies() {
-//        fixture(name: "Miscellaneous/PackageModel") { prefix in
-//            let prefix = Path.join(prefix, "App")
-//            let manifest = try Manifest(path: prefix)
-//            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-//            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
-//
-//            XCTAssertEqual(modules.count, 3)
-//            XCTAssertTrue(modules.dropFirst().first is CModule)
-//        }
-//
-//        fixture(name: "ModuleMaps/Direct") { prefix in
-//            let prefix = Path.join(prefix, "App")
-//            let manifest = try Manifest(path: prefix)
-//            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-//            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
-//
-//            XCTAssertEqual(modules.count, 2)
-//            XCTAssertTrue(modules.first is CModule)
-//            XCTAssertEqual(modules[1].dependencies.count, 1)
-//            XCTAssertEqual(modules[1].recursiveDependencies.count, 1)
-//            XCTAssertTrue(modules[1].dependencies.contains(modules[0]))
-//        }
-//    }
 }
 
 extension GetTests {
