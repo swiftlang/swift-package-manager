@@ -8,15 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
-@testable import Get
-import struct PackageModel.Manifest
-import class PackageModel.Package
 import XCTest
+
 import Utility
 
-typealias Sandbox = PackagesDirectory
+import struct PackageModel.Manifest
+import class PackageModel.Package
 
+@testable import struct PackageDescription.Version
+@testable import Get
 
 class GetTests: XCTestCase {
 

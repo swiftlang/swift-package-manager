@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageModel
 import XCTest
+
+import PackageModel
 
 class ValidSourcesTests: XCTestCase {
     func testDotFilesAreIgnored() throws {

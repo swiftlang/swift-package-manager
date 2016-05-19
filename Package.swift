@@ -55,10 +55,6 @@ let package = Package(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: ["Basic", "PackageDescription", "PackageModel"]),
-        Target(
-            /** Turns Packages into Modules & Products */
-            name: "Transmute",
-            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
 
         // MARK: Miscellaneous
 
@@ -91,7 +87,7 @@ let package = Package(
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["Basic", "PackageLoading", "Get", "Transmute", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["Basic", "PackageLoading", "Get", "Build", "Multitool", "Xcodeproj"]),
         Target(
             /** Runs package tests */
             name: "swift-test",

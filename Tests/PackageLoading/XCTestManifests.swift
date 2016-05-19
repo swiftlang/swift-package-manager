@@ -15,7 +15,10 @@ public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(JSONSerializationTests.allTests),
         testCase(ManifestTests.allTests),
+        testCase(ModuleDependencyTests.allTests),
+        testCase(PrimitiveResolutionTests.allTests),
         testCase(SerializationTests.allTests),
+        testCase(ValidSourcesTests.allTests),
     ]
 }
 #endif

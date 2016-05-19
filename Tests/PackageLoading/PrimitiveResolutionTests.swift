@@ -8,11 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import Transmute
-import struct Utility.Path
+import XCTest
+
 import PackageDescription
 import PackageModel
-import XCTest
+import Utility
+
+import PackageLoading
 
 class PrimitiveResolutionTests: XCTestCase {
     func testResolvesSingleSwiftModule() throws {

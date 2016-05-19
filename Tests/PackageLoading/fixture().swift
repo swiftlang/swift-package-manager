@@ -10,10 +10,15 @@
 
 import XCTest
 
+import PackageDescription
+import PackageModel
+
 import struct Utility.Path
 import func POSIX.mkdir
 import func POSIX.system
 import func Utility.rmtree
+
+@testable import PackageLoading
 
 //// Create a test fixture with empty files at the given paths.
 func fixture(files: [String], body: @noescape (String) throws -> ()) {
@@ -25,11 +30,6 @@ func fixture(files: [String], body: @noescape (String) throws -> ()) {
         try body(prefix)
     }
 }
-
-
-@testable import Transmute
-import PackageDescription
-import PackageModel
 
 /// Check the behavior of a test project with the given file paths.
 func fixture(files: [String], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {

@@ -46,11 +46,11 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
                     //        depend upon 'Utility', and hope that no users define
                     //        test modules named 'Functional'.
                     testModule.dependencies = modules.filter{ $0.name == "Utility" }
-                } else if testModule.basename == "Transmute" {
-                    // FIXME: Turns out TransmuteTests violate encapsulation :(
+                } else if testModule.basename == "PackageLoading" {
+                    // FIXME: Turns out PackageLoadingTests violate encapsulation :(
                     testModule.dependencies = modules.filter{
                         switch $0.name {
-                        case "Get", "Transmute", "PackageLoading":
+                        case "Get", "PackageLoading":
                             return true
                         default:
                             return false
@@ -74,8 +74,8 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
     // ensure modules depend on the modules of any dependent packages
     fillModuleGraph(packages, modulesForPackage: { map[$0]! })
 
-    let modules = try Transmute.recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
-    let externalModules = try Transmute.recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
+    let modules = try PackageLoading.recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
+    let externalModules = try PackageLoading.recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
     return (modules, externalModules, products)
 }
@@ -105,6 +105,7 @@ private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package)
 
 extension Package {
     private var recursiveDependencies: [Package] {
+        // FIXME: Refactor this to a common algorithm.
         var set = Set<Package>()
         var stack = dependencies
         var out = [Package]()

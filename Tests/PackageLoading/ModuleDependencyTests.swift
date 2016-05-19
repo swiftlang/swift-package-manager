@@ -8,9 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import Transmute
-import class PackageModel.Module
 import XCTest
+
+import PackageLoading
+
+import class PackageModel.Module
+
+@testable import PackageLoading
 
 func testModules(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
     do {
