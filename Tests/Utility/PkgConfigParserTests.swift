@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import PkgConfig
-@testable import Utility
 import XCTest
+
+@testable import Utility
 
 final class PkgConfigParserTests: XCTestCase {
     

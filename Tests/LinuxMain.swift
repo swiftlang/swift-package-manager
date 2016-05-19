@@ -21,7 +21,6 @@ import GetTestSuite
 import PackageDescriptionTestSuite
 import PackageLoadingTestSuite
 import PackageModelTestSuite
-import PkgConfigTestSuite
 import UtilityTestSuite
 
 var tests = [XCTestCaseEntry]()
@@ -32,6 +31,5 @@ tests += GetTestSuite.allTests()
 tests += PackageDescriptionTestSuite.allTests()
 tests += PackageLoadingTestSuite.allTests()
 tests += PackageModelTestSuite.allTests()
-tests += PkgConfigTestSuite.allTests()
 tests += UtilityTestSuite.allTests()
 XCTMain(tests)

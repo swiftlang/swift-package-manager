@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors 
 */
 
-import Utility
-
 import func POSIX.getenv
 import func POSIX.popen
 
-enum PkgConfigError: ErrorProtocol {
+public enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
     case ParsingError(String)
 }
@@ -28,18 +26,18 @@ private let pkgConfigSearchPaths: [String] = {
 }()
 
 /// Information on an individual `pkg-config` supported package.
-struct PkgConfig {
+public struct PkgConfig {
     /// The name of the package.
-    let name: String
+    public let name: String
 
     /// The path to the definition file.
-    let pcFile: String
+    public let pcFile: String
 
     /// The list of C compiler flags in the definition.
-    let cFlags: [String]
+    public let cFlags: [String]
 
     /// The list of libraries to link.
-    let libs: [String]
+    public let libs: [String]
 
     /// The built-in search path list.
     ///
@@ -55,7 +53,7 @@ struct PkgConfig {
     /// Load the information for the named package.
     ///
     /// - throws: PkgConfigError
-    init(name: String) throws {
+    public init(name: String) throws {
         self.name = name
         self.pcFile = try PkgConfig.locatePCFile(name: name)
 
