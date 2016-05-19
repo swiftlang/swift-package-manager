@@ -14,6 +14,48 @@ import Utility
 import class PackageDescription.Target
 
 extension Package {
+    /// An error in the package organization of modules.
+    public enum ModuleError: ErrorProtocol {
+        case NoModules(Package)
+        case ModuleNotFound(String)
+        case InvalidLayout(InvalidLayoutType)
+        case ExecutableAsDependency(String)
+    }
+
+    public enum InvalidLayoutType {
+        case MultipleSourceRoots([String])
+        case InvalidLayout([String])
+    }
+}
+
+extension Package.InvalidLayoutType: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .MultipleSourceRoots(let paths):
+            return "multiple source roots found: " + paths.joined(separator: ", ")
+        case .InvalidLayout(let paths):
+            return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+        }
+    }
+}
+
+extension Module {
+    /// An error in the organization of an individual module.
+    public enum Error: ErrorProtocol {
+        case NoSources(String)
+        case MixedSources(String)
+        case DuplicateModule(String)
+    }
+}
+
+extension Product {
+    /// An error in a product definition.
+    public enum Error: ErrorProtocol {
+        case NoModules(String)
+    }
+}
+
+extension Package {
     private func sourceRoot() throws -> String {
         let viableRoots = walk(path, recursively: false).filter { entry in
             switch entry.basename.lowercased() {
