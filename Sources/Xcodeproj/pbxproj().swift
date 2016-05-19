@@ -8,16 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
-//TODO escaping
-
-
 import POSIX
 import PackageModel
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+// FIXME: escaping
 
+public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
@@ -171,7 +168,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     //
     // FIXME: Generate these into a sane path.
     let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: Path.join(srcroot, projectRoot))
-    try mkdir(projectXCConfig.2.parentDirectory)
+    try Utility.makeDirectories(projectXCConfig.2.parentDirectory)
     try open(projectXCConfig.2) { print in
         // Set the standard PRODUCT_NAME.
         print("PRODUCT_NAME = $(TARGET_NAME)")

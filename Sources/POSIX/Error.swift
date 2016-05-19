@@ -15,7 +15,6 @@ public enum SystemError: ErrorProtocol {
     case fgetc(Int32)
     case fread(Int32)
     case getcwd(Int32)
-    case mkdir(Int32, String)
     case mkdtemp(Int32)
     case opendir(Int32, String)
     case pipe(Int32)
@@ -62,8 +61,6 @@ extension SystemError: CustomStringConvertible {
             return "fread error: \(strerror(errno))"
         case .getcwd(let errno):
             return "getcwd error: \(strerror(errno))"
-        case .mkdir(let errno, let path):
-            return "mkdir error: \(strerror(errno)): \(path)"
         case .mkdtemp(let errno):
             return "mkdtemp error: \(strerror(errno))"
         case .opendir(let errno, _):

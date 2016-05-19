@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Utility
 import XCTest
+
 import POSIX
+import Utility
 
 class PathTests: XCTestCase {
 
@@ -128,8 +129,8 @@ class WalkTests: XCTestCase {
             try mkdtemp("foo") { root in
                 let root = try realpath(root)  //FIXME not good that we need this?
 
-                try mkdir(Path.join(root, "foo"))
-                try mkdir(Path.join(root, "bar/baz/goo"))
+                try Utility.makeDirectories(Path.join(root, "foo"))
+                try Utility.makeDirectories(Path.join(root, "bar/baz/goo"))
                 try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
@@ -150,8 +151,8 @@ class WalkTests: XCTestCase {
         try! mkdtemp("foo") { root in
             let root = try realpath(root)  //FIXME not good that we need this?
 
-            try mkdir(Path.join(root, "foo/bar"))
-            try mkdir(Path.join(root, "abc/bar"))
+            try Utility.makeDirectories(Path.join(root, "foo/bar"))
+            try Utility.makeDirectories(Path.join(root, "abc/bar"))
             try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
             try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
 
@@ -186,7 +187,7 @@ class StatTests: XCTestCase {
         XCTAssertTrue("/etc/passwd".isFile)
 
         try! mkdtemp("foo") { root in
-            try mkdir(Path.join(root, "foo/bar"))
+            try Utility.makeDirectories(Path.join(root, "foo/bar"))
             try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
 
             XCTAssertTrue("\(root)/foo/bar".isDirectory)

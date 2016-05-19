@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.mkdir
-import func POSIX.popen
-import Utility
 import XCTest
+
+import Utility
+
+import func POSIX.popen
 
 #if os(OSX)
 private let dylib = "dylib"
@@ -25,7 +26,7 @@ class ModuleMapsTestCase: XCTestCase {
         FunctionalTestSuite.fixture(name: name) { prefix in
             let input = Path.join(prefix, CModuleName, "C/foo.c")
             let outdir = Path.join(prefix, rootpkg, ".build/debug")
-            try mkdir(outdir)
+            try Utility.makeDirectories(outdir)
             let output = Path.join(outdir, "libfoo.\(dylib)")
             try systemQuietly(["clang", "-shared", input, "-o", output])
 

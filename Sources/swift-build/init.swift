@@ -8,11 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
 import PackageModel
 import POSIX
+
 import func Utility.fopen
 import func Utility.fputs
+import func Utility.makeDirectories
+import struct Utility.Path
 
 final class InitPackage {
     let mode: InitMode
@@ -75,7 +77,7 @@ final class InitPackage {
             return
         }
         print("Creating Sources/")
-        try mkdir(sources)
+        try Utility.makeDirectories(sources)
     
         let sourceFileName = (mode == .Executable) ? "main.swift" : "\(pkgname).swift"
         let sourceFile = Path.join(sources, sourceFileName)
@@ -97,7 +99,7 @@ final class InitPackage {
             return
         }
         print("Creating Tests/")
-        try mkdir(tests)
+        try Utility.makeDirectories(tests)
         ///Only libraries are testable for now
         if mode == .Library {
             try writeLinuxMain(testsPath: tests)
@@ -120,7 +122,7 @@ final class InitPackage {
     private func writeTestFileStubs(testsPath: String) throws {
         let testModule = Path.join(testsPath, pkgname)
         print("Creating Tests/\(pkgname)/")
-        try mkdir(testModule)
+        try Utility.makeDirectories(testModule)
         
         let testsFile = Path.join(testModule, "\(pkgname)Tests.swift")
         print("Creating Tests/\(pkgname)/\(pkgname)Tests.swift")

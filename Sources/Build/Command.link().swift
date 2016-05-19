@@ -8,11 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.mkdir
 import PackageModel
-import Utility
 import PkgConfig
-
+import Utility
 
 //FIXME messy :/
 
@@ -60,7 +58,7 @@ extension Command {
 
             // TODO should be llbuild rules∫
             if conf == .Debug {
-                try mkdir(outpath.parentDirectory)
+                try Utility.makeDirectories(outpath.parentDirectory)
                 try fopen(outpath.parentDirectory.parentDirectory, "Info.plist", mode: .Write) { fp in
                     try fputs(product.Info.plist, fp)
                 }

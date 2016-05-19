@@ -10,16 +10,18 @@
 
 import POSIX
 import PackageModel
+
 import class Utility.Git
-import struct Utility.Path
 import func Utility.fopen
 import func Utility.fputs
+import func Utility.makeDirectories
+import struct Utility.Path
 
 public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
     precondition(rootDir.isAbsolute)
     
     let dirPath = Path.join(rootDir, ".build/versionData")
-    try mkdir(dirPath)
+    try Utility.makeDirectories(dirPath)
 
     try saveRootPackage(dirPath, package: rootPackage)
     for (pkgName, data) in generateData(externalPackages) {

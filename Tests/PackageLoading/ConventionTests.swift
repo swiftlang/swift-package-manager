@@ -14,8 +14,6 @@ import PackageDescription
 import PackageModel
 import Utility
 
-import func POSIX.mkdir
-
 @testable import PackageLoading
 
 /// Tests for the handling of source layout conventions.
@@ -83,7 +81,7 @@ extension ConventionTests {
 /// Create a test fixture with empty files at the given paths.
 private func fixture(files: [String], body: @noescape (String) throws -> ()) {
     mktmpdir { prefix in
-        try POSIX.mkdir(prefix)
+        try Utility.makeDirectories(prefix)
         for file in files {
             try system("touch", Path.join(prefix, file))
         }

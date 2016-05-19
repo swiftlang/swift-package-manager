@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
-import func POSIX.mkdir
-import func POSIX.rename
 import PackageModel
 import Utility
+
+import struct PackageDescription.Version
+import func POSIX.rename
 
 /**
  Implementation detail: a container for fetched packages.
@@ -65,7 +65,7 @@ extension PackagesDirectory: Fetcher {
         switch fetchable {
         case let clone as RawClone:
             let prefix = Path.join(self.prefix, clone.finalName)
-            try mkdir(prefix.parentDirectory)
+            try Utility.makeDirectories(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
             //TODO don't reparse the manifest!
             let repo = Git.Repo(path: prefix)!
