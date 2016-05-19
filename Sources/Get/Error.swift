@@ -10,10 +10,10 @@
 
 import struct PackageDescription.Version
 
-public enum Error: ErrorProtocol {
+enum Error: ErrorProtocol {
 
-    public typealias ClonePath = String
-    public typealias URL = String
+    typealias ClonePath = String
+    typealias URL = String
 
     case GitCloneFailure(URL, ClonePath)
     case InvalidDependencyGraph(ClonePath)
@@ -24,7 +24,7 @@ public enum Error: ErrorProtocol {
 }
 
 extension Error: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         switch self {
         case .InvalidDependencyGraph(let package):
             return "The dependency graph could not be satisfied (\(package))"
