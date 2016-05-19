@@ -61,7 +61,7 @@ do {
         try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
         let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
         let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
-        try build(YAMLPath: yaml)
+        try build(YAMLPath: yaml, target: opts.buildTests ? "test" : nil)
 
     case .Init(let initMode):
         let initPackage = try InitPackage(mode: initMode)

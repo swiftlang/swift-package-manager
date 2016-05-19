@@ -103,13 +103,14 @@ enum Mode: Argument, Equatable, CustomStringConvertible {
 enum Flag: Argument {
     case Xcc(String)
     case Xld(String)
-    case chdir(String)
     case Xswiftc(String)
-    case verbose(Int)
     case buildPath(String)
+    case buildTests
+    case chdir(String)
     case colorMode(ColorWrap.Mode)
-    case xcconfigOverrides(String)
     case ignoreDependencies
+    case verbose(Int)
+    case xcconfigOverrides(String)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -133,16 +134,18 @@ enum Flag: Argument {
             self = try .Xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(forcePop())
+        case "--build-tests":
+            self = .buildTests
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
                 throw OptionParserError.InvalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(forcePop())
         case "--ignore-dependencies":
             self = .ignoreDependencies
+        case "--xcconfig-overrides":
+            self = try .xcconfigOverrides(forcePop())
         default:
             return nil
         }
@@ -154,9 +157,10 @@ class Options: Multitool.Options {
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
-    var xcconfigOverrides: String? = nil
-    var ignoreDependencies: Bool = false
+    var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
+    var ignoreDependencies: Bool = false
+    var xcconfigOverrides: String? = nil
 }
 
 func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
@@ -179,6 +183,8 @@ func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
             opts.Xswiftc.append(value)
         case .buildPath(let path):
             opts.path.build = path
+        case .buildTests:
+            opts.buildTests = true
         case .colorMode(let mode):
             opts.colorMode = mode
         case .xcconfigOverrides(let path):

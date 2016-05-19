@@ -104,10 +104,11 @@ private struct Targets {
     var main = Target(node: "main", cmds: [])
 
     mutating func append(_ command: Command, for buildable: Buildable) {
-        if buildable.isTest {
-            test.cmds.append(command)
-        } else {
+        if !buildable.isTest {
             main.cmds.append(command)
         }
+
+        // Always build everything for the test target.
+        test.cmds.append(command)
     }
 }
