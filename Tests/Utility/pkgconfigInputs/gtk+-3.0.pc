@@ -1,4 +1,4 @@
-prefix=/usr/local/Cellar/gtk+3/3.18.9
+prefix = /usr/local/Cellar/gtk+3/3.18.9
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
