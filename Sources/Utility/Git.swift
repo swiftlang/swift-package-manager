@@ -106,6 +106,20 @@ public class Git {
         exit(1)
     }
 
+    /// Execute a git command while suppressing output.
+    //
+    // FIXME: Move clients of this to using real structured APIs.
+    public class func runCommandQuietly(_ arguments: [String]) throws {
+        do {
+            try system(arguments)
+        } catch let error  {
+            handle(error)
+        }
+    }
+
+    /// Execute a git command and capture the output.
+    //
+    // FIXME: Move clients of this to using real structured APIs.
     public class func runPopen(_ arguments: [String]) throws -> String {
         do {
             return try popen(arguments)
