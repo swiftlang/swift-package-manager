@@ -39,6 +39,7 @@ extension ModuleProtocol {
                 let pkgConfig = try PkgConfig(name: pkgConfigName)
                 cFlags += pkgConfig.cFlags
                 libs += pkgConfig.libs
+                try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
             }
             catch PkgConfigError.CouldNotFindConfigFile {
                 if let providers = module.providers,
@@ -80,5 +81,34 @@ private extension SystemPackageProvider {
     
     static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
         return providers.filter{ $0.isAvailable }.first
+    }
+}
+
+/// Filters the flags with allowed arguments so unexpected arguments are not passed to
+/// compiler/linker. List of allowed flags:
+/// cFlags: -I, -F
+/// libs: -L, -l, -F, -framework
+func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws {
+    // Returns an array of flags which doesn't match any filter.
+    func filter(flags: [String], filters: [String]) -> [String] {
+        var filtered = [String]()     
+        var it = flags.makeIterator()
+        while let flag = it.next() {
+            guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
+                filtered += [flag]
+                continue
+            }
+            // If the flag and its value are separated, skip next flag.
+            if flag == filter {
+                guard let _ = it.next() else {
+                   fatalError("Expected associated value") 
+                }
+            }
+        }
+        return filtered
+    }
+    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) + filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
+    guard filtered.isEmpty else {
+        throw PkgConfigError.NonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }
 }

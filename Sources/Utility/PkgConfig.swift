@@ -14,6 +14,7 @@ import func POSIX.popen
 public enum PkgConfigError: ErrorProtocol {
     case CouldNotFindConfigFile
     case ParsingError(String)
+    case NonWhitelistedFlags(String)
 }
 
 /// Get search paths from pkg-config itself.
@@ -134,11 +135,11 @@ struct PkgConfigParser {
             if line.characters.contains(":") {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
-            } else if let equalsIndex = line.characters.index(of: "=") {
+            } else if line.characters.contains("=") {
                 // Found a variable.
-                let name = line[line.startIndex..<equalsIndex]
-                let value = line[line.index(after: equalsIndex)..<line.endIndex]
-                variables[name] = try resolveVariables(value)
+                let (name, maybeValue) = line.split(around: "=")
+                let value = maybeValue?.chuzzle() ?? ""
+                variables[name.chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
                 throw PkgConfigError.ParsingError("Unexpected line: \(line) in \(pcFile)")
