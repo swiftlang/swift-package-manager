@@ -150,28 +150,8 @@ extension Module: CustomStringConvertible {
     }
 }
 
-
-//FIXME swift on Linux crashed with this:
-//extension Array where Element: Module {
-//    public func recursiveDependencies() -> [Module] {
-//        var stack: [Module] = self
-//        var set = Set<Module>()
-//        var rv = [Module]()
-//
-//        while stack.count > 0 {
-//            let top = stack.removeFirst()
-//            if !set.contains(top) {
-//                rv.append(top)
-//                set.insert(top)
-//                stack += top.dependencies
-//            }
-//        }
-//
-//        return rv
-//    }
-//}
-
-public func recursiveDependencies(_ modules: [Module]) -> [Module] {
+private func recursiveDependencies(_ modules: [Module]) -> [Module] {
+    // FIXME: Refactor this to a common algorithm.
     var stack = modules
     var set = Set<Module>()
     var rv = [Module]()

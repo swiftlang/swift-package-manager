@@ -12,8 +12,8 @@ import PackageModel
 import Utility
 import func libc.exit
 
+/// Load packages into a complete set of modules and products.
 public func transmute(_ rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
-
     var products: [Product] = []
     var map: [Package: [Module]] = [:]
     
@@ -78,4 +78,73 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
     let externalModules = try Transmute.recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
     return (modules, externalModules, products)
+}
+
+private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
+    for package in packages {
+        let packageModules = modulesForPackage(package)
+        for dep in package.recursiveDependencies {
+            let depModules = modulesForPackage(dep).filter{
+                switch $0 {
+                case is TestModule:
+                    return false
+                case let module as SwiftModule where module.type == .Library:
+                    return true
+                case is CModule:
+                    return true
+                default:
+                    return false
+                }
+            }
+            for module in packageModules {
+                module.dependencies.insert(contentsOf: depModules, at: 0)
+            }
+        }
+    }
+}
+
+extension Package {
+    private var recursiveDependencies: [Package] {
+        var set = Set<Package>()
+        var stack = dependencies
+        var out = [Package]()
+
+        while !stack.isEmpty {
+            let target = stack.removeFirst()
+            if !set.contains(target) {
+                set.insert(target)
+                stack += target.dependencies
+                out.append(target)
+            }
+        }
+
+        return out
+    }
+}
+
+private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
+    // FIXME: Refactor this to a common algorithm.
+    var stack = modules
+    var set = Set<Module>()
+    var rv = [Module]()
+
+    while stack.count > 0 {
+        let top = stack.removeFirst()
+        if !set.contains(top) {
+            rv.append(top)
+            set.insert(top)
+            stack += top.dependencies
+        } else {
+            guard let index = set.index(of: top),
+                  let moduleInSet = set[index] as? ModuleTypeProtocol,
+                  let module = top as? ModuleTypeProtocol
+                      where module.sources.root != moduleInSet.sources.root else {
+                continue;
+            }
+
+            throw Module.Error.DuplicateModule(top.name)
+        }
+    }
+
+    return rv
 }

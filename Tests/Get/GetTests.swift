@@ -84,7 +84,6 @@ class GetTests: XCTestCase {
 //            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
 //
 //            XCTAssertEqual(modules.count, 3)
-//            XCTAssertEqual(recursiveDependencies(modules).count, 3)
 //            XCTAssertTrue(modules.dropFirst().first is CModule)
 //        }
 //
