@@ -59,10 +59,6 @@ let package = Package(
         // MARK: Miscellaneous
 
         Target(
-            /** Provides cFlags and link flags from .pc files for a System Module */
-            name: "PkgConfig",
-            dependencies: ["Basic", "Utility", "PackageModel"]),
-        Target(
             /** Common components of both executables */
             name: "Multitool",
             dependencies: ["Basic", "PackageModel"]),
@@ -76,11 +72,11 @@ let package = Package(
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["Basic", "PackageModel", "PkgConfig"]),
+            dependencies: ["Basic", "PackageModel", "PackageLoading"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["Basic", "PackageModel", "PkgConfig"]),
+            dependencies: ["Basic", "PackageModel", "PackageLoading"]),
 
         // MARK: Tools
         

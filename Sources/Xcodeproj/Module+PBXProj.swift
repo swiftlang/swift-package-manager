@@ -23,9 +23,10 @@
  layer for these properties we satisfy the above constraints.
 */
 
-import struct Utility.Path
 import PackageModel
-import PkgConfig
+import PackageLoading
+
+import struct Utility.Path
 
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"

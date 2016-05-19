@@ -9,11 +9,10 @@
 */
 
 import PackageModel
-import PkgConfig
+import PackageLoading
 import Utility
 
 //FIXME messy :/
-
 
 extension Command {
     static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
