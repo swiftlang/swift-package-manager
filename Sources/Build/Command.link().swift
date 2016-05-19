@@ -20,8 +20,13 @@ import PkgConfig
 extension Command {
     static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
         precondition(prefix.isAbsolute)
+
+        // Get the set of all input modules.
+        //
+        // FIXME: This needs to handle C language targets.
+        let buildables = product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }.unique()
         
-        let objects = product.buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
+        let objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
 
         let outpath = Path.join(prefix, product.outname)
 
@@ -37,7 +42,7 @@ extension Command {
             args += ["-o", outpath]
 
         case .Library(.Static):
-            let inputs = product.buildables.map{ $0.targetName } + objects
+            let inputs = buildables.map{ $0.targetName } + objects
             let outputs = [product.targetName, outpath]
             return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
@@ -99,11 +104,5 @@ extension Command {
             args: args)
 
         return Command(node: product.targetName, tool: shell)
-    }
-}
-
-extension Product {
-    private var buildables: [SwiftModule] {
-        return recursiveDependencies(modules.map{$0}).flatMap{ $0 as? SwiftModule }
     }
 }
