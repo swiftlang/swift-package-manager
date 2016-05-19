@@ -14,6 +14,7 @@ import PackageModel
  Depth-first topological sort of target dependencies.
  */
 func sort(_ module: Module) {
+    // FIXME: Refactor this to a common algorithm.
     var visited = Set<Module>()
 
     func recurse(_ module: Module) -> [Module] {
