@@ -21,7 +21,7 @@ public enum PkgConfigError: ErrorProtocol {
 /// This is needed because on Linux machines, the search paths can be different
 /// from the standard locations that we are currently searching.
 private let pkgConfigSearchPaths: [String] = {
-    let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"])
+    let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"]).chomp()
     return searchPaths?.characters.split(separator: ":").map(String.init) ?? []
 }()
 
