@@ -109,7 +109,7 @@ do {
         #if HasCustomVersionString
             print(String(cString: VersionInfo.DisplayString()))
         #else
-            print("Apple Swift Package Manager 0.1")
+            print("Swift Package Manager – Swift 3.0")
         #endif
         
     case .GenerateXcodeproj(let outpath):
