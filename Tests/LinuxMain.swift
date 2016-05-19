@@ -19,6 +19,7 @@ import BuildTestSuite
 import FunctionalTestSuite
 import GetTestSuite
 import PackageDescriptionTestSuite
+import PackageGraphTestSuite
 import PackageLoadingTestSuite
 import PackageModelTestSuite
 import UtilityTestSuite
@@ -29,6 +30,7 @@ tests += BuildTestSuite.allTests()
 tests += FunctionalTestSuite.allTests()
 tests += GetTestSuite.allTests()
 tests += PackageDescriptionTestSuite.allTests()
+tests += PackageGraphTestSuite.allTests()
 tests += PackageLoadingTestSuite.allTests()
 tests += PackageModelTestSuite.allTests()
 tests += UtilityTestSuite.allTests()

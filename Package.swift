@@ -55,35 +55,38 @@ let package = Package(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: ["Basic", "PackageDescription", "PackageModel"]),
-
-        // MARK: Miscellaneous
-
         Target(
-            /** Common components of both executables */
-            name: "Multitool",
-            dependencies: ["Basic", "PackageModel"]),
+            /** Data structures and support for complete package graphs */
+            name: "PackageGraph",
+            dependencies: ["Basic", "PackageLoading", "PackageModel"]),
 
-        // MARK: Package Manager Functionality
+        // MARK: Package Dependency Resolution
         
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
             dependencies: ["Basic", "PackageDescription", "PackageModel"]),
+        
+        // MARK: Package Manager Functionality
+        
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["Basic", "PackageModel", "PackageLoading"]),
+            dependencies: ["Basic", "PackageGraph"]),
         Target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["Basic", "PackageModel", "PackageLoading"]),
+            dependencies: ["Basic", "PackageGraph"]),
 
         // MARK: Tools
-        
+        Target(
+            /** Common components of both executables */
+            name: "Multitool",
+            dependencies: ["Basic", "PackageGraph"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
-            dependencies: ["Basic", "PackageLoading", "Get", "Build", "Multitool", "Xcodeproj"]),
+            dependencies: ["Basic", "PackageGraph", "Get", "Build", "Multitool", "Xcodeproj"]),
         Target(
             /** Runs package tests */
             name: "swift-test",
