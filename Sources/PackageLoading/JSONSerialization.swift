@@ -19,12 +19,8 @@ protocol JSONSerializable {
 }
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
-    #if os(Linux)
-        let options: NSJSONWritingOptions = .PrettyPrinted
-    #else
-        let options: NSJSONWritingOptions = .prettyPrinted
-    #endif
-    
+    let options: NSJSONWritingOptions = .prettyPrinted
+
     let json: AnyObject = package.toJSON()
     let data = try NSJSONSerialization.data(withJSONObject: json, options: options)
     guard let string = String(data: data, encoding: NSUTF8StringEncoding) else { fatalError("NSJSONSerialization emitted invalid data") }
