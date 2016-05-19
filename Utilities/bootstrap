@@ -713,8 +713,11 @@ def main():
     if args.release:
         cmd.extend(["--configuration", "release"])
 
-    # Always build tests in stage2.
-    cmd.extend(["--build-tests"])
+    # Always build tests in stage2, unless building for release.
+    #
+    # FIXME: Resolve how we are going to deal with @testable and release builds.
+    if not args.release:
+        cmd.extend(["--build-tests"])
 
     cmd = env_cmd + cmd
 
