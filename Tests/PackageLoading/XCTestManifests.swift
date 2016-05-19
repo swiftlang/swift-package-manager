@@ -13,12 +13,11 @@ import XCTest
 #if !os(OSX)
 public func allTests() -> [XCTestCaseEntry] {
     return [
+        testCase(ConventionTests.allTests),
         testCase(JSONSerializationTests.allTests),
         testCase(ManifestTests.allTests),
         testCase(ModuleDependencyTests.allTests),
-        testCase(PrimitiveResolutionTests.allTests),
         testCase(SerializationTests.allTests),
-        testCase(ValidSourcesTests.allTests),
     ]
 }
 #endif
