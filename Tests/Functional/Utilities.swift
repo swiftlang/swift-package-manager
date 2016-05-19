@@ -8,13 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
-import func Utility.rmtree
-import func Utility.walk
 import func XCTest.XCTFail
-import func POSIX.getenv
-import func POSIX.popen
+
 import POSIX
+import Utility
 
 #if os(OSX)
 import class Foundation.NSBundle
@@ -29,7 +26,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
     do {
         try POSIX.mkdtemp(gsub(fixtureName)) { prefix in
-            defer { _ = try? rmtree(prefix) }
+            defer { _ = try? Utility.removeFileTree(prefix) }
 
             let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
@@ -76,14 +73,14 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 func initGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
         let file = Path.join(dstdir, "file.swift")
-        try system(["touch", file])
-        try system(["git", "-C", dstdir, "init"])
-        try system(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-        try system(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-        try system(["git", "-C", dstdir, "add", "."])
-        try system(["git", "-C", dstdir, "commit", "-m", "msg"])
+        try systemQuietly(["touch", file])
+        try systemQuietly(["git", "-C", dstdir, "init"])
+        try systemQuietly(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
+        try systemQuietly(["git", "-C", dstdir, "config", "user.name", "Example Example"])
+        try systemQuietly(["git", "-C", dstdir, "add", "."])
+        try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
         if let tag = tag {
-            try system(["git", "-C", dstdir, "tag", tag])
+            try systemQuietly(["git", "-C", dstdir, "tag", tag])
         }
     }
     catch {
@@ -126,7 +123,7 @@ func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = 
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
             swiftc = Path.join(base, "usr/bin/swiftc")
         } else {
-            swiftc = try popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+            swiftc = try POSIX.popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
         }
         precondition(swiftc != "/usr/bin/swiftc")
         env["SWIFT_EXEC"] = swiftc
@@ -136,7 +133,7 @@ func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = 
 #endif
     var out = ""
     do {
-        try popen(args, redirectStandardError: true, environment: env) {
+        try POSIX.popen(args, redirectStandardError: true, environment: env) {
             out += $0
         }
         return out
@@ -165,7 +162,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
-            defer { _ = try? rmtree(dir) }
+            defer { _ = try? Utility.removeFileTree(dir) }
             try body(dir)
         }
     } catch {
@@ -225,7 +222,7 @@ func systemQuietly(_ args: [String]) throws {
     // Discard the output, by default.
     //
     // FIXME: Find a better default behavior here.
-    let _ = try popen(args, redirectStandardError: true)
+    let _ = try POSIX.popen(args, redirectStandardError: true)
 }
 
 func systemQuietly(_ args: String...) throws {

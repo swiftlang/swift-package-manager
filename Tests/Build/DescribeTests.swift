@@ -25,7 +25,7 @@ final class DescribeTests: XCTestCase {
             }
 
             try POSIX.mkdtemp("spm-tests") { prefix in
-                defer { _ = try? rmtree(prefix) }
+                defer { _ = try? Utility.removeFileTree(prefix) }
                 let _ = try describe(Path.join(prefix, "foo"), .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
                 XCTFail("This call should throw")
             }

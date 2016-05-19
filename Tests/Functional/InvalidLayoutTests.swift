@@ -9,8 +9,8 @@
 */
 
 import XCTest
-import func POSIX.rmdir
-import func POSIX.unlink
+
+import Utility
 
 class InvalidLayoutsTestCase: XCTestCase {
 
@@ -32,7 +32,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic1") { prefix in
             XCTAssertBuildFails(prefix)
-            try POSIX.unlink("\(prefix)/main.swift")
+            try Utility.removeFileTree("\(prefix)/main.swift")
             XCTAssertBuilds(prefix)
         }
     }
@@ -47,7 +47,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic2") { prefix in
             XCTAssertBuildFails(prefix)
-            try POSIX.unlink("\(prefix)/main.swift")
+            try Utility.removeFileTree("\(prefix)/main.swift")
             XCTAssertBuilds(prefix)
         }
     }
@@ -62,7 +62,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic3") { prefix in
             XCTAssertBuildFails(prefix)
-            try POSIX.unlink("\(prefix)/Sources/main.swift")
+            try Utility.removeFileTree("\(prefix)/Sources/main.swift")
             XCTAssertBuilds(prefix)
         }
     }
@@ -77,7 +77,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic4") { prefix in
             XCTAssertBuildFails(prefix)
-            try POSIX.unlink("\(prefix)/main.swift")
+            try Utility.removeFileTree("\(prefix)/main.swift")
             XCTAssertBuilds(prefix)
         }
     }
@@ -99,8 +99,8 @@ class InvalidLayoutsTestCase: XCTestCase {
             // determineTargets() but also we are saying: this
             // layout is only for *very* simple projects.
 
-            try POSIX.unlink("\(prefix)/Foo/Foo.swift")
-            try POSIX.rmdir("\(prefix)/Foo")
+            try Utility.removeFileTree("\(prefix)/Foo/Foo.swift")
+            try Utility.removeFileTree("\(prefix)/Foo")
             XCTAssertBuilds(prefix)
         }
     }

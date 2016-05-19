@@ -195,8 +195,8 @@ class StatTests: XCTestCase {
             XCTAssertTrue("\(root)/symlink".isDirectory)
             XCTAssertTrue("\(root)/symlink".isSymlink)
 
-            try POSIX.rmdir("\(root)/foo/bar")
-            try POSIX.rmdir("\(root)/foo")
+            try Utility.removeFileTree("\(root)/foo/bar")
+            try Utility.removeFileTree("\(root)/foo")
 
             XCTAssertTrue("\(root)/symlink".isSymlink)
             XCTAssertFalse("\(root)/symlink".isDirectory)
