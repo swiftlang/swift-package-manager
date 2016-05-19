@@ -15,7 +15,6 @@ public enum SystemError: ErrorProtocol {
     case fgetc(Int32)
     case fread(Int32)
     case getcwd(Int32)
-    case mkdir(Int32, String)
     case mkdtemp(Int32)
     case opendir(Int32, String)
     case pipe(Int32)
@@ -26,7 +25,6 @@ public enum SystemError: ErrorProtocol {
     case readlink(Int32, String)
     case realpath(Int32, String)
     case rename(Int32, old: String, new: String)
-    case rmdir(Int32, String)
     case stat(Int32, String)
     case symlinkat(Int32, String)
     case unlink(Int32, String)
@@ -62,8 +60,6 @@ extension SystemError: CustomStringConvertible {
             return "fread error: \(strerror(errno))"
         case .getcwd(let errno):
             return "getcwd error: \(strerror(errno))"
-        case .mkdir(let errno, let path):
-            return "mkdir error: \(strerror(errno)): \(path)"
         case .mkdtemp(let errno):
             return "mkdtemp error: \(strerror(errno))"
         case .opendir(let errno, _):
@@ -84,8 +80,6 @@ extension SystemError: CustomStringConvertible {
             return "realpath error: \(strerror(errno)): \(path)"
         case .rename(let errno, let old, let new):
             return "rename error: \(strerror(errno)): \(old) -> \(new)"
-        case .rmdir(let errno, let path):
-            return "rmdir error: \(strerror(errno)): \(path)"
         case .stat(let errno, _):
             return "stat error: \(strerror(errno))"
         case .symlinkat(let errno, _):

@@ -13,7 +13,6 @@ import PackageModel
 import Utility
 
 import func POSIX.getenv
-import func POSIX.mkdir
 
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
@@ -28,7 +27,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = Path.join(prefix, conf.dirname)
-    try mkdir(prefix)
+    try Utility.makeDirectories(prefix)
     let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC

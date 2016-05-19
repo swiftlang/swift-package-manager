@@ -39,8 +39,8 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = Path.join(dstdir, xcodeprojName)
     let schemesDirectory = Path.join(xcodeprojPath, "xcshareddata/xcschemes")
-    try mkdir(xcodeprojPath)
-    try mkdir(schemesDirectory)
+    try Utility.makeDirectories(xcodeprojPath)
+    try Utility.makeDirectories(schemesDirectory)
     let schemeName = "\(projectName).xcscheme"
 
 ////// the pbxproj file describes the project and its targets

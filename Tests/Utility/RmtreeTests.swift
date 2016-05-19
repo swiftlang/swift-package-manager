@@ -8,28 +8,26 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Utility
-import POSIX
 import XCTest
 
-class RmtreeTests: XCTestCase {
+import POSIX
+import Utility
 
+class RmtreeTests: XCTestCase {
     func testDoesNotFollowSymlinks() {
         do {
             try mkdtemp("foo") { root in
                 let root = try realpath(root)
 
-                try mkdir(Path.join(root, "foo"))
-                try mkdir(Path.join(root, "bar"))
-                try mkdir(Path.join(root, "bar/baz"))
-                try mkdir(Path.join(root, "bar/baz/goo"))
+                try Utility.makeDirectories(Path.join(root, "foo"))
+                try Utility.makeDirectories(Path.join(root, "bar/baz/goo"))
                 try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
                 XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
                 XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
 
-                try rmtree(root, "foo")
+                try Utility.removeFileTree("\(root)/foo")
 
                 XCTAssertFalse("\(root)/foo".exists)
                 XCTAssertFalse("\(root)/foo".isDirectory)

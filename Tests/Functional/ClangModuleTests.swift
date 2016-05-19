@@ -10,12 +10,7 @@
 
 import XCTest
 
-import struct Utility.Path
-import func POSIX.symlink
-import func Utility.walk
-import func POSIX.rename
-import func POSIX.mkdir
-import func POSIX.popen
+import Utility
 
 class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {

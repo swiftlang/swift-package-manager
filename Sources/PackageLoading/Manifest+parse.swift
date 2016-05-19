@@ -14,8 +14,6 @@ import PackageModel
 import Utility
 
 import func POSIX.realpath
-import func POSIX.unlink
-import func Utility.fopen
 
 extension Manifest {
     /// Create a manifest by loading from the given path.
@@ -78,7 +76,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     try system(cmd)
 
     let toml = try fopen(filePath).reduce("") { $0 + "\n" + $1 }
-    try unlink(filePath) //Delete the temp file after reading it
+    try Utility.removeFileTree(filePath) //Delete the temp file after reading it
 
     return toml != "" ? toml : nil
 }

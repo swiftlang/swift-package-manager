@@ -8,12 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
 
-import func libc.unlink
-import var libc.errno
-
-public func unlink(_ path: String) throws {
-    guard libc.unlink(path) == 0 else {
-        throw SystemError.unlink(errno, path)
-    }
+/// Recursively deletes the provided directory.
+public func removeFileTree(_ path: String) throws {
+    try NSFileManager.default().removeItem(atPath: path)
 }

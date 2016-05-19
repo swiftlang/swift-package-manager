@@ -14,31 +14,7 @@
 
 import POSIX
 import var libc.ENOENT
-
-/**
- Recursively deletes the provided directory.
- */
-public func rmtree(_ components: String...) throws {
-    let path = Path.join(components)
-    var dirs = [String]()
-    for entry in walk(path, recursively: true) {
-        if entry.isDirectory && !entry.isSymlink {
-            dirs.append(entry)
-        } else {
-            try POSIX.unlink(entry)
-        }
-    }
-    for dir in dirs.reversed() {
-        do {
-            try POSIX.rmdir(dir)
-        } catch .rmdir(let errno, _) as SystemError where errno == ENOENT {
-            // if the directory is not there then proceed
-            // this could happen if it was in fact symlinked
-            // from another part of the tree etc.
-        }
-    }
-    try POSIX.rmdir(path)
-}
+import Foundation
 
 
 #if os(OSX) || os(iOS) || os(Linux)
@@ -46,5 +22,15 @@ public func rmtree(_ components: String...) throws {
         public static var newline: Character { return "\n" }
     }
 #else
-    //ERROR: Unsupported platform
+    // ERROR: Unsupported platform
+#endif
+
+
+// Temporary extension until SwiftFoundation API is updated.
+#if os(Linux)
+    extension NSFileManager {
+        static func `default`() -> NSFileManager {
+            return defaultManager()
+        }
+    }
 #endif

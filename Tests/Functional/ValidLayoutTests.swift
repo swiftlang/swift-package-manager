@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
-import func POSIX.symlink
-import func Utility.walk
-import func POSIX.rename
-import func POSIX.mkdir
-import func POSIX.popen
 import XCTest
+
+import Utility
+
+import func POSIX.symlink
+import func POSIX.rename
+import func POSIX.popen
 
 class ValidLayoutsTestCase: XCTestCase {
 
@@ -109,7 +109,7 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = Path.join(prefix, "Sources")
-            try mkdir(dir)
+            try Utility.makeDirectories(dir)
             for file in files {
                 let tip = Path(file).relative(to: prefix)
                 try rename(old: file, new: Path.join(dir, tip))
@@ -121,7 +121,7 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
             let dir = Path.join(prefix, "Floobles")
-            try mkdir(dir)
+            try Utility.makeDirectories(dir)
             for file in files {
                 let tip = Path(file).relative(to: prefix)
                 try rename(old: file, new: Path.join(dir, tip))

@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Utility
+import PackageModel
+
 import func POSIX.getenv
 import func POSIX.popen
-import func POSIX.mkdir
-import PackageModel
-import Utility
 
 public protocol Toolchain {
     var platformArgs: [String] { get }
@@ -115,7 +115,7 @@ extension ClangModule {
     }
     
     private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
-        try POSIX.mkdir(wd)
+        try Utility.makeDirectories(wd)
         let moduleMapFile = Path.join(wd, self.moduleMap)
         let moduleMap = try fopen(moduleMapFile, mode: .Write)
         defer { moduleMap.closeFile() }
