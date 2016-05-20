@@ -15,6 +15,7 @@ private func hexdigit(_ value: UInt8) -> UInt8 {
 
 /// Describes a type which can be written to a byte stream.
 public protocol ByteStreamable {
+    // FIXME: Rename to write(to:)
     func writeTo(_ stream: OutputByteStream)
 }
 
@@ -309,7 +310,34 @@ public struct Format {
             stream <<< (value ? "true" : "false")
         }
     }
-    
+
+    /// Write the input integer encoded as a JSON object.
+    static public func asJSON(_ value: Int) -> ByteStreamable {
+        return JSONEscapedIntStreamable(value: value)
+    }
+    private struct JSONEscapedIntStreamable: ByteStreamable {
+        let value: Int
+        
+        func writeTo(_ stream: OutputByteStream) {
+            stream <<< value.description
+        }
+    }
+
+    /// Write the input double encoded as a JSON object.
+    static public func asJSON(_ value: Double) -> ByteStreamable {
+        return JSONEscapedDoubleStreamable(value: value)
+    }
+    private struct JSONEscapedDoubleStreamable: ByteStreamable {
+        let value: Double
+        
+        func writeTo(_ stream: OutputByteStream) {
+            // FIXME: What should we do about NaN, etc.?
+            //
+            // FIXME: Is Double.debugDescription the best representation?
+            stream <<< value.debugDescription
+        }
+    }
+
     /// Write the input string encoded as a JSON object.
     static public func asJSON(_ string: String) -> ByteStreamable {
         return JSONEscapedStringStreamable(value: string)

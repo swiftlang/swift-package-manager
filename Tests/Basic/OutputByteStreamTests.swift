@@ -59,6 +59,11 @@ class OutputByteStreamTests: XCTestCase {
         XCTAssertEqual(asJSON("\r"), "\\r")
         XCTAssertEqual(asJSON("\t"), "\\t")
         XCTAssertEqual(asJSON("\u{0001}"), "\\u0001")
+
+        // Test other random types.
+        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(false)).bytes, "false")
+        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(1 as Int)).bytes, "1")
+        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(1.2 as Double)).bytes, "1.2")
     }
     
     func testFormattedOutput() {
