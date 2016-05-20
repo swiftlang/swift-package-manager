@@ -57,7 +57,7 @@ class JSONSerializationTests: XCTestCase {
 extension JSONSerializationTests {
     
     func assertEqual(package: Package, expected: String) {
-        let json = package.toJSON().toBytes().asString!
+        let json = package.json.toString()
         XCTAssertEqual(json, expected)
     }
 }

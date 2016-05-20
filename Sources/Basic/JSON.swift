@@ -39,10 +39,17 @@ public enum JSON {
     case string(String)
 
     /// An array.
-    case array([JSON])
+    case array([JSONConvertible])
 
     /// A dictionary.
-    case dictionary([String: JSON])
+    case dictionary([String: JSONConvertible])
+}
+
+/// A JSON representation of an element.
+public protocol JSONConvertible {
+    
+    /// Return a JSON representation.
+    var json: JSON { get }
 }
 
 extension JSON: CustomStringConvertible {
@@ -73,9 +80,15 @@ public func ==(lhs: JSON, rhs: JSON) -> Bool {
     case (.double, _): return false
     case (.string(let a), .string(let b)): return a == b
     case (.string, _): return false
-    case (.array(let a), .array(let b)): return a == b
+    case (.array(let a), .array(let b)):
+        guard a.count == b.count else { return false }
+        for (i, j) in zip(a,b) { guard i == j else { return false } }
+        return true
     case (.array, _): return false
-    case (.dictionary(let a), .dictionary(let b)): return a == b
+    case (.dictionary(let a), .dictionary(let b)):
+        guard a.count == b.count else { return false }
+        for k in a.keys { guard a[k] == b[k] else { return false } }
+        return true
     case (.dictionary, _): return false
     }
 }
@@ -87,7 +100,13 @@ extension JSON {
     public func toBytes() -> ByteString {
         return (OutputByteStream() <<< self).bytes
     }
-
+    
+    public func toString() -> String {
+        guard let contents = self.json.toBytes().asString else {
+            fatalError("Failed to serialize JSON \(self)")
+        }
+        return contents
+    }
 }
 
 /// Support writing to a byte stream.
@@ -110,7 +129,7 @@ extension JSON: ByteStreamable {
             stream <<< "["
             for (i, item) in contents.enumerated() {
                 if i != 0 { stream <<< ", " }
-                stream <<< item
+                stream <<< item.json
             }
             stream <<< "]"
         case .dictionary(let contents):
@@ -120,9 +139,62 @@ extension JSON: ByteStreamable {
             stream <<< "{"
             for (i, key) in contents.keys.sorted().enumerated() {
                 if i != 0 { stream <<< ", " }
-                stream <<< Format.asJSON(key) <<< ": " <<< contents[key]!
+                stream <<< Format.asJSON(key) <<< ": " <<< contents[key]!.json
             }
             stream <<< "}"
         }
+    }
+}
+
+/// JSON Convenience functions
+
+public func ==(lhs: JSONConvertible?, rhs: JSONConvertible?) -> Bool {
+    return lhs?.json == rhs?.json
+}
+
+extension JSON: JSONConvertible {
+    public var json: JSON { return self }
+}
+
+extension String: JSONConvertible {
+    public var json: JSON { return .string(self) }
+}
+
+extension Int: JSONConvertible {
+    public var json: JSON { return .int(self) }
+}
+
+extension Double: JSONConvertible {
+    public var json: JSON { return .double(self) }
+}
+
+extension Bool: JSONConvertible {
+    public var json: JSON { return .bool(self) }
+}
+
+// EVENTUALLY: Add conformance of Array<JSONConvertible> to JSONConvertible
+// once the type system allows it.
+
+extension JSON: ArrayLiteralConvertible {
+    public init(arrayLiteral elements: JSONConvertible...) {
+        self = .array(elements)
+    }
+}
+
+extension JSON: DictionaryLiteralConvertible {
+    public init(dictionaryLiteral elements: (String, JSONConvertible)...) {
+        var dictionary: [String: JSONConvertible] = [:]
+        for pair in elements { dictionary[pair.0] = pair.1.json }
+        self = .dictionary(dictionary)
+    }
+}
+
+extension JSON {
+    public init(_ elements: [JSONConvertible]) {
+        self = .array(elements)
+    }
+    
+    public init(_ elements: [String: JSONConvertible]) {
+        self = .dictionary(elements)
     }
 }
