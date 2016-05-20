@@ -13,3 +13,9 @@ handle through a combination of the manifest `products` features, and logic in
 the `Utilities/bootstrap` script which knows how to build the library in such a
 way that it can be installed alongside the Swift runtime libraries (in
 `lib/swift/pm/`).
+
+NOTE: This is the _primitive_ model used just to describe the objects in the
+manifest files (i.e., the declarative specification of the package). It does
+*not* define the high-level model objects used by most of the rest of the
+package manager, those are provided by the
+[`PackageModel`](../PackageModel/README.md) library.
