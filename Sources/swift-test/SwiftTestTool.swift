@@ -30,7 +30,7 @@ extension Error: CustomStringConvertible {
     }
 }
 
-enum SwiftTestMode: Argument, Equatable, CustomStringConvertible {
+private enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Run(String?)
 
@@ -56,7 +56,7 @@ enum SwiftTestMode: Argument, Equatable, CustomStringConvertible {
     }
 }
 
-func ==(lhs: SwiftTestMode, rhs: SwiftTestMode) -> Bool {
+private func ==(lhs: Mode, rhs: Mode) -> Bool {
     return lhs.description == rhs.description
 }
 
@@ -145,8 +145,8 @@ struct SwiftTestTool {
         print("  --build-path <path>  Specify build directory")
     }
 
-    private func parseOptions(commandLineArguments args: [String]) throws -> (SwiftTestMode, Options) {
-        let (mode, flags): (SwiftTestMode?, [Flag]) = try Basic.parseOptions(arguments: args)
+    private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, Options) {
+        let (mode, flags): (Mode?, [Flag]) = try Basic.parseOptions(arguments: args)
 
         let opts = Options()
         for flag in flags {

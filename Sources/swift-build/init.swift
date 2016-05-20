@@ -16,6 +16,19 @@ import func Utility.fputs
 import func Utility.makeDirectories
 import struct Utility.Path
 
+private enum Error: ErrorProtocol {
+    case ManifestAlreadyExists
+}
+
+extension Error: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .ManifestAlreadyExists:
+            return "a manifest file already exists in this directory"
+        }
+    }
+}
+
 final class InitPackage {
     let mode: InitMode
     let pkgname: String

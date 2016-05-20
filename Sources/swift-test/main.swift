@@ -10,4 +10,3 @@
 
 let tool = SwiftTestTool(args: Array(Process.arguments.dropFirst()))
 tool.run()
-
