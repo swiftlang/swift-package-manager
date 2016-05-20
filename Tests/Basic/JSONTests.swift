@@ -42,6 +42,7 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(decode("1.2"), .double(1.2))
         XCTAssertEqual(decode("\"hi\""), .string("hi"))
         XCTAssertEqual(decode("[null, \"hi\"]"), .array([.null, .string("hi")]))
+        XCTAssertEqual(decode("[[null], [null]]"), .array([.array([.null]), .array([.null])]))
         XCTAssertEqual(decode("{\"a\": null, \"b\": \"hi\"}"), .dictionary(["a": .null, "b": .string("hi")]))
     }
 }
