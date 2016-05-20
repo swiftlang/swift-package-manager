@@ -8,115 +8,78 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
 import PackageDescription
+import Basic
 
 /// A JSON representation of an element.
 protocol JSONSerializable {
     
     /// Return a JSON representation.
-    func toJSON() -> AnyObject
+    func toJSON() -> JSON
 }
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
-    let options: NSJSONWritingOptions = .prettyPrinted
 
-    let json: AnyObject = package.toJSON()
-    let data = try NSJSONSerialization.data(withJSONObject: json, options: options)
-    guard let string = String(data: data, encoding: NSUTF8StringEncoding) else { fatalError("NSJSONSerialization emitted invalid data") }
+    let json = package.toJSON()
+    guard let string = json.toBytes().asString else {
+        fatalError("Failed to serialize JSON \(json)")
+    }
     return string
 }
 
-extension NSMutableDictionary {
-    static func withNew(block: @noescape (dict: NSMutableDictionary) -> ()) -> NSMutableDictionary {
-        let dict = NSMutableDictionary()
-        block(dict: dict)
-        return dict
-    }
-    
-    func set(object: AnyObject, forKey key: String) {
-        self[key.asNS()] = object
-    }
-}
-
-extension String {
-    func asNS() -> NSString {
-        #if os(Linux)
-            return self.bridge()
-        #else
-            return self as NSString
-        #endif
-    }
-}
-
-extension Array {
-    func asNS() -> NSArray {
-        #if os(Linux)
-            return self.bridge()
-        #else
-            return self.map { $0 as! AnyObject } as NSArray
-        #endif
-    }
-}
-
 extension SystemPackageProvider: JSONSerializable {
-    func toJSON() -> AnyObject {
+    func toJSON() -> JSON {
         let (name, value) = nameValue
-        
-        return NSMutableDictionary.withNew { (dict) in
-            dict.set(object: value.asNS(), forKey: name)
-        }
+        return .dictionary([name: .string(value)])
     }
 }
 
 extension Package.Dependency: JSONSerializable {
-    func toJSON() -> AnyObject {
-        let version = NSMutableDictionary.withNew { (dict) in
-            dict.set(object: versionRange.lowerBound.description.asNS(), forKey: "lowerBound")
-            dict.set(object: versionRange.upperBound.description.asNS(), forKey: "upperBound")
-        }
-        return NSMutableDictionary.withNew { (dict) in
-            dict.set(object: url.asNS(), forKey: "url")
-            dict.set(object: version, forKey: "version")
-        }
+    func toJSON() -> JSON {
+        return .dictionary([
+            "url": .string(url),
+            "version": .dictionary([
+                "lowerBound": .string(versionRange.lowerBound.description),
+                "upperBound": .string(versionRange.upperBound.description)
+            ])
+        ])
     }
 }
 
 extension Package: JSONSerializable {
-    func toJSON() -> AnyObject {
-        return NSMutableDictionary.withNew { (dict) in
-            if let name = self.name {
-                dict.set(object: name.asNS(), forKey: "name")
-            }
-            if let pkgConfig = self.pkgConfig {
-                dict.set(object: pkgConfig.asNS(), forKey: "pkgConfig")
-            }
-            dict.set(object: dependencies.map { $0.toJSON() }.asNS(), forKey: "dependencies")
-            dict.set(object: testDependencies.map { $0.toJSON() }.asNS(), forKey: "testDependencies")
-            dict.set(object: exclude.asNS(), forKey: "exclude")
-            dict.set(object: targets.map { $0.toJSON() }.asNS(), forKey: "package.targets")
-            if let providers = self.providers {
-                dict.set(object: providers.map { $0.toJSON() }.asNS(), forKey: "package.providers")
-            }
+    func toJSON() -> JSON {
+        var dict: [String: JSON] = [:]
+        if let name = self.name {
+            dict["name"] = .string(name)
         }
+        if let pkgConfig = self.pkgConfig {
+            dict["pkgConfig"] = .string(pkgConfig)
+        }
+        dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
+        dict["testDependencies"] = .array(testDependencies.map { $0.toJSON() })
+        dict["exclude"] = .array(exclude.map { .string($0) })
+        dict["package.targets"] = .array(targets.map { $0.toJSON() })
+        if let providers = self.providers {
+            dict["package.providers"] = .array(providers.map { $0.toJSON() })
+        }
+        return .dictionary(dict)
     }
 }
 
 extension Target.Dependency: JSONSerializable {
-    func toJSON() -> AnyObject {
+    func toJSON() -> JSON {
         switch self {
         case .Target(let name):
-            return name.asNS()
+            return .string(name)
         }
     }
 }
 
 extension Target: JSONSerializable {
-    func toJSON() -> AnyObject {
-        let deps = dependencies.map { $0.toJSON() }.asNS()
-        return NSMutableDictionary.withNew { (dict) in
-            dict.set(object: name.asNS(), forKey: "name")
-            dict.set(object: deps, forKey: "dependencies")
-        }
+    func toJSON() -> JSON {
+        return .dictionary([
+            "name": .string(name),
+            "dependencies": .array(dependencies.map { $0.toJSON() })
+        ])
     }
 }
