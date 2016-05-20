@@ -15,8 +15,7 @@ private func hexdigit(_ value: UInt8) -> UInt8 {
 
 /// Describes a type which can be written to a byte stream.
 public protocol ByteStreamable {
-    // FIXME: Rename to write(to:)
-    func writeTo(_ stream: OutputByteStream)
+    func write(to stream: OutputByteStream)
 }
 
 /// An output byte stream.
@@ -109,7 +108,7 @@ public class OutputByteStream: OutputStream {
 
     /// Write an arbitrary byte streamable to the buffer.
     public func write(_ value: ByteStreamable) {
-        value.writeTo(self)
+        value.write(to: self)
     }
 
     /// Write an arbitrary streamable to the buffer.
@@ -232,19 +231,19 @@ public func <<<(stream: OutputByteStream, value: Streamable) -> OutputByteStream
 }
 
 extension UInt8: ByteStreamable {
-    public func writeTo(_ stream: OutputByteStream) {
+    public func write(to stream: OutputByteStream) {
         stream.write(self)
     }
 }
 
 extension Character: ByteStreamable {
-    public func writeTo(_ stream: OutputByteStream) {
+    public func write(to stream: OutputByteStream) {
         stream.write(self)
     }
 }
 
 extension String: ByteStreamable {
-    public func writeTo(_ stream: OutputByteStream) {
+    public func write(to stream: OutputByteStream) {
         stream.write(self)
     }
 }
@@ -256,7 +255,7 @@ private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
     let items: [T]
     let separator: String
     
-    func writeTo(_ stream: OutputByteStream) {
+    func write(to stream: OutputByteStream) {
         for (i, item) in items.enumerated() {
             // Add the separator, if necessary.
             if i != 0 {
@@ -274,7 +273,7 @@ private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
     let transform: (T) -> ByteStreamable
     let separator: String
     
-    func writeTo(_ stream: OutputByteStream) {
+    func write(to stream: OutputByteStream) {
         for (i, item) in items.enumerated() {
             if i != 0 { stream <<< separator }
             stream <<< transform(item)
@@ -287,7 +286,7 @@ private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
     let items: [T]
     let transform: (T) -> String
 
-    func writeTo(_ stream: OutputByteStream) {
+    func write(to stream: OutputByteStream) {
         stream <<< UInt8(ascii: "[")
         for (i, item) in items.enumerated() {
             if i != 0 { stream <<< "," }
@@ -306,7 +305,7 @@ public struct Format {
     private struct JSONEscapedBoolStreamable: ByteStreamable {
         let value: Bool
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             stream <<< (value ? "true" : "false")
         }
     }
@@ -318,7 +317,7 @@ public struct Format {
     private struct JSONEscapedIntStreamable: ByteStreamable {
         let value: Int
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             stream <<< value.description
         }
     }
@@ -330,7 +329,7 @@ public struct Format {
     private struct JSONEscapedDoubleStreamable: ByteStreamable {
         let value: Double
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             // FIXME: What should we do about NaN, etc.?
             //
             // FIXME: Is Double.debugDescription the best representation?
@@ -345,7 +344,7 @@ public struct Format {
     private struct JSONEscapedStringStreamable: ByteStreamable {
         let value: String
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             stream <<< UInt8(ascii: "\"")
             stream.writeJSONEscaped(value)
             stream <<< UInt8(ascii: "\"")
@@ -361,7 +360,7 @@ public struct Format {
     private struct JSONEscapedStringListStreamable: ByteStreamable {
         let items: [String]
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             stream <<< UInt8(ascii: "[")
             for (i, item) in items.enumerated() {
                 if i != 0 { stream <<< "," }
@@ -378,7 +377,7 @@ public struct Format {
     private struct JSONEscapedDictionaryStreamable: ByteStreamable {
         let items: [String: String]
         
-        func writeTo(_ stream: OutputByteStream) {
+        func write(to stream: OutputByteStream) {
             stream <<< UInt8(ascii: "{")
             for (offset: i, element: (key: key, value: value)) in items.enumerated() {
                 if i != 0 { stream <<< "," }

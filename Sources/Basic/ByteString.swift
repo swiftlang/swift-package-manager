@@ -113,7 +113,7 @@ public func ==(lhs: ByteString, rhs: ByteString) -> Bool {
 
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {
-    public func writeTo(_ stream: OutputByteStream) {
+    public func write(to stream: OutputByteStream) {
         stream.write(_bytes)
     }
 }
