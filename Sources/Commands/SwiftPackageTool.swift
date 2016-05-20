@@ -27,16 +27,14 @@ import protocol Build.Toolchain
 import func POSIX.chdir
 
 /// Additional conformance for our Options type.
-extension BuildToolOptions: XcodeprojOptions {}
+extension PackageToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case Build(Configuration, Toolchain)
-    case Clean(CleanMode)
+    case Init(InitMode)
     case Doctor
     case ShowDependencies(ShowDependenciesMode)
     case Fetch
     case Update
-    case Init(InitMode)
     case Usage
     case Version
     case GenerateXcodeproj(String?)
@@ -44,27 +42,23 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--configuration", "--conf", "-c":
-            self = try .Build(Configuration(pop()), UserToolchain())
-        case "--clean":
-            self = try .Clean(CleanMode(pop()))
-        case "--doctor":
-            self = .Doctor
-        case "--show-dependencies", "-D":
-            self = try .ShowDependencies(ShowDependenciesMode(pop()))
-        case "--fetch":
-            self = .Fetch
-        case "--update":
-            self = .Update
-        case "--init", "--initialize":
+        case "init", "initialize":
             self = try .Init(InitMode(pop()))
-        case "--help", "--usage", "-h":
+        case "doctor":
+            self = .Doctor
+        case "show-dependencies", "-D":
+            self = try .ShowDependencies(ShowDependenciesMode(pop()))
+        case "fetch":
+            self = .Fetch
+        case "update":
+            self = .Update
+        case "help", "usage", "-h":
             self = .Usage
-        case "--version":
+        case "version":
             self = .Version
-        case "--generate-xcodeproj", "-X":
+        case "generate-xcodeproj":
             self = .GenerateXcodeproj(pop())
-        case "--dump-package":
+        case "dump-package":
             self = .DumpPackage(pop())
         default:
             return nil
@@ -73,32 +67,28 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-            case .Build(let conf, _): return "--configuration=\(conf)"
-            case .Clean(let mode): return "--clean=\(mode)"
-            case .Doctor: return "--doctor"
-            case .ShowDependencies: return "--show-dependencies"
-            case .GenerateXcodeproj: return "--generate-xcodeproj"
-            case .Fetch: return "--fetch"
-            case .Update: return "--update"
-            case .Init(let mode): return "--init=\(mode)"
-            case .Usage: return "--help"
-            case .Version: return "--version"
-            case .DumpPackage: return "--dump-package"
+        case .Init(let type): return "init=\(type)"
+        case .Doctor: return "doctor"
+        case .ShowDependencies: return "show-dependencies"
+        case .GenerateXcodeproj: return "generate-xcodeproj"
+        case .Fetch: return "fetch"
+        case .Update: return "update"
+        case .Usage: return "help"
+        case .Version: return "version"
+        case .DumpPackage: return "dump-package"
         }
     }
 }
 
-private enum BuildToolFlag: Argument {
+private enum PackageToolFlag: Argument {
+    case chdir(String)
+    case colorMode(ColorWrap.Mode)
     case Xcc(String)
     case Xld(String)
     case Xswiftc(String)
-    case buildPath(String)
-    case buildTests
-    case chdir(String)
-    case colorMode(ColorWrap.Mode)
+    case xcconfigOverrides(String)
     case ignoreDependencies
     case verbose(Int)
-    case xcconfigOverrides(String)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -114,16 +104,6 @@ private enum BuildToolFlag: Argument {
             self = .verbose(1)
         case "-vv":
             self = .verbose(2)
-        case "-Xcc":
-            self = try .Xcc(forcePop())
-        case "-Xlinker":
-            self = try .Xld(forcePop())
-        case "-Xswiftc":
-            self = try .Xswiftc(forcePop())
-        case "--build-path":
-            self = try .buildPath(forcePop())
-        case "--build-tests":
-            self = .buildTests
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
@@ -132,27 +112,24 @@ private enum BuildToolFlag: Argument {
             self = .colorMode(mode)
         case "--ignore-dependencies":
             self = .ignoreDependencies
-        case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(forcePop())
         default:
             return nil
         }
     }
 }
 
-private class BuildToolOptions: Options {
+private class PackageToolOptions: Options {
     var verbosity: Int = 0
+    var colorMode: ColorWrap.Mode = .Auto
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
-    var buildTests: Bool = false
-    var colorMode: ColorWrap.Mode = .Auto
-    var ignoreDependencies: Bool = false
     var xcconfigOverrides: String? = nil
+    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool {
+public struct SwiftPackageTool {
     let args: [String]
 
     public init(args: [String]) {
@@ -187,13 +164,6 @@ public struct SwiftBuildTool {
             }
         
             switch mode {
-            case .Build(let conf, let toolchain):
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
-                try build(YAMLPath: yaml, target: opts.buildTests ? "test" : nil)
-        
             case .Init(let initMode):
                 let initPackage = try InitPackage(mode: initMode)
                 try initPackage.writePackageStructure()
@@ -207,29 +177,6 @@ public struct SwiftBuildTool {
         
             case .Usage:
                 usage()
-        
-            case .Clean(.Dist):
-                if opts.path.Packages.exists {
-                    try Utility.removeFileTree(opts.path.Packages)
-                }
-                fallthrough
-        
-            case .Clean(.Build):
-                let artifacts = ["debug", "release"].map{ Path.join(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
-                for (dir, yml) in artifacts {
-                    if dir.isDirectory { try Utility.removeFileTree(dir) }
-                    if yml.isFile { try Utility.removeFileTree(yml) }
-                }
-        
-                let db = Path.join(opts.path.build, "build.db")
-                if db.isFile { try Utility.removeFileTree(db) }
-        
-                let versionData = Path.join(opts.path.build, "versionData")
-                if versionData.isDirectory { try Utility.removeFileTree(versionData) }
-        
-                if opts.path.build.exists {
-                    try Utility.removeFileTree(opts.path.build)
-                }
         
             case .Doctor:
                 doctor()
@@ -288,50 +235,44 @@ public struct SwiftBuildTool {
 
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
-        print("OVERVIEW: Build sources into binary products")
+        print("OVERVIEW: Perform operations on a swift package")
         print("")
-        print("USAGE: swift build [mode] [options]")
+        print("USAGE: swift package [command] [options]")
         print("")
-        print("MODES:")
-        print("  --configuration <value>        Build with configuration (debug|release) [-c]")
-        print("  --clean[=<mode>]               Delete artifacts (build|dist)")
-        print("  --init[=<mode>]                Create a package template (executable|library)")
-        print("  --fetch                        Fetch package dependencies")
-        print("  --update                       Update package dependencies")
-        print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
-        print("  --show-dependencies[=<mode>]   Print dependency graph (text|dot|json)")
-        print("  --dump-package[=<path>]        Print Package.swift as JSON")
+        print("COMMANDS:")
+        print("  init[=<type>]                 Initialize a new package (executable|library)")
+        print("  fetch                         Fetch package dependencies")
+        print("  update                        Update package dependencies")
+        print("  generate-xcodeproj[=<path>]   Generates an Xcode project")
+        print("  show-dependencies[=<format>]  Print dependency graph (text|dot|json)")
+        print("  dump-package[=<path>]         Print Package.swift as JSON")
         print("")
         print("OPTIONS:")
-        print("  --chdir <path>       Change working directory before any other operation [-C]")
-        print("  --build-path <path>  Specify build directory")
+        print("  --chdir <path>       Change working directory before any command [-C]")
         print("  --color <mode>       Specify color mode (auto|always|never)")
-        print("  -v[v]                Increase verbosity of informational output")
+        print("  --verbose            Increase verbosity of informational output [-v]")
         print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
         print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
         print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
+        print("")
     }
     
-    private func parse(commandLineArguments args: [String]) throws -> (Mode, BuildToolOptions) {
-        let (mode, flags): (Mode?, [BuildToolFlag]) = try Basic.parseOptions(arguments: args)
+    private func parse(commandLineArguments args: [String]) throws -> (Mode, PackageToolOptions) {
+        let (mode, flags): (Mode?, [PackageToolFlag]) = try Basic.parseOptions(arguments: args)
     
-        let opts = BuildToolOptions()
+        let opts = PackageToolOptions()
         for flag in flags {
             switch flag {
             case .chdir(let path):
                 opts.chdir = path
-            case .verbose(let amount):
-                opts.verbosity += amount
             case .Xcc(let value):
                 opts.Xcc.append(value)
             case .Xld(let value):
                 opts.Xld.append(value)
             case .Xswiftc(let value):
                 opts.Xswiftc.append(value)
-            case .buildPath(let path):
-                opts.path.build = path
-            case .buildTests:
-                opts.buildTests = true
+            case .verbose(let amount):
+                opts.verbosity += amount
             case .colorMode(let mode):
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
@@ -340,63 +281,11 @@ public struct SwiftBuildTool {
                 opts.ignoreDependencies = true
             }
         }
-    
-        return try (mode ?? .Build(.Debug, UserToolchain()), opts)
-    }
-
-    private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> String {
-        do {
-            return try Build.describe(opts.path.build, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
-        } catch {
-#if os(Linux)
-            // it is a common error on Linux for clang++ to not be installed, but
-            // we need it for linking. swiftc itself gives a non-useful error, so
-            // we try to help here.
-        
-            //FIXME we should use C-functions here
-
-            if (try? Utility.popen(["command", "-v", "clang++"])) == nil {
-                print("warning: clang++ not found: this will cause build failure", to: &stderr)
-            }
-#endif
-            throw error
+        if let mode = mode {
+            return (mode, opts)
         }
-    }
-}
-
-extension Build.Configuration {
-    private init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case "debug"?:
-            self = .Debug
-        case "release"?:
-            self = .Release
-        case nil:
-            throw OptionParserError.ExpectedAssociatedValue("--configuration")
-        default:
-            throw OptionParserError.InvalidUsage("invalid build configuration: \(rawValue!)")
-        }
-    }
-}
-
-enum CleanMode: CustomStringConvertible {
-    case Build, Dist
-
-    private init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case nil, "build"?:
-            self = .Build
-        case "dist"?, "distribution"?:
-            self = .Dist
-        default:
-            throw OptionParserError.InvalidUsage("invalid clean mode: \(rawValue)")
-        }
-    }
-
-    var description: String {
-        switch self {
-            case .Dist: return "distribution"
-            case .Build: return "build"
+        else {
+            throw OptionParserError.InvalidUsage("no command provided: \(args)")
         }
     }
 }

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import POSIX
 
@@ -160,5 +161,28 @@ final class InitPackage {
         try fputs("\t\t]\n", testsFileFP)
         try fputs("\t}\n", testsFileFP)
         try fputs("}\n", testsFileFP)
+    }
+}
+
+/// Represents a package type for the purposes of initialization.
+enum InitMode: CustomStringConvertible {
+    case Library, Executable
+
+    init(_ rawValue: String?) throws {
+        switch rawValue?.lowercased() {
+        case "library"?, "lib"?:
+            self = .Library
+        case nil, "executable"?, "exec"?, "exe"?:
+            self = .Executable
+        default:
+            throw OptionParserError.InvalidUsage("invalid initialization type: \(rawValue)")
+        }
+    }
+
+    var description: String {
+        switch self {
+            case .Library: return "library"
+            case .Executable: return "executable"
+        }
     }
 }
