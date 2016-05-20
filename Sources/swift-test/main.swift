@@ -8,5 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Commands
+
 let tool = SwiftTestTool(args: Array(Process.arguments.dropFirst()))
 tool.run()

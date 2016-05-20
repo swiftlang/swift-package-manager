@@ -75,10 +75,14 @@ private enum Flag: Argument {
 }
 
 /// swift-test tool namespace
-struct SwiftTestTool {
+public struct SwiftTestTool {
     let args: [String]
 
-    func run() {
+    public init(args: [String]) {
+        self.args = args
+    }
+    
+    public func run() {
         do {
             let (mode, opts) = try parseOptions(commandLineArguments: args)
         

@@ -153,10 +153,14 @@ private class Options: Multitool.Options {
 }
 
 /// swift-build tool namespace
-struct SwiftBuildTool {
+public struct SwiftBuildTool {
     let args: [String]
 
-    func run() {
+    public init(args: [String]) {
+        self.args = args
+    }
+
+    public func run() {
         do {
             let args = Array(Process.arguments.dropFirst())
             let (mode, opts) = try parse(commandLineArguments: args)
