@@ -8,34 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import PackageDescription
 import Basic
-
-/// A JSON representation of an element.
-protocol JSONSerializable {
-    
-    /// Return a JSON representation.
-    func toJSON() -> JSON
-}
+import PackageDescription
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
 
     let json = package.toJSON()
-    guard let string = json.toBytes().asString else {
-        fatalError("Failed to serialize JSON \(json)")
-    }
+    let string = json.toString()
     return string
 }
 
 extension SystemPackageProvider: JSONSerializable {
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         let (name, value) = nameValue
         return .dictionary([name: .string(value)])
     }
 }
 
 extension Package.Dependency: JSONSerializable {
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         return .dictionary([
             "url": .string(url),
             "version": .dictionary([
@@ -47,7 +38,7 @@ extension Package.Dependency: JSONSerializable {
 }
 
 extension Package: JSONSerializable {
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         var dict: [String: JSON] = [:]
         if let name = self.name {
             dict["name"] = .string(name)
@@ -67,7 +58,7 @@ extension Package: JSONSerializable {
 }
 
 extension Target.Dependency: JSONSerializable {
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         switch self {
         case .Target(let name):
             return .string(name)
@@ -76,7 +67,7 @@ extension Target.Dependency: JSONSerializable {
 }
 
 extension Target: JSONSerializable {
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         return .dictionary([
             "name": .string(name),
             "dependencies": .array(dependencies.map { $0.toJSON() })

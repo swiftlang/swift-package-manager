@@ -45,6 +45,13 @@ public enum JSON {
     case dictionary([String: JSON])
 }
 
+/// A JSON representation of an element.
+public protocol JSONSerializable {
+    
+    /// Return a JSON representation.
+    func toJSON() -> JSON
+}
+
 extension JSON: CustomStringConvertible {
     public var description: Swift.String {
         switch self {
@@ -87,7 +94,14 @@ extension JSON {
     public func toBytes() -> ByteString {
         return (OutputByteStream() <<< self).bytes
     }
-
+    
+    /// Encode a JSON item into a JSON string
+    public func toString() -> String {
+        guard let contents = self.toBytes().asString else {
+            fatalError("Failed to serialize JSON: \(self)")
+        }
+        return contents
+    }
 }
 
 /// Support writing to a byte stream.
