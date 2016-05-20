@@ -44,6 +44,10 @@ let package = Package(
             /** Basic support library */
             name: "Basic",
             dependencies: ["libc", "POSIX"]),
+        Target(
+            /** Source control operations */
+            name: "SourceControl",
+            dependencies: ["Basic", "Utility"]),
 
         // MARK: Project Model
         
