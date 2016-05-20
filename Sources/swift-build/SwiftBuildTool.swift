@@ -188,7 +188,7 @@ struct SwiftBuildTool {
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
+                let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
                 try build(YAMLPath: yaml, target: opts.buildTests ? "test" : nil)
         
             case .Init(let initMode):
@@ -341,6 +341,25 @@ struct SwiftBuildTool {
         }
     
         return try (mode ?? .Build(.Debug, UserToolchain()), opts)
+    }
+
+    private func describe(_ opts: Options, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> String {
+        do {
+            return try Build.describe(opts.path.build, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
+        } catch {
+#if os(Linux)
+            // it is a common error on Linux for clang++ to not be installed, but
+            // we need it for linking. swiftc itself gives a non-useful error, so
+            // we try to help here.
+        
+            //FIXME we should use C-functions here
+
+            if (try? Utility.popen(["command", "-v", "clang++"])) == nil {
+                print("warning: clang++ not found: this will cause build failure", to: &stderr)
+            }
+#endif
+            throw error
+        }
     }
 }
 
