@@ -50,12 +50,29 @@ class CheckoutManagerTests: XCTestCase {
             XCTAssertFalse(badHandle.isAvailable)
         }
     }
+
+    /// Check the behavior of the observer of repository status.
+    func testObserver() {
+        try! POSIX.mkdtemp(#function) { path in
+            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
+            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let handle = manager.lookup(repository: dummyRepo)
+
+            var wasAvailable: Bool? = nil
+            handle.addObserver { handle in
+                wasAvailable = handle.isAvailable
+            }
+            
+            XCTAssertEqual(wasAvailable, true)
+        }
+    }
 }
 
 extension CheckoutManagerTests {
     static var allTests: [(String, (CheckoutManagerTests) -> () throws -> Void)] {
         return [
             ("testBasic", testBasics),
+            ("testObserver", testObserver),
         ]
     }
 }

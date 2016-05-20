@@ -41,7 +41,7 @@ public class CheckoutManager {
     /// Handle to a managed repository.
     public class RepositoryHandle {
         enum Status {
-            /// The repository has not be requested.
+            /// The repository has not been requested.
             case uninitialized
             
             /// The repository is being fetched.
@@ -58,6 +58,9 @@ public class CheckoutManager {
         private unowned let manager: CheckoutManager
         
         /// The subpath of the repository within the manager.
+        ///
+        /// This is intentionally hidden from the clients so that the manager is
+        /// allowed to move repositories transparently.
         private let subpath: String
 
         /// The status of the repository.
@@ -83,7 +86,14 @@ public class CheckoutManager {
         /// This function will be called on an unspecified thread when the
         /// repository fetch operation is complete.
         public func addObserver(whenFetched body: (RepositoryHandle) -> ()) {
-            fatalError("FIXME: Not implemented")
+            // The current manager is not concurrent, so this has a trivial
+            // (synchronous) implementation.
+            switch status {
+            case .uninitialized, .pending:
+                fatalError("unexpected state")
+            case .available, .error:
+                body(self)
+            }
         }
     }
 
