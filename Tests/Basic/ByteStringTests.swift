@@ -23,12 +23,12 @@ class ByteStringTests: XCTestCase {
     func testInitializers() {
         do {
             let data: ByteString = [1]
-            XCTAssertEqual(data.bytes, [1])
+            XCTAssertEqual(data.contents, [1])
         }
 
-        XCTAssertEqual(ByteString([1]).bytes, [1])
+        XCTAssertEqual(ByteString([1]).contents, [1])
 
-        XCTAssertEqual(ByteString("A").bytes, [65])
+        XCTAssertEqual(ByteString("A").contents, [65])
 
         // Test StringLiteralConvertible initialization.
         XCTAssertEqual(ByteString([65]), "A")

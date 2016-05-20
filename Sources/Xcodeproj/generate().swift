@@ -88,15 +88,16 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     // If file is already present compare its content with our stream
     // and re-write only if its new.
     if path.isFile, let data = NSData(contentsOfFile: path) {
+        // FIXME: We should have a utility for this.
         var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8))
         data.getBytes(&contents, length: data.length)
         // If contents are same then no need to re-write.
-        if contents == stream.bytes.bytes { 
+        if contents == stream.bytes.contents { 
             return 
         }
     }
     // Write the real file.
     try fopen(path, mode: .Write) { fp in
-        try fputs(stream.bytes.bytes, fp)
+        try fputs(stream.bytes.contents, fp)
     }
 }

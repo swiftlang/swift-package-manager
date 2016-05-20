@@ -112,7 +112,7 @@ func write(path: String, write: (OutputByteStream) -> Void) throws {
     try fopen(path, mode: .Write) { fp in
         let stream = OutputByteStream()
         write(stream)
-        try fputs(stream.bytes.bytes, fp)
+        try fputs(stream.bytes.contents, fp)
     }
 }
 

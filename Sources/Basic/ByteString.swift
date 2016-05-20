@@ -57,7 +57,7 @@ public struct ByteString: ArrayLiteralConvertible {
     }
 
     /// Access the byte string contents as an array.
-    public var bytes: [UInt8] {
+    public var contents: [UInt8] {
         return _bytes
     }
 
@@ -100,15 +100,15 @@ extension ByteString: CustomStringConvertible {
 extension ByteString: Hashable {
     public var hashValue: Int {
         // FIXME: Use a better hash function.
-        var result = bytes.count
-        for byte in bytes {
+        var result = contents.count
+        for byte in contents {
             result = result &* 31 &+ Int(byte)
         }
         return result
     }
 }
 public func ==(lhs: ByteString, rhs: ByteString) -> Bool {
-    return lhs.bytes == rhs.bytes
+    return lhs.contents == rhs.contents
 }
 
 /// ByteStreamable conformance for a ByteString.
