@@ -16,6 +16,8 @@ import Utility
 import func POSIX.chdir
 import func libc.exit
 
+import func Build.platformFrameworksPath
+
 private enum TestError: ErrorProtocol {
     case TestsExecutableNotFound
 }
@@ -32,6 +34,7 @@ extension TestError: CustomStringConvertible {
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case Usage
     case Run(String?)
+    case ShowTests
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -40,6 +43,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case "-s":
             guard let specifier = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
             self = .Run(specifier)
+        case "--list", "-l":
+            self = .ShowTests
         default:
             return nil
         }
@@ -51,6 +56,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             return "--help"
         case .Run(let specifier):
             return specifier ?? ""
+        case .ShowTests:
+            return "--list"
         }
     }
 }
@@ -88,42 +95,44 @@ public struct SwiftTestTool {
             if let dir = opts.chdir {
                 try chdir(dir)
             }
-        
+
+            let configuration = "debug"  //FIXME should swift-test support configuration option?
+            func determineTestPath() throws -> String {
+                //FIXME better, ideally without parsing manifest since
+                // that makes us depend on the whole Manifest system
+
+                let packageName = opts.path.root.basename  //FIXME probably not true
+                let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
+
+                if maybePath.exists {
+                    return maybePath
+                } else {
+                    let possiblePaths = walk(opts.path.build).filter {
+                        $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
+                        $0.hasSuffix(".xctest")
+                    }
+
+                    guard let path = possiblePaths.first else {
+                        throw TestError.TestsExecutableNotFound
+                    }
+
+                    return path
+                }
+            }
             switch mode {
             case .Usage:
                 usage()
         
             case .Run(let specifier):
-                let configuration = "debug"  //FIXME should swift-test support configuration option?
-        
-                func determineTestPath() throws -> String {
-        
-                    //FIXME better, ideally without parsing manifest since
-                    // that makes us depend on the whole Manifest system
-        
-                    let packageName = opts.path.root.basename  //FIXME probably not true
-                    let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
-        
-                    if maybePath.exists {
-                        return maybePath
-                    } else {
-                        let possiblePaths = walk(opts.path.build).filter {
-                            $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
-                            $0.hasSuffix(".xctest")
-                        }
-                        
-                        guard let path = possiblePaths.first else {
-                            throw TestError.TestsExecutableNotFound
-                        }
-                        
-                        return path
-                    }
-                }
-        
                 let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
                 try build(YAMLPath: yamlPath, target: "test")
                 let success = try test(path: determineTestPath(), xctestArg: specifier)
                 exit(success ? 0 : 1)
+
+            case .ShowTests:
+                let testFinder = Path.join(Process.arguments.first!.abspath.parentDirectory, "spm-test-finder")
+                let args = [testFinder, try determineTestPath()]
+                try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
             }
         } catch Error.BuildYAMLNotFound {
             print("error: you must run `swift build` first", to: &stderr)

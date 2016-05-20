@@ -108,7 +108,7 @@ g_default_sysroot = None
 if platform.system() == 'Darwin':
     g_platform_path = subprocess.check_output(
         ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"],
-        universal_newlines=True).strip()
+        universal_newlines=True).strip() + "/Developer/Library/Frameworks"
     g_default_sysroot = subprocess.check_output(
         ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
         universal_newlines=True).strip()
@@ -169,6 +169,7 @@ class Target(object):
         other_args = ['-Onone', '-j%d' % g_num_cpus] + self.swiftflags
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
+            other_args.extend(["-F", g_platform_path])
         if args.sysroot:
             other_args.extend(["-sdk", args.sysroot])
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
@@ -379,6 +380,7 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-sdk", args.sysroot])
             if platform.system() == 'Darwin':
                 link_command.extend(["-target", "x86_64-apple-macosx10.10"])
+                link_command.extend(["-F", g_platform_path])
             link_command.append(' '.join(pipes.quote(o) for o in objects))
             for dependency in target.dependencies:
                 dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
@@ -734,6 +736,7 @@ def main():
 
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
+    spm_test_finder_path = os.path.join(build_path, conf, "spm-test-finder")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
@@ -752,7 +755,7 @@ def main():
                                         "lib", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_build_path, swift_test_path]:
+        for product_path in [swift_build_path, swift_test_path, spm_test_finder_path]:
             cmd = ["install", product_path, bin_install_path]
             note("installing %s: %s" % (
                 os.path.basename(product_path), ' '.join(cmd)))
