@@ -95,6 +95,9 @@ let package = Package(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"]),
+        Target(
+            /** Shim tool to find test names on OS X */
+            name: "spm-test-finder"),
     ])
 
 

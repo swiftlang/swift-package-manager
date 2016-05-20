@@ -21,7 +21,7 @@ public protocol Toolchain {
     var clang: String { get }
 }
 
-func platformFrameworksPath() throws -> String {
+public func platformFrameworksPath() throws -> String {
     // Lazily compute the platform the first time it is needed.
     struct Static {
         static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()

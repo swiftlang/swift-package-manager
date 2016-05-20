@@ -38,6 +38,10 @@ extension Command {
             args += ["-L\(prefix)"]
             args += ["-o", outpath]
 
+          #if os(OSX)
+            args += ["-F", try platformFrameworksPath()]
+          #endif
+
         case .Library(.Static):
             let inputs = buildables.map{ $0.targetName } + objects
             let outputs = [product.targetName, outpath]
