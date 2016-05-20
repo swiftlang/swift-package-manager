@@ -105,6 +105,7 @@ extension Command {
         var args = module.basicArgs
         args += module.optimizationFlags(conf)
         args += ["-L\(prefix)"]
+        args += module.languageLinkArgs
         args += module.linkFlags
         args += module.sources.compilePathsForBuildDir(wd).map{$0.object}
         args += Xld
