@@ -2,10 +2,27 @@
 
 import XCTest
 import Foundation
+import Darwin.C
 
 enum Error: ErrorProtocol {
     case invalidUsage
     case unableToLoadBundle(String)
+}
+
+func withRedirectedStdout<T>(body: () throws -> T) throws -> T {
+    fflush(stdout)
+    let oldFd = dup(1)
+    let newFd = open("/dev/null", O_WRONLY);
+    dup2(newFd, 1)
+    close(newFd)
+
+    let result = try body()
+
+    fflush(stdout)
+    dup2(oldFd, 1)
+    close(oldFd)
+
+    return result
 }
 
 do {
@@ -18,12 +35,13 @@ do {
     }
     bundlePath = (bundlePath as NSString).standardizingPath
 
-    guard let bundle = NSBundle(path: bundlePath) where bundle.load() else {
-        throw Error.unableToLoadBundle(bundlePath)
+    let suite: XCTestSuite = try withRedirectedStdout {
+        guard let bundle = NSBundle(path: bundlePath) where bundle.load() else {
+            throw Error.unableToLoadBundle(bundlePath)
+        }
+        return XCTestSuite.default()
     }
     
-    let suite = XCTestSuite.default()
-
     let splitSet: Set<Character> = ["[", " ", "]", ":"]
     for case let testCaseSuite as XCTestSuite in suite.tests {
         for case let testCaseSuite as XCTestSuite in testCaseSuite.tests {
