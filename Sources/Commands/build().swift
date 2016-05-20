@@ -16,7 +16,7 @@ import func libc.exit
 // Builds the default target in the llbuild manifest unless specified.
 public func build(YAMLPath: String, target: String? = nil) throws {
     do {
-        var args = [llbuild, "-f", YAMLPath]
+        var args = [ToolDefaults.llbuild, "-f", YAMLPath]
         if let target = target {
             args += [target]
         }

@@ -16,11 +16,11 @@ import func Utility.fputs
 import func Utility.makeDirectories
 import struct Utility.Path
 
-private enum Error: ErrorProtocol {
+private enum InitError: ErrorProtocol {
     case ManifestAlreadyExists
 }
 
-extension Error: CustomStringConvertible {
+extension InitError: CustomStringConvertible {
     var description: String {
         switch self {
         case .ManifestAlreadyExists:
@@ -54,7 +54,7 @@ final class InitPackage {
     private func writeManifestFile() throws {
         let manifest = Path.join(rootd, Manifest.filename)
         guard manifest.exists == false else {
-            throw Error.ManifestAlreadyExists
+            throw InitError.ManifestAlreadyExists
         }
         
         let packageFP = try Utility.fopen(manifest, mode: .Write)

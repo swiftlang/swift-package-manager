@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import POSIX
+
 import protocol Build.Toolchain
 import struct Utility.Path
-import enum Multitool.Error
-import POSIX
 
 #if os(OSX)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
@@ -47,10 +47,10 @@ struct UserToolchain: Toolchain {
             #endif
 
             guard !SWIFT_EXEC.isEmpty && !clang.isEmpty && (sysroot == nil || !sysroot!.isEmpty) else {
-                throw Multitool.Error.InvalidToolchain
+                throw Error.InvalidToolchain
             }
         } catch POSIX.Error.ExitStatus {
-            throw Multitool.Error.InvalidToolchain
+            throw Error.InvalidToolchain
         }
     }
 }

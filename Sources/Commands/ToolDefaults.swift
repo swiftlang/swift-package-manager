@@ -12,16 +12,17 @@ import PackageModel
 import Utility
 import POSIX
 
+struct ToolDefaults {
 #if Xcode
-
     // when in Xcode we are built with same toolchain as we will run
     // this is not a production ready mode
 
-    public let SWIFT_EXEC = getenv("SWIFT_EXEC")!.abspath
-    public let llbuild = Path.join(getenv("SWIFT_EXEC")!, "../swift-build-tool").abspath
-    public let libdir = argv0.parentDirectory
+    static let SWIFT_EXEC = getenv("SWIFT_EXEC")!.abspath
+    static let llbuild = Path.join(getenv("SWIFT_EXEC")!, "../swift-build-tool").abspath
+    static let libdir = argv0.parentDirectory
 #else
-    public let SWIFT_EXEC = Path.join(argv0, "../swiftc").abspath
-    public let llbuild = Path.join(argv0, "../swift-build-tool").abspath
-    public let libdir = Path.join(argv0, "../../lib/swift/pm").abspath
+    static let SWIFT_EXEC = Path.join(argv0, "../swiftc").abspath
+    static let llbuild = Path.join(argv0, "../swift-build-tool").abspath
+    static let libdir = Path.join(argv0, "../../lib/swift/pm").abspath
 #endif
+}

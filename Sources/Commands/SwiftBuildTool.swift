@@ -11,7 +11,6 @@
 import Basic
 import Build
 import Get
-import Multitool
 import PackageLoading
 import PackageModel
 import Utility
@@ -28,7 +27,7 @@ import protocol Build.Toolchain
 import func POSIX.chdir
 
 /// Additional conformance for our Options type.
-extension Options: XcodeprojOptions {}
+extension BuildToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case Build(Configuration, Toolchain)
@@ -89,7 +88,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     }
 }
 
-private enum Flag: Argument {
+private enum BuildToolFlag: Argument {
     case Xcc(String)
     case Xld(String)
     case Xswiftc(String)
@@ -109,7 +108,7 @@ private enum Flag: Argument {
         }
 
         switch argument {
-        case Multitool.Flag.chdir, Multitool.Flag.C:
+        case Flag.chdir, Flag.C:
             self = try .chdir(forcePop())
         case "--verbose", "-v":
             self = .verbose(1)
@@ -141,7 +140,7 @@ private enum Flag: Argument {
     }
 }
 
-private class Options: Multitool.Options {
+private class BuildToolOptions: Options {
     var verbosity: Int = 0
     var Xcc: [String] = []
     var Xld: [String] = []
@@ -173,8 +172,8 @@ public struct SwiftBuildTool {
             }
         
             func parseManifest(path: String, baseURL: String) throws -> Manifest {
-                let swiftc = Multitool.SWIFT_EXEC
-                let libdir = Multitool.libdir
+                let swiftc = ToolDefaults.SWIFT_EXEC
+                let libdir = ToolDefaults.libdir
                 return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
             }
             
@@ -313,12 +312,10 @@ public struct SwiftBuildTool {
         print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
     }
     
-    private func parse(commandLineArguments args: [String]) throws -> (Mode, Options) {
-        let mode: Mode?
-        let flags: [Flag]
-        (mode, flags) = try Basic.parseOptions(arguments: args)
+    private func parse(commandLineArguments args: [String]) throws -> (Mode, BuildToolOptions) {
+        let (mode, flags): (Mode?, [BuildToolFlag]) = try Basic.parseOptions(arguments: args)
     
-        let opts = Options()
+        let opts = BuildToolOptions()
         for flag in flags {
             switch flag {
             case .chdir(let path):
@@ -347,7 +344,7 @@ public struct SwiftBuildTool {
         return try (mode ?? .Build(.Debug, UserToolchain()), opts)
     }
 
-    private func describe(_ opts: Options, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> String {
+    private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> String {
         do {
             return try Build.describe(opts.path.build, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         } catch {

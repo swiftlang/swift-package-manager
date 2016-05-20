@@ -11,17 +11,16 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import class Foundation.NSProcessInfo
 
 import Basic
-import Multitool
 import Utility
 
 import func POSIX.chdir
 import func libc.exit
 
-private enum Error: ErrorProtocol {
+private enum TestError: ErrorProtocol {
     case TestsExecutableNotFound
 }
 
-extension Error: CustomStringConvertible {
+extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
         case .TestsExecutableNotFound:
@@ -60,7 +59,7 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
     return lhs.description == rhs.description
 }
 
-private enum Flag: Argument {
+private enum TestToolFlag: Argument {
     case chdir(String)
 
     init?(argument: String, pop: () -> String?) throws {
@@ -114,7 +113,7 @@ public struct SwiftTestTool {
                         }
                         
                         guard let path = possiblePaths.first else {
-                            throw Error.TestsExecutableNotFound
+                            throw TestError.TestsExecutableNotFound
                         }
                         
                         return path
@@ -126,7 +125,7 @@ public struct SwiftTestTool {
                 let success = try test(path: determineTestPath(), xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
-        } catch Multitool.Error.BuildYAMLNotFound {
+        } catch Error.BuildYAMLNotFound {
             print("error: you must run `swift build` first", to: &stderr)
             exit(1)
         } catch {
@@ -150,7 +149,7 @@ public struct SwiftTestTool {
     }
 
     private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, Options) {
-        let (mode, flags): (Mode?, [Flag]) = try Basic.parseOptions(arguments: args)
+        let (mode, flags): (Mode?, [TestToolFlag]) = try Basic.parseOptions(arguments: args)
 
         let opts = Options()
         for flag in flags {
@@ -165,7 +164,7 @@ public struct SwiftTestTool {
 
     private func test(path: String, xctestArg: String? = nil) throws -> Bool {
         guard path.isValidTest else {
-            throw Error.TestsExecutableNotFound
+            throw TestError.TestsExecutableNotFound
         }
 
         var args: [String] = []

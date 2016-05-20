@@ -80,13 +80,9 @@ let package = Package(
 
         // MARK: Commands
         Target(
-            /** Common components of both executables */
-            name: "Multitool",
-            dependencies: ["Basic", "PackageGraph"]),
-        Target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "Get", "Multitool", "PackageGraph", "Xcodeproj"]),
+            dependencies: ["Basic", "Build", "Get", "PackageGraph", "Xcodeproj"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-build",
