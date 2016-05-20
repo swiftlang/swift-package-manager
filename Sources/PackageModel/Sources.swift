@@ -29,7 +29,7 @@ public struct Sources {
     
     static public var validSwiftExtensions = Set<String>(["swift"])
     
-    static public var validCExtensions = Set<String>(["c"])
+    static public var validCExtensions = Set<String>(["c", "m"])
     
     static public var validExtensions = { validSwiftExtensions.union(validCExtensions) }()
 }

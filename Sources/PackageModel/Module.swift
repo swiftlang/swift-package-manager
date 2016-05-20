@@ -51,13 +51,14 @@ public enum ModuleType {
 public protocol ModuleTypeProtocol {
     var sources: Sources { get }
     var type: ModuleType { get }
-    var mainFile: String { get }
 }
 
 extension ModuleTypeProtocol {
     public var type: ModuleType {
         let isLibrary = !sources.relativePaths.contains { path in
-            path.basename.lowercased() == mainFile
+           let file = path.basename.lowercased()
+           // Look for a main.xxx file avoiding cases like main.xxx.xxx
+           return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
         }
         return isLibrary ? .Library : .Executable
     }
@@ -82,12 +83,6 @@ public class SwiftModule: Module {
     public init(name: String, sources: Sources) throws {
         self.sources = sources
         try super.init(name: name)
-    }
-}
-
-extension SwiftModule: ModuleTypeProtocol {
-    public var mainFile: String {
-        return "main.swift"
     }
 }
 
@@ -121,12 +116,6 @@ public class ClangModule: CModule {
 extension ClangModule: XcodeModuleProtocol {
     public var fileType: String {
         return "sourcecode.c.c"
-    }
-}
-
-extension ClangModule: ModuleTypeProtocol {
-    public var mainFile: String {
-        return "main.c"
     }
 }
 
