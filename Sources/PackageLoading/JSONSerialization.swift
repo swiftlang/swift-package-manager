@@ -8,70 +8,78 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
 import PackageDescription
+import Basic
+
+/// A JSON representation of an element.
+protocol JSONSerializable {
+    
+    /// Return a JSON representation.
+    func toJSON() -> JSON
+}
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
 
-    let json = package.json
-    let string = json.toString()
+    let json = package.toJSON()
+    guard let string = json.toBytes().asString else {
+        fatalError("Failed to serialize JSON \(json)")
+    }
     return string
 }
 
-extension SystemPackageProvider: JSONConvertible {
-    public var json: JSON {
+extension SystemPackageProvider: JSONSerializable {
+    func toJSON() -> JSON {
         let (name, value) = nameValue
-        return JSON([name: value])
+        return .dictionary([name: .string(value)])
     }
 }
 
-extension Package.Dependency: JSONConvertible {
-    public var json: JSON {
-        return JSON([
-            "url": url,
-            "version": JSON([
-                "lowerBound": versionRange.lowerBound.description,
-                "upperBound": versionRange.upperBound.description
+extension Package.Dependency: JSONSerializable {
+    func toJSON() -> JSON {
+        return .dictionary([
+            "url": .string(url),
+            "version": .dictionary([
+                "lowerBound": .string(versionRange.lowerBound.description),
+                "upperBound": .string(versionRange.upperBound.description)
             ])
         ])
     }
 }
 
-extension Package: JSONConvertible {
-    public var json: JSON {
-        var dict: [String: JSONConvertible] = [:]
+extension Package: JSONSerializable {
+    func toJSON() -> JSON {
+        var dict: [String: JSON] = [:]
         if let name = self.name {
-            dict["name"] = name
+            dict["name"] = .string(name)
         }
         if let pkgConfig = self.pkgConfig {
-            dict["pkgConfig"] = pkgConfig
+            dict["pkgConfig"] = .string(pkgConfig)
         }
-        
-        dict["dependencies"] = JSON(dependencies.map { $0.json })
-        dict["testDependencies"] = JSON(testDependencies.map { $0.json })
-        dict["exclude"] = JSON(exclude.map { $0.json })
-        dict["package.targets"] = JSON(targets.map { $0.json })
+        dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
+        dict["testDependencies"] = .array(testDependencies.map { $0.toJSON() })
+        dict["exclude"] = .array(exclude.map { .string($0) })
+        dict["package.targets"] = .array(targets.map { $0.toJSON() })
         if let providers = self.providers {
-            dict["package.providers"] = JSON(providers.map { $0.json })
+            dict["package.providers"] = .array(providers.map { $0.toJSON() })
         }
-        return JSON(dict)
+        return .dictionary(dict)
     }
 }
 
-extension Target.Dependency: JSONConvertible {
-    public var json: JSON {
+extension Target.Dependency: JSONSerializable {
+    func toJSON() -> JSON {
         switch self {
         case .Target(let name):
-            return name.json
+            return .string(name)
         }
     }
 }
 
-extension Target: JSONConvertible {
-    public var json: JSON {
-        return JSON([
-            "name": name,
-            "dependencies": JSON(dependencies.map { $0.json })
+extension Target: JSONSerializable {
+    func toJSON() -> JSON {
+        return .dictionary([
+            "name": .string(name),
+            "dependencies": .array(dependencies.map { $0.toJSON() })
         ])
     }
 }
