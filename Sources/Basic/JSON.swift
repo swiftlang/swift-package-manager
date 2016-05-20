@@ -126,3 +126,100 @@ extension JSON: ByteStreamable {
         }
     }
 }
+
+// MARK: JSON Decoding
+
+import Foundation
+
+enum JSONDecodingError: ErrorProtocol {
+    /// The input byte string is malformed.
+    case malformed
+}
+
+// NOTE: This implementation is carefully crafter to work correctly on both
+// Linux and OS X while still compiling for both. Thus, the implementation takes
+// Any even though it could take AnyObject on OS X, and it uses converts to
+// direct Swift types (for Linux) even though those don't apply on OS X.
+//
+// This allows the code to be portable, and expose a portable API, but it is not
+// very efficient.
+
+private let nsBooleanType = NSNumber(value: false).dynamicType
+extension JSON {
+    private static func convertToJSON(_ object: Any) -> JSON {
+        switch object {
+        case is NSNull:
+            return .null            
+        case let value as String:
+            return .string(value)
+
+        case let value as NSNumber:
+            // Check if this is a boolean.
+            //
+            // FIXME: This is all rather unfortunate and expensive.
+            if value.dynamicType === nsBooleanType {
+                return .bool(value != 0)
+            }
+
+            // Check if this is an exact integer.
+            //
+            // FIXME: This is highly questionable. Aside from the performance of
+            // decoding in this fashion, it means clients which truly have
+            // arrays of real numbers will need to be prepared to see either an
+            // .int or a .double. However, for our specific use case we usually
+            // want to get integers out of JSON, and so it seems an ok tradeoff
+            // versus forcing all clients to cast out of a double.
+            let asInt = value.intValue
+            if NSNumber(value: asInt) == value {
+                return .int(asInt)
+            }
+
+            // Otherwise, we have a floating point number.
+            return .double(value.doubleValue)
+        case let value as NSArray:
+            return .array(value.map(convertToJSON))
+        case let value as NSDictionary:
+            var result = [String: JSON]()
+            value.forEach { result[$0 as! String] = convertToJSON($1) }
+            return .dictionary(result)
+            
+            // On Linux, the JSON deserialization handles this.
+        case let asBool as Bool: // This is true on Linux.
+            return .bool(asBool)
+        case let asInt as Int: // This is true on Linux.
+            return .int(asInt)
+        case let asDouble as Double: // This is true on Linux.
+            return .double(asDouble)
+        case let value as [Any]:
+            return .array(value.map(convertToJSON))
+        case let value as [String: Any]:
+            var result = [String: JSON]()
+            value.forEach { result[$0] = convertToJSON($1) }
+            return .dictionary(result)
+
+        default:
+            fatalError("unexpected object: \(object) \(object.dynamicType)")
+        }
+    }
+    
+    /// Load a JSON item from a byte string.
+    ///
+    //
+    public init(bytes: ByteString) throws {
+        // Convert to NSData
+        let data = NSData(bytes: bytes.contents, length: bytes.count)
+        
+        do {
+            let result = try NSJSONSerialization.jsonObject(with: data, options: [.allowFragments])
+            
+            // Convert to a native representation.
+            //
+            // FIXME: This is inefficient; eventually, we want a way to do the
+            // loading and not need to copy / traverse all of the data multiple
+            // times.
+            self = JSON.convertToJSON(result)
+        } catch {
+            throw JSONDecodingError.malformed
+        }
+    }
+}

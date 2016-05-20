@@ -318,6 +318,7 @@ public struct Format {
         let value: Int
         
         func write(to stream: OutputByteStream) {
+            // FIXME: Diagnose integers which cannot be represented in JSON.
             stream <<< value.description
         }
     }
