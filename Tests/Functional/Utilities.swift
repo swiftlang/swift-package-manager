@@ -95,21 +95,86 @@ enum Configuration {
 
 private var globalSymbolInMainBinary = 0
 
+/// Defines the executables used by SwiftPM.
+/// Contains path to the currently built executable and
+/// helper method to execute them.
+enum SwiftPMProduct {
+    case SwiftBuild
+    case SwiftPackage
+    case SwiftTest
+    case XCTestHelper
 
-func swiftSubcommandPath(_  subcommand: String) -> String {
-#if os(OSX)
-    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
-        return Path.join(bundle.bundlePath.parentDirectory, "swift-" + subcommand)
+    /// Path to currently built binary.
+    var path: String {
+      #if os(OSX)
+        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+            return Path.join(bundle.bundlePath.parentDirectory, exec)
+        }
+        fatalError()
+      #else
+        return Path.join(Process.arguments.first!.abspath.parentDirectory, exec)
+      #endif
     }
-    fatalError()
-#else
-    return Path.join(Process.arguments.first!.abspath.parentDirectory, "swift-" + subcommand)
-#endif
+
+    /// Executable name.
+    var exec: String {
+        switch self {
+        case SwiftBuild:
+            return "swift-build"
+        case SwiftPackage:
+            return "swift-package"
+        case SwiftTest:
+            return "swift-test"
+        case XCTestHelper:
+            return "swiftpm-xctest-helper"
+        }
+    }
+}
+
+extension SwiftPMProduct {
+    /// Executes the product with specified arguments.
+    ///
+    /// - Parameters:
+    ///         - args: The arguments to pass.
+    ///         - env: Enviroment variables to pass. Enviroment will never be inherited.
+    ///         - chdir: Adds argument `--chdir <path>` if not nil.
+    ///         - printIfError: Print the output on non-zero exit.
+    ///
+    /// - Returns: The output of the process.
+    func execute(_ args: [String], chdir: String? = nil, env: [String: String], printIfError: Bool = false) throws -> String {
+        var out = ""
+        do {
+            var theArgs = [path]
+            if let chdir = chdir {
+                theArgs += ["--chdir", chdir]
+            }
+            try POSIX.popen(theArgs + args, redirectStandardError: true, environment: env) {
+                out += $0
+            }
+            return out
+        } catch {
+            if printIfError {
+                print("output:", out)
+                print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
+                print(exec + ":", path)
+            }
+            throw error
+        }
+    }
 }
 
 @discardableResult
-func executeSwiftSubcommand(_ subcommand: String, args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
-    let args = [swiftSubcommandPath(subcommand), "--chdir", chdir] + args
+func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = [], env: [String: String] = [:]) throws -> String {
+    var args = ["--configuration"]
+    switch configuration {
+    case .Debug:
+        args.append("debug")
+    case .Release:
+        args.append("release")
+    }
+    args += Xld.flatMap{ ["-Xlinker", $0] }
+
+    let swiftBuild = SwiftPMProduct.SwiftBuild
     var env = env
 
     // FIXME: We use this private enviroment variable hack to be able to
@@ -132,38 +197,7 @@ func executeSwiftSubcommand(_ subcommand: String, args: [String], chdir: String,
         fatalError("HURRAY! This is fixed")
     }
 #endif
-    var out = ""
-    do {
-        try POSIX.popen(args, redirectStandardError: true, environment: env) {
-            out += $0
-        }
-        return out
-    } catch {
-        if printIfError {
-            print("output:", out)
-            print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
-            print("swift-\(subcommand):", swiftSubcommandPath(subcommand))
-        }
-        throw error
-    }
-}
-
-@discardableResult
-func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
-    return try executeSwiftSubcommand("build", args: args, chdir: chdir, env: env, printIfError: printIfError)
-}
-
-@discardableResult
-func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = [], env: [String: String] = [:]) throws -> String {
-    var args = ["--configuration"]
-    switch configuration {
-    case .Debug:
-        args.append("debug")
-    case .Release:
-        args.append("release")
-    }
-    args += Xld.flatMap{ ["-Xlinker", $0] }
-    return try executeSwiftBuild(args, chdir: chdir, env: env, printIfError: printIfError)
+    return try swiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
@@ -187,6 +221,15 @@ func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
+    }
+}
+
+func XCTAssertSwiftTest(_ paths: String..., file: StaticString = #file, line: UInt = #line, env: [String: String] = [:]) {
+    let prefix = Path.join(paths)
+    do {
+        _ = try SwiftPMProduct.SwiftTest.execute([], chdir: prefix, env: env, printIfError: true)
+    } catch {
+        XCTFail("`swift test' failed:\n\n\(error)\n", file: file, line: line)
     }
 }
 
