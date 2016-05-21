@@ -151,7 +151,7 @@ extension Package {
     private func modulify(_ path: String, name: String) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
-        let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCExtensions) }
+        let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCFamilyExtensions) }
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
         
         if !cSources.isEmpty {
