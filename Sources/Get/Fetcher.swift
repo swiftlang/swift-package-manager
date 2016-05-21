@@ -9,6 +9,7 @@
 */
 
 import struct PackageDescription.Version
+import class Utility.Git
 
 /**
  Testable protocol to recursively fetch versioned resources.
@@ -82,6 +83,13 @@ extension Fetcher {
                     guard specifiedVersionRange ~= pkg.version else {
                         throw Error.UpdateRequired(url)
                     }
+                    
+                    if let repo = Git.Repo(path: url) {
+                        if let newAvailableVersion = try repo.newAvailableVersion(currentVersion: pkg.version, versionRange: specifiedVersionRange) {
+                            print(Error.NewAvailableVersionExists(repo.path, newAvailableVersion))
+                        }
+                    }
+                    
                     graph[url] = (pkg, specifiedVersionRange)
                     return try recurse(pkg.children) + [url]
 

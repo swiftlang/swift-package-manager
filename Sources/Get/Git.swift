@@ -64,4 +64,9 @@ extension Git.Repo {
     var hasVersion: Bool {
         return !versions.isEmpty
     }
+    
+    func newAvailableVersion(currentVersion: Version, versionRange: Range<Version>) throws -> Version? {
+        let newAvailableVersions = versions.filter { $0 > currentVersion }
+        return newAvailableVersions.filter { versionRange ~= $0 }.last
+    }
 }
