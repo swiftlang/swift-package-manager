@@ -78,6 +78,12 @@ func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, St
     return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
 }
 
+func fileRef(ofInfoPlistFor module: XcodeModuleProtocol, inDirectory destdir: String) -> (ref: String, path: String, name: String) {
+    let name = module.infoPlistFileName
+    let path = Path.join(destdir, name)
+    return (ref: "\(sourceGroupFileRefPrefix)\(name)", path: path, name: name)
+}
+
 func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: String) -> [(String, String)] {
     return module.sources.relativePaths.map { relativePath in
         let path = Path.join(module.sources.root, relativePath)
@@ -96,15 +102,19 @@ func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroo
 
 extension XcodeModuleProtocol  {
 
-    private var isLibrary: Bool {
+    var isLibrary: Bool {
         return type == .Library
+    }
+
+    var infoPlistFileName: String {
+        return "\(c99name)_Info.plist"
     }
 
     var productType: String {
         if self is TestModule {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
-            return "com.apple.product-type.library.dynamic"
+            return "com.apple.product-type.framework"
         } else {
             return "com.apple.product-type.tool"
         }
@@ -115,7 +125,7 @@ extension XcodeModuleProtocol  {
             if self is TestModule {
                 return "wrapper.cfbundle"
             } else if isLibrary {
-                return "dylib"
+                return "wrapper.framework"
             } else {
                 return "executable"
             }
@@ -129,7 +139,7 @@ extension XcodeModuleProtocol  {
         if self is TestModule {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "lib\(c99name).dylib"
+            return "\(c99name).framework"
         } else {
             return name
         }
@@ -167,8 +177,8 @@ extension XcodeModuleProtocol  {
         return (headerPathKey, headerPathValue)
     }
 
-    func getDebugBuildSettings(_ options: XcodeprojOptions) -> String {
-        var buildSettings = getCommonBuildSettings(options)
+    func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> String {
+        var buildSettings = getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
@@ -177,8 +187,8 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    func getReleaseBuildSettings(_ options: XcodeprojOptions) -> String {
-        var buildSettings = getCommonBuildSettings(options)
+    func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> String {
+        var buildSettings = getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
@@ -186,8 +196,9 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    private func getCommonBuildSettings(_ options: XcodeprojOptions) ->[String: String] {
+    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> [String: String] {
         var buildSettings = [String: String]()
+        let plistPath = Path(Path.join(xcodeProjectPath, infoPlistFileName)).relative(to: xcodeProjectPath.parentDirectory)
 
         if self is TestModule {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
@@ -195,6 +206,7 @@ extension XcodeModuleProtocol  {
             //FIXME this should not be required
             buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "@loader_path/../Frameworks"
 
+            buildSettings["INFOPLIST_FILE"] = plistPath
         } else {
             // We currently force a search path to the toolchain, since we
             // cannot establish an expected location for the Swift standard
@@ -219,7 +231,10 @@ extension XcodeModuleProtocol  {
                 // need to design a mechanism by which SwiftPM can override the
                 // PRODUCT_NAME for PackageDescription without imposing this
                 // default behavior on all packages.
-                buildSettings["PRODUCT_NAME"] = "lib$(TARGET_NAME)"
+
+                buildSettings["PRODUCT_NAME"] = "$(TARGET_NAME:c99extidentifier)"
+                buildSettings["INFOPLIST_FILE"] = plistPath
+
                 buildSettings["PRODUCT_MODULE_NAME"] = "$(TARGET_NAME:c99extidentifier)"
             } else {
                 // override default behavior, instead link dynamically

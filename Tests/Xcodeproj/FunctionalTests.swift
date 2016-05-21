@@ -27,8 +27,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
             let build = Path.join(prefix, "build", "Debug")
-            XCTAssertDirectoryExists(build, "Library.swiftmodule")
-            XCTAssertFileExists(build, "libLibrary.dylib")
+            XCTAssertDirectoryExists(build, "Library.framework")
         }
     }
 
@@ -39,7 +38,6 @@ class FunctionalTests: XCTestCase {
             try! write(path: seaLibModuleMap) { stream in
                 stream <<< "module SeaLib {"
                 stream <<< "    umbrella \".\""
-                stream <<< "    link \"SeaLib\""
                 stream <<< "    export *"
                 stream <<< "}"
             }
@@ -48,9 +46,8 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
             let build = Path.join(prefix, "build", "Debug")
-            XCTAssertDirectoryExists(build, "SeaExec.swiftmodule")
+            XCTAssertDirectoryExists(build, "SeaLib.framework")
             XCTAssertFileExists(build, "SeaExec")
-            XCTAssertFileExists(build, "libSeaLib.dylib")
         }
     }
 
@@ -90,8 +87,8 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
             let build = Path.join(prefix, "build", "Debug")
-            XCTAssertFileExists(build, "libA-B.dylib")
-            XCTAssertFileExists(build, "libB-C.dylib")
+            XCTAssertDirectoryExists(build, "A_B.framework")
+            XCTAssertDirectoryExists(build, "B_C.framework")
         }
     }
 }
