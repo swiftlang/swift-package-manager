@@ -109,7 +109,7 @@ extension FunctionalTests {
 }
 
 func write(path: String, write: (OutputByteStream) -> Void) throws {
-    try fopen(path, mode: .Write) { fp in
+    try fopen(path, mode: .write) { fp in
         let stream = OutputByteStream()
         write(stream)
         try fputs(stream.bytes.contents, fp)

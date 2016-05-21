@@ -11,15 +11,15 @@
 import Foundation
 
 public enum FopenMode: String {
-    case Read = "r"
-    case Write = "w"
+    case read = "r"
+    case write = "w"
 }
 
-public func fopen(_ path: String, mode: FopenMode = .Read) throws -> NSFileHandle {
+public func fopen(_ path: String, mode: FopenMode = .read) throws -> NSFileHandle {
     let handle: NSFileHandle!
     switch mode {
-    case .Read: handle = NSFileHandle(forReadingAtPath: path)
-    case .Write:
+    case .read: handle = NSFileHandle(forReadingAtPath: path)
+    case .write:
         #if os(OSX) || os(iOS)
             guard NSFileManager.`default`().createFile(atPath: path, contents: nil) else {
                 throw Error.CouldNotCreateFile(path: path)
@@ -37,7 +37,7 @@ public func fopen(_ path: String, mode: FopenMode = .Read) throws -> NSFileHandl
     return handle
 }
 
-public func fopen(_ path: String..., mode: FopenMode = .Read, body: (NSFileHandle) throws -> Void) throws {
+public func fopen(_ path: String..., mode: FopenMode = .read, body: (NSFileHandle) throws -> Void) throws {
     let fp = try fopen(Path.join(path), mode: mode)
     defer { fp.closeFile() }
     try body(fp)

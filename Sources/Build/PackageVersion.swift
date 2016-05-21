@@ -78,7 +78,7 @@ func versionData(package: Package) -> String {
 
 private func saveVersionData(_ dirPath: String, packageName: String, data: String) throws {
     let filePath = Path.join(dirPath, "\(packageName).swift")
-    let file = try Utility.fopen(filePath, mode: .Write)
+    let file = try Utility.fopen(filePath, mode: .write)
     defer { file.closeFile() }
     try fputs(data, file)
 }

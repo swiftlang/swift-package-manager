@@ -68,7 +68,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
 
     //Create and open a temporary file to write toml to
     let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
-    let fp = try fopen(filePath, mode: .Write)
+    let fp = try fopen(filePath, mode: .write)
     defer { fp.closeFile() }
 
     //Pass the fd in arguments

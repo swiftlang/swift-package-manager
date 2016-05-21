@@ -57,7 +57,7 @@ final class InitPackage {
             throw InitError.ManifestAlreadyExists
         }
         
-        let packageFP = try Utility.fopen(manifest, mode: .Write)
+        let packageFP = try Utility.fopen(manifest, mode: .write)
         defer { packageFP.closeFile() }
         print("Creating \(Manifest.filename)")
         // print the manifest file
@@ -73,7 +73,7 @@ final class InitPackage {
         guard gitignore.exists == false else {
             return
         } 
-        let gitignoreFP = try Utility.fopen(gitignore, mode: .Write)
+        let gitignoreFP = try Utility.fopen(gitignore, mode: .write)
         defer { gitignoreFP.closeFile() }
     
         print("Creating .gitignore")
@@ -94,7 +94,7 @@ final class InitPackage {
     
         let sourceFileName = (mode == .Executable) ? "main.swift" : "\(pkgname).swift"
         let sourceFile = Path.join(sources, sourceFileName)
-        let sourceFileFP = try Utility.fopen(sourceFile, mode: .Write)
+        let sourceFileFP = try Utility.fopen(sourceFile, mode: .write)
         defer { sourceFileFP.closeFile() }
         print("Creating Sources/\(sourceFileName)")
         switch mode {
@@ -122,7 +122,7 @@ final class InitPackage {
     
     private func writeLinuxMain(testsPath: String) throws {
         let linuxMain = Path.join(testsPath, "LinuxMain.swift")
-        let linuxMainFP = try Utility.fopen(linuxMain, mode: .Write)
+        let linuxMainFP = try Utility.fopen(linuxMain, mode: .write)
         defer { linuxMainFP.closeFile() }
         print("Creating Tests/LinuxMain.swift")
         try fputs("import XCTest\n", linuxMainFP)
@@ -139,7 +139,7 @@ final class InitPackage {
         
         let testsFile = Path.join(testModule, "\(pkgname)Tests.swift")
         print("Creating Tests/\(pkgname)/\(pkgname)Tests.swift")
-        let testsFileFP = try Utility.fopen(testsFile, mode: .Write)
+        let testsFileFP = try Utility.fopen(testsFile, mode: .write)
         defer { testsFileFP.closeFile() }
         try fputs("import XCTest\n", testsFileFP)
         try fputs("@testable import \(pkgname)\n\n", testsFileFP)

@@ -280,7 +280,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "Bar/Bar.swift", mode: .Write) { fp in
+            try fopen(prefix, "Bar/Bar.swift", mode: .write) { fp in
                 try fputs("public let bar = \"Goodbye\"\n", fp)
             }
 
@@ -306,7 +306,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write) { fp in
+            try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .write) { fp in
                 try fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
             }
 
@@ -332,7 +332,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write) { fp in
+            try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .write) { fp in
                 try fputs("public let foo = \"Goodbye\"", fp)
             }
 

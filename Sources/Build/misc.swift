@@ -117,7 +117,7 @@ extension ClangModule {
     private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
         try Utility.makeDirectories(wd)
         let moduleMapFile = Path.join(wd, self.moduleMap)
-        let moduleMap = try fopen(moduleMapFile, mode: .Write)
+        let moduleMap = try fopen(moduleMapFile, mode: .write)
         defer { moduleMap.closeFile() }
         
         var output = "module \(c99name) {\n"

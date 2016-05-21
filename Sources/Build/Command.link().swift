@@ -58,7 +58,7 @@ extension Command {
             // TODO should be llbuild rules∫
             if conf == .Debug {
                 try Utility.makeDirectories(outpath.parentDirectory)
-                try fopen(outpath.parentDirectory.parentDirectory, "Info.plist", mode: .Write) { fp in
+                try fopen(outpath.parentDirectory.parentDirectory, "Info.plist", mode: .write) { fp in
                     try fputs(product.Info.plist, fp)
                 }
             }
