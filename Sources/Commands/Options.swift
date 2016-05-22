@@ -50,7 +50,7 @@ private func getroot() -> String {
             // don't have to correctly figure out all those paths
             // ahead of time, since that is flakier
             
-            let header = ColorWrap.wrap("error:", with: .Red, for: .StdErr) 
+            let header = ColorWrap.wrap("error:", with: .Red, for: .stdErr) 
 
             print("\(header): no Package.swift found", to: &stderr)
             exit(1)

@@ -9,25 +9,25 @@
 */
 
 public enum Error: ErrorProtocol {
-    case ObsoleteGitVersion
-    case UnknownGitError
-    case UnicodeDecodingError
-    case UnicodeEncodingError
-    case CouldNotCreateFile(path: String)
-    case FileDoesNotExist(path: String)
+    case obsoleteGitVersion
+    case unknownGitError
+    case unicodeDecodingError
+    case unicodeEncodingError
+    case couldNotCreateFile(path: String)
+    case fileDoesNotExist(path: String)
 }
 
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .ObsoleteGitVersion:
+        case .obsoleteGitVersion:
             return "Git 2.0 or higher is required. Please update git and retry."
-        case .UnknownGitError:
+        case .unknownGitError:
             return "Failed to invoke git command. Please try updating git"
-        case .UnicodeDecodingError: return "Could not decode input file into unicode"
-        case .UnicodeEncodingError: return "Could not encode string into unicode"
-        case .CouldNotCreateFile(let path): return "Could not create file: \(path)"
-        case .FileDoesNotExist(let path): return "File does not exist: \(path)"
+        case .unicodeDecodingError: return "Could not decode input file into unicode"
+        case .unicodeEncodingError: return "Could not encode string into unicode"
+        case .couldNotCreateFile(let path): return "Could not create file: \(path)"
+        case .fileDoesNotExist(let path): return "File does not exist: \(path)"
         }
     }
 }

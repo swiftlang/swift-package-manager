@@ -15,7 +15,7 @@ import SourceControl
 import func POSIX.mkdtemp
 
 private enum DummyError: ErrorProtocol {
-    case InvalidRepository
+    case invalidRepository
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
@@ -26,7 +26,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         
         // We only support one dummy URL.
         if repository.url.basename != "dummy" {
-            throw DummyError.InvalidRepository
+            throw DummyError.invalidRepository
         }
     }
 }

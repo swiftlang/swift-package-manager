@@ -45,7 +45,7 @@ public class Product {
 }
 
 public enum LibraryType {
-    case Dynamic
+    case dynamic
     case Static
 }
 

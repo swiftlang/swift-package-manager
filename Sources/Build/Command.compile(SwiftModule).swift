@@ -18,9 +18,9 @@ extension Command {
         var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
         switch conf {
-        case .Debug:
+        case .debug:
             args += ["-Onone", "-g", "-enable-testing"]
-        case .Release:
+        case .release:
             args += ["-O"]
         }
 

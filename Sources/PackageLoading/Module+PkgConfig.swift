@@ -41,7 +41,7 @@ extension ModuleProtocol {
                 libs += pkgConfig.libs
                 try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
             }
-            catch PkgConfigError.CouldNotFindConfigFile {
+            catch PkgConfigError.couldNotFindConfigFile {
                 if let providers = module.providers,
                     provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
                     print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
@@ -68,11 +68,11 @@ private extension SystemPackageProvider {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {
         case .Brew(_):
-            if case .Darwin = platform  {
+            if case .darwin = platform  {
                 return true
             }
         case .Apt(_):
-            if case .Linux(.Debian) = platform  {
+            if case .linux(.debian) = platform  {
                 return true
             }
         }
@@ -109,6 +109,6 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
     }
     let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) + filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
     guard filtered.isEmpty else {
-        throw PkgConfigError.NonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
+        throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }
 }

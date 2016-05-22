@@ -35,12 +35,12 @@ extension Git {
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
                 url, dstdir, environment: environment, message: "Cloning \(url)")
-        } catch POSIX.Error.ExitStatus {
+        } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
-                throw Utility.Error.ObsoleteGitVersion
+                throw Utility.Error.obsoleteGitVersion
             } else {
-                throw Error.GitCloneFailure(url, dstdir)
+                throw Error.gitCloneFailure(url, dstdir)
             }
         }
 

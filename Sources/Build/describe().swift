@@ -21,7 +21,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     precondition(prefix.isAbsolute)
 
     guard modules.count > 0 else {
-        throw Error.NoModules
+        throw Error.noModules
     }
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }

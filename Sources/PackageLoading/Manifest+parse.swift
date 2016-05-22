@@ -32,7 +32,7 @@ extension Manifest {
         let path: String = inputPath.isDirectory ? Path.join(inputPath, Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard path.isFile else { throw PackageModel.Package.Error.NoManifest(path) }
+        guard path.isFile else { throw PackageModel.Package.Error.noManifest(path) }
 
         // Load the manifest description.
         if let toml = try parse(path: path, swiftc: swiftc, libdir: libdir) {
@@ -103,29 +103,29 @@ extension PackageDescription.Package {
     static func fromTOML(_ item: TOMLItem, baseURL: String? = nil) -> PackageDescription.Package {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
-        guard case .Table(let topLevelTable) = item else { fatalError("unexpected item") }
-        guard case .Table(let table)? = topLevelTable.items["package"] else { fatalError("missing package") }
+        guard case .table(let topLevelTable) = item else { fatalError("unexpected item") }
+        guard case .table(let table)? = topLevelTable.items["package"] else { fatalError("missing package") }
 
         var name: String? = nil
-        if case .String(let value)? = table.items["name"] {
+        if case .string(let value)? = table.items["name"] {
             name = value
         }
         
         var pkgConfig: String? = nil
-        if case .String(let value)? = table.items["pkgConfig"] {
+        if case .string(let value)? = table.items["pkgConfig"] {
             pkgConfig = value
         }
 
         // Parse the targets.
         var targets: [PackageDescription.Target] = []
-        if case .Array(let array)? = table.items["targets"] {
+        if case .array(let array)? = table.items["targets"] {
             for item in array.items {
                 targets.append(PackageDescription.Target.fromTOML(item))
             }
         }
         
         var providers: [PackageDescription.SystemPackageProvider]? = nil
-        if case .Array(let array)? = table.items["providers"] {
+        if case .array(let array)? = table.items["providers"] {
             providers = []
             for item in array.items {
                 providers?.append(PackageDescription.SystemPackageProvider.fromTOML(item))
@@ -134,7 +134,7 @@ extension PackageDescription.Package {
         
         // Parse the dependencies.
         var dependencies: [PackageDescription.Package.Dependency] = []
-        if case .Array(let array)? = table.items["dependencies"] {
+        if case .array(let array)? = table.items["dependencies"] {
             for item in array.items {
                 dependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
             }
@@ -142,7 +142,7 @@ extension PackageDescription.Package {
 
         // Parse the test dependencies.
         var testDependencies: [PackageDescription.Package.Dependency] = []
-        if case .Array(let array)? = table.items["testDependencies"] {
+        if case .array(let array)? = table.items["testDependencies"] {
             for item in array.items {
                 testDependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
             }
@@ -150,9 +150,9 @@ extension PackageDescription.Package {
 
         //Parse the exclude folders.
         var exclude: [String] = []
-        if case .Array(let array)? = table.items["exclude"] {
+        if case .array(let array)? = table.items["exclude"] {
             for item in array.items {
-                guard case .String(let excludeItem) = item else { fatalError("exclude contains non string element") }
+                guard case .string(let excludeItem) = item else { fatalError("exclude contains non string element") }
                 exclude.append(excludeItem)
             }
         }
@@ -163,12 +163,12 @@ extension PackageDescription.Package {
 
 extension PackageDescription.Package.Dependency {
     static func fromTOML(_ item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
-        guard case .Array(let array) = item where array.items.count == 3 else {
+        guard case .array(let array) = item where array.items.count == 3 else {
             fatalError("Unexpected TOMLItem")
         }
-        guard case .String(let url) = array.items[0],
-              case .String(let vv1) = array.items[1],
-              case .String(let vv2) = array.items[2],
+        guard case .string(let url) = array.items[0],
+              case .string(let vv1) = array.items[1],
+              case .string(let vv2) = array.items[2],
               let v1 = Version(vv1), v2 = Version(vv2)
         else {
             fatalError("Unexpected TOMLItem")
@@ -188,9 +188,9 @@ extension PackageDescription.Package.Dependency {
 
 extension PackageDescription.SystemPackageProvider {
     private static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
-        guard case .Table(let table) = item else { fatalError("unexpected item") }
-        guard case .String(let name)? = table.items["name"] else { fatalError("missing name") }
-        guard case .String(let value)? = table.items["value"] else { fatalError("missing value") }
+        guard case .table(let table) = item else { fatalError("unexpected item") }
+        guard case .string(let name)? = table.items["name"] else { fatalError("missing name") }
+        guard case .string(let value)? = table.items["value"] else { fatalError("missing value") }
         switch name {
         case "Brew":
             return .Brew(value)
@@ -206,13 +206,13 @@ extension PackageDescription.Target {
     private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
-        guard case .Table(let table) = item else { fatalError("unexpected item") }
+        guard case .table(let table) = item else { fatalError("unexpected item") }
 
-        guard case .String(let name)? = table.items["name"] else { fatalError("missing name") }
+        guard case .string(let name)? = table.items["name"] else { fatalError("missing name") }
 
         // Parse the dependencies.
         var dependencies: [PackageDescription.Target.Dependency] = []
-        if case .Array(let array)? = table.items["dependencies"] {
+        if case .array(let array)? = table.items["dependencies"] {
             for item in array.items {
                 dependencies.append(PackageDescription.Target.Dependency.fromTOML(item))
             }
@@ -224,7 +224,7 @@ extension PackageDescription.Target {
 
 extension PackageDescription.Target.Dependency {
     private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
-        guard case .String(let name) = item else { fatalError("unexpected item") }
+        guard case .string(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
     }
 }
@@ -232,27 +232,27 @@ extension PackageDescription.Target.Dependency {
 
 extension PackageDescription.Product {
     private init(toml item: TOMLItem) {
-        guard case .Table(let table) = item else { fatalError("unexpected item") }
-        guard case .String(let name)? = table.items["name"] else { fatalError("missing name") }
+        guard case .table(let table) = item else { fatalError("unexpected item") }
+        guard case .string(let name)? = table.items["name"] else { fatalError("missing name") }
 
         let type: ProductType
         switch table.items["type"] {
-        case .String("exe")?:
+        case .string("exe")?:
             type = .Executable
-        case .String("a")?:
+        case .string("a")?:
             type = .Library(.Static)
-        case .String("dylib")?:
+        case .string("dylib")?:
             type = .Library(.Dynamic)
-        case .String("test")?:
+        case .string("test")?:
             type = .Test
         default:
             fatalError("missing type")
         }
 
-        guard case .Array(let mods)? = table.items["mods"] else { fatalError("missing mods") }
+        guard case .array(let mods)? = table.items["mods"] else { fatalError("missing mods") }
 
         let modules = mods.items.map { item -> String in
-            guard case TOMLItem.String(let string) = item else { fatalError("invalid modules") }
+            guard case TOMLItem.string(let string) = item else { fatalError("invalid modules") }
             return string
         }
 
@@ -260,9 +260,9 @@ extension PackageDescription.Product {
     }
 
     static func fromTOML(_ item: TOMLItem) -> [PackageDescription.Product] {
-        guard case .Table(let root) = item else { fatalError("unexpected item") }
+        guard case .table(let root) = item else { fatalError("unexpected item") }
         guard let productsItem = root.items["products"] else { return [] }
-        guard case .Array(let array) = productsItem else { fatalError("products wrong type") }
+        guard case .array(let array) = productsItem else { fatalError("products wrong type") }
         return array.items.map(Product.init)
     }
 }

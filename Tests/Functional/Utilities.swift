@@ -192,7 +192,7 @@ func XCTAssertBuildFails(_ paths: String..., file: StaticString = #file, line: U
 
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
 
-    } catch POSIX.Error.ExitStatus(let status, _) where status == 1{
+    } catch POSIX.Error.exitStatus(let status, _) where status == 1{
         // noop
     } catch {
         XCTFail("`swift build' failed in an unexpected manner")

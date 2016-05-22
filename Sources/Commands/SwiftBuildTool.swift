@@ -30,42 +30,42 @@ import func POSIX.chdir
 extension BuildToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case Build(Configuration, Toolchain)
-    case Clean(CleanMode)
-    case Doctor
-    case ShowDependencies(ShowDependenciesMode)
-    case Fetch
-    case Update
+    case build(Configuration, Toolchain)
+    case clean(CleanMode)
+    case doctor
+    case showDependencies(ShowDependenciesMode)
+    case fetch
+    case update
     case Init(InitMode)
-    case Usage
-    case Version
-    case GenerateXcodeproj(String?)
-    case DumpPackage(String?)
+    case usage
+    case version
+    case generateXcodeproj(String?)
+    case dumpPackage(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--configuration", "--conf", "-c":
-            self = try .Build(Configuration(pop()), UserToolchain())
+            self = try .build(Configuration(pop()), UserToolchain())
         case "--clean":
-            self = try .Clean(CleanMode(pop()))
+            self = try .clean(CleanMode(pop()))
         case "--doctor":
-            self = .Doctor
+            self = .doctor
         case "--show-dependencies", "-D":
-            self = try .ShowDependencies(ShowDependenciesMode(pop()))
+            self = try .showDependencies(ShowDependenciesMode(pop()))
         case "--fetch":
-            self = .Fetch
+            self = .fetch
         case "--update":
-            self = .Update
+            self = .update
         case "--init", "--initialize":
             self = try .Init(InitMode(pop()))
         case "--help", "--usage", "-h":
-            self = .Usage
+            self = .usage
         case "--version":
-            self = .Version
+            self = .version
         case "--generate-xcodeproj", "-X":
-            self = .GenerateXcodeproj(pop())
+            self = .generateXcodeproj(pop())
         case "--dump-package":
-            self = .DumpPackage(pop())
+            self = .dumpPackage(pop())
         default:
             return nil
         }
@@ -73,25 +73,25 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-            case .Build(let conf, _): return "--configuration=\(conf)"
-            case .Clean(let mode): return "--clean=\(mode)"
-            case .Doctor: return "--doctor"
-            case .ShowDependencies: return "--show-dependencies"
-            case .GenerateXcodeproj: return "--generate-xcodeproj"
-            case .Fetch: return "--fetch"
-            case .Update: return "--update"
+            case .build(let conf, _): return "--configuration=\(conf)"
+            case .clean(let mode): return "--clean=\(mode)"
+            case .doctor: return "--doctor"
+            case .showDependencies: return "--show-dependencies"
+            case .generateXcodeproj: return "--generate-xcodeproj"
+            case .fetch: return "--fetch"
+            case .update: return "--update"
             case .Init(let mode): return "--init=\(mode)"
-            case .Usage: return "--help"
-            case .Version: return "--version"
-            case .DumpPackage: return "--dump-package"
+            case .usage: return "--help"
+            case .version: return "--version"
+            case .dumpPackage: return "--dump-package"
         }
     }
 }
 
 private enum BuildToolFlag: Argument {
-    case Xcc(String)
-    case Xld(String)
-    case Xswiftc(String)
+    case xcc(String)
+    case xld(String)
+    case xswiftc(String)
     case buildPath(String)
     case buildTests
     case chdir(String)
@@ -103,7 +103,7 @@ private enum BuildToolFlag: Argument {
     init?(argument: String, pop: () -> String?) throws {
 
         func forcePop() throws -> String {
-            guard let value = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
+            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             return value
         }
 
@@ -115,11 +115,11 @@ private enum BuildToolFlag: Argument {
         case "-vv":
             self = .verbose(2)
         case "-Xcc":
-            self = try .Xcc(forcePop())
+            self = try .xcc(forcePop())
         case "-Xlinker":
-            self = try .Xld(forcePop())
+            self = try .xld(forcePop())
         case "-Xswiftc":
-            self = try .Xswiftc(forcePop())
+            self = try .xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(forcePop())
         case "--build-tests":
@@ -127,7 +127,7 @@ private enum BuildToolFlag: Argument {
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionParserError.InvalidUsage("invalid color mode: \(rawValue)")
+                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
         case "--ignore-dependencies":
@@ -187,7 +187,7 @@ public struct SwiftBuildTool {
             }
         
             switch mode {
-            case .Build(let conf, let toolchain):
+            case .build(let conf, let toolchain):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
@@ -198,23 +198,23 @@ public struct SwiftBuildTool {
                 let initPackage = try InitPackage(mode: initMode)
                 try initPackage.writePackageStructure()
                             
-            case .Update:
+            case .update:
                 try Utility.removeFileTree(opts.path.Packages)
                 fallthrough
                 
-            case .Fetch:
+            case .fetch:
                 _ = try fetch(opts.path.root)
         
-            case .Usage:
+            case .usage:
                 usage()
         
-            case .Clean(.Dist):
+            case .clean(.dist):
                 if opts.path.Packages.exists {
                     try Utility.removeFileTree(opts.path.Packages)
                 }
                 fallthrough
         
-            case .Clean(.Build):
+            case .clean(.build):
                 let artifacts = ["debug", "release"].map{ Path.join(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
                 for (dir, yml) in artifacts {
                     if dir.isDirectory { try Utility.removeFileTree(dir) }
@@ -231,21 +231,21 @@ public struct SwiftBuildTool {
                     try Utility.removeFileTree(opts.path.build)
                 }
         
-            case .Doctor:
+            case .doctor:
                 doctor()
             
-            case .ShowDependencies(let mode):
+            case .showDependencies(let mode):
                 let (rootPackage, _) = try fetch(opts.path.root)
                 dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
         
-            case .Version:
+            case .version:
                 #if HasCustomVersionString
                     print(String(cString: VersionInfo.DisplayString()))
                 #else
                     print("Swift Package Manager – Swift 3.0")
                 #endif
                 
-            case .GenerateXcodeproj(let outpath):
+            case .generateXcodeproj(let outpath):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
                 
@@ -272,7 +272,7 @@ public struct SwiftBuildTool {
         
                 print("generated:", outpath.prettyPath)
                 
-            case .DumpPackage(let packagePath):
+            case .dumpPackage(let packagePath):
                 
                 let root = packagePath ?? opts.path.root
                 let manifest = try parseManifest(path: root, baseURL: root)
@@ -322,11 +322,11 @@ public struct SwiftBuildTool {
                 opts.chdir = path
             case .verbose(let amount):
                 opts.verbosity += amount
-            case .Xcc(let value):
+            case .xcc(let value):
                 opts.Xcc.append(value)
-            case .Xld(let value):
+            case .xld(let value):
                 opts.Xld.append(value)
-            case .Xswiftc(let value):
+            case .xswiftc(let value):
                 opts.Xswiftc.append(value)
             case .buildPath(let path):
                 opts.path.build = path
@@ -341,7 +341,7 @@ public struct SwiftBuildTool {
             }
         }
     
-        return try (mode ?? .Build(.Debug, UserToolchain()), opts)
+        return try (mode ?? .build(.debug, UserToolchain()), opts)
     }
 
     private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> String {
@@ -368,35 +368,35 @@ extension Build.Configuration {
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "debug"?:
-            self = .Debug
+            self = .debug
         case "release"?:
-            self = .Release
+            self = .release
         case nil:
-            throw OptionParserError.ExpectedAssociatedValue("--configuration")
+            throw OptionParserError.expectedAssociatedValue("--configuration")
         default:
-            throw OptionParserError.InvalidUsage("invalid build configuration: \(rawValue!)")
+            throw OptionParserError.invalidUsage("invalid build configuration: \(rawValue!)")
         }
     }
 }
 
 enum CleanMode: CustomStringConvertible {
-    case Build, Dist
+    case build, dist
 
     private init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
-            self = .Build
+            self = .build
         case "dist"?, "distribution"?:
-            self = .Dist
+            self = .dist
         default:
-            throw OptionParserError.InvalidUsage("invalid clean mode: \(rawValue)")
+            throw OptionParserError.invalidUsage("invalid clean mode: \(rawValue)")
         }
     }
 
     var description: String {
         switch self {
-            case .Dist: return "distribution"
-            case .Build: return "build"
+            case .dist: return "distribution"
+            case .build: return "build"
         }
     }
 }

@@ -15,11 +15,11 @@ import struct PackageDescription.Version
 func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
     let dumper: DependenciesDumper
     switch mode {
-    case .Text:
+    case .text:
         dumper = PlainTextDumper()
-    case .DOT:
+    case .dot:
         dumper = DotDumper()
-    case .JSON:
+    case .json:
         dumper = JsonDumper()
     }
     dumper.dump(dependenciesOf: rootPackage)
@@ -118,31 +118,31 @@ private final class JsonDumper: DependenciesDumper {
 }
 
 enum ShowDependenciesMode: CustomStringConvertible {
-    case Text, DOT, JSON
+    case text, dot, json
     
     init(_ rawValue: String?) throws {
         guard let rawValue = rawValue else {
-            self = .Text
+            self = .text
             return
         }
         
         switch rawValue.lowercased() {
         case "text":
-           self = .Text
+           self = .text
         case "dot":
-           self = .DOT
+           self = .dot
         case "json":
-           self = .JSON
+           self = .json
         default:
-            throw OptionParserError.InvalidUsage("invalid show dependencies mode: \(rawValue)")
+            throw OptionParserError.invalidUsage("invalid show dependencies mode: \(rawValue)")
         }
     }
     
     var description: String {
         switch self {
-        case .Text: return "text"
-        case .DOT: return "dot"
-        case .JSON: return "json"
+        case .text: return "text"
+        case .dot: return "dot"
+        case .json: return "json"
         }
     }
 }

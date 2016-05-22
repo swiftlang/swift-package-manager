@@ -11,11 +11,11 @@
 import func POSIX.popen
 
 public enum Platform {
-    case Darwin
-    case Linux(LinuxFlavor)
+    case darwin
+    case linux(LinuxFlavor)
     
     public enum LinuxFlavor {
-        case Debian
+        case debian
     }
     
     // Lazily return current platform.
@@ -24,10 +24,10 @@ public enum Platform {
         guard let uname = try? popen(["uname"]).chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
-            return .Darwin
+            return .darwin
         case "linux":
             if "/etc/debian_version".isFile {
-                return .Linux(.Debian)
+                return .linux(.debian)
             }
         default:
             return nil

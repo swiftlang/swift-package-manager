@@ -9,12 +9,12 @@
 */
 
 public enum Configuration {
-    case Debug, Release
+    case debug, release
 
     var dirname: String {
         switch self {
-            case .Debug: return "debug"
-            case .Release: return "release"
+            case .debug: return "debug"
+            case .release: return "release"
         }
     }
 }

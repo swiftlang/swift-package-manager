@@ -24,7 +24,7 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
         var modules: [Module]
         do {
             modules = try package.modules()
-        } catch Package.ModuleError.NoModules(let pkg) where pkg === rootPackage {
+        } catch Package.ModuleError.noModules(let pkg) where pkg === rootPackage {
             //Ignore and print warning if root package doesn't contain any sources
             print("warning: root package '\(pkg)' does not contain any sources")
             if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
@@ -88,7 +88,7 @@ private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package)
                 switch $0 {
                 case is TestModule:
                     return false
-                case let module as SwiftModule where module.type == .Library:
+                case let module as SwiftModule where module.type == .library:
                     return true
                 case is CModule:
                     return true
@@ -143,7 +143,7 @@ private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
                 continue;
             }
 
-            throw Module.Error.DuplicateModule(top.name)
+            throw Module.Error.duplicateModule(top.name)
         }
     }
 

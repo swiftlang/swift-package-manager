@@ -14,11 +14,11 @@ import XCTest
 
 // Test the basic types.
 private func toArray(_ items: [TOMLItem]) -> TOMLItem {
-    return .Array(contents: TOMLItemArray(items: items))
+    return .array(contents: TOMLItemArray(items: items))
 }
 
 private func toTable(_ items: [String: TOMLItem]) -> TOMLItem {
-    return .Table(contents: TOMLItemTable(items: items))
+    return .table(contents: TOMLItemTable(items: items))
 }
 
 private func parseTOML(_ data: String) -> TOMLItem {
@@ -45,18 +45,18 @@ class TOMLTests: XCTestCase {
     }
 
     func testParser() {
-        XCTAssertEqual(parseTOML("a = b"), toTable(["a": .String(value: "b")]))
-        XCTAssertEqual(parseTOML("a = \"b\""), toTable(["a": .String(value: "b")]))
-        XCTAssertEqual(parseTOML("a = 1"), toTable(["a": .Int(value: 1)]))
-        XCTAssertEqual(parseTOML("a = 1.234"), toTable(["a": .Float(value: 1.234)]))
-        XCTAssertEqual(parseTOML("a = 1.2e-2"), toTable(["a": .Float(value: 1.2e-2)]))
-        XCTAssertEqual(parseTOML("a = -12_34_56"), toTable(["a": .Int(value: -123456)]))
-        XCTAssertEqual(parseTOML("a = +1.2_34_56"), toTable(["a": .Float(value: 1.23456)]))
-        XCTAssertEqual(parseTOML("a = true\n\nb = false"), toTable(["a": .Bool(value: true), "b": .Bool(value: false)]))
+        XCTAssertEqual(parseTOML("a = b"), toTable(["a": .string(value: "b")]))
+        XCTAssertEqual(parseTOML("a = \"b\""), toTable(["a": .string(value: "b")]))
+        XCTAssertEqual(parseTOML("a = 1"), toTable(["a": .int(value: 1)]))
+        XCTAssertEqual(parseTOML("a = 1.234"), toTable(["a": .float(value: 1.234)]))
+        XCTAssertEqual(parseTOML("a = 1.2e-2"), toTable(["a": .float(value: 1.2e-2)]))
+        XCTAssertEqual(parseTOML("a = -12_34_56"), toTable(["a": .int(value: -123456)]))
+        XCTAssertEqual(parseTOML("a = +1.2_34_56"), toTable(["a": .float(value: 1.23456)]))
+        XCTAssertEqual(parseTOML("a = true\n\nb = false"), toTable(["a": .bool(value: true), "b": .bool(value: false)]))
 
         // Test arrays.
-        XCTAssertEqual(parseTOML("a = [1, 2]"), toTable(["a": toArray([.Int(value: 1), .Int(value: 2)])]))
-        XCTAssertEqual(parseTOML("a = [1,\n[\n2,\n] ]"), toTable(["a": toArray([.Int(value: 1), toArray([.Int(value: 2)])])]))
+        XCTAssertEqual(parseTOML("a = [1, 2]"), toTable(["a": toArray([.int(value: 1), .int(value: 2)])]))
+        XCTAssertEqual(parseTOML("a = [1,\n[\n2,\n] ]"), toTable(["a": toArray([.int(value: 1), toArray([.int(value: 2)])])]))
     }
 
     func testParsingTables() {
@@ -71,13 +71,13 @@ class TOMLTests: XCTestCase {
                 "[t2.t1]\n" +
                 "b = 4\n")),
             toTable([
-                "a": .Int(value: 1),
+                "a": .int(value: 1),
                 "t1": toTable([
-                    "b": .Int(value: 2)]),
+                    "b": .int(value: 2)]),
                 "t2": toTable([
-                    "b": .Int(value: 3),
+                    "b": .int(value: 3),
                     "t1": toTable([
-                        "b": .Int(value: 4)])])]))
+                        "b": .int(value: 4)])])]))
 
         // Check handling of empty nested tables.
         XCTAssertEqual(parseTOML("[[t1]]"), toTable([
@@ -92,8 +92,8 @@ class TOMLTests: XCTestCase {
                 "a = 2\n")),
             toTable([
                 "t1": toArray([
-                    toTable(["a": .Int(value: 1)]),
-                    toTable(["a": .Int(value: 2)])])]))
+                    toTable(["a": .int(value: 1)]),
+                    toTable(["a": .int(value: 2)])])]))
 
         // Check handling of insert into array of tables.
         XCTAssertEqual(parseTOML(
@@ -104,7 +104,7 @@ class TOMLTests: XCTestCase {
             toTable([
                 "t1": toArray([
                     toTable([
-                        "t2": toTable(["a": .Int(value: 1)])])])]))
+                        "t2": toTable(["a": .int(value: 1)])])])]))
     }
 }
 

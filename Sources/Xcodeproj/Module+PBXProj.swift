@@ -103,7 +103,7 @@ func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroo
 extension XcodeModuleProtocol  {
 
     var isLibrary: Bool {
-        return type == .Library
+        return type == .library
     }
 
     var infoPlistFileName: String {

@@ -9,35 +9,35 @@
 */
 
 public enum Verbosity: Int {
-    case Concise
-    case Verbose
-    case Debug
+    case concise
+    case verbose
+    case debug
 
     public init(rawValue: Int) {
         switch rawValue {
         case Int.min...0:
-            self = .Concise
+            self = .concise
         case 1:
-            self = .Verbose
+            self = .verbose
         default:
-            self = .Debug
+            self = .debug
         }
     }
 
     public var ccArgs: [String] {
         switch self {
-        case .Concise:
+        case .concise:
             return []
-        case .Verbose:
+        case .verbose:
             // the first level of verbosity is passed to llbuild itself
             return []
-        case .Debug:
+        case .debug:
             return ["-v"]
         }
     }
 }
 
-public var verbosity = Verbosity.Concise
+public var verbosity = Verbosity.concise
 
 
 import func libc.fputs
@@ -74,8 +74,8 @@ private func prettyArguments(_ arguments: [String], for stream: Stream) -> Strin
 }
 
 private func printArgumentsIfVerbose(_ arguments: [String]) {
-    if verbosity != .Concise {
-        print(prettyArguments(arguments, for: .StdOut))
+    if verbosity != .concise {
+        print(prettyArguments(arguments, for: .stdOut))
     }
 }
 
@@ -102,7 +102,7 @@ import enum POSIX.Error
 public func system(_ arguments: String..., environment: [String:String] = [:], message: String?) throws {
     var out = ""
     do {
-        if Utility.verbosity == .Concise {
+        if Utility.verbosity == .concise {
             if let message = message {
                 print(message)
                 fflush(stdout)  // ensure we display `message` before git asks for credentials
@@ -114,8 +114,8 @@ public func system(_ arguments: String..., environment: [String:String] = [:], m
             try system(arguments, environment: environment)
         }
     } catch {
-        if verbosity == .Concise {
-            print(prettyArguments(arguments, for: .StdOut), to: &stderr)
+        if verbosity == .concise {
+            print(prettyArguments(arguments, for: .stdOut), to: &stderr)
             print(out, to: &stderr)
         }
         throw error

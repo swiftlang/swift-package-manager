@@ -20,7 +20,7 @@ public func build(YAMLPath: String, target: String? = nil) throws {
         if let target = target {
             args += [target]
         }
-        if verbosity != .Concise { args.append("-v") }
+        if verbosity != .concise { args.append("-v") }
         try system(args)
     } catch {
 
@@ -32,7 +32,7 @@ public func build(YAMLPath: String, target: String? = nil) throws {
         if YAMLPath.isFile {
             throw error
         } else {
-            throw Error.BuildYAMLNotFound(YAMLPath)
+            throw Error.buildYAMLNotFound(YAMLPath)
         }
     }
 }

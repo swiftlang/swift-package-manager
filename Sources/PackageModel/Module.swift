@@ -45,7 +45,7 @@ public class Module: ModuleProtocol {
 }
 
 public enum ModuleType {
-    case Library, Executable
+    case library, executable
 }
 
 public protocol ModuleTypeProtocol {
@@ -60,7 +60,7 @@ extension ModuleTypeProtocol {
            // Look for a main.xxx file avoiding cases like main.xxx.xxx
            return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
         }
-        return isLibrary ? .Library : .Executable
+        return isLibrary ? .library : .executable
     }
 }
 

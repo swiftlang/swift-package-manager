@@ -17,12 +17,12 @@
 
 /// Represents a TOML encoded value.
 public enum TOMLItem {
-    case Bool(value: Swift.Bool)
-    case Int(value: Swift.Int)
-    case Float(value: Swift.Float)
-    case String(value: Swift.String)
-    case Array(contents: TOMLItemArray)
-    case Table(contents: TOMLItemTable)
+    case bool(value: Swift.Bool)
+    case int(value: Swift.Int)
+    case float(value: Swift.Float)
+    case string(value: Swift.String)
+    case array(contents: TOMLItemArray)
+    case table(contents: TOMLItemTable)
 }
 
 public class TOMLItemArray: CustomStringConvertible {
@@ -52,12 +52,12 @@ public class TOMLItemTable: CustomStringConvertible {
 extension TOMLItem: CustomStringConvertible {
     public var description: Swift.String {
         switch self {
-        case .Bool(let value): return value.description
-        case .Int(let value): return value.description
-        case .Float(let value): return value.description
-        case .String(let value): return "\"\(value)\""
-        case .Array(let values): return values.description
-        case .Table(let values): return values.description
+        case .bool(let value): return value.description
+        case .int(let value): return value.description
+        case .float(let value): return value.description
+        case .string(let value): return "\"\(value)\""
+        case .array(let values): return values.description
+        case .table(let values): return values.description
         }
     }
 }
@@ -65,18 +65,18 @@ extension TOMLItem: CustomStringConvertible {
 extension TOMLItem: Equatable { }
 public func ==(lhs: TOMLItem, rhs: TOMLItem) -> Bool {
     switch (lhs, rhs) {
-    case (.Bool(let a), .Bool(let b)): return a == b
-    case (.Bool, _): return false
-    case (.Int(let a), .Int(let b)): return a == b
-    case (.Int, _): return false
-    case (.Float(let a), .Float(let b)): return a == b
-    case (.Float, _): return false
-    case (.String(let a), .String(let b)): return a == b
-    case (.String, _): return false
-    case (.Array(let a), .Array(let b)): return a.items == b.items
-    case (.Array, _): return false
-    case (.Table(let a), .Table(let b)): return a.items == b.items
-    case (.Table, _): return false
+    case (.bool(let a), .bool(let b)): return a == b
+    case (.bool, _): return false
+    case (.int(let a), .int(let b)): return a == b
+    case (.int, _): return false
+    case (.float(let a), .float(let b)): return a == b
+    case (.float, _): return false
+    case (.string(let a), .string(let b)): return a == b
+    case (.string, _): return false
+    case (.array(let a), .array(let b)): return a.items == b.items
+    case (.array, _): return false
+    case (.table(let a), .table(let b)): return a.items == b.items
+    case (.table, _): return false
     }
 }
 
@@ -139,34 +139,34 @@ private extension UInt8 {
 private struct Lexer {
     private enum Token {
         /// Any comment.
-        case Comment
+        case comment
         /// Any whitespace.
-        case Whitespace
+        case whitespace
         /// A newline.
-        case Newline
+        case newline
         /// A literal string.
-        case StringLiteral(value: String)
+        case stringLiteral(value: String)
         /// An identifier (i.e., 'foo').
-        case Identifier(value: String)
+        case identifier(value: String)
         /// A boolean constant.
-        case Boolean(value: Bool)
+        case boolean(value: Bool)
         /// A numeric constant (which may not be well formed).
-        case Number(value: String)
+        case number(value: String)
         /// The end of file marker.
-        case EOF
+        case eof
         /// An unknown character.
-        case Unknown(value: UInt8)
+        case unknown(value: UInt8)
 
         /// A ',' character.
-        case Comma
+        case comma
         /// An '=' character.
-        case Equals
+        case equals
         /// A left square bracket ('[').
-        case LSquare
+        case lSquare
         /// A right square bracket (']').
-        case RSquare
+        case rSquare
         /// A '.' character.
-        case Period
+        case period
     }
 
     /// The string being lexed.
@@ -229,11 +229,11 @@ private struct Lexer {
     /// Consume the next token from the lexer.
     mutating func next() -> Token {
         let startIndex = index
-        guard let c = eat() else { return .EOF }
+        guard let c = eat() else { return .eof }
         
         switch c {
         case UInt8(ascii: "\n"):
-            return .Newline
+            return .newline
             
         // Comments.
         case UInt8(ascii: "#"):
@@ -243,7 +243,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .Comment
+            return .comment
 
         // Whitespace.
         case let c where c.isSpace():
@@ -251,7 +251,7 @@ private struct Lexer {
             while let c = look() where c.isSpace() {
                 let _ = eat()
             }
-            return .Whitespace
+            return .whitespace
 
         // Strings.
         case UInt8(ascii: "\""):
@@ -268,7 +268,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .StringLiteral(value: String(utf8[utf8.index(after: startIndex)..<endIndex]))
+            return .stringLiteral(value: String(utf8[utf8.index(after: startIndex)..<endIndex]))
 
         // Numeric literals.
         //
@@ -279,7 +279,7 @@ private struct Lexer {
             while let c = look() where c.isNumberChar() {
                 let _ = eat()
             }
-            return .Number(value: String(utf8[startIndex..<index]))
+            return .number(value: String(utf8[startIndex..<index]))
 
         // Identifiers.
         case let c where c.isIdentifierChar():
@@ -292,27 +292,27 @@ private struct Lexer {
             let value: String = String(utf8[startIndex..<index])
             switch value {
             case "true":
-                return .Boolean(value: true)
+                return .boolean(value: true)
             case "false":
-                return .Boolean(value: false)
+                return .boolean(value: false)
             default:
-                return .Identifier(value: value)
+                return .identifier(value: value)
             }
             
         // Punctuation.
         case UInt8(ascii: ","):
-            return .Comma
+            return .comma
         case UInt8(ascii: "="):
-            return .Equals
+            return .equals
         case UInt8(ascii: "["):
-            return .LSquare
+            return .lSquare
         case UInt8(ascii: "]"):
-            return .RSquare
+            return .rSquare
         case UInt8(ascii: "."):
-            return .Period
+            return .period
             
         default:
-            return .Unknown(value: c)
+            return .unknown(value: c)
             
         }
     }
@@ -322,34 +322,34 @@ private struct Lexer {
 extension Lexer.Token : CustomStringConvertible {
     var description: String {
         switch self {
-        case .Comment:
+        case .comment:
             return "Comment"
-        case .Whitespace:
+        case .whitespace:
             return "Whitespace"
-        case .Newline:
+        case .newline:
             return "Newline"
-        case .StringLiteral(let value):
+        case .stringLiteral(let value):
             return "StringLiteral(\"\(value)\")"
-        case .Identifier(let value):
+        case .identifier(let value):
             return "Identifier(\"\(value)\")"
-        case .Boolean(let value):
+        case .boolean(let value):
             return "Boolean(\(value))"
-        case .Number(let value):
+        case .number(let value):
             return "Number(\"\(value)\")"
-        case .EOF:
+        case .eof:
             return "EOF"
-        case .Unknown(let value):
+        case .unknown(let value):
             return "Unknown(\(value))"
 
-        case .Comma:
+        case .comma:
             return "Comma"
-        case .Equals:
+        case .equals:
             return "Equals"
-        case .LSquare:
+        case .lSquare:
             return "LSquare"
-        case .RSquare:
+        case .rSquare:
             return "RSquare"
-        case .Period:
+        case .period:
             return "Period"
         }
     }
@@ -360,7 +360,7 @@ private struct LexerTokenGenerator : IteratorProtocol {
 
     mutating func next() -> Lexer.Token? {
         let token =  lexer.next()
-        if case .EOF = token {
+        if case .eof = token {
             return nil
         }
         return token
@@ -376,26 +376,26 @@ extension Lexer : LazySequenceProtocol {
 extension Lexer.Token : Equatable { }
 private func ==(lhs: Lexer.Token, rhs: Lexer.Token) -> Bool {
     switch (lhs, rhs) {
-    case (.Comment, .Comment): fallthrough
-    case (.Whitespace, .Whitespace): fallthrough
-    case (.Newline, .Newline): fallthrough
-    case (.EOF, .EOF): fallthrough
-    case (.Comma, .Comma): fallthrough
-    case (.Equals, .Equals): fallthrough
-    case (.LSquare, .LSquare): fallthrough
-    case (.RSquare, .RSquare): fallthrough
-    case (.Period, .Period):
+    case (.comment, .comment): fallthrough
+    case (.whitespace, .whitespace): fallthrough
+    case (.newline, .newline): fallthrough
+    case (.eof, .eof): fallthrough
+    case (.comma, .comma): fallthrough
+    case (.equals, .equals): fallthrough
+    case (.lSquare, .lSquare): fallthrough
+    case (.rSquare, .rSquare): fallthrough
+    case (.period, .period):
         return true
 
-    case (.StringLiteral(let a), .StringLiteral(let b)):
+    case (.stringLiteral(let a), .stringLiteral(let b)):
         return a == b
-    case (.Identifier(let a), .Identifier(let b)):
+    case (.identifier(let a), .identifier(let b)):
         return a == b
-    case (.Boolean(let a), .Boolean(let b)):
+    case (.boolean(let a), .boolean(let b)):
         return a == b
-    case (.Number(let a), .Number(let b)):
+    case (.number(let a), .number(let b)):
         return a == b
-    case (.Unknown(let a), .Unknown(let b)):
+    case (.unknown(let a), .unknown(let b)):
         return a == b
 
     default:
@@ -417,7 +417,7 @@ private struct Parser {
     
     init(_ data: String) {
         lexer = Lexer(data)
-        lookahead = .EOF
+        lookahead = .eof
         
         // Prime the lookahead.
         let _ = eat()
@@ -433,15 +433,15 @@ private struct Parser {
         var into = topLevelTable
 
         // Parse the file until we reach EOF.
-        while lookahead != .EOF {
+        while lookahead != .eof {
             // Parse the current table contents.
             parseTableContents(into)
 
             // If we stopped at the next nested table definition, process it.
             let startToken = lookahead
-            if consumeIf({ $0 == .LSquare }) {
+            if consumeIf({ $0 == .lSquare }) {
                 // Check if we have a double-square (indicating an array-of-tables).
-                let isAppend = consumeIf({ $0 == .LSquare })
+                let isAppend = consumeIf({ $0 == .lSquare })
 
                 // Process the table specifier.
                 guard let specifiers = parseTableSpecifier(isAppend) else {
@@ -454,7 +454,7 @@ private struct Parser {
             }
         }
 
-        return .Table(contents: topLevelTable)
+        return .table(contents: topLevelTable)
     }
 
     /// Find the new table to insert into given the top-level table and a list of specifiers.
@@ -465,17 +465,17 @@ private struct Parser {
             // If this is an append, then the last key is handled as a special case.
             if isAppend && i == specifiers.count - 1 {
                 if let existing = into.items[specifier] {
-                    guard case .Array(let array) = existing else {
+                    guard case .array(let array) = existing else {
                         error("cannot insert table for key path: \(specifiers)", at: startToken)
                         return topLevelTable
                     }
                     into = TOMLItemTable()
-                    array.items.append(.Table(contents: into))
+                    array.items.append(.table(contents: into))
                 } else {
                     let array = TOMLItemArray()
                     let table = TOMLItemTable()
-                    array.items.append(.Table(contents: table))
-                    into.items[specifier] = .Array(contents: array)
+                    array.items.append(.table(contents: table))
+                    into.items[specifier] = .array(contents: array)
                     into = table
                 }
                 continue
@@ -483,13 +483,13 @@ private struct Parser {
                     
             if let existing = into.items[specifier] {
                 switch existing {
-                case .Array(let contents):
-                    guard case .Table(let table) = contents.items.last! else {
+                case .array(let contents):
+                    guard case .table(let table) = contents.items.last! else {
                         error("cannot insert table for key path: \(specifiers)", at: startToken)
                         return topLevelTable
                     }
                     into = table
-                case .Table(let contents):
+                case .table(let contents):
                     into = contents
                 default:
                     error("cannot insert table for key path: \(specifiers)", at: startToken)
@@ -497,7 +497,7 @@ private struct Parser {
                 }
             } else {
                 let table = TOMLItemTable()
-                into.items[specifier] = .Table(contents: table)
+                into.items[specifier] = .table(contents: table)
                 into = table
             }
         }
@@ -513,12 +513,12 @@ private struct Parser {
             
         // Parse all of the specifiers.
         var specifiers: [String] = []
-        while lookahead != .EOF && lookahead != .RSquare {
+        while lookahead != .eof && lookahead != .rSquare {
             // Parse the next specifier.
             switch eat() {
-            case .StringLiteral(let value):
+            case .stringLiteral(let value):
                 specifiers.append(value)
-            case .Identifier(let value):
+            case .identifier(let value):
                 specifiers.append(value)
 
             case let token:
@@ -528,26 +528,26 @@ private struct Parser {
             }
 
             // Consume the specifier separator, if present.
-            if !consumeIf({ $0 == .Period }) {
+            if !consumeIf({ $0 == .period }) {
                 // If we didn't have a period, then should be at the end of the specifier.
                 break
             }
         }
 
         // Consume the trailing brackets.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf({ $0 == .rSquare }) {
             error("expected terminating ']' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
-        if isAppend && !consumeIf({ $0 == .RSquare }) {
+        if isAppend && !consumeIf({ $0 == .rSquare }) {
             error("expected terminating ']]' in table specifier", at: lookahead)
             skipToEndOfLine()
             return specifiers
         }
 
         // Consume the trailing newline.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf({ $0 == .eof || $0 == .newline }) {
             error("unexpected trailing token after table specifier", at: lookahead)
             skipToEndOfLine()
         }
@@ -574,7 +574,7 @@ private struct Parser {
         // Get the next token, skipping whitespace and comments.
         repeat {
             lookahead = lexer.next()
-        } while lookahead == .Comment || lookahead == .Whitespace
+        } while lookahead == .comment || lookahead == .whitespace
         return result
     }
 
@@ -591,8 +591,8 @@ private struct Parser {
     private mutating func skipToEndOfLine() {
         loop: while true {
             switch eat() {
-            case .EOF: fallthrough
-            case .Newline:
+            case .eof: fallthrough
+            case .newline:
                 break loop
             default:
                 continue
@@ -603,9 +603,9 @@ private struct Parser {
     /// Parse the contents of a table, stopping at the next table marker.
     private mutating func parseTableContents(_ table: TOMLItemTable) {
         // Parse assignments until we reach the EOF or a new table record.
-        while lookahead != .EOF && lookahead != .LSquare {
+        while lookahead != .eof && lookahead != .lSquare {
             // If we have a bare newline, ignore it.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf({ $0 == .newline }) {
                 continue
             }
 
@@ -619,11 +619,11 @@ private struct Parser {
         // Parse the LHS.
         let key: String
         switch eat() {
-        case .Number(let value):
+        case .number(let value):
             key = value
-        case .Identifier(let value):
+        case .identifier(let value):
             key = value
-        case .StringLiteral(let value):
+        case .stringLiteral(let value):
             key = value
 
         case let token:
@@ -633,7 +633,7 @@ private struct Parser {
         }
 
         // Expect an '='.
-        guard consumeIf({ $0 == .Equals }) else {
+        guard consumeIf({ $0 == .equals }) else {
             error("unexpected token while parsing assignment", at: lookahead)
             skipToEndOfLine()
             return
@@ -643,7 +643,7 @@ private struct Parser {
         let result: TOMLItem = parseItem()
 
         // Expect a newline or EOF.
-        if !consumeIf({ $0 == .EOF || $0 == .Newline }) {
+        if !consumeIf({ $0 == .eof || $0 == .newline }) {
             error("unexpected trailing token in assignment", at: lookahead)
             skipToEndOfLine()
         }
@@ -655,28 +655,28 @@ private struct Parser {
     private mutating func parseItem() -> TOMLItem {
         let token = eat()
         switch token {
-        case .Number(let spelling):
+        case .number(let spelling):
             if let numberItem = parseNumberItem(spelling) {
                 return numberItem
             } else {
                 error("invalid number value in assignment", at: token)
                 skipToEndOfLine()
-                return .String(value: "<<invalid>>")
+                return .string(value: "<<invalid>>")
             }
-        case .Identifier(let string):
-            return .String(value: string)
-        case .StringLiteral(let string):
-            return .String(value: string)
-        case .Boolean(let value):
-            return .Bool(value: value)
+        case .identifier(let string):
+            return .string(value: string)
+        case .stringLiteral(let string):
+            return .string(value: string)
+        case .boolean(let value):
+            return .bool(value: value)
 
-        case .LSquare:
+        case .lSquare:
             return parseInlineArray()
             
         default:
             error("unexpected token while parsing assignment", at: token)
             skipToEndOfLine()
-            return .String(value: "<<invalid>>")
+            return .string(value: "<<invalid>>")
         }
     }
     
@@ -686,9 +686,9 @@ private struct Parser {
     private mutating func parseInlineArray() -> TOMLItem {
         // Parse items until we reach the closing bracket.
         let array = TOMLItemArray()
-        while lookahead != .EOF && lookahead != .RSquare {
+        while lookahead != .eof && lookahead != .rSquare {
             // Skip newline tokens in arrays.
-            if consumeIf({ $0 == .Newline }) {
+            if consumeIf({ $0 == .newline }) {
                 continue
             }
 
@@ -699,14 +699,14 @@ private struct Parser {
             array.items.append(parseItem())
 
             // Consume the trailing comma, if present.
-            if !consumeIf({ $0 == .Comma }) {
+            if !consumeIf({ $0 == .comma }) {
                 // If we didn't have a comma, then should be at the end of the array.
                 break
             }
         }
 
         // Consume the trailing bracket.
-        if !consumeIf({ $0 == .RSquare }) {
+        if !consumeIf({ $0 == .rSquare }) {
             error("missing closing array square bracket", at: lookahead)
             // FIXME: This should skip respecting the current bracket nesting level.
             skipToEndOfLine()
@@ -715,7 +715,7 @@ private struct Parser {
         // FIXME: The TOML spec requires that arrays consist of homogeneous
         // types. We should validate that.
 
-        return .Array(contents: array)
+        return .array(contents: array)
     }
     
     private func parseNumberItem(_ spelling: String) -> TOMLItem? {
@@ -723,9 +723,9 @@ private struct Parser {
         let normalized = String(spelling.characters.filter { $0 != "_" })
 
         if let value = Int(normalized) {
-            return .Int(value: value)
+            return .int(value: value)
         } else if let value = Float(normalized) {
-            return .Float(value: value)
+            return .float(value: value)
         } else {
             return nil
         }

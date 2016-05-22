@@ -31,35 +31,35 @@ extension PackageToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case Init(InitMode)
-    case Doctor
-    case ShowDependencies(ShowDependenciesMode)
-    case Fetch
-    case Update
-    case Usage
-    case Version
-    case GenerateXcodeproj(String?)
-    case DumpPackage(String?)
+    case doctor
+    case showDependencies(ShowDependenciesMode)
+    case fetch
+    case update
+    case usage
+    case version
+    case generateXcodeproj(String?)
+    case dumpPackage(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "init", "initialize":
             self = try .Init(InitMode(pop()))
         case "doctor":
-            self = .Doctor
+            self = .doctor
         case "show-dependencies", "-D":
-            self = try .ShowDependencies(ShowDependenciesMode(pop()))
+            self = try .showDependencies(ShowDependenciesMode(pop()))
         case "fetch":
-            self = .Fetch
+            self = .fetch
         case "update":
-            self = .Update
+            self = .update
         case "help", "usage", "--help", "-h":
-            self = .Usage
+            self = .usage
         case "version":
-            self = .Version
+            self = .version
         case "generate-xcodeproj":
-            self = .GenerateXcodeproj(pop())
+            self = .generateXcodeproj(pop())
         case "dump-package":
-            self = .DumpPackage(pop())
+            self = .dumpPackage(pop())
         default:
             return nil
         }
@@ -68,14 +68,14 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     var description: String {
         switch self {
         case .Init(let type): return "init=\(type)"
-        case .Doctor: return "doctor"
-        case .ShowDependencies: return "show-dependencies"
-        case .GenerateXcodeproj: return "generate-xcodeproj"
-        case .Fetch: return "fetch"
-        case .Update: return "update"
-        case .Usage: return "help"
-        case .Version: return "version"
-        case .DumpPackage: return "dump-package"
+        case .doctor: return "doctor"
+        case .showDependencies: return "show-dependencies"
+        case .generateXcodeproj: return "generate-xcodeproj"
+        case .fetch: return "fetch"
+        case .update: return "update"
+        case .usage: return "help"
+        case .version: return "version"
+        case .dumpPackage: return "dump-package"
         }
     }
 }
@@ -83,9 +83,9 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 private enum PackageToolFlag: Argument {
     case chdir(String)
     case colorMode(ColorWrap.Mode)
-    case Xcc(String)
-    case Xld(String)
-    case Xswiftc(String)
+    case xcc(String)
+    case xld(String)
+    case xswiftc(String)
     case xcconfigOverrides(String)
     case ignoreDependencies
     case verbose(Int)
@@ -93,7 +93,7 @@ private enum PackageToolFlag: Argument {
     init?(argument: String, pop: () -> String?) throws {
 
         func forcePop() throws -> String {
-            guard let value = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
+            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             return value
         }
 
@@ -107,7 +107,7 @@ private enum PackageToolFlag: Argument {
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionParserError.InvalidUsage("invalid color mode: \(rawValue)")
+                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
         case "--ignore-dependencies":
@@ -168,31 +168,31 @@ public struct SwiftPackageTool {
                 let initPackage = try InitPackage(mode: initMode)
                 try initPackage.writePackageStructure()
                             
-            case .Update:
+            case .update:
                 try Utility.removeFileTree(opts.path.Packages)
                 fallthrough
                 
-            case .Fetch:
+            case .fetch:
                 _ = try fetch(opts.path.root)
         
-            case .Usage:
+            case .usage:
                 usage()
         
-            case .Doctor:
+            case .doctor:
                 doctor()
             
-            case .ShowDependencies(let mode):
+            case .showDependencies(let mode):
                 let (rootPackage, _) = try fetch(opts.path.root)
                 dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
         
-            case .Version:
+            case .version:
                 #if HasCustomVersionString
                     print(String(cString: VersionInfo.DisplayString()))
                 #else
                     print("Swift Package Manager – Swift 3.0")
                 #endif
                 
-            case .GenerateXcodeproj(let outpath):
+            case .generateXcodeproj(let outpath):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
                 
@@ -219,7 +219,7 @@ public struct SwiftPackageTool {
         
                 print("generated:", outpath.prettyPath)
                 
-            case .DumpPackage(let packagePath):
+            case .dumpPackage(let packagePath):
                 
                 let root = packagePath ?? opts.path.root
                 let manifest = try parseManifest(path: root, baseURL: root)
@@ -265,11 +265,11 @@ public struct SwiftPackageTool {
             switch flag {
             case .chdir(let path):
                 opts.chdir = path
-            case .Xcc(let value):
+            case .xcc(let value):
                 opts.Xcc.append(value)
-            case .Xld(let value):
+            case .xld(let value):
                 opts.Xld.append(value)
-            case .Xswiftc(let value):
+            case .xswiftc(let value):
                 opts.Xswiftc.append(value)
             case .verbose(let amount):
                 opts.verbosity += amount
@@ -285,7 +285,7 @@ public struct SwiftPackageTool {
             return (mode, opts)
         }
         else {
-            throw OptionParserError.InvalidUsage("no command provided: \(args)")
+            throw OptionParserError.invalidUsage("no command provided: \(args)")
         }
     }
 }
