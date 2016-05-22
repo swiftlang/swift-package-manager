@@ -68,12 +68,12 @@ struct SwiftcTool: ToolProtocol {
     var tempsPath: String                   { return Path.join(prefix, "\(module.c99name).build") }
     var objects: [String]                   { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
     var sources: [String]                   { return module.sources.paths }
-    var isLibrary: Bool                     { return module.type == .Library }
+    var isLibrary: Bool                     { return module.type == .library }
     var enableWholeModuleOptimization: Bool {
         #if EnableWorkaroundForSR1457
             return false
         #else
-            return conf == .Release
+            return conf == .release
         #endif
     }
 

@@ -18,25 +18,25 @@ import func Utility.isTTY
 import var Utility.stderr
 
 public enum Error: ErrorProtocol {
-    case NoManifestFound
-    case InvalidToolchain
-    case InvalidInstallation(String)
-    case InvalidSwiftExec(String)
-    case BuildYAMLNotFound(String)
+    case noManifestFound
+    case invalidToolchain
+    case invalidInstallation(String)
+    case invalidSwiftExec(String)
+    case buildYAMLNotFound(String)
 }
 
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .NoManifestFound:
+        case .noManifestFound:
             return "no \(Manifest.filename) file found"
-        case .InvalidToolchain:
+        case .invalidToolchain:
             return "invalid inferred toolchain"
-        case .InvalidInstallation(let prefix):
+        case .invalidInstallation(let prefix):
             return "invalid or incomplete Swift toolchain:\n    \(prefix)"
-        case .InvalidSwiftExec(let value):
+        case .invalidSwiftExec(let value):
             return "invalid SWIFT_EXEC value: \(value)"
-        case .BuildYAMLNotFound(let value):
+        case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         }
     }
@@ -45,17 +45,17 @@ extension Error: CustomStringConvertible {
 @noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
 
     switch error {
-    case OptionParserError.MultipleModesSpecified(let modes):
+    case OptionParserError.multipleModesSpecified(let modes):
         print(error: error)
 
-        if isTTY(.StdErr)
+        if isTTY(.stdErr)
              && (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
             print("", to: &stderr)
             usage { print($0, to: &stderr) }
         }
     case is OptionParserError:
         print(error: error)
-        if isTTY(.StdErr) {
+        if isTTY(.stdErr) {
             let argv0 = Process.arguments.first ?? "swift build"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
@@ -67,8 +67,8 @@ extension Error: CustomStringConvertible {
 }
 
 private func print(error: Any) {
-    if ColorWrap.isAllowed(for: .StdErr) {
-        print(ColorWrap.wrap("error:", with: .Red, for: .StdErr), error, to: &stderr)
+    if ColorWrap.isAllowed(for: .stdErr) {
+        print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
     } else {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
         print("\(cmd): error:", error, to: &stderr)

@@ -22,17 +22,17 @@ public func fopen(_ path: String, mode: FopenMode = .read) throws -> NSFileHandl
     case .write:
         #if os(OSX) || os(iOS)
             guard NSFileManager.`default`().createFile(atPath: path, contents: nil) else {
-                throw Error.CouldNotCreateFile(path: path)
+                throw Error.couldNotCreateFile(path: path)
             }
         #else
             guard NSFileManager.defaultManager().createFile(atPath: path, contents: nil) else {
-                throw Error.CouldNotCreateFile(path: path)
+                throw Error.couldNotCreateFile(path: path)
             }
         #endif
         handle = NSFileHandle(forWritingAtPath: path)
     }
     guard handle != nil else {
-        throw Error.FileDoesNotExist(path: path)
+        throw Error.fileDoesNotExist(path: path)
     }
     return handle
 }
@@ -45,7 +45,7 @@ public func fopen(_ path: String..., mode: FopenMode = .read, body: (NSFileHandl
 
 public func fputs(_ string: String, _ handle: NSFileHandle) throws {
     guard let data = string.data(using: NSUTF8StringEncoding) else {
-        throw Error.UnicodeEncodingError
+        throw Error.unicodeEncodingError
     }
 
     #if os(OSX) || os(iOS)
@@ -70,7 +70,7 @@ public func fputs(_ bytes: [UInt8], _ handle: NSFileHandle) throws {
 extension NSFileHandle: Sequence {
     public func enumerate(separatedBy separator: String = "\n") throws -> IndexingIterator<[String]> {
         guard let contents = String(data: readDataToEndOfFile(), encoding: NSUTF8StringEncoding) else {
-            throw Error.UnicodeDecodingError
+            throw Error.unicodeDecodingError
         }
 
         if contents == "" {

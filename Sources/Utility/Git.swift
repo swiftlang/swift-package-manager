@@ -99,9 +99,9 @@ public class Git {
     @noreturn public class func handle(_ error: ErrorProtocol) {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
-            print("error: ", Error.ObsoleteGitVersion)
+            print("error: ", Error.obsoleteGitVersion)
         } else {
-            print("error: ", Error.UnknownGitError)
+            print("error: ", Error.unknownGitError)
         }
         exit(1)
     }

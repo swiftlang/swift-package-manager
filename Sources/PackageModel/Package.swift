@@ -27,8 +27,8 @@ public class Package {
     }
 
     public enum Error: ErrorProtocol {
-        case NoManifest(String)
-        case NoOrigin(String)
+        case noManifest(String)
+        case noOrigin(String)
     }
 }
 

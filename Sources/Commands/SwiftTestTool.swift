@@ -17,29 +17,29 @@ import func POSIX.chdir
 import func libc.exit
 
 private enum TestError: ErrorProtocol {
-    case TestsExecutableNotFound
+    case testsExecutableNotFound
 }
 
 extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
-        case .TestsExecutableNotFound:
+        case .testsExecutableNotFound:
             return "no tests found to execute, create a module in your `Tests' directory"
         }
     }
 }
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case Usage
-    case Run(String?)
+    case usage
+    case run(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--help", "--usage", "-h":
-            self = .Usage
+            self = .usage
         case "-s":
-            guard let specifier = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
-            self = .Run(specifier)
+            guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
+            self = .run(specifier)
         default:
             return nil
         }
@@ -47,9 +47,9 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .Usage:
+        case .usage:
             return "--help"
-        case .Run(let specifier):
+        case .run(let specifier):
             return specifier ?? ""
         }
     }
@@ -65,7 +65,7 @@ private enum TestToolFlag: Argument {
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--chdir", "-C":
-            guard let path = pop() else { throw OptionParserError.ExpectedAssociatedValue(argument) }
+            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .chdir(path)
         default:
             return nil
@@ -90,10 +90,10 @@ public struct SwiftTestTool {
             }
         
             switch mode {
-            case .Usage:
+            case .usage:
                 usage()
         
-            case .Run(let specifier):
+            case .run(let specifier):
                 let configuration = "debug"  //FIXME should swift-test support configuration option?
         
                 func determineTestPath() throws -> String {
@@ -113,7 +113,7 @@ public struct SwiftTestTool {
                         }
                         
                         guard let path = possiblePaths.first else {
-                            throw TestError.TestsExecutableNotFound
+                            throw TestError.testsExecutableNotFound
                         }
                         
                         return path
@@ -125,7 +125,7 @@ public struct SwiftTestTool {
                 let success = try test(path: determineTestPath(), xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
-        } catch Error.BuildYAMLNotFound {
+        } catch Error.buildYAMLNotFound {
             print("error: you must run `swift build` first", to: &stderr)
             exit(1)
         } catch {
@@ -159,12 +159,12 @@ public struct SwiftTestTool {
             }
         }
 
-        return (mode ?? .Run(nil), opts)
+        return (mode ?? .run(nil), opts)
     }
 
     private func test(path: String, xctestArg: String? = nil) throws -> Bool {
         guard path.isValidTest else {
-            throw TestError.TestsExecutableNotFound
+            throw TestError.testsExecutableNotFound
         }
 
         var args: [String] = []

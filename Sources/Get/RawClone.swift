@@ -40,7 +40,7 @@ class RawClone: Fetchable {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
-            throw Error.Unversioned(path)
+            throw Error.unversioned(path)
         }
     }
 
@@ -71,7 +71,7 @@ class RawClone: Fetchable {
         // we must re-read the manifest
         _manifest = nil
         if manifest == nil {
-            throw Error.NoManifest(path, ver)
+            throw Error.noManifest(path, ver)
         }
     }
 

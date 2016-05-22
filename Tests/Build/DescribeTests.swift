@@ -26,10 +26,10 @@ final class DescribeTests: XCTestCase {
 
             try POSIX.mkdtemp("spm-tests") { prefix in
                 defer { _ = try? Utility.removeFileTree(prefix) }
-                let _ = try describe(Path.join(prefix, "foo"), .Debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+                let _ = try describe(Path.join(prefix, "foo"), .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
                 XCTFail("This call should throw")
             }
-        } catch Build.Error.NoModules {
+        } catch Build.Error.noModules {
             XCTAssert(true, "This error should be thrown")
         } catch {
             XCTFail("No other error should be thrown")

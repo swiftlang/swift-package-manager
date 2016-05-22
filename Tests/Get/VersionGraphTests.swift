@@ -229,7 +229,7 @@ class VersionGraphTests: XCTestCase {
                 (MockProject.A.url, Version.maxRange),
                 (MockProject.B.url, Version.maxRange)
             ])
-        } catch Error.InvalidDependencyGraph(let url) {
+        } catch Error.invalidDependencyGraph(let url) {
             invalidGraph = true
             XCTAssertEqual(url, MockProject.C.url)
         } catch {
@@ -259,7 +259,7 @@ class VersionGraphTests: XCTestCase {
             _ = try MyMockFetcher().recursivelyFetch([
                 (MockProject.A.url, v1..<v1.successor()),
             ])
-        } catch Error.InvalidDependencyGraphMissingTag(let url, _, _) {
+        } catch Error.invalidDependencyGraphMissingTag(let url, _, _) {
             XCTAssertEqual(url, MockProject.F.url)
             invalidGraph = true
         } catch {
@@ -278,7 +278,7 @@ class VersionGraphTests: XCTestCase {
         var success = false
         do {
             _ = try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
-        } catch Error.InvalidDependencyGraphMissingTag {
+        } catch Error.invalidDependencyGraphMissingTag {
             success = true
         } catch {
             XCTFail()

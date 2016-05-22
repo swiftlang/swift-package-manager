@@ -16,24 +16,24 @@ import class PackageDescription.Target
 extension Package {
     /// An error in the package organization of modules.
     enum ModuleError: ErrorProtocol {
-        case NoModules(Package)
-        case ModuleNotFound(String)
-        case InvalidLayout(InvalidLayoutType)
-        case ExecutableAsDependency(String)
+        case noModules(Package)
+        case moduleNotFound(String)
+        case invalidLayout(InvalidLayoutType)
+        case executableAsDependency(String)
     }
 
     enum InvalidLayoutType {
-        case MultipleSourceRoots([String])
-        case InvalidLayout([String])
+        case multipleSourceRoots([String])
+        case invalidLayout([String])
     }
 }
 
 extension Package.InvalidLayoutType: CustomStringConvertible {
     var description: String {
         switch self {
-        case .MultipleSourceRoots(let paths):
+        case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.joined(separator: ", ")
-        case .InvalidLayout(let paths):
+        case .invalidLayout(let paths):
             return "unexpected source file(s) found: " + paths.joined(separator: ", ")
         }
     }
@@ -42,16 +42,16 @@ extension Package.InvalidLayoutType: CustomStringConvertible {
 extension Module {
     /// An error in the organization of an individual module.
     enum Error: ErrorProtocol {
-        case NoSources(String)
-        case MixedSources(String)
-        case DuplicateModule(String)
+        case noSources(String)
+        case mixedSources(String)
+        case duplicateModule(String)
     }
 }
 
 extension Product {
     /// An error in a product definition.
     enum Error: ErrorProtocol {
-        case NoModules(String)
+        case noModules(String)
     }
 }
 
@@ -73,7 +73,7 @@ extension Package {
             return viableRoots[0]
         default:
             // eg. there is a `Sources' AND a `src'
-            throw ModuleError.InvalidLayout(.MultipleSourceRoots(viableRoots))
+            throw ModuleError.invalidLayout(.multipleSourceRoots(viableRoots))
         }
     }
 
@@ -92,7 +92,7 @@ extension Package {
         if srcroot != path {
             let invalidRootFiles = walk(path, recursively: false).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
-                throw ModuleError.InvalidLayout(.InvalidLayout(invalidRootFiles))
+                throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles))
             }
         }
 
@@ -101,7 +101,7 @@ extension Package {
         if maybeModules.count == 1 && maybeModules[0] != srcroot {
             let invalidModuleFiles = walk(srcroot, recursively: false).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
-                throw ModuleError.InvalidLayout(.InvalidLayout(invalidModuleFiles))
+                throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles))
             }
         }
 
@@ -109,8 +109,8 @@ extension Package {
         if maybeModules.isEmpty {
             do {
                 modules = [try modulify(srcroot, name: self.name)]
-            } catch Module.Error.NoSources {
-                throw ModuleError.NoModules(self)
+            } catch Module.Error.noSources {
+                throw ModuleError.noModules(self)
             }
         } else {
             modules = try maybeModules.map { path in
@@ -135,10 +135,10 @@ extension Package {
                 switch $0 {
                 case .Target(let name):
                     guard let dependency = moduleForName(name) else {
-                        throw ModuleError.ModuleNotFound(name)
+                        throw ModuleError.moduleNotFound(name)
                     }
-                    if let moduleType = dependency as? ModuleTypeProtocol where moduleType.type != .Library {
-                        throw ModuleError.ExecutableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
+                    if let moduleType = dependency as? ModuleTypeProtocol where moduleType.type != .library {
+                        throw ModuleError.executableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
                     }
                     return dependency
                 }
@@ -155,11 +155,11 @@ extension Package {
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
         
         if !cSources.isEmpty {
-            guard swiftSources.isEmpty else { throw Module.Error.MixedSources(path) }
+            guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path) }
             return try ClangModule(name: name, sources: Sources(paths: cSources, root: path))
         }
         
-        guard !swiftSources.isEmpty else { throw Module.Error.NoSources(path) }
+        guard !swiftSources.isEmpty else { throw Module.Error.noSources(path) }
         return try SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path))
     }
 
@@ -195,7 +195,7 @@ extension Package {
     ////// first auto-determine executables
 
         for case let module as SwiftModule in modules {
-            if module.type == .Executable {
+            if module.type == .executable {
                 let product = Product(name: module.name, type: .Executable, modules: [module])
                 products.append(product)
             }
@@ -224,7 +224,7 @@ extension Package {
             }
 
             guard !modules.isEmpty else {
-                throw Product.Error.NoModules(p.name)
+                throw Product.Error.noModules(p.name)
             }
 
             let product = Product(name: p.name, type: p.type, modules: modules)

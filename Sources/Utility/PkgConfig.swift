@@ -12,9 +12,9 @@ import func POSIX.getenv
 import func POSIX.popen
 
 public enum PkgConfigError: ErrorProtocol {
-    case CouldNotFindConfigFile
-    case ParsingError(String)
-    case NonWhitelistedFlags(String)
+    case couldNotFindConfigFile
+    case parsingError(String)
+    case nonWhitelistedFlags(String)
 }
 
 /// Get search paths from pkg-config itself.
@@ -96,7 +96,7 @@ public struct PkgConfig {
                 return pcFile
             }
         }
-        throw PkgConfigError.CouldNotFindConfigFile
+        throw PkgConfigError.couldNotFindConfigFile
     }
 }
 
@@ -142,7 +142,7 @@ struct PkgConfigParser {
                 variables[name.chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
-                throw PkgConfigError.ParsingError("Unexpected line: \(line) in \(pcFile)")
+                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")
             }
         }
     }
@@ -207,7 +207,7 @@ struct PkgConfigParser {
             if operators.contains(arg) {
                 // We should have a version number next, skip.
                 guard let _ = it.next() else {
-                    throw PkgConfigError.ParsingError("Expected version number after \(deps.last) \(arg) in \"\(depString)\" in \(pcFile)")
+                    throw PkgConfigError.parsingError("Expected version number after \(deps.last) \(arg) in \"\(depString)\" in \(pcFile)")
                 }
             } else {
                 // Otherwise it is a dependency.
@@ -243,7 +243,7 @@ struct PkgConfigParser {
                 // Append the contents before the variable.
                 result += fragment[fragment.characters.startIndex..<variable.startIndex]
                 guard let variableValue = variables[variable.name] else {
-                    throw PkgConfigError.ParsingError("Expected variable in \(pcFile)")
+                    throw PkgConfigError.parsingError("Expected variable in \(pcFile)")
                 }
                 // Append the value of the variable.
                 result += variableValue

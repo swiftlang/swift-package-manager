@@ -66,7 +66,7 @@ private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
             _ = try RawClone(path: path, manifestParser: { _ throws in
                 return Manifest(path: path, package: PackageDescription.Package(), products: [])
             })
-        } catch Error.Unversioned {
+        } catch Error.unversioned {
             done = shouldCrash
         } catch {
             XCTFail()

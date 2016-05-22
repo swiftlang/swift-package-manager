@@ -47,10 +47,10 @@ struct UserToolchain: Toolchain {
             #endif
 
             guard !SWIFT_EXEC.isEmpty && !clang.isEmpty && (sysroot == nil || !sysroot!.isEmpty) else {
-                throw Error.InvalidToolchain
+                throw Error.invalidToolchain
             }
-        } catch POSIX.Error.ExitStatus {
-            throw Error.InvalidToolchain
+        } catch POSIX.Error.exitStatus {
+            throw Error.invalidToolchain
         }
     }
 }

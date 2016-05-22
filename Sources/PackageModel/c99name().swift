@@ -201,7 +201,7 @@ public func c99name(name: String) throws  -> String {
     }
 
     guard mapped.count > 0 else {
-        throw Error.InvalidPackageName(name)
+        throw Error.invalidPackageName(name)
     }
 
     // String(mapped) AND map(String.init) didn't work ¯\_(ツ)_/¯
@@ -209,13 +209,13 @@ public func c99name(name: String) throws  -> String {
 }
 
 enum Error: ErrorProtocol {
-    case InvalidPackageName(String)
+    case invalidPackageName(String)
 }
 
 extension Error: CustomStringConvertible {
     var description: String {
         switch self {
-        case .InvalidPackageName(let name):
+        case .invalidPackageName(let name):
             return "Invalid Package Name. \(name) is not a valid C99 extended identifier"
         }
     }

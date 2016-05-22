@@ -32,7 +32,7 @@ extension Command {
         case .Library(.Dynamic), .Executable, .Test:
             args = [SWIFT_EXEC] + otherArgs
 
-            if conf == .Debug {
+            if conf == .debug {
                 args += ["-g"]
             }
             args += ["-L\(prefix)"]
@@ -56,7 +56,7 @@ extension Command {
             args += ["-F", try platformFrameworksPath()]
 
             // TODO should be llbuild rules∫
-            if conf == .Debug {
+            if conf == .debug {
                 try Utility.makeDirectories(outpath.parentDirectory)
                 try fopen(outpath.parentDirectory.parentDirectory, "Info.plist", mode: .write) { fp in
                     try fputs(product.Info.plist, fp)

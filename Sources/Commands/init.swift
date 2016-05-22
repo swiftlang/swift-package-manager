@@ -18,13 +18,13 @@ import func Utility.makeDirectories
 import struct Utility.Path
 
 private enum InitError: ErrorProtocol {
-    case ManifestAlreadyExists
+    case manifestAlreadyExists
 }
 
 extension InitError: CustomStringConvertible {
     var description: String {
         switch self {
-        case .ManifestAlreadyExists:
+        case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
         }
     }
@@ -55,7 +55,7 @@ final class InitPackage {
     private func writeManifestFile() throws {
         let manifest = Path.join(rootd, Manifest.filename)
         guard manifest.exists == false else {
-            throw InitError.ManifestAlreadyExists
+            throw InitError.manifestAlreadyExists
         }
         
         let packageFP = try Utility.fopen(manifest, mode: .write)
@@ -93,16 +93,16 @@ final class InitPackage {
         print("Creating Sources/")
         try Utility.makeDirectories(sources)
     
-        let sourceFileName = (mode == .Executable) ? "main.swift" : "\(pkgname).swift"
+        let sourceFileName = (mode == .executable) ? "main.swift" : "\(pkgname).swift"
         let sourceFile = Path.join(sources, sourceFileName)
         let sourceFileFP = try Utility.fopen(sourceFile, mode: .write)
         defer { sourceFileFP.closeFile() }
         print("Creating Sources/\(sourceFileName)")
         switch mode {
-        case .Library:            
+        case .library:
             try fputs("struct \(pkgname) {\n\n", sourceFileFP)
             try fputs("}\n", sourceFileFP)
-        case .Executable:
+        case .executable:
             try fputs("print(\"Hello, world!\")\n", sourceFileFP)
         }
     }
@@ -115,7 +115,7 @@ final class InitPackage {
         print("Creating Tests/")
         try Utility.makeDirectories(tests)
         ///Only libraries are testable for now
-        if mode == .Library {
+        if mode == .library {
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
@@ -166,23 +166,23 @@ final class InitPackage {
 
 /// Represents a package type for the purposes of initialization.
 enum InitMode: CustomStringConvertible {
-    case Library, Executable
+    case library, executable
 
     init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "library"?, "lib"?:
-            self = .Library
+            self = .library
         case nil, "executable"?, "exec"?, "exe"?:
-            self = .Executable
+            self = .executable
         default:
-            throw OptionParserError.InvalidUsage("invalid initialization type: \(rawValue)")
+            throw OptionParserError.invalidUsage("invalid initialization type: \(rawValue)")
         }
     }
 
     var description: String {
         switch self {
-            case .Library: return "library"
-            case .Executable: return "executable"
+            case .library: return "library"
+            case .executable: return "executable"
         }
     }
 }

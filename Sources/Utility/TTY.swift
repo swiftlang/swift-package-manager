@@ -15,11 +15,11 @@ import libc
 /// Check if this stream is TTY.
 public func isTTY(_ stream: Stream) -> Bool {
     switch stream {
-    case .StdOut: return isatty(fileno(libc.stdout))
-    case .StdErr: return isatty(fileno(libc.stderr))
+    case .stdOut: return isatty(fileno(libc.stdout))
+    case .stdErr: return isatty(fileno(libc.stderr))
     }
 }
 
 public enum Stream {
-    case StdOut, StdErr
+    case stdOut, stdErr
 }

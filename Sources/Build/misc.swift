@@ -27,7 +27,7 @@ func platformFrameworksPath() throws -> String {
         static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
     }
     guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
-        throw Error.InvalidPlatformPath
+        throw Error.invalidPlatformPath
     }
     return Path.join(chuzzled, "Developer/Library/Frameworks")
 }
@@ -85,7 +85,7 @@ extension ClangModule {
 extension ClangModule {
     
     public enum ModuleMapError: ErrorProtocol {
-        case UnsupportedIncludeLayoutForModule(String)
+        case unsupportedIncludeLayoutForModule(String)
     }
     
     ///FIXME: we recompute the generated modulemap's path
@@ -122,21 +122,21 @@ extension ClangModule {
 
         let umbrellaHeaderFlat = Path.join(includeDir, "\(c99name).h")
         if umbrellaHeaderFlat.isFile {
-            guard dirs.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
-            try createModuleMap(inDir: wd, type: .Header(umbrellaHeaderFlat))
+            guard dirs.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(name) }
+            try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat))
             return
         }
         diagnoseInvalidUmbrellaHeader(includeDir)
 
         let umbrellaHeader = Path.join(includeDir, c99name, "\(c99name).h")
         if umbrellaHeader.isFile {
-            guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.UnsupportedIncludeLayoutForModule(name) }
-            try createModuleMap(inDir: wd, type: .Header(umbrellaHeader))
+            guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(name) }
+            try createModuleMap(inDir: wd, type: .header(umbrellaHeader))
             return
         }
         diagnoseInvalidUmbrellaHeader(Path.join(includeDir, c99name))
 
-        try createModuleMap(inDir: wd, type: .Directory(includeDir))
+        try createModuleMap(inDir: wd, type: .directory(includeDir))
     }
 
     ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
@@ -149,8 +149,8 @@ extension ClangModule {
     }
 
     private enum UmbrellaType {
-        case Header(String)
-        case Directory(String)
+        case header(String)
+        case directory(String)
     }
     
     private func createModuleMap(inDir wd: String, type: UmbrellaType) throws {
@@ -161,9 +161,9 @@ extension ClangModule {
         
         var output = "module \(c99name) {\n"
         switch type {
-        case .Header(let header):
+        case .header(let header):
             output += "    umbrella header \"\(header)\"\n"
-        case .Directory(let path):
+        case .directory(let path):
             output += "    umbrella \"\(path)\"\n"
         }
         output += "    link \"\(c99name)\"\n"
@@ -230,11 +230,11 @@ extension SystemPackageProvider {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {
         case .Brew(_):
-            if case .Darwin = platform  {
+            if case .darwin = platform  {
                 return true
             }
         case .Apt(_):
-            if case .Linux(.Debian) = platform  {
+            if case .linux(.debian) = platform  {
                 return true
             }
         }

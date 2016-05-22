@@ -40,7 +40,7 @@ extension Fetcher {
 
                 func adjust(_ pkg: Fetchable, _ versionRange: Range<Version>) throws {
                     guard let v = pkg.constrain(to: versionRange) else {
-                        throw Error.InvalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
+                        throw Error.invalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }
                     try pkg.setVersion(v)
                 }
@@ -51,7 +51,7 @@ extension Fetcher {
                     // verify that it satisfies the requested version range
 
                     guard let updatedRange = cumulativeVersionRange.constrain(to: specifiedVersionRange) else {
-                        throw Error.InvalidDependencyGraph(url)
+                        throw Error.invalidDependencyGraph(url)
                     }
 
                     if updatedRange ~= pkg.version {
@@ -80,7 +80,7 @@ extension Fetcher {
                     // range.
 
                     guard specifiedVersionRange ~= pkg.version else {
-                        throw Error.UpdateRequired(url)
+                        throw Error.updateRequired(url)
                     }
                     graph[url] = (pkg, specifiedVersionRange)
                     return try recurse(pkg.children) + [url]

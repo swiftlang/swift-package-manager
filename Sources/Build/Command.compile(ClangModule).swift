@@ -47,9 +47,9 @@ private extension ClangModule {
 
     func optimizationFlags(_ conf: Configuration) -> [String] {
         switch conf {
-        case .Debug:
+        case .debug:
             return ["-g", "-O0"]
-        case .Release:
+        case .release:
             return ["-O2"]
         }
     }
@@ -71,7 +71,7 @@ extension Command {
 
         let wd = module.buildDirectory(prefix)
         
-        if module.type == .Library {
+        if module.type == .library {
             try module.generateModuleMap(inDir: wd)
         }
         
@@ -110,11 +110,11 @@ extension Command {
         args += module.sources.compilePathsForBuildDir(wd).map{$0.object}
         args += Xld
 
-        if module.type == .Library {
+        if module.type == .library {
             args += ["-shared"]
         }
 
-        let productPath = Path.join(prefix, module.type == .Library ? "lib\(module.c99name).so" : module.c99name)
+        let productPath = Path.join(prefix, module.type == .library ? "lib\(module.c99name).so" : module.c99name)
         args += ["-o", productPath]
         
         let shell = ShellTool(description: "Linking \(module.name)",
