@@ -52,7 +52,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .Fetch
         case "update":
             self = .Update
-        case "help", "usage", "-h":
+        case "help", "usage", "--help", "-h":
             self = .Usage
         case "version":
             self = .Version
