@@ -732,6 +732,7 @@ def main():
     else:
         conf = "debug"
 
+    swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
 
@@ -752,7 +753,7 @@ def main():
                                         "lib", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_build_path, swift_test_path]:
+        for product_path in [swift_package_path, swift_build_path, swift_test_path]:
             cmd = ["install", product_path, bin_install_path]
             note("installing %s: %s" % (
                 os.path.basename(product_path), ' '.join(cmd)))
