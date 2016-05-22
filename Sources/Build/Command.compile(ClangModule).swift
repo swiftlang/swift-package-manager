@@ -86,6 +86,8 @@ extension Command {
             var args = basicArgs
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps]
             args += ["-c", path.source, "-o", path.object]
+            // Add include directory in include search paths.
+            args += ["-I", module.path]
 
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename)",
                                   inputs: dependencies + [path.source],

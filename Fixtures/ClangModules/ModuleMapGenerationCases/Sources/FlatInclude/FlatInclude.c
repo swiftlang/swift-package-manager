@@ -1,4 +1,4 @@
-#include "include/FlatIncludeHeader.h"
+#include "FlatIncludeHeader.h"
 
 int bar() {
     int a = 6;
