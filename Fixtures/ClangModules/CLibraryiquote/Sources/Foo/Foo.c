@@ -1,4 +1,4 @@
-#include "include/Foo/Foo.h"
+#include "Foo/Foo.h"
 
 int foo() {
     int a = 5;
