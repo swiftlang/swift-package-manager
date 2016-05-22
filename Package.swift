@@ -89,6 +89,10 @@ let package = Package(
             dependencies: ["Basic", "Build", "Get", "PackageGraph", "Xcodeproj"]),
         Target(
             /** The main executable provided by SwiftPM */
+            name: "swift-package",
+            dependencies: ["Commands"]),
+        Target(
+            /** Builds packages */
             name: "swift-build",
             dependencies: ["Commands"]),
         Target(

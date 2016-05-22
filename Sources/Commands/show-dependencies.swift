@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import struct PackageDescription.Version
 
@@ -113,5 +114,35 @@ private final class JsonDumper: DependenciesDumper {
         }
 
         recursiveWalk(rootpkg: rootpkg)
+    }
+}
+
+enum ShowDependenciesMode: CustomStringConvertible {
+    case Text, DOT, JSON
+    
+    init(_ rawValue: String?) throws {
+        guard let rawValue = rawValue else {
+            self = .Text
+            return
+        }
+        
+        switch rawValue.lowercased() {
+        case "text":
+           self = .Text
+        case "dot":
+           self = .DOT
+        case "json":
+           self = .JSON
+        default:
+            throw OptionParserError.InvalidUsage("invalid show dependencies mode: \(rawValue)")
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .Text: return "text"
+        case .DOT: return "dot"
+        case .JSON: return "json"
+        }
     }
 }
