@@ -12,32 +12,6 @@ import struct Basic.ByteString
 import enum Basic.JSON
 import Utility
 
-/// Specifies a repository address.
-public struct RepositorySpecifier {
-    /// The URL of the repository.
-    public let url: String
-
-    /// Create a specifier.
-    public init(url: String) {
-        self.url = url
-    }
-    
-    /// A unique identifier for this specifier.
-    ///
-    /// This identifier is suitable for use in a file system path, and
-    /// unique for each repository.
-    public var fileSystemIdentifier: String {
-        // FIXME: Need to do something better here.
-        return url.basename + "-" + String(url.hashValue)
-    }
-}
-
-/// A repository provider.
-public protocol RepositoryProvider {
-    /// Fetch the complete repository at the given location to `path`.
-    func fetch(repository: RepositorySpecifier, to path: String) throws
-}
-
 /// Manages a collection of repository checkouts.
 public class CheckoutManager {
     /// Handle to a managed repository.
