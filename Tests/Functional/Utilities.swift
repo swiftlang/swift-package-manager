@@ -96,20 +96,20 @@ enum Configuration {
 private var globalSymbolInMainBinary = 0
 
 
-func swiftBuildPath() -> String {
+func swiftSubcommandPath(_  subcommand: String) -> String {
 #if os(OSX)
-    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
-        return Path.join(bundle.bundlePath.parentDirectory, "swift-build")
+    for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+        return Path.join(bundle.bundlePath.parentDirectory, "swift-" + subcommand)
     }
     fatalError()
 #else
-    return Path.join(Process.arguments.first!.abspath.parentDirectory, "swift-build")
+    return Path.join(Process.arguments.first!.abspath.parentDirectory, "swift-" + subcommand)
 #endif
 }
 
 @discardableResult
-func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
-    let args = [swiftBuildPath(), "--chdir", chdir] + args
+func executeSwiftSubcommand(_ subcommand: String, args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
+    let args = [swiftSubcommandPath(subcommand), "--chdir", chdir] + args
     var env = env
 
     // FIXME: We use this private enviroment variable hack to be able to
@@ -142,10 +142,15 @@ func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = 
         if printIfError {
             print("output:", out)
             print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
-            print("swift-build:", swiftBuildPath())
+            print("swift-\(subcommand):", swiftSubcommandPath(subcommand))
         }
         throw error
     }
+}
+
+@discardableResult
+func executeSwiftBuild(_ args: [String], chdir: String, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
+    return try executeSwiftSubcommand("build", args: args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
 @discardableResult

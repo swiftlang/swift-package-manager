@@ -128,9 +128,9 @@ func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt
 func XCTAssertXcodeprojGen(_ prefix: String, env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        _ = try executeSwiftBuild(["-X"], chdir: prefix, printIfError: true, env: env)
+        _ = try executeSwiftSubcommand("package", args: ["generate-xcodeproj"], chdir: prefix, printIfError: true, env: env)
     } catch {
-        XCTFail("`swift build -X' failed:\n\n\(error)\n", file: file, line: line)
+        XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }
 }
 
