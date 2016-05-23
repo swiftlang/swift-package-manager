@@ -98,7 +98,7 @@ private var globalSymbolInMainBinary = 0
 
 func swiftSubcommandPath(_  subcommand: String) -> String {
 #if os(OSX)
-    for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
         return Path.join(bundle.bundlePath.parentDirectory, "swift-" + subcommand)
     }
     fatalError()
