@@ -146,6 +146,8 @@ public struct SwiftTestTool {
         print("OPTIONS:")
         print("  --chdir              Change working directory before any other operation [-C]")
         print("  --build-path <path>  Specify build directory")
+        print("")
+        print("NOTE: Use `swift package` to perform other functions on packages")
     }
 
     private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, Options) {

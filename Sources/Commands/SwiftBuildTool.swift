@@ -224,6 +224,8 @@ public struct SwiftBuildTool {
         print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
         print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
         print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
+        print("")
+        print("NOTE: Use `swift package` to perform other functions on packages")
     }
     
     private func parse(commandLineArguments args: [String]) throws -> (Mode, BuildToolOptions) {

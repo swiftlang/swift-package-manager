@@ -235,7 +235,7 @@ public struct SwiftPackageTool {
 
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
-        print("OVERVIEW: Perform operations on a swift package")
+        print("OVERVIEW: Perform operations on Swift packages")
         print("")
         print("USAGE: swift package [command] [options]")
         print("")
@@ -255,6 +255,8 @@ public struct SwiftPackageTool {
         print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
         print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
         print("")
+        print("")
+        print("NOTE: Use `swift build` to build packages, and `swift test` to test packages")
     }
     
     private func parse(commandLineArguments args: [String]) throws -> (Mode, PackageToolOptions) {
