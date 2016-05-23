@@ -224,8 +224,11 @@ extension JSON {
         let data = NSData(bytes: bytes.contents, length: bytes.count)
         
         do {
+          #if os(Linux)
             let result = try NSJSONSerialization.jsonObject(with: data, options: [.AllowFragments])
-            
+          #else
+            let result = try NSJSONSerialization.jsonObject(with: data, options: [.allowFragments])
+          #endif
             // Convert to a native representation.
             //
             // FIXME: This is inefficient; eventually, we want a way to do the
