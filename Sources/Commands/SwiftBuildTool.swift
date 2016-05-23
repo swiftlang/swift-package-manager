@@ -32,15 +32,8 @@ extension BuildToolOptions: XcodeprojOptions {}
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
     case clean(CleanMode)
-    case doctor
-    case showDependencies(ShowDependenciesMode)
-    case fetch
-    case update
-    case Init(InitMode)
     case usage
     case version
-    case generateXcodeproj(String?)
-    case dumpPackage(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -48,24 +41,10 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = try .build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .clean(CleanMode(pop()))
-        case "--doctor":
-            self = .doctor
-        case "--show-dependencies", "-D":
-            self = try .showDependencies(ShowDependenciesMode(pop()))
-        case "--fetch":
-            self = .fetch
-        case "--update":
-            self = .update
-        case "--init", "--initialize":
-            self = try .Init(InitMode(pop()))
         case "--help", "--usage", "-h":
             self = .usage
         case "--version":
             self = .version
-        case "--generate-xcodeproj", "-X":
-            self = .generateXcodeproj(pop())
-        case "--dump-package":
-            self = .dumpPackage(pop())
         default:
             return nil
         }
@@ -75,15 +54,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         switch self {
             case .build(let conf, _): return "--configuration=\(conf)"
             case .clean(let mode): return "--clean=\(mode)"
-            case .doctor: return "--doctor"
-            case .showDependencies: return "--show-dependencies"
-            case .generateXcodeproj: return "--generate-xcodeproj"
-            case .fetch: return "--fetch"
-            case .update: return "--update"
-            case .Init(let mode): return "--init=\(mode)"
             case .usage: return "--help"
             case .version: return "--version"
-            case .dumpPackage: return "--dump-package"
         }
     }
 }
@@ -194,17 +166,6 @@ public struct SwiftBuildTool {
                 let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
                 try build(YAMLPath: yaml, target: opts.buildTests ? "test" : nil)
         
-            case .Init(let initMode):
-                let initPackage = try InitPackage(mode: initMode)
-                try initPackage.writePackageStructure()
-                            
-            case .update:
-                try Utility.removeFileTree(opts.path.Packages)
-                fallthrough
-                
-            case .fetch:
-                _ = try fetch(opts.path.root)
-        
             case .usage:
                 usage()
         
@@ -231,13 +192,6 @@ public struct SwiftBuildTool {
                     try Utility.removeFileTree(opts.path.build)
                 }
         
-            case .doctor:
-                doctor()
-            
-            case .showDependencies(let mode):
-                let (rootPackage, _) = try fetch(opts.path.root)
-                dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
-        
             case .version:
                 #if HasCustomVersionString
                     print(String(cString: VersionInfo.DisplayString()))
@@ -245,40 +199,6 @@ public struct SwiftBuildTool {
                     print("Swift Package Manager – Swift 3.0")
                 #endif
                 
-            case .generateXcodeproj(let outpath):
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                
-                let xcodeModules = modules.flatMap { $0 as? XcodeModuleProtocol }
-                let externalXcodeModules  = externalModules.flatMap { $0 as? XcodeModuleProtocol }
-        
-                let projectName: String
-                let dstdir: String
-                let packageName = rootPackage.name
-        
-                switch outpath {
-                case let outpath? where outpath.hasSuffix(".xcodeproj"):
-                    // if user specified path ending with .xcodeproj, use that
-                    projectName = String(outpath.basename.characters.dropLast(10))
-                    dstdir = outpath.parentDirectory
-                case let outpath?:
-                    dstdir = outpath
-                    projectName = packageName
-                case _:
-                    dstdir = opts.path.root
-                    projectName = packageName
-                }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir.abspath, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
-        
-                print("generated:", outpath.prettyPath)
-                
-            case .dumpPackage(let packagePath):
-                
-                let root = packagePath ?? opts.path.root
-                let manifest = try parseManifest(path: root, baseURL: root)
-                let package = manifest.package
-                let json = try jsonString(package: package)
-                print(json)
             }
         
         } catch {
@@ -295,12 +215,6 @@ public struct SwiftBuildTool {
         print("MODES:")
         print("  --configuration <value>        Build with configuration (debug|release) [-c]")
         print("  --clean[=<mode>]               Delete artifacts (build|dist)")
-        print("  --init[=<mode>]                Create a package template (executable|library)")
-        print("  --fetch                        Fetch package dependencies")
-        print("  --update                       Update package dependencies")
-        print("  --generate-xcodeproj[=<path>]  Generates an Xcode project [-X]")
-        print("  --show-dependencies[=<mode>]   Print dependency graph (text|dot|json)")
-        print("  --dump-package[=<path>]        Print Package.swift as JSON")
         print("")
         print("OPTIONS:")
         print("  --chdir <path>       Change working directory before any other operation [-C]")
