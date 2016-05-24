@@ -17,7 +17,8 @@ Lets put this code in a directory called `example`:
 
     $ mkdir example
     $ cd example
-    example$ touch main.swift Package.swift
+    example$ swift package init --type exec
+    example$ touch main.swift
     example$ open -t main.swift Package.swift
 
 To `import CJPEG` the package manager requires
@@ -53,9 +54,11 @@ Edit the `module.modulemap` so it consists of the following:
 Packages are Git repositories,
 tagged with semantic versions
 containing a `Package.swift` file at their root.
-Thus we must create `Package.swift` and initialize a Git repository with at least one version tag:
+Thus we must create `Package.swift` (which we do using the
+`swift package` command) and initialize a Git repository
+with at least one version tag:
 
-    CJPEG$ touch Package.swift
+    CJPEG$ swift package init
     CJPEG$ git init
     CJPEG$ git add .
     CJPEG$ git commit -m "Initial Commit"
@@ -98,7 +101,8 @@ First create a directory called `CJasPer` parallel to `CJPEG` and our example ap
     CJPEG$ cd ..
     $ mkdir CJasPer
     $ cd CJasPer
-    CJasPer$ touch module.modulemap Package.swift
+    CJasPer$ swift package init
+    CJasPer$ touch module.modulemap
 
 JasPer depends on JPEG thus any package that consumes `CJasPer` must know to also import `CJPEG`. We accomplish this by specifying the dependency in CJasPer’s `Package.swift`:
 
