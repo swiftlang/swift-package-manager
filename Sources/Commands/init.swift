@@ -30,10 +30,25 @@ extension InitError: CustomStringConvertible {
     }
 }
 
+/// Create an initial template package.
 final class InitPackage {
-    let mode: InitMode
-    let pkgname: String
     let rootd = POSIX.getcwd()
+
+    /// The mode in use.
+    let mode: InitMode
+
+    /// The name of the example package to create.
+    let pkgname: String
+
+    /// The name of the example module to create.
+    var moduleName: String {
+        return pkgname
+    }
+
+    /// The name of the example type to create (within the package).
+    var typeName: String {
+        return pkgname
+    }
     
     init(mode: InitMode) throws {
         // Validate that the name is valid.
@@ -93,14 +108,15 @@ final class InitPackage {
         print("Creating Sources/")
         try Utility.makeDirectories(sources)
     
-        let sourceFileName = (mode == .executable) ? "main.swift" : "\(pkgname).swift"
+        let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = Path.join(sources, sourceFileName)
         let sourceFileFP = try Utility.fopen(sourceFile, mode: .write)
         defer { sourceFileFP.closeFile() }
         print("Creating Sources/\(sourceFileName)")
         switch mode {
         case .library:
-            try fputs("struct \(pkgname) {\n\n", sourceFileFP)
+            try fputs("struct \(typeName) {\n\n", sourceFileFP)
+            try fputs("    var text = \"Hello, World!\"\n", sourceFileFP)
             try fputs("}\n", sourceFileFP)
         case .executable:
             try fputs("print(\"Hello, world!\")\n", sourceFileFP)
@@ -127,39 +143,37 @@ final class InitPackage {
         defer { linuxMainFP.closeFile() }
         print("Creating Tests/LinuxMain.swift")
         try fputs("import XCTest\n", linuxMainFP)
-        try fputs("@testable import \(pkgname)TestSuite\n\n", linuxMainFP)
+        try fputs("@testable import \(moduleName)TestSuite\n\n", linuxMainFP)
         try fputs("XCTMain([\n", linuxMainFP)
-        try fputs("\t testCase(\(pkgname)Tests.allTests),\n", linuxMainFP)
+        try fputs("     testCase(\(typeName)Tests.allTests),\n", linuxMainFP)
         try fputs("])\n", linuxMainFP)
     }
     
     private func writeTestFileStubs(testsPath: String) throws {
-        let testModule = Path.join(testsPath, pkgname)
-        print("Creating Tests/\(pkgname)/")
+        let testModule = Path.join(testsPath, moduleName)
+        print("Creating Tests/\(moduleName)/")
         try Utility.makeDirectories(testModule)
         
-        let testsFile = Path.join(testModule, "\(pkgname)Tests.swift")
-        print("Creating Tests/\(pkgname)/\(pkgname)Tests.swift")
+        let testsFile = Path.join(testModule, "\(moduleName)Tests.swift")
+        print("Creating Tests/\(moduleName)/\(moduleName)Tests.swift")
         let testsFileFP = try Utility.fopen(testsFile, mode: .write)
         defer { testsFileFP.closeFile() }
         try fputs("import XCTest\n", testsFileFP)
-        try fputs("@testable import \(pkgname)\n\n", testsFileFP)
-    
-        try fputs("class \(pkgname)Tests: XCTestCase {\n\n", testsFileFP)
-    
-        try fputs("\tfunc testExample() {\n", testsFileFP)
-        try fputs("\t\t// This is an example of a functional test case.\n", testsFileFP)
-        try fputs("\t\t// Use XCTAssert and related functions to verify your tests produce the correct results.\n", testsFileFP)
-        try fputs("\t}\n\n", testsFileFP)
-    
-        try fputs("}\n", testsFileFP)
-    
-        try fputs("extension \(pkgname)Tests {\n", testsFileFP)
-        try fputs("\tstatic var allTests : [(String, \(pkgname)Tests -> () throws -> Void)] {\n", testsFileFP)
-        try fputs("\t\treturn [\n", testsFileFP)
-        try fputs("\t\t\t(\"testExample\", testExample),\n", testsFileFP)
-        try fputs("\t\t]\n", testsFileFP)
-        try fputs("\t}\n", testsFileFP)
+        try fputs("@testable import \(moduleName)\n", testsFileFP)
+        try fputs("\n", testsFileFP)
+        try fputs("class \(moduleName)Tests: XCTestCase {\n", testsFileFP)
+        try fputs("    func testExample() {\n", testsFileFP)
+        try fputs("        // This is an example of a functional test case.\n", testsFileFP)
+        try fputs("        // Use XCTAssert and related functions to verify your tests produce the correct results.\n", testsFileFP)
+        try fputs("        XCTAssertEqual(\(typeName)().text, \"Hello, World!\")\n", testsFileFP)
+        try fputs("    }\n", testsFileFP)
+        try fputs("\n", testsFileFP)
+        try fputs("\n", testsFileFP)
+        try fputs("    static var allTests : [(String, (\(moduleName)Tests) -> () throws -> Void)] {\n", testsFileFP)
+        try fputs("        return [\n", testsFileFP)
+        try fputs("            (\"testExample\", testExample),\n", testsFileFP)
+        try fputs("        ]\n", testsFileFP)
+        try fputs("    }\n", testsFileFP)
         try fputs("}\n", testsFileFP)
     }
 }
