@@ -17,7 +17,7 @@ Lets put this code in a directory called `example`:
 
     $ mkdir example
     $ cd example
-    example$ swift package init --type exec
+    example$ swift package init --type executable
     example$ touch main.swift
     example$ open -t main.swift Package.swift
 
@@ -58,7 +58,7 @@ Thus we must create `Package.swift` (which we do using the
 `swift package` command) and initialize a Git repository
 with at least one version tag:
 
-    CJPEG$ swift package init
+    CJPEG$ swift package init --type library
     CJPEG$ git init
     CJPEG$ git add .
     CJPEG$ git commit -m "Initial Commit"
@@ -101,7 +101,7 @@ First create a directory called `CJasPer` parallel to `CJPEG` and our example ap
     CJPEG$ cd ..
     $ mkdir CJasPer
     $ cd CJasPer
-    CJasPer$ swift package init
+    CJasPer$ swift package init --type library
     CJasPer$ touch module.modulemap
 
 JasPer depends on JPEG thus any package that consumes `CJasPer` must know to also import `CJPEG`. We accomplish this by specifying the dependency in CJasPer’s `Package.swift`:
