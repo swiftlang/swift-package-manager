@@ -176,6 +176,9 @@ class Target(object):
 
         # Enable the workaround for SR-1457 until it is fixed.
         other_args.extend(["-DEnableWorkaroundForSR1457"])
+
+        if args.libdispatch_source_dir:
+            other_args.extend(["-Xcc", "-fblocks"])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
@@ -198,6 +201,11 @@ class Target(object):
                                              "usr/lib/swift/CoreFoundation"))
             import_paths.append(os.path.join(args.foundation_path,
                                              "usr/lib/swift"))
+        if args.libdispatch_build_dir:
+            import_paths.append(os.path.join(args.libdispatch_build_dir,
+                                             "src"))
+        if args.libdispatch_source_dir:
+            import_paths.append(args.libdispatch_source_dir)
         if args.xctest_path:
             import_paths.append(args.xctest_path)
         print("    import-paths: %s" % json.dumps(import_paths), file=output)
@@ -583,6 +591,10 @@ def main():
                         help="Path to Foundation build directory")
     parser.add_argument("--xctest", dest="xctest_path",
                         help="Path to XCTest build directory")
+    parser.add_argument("--libdispatch-build-dir", dest="libdispatch_build_dir",
+                        help="Path to the libdispatch build directory")
+    parser.add_argument("--libdispatch-source-dir", dest="libdispatch_source_dir",
+                        help="Path to the libdispatch source directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
     parser.add_argument("--version-string", dest="version_str",
