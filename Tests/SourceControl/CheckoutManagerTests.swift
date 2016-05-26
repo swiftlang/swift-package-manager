@@ -29,6 +29,10 @@ private class DummyRepositoryProvider: RepositoryProvider {
             throw DummyError.invalidRepository
         }
     }
+
+    func open(repository: RepositorySpecifier, at path: String) -> Repository {
+        fatalError("unexpected API call")
+    }
 }
 
 class CheckoutManagerTests: XCTestCase {
