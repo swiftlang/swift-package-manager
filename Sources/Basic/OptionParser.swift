@@ -18,6 +18,7 @@ public enum OptionParserError: ErrorProtocol {
     case expectedAssociatedValue(String)
     case unexpectedAssociatedValue(String, String)
     case invalidUsage(String)
+    case noCommandProvided(String)
 }
 
 extension OptionParserError: CustomStringConvertible {
@@ -33,6 +34,8 @@ extension OptionParserError: CustomStringConvertible {
             return "unknown command: \(cmd)"
         case .invalidUsage(let hint):
             return "invalid usage: \(hint)"
+        case .noCommandProvided(let hint):
+            return "no command provided: \(hint)"
         }
     }
 }
