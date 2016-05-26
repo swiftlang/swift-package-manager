@@ -179,6 +179,22 @@ public struct SwiftPackageTool {
                 try initPackage.writePackageStructure()
                             
             case .update:
+                // Attempt to ensure that none of the repositories are modified.
+                for item in walk(opts.path.Packages, recursively: false) {
+                    // Only look at repositories.
+                    guard Path.join(item, ".git").exists else { continue }
+
+                    // If there is a staged or unstaged diff, don't remove the
+                    // tree. This won't detect new untracked files, but it is
+                    // just a safety measure for now.
+                    let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
+                    do {
+                        _ = try Git.runPopen([Git.tool, "-C", item, "diff"] + diffArgs)
+                        _ = try Git.runPopen([Git.tool, "-C", item, "diff", "--cached"] + diffArgs)
+                    } catch {
+                        throw Error.repositoryHasChanges(item)
+                    }
+                }
                 try Utility.removeFileTree(opts.path.Packages)
                 fallthrough
                 
