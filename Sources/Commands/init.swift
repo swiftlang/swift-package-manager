@@ -184,9 +184,9 @@ enum InitMode: CustomStringConvertible {
 
     init(_ rawValue: String) throws {
         switch rawValue.lowercased() {
-        case "library", "lib":
+        case "library":
             self = .library
-        case "executable", "exec", "exe":
+        case "executable":
             self = .executable
         default:
             throw OptionParserError.invalidUsage("invalid initialization type: \(rawValue)")
