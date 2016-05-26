@@ -134,7 +134,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
         case "json":
            self = .json
         default:
-            throw OptionParserError.invalidUsage("invalid show dependencies mode: \(rawValue)")
+            throw OptionParserError.invalidUsage("invalid show-dependencies mode: \(rawValue)")
         }
     }
     

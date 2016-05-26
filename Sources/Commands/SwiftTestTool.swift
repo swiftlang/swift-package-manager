@@ -35,7 +35,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--help", "--usage", "-h":
+        case "--help", "-h":
             self = .usage
         case "-s":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }

@@ -182,11 +182,11 @@ final class InitPackage {
 enum InitMode: CustomStringConvertible {
     case library, executable
 
-    init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case "library"?, "lib"?:
+    init(_ rawValue: String) throws {
+        switch rawValue.lowercased() {
+        case "library", "lib":
             self = .library
-        case nil, "executable"?, "exec"?, "exe"?:
+        case "executable", "exec", "exe":
             self = .executable
         default:
             throw OptionParserError.invalidUsage("invalid initialization type: \(rawValue)")
