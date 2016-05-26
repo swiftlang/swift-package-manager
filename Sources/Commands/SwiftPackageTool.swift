@@ -73,9 +73,9 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case .generateXcodeproj: return "generate-xcodeproj"
         case .fetch: return "fetch"
         case .update: return "update"
-        case .usage: return "help"
-        case .version: return "version"
         case .dumpPackage: return "dump-package"
+        case .usage: return "--help"
+        case .version: return "--version"
         }
     }
 }
