@@ -52,7 +52,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .fetch
         case "update":
             self = .update
-        case "help", "--help", "-h":
+        case "--help", "-h":
             self = .usage
         case "generate-xcodeproj":
             self = .generateXcodeproj
