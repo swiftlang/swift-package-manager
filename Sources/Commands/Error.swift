@@ -23,6 +23,7 @@ public enum Error: ErrorProtocol {
     case invalidInstallation(String)
     case invalidSwiftExec(String)
     case buildYAMLNotFound(String)
+    case repositoryHasChanges(String)
 }
 
 extension Error: CustomStringConvertible {
@@ -38,6 +39,8 @@ extension Error: CustomStringConvertible {
             return "invalid SWIFT_EXEC value: \(value)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
+        case .repositoryHasChanges(let value):
+            return "repository has changes: \(value)"
         }
     }
 }
