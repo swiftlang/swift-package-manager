@@ -30,34 +30,34 @@ import func POSIX.chdir
 extension PackageToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case initPackage
     case doctor
-    case showDependencies
+    case dumpPackage
     case fetch
+    case generateXcodeproj
+    case initPackage
+    case showDependencies
     case update
     case usage
     case version
-    case generateXcodeproj
-    case dumpPackage
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "init":
-            self = .initPackage
         case "doctor":
             self = .doctor
-        case "show-dependencies":
-            self = .showDependencies
+        case "dump-package":
+            self = .dumpPackage
         case "fetch":
             self = .fetch
+        case "generate-xcodeproj":
+            self = .generateXcodeproj
+        case "init":
+            self = .initPackage
+        case "show-dependencies":
+            self = .showDependencies
         case "update":
             self = .update
         case "--help", "-h":
             self = .usage
-        case "generate-xcodeproj":
-            self = .generateXcodeproj
-        case "dump-package":
-            self = .dumpPackage
         case "--version":
             self = .version
         default:
@@ -67,13 +67,13 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .initPackage: return "initPackage"
         case .doctor: return "doctor"
-        case .showDependencies: return "show-dependencies"
-        case .generateXcodeproj: return "generate-xcodeproj"
-        case .fetch: return "fetch"
-        case .update: return "update"
         case .dumpPackage: return "dump-package"
+        case .fetch: return "fetch"
+        case .generateXcodeproj: return "generate-xcodeproj"
+        case .initPackage: return "initPackage"
+        case .showDependencies: return "show-dependencies"
+        case .update: return "update"
         case .usage: return "--help"
         case .version: return "--version"
         }
