@@ -14,6 +14,7 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(CheckoutManagerTests.allTests),
+        testCase(GitRepositoryTests.allTests),
     ]
 }
 #endif
