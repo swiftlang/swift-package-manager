@@ -42,24 +42,24 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "init", "initialize":
+        case "init":
             self = .initPackage
         case "doctor":
             self = .doctor
-        case "show-dependencies", "show-deps":
+        case "show-dependencies":
             self = .showDependencies
         case "fetch":
             self = .fetch
         case "update":
             self = .update
-        case "help", "usage", "--help", "-h":
+        case "help", "--help", "-h":
             self = .usage
-        case "version", "--version":
-            self = .version
         case "generate-xcodeproj":
             self = .generateXcodeproj
         case "dump-package":
             self = .dumpPackage
+        case "--version":
+            self = .version
         default:
             return nil
         }
@@ -249,7 +249,7 @@ public struct SwiftPackageTool {
         print("USAGE: swift package [command] [options]")
         print("")
         print("COMMANDS:")
-        print("  init [--type <type>]                   Initialize a new package (executable|library)")
+        print("  init [--type <type>]                   Initialize package (library|executable)")
         print("  fetch                                  Fetch package dependencies")
         print("  update                                 Update package dependencies")
         print("  generate-xcodeproj [--output <path>]   Generates an Xcode project")
@@ -257,12 +257,13 @@ public struct SwiftPackageTool {
         print("  dump-package [--output <path>]         Print Package.swift as JSON")
         print("")
         print("OPTIONS:")
-        print("  --chdir <path>       Change working directory before any command [-C]")
-        print("  --color <mode>       Specify color mode (auto|always|never)")
-        print("  --verbose            Increase verbosity of informational output [-v]")
-        print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
-        print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
-        print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
+        print("  -C, --chdir <path>        Change working directory before any other operation")
+        print("  --color <mode>            Specify color mode (auto|always|never)")
+        print("  -v, --verbose             Increase verbosity of informational output")
+        print("  --version                 Print the Swift Package Manager version")
+        print("  -Xcc <flag>               Pass flag through to all C compiler invocations")
+        print("  -Xlinker <flag>           Pass flag through to all linker invocations")
+        print("  -Xswiftc <flag>           Pass flag through to all Swift compiler invocations")
         print("")
         print("NOTE: Use `swift build` to build packages, and `swift test` to test packages")
     }

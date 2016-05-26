@@ -37,7 +37,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--configuration", "--config":
+        case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .clean(CleanMode(pop()))
@@ -211,17 +211,17 @@ public struct SwiftBuildTool {
         print("USAGE: swift build [mode] [options]")
         print("")
         print("MODES:")
-        print("  --configuration <value>   Build with configuration (debug|release)")
-        print("  --clean [<mode>]          Delete artifacts (build|dist)")
+        print("  -c, --configuration <value>   Build with configuration (debug|release)")
+        print("  --clean <mode>                Delete artifacts (build|dist)")
         print("")
         print("OPTIONS:")
-        print("  --chdir <path>       Change working directory before any other operation [-C]")
-        print("  --build-path <path>  Specify build directory")
-        print("  --color <mode>       Specify color mode (auto|always|never)")
-        print("  --verbose            Increase verbosity of informational output [-v]")
-        print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
-        print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
-        print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
+        print("  -C, --chdir <path>       Change working directory before any other operation")
+        print("  --build-path <path>      Specify build directory")
+        print("  --color <mode>           Specify color mode (auto|always|never)")
+        print("  -v, --verbose            Increase verbosity of informational output")
+        print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
+        print("  -Xlinker <flag>          Pass flag through to all linker invocations")
+        print("  -Xswiftc <flag>          Pass flag through to all Swift compiler invocations")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }

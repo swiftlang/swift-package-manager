@@ -144,8 +144,8 @@ public struct SwiftTestTool {
         print("  -s TestModule.TestCase/test1   Run a specific test method")
         print("")
         print("OPTIONS:")
-        print("  --chdir              Change working directory before any other operation [-C]")
-        print("  --build-path <path>  Specify build directory")
+        print("  -C, --chdir <path>     Change working directory before any other operation")
+        print("  --build-path <path>    Specify build directory")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
