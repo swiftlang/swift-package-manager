@@ -51,8 +51,7 @@ extension Error: CustomStringConvertible {
     case OptionParserError.multipleModesSpecified(let modes):
         print(error: error)
 
-        if isTTY(.stdErr)
-             && (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
+        if isTTY(.stdErr) && (modes.contains{ ["--help", "-h"].contains($0) }) {
             print("", to: &stderr)
             usage { print($0, to: &stderr) }
         }

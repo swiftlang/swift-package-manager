@@ -30,36 +30,36 @@ import func POSIX.chdir
 extension PackageToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case Init(InitMode)
     case doctor
-    case showDependencies(ShowDependenciesMode)
+    case dumpPackage
     case fetch
+    case generateXcodeproj
+    case initPackage
+    case showDependencies
     case update
     case usage
     case version
-    case generateXcodeproj(String?)
-    case dumpPackage(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "init", "initialize":
-            self = try .Init(InitMode(pop()))
         case "doctor":
             self = .doctor
-        case "show-dependencies", "-D":
-            self = try .showDependencies(ShowDependenciesMode(pop()))
+        case "dump-package":
+            self = .dumpPackage
         case "fetch":
             self = .fetch
+        case "generate-xcodeproj":
+            self = .generateXcodeproj
+        case "init":
+            self = .initPackage
+        case "show-dependencies":
+            self = .showDependencies
         case "update":
             self = .update
-        case "help", "usage", "--help", "-h":
+        case "--help", "-h":
             self = .usage
-        case "version":
+        case "--version":
             self = .version
-        case "generate-xcodeproj":
-            self = .generateXcodeproj(pop())
-        case "dump-package":
-            self = .dumpPackage(pop())
         default:
             return nil
         }
@@ -67,20 +67,23 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .Init(let type): return "init=\(type)"
         case .doctor: return "doctor"
-        case .showDependencies: return "show-dependencies"
-        case .generateXcodeproj: return "generate-xcodeproj"
-        case .fetch: return "fetch"
-        case .update: return "update"
-        case .usage: return "help"
-        case .version: return "version"
         case .dumpPackage: return "dump-package"
+        case .fetch: return "fetch"
+        case .generateXcodeproj: return "generate-xcodeproj"
+        case .initPackage: return "initPackage"
+        case .showDependencies: return "show-dependencies"
+        case .update: return "update"
+        case .usage: return "--help"
+        case .version: return "--version"
         }
     }
 }
 
 private enum PackageToolFlag: Argument {
+    case initMode(String)
+    case showDepsMode(String)
+    case outputPath(String)
     case chdir(String)
     case colorMode(ColorWrap.Mode)
     case xcc(String)
@@ -100,10 +103,14 @@ private enum PackageToolFlag: Argument {
         switch argument {
         case Flag.chdir, Flag.C:
             self = try .chdir(forcePop())
+        case "--type":
+            self = try .initMode(forcePop())
+        case "--format":
+            self = try .showDepsMode(forcePop())
+        case "--output":
+            self = try .outputPath(forcePop())
         case "--verbose", "-v":
             self = .verbose(1)
-        case "-vv":
-            self = .verbose(2)
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
@@ -119,6 +126,9 @@ private enum PackageToolFlag: Argument {
 }
 
 private class PackageToolOptions: Options {
+    var initMode: InitMode = InitMode.library
+    var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
+    var outputPath: String? = nil
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
     var Xcc: [String] = []
@@ -164,8 +174,8 @@ public struct SwiftPackageTool {
             }
         
             switch mode {
-            case .Init(let initMode):
-                let initPackage = try InitPackage(mode: initMode)
+            case .initPackage:
+                let initPackage = try InitPackage(mode: opts.initMode)
                 try initPackage.writePackageStructure()
                             
             case .update:
@@ -197,9 +207,9 @@ public struct SwiftPackageTool {
             case .doctor:
                 doctor()
             
-            case .showDependencies(let mode):
+            case .showDependencies:
                 let (rootPackage, _) = try fetch(opts.path.root)
-                dumpDependenciesOf(rootPackage: rootPackage, mode: mode)
+                dumpDependenciesOf(rootPackage: rootPackage, mode: opts.showDepsMode)
         
             case .version:
                 #if HasCustomVersionString
@@ -208,7 +218,7 @@ public struct SwiftPackageTool {
                     print("Swift Package Manager – Swift 3.0")
                 #endif
                 
-            case .generateXcodeproj(let outpath):
+            case .generateXcodeproj:
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
                 
@@ -219,7 +229,7 @@ public struct SwiftPackageTool {
                 let dstdir: String
                 let packageName = rootPackage.name
         
-                switch outpath {
+                switch opts.outputPath {
                 case let outpath? where outpath.hasSuffix(".xcodeproj"):
                     // if user specified path ending with .xcodeproj, use that
                     projectName = String(outpath.basename.characters.dropLast(10))
@@ -235,9 +245,8 @@ public struct SwiftPackageTool {
         
                 print("generated:", outpath.prettyPath)
                 
-            case .dumpPackage(let packagePath):
-                
-                let root = packagePath ?? opts.path.root
+            case .dumpPackage:
+                let root = opts.outputPath ?? opts.path.root
                 let manifest = try parseManifest(path: root, baseURL: root)
                 let package = manifest.package
                 let json = try jsonString(package: package)
@@ -256,21 +265,21 @@ public struct SwiftPackageTool {
         print("USAGE: swift package [command] [options]")
         print("")
         print("COMMANDS:")
-        print("  init[=<type>]                 Initialize a new package (executable|library)")
-        print("  fetch                         Fetch package dependencies")
-        print("  update                        Update package dependencies")
-        print("  generate-xcodeproj[=<path>]   Generates an Xcode project")
-        print("  show-dependencies[=<format>]  Print dependency graph (text|dot|json)")
-        print("  dump-package[=<path>]         Print Package.swift as JSON")
+        print("  init [--type <type>]                   Initialize package (library|executable)")
+        print("  fetch                                  Fetch package dependencies")
+        print("  update                                 Update package dependencies")
+        print("  generate-xcodeproj [--output <path>]   Generates an Xcode project")
+        print("  show-dependencies [--format <format>]  Print dependency graph (text|dot|json)")
+        print("  dump-package [--output <path>]         Print Package.swift as JSON")
         print("")
         print("OPTIONS:")
-        print("  --chdir <path>       Change working directory before any command [-C]")
-        print("  --color <mode>       Specify color mode (auto|always|never)")
-        print("  --verbose            Increase verbosity of informational output [-v]")
-        print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
-        print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
-        print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
-        print("")
+        print("  -C, --chdir <path>        Change working directory before any other operation")
+        print("  --color <mode>            Specify color mode (auto|always|never)")
+        print("  -v, --verbose             Increase verbosity of informational output")
+        print("  --version                 Print the Swift Package Manager version")
+        print("  -Xcc <flag>               Pass flag through to all C compiler invocations")
+        print("  -Xlinker <flag>           Pass flag through to all linker invocations")
+        print("  -Xswiftc <flag>           Pass flag through to all Swift compiler invocations")
         print("")
         print("NOTE: Use `swift build` to build packages, and `swift test` to test packages")
     }
@@ -281,6 +290,12 @@ public struct SwiftPackageTool {
         let opts = PackageToolOptions()
         for flag in flags {
             switch flag {
+            case .initMode(let value):
+                opts.initMode = try InitMode(value)
+            case .showDepsMode(let value):
+                opts.showDepsMode = try ShowDependenciesMode(value)
+            case .outputPath(let path):
+                opts.outputPath = path
             case .chdir(let path):
                 opts.chdir = path
             case .xcc(let value):

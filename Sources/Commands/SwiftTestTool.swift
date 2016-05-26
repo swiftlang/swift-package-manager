@@ -35,9 +35,9 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--help", "--usage", "-h":
+        case "--help", "-h":
             self = .usage
-        case "-s":
+        case "-s", "--specifier":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .run(specifier)
         default:
@@ -140,12 +140,12 @@ public struct SwiftTestTool {
         print("USAGE: swift test [specifier] [options]")
         print("")
         print("SPECIFIER:")
-        print("  -s TestModule.TestCase         Run a test case subclass")
-        print("  -s TestModule.TestCase/test1   Run a specific test method")
+        print("  -s, --specifier <test-module>.<test-case>         Run a test case subclass")
+        print("  -s, --specifier <test-module>.<test-case>/<test>  Run a specific test method")
         print("")
         print("OPTIONS:")
-        print("  --chdir              Change working directory before any other operation [-C]")
-        print("  --build-path <path>  Specify build directory")
+        print("  -C, --chdir <path>     Change working directory before any other operation")
+        print("  --build-path <path>    Specify build directory")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
