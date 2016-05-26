@@ -128,4 +128,26 @@ public class Git {
             try checkGitVersion(error)
         }
     }
+
+    /// Get the environment to use when cloning.
+    public static var environmentForClone: [String: String] = {
+        // List of environment variables which might be useful while running a
+        // git fetch.
+        let environmentList = [
+            "EDITOR",
+            "GIT_ASKPASS",
+            "LANG",
+            "LANGUAGE",
+            "PAGER",
+            "SSH_ASKPASS",
+            "SSH_AUTH_SOCK",
+            "TERM",
+            "XDG_CONFIG_HOME",
+        ]
+        var result = [String: String]()
+        for name in environmentList {
+            result[name] = getenv(name)
+        }
+        return result
+    }()
 }
