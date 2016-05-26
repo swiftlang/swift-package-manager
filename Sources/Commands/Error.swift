@@ -56,10 +56,17 @@ extension Error: CustomStringConvertible {
             print("", to: &stderr)
             usage { print($0, to: &stderr) }
         }
+    case OptionParserError.noCommandProvided(let hint):
+        if !hint.isEmpty {
+            print(error: error)
+        }
+        if isTTY(.stdErr) {
+            usage { print($0, to: &stderr) }
+        }
     case is OptionParserError:
         print(error: error)
         if isTTY(.stdErr) {
-            let argv0 = Process.arguments.first ?? "swift build"
+            let argv0 = Process.arguments.first ?? "swift package"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
     default:
