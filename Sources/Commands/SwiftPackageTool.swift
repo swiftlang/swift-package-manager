@@ -287,7 +287,8 @@ public struct SwiftPackageTool {
             return (mode, opts)
         }
         else {
-            throw OptionParserError.invalidUsage("no command provided: \(args)")
+            // FIXME: This needs to produce a properly quoted string, once we have such API.
+            throw OptionParserError.noCommandProvided(args.joined(separator: " "))
         }
     }
 }
