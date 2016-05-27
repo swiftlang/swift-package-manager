@@ -15,7 +15,7 @@ let package = Package(
     
     /**
      The following is parsed by our bootstrap script, so
-     if you make changes here please check the boostrap still
+     if you make changes here please check the bootstrap still
      succeeds! Thanks.
     */
     targets: [
