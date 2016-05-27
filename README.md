@@ -94,10 +94,15 @@ following options:
 
    `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, _they are **not** built from the sources in this repository_.
 
-3. Using the Xcode Project in [Support](Support), this option requires:
-   * Xcode 7.3 (beta)
-   * [llbuild](https://github.com/apple/swift-llbuild) cloned parallel to your SwiftPM clone
-  * Possibly, [a more recent Swift snapshot](https://swift.org/download)
+3. Using a Swift snapshot, it is possible to use the package manager's support
+   for generating an Xcode project. This project can then be used with the
+   snapshot to develop within Xcode.
+
+            swift package generate-xcodeproj
+
+Note that either of the latter two options may not be compatible with the
+`master` branch when Swift language changes have caused it to move ahead of the
+latest available snapshot.
 
 ###Choosing Swift version
 
