@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
 import PackageModel
 import Utility
-import libc
+
+import struct PackageDescription.Version
 
 /**
  Initially we clone into a non-final form because we may need to

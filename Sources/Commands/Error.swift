@@ -10,10 +10,10 @@
 
 import Basic
 import PackageModel
-import libc
 
 import enum Utility.ColorWrap
 import enum Utility.Stream
+import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
 

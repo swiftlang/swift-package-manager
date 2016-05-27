@@ -10,7 +10,8 @@
 
 import PackageModel
 import Utility
-import func libc.exit
+
+import func POSIX.exit
 
 /// Load packages into a complete set of modules and products.
 public func transmute(_ rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {

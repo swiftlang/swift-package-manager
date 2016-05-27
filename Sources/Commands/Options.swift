@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func libc.exit
+import POSIX
 import PackageModel
 import Utility
-import POSIX
 
 public class Options {
     public var chdir: String?

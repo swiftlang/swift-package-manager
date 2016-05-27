@@ -14,7 +14,7 @@ import Basic
 import Utility
 
 import func POSIX.chdir
-import func libc.exit
+import func POSIX.exit
 
 private enum TestError: ErrorProtocol {
     case testsExecutableNotFound
