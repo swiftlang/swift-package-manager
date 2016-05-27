@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import XCTest
+
 import struct Utility.Path
 import func Utility.fopen
 import func Utility.fputs
-import func libc.sleep
 import enum POSIX.Error
 import func POSIX.popen
-import XCTest
 
 class MiscellaneousTestCase: XCTestCase {
 
@@ -276,10 +276,6 @@ class MiscellaneousTestCase: XCTestCase {
             var output = try popen(execpath)
             XCTAssertEqual(output, "Hello\n")
 
-            // we need to sleep at least one second otherwise
-            // llbuild does not realize the file has changed
-            sleep(1)
-
             try fopen(prefix, "Bar/Bar.swift", mode: .write) { fp in
                 try fputs("public let bar = \"Goodbye\"\n", fp)
             }
@@ -302,10 +298,6 @@ class MiscellaneousTestCase: XCTestCase {
             var output = try popen(execpath)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
 
-            // we need to sleep at least one second otherwise
-            // llbuild does not realize the file has changed
-            sleep(1)
-
             try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .write) { fp in
                 try fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
             }
@@ -327,10 +319,6 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertBuilds(prefix, "root")
             var output = try popen(execpath)
             XCTAssertEqual(output, "Hello\n")
-
-            // we need to sleep at least one second otherwise
-            // llbuild does not realize the file has changed
-            sleep(1)
 
             try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .write) { fp in
                 try fputs("public let foo = \"Goodbye\"", fp)
