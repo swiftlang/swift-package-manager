@@ -93,13 +93,6 @@ class ValidLayoutsTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
         }
     }
-
-    /// Test a package with a test module.
-    func testPackageWithTests() {
-        fixture(name: "ValidLayouts/PackageWithTests") { prefix in
-            XCTAssertBuildAndTest(prefix)
-        }
-    }
 }
 
 
@@ -209,7 +202,6 @@ extension ValidLayoutsTestCase {
             ("testMultipleModulesExecutables", testMultipleModulesExecutables),
             ("testPackageIdentifiers", testPackageIdentifiers),
             ("testMadeValidWithExclude", testMadeValidWithExclude),
-            ("testPackageWithTests", testPackageWithTests),
         ]
     }
 }
