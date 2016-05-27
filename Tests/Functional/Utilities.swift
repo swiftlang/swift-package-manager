@@ -177,6 +177,10 @@ func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(
     }
 }
 
+func executeSwiftTest(_ dir: String, printIfError: Bool = false) throws {
+    _ = try executeSwiftSubcommand("test", args: [], chdir: dir, printIfError: printIfError)
+}
+
 func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xld: [String] = [], env: [String: String] = [:]) {
     let prefix = Path.join(paths)
 
@@ -187,6 +191,21 @@ func XCTAssertBuilds(_ paths: String..., configurations: Set<Configuration> = [.
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
+    }
+}
+
+func XCTAssertBuildAndTest(_ prefix: String, file: StaticString = #file, line: UInt = #line) {
+    do {
+        print("    Building...")
+        _ = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true)
+    } catch {
+        XCTFail("`swift build' failed:\n\n\(error)\n", file: file, line: line)
+    }
+    do {
+        print("    Testing...")
+        _ = try executeSwiftTest(prefix, printIfError: true)
+    } catch {
+        XCTFail("`swift test' failed:\n\n\(error)\n", file: file, line: line)
     }
 }
 
