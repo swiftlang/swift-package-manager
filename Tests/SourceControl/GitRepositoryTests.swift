@@ -19,16 +19,9 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() {
         try! POSIX.mkdtemp(#function) { path in
-            // Create a dummy repository to clone.
             let testRepoPath = Path.join(path, "test-repo")
             try! Utility.makeDirectories(testRepoPath)
-            try! Git.runCommandQuietly([Git.tool, "-C", testRepoPath, "init"])
-            try! Utility.fopen(Path.join(testRepoPath, "README.md"), mode: .write) { handle in
-                try! fputs("dummy", handle)
-            }
-            try! Git.runCommandQuietly([Git.tool, "-C", testRepoPath, "add", "README.md"])
-            try! Git.runCommandQuietly([Git.tool, "-C", testRepoPath, "commit", "-m", "Initial commit."])
-            try! Git.runCommandQuietly([Git.tool, "-C", testRepoPath, "tag", "1.2.3"])
+            initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
             let testCheckoutPath = Path.join(path, "checkout")
