@@ -302,7 +302,7 @@ enum CleanMode: CustomStringConvertible {
         case "dist"?, "distribution"?:
             self = .dist
         default:
-            throw OptionParserError.invalidUsage("invalid clean mode: \(rawValue)")
+            throw OptionParserError.invalidUsage("invalid clean mode: \(rawValue!)")
         }
     }
 
