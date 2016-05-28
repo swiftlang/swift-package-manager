@@ -54,7 +54,7 @@ class FunctionalTests: XCTestCase {
     func testXcodeProjWithPkgConfig() {
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             XCTAssertBuilds(prefix, "SystemModule")
-            XCTAssertFileExists(prefix, "SystemModule", ".build", "debug", "libSystemModule.so")
+            XCTAssertFileExists(prefix, "SystemModule", ".build", "debug", "SystemModule".soname)
             let pcFile = Path.join(prefix, "libSystemModule.pc")
             try! write(path: pcFile) { stream in
                 stream <<< "prefix=\(Path.join(prefix, "SystemModule"))\n"

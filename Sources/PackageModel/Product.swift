@@ -9,6 +9,7 @@
 */
 
 @_exported import enum PackageDescription.ProductType
+import Utility
 
 public class Product {
     public let name: String
@@ -28,11 +29,7 @@ public class Product {
         case .Library(.Static):
             return "lib\(name).a"
         case .Library(.Dynamic):
-            #if os(OSX)
-                return "lib\(name).dylib"
-            #else
-                return "lib\(name).so"
-            #endif
+            return name.soname
         case .Test:
             let base = "\(name).xctest"
             #if os(OSX)

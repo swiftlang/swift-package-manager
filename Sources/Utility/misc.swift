@@ -34,3 +34,16 @@ import Foundation
         }
     }
 #endif
+
+extension String {
+    /// Returns shared dynmiac library name of a string by 
+    /// appending lib prefix and file extension `dylib` for OSX
+    /// and `so` for Linux.
+    public var soname: String {
+      #if os(OSX)
+        return "lib\(self).dylib"
+      #else
+        return "lib\(self).so"
+      #endif
+    }
+}
