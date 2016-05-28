@@ -301,8 +301,8 @@ enum CleanMode: CustomStringConvertible {
             self = .build
         case "dist"?, "distribution"?:
             self = .dist
-        default:
-            throw OptionParserError.invalidUsage("invalid clean mode: \(rawValue)")
+        case let value?:
+            throw OptionParserError.invalidUsage("invalid clean mode: \(value)")
         }
     }
 
