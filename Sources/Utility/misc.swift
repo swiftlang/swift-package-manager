@@ -36,7 +36,7 @@ import Foundation
 #endif
 
 extension String {
-    /// Returns shared dynmiac library name of a string by 
+    /// Returns shared dynamic library name of a string by 
     /// appending lib prefix and file extension `dylib` for OSX
     /// and `so` for Linux.
     public var soname: String {
