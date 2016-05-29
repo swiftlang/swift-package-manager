@@ -23,7 +23,7 @@ public enum ColorWrap {
     ///     or
     ///     --color=always
     public static func wrap(_ input: String, with color: Color, for stream: Stream) -> String {
-        guard ColorWrap.isAllowed(for: .stdErr) else { return input }
+        guard ColorWrap.isAllowed(for: stream) else { return input }
         return input.wrapped(in: color)
     }
 
