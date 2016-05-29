@@ -121,16 +121,13 @@ extension XcodeModuleProtocol  {
     }
 
     var explicitFileType: String {
-        func suffix() -> String {
-            if self is TestModule {
-                return "wrapper.cfbundle"
-            } else if isLibrary {
-                return "wrapper.framework"
-            } else {
-                return "executable"
-            }
+        if self is TestModule {
+            return "compiled.mach-o.wrapper.cfbundle"
+        } else if isLibrary {
+            return "wrapper.framework"
+        } else {
+            return "compiled.mach-o.executable"
         }
-        return "compiled.mach-o.\(suffix())"
     }
 
 
