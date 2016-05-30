@@ -64,6 +64,7 @@ final class InitPackage {
         try writeManifestFile()
         try writeGitIgnore()
         try writeSources()
+        try writeModuleMap()
         try writeTests()
     }
     
@@ -101,6 +102,9 @@ final class InitPackage {
     }
     
     private func writeSources() throws {
+        if mode == .systemModule {
+            return
+        }
         let sources = Path.join(rootd, "Sources")
         guard sources.exists == false else {
             return
@@ -120,10 +124,35 @@ final class InitPackage {
             try fputs("}\n", sourceFileFP)
         case .executable:
             try fputs("print(\"Hello, world!\")\n", sourceFileFP)
+        case .systemModule:
+            break
         }
     }
     
+    private func writeModuleMap() throws {
+        if mode != .systemModule {
+            return
+        }
+        let modulemap = Path.join(rootd, "module.modulemap")
+        guard modulemap.exists == false else {
+            return
+        }
+        let modulemapFP = try Utility.fopen(modulemap, mode: .write)
+        defer { modulemapFP.closeFile() }
+        
+        print("Creating module.modulemap")
+        // print the module.modulemap
+        try fputs("module \(moduleName) [system] {\n", modulemapFP)
+        try fputs("  header \"/usr/include/\(moduleName).h\"\n", modulemapFP)
+        try fputs("  link \"\(moduleName)\"\n", modulemapFP)
+        try fputs("  export *\n", modulemapFP)
+        try fputs("}\n", modulemapFP)
+    }
+    
     private func writeTests() throws {
+        if mode == .systemModule {
+            return
+        }
         let tests = Path.join(rootd, "Tests")
         guard tests.exists == false else {
             return
@@ -180,14 +209,16 @@ final class InitPackage {
 
 /// Represents a package type for the purposes of initialization.
 enum InitMode: CustomStringConvertible {
-    case library, executable
+    case library, executable, systemModule
 
-    init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case "library"?, "lib"?:
+    init(_ rawValue: String) throws {
+        switch rawValue.lowercased() {
+        case "library":
             self = .library
-        case nil, "executable"?, "exec"?, "exe"?:
+        case "executable":
             self = .executable
+        case "system-module":
+            self = .systemModule
         default:
             throw OptionParserError.invalidUsage("invalid initialization type: \(rawValue)")
         }
@@ -197,6 +228,7 @@ enum InitMode: CustomStringConvertible {
         switch self {
             case .library: return "library"
             case .executable: return "executable"
+            case .systemModule: return "system-module"
         }
     }
 }

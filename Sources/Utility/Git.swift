@@ -70,7 +70,7 @@ public class Git {
             do {
                 try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
             } catch let errror {
-                Git.handle(errror)
+                try Git.checkGitVersion(errror)
             }
         }
     }
@@ -96,14 +96,15 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func handle(_ error: ErrorProtocol) {
+    @noreturn public class func checkGitVersion(_ error: ErrorProtocol) throws {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
+            // FIXME: This does not belong here.
             print("error: ", Error.obsoleteGitVersion)
+            exit(1)
         } else {
-            print("error: ", Error.unknownGitError)
+            throw error
         }
-        exit(1)
     }
 
     /// Execute a git command while suppressing output.
@@ -113,7 +114,7 @@ public class Git {
         do {
             try system(arguments)
         } catch let error  {
-            handle(error)
+            try checkGitVersion(error)
         }
     }
 
@@ -124,7 +125,29 @@ public class Git {
         do {
             return try popen(arguments)
         } catch let error  {
-            handle(error)
+            try checkGitVersion(error)
         }
     }
+
+    /// Get the environment to use when cloning.
+    public static var environmentForClone: [String: String] = {
+        // List of environment variables which might be useful while running a
+        // git fetch.
+        let environmentList = [
+            "EDITOR",
+            "GIT_ASKPASS",
+            "LANG",
+            "LANGUAGE",
+            "PAGER",
+            "SSH_ASKPASS",
+            "SSH_AUTH_SOCK",
+            "TERM",
+            "XDG_CONFIG_HOME",
+        ]
+        var result = [String: String]()
+        for name in environmentList {
+            result[name] = getenv(name)
+        }
+        return result
+    }()
 }

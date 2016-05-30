@@ -10,10 +10,10 @@
 
 import Basic
 import PackageModel
-import libc
 
 import enum Utility.ColorWrap
 import enum Utility.Stream
+import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
 
@@ -23,6 +23,7 @@ public enum Error: ErrorProtocol {
     case invalidInstallation(String)
     case invalidSwiftExec(String)
     case buildYAMLNotFound(String)
+    case repositoryHasChanges(String)
 }
 
 extension Error: CustomStringConvertible {
@@ -38,6 +39,8 @@ extension Error: CustomStringConvertible {
             return "invalid SWIFT_EXEC value: \(value)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
+        case .repositoryHasChanges(let value):
+            return "repository has changes: \(value)"
         }
     }
 }
@@ -48,15 +51,21 @@ extension Error: CustomStringConvertible {
     case OptionParserError.multipleModesSpecified(let modes):
         print(error: error)
 
-        if isTTY(.stdErr)
-             && (modes.contains{ ["--help", "-h", "--usage"].contains($0) }) {
+        if isTTY(.stdErr) && (modes.contains{ ["--help", "-h"].contains($0) }) {
             print("", to: &stderr)
+            usage { print($0, to: &stderr) }
+        }
+    case OptionParserError.noCommandProvided(let hint):
+        if !hint.isEmpty {
+            print(error: error)
+        }
+        if isTTY(.stdErr) {
             usage { print($0, to: &stderr) }
         }
     case is OptionParserError:
         print(error: error)
         if isTTY(.stdErr) {
-            let argv0 = Process.arguments.first ?? "swift build"
+            let argv0 = Process.arguments.first ?? "swift package"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
     default:

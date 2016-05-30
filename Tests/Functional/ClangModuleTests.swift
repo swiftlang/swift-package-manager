@@ -16,21 +16,21 @@ class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libCLibraryFlat.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "CLibraryFlat".soname)
         }
     }
     
     func testSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libCLibrarySources.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "CLibrarySources".soname)
         }
     }
     
     func testMixedSwiftAndC() {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libSeaLib.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "SeaLib".soname)
             let exec = ".build/debug/SeaExec"
             XCTAssertFileExists(prefix, exec)
             let output = try popen([Path.join(prefix, exec)])
@@ -42,7 +42,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
             XCTAssertBuilds(prefix, "Bar")
             XCTAssertFileExists(prefix, "Bar/.build/debug/Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -50,15 +50,15 @@ class ClangModulesTestCase: XCTestCase {
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libFoo.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "Foo".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar".soname)
         }
     }
     
     func testCUsingCDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             XCTAssertBuilds(prefix, "Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -77,7 +77,7 @@ class ClangModulesTestCase: XCTestCase {
         //The C dependency "Foo" has different layout
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             XCTAssertBuilds(prefix, "Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -85,10 +85,10 @@ class ClangModulesTestCase: XCTestCase {
     func testModuleMapGenerationCases() {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libUmbrellaHeader.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libFlatInclude.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libUmbellaModuleNameInclude.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libNoIncludeDir.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "UmbrellaHeader".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "FlatInclude".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "UmbellaModuleNameInclude".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "NoIncludeDir".soname)
             XCTAssertFileExists(prefix, ".build", "debug", "Baz")
         }
     }
@@ -97,7 +97,7 @@ class ClangModulesTestCase: XCTestCase {
         // Try building a fixture which needs extra flags to be able to build.
         fixture(name: "ClangModules/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
-            XCTAssertFileExists(prefix, ".build", "debug", "libCDynamicLookup.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "CDynamicLookup".soname)
         }
     }
 }

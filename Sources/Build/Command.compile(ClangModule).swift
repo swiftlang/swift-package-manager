@@ -53,6 +53,15 @@ private extension ClangModule {
             return ["-O2"]
         }
     }
+
+    var productName: String {
+        switch type {
+        case .library:
+            return c99name.soname
+        case .executable:
+            return c99name
+        }
+    }
 }
 
 private extension Sources {
@@ -116,7 +125,7 @@ extension Command {
             args += ["-shared"]
         }
 
-        let productPath = Path.join(prefix, module.type == .library ? "lib\(module.c99name).so" : module.c99name)
+        let productPath = Path.join(prefix, module.productName)
         args += ["-o", productPath]
         
         let shell = ShellTool(description: "Linking \(module.name)",

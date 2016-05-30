@@ -37,11 +37,11 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "--configuration", "--conf", "-c":
+        case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())
         case "--clean":
             self = try .clean(CleanMode(pop()))
-        case "--help", "--usage", "-h":
+        case "--help", "-h":
             self = .usage
         case "--version":
             self = .version
@@ -52,8 +52,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-            case .build(let conf, _): return "--configuration=\(conf)"
-            case .clean(let mode): return "--clean=\(mode)"
+            case .build(let conf, _): return "--configuration \(conf)"
+            case .clean(let mode): return "--clean \(mode)"
             case .usage: return "--help"
             case .version: return "--version"
         }
@@ -84,8 +84,6 @@ private enum BuildToolFlag: Argument {
             self = try .chdir(forcePop())
         case "--verbose", "-v":
             self = .verbose(1)
-        case "-vv":
-            self = .verbose(2)
         case "-Xcc":
             self = try .xcc(forcePop())
         case "-Xlinker":
@@ -161,7 +159,6 @@ public struct SwiftBuildTool {
             switch mode {
             case .build(let conf, let toolchain):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                try generateVersionData(opts.path.root, rootPackage: rootPackage, externalPackages: externalPackages)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
                 let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
                 try build(YAMLPath: yaml, target: opts.buildTests ? "test" : nil)
@@ -213,17 +210,17 @@ public struct SwiftBuildTool {
         print("USAGE: swift build [mode] [options]")
         print("")
         print("MODES:")
-        print("  --configuration <value>        Build with configuration (debug|release) [-c]")
-        print("  --clean[=<mode>]               Delete artifacts (build|dist)")
+        print("  -c, --configuration <value>   Build with configuration (debug|release)")
+        print("  --clean <mode>                Delete artifacts (build|dist)")
         print("")
         print("OPTIONS:")
-        print("  --chdir <path>       Change working directory before any other operation [-C]")
-        print("  --build-path <path>  Specify build directory")
-        print("  --color <mode>       Specify color mode (auto|always|never)")
-        print("  -v[v]                Increase verbosity of informational output")
-        print("  -Xcc <flag>          Pass flag through to all C compiler instantiations")
-        print("  -Xlinker <flag>      Pass flag through to all linker instantiations")
-        print("  -Xswiftc <flag>      Pass flag through to all Swift compiler instantiations")
+        print("  -C, --chdir <path>       Change working directory before any other operation")
+        print("  --build-path <path>      Specify build directory")
+        print("  --color <mode>           Specify color mode (auto|always|never)")
+        print("  -v, --verbose            Increase verbosity of informational output")
+        print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
+        print("  -Xlinker <flag>          Pass flag through to all linker invocations")
+        print("  -Xswiftc <flag>          Pass flag through to all Swift compiler invocations")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
@@ -304,8 +301,8 @@ enum CleanMode: CustomStringConvertible {
             self = .build
         case "dist"?, "distribution"?:
             self = .dist
-        default:
-            throw OptionParserError.invalidUsage("invalid clean mode: \(rawValue)")
+        case let value?:
+            throw OptionParserError.invalidUsage("invalid clean mode: \(value)")
         }
     }
 

@@ -8,13 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
+import libc
 
-#if !os(OSX)
-public func allTests() -> [XCTestCaseEntry] {
-    return [
-        testCase(CheckoutManagerTests.allTests),
-        testCase(GitRepositoryTests.allTests),
-    ]
+@noreturn public func exit(_ status: Int32) {
+    libc.exit(status)
 }
-#endif

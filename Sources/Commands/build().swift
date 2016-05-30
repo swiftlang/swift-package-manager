@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getenv
 import PackageModel
 import Utility
-import func libc.exit
+
+import func POSIX.getenv
+import func POSIX.exit
 
 // Builds the default target in the llbuild manifest unless specified.
 public func build(YAMLPath: String, target: String? = nil) throws {

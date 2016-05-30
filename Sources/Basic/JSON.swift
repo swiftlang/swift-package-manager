@@ -150,7 +150,7 @@ enum JSONDecodingError: ErrorProtocol {
     case malformed
 }
 
-// NOTE: This implementation is carefully crafter to work correctly on both
+// NOTE: This implementation is carefully crafted to work correctly on both
 // Linux and OS X while still compiling for both. Thus, the implementation takes
 // Any even though it could take AnyObject on OS X, and it uses converts to
 // direct Swift types (for Linux) even though those don't apply on OS X.
