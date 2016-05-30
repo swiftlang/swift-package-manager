@@ -91,6 +91,37 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(build, "B_C.framework")
         }
     }
+    
+    func testSystemModule() {
+        // Because there isn't any one system module that we can depend on for testing purposes, we build our own.
+        try! write(path: "/tmp/fake.h") { stream in
+            stream <<< "extern const char GetFakeString(void);\n"
+        }
+        try! write(path: "/tmp/fake.c") { stream in
+            stream <<< "const char * GetFakeString(void) { return \"abc\"; }\n"
+        }
+        var out = ""
+        do {
+            try popen(["env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib"], redirectStandardError: true) {
+                out += $0
+            }
+        } catch {
+            print("output:", out)
+            XCTFail("Failed to create test library:\n\n\(error)\n")
+        }
+        // Now we use a fixture for both the system library wrapper and the text executable.
+        fixture(name: "Miscellaneous/SystemModules") { prefix in
+            XCTAssertBuilds(prefix, "TestExec", Xld: ["-L/tmp/"])
+            XCTAssertFileExists(prefix, "TestExec", ".build", "debug", "TestExec")
+            let fakeDir = Path.join(prefix, "CFake")
+            XCTAssertDirectoryExists(fakeDir)
+            let execDir = Path.join(prefix, "TestExec")
+            XCTAssertDirectoryExists(execDir)
+            XCTAssertXcodeprojGen(execDir, flags: ["-Xlinker", "-L/tmp/"])
+            let proj = Path.join(execDir, "TestExec.xcodeproj")
+            XCTAssertXcodeBuild(project: proj)
+        }
+    }
 }
 
 
@@ -125,10 +156,10 @@ func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt
     }
 }
 
-func XCTAssertXcodeprojGen(_ prefix: String, env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
+func XCTAssertXcodeprojGen(_ prefix: String, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        _ = try executeSwiftSubcommand("package", args: ["generate-xcodeproj"], chdir: prefix, printIfError: true, env: env)
+        _ = try executeSwiftSubcommand("package", args: ["generate-xcodeproj"] + flags, chdir: prefix, printIfError: true, env: env)
     } catch {
         XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }
