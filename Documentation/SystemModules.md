@@ -13,12 +13,13 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-Lets put this code in a directory called `example`:
+First, create a directory called `example`, and initialize it as a package that builds an executable:
 
     $ mkdir example
     $ cd example
-    example$ touch main.swift Package.swift
-    example$ open -t main.swift Package.swift
+    example$ swift package init --type executable
+
+Edit the `Sources/main.swift` so it consists of the three lines shown above.
 
 To `import CJPEG` the package manager requires
 that the JPEG library has been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).
@@ -31,14 +32,16 @@ Swift packages that provide module maps for system libraries are handled differe
 
 Note that this package may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
 
-Create a directory called `CJPEG` parallel to the `example` directory and create a file called `module.modulemap`:
+Create a directory called `CJPEG` parallel to the `example` directory and initialize it as a package
+that builds a system module:
 
     example$ cd ..
     $ mkdir CJPEG
     $ cd CJPEG
-    CJPEG$ touch module.modulemap
+    CJPEG$ swift package init --type system-module
 
-Edit the `module.modulemap` so it consists of the following:
+This creates `Package.swift` and `module.modulemap` files in the directory.  Edit `module.modulemap` so it
+consists of the following:
 
     module CJPEG [system] {
         header "/usr/include/jpeglib.h"
@@ -50,12 +53,10 @@ Edit the `module.modulemap` so it consists of the following:
 > as per Swift module name conventions. Then the community is free to name another module simply `JPEG` which
 > contains more “Swifty” function wrappers around the raw C interface.
 
-Packages are Git repositories,
-tagged with semantic versions
-containing a `Package.swift` file at their root.
-Thus we must create `Package.swift` and initialize a Git repository with at least one version tag:
+Packages are Git repositories, tagged with semantic versions, containing a `Package.swift` file at their root.
+Initializing the package created a `Package.swift` file, but to make it a usable package we need to initialize
+a Git repository with at least one version tag:
 
-    CJPEG$ touch Package.swift
     CJPEG$ git init
     CJPEG$ git add .
     CJPEG$ git commit -m "Initial Commit"
@@ -63,7 +64,7 @@ Thus we must create `Package.swift` and initialize a Git repository with at leas
 
 * * *
 
-Now to consume JPEG we must declare our dependency in our example app’s `Package.swift`:
+Now to use the CJPEG package we must declare our dependency in our example app’s `Package.swift`:
 
 ```swift
 import PackageDescription
@@ -84,7 +85,7 @@ Now if we type `swift build` in our example app directory we will create an exec
     example$ swift build
     …
     example$ .build/debug/example
-    jpeg_common_struct(err: 0x0000000000000000, mem: 0x0000000000000000, progress: 0x0000000000000000, client_data: 0x0000000000000000, is_decompressor: 0, global_state: 0)
+    jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
     example$
 
 
@@ -93,14 +94,15 @@ Now if we type `swift build` in our example app directory we will create an exec
 Let’s expand our example to include [JasPer](https://www.ece.uvic.ca/~frodo/jasper/), a JPEG-2000 library.
 It depends on The JPEG Library.
 
-First create a directory called `CJasPer` parallel to `CJPEG` and our example app:
+First create a directory called `CJasPer` parallel to `CJPEG` and our example app, and initialize it as a package
+that builds a system module:
 
     CJPEG$ cd ..
     $ mkdir CJasPer
     $ cd CJasPer
-    CJasPer$ touch module.modulemap Package.swift
+    CJasPer$ swift package init --type system-module
 
-JasPer depends on JPEG thus any package that consumes `CJasPer` must know to also import `CJPEG`. We accomplish this by specifying the dependency in CJasPer’s `Package.swift`:
+JasPer depends on JPEG, and thus any package that consumes `CJasPer` must know to also import `CJPEG`. We accomplish this by specifying the dependency in CJasPer’s `Package.swift`:
 
 ```swift
 import PackageDescription
