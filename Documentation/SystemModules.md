@@ -1,10 +1,16 @@
 # System Modules
 
-You can link against system libraries using the package manager.
+You can link against system libraries using the package manager. To do so, there needs to be a special package for each system library that contains a module map for that library. Such a wrapper package does not contain any code of its own.
 
-To do so special packages must be published that contain a module map for that library.
+Let’s see an example of using [IJG’s JPEG library](http://www.ijg.org) from an executable.
 
-Let’s use the example of [IJG’s JPEG library](http://www.ijg.org). This is the code we want to compile:
+First, create a directory called `example`, and initialize it as a package that builds an executable:
+
+    $ mkdir example
+    $ cd example
+    example$ swift package init --type executable
+
+Edit the `Sources/main.swift` so it consists of this code:
 
 ```swift
 import CJPEG
@@ -13,15 +19,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-First, create a directory called `example`, and initialize it as a package that builds an executable:
-
-    $ mkdir example
-    $ cd example
-    example$ swift package init --type executable
-
-Edit the `Sources/main.swift` so it consists of the three lines shown above.
-
-To `import CJPEG` the package manager requires
+To `import CJPEG`, the package manager requires
 that the JPEG library has been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).
 The following files from the JPEG system-package are of interest:
 
@@ -32,7 +30,7 @@ Swift packages that provide module maps for system libraries are handled differe
 
 Note that this package may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
 
-Create a directory called `CJPEG` parallel to the `example` directory and initialize it as a package
+Create a directory called `CJPEG` next to the `example` directory and initialize it as a package
 that builds a system module:
 
     example$ cd ..
