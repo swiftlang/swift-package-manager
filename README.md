@@ -37,16 +37,16 @@ The package manager is bundled with the [**Trunk Development** Snapshots availab
 
         export PATH=path/to/toolchain/usr/bin:$PATH
 
-You can verify your installation by typing `swift build --version` in a terminal:
+You can verify your installation by typing `swift package --version` in a terminal:
 
 ```sh
-$ swift build --version
+$ swift package --version
 Apple Swift Package Manager
 ```
 
 The following indicates you have not installed a snapshot successfully:
 
-    <unknown>:0: error: no such file or directory: 'build'
+    <unknown>:0: error: no such file or directory: 'package'
 
 ### Managing Swift Environments
 
@@ -106,9 +106,9 @@ latest available snapshot.
 
 ###Choosing Swift version
 
-The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift build`. If it is not set, SPM will try to locate it:
+The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift package`. If it is not set, SwiftPM will try to locate it:
 
-1. In `swift-build`'s parent directory. 
+1. In `swift-package`'s parent directory. 
 2. (on OS X) by calling `xcrun --find swiftc`
 3. in PATH
 
