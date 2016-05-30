@@ -119,6 +119,14 @@ private enum PackageToolFlag: Argument {
             self = .colorMode(mode)
         case "--ignore-dependencies":
             self = .ignoreDependencies
+        case "-Xcc":
+            self = try .xcc(forcePop())
+        case "-Xlinker":
+            self = try .xld(forcePop())
+        case "-Xswiftc":
+            self = try .xswiftc(forcePop())
+        case "--xcconfig-overrides":
+            self = try .xcconfigOverrides(forcePop())
         default:
             return nil
         }
