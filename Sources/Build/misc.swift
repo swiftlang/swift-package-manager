@@ -104,7 +104,7 @@ extension ClangModule {
         
         ///Warn and return if no include directory
         guard includeDir.isDirectory else {
-            print("warning: No include directory found, a library can not be imported without any public headers.")
+            print("warning: No include directory found for module '\(name)'. A library can not be imported without any public headers.")
             return
         }
         
