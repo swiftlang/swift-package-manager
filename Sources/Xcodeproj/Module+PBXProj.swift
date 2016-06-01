@@ -256,6 +256,9 @@ extension XcodeModuleProtocol  {
             buildSettings["OTHER_SWIFT_FLAGS"] = (["$(inherited)"] + pkgArgs.cFlags).joined(separator: " ")
         }
 
+        // Add framework search path to build settings.
+        buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
+
         return buildSettings
     }
 }

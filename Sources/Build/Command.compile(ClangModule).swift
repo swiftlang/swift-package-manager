@@ -13,11 +13,13 @@ import Utility
 import POSIX
 
 private extension ClangModule {
-    var basicArgs: [String] {
+    func basicArgs() throws -> [String] {
         var args: [String] = []
-        #if os(Linux)
-            args += ["-fPIC"]
-        #endif
+      #if os(OSX)
+        args += ["-F", try platformFrameworksPath()]
+      #else
+        args += ["-fPIC"]
+      #endif
         args += ["-fmodules", "-fmodule-name=\(name)"]
         return args
     }
@@ -87,7 +89,7 @@ extension Command {
         ///------------------------------ Compile -----------------------------------------
         var compileCommands = [Command]()
         let dependencies = module.dependencies.map{ $0.targetName }
-        var basicArgs = module.basicArgs + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
+        var basicArgs = try module.basicArgs() + module.includeFlagsWithExternalModules(externalModules) + module.optimizationFlags(conf)
         basicArgs += module.moduleCacheArgs(prefix: prefix)
         basicArgs += Xcc
 
@@ -113,7 +115,7 @@ extension Command {
         ///FIXME: This probably doesn't belong here
         ///------------------------------ Product -----------------------------------------
 
-        var args = module.basicArgs
+        var args = try module.basicArgs()
         args += module.optimizationFlags(conf)
         args += ["-L\(prefix)"]
         args += module.languageLinkArgs
