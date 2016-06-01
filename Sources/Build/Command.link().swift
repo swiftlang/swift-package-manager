@@ -65,7 +65,7 @@ extension Command {
           #else
             // HACK: To get a path to LinuxMain.swift, we just grab the
             //       parent directory of the first test module we can find.
-            let firstTestModule = product.modules.flatMap{ $0 as? TestModule }.first!
+            let firstTestModule = product.modules.filter{ $0.isTest }.first!
             let testDirectory = firstTestModule.sources.root.parentDirectory
             let main = Path.join(testDirectory, "LinuxMain.swift")
             args.append(main)

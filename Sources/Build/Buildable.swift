@@ -24,10 +24,6 @@ extension CModule {
 }
 
 extension Module: Buildable {
-    var isTest: Bool {
-        return self is TestModule
-    }
-
     func XccFlags(_ prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {

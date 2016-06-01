@@ -111,7 +111,7 @@ extension XcodeModuleProtocol  {
     }
 
     var productType: String {
-        if self is TestModule {
+        if isTest {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
             return "com.apple.product-type.framework"
@@ -121,7 +121,7 @@ extension XcodeModuleProtocol  {
     }
 
     var explicitFileType: String {
-        if self is TestModule {
+        if isTest {
             return "compiled.mach-o.wrapper.cfbundle"
         } else if isLibrary {
             return "wrapper.framework"
@@ -133,7 +133,7 @@ extension XcodeModuleProtocol  {
 
 
     var productPath: String {
-        if self is TestModule {
+        if isTest {
             return "\(c99name).xctest"
         } else if isLibrary {
             return "\(c99name).framework"
@@ -151,7 +151,7 @@ extension XcodeModuleProtocol  {
     }
 
     var productName: String {
-        if isLibrary && !(self is TestModule) {
+        if isLibrary && !isTest {
             // you can go without a lib prefix, but something unexpected will break
             return "'lib$(TARGET_NAME)'"
         } else {
@@ -197,7 +197,7 @@ extension XcodeModuleProtocol  {
         var buildSettings = [String: String]()
         let plistPath = Path(Path.join(xcodeProjectPath, infoPlistFileName)).relative(to: xcodeProjectPath.parentDirectory)
 
-        if self is TestModule {
+        if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
 
             //FIXME this should not be required

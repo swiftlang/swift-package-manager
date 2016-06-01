@@ -90,7 +90,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
             print("  <key>CFBundleName</key>")
             print("  <string>$(PRODUCT_NAME)</string>")
             print("  <key>CFBundlePackageType</key>")
-            if module is TestModule {
+            if module.isTest {
                 print("  <string>BNDL</string>")
             } else {
                 print("  <string>FMWK</string>")

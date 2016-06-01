@@ -188,9 +188,9 @@ extension Package {
     func products(_ allModules: [Module]) throws -> [Product] {
         var products = [Product]()
 
-        let testModules: [TestModule]
+        let testModules: [Module]
         let modules: [Module]
-        (testModules, modules) = allModules.partition()
+        (testModules, modules) = allModules.partition { $0.isTest }
 
     ////// first auto-determine executables
 
@@ -204,7 +204,8 @@ extension Package {
     ////// auto-determine tests
 
         if !testModules.isEmpty {
-            let modules: [SwiftModule] = testModules.map{$0} // or linux compiler crash (2016-02-03)
+            // FIXME: Product should support all modules.
+            let modules: [SwiftModule] = testModules.flatMap{$0 as? SwiftModule} // or linux compiler crash (2016-02-03)
             //TODO and then we should prefix all modules with their package probably
             //Suffix 'Tests' to test product so the module name of linux executable don't collide with
             //main package, if present.
@@ -259,14 +260,14 @@ extension Package {
 }
 
 extension Package {
-    func testModules() throws -> [TestModule] {
+    func testModules() throws -> [Module] {
         let testsPath = Path.join(path, "Tests")
         //Don't try to walk Tests if it is in excludes
         if testsPath.isDirectory && excludes.contains(testsPath) { return [] }
         return try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
             let sources = walk(dir, recursing: shouldConsiderDirectory).filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
             if sources.count > 0 {
-                return try TestModule(basename: dir.basename, sources: Sources(paths: sources, root: dir))
+                return try SwiftModule(name: dir.basename, isTest: true, sources: Sources(paths: sources, root: dir))
             } else {
                 print("warning: no sources in test module: \(path)")
                 return nil

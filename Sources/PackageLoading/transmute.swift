@@ -38,7 +38,7 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
             let testModules = try package.testModules()
 
             // Set dependencies for test modules.
-            for testModule in testModules {
+            for case let testModule as SwiftModule in testModules {
                 if testModule.basename == "Functional" {
                     // FIXME: swiftpm's own Functional tests module does not
                     //        follow the normal rules--there is no corresponding
@@ -86,9 +86,9 @@ private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package)
         let packageModules = modulesForPackage(package)
         for dep in package.recursiveDependencies {
             let depModules = modulesForPackage(dep).filter{
+                guard !$0.isTest else { return false }
+
                 switch $0 {
-                case is TestModule:
-                    return false
                 case let module as SwiftModule where module.type == .library:
                     return true
                 case is CModule:
