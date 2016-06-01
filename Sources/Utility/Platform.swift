@@ -35,3 +35,14 @@ public enum Platform {
         return nil
     }
 }
+
+public func platformFrameworksPath() throws -> String {
+    // Lazily compute the platform the first time it is needed.
+    struct Static {
+        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
+    }
+    guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
+        throw Error.invalidPlatformPath
+    }
+    return Path.join(chuzzled, "Developer/Library/Frameworks")
+}

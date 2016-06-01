@@ -15,6 +15,7 @@ public enum Error: ErrorProtocol {
     case unicodeEncodingError
     case couldNotCreateFile(path: String)
     case fileDoesNotExist(path: String)
+    case invalidPlatformPath
 }
 
 extension Error: CustomStringConvertible {
@@ -28,6 +29,7 @@ extension Error: CustomStringConvertible {
         case .unicodeEncodingError: return "Could not encode string into unicode"
         case .couldNotCreateFile(let path): return "Could not create file: \(path)"
         case .fileDoesNotExist(let path): return "File does not exist: \(path)"
+        case .invalidPlatformPath: return "Invalid platform path"
         }
     }
 }
