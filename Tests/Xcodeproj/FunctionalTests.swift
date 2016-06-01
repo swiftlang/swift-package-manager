@@ -33,14 +33,7 @@ class FunctionalTests: XCTestCase {
 
     func testSwiftExecWithCDep() {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            // FIXME: Temporarily manually create the module map until we fix SR-1450
-            let seaLibModuleMap = Path.join(prefix, "Sources/SeaLib/include", "module.modulemap")
-            try! write(path: seaLibModuleMap) { stream in
-                stream <<< "module SeaLib {"
-                stream <<< "    umbrella \".\""
-                stream <<< "    export *"
-                stream <<< "}"
-            }
+            // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
             let pbx = Path.join(prefix, "SwiftCMixed.xcodeproj")
             XCTAssertDirectoryExists(pbx)

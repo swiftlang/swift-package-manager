@@ -174,8 +174,8 @@ extension XcodeModuleProtocol  {
         return (headerPathKey, headerPathValue)
     }
 
-    func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> String {
-        var buildSettings = getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
+    func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> String {
+        var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
@@ -184,8 +184,8 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> String {
-        var buildSettings = getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
+    func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> String {
+        var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
@@ -193,7 +193,7 @@ extension XcodeModuleProtocol  {
         return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) -> [String: String] {
+    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> [String: String] {
         var buildSettings = [String: String]()
         let plistPath = Path(Path.join(xcodeProjectPath, infoPlistFileName)).relative(to: xcodeProjectPath.parentDirectory)
 
@@ -258,6 +258,23 @@ extension XcodeModuleProtocol  {
 
         // Add framework search path to build settings.
         buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
+
+        // Generate modulemap for a ClangModule if not provided by user and add to build settings.
+        if case let clangModule as ClangModule = self where clangModule.type == .library {
+            buildSettings["DEFINES_MODULE"] = "YES"
+            let moduleMapPath: String
+            // If user provided the modulemap no need to generate.
+            if clangModule.moduleMapPath.isFile {
+                moduleMapPath = clangModule.moduleMapPath
+            } else {
+                // Generate and drop the modulemap inside Xcodeproj folder.
+                let path = Path.join(xcodeProjectPath, "GeneratedModuleMap", clangModule.c99name)
+                try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                moduleMapPath = Path.join(path, clangModule.moduleMap)
+            }
+
+            buildSettings["MODULEMAP_FILE"] = Path(moduleMapPath).relative(to: xcodeProjectPath.parentDirectory)
+        }
 
         return buildSettings
     }
