@@ -92,6 +92,22 @@ class ManifestTests: XCTestCase {
         let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc, libdir: libdir)
         XCTAssertNil(foo)
     }
+
+    func testInvalidTargetName() {
+        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { prefix in
+            do {
+                let manifest = try Manifest(path: Path.join(prefix, "Package.swift"), baseURL: prefix, swiftc: swiftc, libdir: libdir)
+                let package = Package(manifest: manifest, url: prefix)
+
+                let _ = try package.modules()
+
+            } catch ModuleError.modulesNotFound(let moduleNames) {
+                XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))
+            } catch {
+                XCTFail("Failed with error: \(error)")
+            }
+        }
+    }
 }
 
 extension ManifestTests {
@@ -99,6 +115,7 @@ extension ManifestTests {
         return [
             ("testManifestLoading", testManifestLoading),
             ("testNoManifest", testNoManifest),
+            ("testInvalidTargetName", testInvalidTargetName)
         ]
     }
 }

@@ -67,10 +67,7 @@ class MiscellaneousTestCase: XCTestCase {
         // Refs: https://github.com/apple/swift-package-manager/pull/83
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic2") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.swiftmodule")
-            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.swiftmodule")
-            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.swiftmodule")
+            XCTAssertBuildFails(prefix)
         }
     }
 

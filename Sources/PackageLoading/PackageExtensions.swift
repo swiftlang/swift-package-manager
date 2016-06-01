@@ -13,23 +13,20 @@ import Utility
 
 import class PackageDescription.Target
 
-extension Package {
-    /// An error in the package organization of modules.
-    enum ModuleError: ErrorProtocol {
-        case noModules(Package)
-        case modulesNotFound([String])
-        case invalidLayout(InvalidLayoutType)
-        case executableAsDependency(String)
-    }
-
-    enum InvalidLayoutType {
-        case multipleSourceRoots([String])
-        case invalidLayout([String])
-    }
+public enum ModuleError: ErrorProtocol {
+    case noModules(Package)
+    case modulesNotFound([String])
+    case invalidLayout(InvalidLayoutType)
+    case executableAsDependency(String)
 }
 
-extension Package.InvalidLayoutType: CustomStringConvertible {
-    var description: String {
+public enum InvalidLayoutType {
+    case multipleSourceRoots([String])
+    case invalidLayout([String])
+}
+
+extension InvalidLayoutType: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.joined(separator: ", ")
@@ -145,12 +142,12 @@ extension Package {
             }
         }
 
-        /// Check for targets that are not mapped to any modules
+        /// Check for targets that are not mapped to any modules.
         let targetNames = Set(manifest.package.targets.map{ $0.name })
         let moduleNames = Set(modules.map{ $0.name })
         let diff = targetNames.subtracting(moduleNames)
             
-        if diff.count > 0 {
+        guard diff.isEmpty else {
             throw ModuleError.modulesNotFound(Array(diff))
         }
 
@@ -189,7 +186,6 @@ extension Package {
     private func targetForName(_ name: String) -> Target? {
         return manifest.package.targets.pick{ $0.name == name }
     }
-
 }
 
 
