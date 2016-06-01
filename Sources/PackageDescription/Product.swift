@@ -50,6 +50,48 @@ extension ProductType: CustomStringConvertible {
     }
 }
 
+extension ProductType: Hashable, Equatable {
+    public var hashValue: Int {
+        switch self {
+        case .Test:
+            return 10
+        case .Executable:
+            return 20
+        case .Library(.Static):
+            return 30
+        case .Library(.Dynamic):
+            return 40
+        }
+    }
+}
+
+public func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+    switch (lhs, rhs) {
+    case (.Test, .Test):
+        return true
+    case (.Executable, .Executable):
+        return true
+    case (.Library(let lhsType), .Library(let rhsType)):
+        return lhsType == rhsType
+    default:
+        return false
+    }
+}
+
+
+extension LibraryType: Equatable {}
+
+public func ==(lhs: LibraryType, rhs: LibraryType) -> Bool {
+    switch (lhs, rhs) {
+    case (.Static, .Static):
+        return true
+    case (.Dynamic, .Dynamic):
+        return true
+    default:
+        return false
+    }
+}
+
 extension Product: TOMLConvertible {
     public func toTOML() -> String {
         var s = ""

@@ -34,14 +34,22 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     let CC = getenv("CC") ?? "clang"
 
     var commands = [Command]()
-    var targets = Targets()
+
+    var mainTarget = Target(node: "main", cmds: [])
+    var testTarget = Target(node: "test", cmds: [])
+    var replTarget = Target(node: "repl", cmds: [])
+
+    let mainProducts = Set(products)
 
     for module in modules {
         switch module {
         case let module as SwiftModule:
             let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
             commands.append(compile)
-            targets.append([compile], for: module)
+
+            mainTarget.cmds += [compile]
+            testTarget.cmds += [compile]
+            replTarget.cmds += [compile]
 
         case let module as ClangModule:
             // FIXME: Ignore C language test modules on linux for now.
@@ -50,7 +58,10 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
           #endif
             let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
-            targets.append(compile, for: module)
+
+            mainTarget.cmds += compile
+            testTarget.cmds += compile
+            replTarget.cmds += compile
 
         case is CModule:
             continue
@@ -60,9 +71,14 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         }
     }
 
-    for product in products {
+    /// TODO: handle system modules here.
+    let productsForREPL = modules.filter{ !($0 is CModule) }.map{ Product(name: $0.c99name, type: .Library(.Dynamic), modules: [$0]) }
+
+    let allProducts = Set<Product>(products).union(productsForREPL)
+
+    for product in allProducts {
         var rpathArgs = [String]()
-        
+
         // On Linux, always embed an RPATH adjacent to the linked binary. Note
         // that the '$ORIGIN' here is literal, it is a reference which is
         // understood by the dynamic linker.
@@ -77,18 +93,24 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         }
 
         commands.append(command)
-        targets.append([command], for: product)
+
+        testTarget.cmds.append(command)
+        replTarget.cmds.append(command)
+
+        if mainProducts.contains(product) {
+            mainTarget.cmds.append(command)
+        }
     }
 
-    return try! write(path: "\(prefix).yaml") { stream in
+    return try! write(path: yamlPath(forPrefix: AbsolutePath(prefix))) { stream in
         stream <<< "client:\n"
         stream <<< "  name: swift-build\n"
         stream <<< "tools: {}\n"
         stream <<< "targets:\n"
-        for target in [targets.test, targets.main] {
+        for target in [replTarget, mainTarget, testTarget] {
             stream <<< "  " <<< Format.asJSON(target.node) <<< ": " <<< Format.asJSON(target.cmds.map{$0.node}) <<< "\n"
         }
-        stream <<< "default: " <<< Format.asJSON(targets.main.node) <<< "\n"
+        stream <<< "default: " <<< Format.asJSON(mainTarget.node) <<< "\n"
         stream <<< "commands: \n"
         for command in commands {
             stream <<< "  " <<< Format.asJSON(command.node) <<< ":\n"
@@ -98,23 +120,13 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 }
 
-private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
+private func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws -> String {
     let stream = OutputByteStream()
     write(stream)
     try localFS.writeFileContents(path, bytes: stream.bytes)
-    return path
+    return path.asString
 }
 
-private struct Targets {
-    var test = Target(node: "test", cmds: [])
-    var main = Target(node: "main", cmds: [])
-
-    mutating func append(_ commands: [Command], for buildable: Buildable) {
-        if !buildable.isTest {
-            main.cmds += commands
-        }
-
-        // Always build everything for the test target.
-        test.cmds += commands
-    }
+public func yamlPath(forPrefix prefix: AbsolutePath) -> AbsolutePath {
+    return prefix.parentDirectory.appending("debug.yaml")
 }

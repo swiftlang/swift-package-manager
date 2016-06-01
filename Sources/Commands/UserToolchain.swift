@@ -23,6 +23,7 @@ struct UserToolchain: Toolchain {
     let SWIFT_EXEC: String
     let clang: String
     let sysroot: String?
+    let swift: String
 
 #if os(OSX)
     var platformArgsClang: [String] {
@@ -39,9 +40,15 @@ struct UserToolchain: Toolchain {
 
     init() throws {
         do {
+
             SWIFT_EXEC = getenv("SWIFT_EXEC")
                 // use the swiftc installed alongside ourselves
                 ?? AbsolutePath(Process.arguments[0].abspath).appending("../swiftc").asString
+
+            swift = getenv("SWIFT")
+                // use the swift installed alongside ourselves
+                ?? Path.join(Process.arguments[0], "../swift").abspath
+
 
             clang = try getenv("CC") ?? POSIX.popen(whichClangArgs).chomp()
 

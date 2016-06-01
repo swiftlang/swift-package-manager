@@ -60,3 +60,18 @@ extension Product: CustomStringConvertible {
         }
     }
 }
+
+
+extension Product: Hashable,Equatable {
+    public var hashValue: Int {
+        // FIXME: implement modules hash properly
+        return name.hashValue ^ type.hashValue ^ "\(modules)".hashValue
+    }
+}
+
+
+public func ==(lhs: Product, rhs: Product) -> Bool {
+    return (lhs.name == rhs.name)
+           && (lhs.type == rhs.type)
+           && (lhs.modules == rhs.modules)
+}

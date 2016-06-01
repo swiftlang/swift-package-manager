@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import Utility
 import Xcodeproj
+import class Foundation.ProcessInfo
 
 #if HasCustomVersionString
 import VersionInfo
@@ -25,6 +26,7 @@ import enum Utility.ColorWrap
 import protocol Build.Toolchain
 
 import func POSIX.chdir
+import func POSIX.getenv
 
 /// Additional conformance for our Options type.
 extension BuildToolOptions: XcodeprojOptions {}
@@ -32,11 +34,14 @@ extension BuildToolOptions: XcodeprojOptions {}
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
     case clean(CleanMode)
+    case repl(Toolchain)
     case usage
     case version
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
+        case "--repl":
+            self = try .repl(UserToolchain())
         case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())
         case "--clean":
@@ -54,6 +59,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         switch self {
             case .build(let conf, _): return "--configuration \(conf)"
             case .clean(let mode): return "--clean \(mode)"
+            case .repl: return "repl"
             case .usage: return "--help"
             case .version: return "--version"
         }
@@ -157,6 +163,19 @@ public struct SwiftBuildTool: SwiftTool {
             }
         
             switch mode {
+            case .repl(let toolchain):
+                let (rootPackage, externalPackages) = try fetch(opts.path.root)
+                let (modules, _, _) = try transmute(rootPackage, externalPackages: externalPackages)
+                let debugDirectory = opts.path.build.appending("debug")
+
+                try build(yamlPath: yamlPath(forPrefix: debugDirectory), target: "repl")
+
+                let libdir = debugDirectory.asString
+                var args = [toolchain.swift, "-L", libdir, "-I", libdir]
+                args += modules.map{ return "-l\($0.c99name)" }
+
+                try system(args, environment: ProcessInfo.processInfo().environment)
+
             case .build(let conf, let toolchain):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
@@ -210,6 +229,7 @@ public struct SwiftBuildTool: SwiftTool {
         print("USAGE: swift build [mode] [options]")
         print("")
         print("MODES:")
+        print("  repl                          Launch REPL")
         print("  -c, --configuration <value>   Build with configuration (debug|release)")
         print("  --clean <mode>                Delete artifacts (build|dist)")
         print("")

@@ -22,6 +22,7 @@ final class DescribeTests: XCTestCase {
                 var platformArgsSwiftc: [String] { fatalError() }
                 var sysroot: String?  { fatalError() }
                 var SWIFT_EXEC: String { fatalError() }
+                var swift: String { fatalError() }
                 var clang: String { fatalError() }
             }
 

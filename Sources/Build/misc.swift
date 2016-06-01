@@ -19,6 +19,7 @@ public protocol Toolchain {
     var platformArgsSwiftc: [String] { get }
     var sysroot: String?  { get }
     var SWIFT_EXEC: String { get }
+    var swift: String { get }
     var clang: String { get }
 }
 
