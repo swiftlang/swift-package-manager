@@ -22,6 +22,7 @@ public protocol ModuleProtocol {
     var c99name: String { get }
     var dependencies: [Module] { get set }
     var recursiveDependencies: [Module] { get }
+    var isTest: Bool { get }
 }
 
 public class Module: ModuleProtocol {
@@ -32,15 +33,28 @@ public class Module: ModuleProtocol {
     public let name: String
     public var dependencies: [Module]  /// in build order
     public var c99name: String
+    public let isTest: Bool
+    private let testModuleNameSuffix = "TestSuite"
 
-    public init(name: String) throws {
-        self.name = name
+    public init(name: String, isTest: Bool = false) throws {
+        // Append TestSuite to name if its a test module.
+        self.name = name + (isTest ? testModuleNameSuffix : "")
         self.dependencies = []
-        self.c99name = try PackageModel.c99name(name: name)
+        self.c99name = try PackageModel.c99name(name: self.name)
+        self.isTest = isTest
     }
 
     public var recursiveDependencies: [Module] {
         return PackageModel.recursiveDependencies(dependencies)
+    }
+
+    /// The base prefix for the test module, used to associate with the target it tests.
+    public var basename: String {
+        guard isTest else {
+            fatalError("\(self.dynamicType) should be a test module to access basename.")
+        }
+        precondition(name.hasSuffix(testModuleNameSuffix))
+        return name[name.startIndex..<name.index(name.endIndex, offsetBy: -testModuleNameSuffix.characters.count)]
     }
 }
 
@@ -80,9 +94,9 @@ public func ==(lhs: Module, rhs: Module) -> Bool {
 public class SwiftModule: Module {
     public let sources: Sources
 
-    public init(name: String, sources: Sources) throws {
+    public init(name: String, isTest: Bool = false, sources: Sources) throws {
         self.sources = sources
-        try super.init(name: name)
+        try super.init(name: name, isTest: isTest)
     }
 }
 
@@ -118,20 +132,6 @@ extension ClangModule: XcodeModuleProtocol {
         return "sourcecode.c.c"
     }
 }
-
-public class TestModule: SwiftModule {
-    /// The base prefix for the test module, used to associate with the target it tests.
-    //
-    // FIXME: This seems like a fragile way to model this relationship.
-    public let basename: String
-    
-    public init(basename: String, sources: Sources) throws {
-        self.basename = basename
-        try super.init(name: basename + "TestSuite", sources: sources)
-        c99name = try PackageModel.c99name(name: basename) + "TestSuite"
-    }
-}
-
 
 extension Module: CustomStringConvertible {
     public var description: String {

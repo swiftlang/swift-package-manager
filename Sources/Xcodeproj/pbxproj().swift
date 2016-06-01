@@ -17,8 +17,8 @@ import Utility
 public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
-    let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
-    let (tests, nonTests) = modules.partition{ $0 is TestModule }
+    let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
+    let (tests, nonTests) = modules.partition{ $0.isTest }
 
     print("// !$*UTF8*$!")
     print("{")
