@@ -28,7 +28,7 @@ The following files from the JPEG system-package are of interest:
 
 Swift packages that provide module maps for system libraries are handled differently from regular Swift packages.
 
-Note that this package may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
+Note that the system library may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
 
 Create a directory called `CJPEG` next to the `example` directory and initialize it as a package
 that builds a system module:
