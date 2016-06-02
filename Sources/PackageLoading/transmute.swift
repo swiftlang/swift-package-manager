@@ -25,7 +25,7 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
         var modules: [Module]
         do {
             modules = try package.modules()
-        } catch Package.ModuleError.noModules(let pkg) where pkg === rootPackage {
+        } catch ModuleError.noModules(let pkg) where pkg === rootPackage {
             //Ignore and print warning if root package doesn't contain any sources
             print("warning: root package '\(pkg)' does not contain any sources")
             if packages.count == 1 { exit(0) } //Exit now if there is no more packages 

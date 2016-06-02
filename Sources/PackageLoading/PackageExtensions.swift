@@ -13,23 +13,20 @@ import Utility
 
 import class PackageDescription.Target
 
-extension Package {
-    /// An error in the package organization of modules.
-    enum ModuleError: ErrorProtocol {
-        case noModules(Package)
-        case moduleNotFound(String)
-        case invalidLayout(InvalidLayoutType)
-        case executableAsDependency(String)
-    }
-
-    enum InvalidLayoutType {
-        case multipleSourceRoots([String])
-        case invalidLayout([String])
-    }
+public enum ModuleError: ErrorProtocol {
+    case noModules(Package)
+    case modulesNotFound([String])
+    case invalidLayout(InvalidLayoutType)
+    case executableAsDependency(String)
 }
 
-extension Package.InvalidLayoutType: CustomStringConvertible {
-    var description: String {
+public enum InvalidLayoutType {
+    case multipleSourceRoots([String])
+    case invalidLayout([String])
+}
+
+extension InvalidLayoutType: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.joined(separator: ", ")
@@ -135,7 +132,7 @@ extension Package {
                 switch $0 {
                 case .Target(let name):
                     guard let dependency = moduleForName(name) else {
-                        throw ModuleError.moduleNotFound(name)
+                        throw ModuleError.modulesNotFound([name])
                     }
                     if let moduleType = dependency as? ModuleTypeProtocol where moduleType.type != .library {
                         throw ModuleError.executableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
@@ -143,6 +140,15 @@ extension Package {
                     return dependency
                 }
             }
+        }
+
+        /// Check for targets that are not mapped to any modules.
+        let targetNames = Set(manifest.package.targets.map{ $0.name })
+        let moduleNames = Set(modules.map{ $0.name })
+        let diff = targetNames.subtracting(moduleNames)
+            
+        guard diff.isEmpty else {
+            throw ModuleError.modulesNotFound(Array(diff))
         }
 
         return modules
