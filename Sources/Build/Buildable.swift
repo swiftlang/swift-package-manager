@@ -16,13 +16,6 @@ protocol Buildable {
     var isTest: Bool { get }
 }
 
-extension CModule {
-    ///Returns the build directory path of a CModule
-    func buildDirectory(_ prefix: String) -> String {
-        return Path.join(prefix, "\(c99name).build")
-    }
-}
-
 extension Module: Buildable {
     func XccFlags(_ prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
@@ -40,7 +33,9 @@ extension Module: Buildable {
                 if module.moduleMapPath.isFile {
                     return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
                 }
-                let genModuleMap = Path.join(module.buildDirectory(prefix), module.moduleMap)
+
+                let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
+                let genModuleMap = Path.join(buildMeta.buildDirectory, module.moduleMap)
                 return ["-Xcc", "-fmodule-map-file=\(genModuleMap)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
