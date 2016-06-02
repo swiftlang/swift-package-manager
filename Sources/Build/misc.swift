@@ -61,6 +61,11 @@ extension ClangModule {
 }
 
 extension Product {
+    /// Returns true iff all the modules in this product are ClangModules. 
+    var containsOnlyClangModules: Bool {
+        return modules.filter{ $0 is ClangModule }.count == modules.count
+    }
+
     var Info: (_: Void, plist: String) {
         precondition(isTest)
 

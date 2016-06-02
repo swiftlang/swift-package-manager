@@ -15,7 +15,7 @@ import Utility
 //FIXME messy :/
 
 extension Command {
-    static func link(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+    static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
         precondition(prefix.isAbsolute)
 
         // Get the set of all input modules.
@@ -69,7 +69,7 @@ extension Command {
           #else
             // HACK: To get a path to LinuxMain.swift, we just grab the
             //       parent directory of the first test module we can find.
-            let firstTestModule = product.modules.filter{ $0.isTest }.first!
+            let firstTestModule = product.modules.flatMap{$0 as? SwiftModule}.filter{ $0.isTest }.first!
             let testDirectory = firstTestModule.sources.root.parentDirectory
             let main = Path.join(testDirectory, "LinuxMain.swift")
             args.append(main)
