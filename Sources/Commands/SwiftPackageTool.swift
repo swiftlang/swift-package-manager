@@ -83,6 +83,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 private enum PackageToolFlag: Argument {
     case initMode(String)
     case showDepsMode(String)
+    case inputPath(String)
     case outputPath(String)
     case chdir(String)
     case colorMode(ColorWrap.Mode)
@@ -109,6 +110,8 @@ private enum PackageToolFlag: Argument {
             self = try .showDepsMode(forcePop())
         case "--output":
             self = try .outputPath(forcePop())
+        case "--input":
+            self = try .inputPath(forcePop())
         case "--verbose", "-v":
             self = .verbose(1)
         case "--color":
@@ -136,6 +139,7 @@ private enum PackageToolFlag: Argument {
 private class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
+    var inputPath: String? = nil
     var outputPath: String? = nil
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
@@ -254,7 +258,7 @@ public struct SwiftPackageTool {
                 print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
-                let root = opts.outputPath ?? opts.path.root
+                let root = opts.inputPath ?? opts.path.root
                 let manifest = try parseManifest(path: root, baseURL: root)
                 let package = manifest.package
                 let json = try jsonString(package: package)
@@ -280,7 +284,7 @@ public struct SwiftPackageTool {
         print("  generate-xcodeproj [--output <path>]   Generates an Xcode project")
         print("  show-dependencies [--format <format>]  Print the resolved dependency graph")
         print("                                         (format: text|dot|json)")
-        print("  dump-package [--output <path>]         Print parsed Package.swift as JSON")
+        print("  dump-package [--input <path>]          Print parsed Package.swift as JSON")
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
@@ -304,6 +308,8 @@ public struct SwiftPackageTool {
                 opts.initMode = try InitMode(value)
             case .showDepsMode(let value):
                 opts.showDepsMode = try ShowDependenciesMode(value)
+            case .inputPath(let path):
+                opts.inputPath = path
             case .outputPath(let path):
                 opts.outputPath = path
             case .chdir(let path):
