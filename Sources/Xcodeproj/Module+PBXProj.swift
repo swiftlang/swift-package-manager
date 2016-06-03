@@ -233,6 +233,9 @@ extension XcodeModuleProtocol  {
                 buildSettings["INFOPLIST_FILE"] = plistPath
 
                 buildSettings["PRODUCT_MODULE_NAME"] = "$(TARGET_NAME:c99extidentifier)"
+
+                // FIXME: This should be user speficiable
+                buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = c99name
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
