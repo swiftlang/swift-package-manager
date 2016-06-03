@@ -22,7 +22,7 @@ import func POSIX.mkdtemp
 class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
-            XCTAssertXcodeprojGen(prefix)
+            XCTAssertXcodeprojGen(prefix, useShortcutFlag: true)
             let pbx = Path.join(prefix, "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
@@ -149,10 +149,10 @@ func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt
     }
 }
 
-func XCTAssertXcodeprojGen(_ prefix: String, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
+func XCTAssertXcodeprojGen(_ prefix: String, useShortcutFlag: Bool = false, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        _ = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"] + flags, chdir: prefix, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftPackage.execute([useShortcutFlag ? "-X" : "generate-xcodeproj"] + flags, chdir: prefix, env: env, printIfError: true)
     } catch {
         XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }
