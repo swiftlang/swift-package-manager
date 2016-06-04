@@ -110,20 +110,22 @@ public class CModule: Module {
     public let path: String
     public let pkgConfig: String?
     public let providers: [SystemPackageProvider]?
-    public init(name: String, path: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil) throws {
+    public init(name: String, path: String, isTest: Bool = false, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil) throws {
         self.path = path
         self.pkgConfig = pkgConfig
         self.providers = providers
-        try super.init(name: name)
+        // FIXME: This is wrong, System modules should never be a test module, perhaps ClangModule
+        // can be refactored into direct subclass of Module.
+        try super.init(name: name, isTest: isTest)
     }
 }
 
 public class ClangModule: CModule {
     public let sources: Sources
     
-    public init(name: String, sources: Sources) throws {
+    public init(name: String, isTest: Bool = false, sources: Sources) throws {
         self.sources = sources
-        try super.init(name: name, path: sources.root + "/include")
+        try super.init(name: name, path: sources.root + "/include", isTest: isTest)
     }
 }
 

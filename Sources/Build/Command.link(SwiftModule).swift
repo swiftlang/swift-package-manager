@@ -24,7 +24,7 @@ extension Command {
         // FIXME: This needs to handle C language targets.
         let buildables = product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }.unique()
         
-        let objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
+        var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
 
         let outpath = Path.join(prefix, product.outname)
 
@@ -49,13 +49,13 @@ extension Command {
             return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
 
-        let inputs = objects
-
         switch product.type {
         case .Library(.Static):
             args.append(outpath)
         case .Test:
             args += ["-module-name", product.name]
+            // Link all the Clang Module's objects into XCTest executable.
+            objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
           #if os(OSX)
             args += ["-Xlinker", "-bundle"]
             args += ["-F", try platformFrameworksPath()]
@@ -100,7 +100,7 @@ extension Command {
 
         let shell = ShellTool(
             description: "Linking \(outpath.prettyPath)",
-            inputs: inputs,
+            inputs: objects,
             outputs: [product.targetName, outpath],
             args: args)
 

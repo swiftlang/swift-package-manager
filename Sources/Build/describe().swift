@@ -41,12 +41,16 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         case let module as SwiftModule:
             let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
             commands.append(compile)
-            targets.append(compile, for: module)
+            targets.append([compile], for: module)
 
         case let module as ClangModule:
+            // FIXME: Ignore C language test modules on linux for now.
+          #if os(Linux)
+            if module.isTest { continue }
+          #endif
             let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
-            targets.main.cmds += compile
+            targets.append(compile, for: module)
 
         case is CModule:
             continue
@@ -73,7 +77,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         }
 
         commands.append(command)
-        targets.append(command, for: product)
+        targets.append([command], for: product)
     }
 
     return try! write(path: "\(prefix).yaml") { stream in
@@ -105,12 +109,12 @@ private struct Targets {
     var test = Target(node: "test", cmds: [])
     var main = Target(node: "main", cmds: [])
 
-    mutating func append(_ command: Command, for buildable: Buildable) {
+    mutating func append(_ commands: [Command], for buildable: Buildable) {
         if !buildable.isTest {
-            main.cmds.append(command)
+            main.cmds += commands
         }
 
         // Always build everything for the test target.
-        test.cmds.append(command)
+        test.cmds += commands
     }
 }
