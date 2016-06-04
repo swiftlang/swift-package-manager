@@ -25,11 +25,16 @@ struct UserToolchain: Toolchain {
     let sysroot: String?
 
 #if os(OSX)
-    var platformArgs: [String] {
+    var platformArgsClang: [String] {
+        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", sysroot!]
+    }
+
+    var platformArgsSwiftc: [String] {
         return ["-target", "x86_64-apple-macosx10.10", "-sdk", sysroot!]
     }
 #else
-    let platformArgs: [String] = []
+    let platformArgsClang: [String] = []
+    let platformArgsSwiftc: [String] = []
 #endif
 
     init() throws {

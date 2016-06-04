@@ -39,12 +39,12 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     for module in modules {
         switch module {
         case let module as SwiftModule:
-            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
             commands.append(compile)
             targets.append(compile, for: module)
 
         case let module as ClangModule:
-            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, Xcc: Xcc, Xld: Xld)
+            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
             targets.main.cmds += compile
 
@@ -69,7 +69,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         if product.containsOnlyClangModules {
             command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, CC: CC)
         } else {
-            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgsSwiftc + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
         }
 
         commands.append(command)

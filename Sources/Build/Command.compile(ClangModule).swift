@@ -110,9 +110,9 @@ struct ClangModuleBuildMetadata {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String, Xcc: [String], Xld: [String]) throws -> [Command] {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String, otherArgs: [String]) throws -> [Command] {
 
-        let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: Xcc)
+        let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
         if module.type == .library {
             try module.generateModuleMap(inDir: buildMeta.buildDirectory)
