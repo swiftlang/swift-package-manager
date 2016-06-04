@@ -10,6 +10,7 @@
 
 #if os(Linux)
 import Glibc
+import libc
 #else
 import Darwin.C
 #endif
@@ -182,7 +183,8 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 
 extension Package.Dependency : Equatable { }
 public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-    return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
+    return lhs.url.normalizedURL() == rhs.url.normalizedURL() &&
+        lhs.versionRange == rhs.versionRange
 }
 
 // MARK: Package Dumping
@@ -204,4 +206,16 @@ private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     }
     dumpInfo = (package, fileNo)
     atexit(dump)
+}
+
+// MARK: URL Normalization
+
+extension String {
+    private func normalizedURL() -> String {
+        var url = self.lowercased()
+        if !url.hasSuffix(".git") {
+            url += ".git"
+        }
+        return url
+    }
 }
