@@ -678,6 +678,9 @@ def main():
             mkdir_p(libswiftdir)
             symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
                 libswiftdir)
+            if args.libdispatch_build_dir:
+                symlink_force(os.path.join(args.libdispatch_build_dir, "src", ".libs", "libdispatch.so"),
+                    libswiftdir)
 
     make_fake_toolchain()
 
@@ -721,6 +724,12 @@ def main():
         # Add an RPATH, so that the tests can be run directly.
         cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
         cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
+
+    if args.libdispatch_build_dir:
+        cmd.extend(["-Xswiftc", "-I{}".format(os.path.join(args.libdispatch_build_dir,
+                                             "src"))])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.libdispatch_source_dir)])
+        cmd.extend(["-Xcc", "-fblocks"])
 
     if args.release:
         cmd.extend(["--configuration", "release"])
