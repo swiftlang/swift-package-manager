@@ -48,22 +48,14 @@ public func fputs(_ string: String, _ handle: NSFileHandle) throws {
         throw Error.unicodeEncodingError
     }
 
-    #if os(OSX) || os(iOS)
-        handle.write(data)
-    #else
-        handle.writeData(data)
-    #endif
+    handle.write(data)
 }
 
 public func fputs(_ bytes: [UInt8], _ handle: NSFileHandle) throws {
     var bytes = bytes
     let data = NSData(bytes: &bytes, length: bytes.count)
 
-    #if os(OSX) || os(iOS)
-        handle.write(data)
-    #else
-        handle.writeData(data)
-    #endif
+    handle.write(data)
 }
 
 
