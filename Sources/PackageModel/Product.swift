@@ -41,11 +41,6 @@ public class Product {
     }
 }
 
-public enum LibraryType {
-    case dynamic
-    case Static
-}
-
 extension Product: CustomStringConvertible {
     public var description: String {
         let base = outname.basename
