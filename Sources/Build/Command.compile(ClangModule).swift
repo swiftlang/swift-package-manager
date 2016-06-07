@@ -36,15 +36,6 @@ private extension ClangModule {
             return ["-O2"]
         }
     }
-
-    var productName: String {
-        switch type {
-        case .library:
-            return c99name.soname
-        case .executable:
-            return c99name
-        }
-    }
 }
 
 /// A helper struct for ClangModule to compute basic
@@ -77,27 +68,25 @@ struct ClangModuleBuildMetadata {
         }
     }
 
+    /// Returns all the objects files for this module.
+    var objects: [String] { return compilePaths().map{$0.object} }
+
     /// Basic flags needed to compile this module.
     func basicCompileArgs() throws -> [String] {
-        return try basicArgs() + ["-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
+        return try ClangModuleBuildMetadata.basicArgs() + ["-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
     }
 
-    /// Basic flags needed to link this module.
-    func basicLinkArgs() throws -> [String] {
-        return try basicArgs() + linkDependenciesFlags + otherArgs + module.languageLinkArgs
-    }
-
-    /// Flags to link the C language dependencies of this module.
-    private var linkDependenciesFlags: [String] {
-        var args: [String] = []
-        for case let dep as ClangModule in module.dependencies {
-            args += ["-l\(dep.c99name)"]
+    /// Objects of all the dependencies of this module.
+    var dependenciesObjects: [String] {
+        return module.dependencies.flatMap { module -> [String] in
+            guard case let module as ClangModule = module else { return [] }                
+            let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
+            return buildMeta.objects
         }
-        return args
     }
 
     /// Basic arguments needed for both compiling and linking.
-    private func basicArgs() throws -> [String] {
+    static func basicArgs() throws -> [String] {
         var args: [String] = []
       #if os(OSX)
         args += ["-F", try platformFrameworksPath()]
@@ -111,7 +100,7 @@ struct ClangModuleBuildMetadata {
 extension Command {
     static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String, Xcc: [String], Xld: [String]) throws -> [Command] {
 
-        var buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: Xcc)
+        let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: Xcc)
         
         if module.type == .library {
             try module.generateModuleMap(inDir: buildMeta.buildDirectory)
@@ -140,30 +129,6 @@ extension Command {
             compileCommands.append(command)
         }
 
-
-        ///FIXME: This probably doesn't belong here
-        ///------------------------------ Product -----------------------------------------
-
-        buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: Xld)
-
-        var args = try buildMeta.basicLinkArgs()
-        args += ["-L\(prefix)"]
-        args += buildMeta.compilePaths().map{$0.object}
-
-        if module.type == .library {
-            args += ["-shared"]
-        }
-
-        let productPath = Path.join(prefix, module.productName)
-        args += ["-o", productPath]
-        
-        let shell = ShellTool(description: "Linking \(module.name)",
-                              inputs: buildMeta.inputs + compileCommands.map{$0.node},
-                              outputs: [productPath, module.targetName],
-                              args: [CC] + args)
-        
-        let command = Command(node: module.targetName, tool: shell)
-
-        return compileCommands + [command]
+       return compileCommands
     }
 }
