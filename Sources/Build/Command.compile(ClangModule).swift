@@ -79,7 +79,7 @@ struct ClangModuleBuildMetadata {
 
     /// Basic flags needed to compile this module.
     func basicCompileArgs() throws -> [String] {
-        return try basicArgs() + ["-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
+        return try basicArgs() + ["-fobjc-arc", "-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
     }
 
     /// Basic flags needed to link this module.
