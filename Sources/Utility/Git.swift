@@ -47,11 +47,11 @@ public class Git {
         public var sha: String! {
             return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
         }
-        
+
         public func versionSha(tag: String) throws -> String {
             return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
         }
-        
+
         public var hasLocalChanges: Bool {
             let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
@@ -68,7 +68,7 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: Git.environmentForClone, message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: Git.proxyVariableNames, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
@@ -129,11 +129,21 @@ public class Git {
         }
     }
 
+    private class func readEnvironmentVariables(names: [String]) -> [String: String] {
+      var result = [String: String]()
+      for name in names {
+          result[name] = getenv(name)
+      }
+      return result
+    }
     /// Get the environment variables for proxys.
-    public static var proxyVariableNames: [String] = [
-      "http_proxy",
-      "https_proxy",
-    ]
+    public static var proxyVariableNames: [String: String] = {
+      let proxyVars = [
+        "http_proxy",
+        "https_proxy",
+      ]
+      return Git.readEnvironmentVariables(names: proxyVars)
+    }()
 
     /// Get the environment to use when cloning.
     public static var environmentForClone: [String: String] = {
@@ -150,10 +160,6 @@ public class Git {
             "TERM",
             "XDG_CONFIG_HOME",
         ]
-        var result = [String: String]()
-        for name in environmentList + Git.proxyVariableNames {
-            result[name] = getenv(name)
-        }
-        return result
+        return Git.readEnvironmentVariables(names: environmentList)
     }()
 }
