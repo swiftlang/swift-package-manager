@@ -68,7 +68,7 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: Git.environmentForClone, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
@@ -129,6 +129,12 @@ public class Git {
         }
     }
 
+    /// Get the environment variables for proxys.
+    public static var proxyVariableNames: [String] = [
+      "http_proxy",
+      "https_proxy",
+    ]
+
     /// Get the environment to use when cloning.
     public static var environmentForClone: [String: String] = {
         // List of environment variables which might be useful while running a
@@ -145,7 +151,7 @@ public class Git {
             "XDG_CONFIG_HOME",
         ]
         var result = [String: String]()
-        for name in environmentList {
+        for name in environmentList + Git.proxyVariableNames {
             result[name] = getenv(name)
         }
         return result
