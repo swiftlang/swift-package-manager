@@ -177,26 +177,9 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
     let swiftBuild = SwiftPMProduct.SwiftBuild
     var env = env
 
-    // FIXME: We use this private enviroment variable hack to be able to
+    // FIXME: We use this private environment variable hack to be able to
     // create special conditions in swift-build for swiftpm tests.
     env["IS_SWIFTPM_TEST"] = "1"
-#if Xcode
-    switch getenv("SWIFT_EXEC") {
-    case "swiftc"?, nil:
-        //FIXME Xcode should set this during tests
-        // rdar://problem/24134324
-        let swiftc: String
-        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = Path.join(base, "usr/bin/swiftc")
-        } else {
-            swiftc = try POSIX.popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
-        }
-        precondition(swiftc != "/usr/bin/swiftc")
-        env["SWIFT_EXEC"] = swiftc
-    default:
-        fatalError("HURRAY! This is fixed")
-    }
-#endif
     return try swiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 

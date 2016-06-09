@@ -273,6 +273,10 @@ target_map = dict((t.name, t) for t in targets)
 def make_c_string_literal(str):
     return "\"" + str.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+# Create a quoted XML string literal from an arbitrary string.
+def make_xml_string_literal(str):
+    return "\"" + str.replace("&", "&amp;").replace("\"", "&quot;") + "\""
+
 
 # Write out a header containing version information, and a module map for it.
 def write_bootstrap_version_info(include_path, version_str):
@@ -597,6 +601,8 @@ def main():
                         help="Path to the libdispatch source directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
+    parser.add_argument("--generate-xcodeproj", action="store_true",
+                        help="Also generate an Xcode project for SwiftPM")
     parser.add_argument("--version-string", dest="version_str",
                         help="version string to display for --version")
     args = parser.parse_args()
@@ -792,6 +798,30 @@ def main():
             result = subprocess.call(cmd)
             if result != 0:
                 error("install failed with exit status %d" % (result,))
+    # If generating an Xcode project, also use the build product to do that.
+    if args.generate_xcodeproj:
+        cmd = [swift_package_path, "generate-xcodeproj"]
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("xcodeproj generation failed with exit status %d" % (result,))
+        else:
+            # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
+            # add a an option to the `generate-xcodeproj` subcommand to allow
+            # a user to specify env variable/value pairs to generate into the
+            # scheme, but that seems a bit too arbitrary at this point.
+            cmd = ["sed", "-i", "", "s,shouldUseLaunchSchemeArgsEnv = \"YES\">,"
+                "shouldUseLaunchSchemeArgsEnv=\"NO\">"
+                "<EnvironmentVariables>"
+                    "<EnvironmentVariable"
+                        " key=" + make_xml_string_literal("SWIFT_EXEC") +
+                        " value=" + make_xml_string_literal(args.swiftc_path) +
+                        " isEnabled=\"YES\">"
+                    "</EnvironmentVariable>"
+                "</EnvironmentVariables>,",
+                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+            result = subprocess.call(cmd)
+            if result != 0:
+                error("xcodeproj modification failed with exit status %d" % (result,))
 
 if __name__ == '__main__':
     main()
