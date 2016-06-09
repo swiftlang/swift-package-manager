@@ -43,7 +43,8 @@ let package = Package(
         Target(
             /** Basic support library */
             name: "Basic",
-            dependencies: ["libc", "POSIX"]),
+            dependencies: ["libc", "POSIX", "Utility"]),
+            // FIXME: Eliminate the dependency on Utility above once we have Path.
         Target(
             /** Source control operations */
             name: "SourceControl",
