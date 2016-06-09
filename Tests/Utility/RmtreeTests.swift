@@ -39,12 +39,8 @@ class RmtreeTests: XCTestCase {
             XCTFail()
         }
     }
-}
 
-extension RmtreeTests {
-    static var allTests : [(String, (RmtreeTests) -> () throws -> Void)] {
-        return [
-                   ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
-        ]
-    }
+    static var allTests = [
+        ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
+    ]
 }

@@ -38,17 +38,13 @@ class GitTests: XCTestCase {
     func testCloneShouldCrashWihoutTags() {
         tryCloningRepoWithTag(nil, shouldCrash: true)
     }
-}
 
-extension GitTests {
-    static var allTests : [(String, (GitTests) -> () throws -> Void)] {
-        return [
-            ("testHasVersion", testHasVersion),
-            ("testHasNoVersion", testHasNoVersion),
-            ("testCloneShouldNotCrashWihoutTags", testCloneShouldNotCrashWihoutTags),
-            ("testCloneShouldCrashWihoutTags", testCloneShouldCrashWihoutTags),
-        ]
-    }
+    static var allTests = [
+        ("testHasVersion", testHasVersion),
+        ("testHasNoVersion", testHasNoVersion),
+        ("testCloneShouldNotCrashWihoutTags", testCloneShouldNotCrashWihoutTags),
+        ("testCloneShouldCrashWihoutTags", testCloneShouldCrashWihoutTags),
+    ]
 }
 
 //MARK: - Helpers

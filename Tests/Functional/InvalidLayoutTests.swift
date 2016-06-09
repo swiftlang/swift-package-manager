@@ -104,4 +104,13 @@ class InvalidLayoutsTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
         }
     }
+
+    static var allTests = [
+        ("testMultipleRoots", testMultipleRoots),
+        ("testInvalidLayout1", testInvalidLayout1),
+        ("testInvalidLayout2", testInvalidLayout2),
+        ("testInvalidLayout3", testInvalidLayout3),
+        ("testInvalidLayout4", testInvalidLayout4),
+        ("testInvalidLayout5", testInvalidLayout5),
+    ]
 }

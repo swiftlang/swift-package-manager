@@ -25,7 +25,6 @@ private func parseTOML(_ data: String) -> TOMLItem {
 }
 
 class SerializationTests: XCTestCase {
-
     func testBasics() {
         // Verify that we can round trip a basic package through TOML.
         let p1 = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", majorVersion: 1)])
@@ -54,16 +53,12 @@ class SerializationTests: XCTestCase {
     func testTargetDependencyIsStringConvertible() {
       XCTAssertEqual(Target.Dependency.Target(name: "foo"), "foo")
     }
-}
 
-extension SerializationTests {
-    static var allTests : [(String, (SerializationTests) -> () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-            ("testExclude", testExclude),
-            ("testEmptyTestDependencies", testEmptyTestDependencies),
-            ("testTestDependencies", testTestDependencies),
-            ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
-        ]
-    }
+    static var allTests = [
+        ("testBasics", testBasics),
+        ("testExclude", testExclude),
+        ("testEmptyTestDependencies", testEmptyTestDependencies),
+        ("testTestDependencies", testTestDependencies),
+        ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
+    ]
 }

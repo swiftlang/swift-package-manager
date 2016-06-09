@@ -71,15 +71,11 @@ class FileTests: XCTestCase {
             XCTFail("The file should be opened without problem")
         }
     }
-}
 
-extension FileTests {
-    static var allTests : [(String, (FileTests) -> () throws -> Void)] {
-        return [
-                   ("testOpenFile", testOpenFile),
-                   ("testOpenFileFail", testOpenFileFail),
-                   ("testReadRegularTextFile", testReadRegularTextFile),
-                   ("testReadRegularTextFileWithSeparator", testReadRegularTextFileWithSeparator)
-        ]
-    }
+    static var allTests = [
+        ("testOpenFile", testOpenFile),
+        ("testOpenFileFail", testOpenFileFail),
+        ("testReadRegularTextFile", testReadRegularTextFile),
+        ("testReadRegularTextFileWithSeparator", testReadRegularTextFileWithSeparator)
+    ]
 }

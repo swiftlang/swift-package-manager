@@ -93,6 +93,17 @@ class ValidLayoutsTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
         }
     }
+
+    static var allTests = [
+        ("testSingleModuleLibrary", testSingleModuleLibrary),
+        ("testSingleModuleExecutable", testSingleModuleExecutable),
+        ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
+        ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
+        ("testMultipleModulesLibraries", testMultipleModulesLibraries),
+        ("testMultipleModulesExecutables", testMultipleModulesExecutables),
+        ("testPackageIdentifiers", testPackageIdentifiers),
+        ("testMadeValidWithExclude", testMadeValidWithExclude),
+    ]
 }
 
 
@@ -129,79 +140,5 @@ extension ValidLayoutsTestCase {
             try symlink(create: "\(prefix)/Sources", pointingAt: dir, relativeTo: prefix)
             try body(prefix)
         }
-    }
-}
-
-
-extension DependencyResolutionTestCase {
-    static var allTests : [(String, (DependencyResolutionTestCase) -> () throws -> Void)] {
-        return [
-            ("testInternalSimple", testInternalSimple),
-            ("testInternalComplex", testInternalComplex),
-            ("testExternalSimple", testExternalSimple),
-            ("testExternalDuplicateModule", testExternalDuplicateModule),
-            ("testExternalComplex", testExternalComplex),
-            ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
-        ]
-    }
-}
-
-extension InvalidLayoutsTestCase {
-    static var allTests : [(String, (InvalidLayoutsTestCase) -> () throws -> Void)] {
-        return [
-            ("testMultipleRoots", testMultipleRoots),
-            ("testInvalidLayout1", testInvalidLayout1),
-            ("testInvalidLayout2", testInvalidLayout2),
-            ("testInvalidLayout3", testInvalidLayout3),
-            ("testInvalidLayout4", testInvalidLayout4),
-            ("testInvalidLayout5", testInvalidLayout5),
-        ]
-    }
-}
-
-extension MiscellaneousTestCase {
-    static var allTests : [(String, (MiscellaneousTestCase) -> () throws -> Void)] {
-        return [
-            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-            ("testPackageWithNoSources", testPackageWithNoSources),
-            ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
-            ("testManifestExcludes1", testManifestExcludes1),
-            ("testManifestExcludes2", testManifestExcludes2),
-            ("testManifestExcludes3", testManifestExcludes3),
-            ("testManifestExcludes4", testManifestExcludes4),
-            ("testManifestExcludes5", testManifestExcludes5),
-            ("testTestDependenciesSimple", testTestDependenciesSimple),
-            ("testTestDependenciesComplex", testTestDependenciesComplex),
-            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
-            ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
-            ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
-            ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-            ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
-            ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
-            ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
-            ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
-            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
-            ("testPackageManagerDefine", testPackageManagerDefine),
-            ("testInternalDependencyEdges", testInternalDependencyEdges),
-            ("testExternalDependencyEdges1", testExternalDependencyEdges1),
-            ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-            ("testProductWithNoModules", testProductWithNoModules),
-            ("testProductWithMissingModules", testProductWithMissingModules),
-        ]
-    }
-}
-
-extension ValidLayoutsTestCase {
-    static var allTests : [(String, (ValidLayoutsTestCase) -> () throws -> Void)] {
-        return [
-            ("testSingleModuleLibrary", testSingleModuleLibrary),
-            ("testSingleModuleExecutable", testSingleModuleExecutable),
-            ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
-            ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
-            ("testMultipleModulesLibraries", testMultipleModulesLibraries),
-            ("testMultipleModulesExecutables", testMultipleModulesExecutables),
-            ("testPackageIdentifiers", testPackageIdentifiers),
-            ("testMadeValidWithExclude", testMadeValidWithExclude),
-        ]
     }
 }

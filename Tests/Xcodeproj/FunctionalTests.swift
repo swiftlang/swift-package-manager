@@ -115,18 +115,13 @@ class FunctionalTests: XCTestCase {
             XCTAssertXcodeBuild(project: proj)
         }
     }
-}
 
-
-extension FunctionalTests {
-    static var allTests : [(String, (FunctionalTests) -> () throws -> Void)] {
-        return [
-            ("testSingleModuleLibrary", testSingleModuleLibrary),
-            ("testSwiftExecWithCDep", testSwiftExecWithCDep),
-            ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
-            ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
-        ]
-    }
+    static var allTests = [
+        ("testSingleModuleLibrary", testSingleModuleLibrary),
+        ("testSwiftExecWithCDep", testSwiftExecWithCDep),
+        ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
+        ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
+    ]
 }
 
 func write(path: String, write: (OutputByteStream) -> Void) throws {

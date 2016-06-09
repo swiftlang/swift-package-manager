@@ -31,16 +31,11 @@ class PackageNameTests: XCTestCase {
         let uid = Package.nameForURL("http://github.com/foo/bar")
         XCTAssertEqual(uid, "bar")
     }
-}
 
-
-extension PackageNameTests {
-    static var allTests : [(String, (PackageNameTests) -> () throws -> Void)] {
-        return [
-            ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
-            ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
-            ("testUrlEndsInDotGit3", testUrlEndsInDotGit3),
-            ("testUid", testUid),
-        ]
-    }
+    static var allTests = [
+        ("testUrlEndsInDotGit1", testUrlEndsInDotGit1),
+        ("testUrlEndsInDotGit2", testUrlEndsInDotGit2),
+        ("testUrlEndsInDotGit3", testUrlEndsInDotGit3),
+        ("testUid", testUid),
+    ]
 }

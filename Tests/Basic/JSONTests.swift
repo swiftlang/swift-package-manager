@@ -45,13 +45,9 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(decode("[[null], [null]]"), .array([.array([.null]), .array([.null])]))
         XCTAssertEqual(decode("{\"a\": null, \"b\": \"hi\"}"), .dictionary(["a": .null, "b": .string("hi")]))
     }
-}
 
-extension JSONTests {
-    static var allTests: [(String, (JSONTests) -> () throws -> Void)] {
-        return [
-            ("testEncoding", testEncoding),
-            ("testDecoding", testDecoding),
-        ]
-    }
+    static var allTests = [
+        ("testEncoding", testEncoding),
+        ("testDecoding", testDecoding),
+    ]
 }

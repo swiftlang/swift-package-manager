@@ -111,15 +111,11 @@ class OutputByteStreamTests: XCTestCase {
             XCTAssertEqual(stream.bytes, "hello, world")
         }
     }
-}
 
-extension OutputByteStreamTests {
-    static var allTests : [(String, (OutputByteStreamTests) -> () throws -> Void)] {
-        return [
-                   ("testBasics", testBasics),
-                   ("testStreamOperator", testStreamOperator),
-                   ("testJSONEncoding", testJSONEncoding),
-                   ("testFormattedOutput", testFormattedOutput),
-        ]
-    }
+    static var allTests = [
+        ("testBasics", testBasics),
+        ("testStreamOperator", testStreamOperator),
+        ("testJSONEncoding", testJSONEncoding),
+        ("testFormattedOutput", testFormattedOutput),
+    ]
 }

@@ -12,7 +12,6 @@
 import XCTest
 
 class StringTests: XCTestCase {
-
     func testTrailingChomp() {
         XCTAssertEqual("abc\n".chomp(), "abc")
         XCTAssertEqual("abc\r\n".chomp(), "abc")
@@ -44,7 +43,6 @@ class StringTests: XCTestCase {
     }
     
     func testSplitAround() {
-        
         func eq(_ lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
             XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
@@ -56,23 +54,18 @@ class StringTests: XCTestCase {
         eq("::bar".split(around: "::"), ("", "bar"))
         eq("foo::bar".split(around: "::"), ("foo", "bar"))
     }
-}
 
-extension StringTests {
-    static var allTests : [(String, (StringTests) -> () throws -> Void)] {
-        return [
-                   ("testTrailingChomp", testTrailingChomp),
-                   ("testEmptyChomp", testEmptyChomp),
-                   ("testSeparatorChomp", testSeparatorChomp),
-                   ("testChuzzle", testChuzzle),
-                   ("testSplitAround", testSplitAround)
-        ]
-    }
+    static var allTests = [
+        ("testTrailingChomp", testTrailingChomp),
+        ("testEmptyChomp", testEmptyChomp),
+        ("testSeparatorChomp", testSeparatorChomp),
+        ("testChuzzle", testChuzzle),
+        ("testSplitAround", testSplitAround)
+    ]
     
 }
 
 class URLTests: XCTestCase {
-
     func testSchema() {
         XCTAssertEqual(Utility.URL.scheme("http://github.com/foo/bar"), "http")
         XCTAssertEqual(Utility.URL.scheme("https://github.com/foo/bar"), "https")
@@ -82,12 +75,8 @@ class URLTests: XCTestCase {
         XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
         XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
     }
-}
 
-extension URLTests {
-    static var allTests : [(String, (URLTests) -> () throws -> Void)] {
-        return [
-                   ("testSchema", testSchema),
-        ]
-    }
+    static var allTests = [
+        ("testSchema", testSchema),
+    ]
 }

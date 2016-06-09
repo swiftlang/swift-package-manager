@@ -60,14 +60,10 @@ final class PackageVersionDataTests: XCTestCase {
             XCTAssertFileExists(dir, ".build/versionData/", "\(package.name).swift")
         }
     }
-}
 
-extension PackageVersionDataTests {
-    static var allTests: [(String, (PackageVersionDataTests) -> () throws -> Void)] {
-        return [
-                   ("testPackageVersionData", testPackageVersionData),
-                   ("testPackageEmptyVersionData", testPackageEmptyVersionData),
-                   ("testSavePackageVersionDataToFile", testSavePackageVersionDataToFile),
-        ]
-    }
+    static var allTests = [
+        ("testPackageVersionData", testPackageVersionData),
+        ("testPackageEmptyVersionData", testPackageEmptyVersionData),
+        ("testSavePackageVersionDataToFile", testSavePackageVersionDataToFile),
+    ]
 }

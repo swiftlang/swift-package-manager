@@ -106,15 +106,10 @@ class TOMLTests: XCTestCase {
                     toTable([
                         "t2": toTable(["a": .int(value: 1)])])])]))
     }
-}
 
-
-extension TOMLTests {
-    static var allTests : [(String, (TOMLTests) -> () throws -> Void)] {
-        return [
-            ("testLexer", testLexer),
-            ("testParser", testParser),
-            ("testParsingTables", testParsingTables),
-        ]
-    }
+    static var allTests = [
+        ("testLexer", testLexer),
+        ("testParser", testParser),
+        ("testParsingTables", testParsingTables),
+    ]
 }

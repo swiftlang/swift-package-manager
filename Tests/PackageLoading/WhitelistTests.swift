@@ -43,14 +43,10 @@ final class PkgConfigWhitelistTests: XCTestCase {
            XCTAssertEqual("\(error)", errorString)
         }
     }
-}
 
-extension PkgConfigWhitelistTests {
-    static var allTests : [(String, (PkgConfigWhitelistTests) -> () throws -> Void)] {
-        return [
-            ("testSimpleFlags", testSimpleFlags),
-            ("testFlagsWithInvalidFlags", testFlagsWithInvalidFlags),
-            ("testFlagsWithValueInNextFlag", testFlagsWithValueInNextFlag),
-        ]
-    }
+    static var allTests = [
+        ("testSimpleFlags", testSimpleFlags),
+        ("testFlagsWithInvalidFlags", testFlagsWithInvalidFlags),
+        ("testFlagsWithValueInNextFlag", testFlagsWithValueInNextFlag),
+    ]
 }

@@ -103,14 +103,10 @@ class CheckoutManagerTests: XCTestCase {
             XCTAssertEqual(provider.numFetches, 1)
         }
     }
-}
 
-extension CheckoutManagerTests {
-    static var allTests: [(String, (CheckoutManagerTests) -> () throws -> Void)] {
-        return [
-            ("testBasic", testBasics),
-            ("testObserver", testObserver),
-            ("testPersistence", testPersistence),
-        ]
-    }
+    static var allTests = [
+        ("testBasic", testBasics),
+        ("testObserver", testObserver),
+        ("testPersistence", testPersistence),
+    ]
 }
