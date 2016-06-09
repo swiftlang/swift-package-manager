@@ -35,12 +35,8 @@ final class DescribeTests: XCTestCase {
             XCTFail("No other error should be thrown")
         }
     }
-}
 
-extension DescribeTests {
-    static var allTests: [(String, (DescribeTests) -> () throws -> Void)] {
-        return [
-            ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
-        ]
-    }
+    static var allTests = [
+        ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
+    ]
 }

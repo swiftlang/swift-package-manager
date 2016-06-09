@@ -77,20 +77,16 @@ class PathTests: XCTestCase {
         XCTAssertEqual("/".parentDirectory.parentDirectory, "/")
         XCTAssertEqual("/bar/../foo/..//".parentDirectory.parentDirectory, "/")
     }
-}
 
-extension PathTests {
-    static var allTests : [(String, (PathTests) -> () throws -> Void)] {
-        return [
-                   ("test", test),
-                   ("testPrecombined", testPrecombined),
-                   ("testExtraSeparators", testExtraSeparators),
-                   ("testEmpties", testEmpties),
-                   ("testNormalizePath", testNormalizePath),
-                   ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
-                   ("testParentDirectory", testParentDirectory),
-        ]
-    }
+    static var allTests = [
+        ("test", test),
+        ("testPrecombined", testPrecombined),
+        ("testExtraSeparators", testExtraSeparators),
+        ("testEmpties", testEmpties),
+        ("testNormalizePath", testNormalizePath),
+        ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
+        ("testParentDirectory", testParentDirectory),
+    ]
 }
 
 class WalkTests: XCTestCase {
@@ -170,14 +166,12 @@ class WalkTests: XCTestCase {
 }
 
 extension WalkTests {
-    static var allTests : [(String, (WalkTests) -> () throws -> Void)] {
-        return [
-                   ("testNonRecursive", testNonRecursive),
-                   ("testRecursive", testRecursive),
-                   ("testSymlinksNotWalked", testSymlinksNotWalked),
-                   ("testWalkingADirectorySymlinkResolvesOnce", testWalkingADirectorySymlinkResolvesOnce),
-        ]
-    }
+    static var allTests = [
+        ("testNonRecursive", testNonRecursive),
+        ("testRecursive", testRecursive),
+        ("testSymlinksNotWalked", testSymlinksNotWalked),
+        ("testWalkingADirectorySymlinkResolvesOnce", testWalkingADirectorySymlinkResolvesOnce),
+    ]
 }
 
 class StatTests: XCTestCase {
@@ -219,17 +213,13 @@ class StatTests: XCTestCase {
         XCTAssertNotEqual("bar", "foo/bar/base".basename)
         XCTAssertNotEqual("base.ext", "foo/bar/base".basename)
     }
-}
 
-extension StatTests {
-    static var allTests : [(String, (StatTests) -> () throws -> Void)] {
-        return [
-                   ("test_isdir", test_isdir),
-                   ("test_isfile", test_isfile),
-                   ("test_realpath", test_realpath),
-                   ("test_basename", test_basename),
-        ]
-    }
+    static var allTests = [
+        ("test_isdir", test_isdir),
+        ("test_isfile", test_isfile),
+        ("test_realpath", test_realpath),
+        ("test_basename", test_basename),
+    ]
 }
 
 class RelativePathTests: XCTestCase {
@@ -258,16 +248,12 @@ class RelativePathTests: XCTestCase {
         XCTAssertEqual("/1/2", Path.join("/1/2/3", "..").normpath)
         XCTAssertEqual("2", Path.join("2/3", "..").normpath)
     }
-}
 
-extension RelativePathTests {
-    static var allTests : [(String, (RelativePathTests) -> () throws -> Void)] {
-        return [
-                   ("testAbsolute", testAbsolute),
-                   ("testRelative", testRelative),
-                   ("testMixed", testMixed),
-                   ("testRelativeCommonSubprefix", testRelativeCommonSubprefix),
-                   ("testCombiningRelativePaths", testCombiningRelativePaths)
-        ]
-    }
+    static var allTests = [
+        ("testAbsolute", testAbsolute),
+        ("testRelative", testRelative),
+        ("testMixed", testMixed),
+        ("testRelativeCommonSubprefix", testRelativeCommonSubprefix),
+        ("testCombiningRelativePaths", testCombiningRelativePaths)
+    ]
 }

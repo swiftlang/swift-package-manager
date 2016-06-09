@@ -65,17 +65,13 @@ class ConventionTests: XCTestCase {
     func testResolvesSingleClangModule() throws {
         test(files: ["Foo.c", "Foo.h"]) { module in }
     }
-}
 
-extension ConventionTests {
-    static var allTests : [(String, (ConventionTests) -> () throws -> Void)] {
-        return [
-            ("testDotFilesAreIgnored", testDotFilesAreIgnored),
-            ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
-            ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
-            ("testResolvesSingleClangModule", testResolvesSingleClangModule),
-        ]
-    }
+    static var allTests = [
+        ("testDotFilesAreIgnored", testDotFilesAreIgnored),
+        ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
+        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
+        ("testResolvesSingleClangModule", testResolvesSingleClangModule),
+    ]
 }
 
 /// Create a test fixture with empty files at the given paths.

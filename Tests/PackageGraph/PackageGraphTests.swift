@@ -16,12 +16,8 @@ class PackageGraphTests: XCTestCase {
     func testBasics() {
         // Implement.
     }
-}
 
-extension PackageGraphTests {
-    static var allTests: [(String, (PackageGraphTests) -> () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-        ]
-    }
+    static var allTests = [
+        ("testBasics", testBasics),
+    ]
 }

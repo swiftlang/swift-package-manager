@@ -37,9 +37,7 @@ class LazyCacheTests: XCTestCase {
         }
     }
 
-    static var allTests: [(String, (LazyCacheTests) -> () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-        ]
-    }
+    static var allTests = [
+        ("testBasics", testBasics),
+    ]
 }

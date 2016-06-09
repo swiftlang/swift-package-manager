@@ -118,26 +118,22 @@ class OptionParserTests: XCTestCase {
         XCTAssertNil(mode)
         XCTAssertEqual(flags, [.H, .J, .I, .K("HJI")])
     }
-}
 
-extension OptionParserTests {
-    static var allTests : [(String, (OptionParserTests) -> () throws -> Void)] {
-        return [
-            ("testNoArguments", testNoArguments),
-            ("testModeA", testModeA),
-            ("testModeB", testModeB),
-            ("testModeAFlagD", testModeAFlagD),
-            ("testModeAFlagDE", testModeAFlagDE),
-            ("testMultiModes", testMultiModes),
-            ("testAssociatedValue", testAssociatedValue),
-            ("testThrowsIfNoAssociatedValue", testThrowsIfNoAssociatedValue),
-            ("testThrowsIfAssociatedValueWithWrongFlag", testThrowsIfAssociatedValueWithWrongFlag),
-            ("testThrowsIfAssociatedValueWithWrongMode", testThrowsIfAssociatedValueWithWrongMode),
-            ("testAssignedAssociatedValue", testAssignedAssociatedValue),
-            ("testCanUnderstandMultipleShortFlags", testCanUnderstandMultipleShortFlags),
-            ("testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue", testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue),
-        ]
-    }
+    static var allTests = [
+        ("testNoArguments", testNoArguments),
+        ("testModeA", testModeA),
+        ("testModeB", testModeB),
+        ("testModeAFlagD", testModeAFlagD),
+        ("testModeAFlagDE", testModeAFlagDE),
+        ("testMultiModes", testMultiModes),
+        ("testAssociatedValue", testAssociatedValue),
+        ("testThrowsIfNoAssociatedValue", testThrowsIfNoAssociatedValue),
+        ("testThrowsIfAssociatedValueWithWrongFlag", testThrowsIfAssociatedValueWithWrongFlag),
+        ("testThrowsIfAssociatedValueWithWrongMode", testThrowsIfAssociatedValueWithWrongMode),
+        ("testAssignedAssociatedValue", testAssignedAssociatedValue),
+        ("testCanUnderstandMultipleShortFlags", testCanUnderstandMultipleShortFlags),
+        ("testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue", testCanUnderstandMultipleShortFlagsWithAFinalAssociatedValue),
+    ]
 }
 
 //MARK: Mode/Flag

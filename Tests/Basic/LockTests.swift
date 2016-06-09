@@ -26,9 +26,7 @@ class LockTests: XCTestCase {
         XCTAssertEqual(count, N)
     }
 
-    static var allTests: [(String, (LockTests) -> () throws -> Void)] {
-        return [
-            ("testBasics", testBasics),
-        ]
-    }
+    static var allTests = [
+        ("testBasics", testBasics),
+    ]
 }

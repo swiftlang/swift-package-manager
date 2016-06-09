@@ -16,7 +16,11 @@ import PackageDescription
 @testable import PackageLoading
 
 class JSONSerializationTests: XCTestCase {
-    
+    func assertEqual(package: Package, expected: String) {
+        let json = package.toJSON().toString()
+        XCTAssertEqual(json, expected)
+    }
+
     func testSimple() {
         let package = Package(name: "Simple")
         assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Simple\", \"package.targets\": [], \"testDependencies\": []}")
@@ -52,24 +56,12 @@ class JSONSerializationTests: XCTestCase {
         let package = Package(name: "Targets", targets: [t1, t2])
         assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Targets\", \"package.targets\": [{\"dependencies\": [], \"name\": \"One\"}, {\"dependencies\": [\"One\"], \"name\": \"Two\"}], \"testDependencies\": []}")
     }
-}
 
-extension JSONSerializationTests {
-    
-    func assertEqual(package: Package, expected: String) {
-        let json = package.toJSON().toString()
-        XCTAssertEqual(json, expected)
-    }
-}
-
-extension JSONSerializationTests {
-    static var allTests : [(String, (JSONSerializationTests) -> () throws -> Void)] {
-        return [
-            ("testSimple", testSimple),
-            ("testDependencies", testDependencies),
-            ("testPkgConfig", testPkgConfig),
-            ("testExclude", testExclude),
-            ("testTargets", testTargets),
-        ]
-    }
+    static var allTests = [
+        ("testSimple", testSimple),
+        ("testDependencies", testDependencies),
+        ("testPkgConfig", testPkgConfig),
+        ("testExclude", testExclude),
+        ("testTargets", testTargets),
+    ]
 }

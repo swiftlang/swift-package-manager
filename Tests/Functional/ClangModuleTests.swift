@@ -100,21 +100,16 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build", "debug", "CDynamicLookup".soname)
         }
     }
-}
 
-
-extension ClangModulesTestCase {
-    static var allTests : [(String, (ClangModulesTestCase) -> () throws -> Void)] {
-        return [
-            ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
-            ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
-            ("testMixedSwiftAndC", testMixedSwiftAndC),
-            ("testExternalSimpleCDep", testExternalSimpleCDep),
-            ("testiquoteDep", testiquoteDep),
-            ("testCUsingCDep", testCUsingCDep),
-            ("testCExecutable", testCExecutable),
-            ("testModuleMapGenerationCases", testModuleMapGenerationCases),
-            ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
-        ]
-    }
+    static var allTests = [
+        ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
+        ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
+        ("testMixedSwiftAndC", testMixedSwiftAndC),
+        ("testExternalSimpleCDep", testExternalSimpleCDep),
+        ("testiquoteDep", testiquoteDep),
+        ("testCUsingCDep", testCUsingCDep),
+        ("testCExecutable", testCExecutable),
+        ("testModuleMapGenerationCases", testModuleMapGenerationCases),
+        ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+    ]
 }

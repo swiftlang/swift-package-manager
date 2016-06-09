@@ -73,14 +73,10 @@ class GetTests: XCTestCase {
         XCTAssertNil(Git.Repo(path: #file))
         XCTAssertNil(Git.Repo(path: #file.parentDirectory))
     }
-}
 
-extension GetTests {
-    static var allTests : [(String, (GetTests) -> () throws -> Void)] {
-        return [
-            ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
-            ("testRangeConstrain", testRangeConstrain),
-            ("testGitRepoInitialization", testGitRepoInitialization),
-        ]
-    }
+    static var allTests = [
+        ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
+        ("testRangeConstrain", testRangeConstrain),
+        ("testGitRepoInitialization", testGitRepoInitialization),
+    ]
 }

@@ -38,9 +38,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    static var allTests: [(String, (GitRepositoryTests) -> () throws -> Void)] {
-        return [
-            ("testProvider", testProvider),
-        ]
-    }
+    static var allTests = [
+        ("testProvider", testProvider),
+    ]
 }

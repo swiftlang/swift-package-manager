@@ -108,14 +108,10 @@ class ManifestTests: XCTestCase {
             }
         }
     }
-}
 
-extension ManifestTests {
-    static var allTests : [(String, (ManifestTests) -> () throws -> Void)] {
-        return [
-            ("testManifestLoading", testManifestLoading),
-            ("testNoManifest", testNoManifest),
-            ("testInvalidTargetName", testInvalidTargetName)
-        ]
-    }
+    static var allTests = [
+        ("testManifestLoading", testManifestLoading),
+        ("testNoManifest", testNoManifest),
+        ("testInvalidTargetName", testInvalidTargetName)
+    ]
 }

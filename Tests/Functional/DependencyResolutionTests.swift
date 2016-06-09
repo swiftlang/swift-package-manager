@@ -12,7 +12,6 @@ import XCTest
 import func POSIX.popen
 
 class DependencyResolutionTestCase: XCTestCase {
-
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
@@ -64,4 +63,14 @@ class DependencyResolutionTestCase: XCTestCase {
             XCTAssertBuilds(prefix, "app")
         }
     }
+
+    static var allTests = [
+        ("testInternalSimple", testInternalSimple),
+        ("testInternalExecAsDep", testInternalExecAsDep),
+        ("testInternalComplex", testInternalComplex),
+        ("testExternalSimple", testExternalSimple),
+        ("testExternalDuplicateModule", testExternalDuplicateModule),
+        ("testExternalComplex", testExternalComplex),
+        ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
+    ]
 }

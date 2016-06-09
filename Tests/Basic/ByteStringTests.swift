@@ -67,17 +67,13 @@ class ByteStringTests: XCTestCase {
         s <<< ByteString([1, 2, 3])
         XCTAssertEqual(s.bytes, [1, 2, 3])
     }
-}
 
-extension ByteStringTests {
-    static var allTests : [(String, (ByteStringTests) -> () throws -> Void)] {
-        return [
-                   ("testInitializers", testInitializers),
-                   ("testAccessors", testAccessors),
-                   ("testAsString", testAsString),
-                   ("testDescription", testDescription),
-                   ("testHashable", testHashable),
-                   ("testByteStreamable", testByteStreamable),
-        ]
-    }
+    static var allTests = [
+        ("testInitializers", testInitializers),
+        ("testAccessors", testAccessors),
+        ("testAsString", testAsString),
+        ("testDescription", testDescription),
+        ("testHashable", testHashable),
+        ("testByteStreamable", testByteStreamable),
+    ]
 }

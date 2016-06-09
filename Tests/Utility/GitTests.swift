@@ -91,16 +91,12 @@ class GitUtilityTests: XCTestCase {
         try systemQuietly(["git", "-C", dstdir, "add", "."])
         try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
     }
-}
 
-extension GitUtilityTests {
-    static var allTests : [(String, (GitUtilityTests) -> () throws -> Void)] {
-        return [
-                   ("testGitVersion", testGitVersion),
-                   ("testHeadSha", testHeadSha),
-                   ("testVersionSha", testVersionSha),
-                   ("testHeadAndVersionSha", testHeadAndVersionSha),
-                   ("testHasLocalChanges", testHasLocalChanges),
-        ]
-    }
+    static var allTests = [
+        ("testGitVersion", testGitVersion),
+        ("testHeadSha", testHeadSha),
+        ("testVersionSha", testVersionSha),
+        ("testHeadAndVersionSha", testHeadAndVersionSha),
+        ("testHasLocalChanges", testHasLocalChanges),
+    ]
 }

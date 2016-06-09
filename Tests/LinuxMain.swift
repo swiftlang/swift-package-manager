@@ -8,10 +8,6 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-// we want to generate this.
-// read the AST and generate it
-// ticket:
-
 import XCTest
 
 import BasicTestSuite

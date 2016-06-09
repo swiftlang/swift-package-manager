@@ -71,17 +71,13 @@ class CollectionTests: XCTestCase {
        XCTAssertEqual(["f", "o", "b", "o", "a", "r"].unique(), ["f", "o", "b", "a", "r"])
        XCTAssertEqual(["f", "f", "o", "b", "f", "b"].unique(), ["f", "o", "b"])
     }
-}
 
-extension CollectionTests {
-    static var allTests : [(String, (CollectionTests) -> () throws -> Void)] {
-        return [
-                   ("testPick", testPick),
-                   ("testPartitionByType", testPartitionByType),
-                   ("testPartitionByClosure", testPartitionByClosure),
-                   ("testSplitAround", testSplitAround),
-                   ("testUnique", testUnique)
-        ]
-    }
+    static var allTests = [
+        ("testPick", testPick),
+        ("testPartitionByType", testPartitionByType),
+        ("testPartitionByClosure", testPartitionByClosure),
+        ("testSplitAround", testSplitAround),
+        ("testUnique", testUnique)
+    ]
 }
 

@@ -17,7 +17,6 @@ import func POSIX.popen
 import XCTest
 
 class MiscellaneousTestCase: XCTestCase {
-
     func testPrintsSelectedDependencyVersion() {
 
         // verifies the stdout contains information about 
@@ -369,4 +368,32 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build/debug/Module_Name_1.build/Foo.swift.o")
         }
     }
+
+    static var allTests = [
+        ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
+        ("testPackageWithNoSources", testPackageWithNoSources),
+        ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
+        ("testManifestExcludes1", testManifestExcludes1),
+        ("testManifestExcludes2", testManifestExcludes2),
+        ("testManifestExcludes3", testManifestExcludes3),
+        ("testManifestExcludes4", testManifestExcludes4),
+        ("testManifestExcludes5", testManifestExcludes5),
+        ("testTestDependenciesSimple", testTestDependenciesSimple),
+        ("testTestDependenciesComplex", testTestDependenciesComplex),
+        ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
+        ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
+        ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
+        ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
+        ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
+        ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
+        ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
+        ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
+        ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+        ("testPackageManagerDefine", testPackageManagerDefine),
+        ("testInternalDependencyEdges", testInternalDependencyEdges),
+        ("testExternalDependencyEdges1", testExternalDependencyEdges1),
+        ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+        ("testProductWithNoModules", testProductWithNoModules),
+        ("testProductWithMissingModules", testProductWithMissingModules),
+    ]
 }

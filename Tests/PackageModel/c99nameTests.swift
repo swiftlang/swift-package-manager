@@ -26,6 +26,12 @@ class c99nameTests: XCTestCase {
         let name = assertc99Name("1foo-bar12")
         XCTAssertEqual(name, "_foo_bar12")
     }
+
+    static var allTests = [
+        ("testSimpleName", testSimpleName),
+        ("testNameWithInvalidCharacter", testNameWithInvalidCharacter),
+        ("testNameWithLeadingInvalidChar", testNameWithLeadingInvalidChar),
+    ]
 }
 
 func assertc99Name(_ name: String) -> String {
@@ -34,15 +40,5 @@ func assertc99Name(_ name: String) -> String {
     } catch {
         XCTFail("Couldn't find the c99name: \(error)")
         fatalError()
-    }
-}
-
-extension c99nameTests {
-    static var allTests : [(String, (c99nameTests) -> () throws -> Void)] {
-        return [
-            ("testSimpleName", testSimpleName),
-            ("testNameWithInvalidCharacter", testNameWithInvalidCharacter),
-            ("testNameWithLeadingInvalidChar", testNameWithLeadingInvalidChar),
-        ]
     }
 }

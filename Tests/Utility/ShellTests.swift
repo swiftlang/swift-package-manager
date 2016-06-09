@@ -27,14 +27,10 @@ class ShellTests: XCTestCase {
             XCTFail("popen succeeded but should have faileds")
         }
     }
-}
 
-extension ShellTests {
-    static var allTests : [(String, (ShellTests) -> () throws -> Void)] {
-        return [
-                   ("testPopen", testPopen),
-                   ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
-                   ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
-        ]
-    }
+    static var allTests = [
+        ("testPopen", testPopen),
+        ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
+        ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
+    ]
 }
