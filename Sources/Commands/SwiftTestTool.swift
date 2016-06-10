@@ -94,35 +94,9 @@ public struct SwiftTestTool {
                 usage()
         
             case .run(let specifier):
-                let configuration = "debug"  //FIXME should swift-test support configuration option?
-        
-                func determineTestPath() throws -> String {
-        
-                    //FIXME better, ideally without parsing manifest since
-                    // that makes us depend on the whole Manifest system
-        
-                    let packageName = opts.path.root.basename  //FIXME probably not true
-                    let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
-        
-                    if maybePath.exists {
-                        return maybePath
-                    } else {
-                        let possiblePaths = walk(opts.path.build).filter {
-                            $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
-                            $0.hasSuffix(".xctest")
-                        }
-                        
-                        guard let path = possiblePaths.first else {
-                            throw TestError.testsExecutableNotFound
-                        }
-                        
-                        return path
-                    }
-                }
-        
                 let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
                 try build(YAMLPath: yamlPath, target: "test")
-                let success = try test(path: determineTestPath(), xctestArg: specifier)
+                let success = try test(path: determineTestPath(opts: opts), xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
         } catch Error.buildYAMLNotFound {
@@ -132,7 +106,43 @@ public struct SwiftTestTool {
             handle(error: error, usage: usage)
         }
     }
-    
+
+    private let configuration = "debug"  //FIXME should swift-test support configuration option?
+
+    /// Locates the XCTest bundle on OSX and XCTest executable on Linux.
+    /// First check if <build_path>/debug/<PackageName>Tests.xctest is present, otherwise
+    /// walk the build folder and look for folder/file ending with `.xctest`.
+    ///
+    /// - Parameters:
+    ///     - opts: Options object created by parsing the commandline arguments.
+    ///
+    /// - Throws: TestError
+    ///
+    /// - Returns: Path to XCTest bundle (OSX) or executable (Linux).
+    private func determineTestPath(opts: Options) throws -> String {
+
+        //FIXME better, ideally without parsing manifest since
+        // that makes us depend on the whole Manifest system
+
+        let packageName = opts.path.root.basename  //FIXME probably not true
+        let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
+
+        if maybePath.exists {
+            return maybePath
+        } else {
+            let possiblePaths = walk(opts.path.build).filter {
+                $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
+                $0.hasSuffix(".xctest")
+            }
+
+            guard let path = possiblePaths.first else {
+                throw TestError.testsExecutableNotFound
+            }
+
+            return path
+        }
+    }
+
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Build and run tests")
