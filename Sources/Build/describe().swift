@@ -65,8 +65,13 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 #if os(Linux)
         rpathArgs += ["-Xlinker", "-rpath=$ORIGIN"]
 #endif
-        
-        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+        let command: Command
+        if product.containsOnlyClangModules {
+            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, CC: CC)
+        } else {
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+        }
+
         commands.append(command)
         targets.append(command, for: product)
     }
