@@ -11,6 +11,7 @@
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
+import class Foundation.NSProcessInfo
 
 public class Git {
     public class Repo {
@@ -68,7 +69,7 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: Git.proxyVariableNames, message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: NSProcessInfo.processInfo().environment, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
@@ -136,30 +137,4 @@ public class Git {
       }
       return result
     }
-    /// Get the environment variables for proxys.
-    public static var proxyVariableNames: [String: String] = {
-      let proxyVars = [
-        "http_proxy",
-        "https_proxy",
-      ]
-      return Git.readEnvironmentVariables(names: proxyVars)
-    }()
-
-    /// Get the environment to use when cloning.
-    public static var environmentForClone: [String: String] = {
-        // List of environment variables which might be useful while running a
-        // git fetch.
-        let environmentList = [
-            "EDITOR",
-            "GIT_ASKPASS",
-            "LANG",
-            "LANGUAGE",
-            "PAGER",
-            "SSH_ASKPASS",
-            "SSH_AUTH_SOCK",
-            "TERM",
-            "XDG_CONFIG_HOME",
-        ]
-        return Git.readEnvironmentVariables(names: environmentList)
-    }()
 }

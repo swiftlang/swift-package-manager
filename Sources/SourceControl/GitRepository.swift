@@ -13,6 +13,7 @@ import Utility
 
 import func POSIX.getenv
 import enum POSIX.Error
+import class Foundation.NSProcessInfo
 
 enum GitRepositoryProviderError: ErrorProtocol {
     case gitCloneFailure(url: String, path: String)
@@ -48,7 +49,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // status information.
             try system(
                 Git.tool, "clone", "--bare", repository.url, path,
-                environment: Git.environmentForClone, message: "Cloning \(repository.url)")
+                environment: NSProcessInfo.processInfo().environment, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
