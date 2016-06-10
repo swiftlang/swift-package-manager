@@ -11,6 +11,7 @@
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
+import class Foundation.NSProcessInfo
 
 public class Git {
     public class Repo {
@@ -47,11 +48,9 @@ public class Git {
         public var sha: String! {
             return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
         }
-        
         public func versionSha(tag: String) throws -> String {
             return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
         }
-        
         public var hasLocalChanges: Bool {
             let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
@@ -68,7 +67,7 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: NSProcessInfo.processInfo().environment, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
@@ -128,26 +127,4 @@ public class Git {
             try checkGitVersion(error)
         }
     }
-
-    /// Get the environment to use when cloning.
-    public static var environmentForClone: [String: String] = {
-        // List of environment variables which might be useful while running a
-        // git fetch.
-        let environmentList = [
-            "EDITOR",
-            "GIT_ASKPASS",
-            "LANG",
-            "LANGUAGE",
-            "PAGER",
-            "SSH_ASKPASS",
-            "SSH_AUTH_SOCK",
-            "TERM",
-            "XDG_CONFIG_HOME",
-        ]
-        var result = [String: String]()
-        for name in environmentList {
-            result[name] = getenv(name)
-        }
-        return result
-    }()
 }
