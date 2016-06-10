@@ -48,7 +48,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .dumpPackage
         case "fetch":
             self = .fetch
-        case "generate-xcodeproj":
+        case "-X", "generate-xcodeproj":
             self = .generateXcodeproj
         case "init":
             self = .initPackage
@@ -273,14 +273,14 @@ public struct SwiftPackageTool {
         print("USAGE: swift package [command] [options]")
         print("")
         print("COMMANDS:")
-        print("  init [--type <type>]                   Initialize a new package")
-        print("                                         (type: library|executable|system-module)")
-        print("  fetch                                  Fetch package dependencies")
-        print("  update                                 Update package dependencies")
-        print("  generate-xcodeproj [--output <path>]   Generates an Xcode project")
-        print("  show-dependencies [--format <format>]  Print the resolved dependency graph")
-        print("                                         (format: text|dot|json)")
-        print("  dump-package [--output <path>]         Print parsed Package.swift as JSON")
+        print("  init [--type <type>]                      Initialize a new package")
+        print("                                            (library|executable|system-module)")
+        print("  fetch                                     Fetch package dependencies")
+        print("  update                                    Update package dependencies")
+        print("  -X, generate-xcodeproj [--output <path>]  Generates an Xcode project")
+        print("  show-dependencies [--format <format>]     Print the resolved dependency graph")
+        print("                                            (text|dot|json)")
+        print("  dump-package [--output <path>]            Print parsed Package.swift as JSON")
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
