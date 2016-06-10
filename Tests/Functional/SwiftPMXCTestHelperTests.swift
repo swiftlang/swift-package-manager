@@ -22,10 +22,11 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
-            let testCases = ["name": "All Tests", "tests": [[
+            let testCases = ["name": "All Tests", "tests": [["name" : "SwiftPMXCTestHelperTests.xctest",
+                "tests": [[
                 "name": "SwiftPMXCTestHelperTestSuite.SwiftPMXCTestHelperTests1",
                 "tests": [["name": "test_Example2"], ["name": "testExample1"]]
-                ]]
+                ]]]]
             ] as NSDictionary
             // Run the XCTest helper tool and check result.
             XCTAssertXCTestHelper(prefix, ".build", "debug", "SwiftPMXCTestHelperTests.xctest", testCases: testCases)

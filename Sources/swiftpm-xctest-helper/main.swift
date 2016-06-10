@@ -38,11 +38,12 @@ func run() throws {
     let splitSet: Set<Character> = ["[", " ", "]", ":"]
 
     // Array of test cases. Contains test cases in format:
-    // { "name" : "<test_class_name>", "tests" : [ { "name" : "test_method" } ] }
+    // { "name" : "<test_suite_name>", "tests" : [ { "name" : "test_class_name", "tests" : [ { "name" : "test_method_name"} ] } ] }
     var testCases = [[String: AnyObject]]()
 
     for case let testCaseSuite as XCTestSuite in suite.tests {
-        for case let testCaseSuite as XCTestSuite in testCaseSuite.tests {
+        let testSuite: [[String: AnyObject]] = testCaseSuite.tests.flatMap {
+            guard case let testCaseSuite as XCTestSuite = $0 else { return nil }
             // Get the name of the XCTest subclass with its module name if possible.
             // If the subclass contains atleast one test get the name using reflection,
             // otherwise use the name property (which only gives subclass name).
@@ -66,8 +67,9 @@ func run() throws {
                 return ["name": methodName]
             }
 
-            testCases.append(["name": name as NSString, "tests": tests as NSArray])
+            return ["name": name as NSString, "tests": tests as NSArray]
         }
+        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString, "tests": testSuite])
     }
 
     // Create output file.
