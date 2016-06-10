@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import Utility
 
 func XCTAssertThrows<T where T: ErrorProtocol, T: Equatable>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) {
     do {
@@ -27,7 +28,26 @@ class FSProxyTests: XCTestCase {
 
     // MARK: LocalFS Tests
 
-    // FIXME: Implement
+    func testLocalBasics() {
+        let fs = Basic.localFS
+
+        // exists()
+        XCTAssert(fs.exists("/"))
+        XCTAssert(!fs.exists("/does-not-exist"))
+
+        // isDirectory()
+        XCTAssert(fs.isDirectory("/"))
+        XCTAssert(!fs.isDirectory("/does-not-exist"))
+
+        // getDirectoryContents()
+        XCTAssertThrows(FSProxyError.noEntry) {
+            _ = try fs.getDirectoryContents("/does-not-exist")
+        }
+        let thisDirectoryContents = try! fs.getDirectoryContents(#file.parentDirectory)
+        XCTAssertTrue(!thisDirectoryContents.contains({ $0 == "." }))
+        XCTAssertTrue(!thisDirectoryContents.contains({ $0 == ".." }))
+        XCTAssertTrue(thisDirectoryContents.contains({ $0 == #file.basename }))
+    }
     
     // MARK: PseudoFS Tests
 
@@ -40,13 +60,14 @@ class FSProxyTests: XCTestCase {
         // isDirectory()
         XCTAssert(!fs.isDirectory("/does-not-exist"))
 
-        // createDirectory()
+        // getDirectoryContents()
         XCTAssertThrows(FSProxyError.noEntry) {
             _ = try fs.getDirectoryContents("/does-not-exist")
         }
     }
     
     static var allTests = [
+        ("testLocalBasics", testLocalBasics),
         ("testPseudoBasics", testPseudoBasics),
     ]
 }
