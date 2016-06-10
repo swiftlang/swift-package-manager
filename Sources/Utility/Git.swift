@@ -48,11 +48,9 @@ public class Git {
         public var sha: String! {
             return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
         }
-
         public func versionSha(tag: String) throws -> String {
             return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
         }
-
         public var hasLocalChanges: Bool {
             let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
@@ -128,13 +126,5 @@ public class Git {
         } catch let error  {
             try checkGitVersion(error)
         }
-    }
-
-    private class func readEnvironmentVariables(names: [String]) -> [String: String] {
-      var result = [String: String]()
-      for name in names {
-          result[name] = getenv(name)
-      }
-      return result
     }
 }
