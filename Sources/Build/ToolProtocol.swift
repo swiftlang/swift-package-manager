@@ -58,7 +58,22 @@ struct SwiftcTool: ToolProtocol {
     static let numThreads = 8
 
     var inputs: [String] {
-        return module.recursiveDependencies.map{ $0.targetName }
+        // For C family targets Swift needs dynamic libraries to be able to interpolate.
+        // We implicitly create dynamic libs for all C targets ie ClangModules, add
+        // input to the product and not the module for ClangModules.
+        return module.recursiveDependencies.map{ module in
+            switch module {
+            case let module as SwiftModule:
+                return module.targetName
+            case let module as ClangModule:
+                let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
+                return product.targetName
+            case let module as CModule:
+                return module.targetName
+            default:
+                fatalError("Unhandled module \(module) for input dependency of module \(self.module).")
+            }
+        }
     }
 
     var outputs: [String]                   { return [module.targetName] + objects }
