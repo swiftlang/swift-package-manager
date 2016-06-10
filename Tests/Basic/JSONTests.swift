@@ -46,8 +46,15 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(decode("{\"a\": null, \"b\": \"hi\"}"), .dictionary(["a": .null, "b": .string("hi")]))
     }
 
+    func testStringInitalizer() {
+        let jsonString = "{\"name\" : \"jon doe\"}"
+        let json = try? JSON(string: jsonString)
+        XCTAssertEqual(json, .dictionary(["name": .string("jon doe")]))
+    }
+
     static var allTests = [
         ("testEncoding", testEncoding),
         ("testDecoding", testDecoding),
+        ("testStringInitalizer", testStringInitalizer),
     ]
 }

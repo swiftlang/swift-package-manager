@@ -236,4 +236,12 @@ extension JSON {
             throw JSONDecodingError.malformed
         }
     }
+
+    /// Convenience initalizer for UTF8 encoded strings.
+    ///
+    /// - Throws: JSONDecodingError
+    public init(string: String) throws {
+        let bytes = ByteString(encodingAsUTF8: string)
+        try self.init(bytes: bytes)
+    }
 }
