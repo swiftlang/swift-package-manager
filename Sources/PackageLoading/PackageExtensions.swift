@@ -207,35 +207,23 @@ extension Package {
             }
         }
 
-    ////// Implict products for ClangModules.
-
-        for case let module as ClangModule in modules {
-            let type: ProductType
-            switch module.type {
-            case .executable:
-                type = .Executable
-            case .library:
-                type = .Library(.Dynamic)
-            }
-            let product = Product(name: module.name, type: type, modules: [module])
-            products.append(product)
-        }
-
     ////// auto-determine tests
 
         if !testModules.isEmpty {
+            // FIXME: Product should support all modules.
+            let modules: [SwiftModule] = testModules.flatMap{$0 as? SwiftModule} // or linux compiler crash (2016-02-03)
             //TODO and then we should prefix all modules with their package probably
             //Suffix 'Tests' to test product so the module name of linux executable don't collide with
             //main package, if present.
-            let product = Product(name: "\(self.name)Tests", type: .Test, modules: testModules)
+            let product = Product(name: "\(self.name)Tests", type: .Test, modules: modules)
             products.append(product)
         }
 
     ////// add products from the manifest
 
         for p in manifest.products {
-            let modules: [Module] = p.modules.flatMap{ moduleName in
-                guard let picked = (modules.pick{ $0.name == moduleName }) else {
+            let modules: [SwiftModule] = p.modules.flatMap{ moduleName in
+                guard case let picked as SwiftModule = (modules.pick{ $0.name == moduleName }) else {
                     print("warning: No module \(moduleName) found for product \(p.name)")
                     return nil
                 }
