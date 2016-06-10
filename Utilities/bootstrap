@@ -762,6 +762,7 @@ def main():
     swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
+    swiftpm_xctest_helper_path = os.path.join(build_path, conf, "swiftpm-xctest-helper")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
@@ -778,15 +779,27 @@ def main():
                                         "bin")
         lib_install_path = os.path.join(g_project_root, args.install_prefix,
                                         "lib", "swift", "pm")
+        libexec_install_path = os.path.join(g_project_root, args.install_prefix,
+                                        "libexec", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_package_path, swift_build_path, swift_test_path]:
-            cmd = ["install", product_path, bin_install_path]
+        mkdir_p(libexec_install_path)
+
+        # Install a binary file at the install path.
+        def installBinary(binary_path, install_path):
+            cmd = ["install", binary_path, install_path]
             note("installing %s: %s" % (
-                os.path.basename(product_path), ' '.join(cmd)))
+                os.path.basename(binary_path), ' '.join(cmd)))
             result = subprocess.call(cmd)
             if result != 0:
                 error("install failed with exit status %d" % (result,))
+
+        # Install XCTest helper inside libexec
+        installBinary(swiftpm_xctest_helper_path, libexec_install_path)
+
+        for product_path in [swift_package_path, swift_build_path, swift_test_path]:
+            installBinary(product_path, bin_install_path)
+
         for (resource_path, is_lib) in [(runtime_module_path, False),
                                         (runtime_lib_path, True)]:
             cmd = ["install"]
