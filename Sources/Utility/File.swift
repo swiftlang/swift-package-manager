@@ -37,10 +37,10 @@ public func fopen(_ path: String, mode: FopenMode = .read) throws -> NSFileHandl
     return handle
 }
 
-public func fopen(_ path: String..., mode: FopenMode = .read, body: (NSFileHandle) throws -> Void) throws {
+public func fopen<T>(_ path: String..., mode: FopenMode = .read, body: (NSFileHandle) throws -> T) throws -> T {
     let fp = try fopen(Path.join(path), mode: mode)
     defer { fp.closeFile() }
-    try body(fp)
+    return try body(fp)
 }
 
 public func fputs(_ string: String, _ handle: NSFileHandle) throws {
