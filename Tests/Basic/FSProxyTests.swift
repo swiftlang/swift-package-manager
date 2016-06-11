@@ -19,7 +19,7 @@ func XCTAssertThrows<T where T: ErrorProtocol, T: Equatable>(_ expectedError: T,
         try body()
         XCTFail("body completed successfully", file: file, line: line)
     } catch let error as T {
-        XCTAssertEqual(error, expectedError)
+        XCTAssertEqual(error, expectedError, file: file, line: line)
     } catch {
         XCTFail("unexpected error thrown", file: file, line: line)
     }
@@ -75,6 +75,62 @@ class FSProxyTests: XCTestCase {
         }
     }
 
+    func testLocalReadWriteFile() {
+        var fs = Basic.localFS
+        
+        try! POSIX.mkdtemp(#function) { tmpDir in
+            // Check read/write of a simple file.
+            let testData = (0..<1000).map { $0.description }.joined(separator: ", ")
+            let filePath = Path.join(tmpDir, "test-data.txt")
+            try! fs.writeFileContents(filePath, bytes: ByteString(testData))
+            let data = try! fs.readFileContents(filePath)
+            XCTAssertEqual(data, ByteString(testData))
+
+            // Check overwrite of a file.
+            try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
+            XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+        
+            // Check read/write of a directory.
+            XCTAssertThrows(FSProxyError.ioError) {
+                _ = try fs.readFileContents(filePath.parentDirectory)
+            }
+            XCTAssertThrows(FSProxyError.isDirectory) {
+                try fs.writeFileContents(filePath.parentDirectory, bytes: [])
+            }
+            XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+        
+            // Check read/write against root.
+            XCTAssertThrows(FSProxyError.ioError) {
+                _ = try fs.readFileContents("/")
+            }
+            XCTAssertThrows(FSProxyError.isDirectory) {
+                try fs.writeFileContents("/", bytes: [])
+            }
+            XCTAssert(fs.exists(filePath))
+        
+            // Check read/write into a non-directory.
+            XCTAssertThrows(FSProxyError.notDirectory) {
+                _ = try fs.readFileContents(Path.join(filePath, "not-possible"))
+            }
+            XCTAssertThrows(FSProxyError.notDirectory) {
+                try fs.writeFileContents(Path.join(filePath, "not-possible"), bytes: [])
+            }
+            XCTAssert(fs.exists(filePath))
+        
+            // Check read/write into a missing directory.
+            let missingDir = Path.join(tmpDir, "does/not/exist")
+            XCTAssertThrows(FSProxyError.noEntry) {
+                _ = try fs.readFileContents(missingDir)
+            }
+            XCTAssertThrows(FSProxyError.noEntry) {
+                try fs.writeFileContents(missingDir, bytes: [])
+            }
+            XCTAssert(!fs.exists(missingDir))
+
+            try! Utility.removeFileTree(tmpDir)
+        }
+    }
+
     // MARK: PseudoFS Tests
 
     func testPseudoBasics() {
@@ -122,13 +178,79 @@ class FSProxyTests: XCTestCase {
         }
         XCTAssert(!fs.isDirectory(newsubdir))
         
-        // FIXME: Need to check directory creation over a file, once we can create files.
+        // Check directory creation over a file.
+        let filePath = "/mach_kernel"
+        try! fs.writeFileContents(filePath, bytes: [0xCD, 0x0D])
+        XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
+        XCTAssertThrows(FSProxyError.notDirectory) {
+            try fs.createDirectory(filePath, recursive: true)
+        }
+        XCTAssertThrows(FSProxyError.notDirectory) {
+            try fs.createDirectory(Path.join(filePath, "not-possible"), recursive: true)
+        }
+        XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
+    }
+    
+    func testPseudoReadWriteFile() {
+        let fs = PseudoFS()
+        try! fs.createDirectory("/new-dir/subdir", recursive: true)
+
+        // Check read/write of a simple file.
+        let filePath = Path.join("/new-dir/subdir", "new-file.txt")
+        XCTAssert(!fs.exists(filePath))
+        try! fs.writeFileContents(filePath, bytes: "Hello, world!")
+        XCTAssert(fs.exists(filePath))
+        XCTAssert(!fs.isDirectory(filePath))
+        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
+
+        // Check overwrite of a file.
+        try! fs.writeFileContents(filePath, bytes: "Hello, new world!")
+        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+        
+        // Check read/write of a directory.
+        XCTAssertThrows(FSProxyError.isDirectory) {
+            _ = try fs.readFileContents(filePath.parentDirectory)
+        }
+        XCTAssertThrows(FSProxyError.isDirectory) {
+            try fs.writeFileContents(filePath.parentDirectory, bytes: [])
+        }
+        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
+        
+        // Check read/write against root.
+        XCTAssertThrows(FSProxyError.isDirectory) {
+            _ = try fs.readFileContents("/")
+        }
+        XCTAssertThrows(FSProxyError.isDirectory) {
+            try fs.writeFileContents("/", bytes: [])
+        }
+        XCTAssert(fs.exists(filePath))
+        
+        // Check read/write into a non-directory.
+        XCTAssertThrows(FSProxyError.notDirectory) {
+            _ = try fs.readFileContents(Path.join(filePath, "not-possible"))
+        }
+        XCTAssertThrows(FSProxyError.notDirectory) {
+            try fs.writeFileContents(Path.join(filePath, "not-possible"), bytes: [])
+        }
+        XCTAssert(fs.exists(filePath))
+        
+        // Check read/write into a missing directory.
+        let missingDir = "/does/not/exist"
+        XCTAssertThrows(FSProxyError.noEntry) {
+            _ = try fs.readFileContents(missingDir)
+        }
+        XCTAssertThrows(FSProxyError.noEntry) {
+            try fs.writeFileContents(missingDir, bytes: [])
+        }
+        XCTAssert(!fs.exists(missingDir))
     }
     
     static var allTests = [
         ("testLocalBasics", testLocalBasics),
         ("testLocalCreateDirectory", testLocalCreateDirectory),
+        ("testLocalReadWriteFile", testLocalReadWriteFile),
         ("testPseudoBasics", testPseudoBasics),
         ("testPseudoCreateDirectory", testPseudoCreateDirectory),
+        ("testPseudoReadWriteFile", testPseudoReadWriteFile),
     ]
 }

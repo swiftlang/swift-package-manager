@@ -23,6 +23,26 @@ public enum FSProxyError: ErrorProtocol {
     /// Used in situations that correspond to the POSIX EACCES error code.
     case invalidAccess
     
+    /// Invalid encoding
+    ///
+    /// This is used when an operation cannot be completed because a path could
+    /// not be decoded correctly.
+    case invalidEncoding
+    
+    /// IO Errork encoding
+    ///
+    /// This is used when an operation cannot be completed due to an otherwise
+    /// unspecified IO error.
+    case ioError
+    
+    /// Is a directory
+    ///
+    /// This is used when an operation cannot be completed because a component
+    /// of the path which was expected to be a file was not.
+    ///
+    /// Used in situations that correspond to the POSIX EISDIR error code.
+    case isDirectory
+    
     /// No such path exists.
     ///
     /// This is used when a path specified does not exist, but it was expected
@@ -38,14 +58,6 @@ public enum FSProxyError: ErrorProtocol {
     ///
     /// Used in situations that correspond to the POSIX ENOTDIR error code.
     case notDirectory
-    
-    /// Invalid encoding
-    ///
-    /// This is used when an operation cannot be completed because a path could
-    /// not be decoded correctly.
-    ///
-    /// Used in situations that correspond to the POSIX ENOTDIR error code.
-    case invalidEncoding
 
     /// An unspecific operating system error.
     case unknownOSError
@@ -56,6 +68,8 @@ private extension FSProxyError {
         switch errno {
         case libc.EACCES:
             self = .invalidAccess
+        case libc.EISDIR:
+            self = .isDirectory
         case libc.ENOENT:
             self = .noEntry
         case libc.ENOTDIR:
@@ -95,6 +109,18 @@ public protocol FSProxy {
     ///
     /// - recursive: If true, create missing parent directories if possible.
     mutating func createDirectory(_ path: String, recursive: Bool) throws
+
+    /// Get the contents of a file.
+    ///
+    /// - Returns: The file contents as bytes, or nil if missing.
+    //
+    // FIXME: This is obviously not a very efficient or flexible API.
+    func readFileContents(_ path: String) throws -> ByteString
+    
+    /// Write the contents of a file.
+    //
+    // FIXME: This is obviously not a very efficient or flexible API.
+    mutating func writeFileContents(_ path: String, bytes: ByteString) throws
 }
 
 public extension FSProxy {
@@ -182,6 +208,58 @@ private class LocalFS: FSProxy {
         } else {
             // Otherwise, we failed due to some other error. Report it.
             throw FSProxyError(errno: errno)
+        }
+    }
+    
+    func readFileContents(_ path: String) throws -> ByteString {
+        // Open the file.
+        let fp = fopen(path, "rb")
+        if fp == nil {
+            throw FSProxyError(errno: errno)
+        }
+        defer { fclose(fp) }
+
+        // Read the data one block at a time.
+        let data = OutputByteStream()
+        var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
+        while true {
+            let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                throw FSProxyError.ioError
+            }
+            if n == 0 {
+                if ferror(fp) != 0 {
+                    throw FSProxyError.ioError
+                }
+                break
+            }
+            data <<< tmpBuffer[0..<n]
+        }
+        
+        return data.bytes
+    }
+    
+    func writeFileContents(_ path: String, bytes: ByteString) throws {
+        // Open the file.
+        let fp = fopen(path, "wb")
+        if fp == nil {
+            throw FSProxyError(errno: errno)
+        }
+        defer { fclose(fp) }
+
+        // Write the data in one chunk.
+        var contents = bytes.contents
+        while true {
+            let n = fwrite(&contents, 1, contents.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                throw FSProxyError.ioError
+            }
+            if n != contents.count {
+                throw FSProxyError.ioError
+            }
+            break
         }
     }
 }
@@ -317,6 +395,53 @@ public class PseudoFS: FSProxy {
 
         // Otherwise, the node does not exist, create it.
         contents.entries[path.basename] = Node(.Directory(DirectoryContents()))
+    }
+
+    public func readFileContents(_ path: String) throws -> ByteString {
+        // Get the node.
+        guard let node = try getNode(path) else {
+            throw FSProxyError.noEntry
+        }
+
+        // Check that the node is a file.
+        guard case .File(let contents) = node.contents else {
+            // The path is a directory, this is an error.
+            throw FSProxyError.isDirectory
+        }
+
+        // Return the file contents.
+        return contents
+    }
+
+    public func writeFileContents(_ path: String, bytes: ByteString) throws {
+        // It is an error if this is the root node.
+        let parentPath = path.parentDirectory
+        guard path != parentPath else {
+            throw FSProxyError.isDirectory
+        }
+            
+        // Get the parent node.
+        guard let parent = try getNode(parentPath) else {
+            throw FSProxyError.noEntry
+        }
+
+        // Check that the parent is a directory.
+        guard case .Directory(let contents) = parent.contents else {
+            // The parent isn't a directory, this is an error.
+            throw FSProxyError.notDirectory
+        }
+
+        // Check if the node exists.
+        if let node = contents.entries[path.basename] {
+            // Verify it is a file.
+            guard case .File = node.contents else {
+                // The path is a directory, this is an error.
+                throw FSProxyError.isDirectory
+            }
+        }
+
+        // Write the file.
+        contents.entries[path.basename] = Node(.File(bytes))
     }
 }
 
