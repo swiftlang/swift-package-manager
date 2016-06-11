@@ -74,6 +74,7 @@ class PathTests: XCTestCase {
         XCTAssertEqual("foo/bar/baz".parentDirectory, "foo/bar")
         XCTAssertEqual("foo/bar/baz".parentDirectory.parentDirectory, "foo")
         XCTAssertEqual("/bar".parentDirectory, "/")
+        XCTAssertEqual("/".parentDirectory, "/")
         XCTAssertEqual("/".parentDirectory.parentDirectory, "/")
         XCTAssertEqual("/bar/../foo/..//".parentDirectory.parentDirectory, "/")
     }

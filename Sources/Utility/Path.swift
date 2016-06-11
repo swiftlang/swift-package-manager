@@ -273,7 +273,7 @@ extension String {
     }
 
     public var parentDirectory: String {
-        guard !isEmpty else { return self }
+        guard !isEmpty && self != "/" else { return self }
         return Path.join(self, "..").normpath
     }
 
