@@ -87,6 +87,21 @@ public protocol FSProxy {
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
     func getDirectoryContents(_ path: String) throws -> [String]
+    
+    /// Create the given directory.
+    mutating func createDirectory(_ path: String) throws
+
+    /// Create the given directory.
+    ///
+    /// - recursive: If true, create missing parent directories if possible.
+    mutating func createDirectory(_ path: String, recursive: Bool) throws
+}
+
+public extension FSProxy {
+    /// Default implementation of createDirectory(_:)
+    mutating func createDirectory(_ path: String) throws {
+        try createDirectory(path, recursive: false)
+    }
 }
 
 /// Concrete FSProxy implementation which communicates with the local file system.
@@ -143,6 +158,31 @@ private class LocalFS: FSProxy {
         }
         
         return result
+    }
+
+    func createDirectory(_ path: String, recursive: Bool) throws {
+        // Try to create the directory.
+        let result = mkdir(path, libc.S_IRWXU | libc.S_IRWXG)
+
+        // If it succeeded, we are done.
+        if result == 0 { return }
+
+        // If the failure was because the directory exists, everything is ok.
+        if errno == EEXIST && isDirectory(path) { return }
+
+        // If it failed due to ENOENT (e.g., a missing parent), and we are
+        // recursive, then attempt to create the parent and retry.
+        if errno == ENOENT && recursive &&
+           path != path.parentDirectory /* FIXME: Need Path.isRoot */ {
+            // Attempt to create the parent.
+            try createDirectory(path.parentDirectory, recursive: true)
+
+            // Re-attempt creation, non-recursively.
+            try createDirectory(path, recursive: false)
+        } else {
+            // Otherwise, we failed due to some other error. Report it.
+            throw FSProxyError(errno: errno)
+        }
     }
 }
 
@@ -238,7 +278,47 @@ public class PseudoFS: FSProxy {
         // FIXME: Perhaps we should change the protocol to allow lazy behavior.
         return [String](contents.entries.keys)
     }
+
+    public func createDirectory(_ path: String, recursive: Bool) throws {
+        // Get the parent directory node.
+        let parentPath = path.parentDirectory
+        guard let parent = try getNode(parentPath) else {
+            // If the parent doesn't exist, and we are recursive, then attempt
+            // to create the parent and retry.
+            if recursive && path != parentPath {
+                // Attempt to create the parent.
+                try createDirectory(parentPath, recursive: true)
+
+                // Re-attempt creation, non-recursively.
+                return try createDirectory(path, recursive: false)
+            } else {
+                // Otherwise, we failed.
+                throw FSProxyError.noEntry
+            }
+        }
+
+        // Check that the parent is a directory.
+        guard case .Directory(let contents) = parent.contents else {
+            // The parent isn't a directory, this is an error.
+            throw FSProxyError.notDirectory
+        }
+        
+        // Check if the node already exists.
+        if let node = contents.entries[path.basename] {
+            // Verify it is a directory.
+            guard case .Directory = node.contents else {
+                // The path itself isn't a directory, this is an error.
+                throw FSProxyError.notDirectory
+            }
+
+            // We are done.
+            return
+        }
+
+        // Otherwise, the node does not exist, create it.
+        contents.entries[path.basename] = Node(.Directory(DirectoryContents()))
+    }
 }
 
 /// Public access to the local FS proxy.
-public let localFS: FSProxy = LocalFS()
+public var localFS: FSProxy = LocalFS()
