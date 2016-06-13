@@ -200,7 +200,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         let supportedPlatforms = [
             "macosx",
             "iphoneos", "iphonesimulator",
-            "tvos", "tvsimulator",
+            "appletvos", "appletvsimulator",
             "watchos", "watchsimulator"]
         print("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))")
 
