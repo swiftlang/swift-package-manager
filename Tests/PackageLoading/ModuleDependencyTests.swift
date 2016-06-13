@@ -169,12 +169,12 @@ class ModuleDependencyTests: XCTestCase {
     ]
 }
 
-private extension Module {
-    private func depends(on target: Module) {
+fileprivate extension Module {
+    fileprivate func depends(on target: Module) {
         dependencies.append(target)
     }
     
-    private var recursiveDeps: [Module] {
+    fileprivate var recursiveDeps: [Module] {
         sort(self)
         return dependencies
     }

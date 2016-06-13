@@ -103,7 +103,7 @@ private func write(path: String, write: (OutputByteStream) -> Void) throws -> St
     return path
 }
 
-private struct Targets {
+fileprivate struct Targets {
     var test = Target(node: "test", cmds: [])
     var main = Target(node: "main", cmds: [])
 

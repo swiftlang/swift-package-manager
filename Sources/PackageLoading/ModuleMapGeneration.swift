@@ -117,7 +117,7 @@ extension ClangModule {
         }
     }
 
-    private enum UmbrellaType {
+    fileprivate enum UmbrellaType {
         case header(String)
         case directory(String)
     }

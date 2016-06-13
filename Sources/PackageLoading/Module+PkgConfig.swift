@@ -53,8 +53,8 @@ extension ModuleProtocol {
     }
 }
 
-private extension SystemPackageProvider {
-    private var installText: String {
+fileprivate extension SystemPackageProvider {
+    fileprivate var installText: String {
         switch self {
         case .Brew(let name):
             return "    brew install \(name)\n"

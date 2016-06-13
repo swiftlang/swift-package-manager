@@ -169,11 +169,11 @@ extension Package {
         return try SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path))
     }
 
-    private func isValidSource(_ path: String) -> Bool {
+    fileprivate func isValidSource(_ path: String) -> Bool {
         return isValidSource(path, validExtensions: Sources.validExtensions)
     }
     
-    private func isValidSource(_ path: String, validExtensions: Set<String>) -> Bool {
+    fileprivate func isValidSource(_ path: String, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         let path = path.normpath
         if path == manifest.path.normpath { return false }

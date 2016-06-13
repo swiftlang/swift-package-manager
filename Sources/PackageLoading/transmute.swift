@@ -105,7 +105,7 @@ private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package)
 }
 
 extension Package {
-    private var recursiveDependencies: [Package] {
+    fileprivate var recursiveDependencies: [Package] {
         // FIXME: Refactor this to a common algorithm.
         var set = Set<Package>()
         var stack = dependencies

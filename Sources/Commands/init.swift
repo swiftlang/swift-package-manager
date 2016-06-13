@@ -17,7 +17,7 @@ import func Utility.fputs
 import func Utility.makeDirectories
 import struct Utility.Path
 
-private enum InitError: ErrorProtocol {
+fileprivate enum InitError: ErrorProtocol {
     case manifestAlreadyExists
 }
 

@@ -37,19 +37,19 @@ public class CheckoutManager {
         ///
         /// This is intentionally hidden from the clients so that the manager is
         /// allowed to move repositories transparently.
-        private let subpath: String
+        fileprivate let subpath: String
 
         /// The status of the repository.
-        private var status: Status = .uninitialized
+        fileprivate var status: Status = .uninitialized
 
         /// Create a handle.
-        private init(manager: CheckoutManager, subpath: String) {
+        fileprivate init(manager: CheckoutManager, subpath: String) {
             self.manager = manager
             self.subpath = subpath
         }
 
         /// Create a handle from JSON data.
-        private init?(manager: CheckoutManager, json data: JSON) {
+        fileprivate init?(manager: CheckoutManager, json data: JSON) {
             guard case let .dictionary(contents) = data,
                   case let .string(subpath)? = contents["subpath"],
                   case let .string(statusString)? = contents["status"],
@@ -88,7 +88,7 @@ public class CheckoutManager {
 
         // MARK: Persistence
 
-        private func toJSON() -> JSON {
+        fileprivate func toJSON() -> JSON {
             return .dictionary([
                     "status": .string(status.rawValue),
                     "subpath": .string(subpath)
@@ -168,7 +168,7 @@ public class CheckoutManager {
 
     // MARK: Persistence
 
-    private enum PersistenceError: ErrorProtocol {
+    fileprivate enum PersistenceError: ErrorProtocol {
         /// The schema does not match the current version.
         case invalidVersion
         
