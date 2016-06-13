@@ -66,6 +66,12 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
 
                 modules += testModules.map{$0}
             }
+        } else {
+            // filter out non library packages from dependencies
+            modules = modules
+                .flatMap { $0 as? ModuleTypeProtocol }
+                .filter { $0.type == .library }
+                .flatMap { $0 as? Module }
         }
 
         map[package] = modules
