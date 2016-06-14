@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
 import PackageModel
 import Utility
 
@@ -30,12 +29,8 @@ class PackagesDirectory {
     
     /// The set of all repositories available within the `Packages` directory, by origin.
     private lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
-        // FIXME: Lift this higher.
-        guard localFS.isDirectory(self.prefix) else { return [:] }
-
         var result = Dictionary<String, Git.Repo>()
-        for name in try! localFS.getDirectoryContents(self.prefix) {
-            let prefix = Path.join(self.prefix, name)
+        for prefix in walk(self.prefix, recursively: false) {
             guard let repo = Git.Repo(path: prefix), origin = repo.origin else { continue } // TODO: Warn user.
             result[origin] = repo
         }

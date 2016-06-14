@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basic
 import Utility
 import PackageModel
 
@@ -79,7 +78,7 @@ extension ClangModule {
             return
         }
         
-        let walked = try localFS.getDirectoryContents(includeDir).map{ Path.join(includeDir, $0) }
+        let walked = walk(includeDir, recursively: false).map{$0}
         
         let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
         let dirs = walked.filter{$0.isDirectory}

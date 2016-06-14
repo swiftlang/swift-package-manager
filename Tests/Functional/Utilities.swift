@@ -10,7 +10,6 @@
 
 import func XCTest.XCTFail
 
-import Basic
 import POSIX
 import Utility
 
@@ -52,8 +51,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                     }
                 }
 
-                for name in try! localFS.getDirectoryContents(rootd).sorted() {
-                    let d = Path.join(rootd, name)
+                for d in walk(rootd, recursively: false).sorted() {
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try systemQuietly("cp", "-R", try realpath(d), dstdir)
