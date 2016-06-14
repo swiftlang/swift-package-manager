@@ -56,11 +56,12 @@ extension ClangModule {
     public enum ModuleMapError: ErrorProtocol {
         case unsupportedIncludeLayoutForModule(String)
     }
-    
-    ///FIXME: we recompute the generated modulemap's path
-    ///when building swift modules in `XccFlags(prefix: String)`
-    ///there shouldn't be need to redo this there but is difficult 
-    ///in current architecture
+
+    /// Create the synthesized module map, if necessary.
+    //
+    // FIXME: We recompute the generated modulemap's path when building swift
+    // modules in `XccFlags(prefix: String)` there shouldn't be need to redo
+    // this there but is difficult in current architecture.
     public func generateModuleMap(inDir wd: String, modulemapStyle: ModuleMapStyle = .library) throws {
         precondition(wd.isAbsolute)
         
@@ -71,7 +72,7 @@ extension ClangModule {
         
         let includeDir = path
         
-        ///Warn and return if no include directory
+        // Warn and return if no include directory.
         guard includeDir.isDirectory else {
             print("warning: No include directory found for module '\(name)'. A library can not be imported without any public headers.")
             return
@@ -82,12 +83,12 @@ extension ClangModule {
         let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
         let dirs = walked.filter{$0.isDirectory}
 
-        ///We generate modulemap for a C module `foo` if:
-        ///* `umbrella header "path/to/include/foo/foo.h"` exists and `foo` is the only
-        ///   directory under include directory
-        ///* `umbrella header "path/to/include/foo.h"` exists and include contains no other
-        ///   directory
-        ///* `umbrella "path/to/include"` in all other cases
+        // We generate modulemap for a C module `foo` if:
+        // * `umbrella header "path/to/include/foo/foo.h"` exists and `foo` is the only
+        //    directory under include directory
+        // * `umbrella header "path/to/include/foo.h"` exists and include contains no other
+        //    directory
+        // * `umbrella "path/to/include"` in all other cases
 
         let umbrellaHeaderFlat = Path.join(includeDir, "\(c99name).h")
         if umbrellaHeaderFlat.isFile {
@@ -108,7 +109,8 @@ extension ClangModule {
         try createModuleMap(inDir: wd, type: .directory(includeDir), modulemapStyle: modulemapStyle)
     }
 
-    ///warn user if in case module name and c99name are different and there a `name.h` umbrella header
+    /// Warn user if in case module name and c99name are different and there is a
+    /// `name.h` umbrella header.
     private func diagnoseInvalidUmbrellaHeader(_ path: String) {
         let umbrellaHeader = Path.join(path, "\(c99name).h")
         let invalidUmbrellaHeader = Path.join(path, "\(name).h")
