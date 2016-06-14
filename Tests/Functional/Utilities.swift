@@ -14,7 +14,7 @@ import POSIX
 import Utility
 
 #if os(OSX)
-import class Foundation.NSBundle
+import class Foundation.Bundle
 #endif
 
 
@@ -94,7 +94,6 @@ enum Configuration {
 }
 
 private var globalSymbolInMainBinary = 0
-
 
 func swiftSubcommandPath(_  subcommand: String) -> String {
 #if os(OSX)

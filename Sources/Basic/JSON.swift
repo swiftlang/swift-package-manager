@@ -227,7 +227,7 @@ extension JSON {
           #if os(Linux)
             let result = try NSJSONSerialization.jsonObject(with: data, options: [.AllowFragments])
           #else
-            let result = try NSJSONSerialization.jsonObject(with: data, options: [.allowFragments])
+            let result = try NSJSONSerialization.jsonObject(with: data as Data, options: [.allowFragments])
           #endif
             // Convert to a native representation.
             //

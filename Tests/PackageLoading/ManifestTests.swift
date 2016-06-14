@@ -21,7 +21,7 @@ import func POSIX.popen
 
 #if os(OSX)
 private func bundleRoot() -> String {
-    for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+    for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
         return bundle.bundlePath.parentDirectory
     }
     fatalError()
