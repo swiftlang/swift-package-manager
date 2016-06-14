@@ -14,7 +14,7 @@ import POSIX
 import Utility
 
 #if os(OSX)
-import class Foundation.NSBundle
+import class Foundation.Bundle
 #endif
 
 
@@ -107,7 +107,7 @@ enum SwiftPMProduct {
     /// Path to currently built binary.
     var path: String {
       #if os(OSX)
-        for bundle in NSBundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+        for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
             return Path.join(bundle.bundlePath.parentDirectory, exec)
         }
         fatalError()

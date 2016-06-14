@@ -8,11 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.NSLock
+import Foundation
 
 /// A simple lock wrapper.
 public struct Lock {
+  #if os(OSX)
+    private var _lock = Foundation.Lock()
+  #else
     private var _lock = NSLock()
+  #endif
 
     /// Create a new lock.
     public init() {
