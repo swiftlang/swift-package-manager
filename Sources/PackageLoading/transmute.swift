@@ -39,14 +39,32 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
 
             // Set dependencies for test modules.
             for case let testModule as SwiftModule in testModules {
-                if testModule.basename == "Functional" {
+                if testModule.basename == "Utility" {
+                    // FIXME: The Utility tests currently have a layering
+                    // violation and a dependency on Basic for infrastructure.
+                    testModule.dependencies = modules.filter{
+                        switch $0.name {
+                        case "Basic", "Utility":
+                            return true
+                        default:
+                            return false
+                        }
+                    }
+                } else if testModule.basename == "Functional" {
                     // FIXME: swiftpm's own Functional tests module does not
                     //        follow the normal rules--there is no corresponding
                     //        'Sources/Functional' module to depend upon. For the
                     //        time being, assume test modules named 'Functional'
                     //        depend upon 'Utility', and hope that no users define
                     //        test modules named 'Functional'.
-                    testModule.dependencies = modules.filter{ $0.name == "Utility" }
+                    testModule.dependencies = modules.filter{
+                        switch $0.name {
+                        case "Basic", "Utility":
+                            return true
+                        default:
+                            return false
+                        }
+                    }
                 } else if testModule.basename == "PackageLoading" {
                     // FIXME: Turns out PackageLoadingTests violate encapsulation :(
                     testModule.dependencies = modules.filter{

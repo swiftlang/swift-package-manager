@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import Utility
 
 import func POSIX.symlink
@@ -107,7 +108,7 @@ class ValidLayoutsTestCase: XCTestCase {
 }
 
 
-//MARK: Utility
+// MARK: Utility
 
 extension ValidLayoutsTestCase {
     func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(String) throws -> Void) {
@@ -118,24 +119,22 @@ extension ValidLayoutsTestCase {
 
         // 2. Move everything to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
+            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = Path.join(prefix, "Sources")
             try Utility.makeDirectories(dir)
             for file in files {
-                let tip = Path(file).relative(to: prefix)
-                try rename(old: file, new: Path.join(dir, tip))
+                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
             }
             try body(prefix)
         }
 
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
+            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = Path.join(prefix, "Floobles")
             try Utility.makeDirectories(dir)
             for file in files {
-                let tip = Path(file).relative(to: prefix)
-                try rename(old: file, new: Path.join(dir, tip))
+                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
             }
             try symlink(create: "\(prefix)/Sources", pointingAt: dir, relativeTo: prefix)
             try body(prefix)
