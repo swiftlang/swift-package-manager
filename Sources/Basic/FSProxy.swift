@@ -309,8 +309,6 @@ public class PseudoFS: FSProxy {
             }
 
             // If we didn't find a directory, this is an error.
-            //
-            // FIXME: Error handling.
             guard case .Directory(let contents) = parent.contents else {
                 throw FSProxyError.notDirectory
             }
