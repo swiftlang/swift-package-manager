@@ -220,11 +220,8 @@ extension JSON {
     ///
     //
     public init(bytes: ByteString) throws {
-        // Convert to NSData
-        let data = NSData(bytes: bytes.contents, length: bytes.count)
-        
         do {
-            let result = try NSJSONSerialization.jsonObject(with: data, options: [.allowFragments])
+            let result = try JSONSerialization.jsonObject(with: Data(bytes: bytes.contents), options: [.allowFragments])
             
             // Convert to a native representation.
             //
