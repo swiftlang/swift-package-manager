@@ -29,7 +29,7 @@ import func POSIX.chdir
 /// Additional conformance for our Options type.
 extension BuildToolOptions: XcodeprojOptions {}
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+fileprivate enum Mode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
     case clean(CleanMode)
     case usage
@@ -60,7 +60,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     }
 }
 
-private enum BuildToolFlag: Argument {
+fileprivate enum BuildToolFlag: Argument {
     case xcc(String)
     case xld(String)
     case xswiftc(String)
@@ -110,7 +110,7 @@ private enum BuildToolFlag: Argument {
     }
 }
 
-private class BuildToolOptions: Options {
+fileprivate class BuildToolOptions: Options {
     var verbosity: Int = 0
     var Xcc: [String] = []
     var Xld: [String] = []
@@ -278,7 +278,7 @@ public struct SwiftBuildTool {
 }
 
 extension Build.Configuration {
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "debug"?:
             self = .debug
@@ -295,7 +295,7 @@ extension Build.Configuration {
 enum CleanMode: CustomStringConvertible {
     case build, dist
 
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
             self = .build

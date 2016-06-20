@@ -16,7 +16,7 @@ import Utility
 import func POSIX.chdir
 import func POSIX.exit
 
-private enum TestError: ErrorProtocol {
+fileprivate enum TestError: ErrorProtocol {
     case testsExecutableNotFound
 }
 
@@ -29,7 +29,7 @@ extension TestError: CustomStringConvertible {
     }
 }
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+fileprivate enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case run(String?)
 
@@ -59,7 +59,7 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
     return lhs.description == rhs.description
 }
 
-private enum TestToolFlag: Argument {
+fileprivate enum TestToolFlag: Argument {
     case chdir(String)
 
     init?(argument: String, pop: () -> String?) throws {
@@ -200,7 +200,7 @@ public struct SwiftTestTool {
     }
 }
 
-private extension String {
+fileprivate extension String {
     var isValidTest: Bool {
         #if os(OSX)
             return isDirectory  // ${foo}.xctest is dir on OSX

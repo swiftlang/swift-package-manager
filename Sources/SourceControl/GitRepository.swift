@@ -67,7 +67,7 @@ public class GitRepositoryProvider: RepositoryProvider {
 }
 
 /// A basic `git` repository.
-private class GitRepository: Repository {
+fileprivate class GitRepository: Repository {
     /// The path of the repository on disk.
     let path: String
 

@@ -14,11 +14,11 @@ import SourceControl
 
 import func POSIX.mkdtemp
 
-private enum DummyError: ErrorProtocol {
+fileprivate enum DummyError: ErrorProtocol {
     case invalidRepository
 }
 
-private class DummyRepositoryProvider: RepositoryProvider {
+fileprivate class DummyRepositoryProvider: RepositoryProvider {
     var numFetches = 0
     
     func fetch(repository: RepositorySpecifier, to path: String) throws {

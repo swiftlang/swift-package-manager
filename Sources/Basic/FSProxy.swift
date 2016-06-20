@@ -63,7 +63,7 @@ public enum FSProxyError: ErrorProtocol {
     case unknownOSError
 }
 
-private extension FSProxyError {
+fileprivate extension FSProxyError {
     init(errno: Int32) {
         switch errno {
         case libc.EACCES:
@@ -131,7 +131,7 @@ public extension FSProxy {
 }
 
 /// Concrete FSProxy implementation which communicates with the local file system.
-private class LocalFS: FSProxy {
+fileprivate class LocalFS: FSProxy {
     func exists(_ path: String) -> Bool {
         return (try? stat(path)) != nil
     }
@@ -268,7 +268,7 @@ private class LocalFS: FSProxy {
 //
 // FIXME: This class does not yet support concurrent mutation safely.
 public class PseudoFS: FSProxy {
-    private class Node {
+    fileprivate class Node {
         /// The actual node data.
         let contents: NodeContents
         
@@ -276,11 +276,11 @@ public class PseudoFS: FSProxy {
             self.contents = contents
         }
     }
-    private enum NodeContents {
+    fileprivate enum NodeContents {
         case File(ByteString)
         case Directory(DirectoryContents)
     }    
-    private class DirectoryContents {
+    fileprivate class DirectoryContents {
         var entries:  [String: Node]
 
         init(entries: [String: Node] = [:]) {

@@ -28,7 +28,7 @@ class PackagesDirectory {
     }
     
     /// The set of all repositories available within the `Packages` directory, by origin.
-    private lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
+    fileprivate lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
         var result = Dictionary<String, Git.Repo>()
         for prefix in walk(self.prefix, recursively: false) {
             guard let repo = Git.Repo(path: prefix), origin = repo.origin else { continue } // TODO: Warn user.

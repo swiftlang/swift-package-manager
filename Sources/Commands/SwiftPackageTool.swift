@@ -29,7 +29,7 @@ import func POSIX.chdir
 /// Additional conformance for our Options type.
 extension PackageToolOptions: XcodeprojOptions {}
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+fileprivate enum Mode: Argument, Equatable, CustomStringConvertible {
     case doctor
     case dumpPackage
     case fetch
@@ -80,7 +80,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     }
 }
 
-private enum PackageToolFlag: Argument {
+fileprivate enum PackageToolFlag: Argument {
     case initMode(String)
     case showDepsMode(String)
     case inputPath(String)
@@ -136,7 +136,7 @@ private enum PackageToolFlag: Argument {
     }
 }
 
-private class PackageToolOptions: Options {
+fileprivate class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
     var inputPath: String? = nil

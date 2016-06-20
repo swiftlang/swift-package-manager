@@ -327,7 +327,7 @@ private let v123 = Version(1,2,3)
 private let v126 = Version(1,2,6)
 private let v199 = Version(1,9,9)
 
-private enum MockProject: String {
+fileprivate enum MockProject: String {
     case A
     case B
     case C
@@ -337,7 +337,7 @@ private enum MockProject: String {
     var url: String { return rawValue }
 }
 
-private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
+fileprivate class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
     let project: MockProject
     let children: [(String, Range<Version>)]
     var availableVersions: [Version]
@@ -375,7 +375,7 @@ private func ==(lhs: MockCheckout, rhs: MockCheckout) -> Bool {
     return lhs.project == rhs.project && lhs.version == rhs.version
 }
 
-private class _MockFetcher: Fetcher {
+fileprivate class _MockFetcher: Fetcher {
     private typealias T = MockCheckout
 
     func find(url: String) throws -> Fetchable? {

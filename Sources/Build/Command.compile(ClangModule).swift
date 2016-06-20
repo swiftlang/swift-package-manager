@@ -12,7 +12,7 @@ import PackageModel
 import Utility
 import POSIX
 
-private extension ClangModule {
+fileprivate extension ClangModule {
     func includeFlagsWithExternalModules(_ externalModules: Set<Module>) -> [String] {
         var args: [String] = []
         for case let dep as ClangModule in dependencies {

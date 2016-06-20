@@ -26,12 +26,12 @@ func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
 }
 
 
-private protocol DependenciesDumper {
+fileprivate protocol DependenciesDumper {
     func dump(dependenciesOf: Package)
 }
 
 
-private final class PlainTextDumper: DependenciesDumper {
+fileprivate final class PlainTextDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: Package) {
         func recursiveWalk(packages: [Package], prefix: String = "") {
             var hanger = prefix + "├── "
@@ -64,7 +64,7 @@ private final class PlainTextDumper: DependenciesDumper {
     }
 }
 
-private final class DotDumper: DependenciesDumper {
+fileprivate final class DotDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: Package) {
         func recursiveWalk(rootpkg: Package) {
             printNode(rootpkg)
@@ -94,7 +94,7 @@ private final class DotDumper: DependenciesDumper {
     }
 }
 
-private final class JsonDumper: DependenciesDumper {
+fileprivate final class JsonDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: Package) {
 
         func recursiveWalk(rootpkg: Package, isLast: Bool = true) {

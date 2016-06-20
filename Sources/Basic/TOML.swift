@@ -84,7 +84,7 @@ public func ==(lhs: TOMLItem, rhs: TOMLItem) -> Bool {
 // MARK: Lexer
 
 /// Extensions to check TOML character classes.
-private extension UInt8 {
+fileprivate extension UInt8 {
     /// Check if this is a space.
     func isSpace() -> Bool {
         return self == UInt8(ascii: " ") || self == UInt8(ascii: "\t")
@@ -136,8 +136,8 @@ private extension UInt8 {
 /// A basic TOML lexer.
 ///
 /// This implementation doesn't yet support multi-line strings.
-private struct Lexer {
-    private enum Token {
+fileprivate struct Lexer {
+    fileprivate enum Token {
         /// Any comment.
         case comment
         /// Any whitespace.
@@ -355,7 +355,7 @@ extension Lexer.Token : CustomStringConvertible {
     }
 }
 
-private struct LexerTokenGenerator : IteratorProtocol {
+fileprivate struct LexerTokenGenerator : IteratorProtocol {
     var lexer: Lexer
 
     mutating func next() -> Lexer.Token? {
@@ -405,7 +405,7 @@ private func ==(lhs: Lexer.Token, rhs: Lexer.Token) -> Bool {
 
 // MARK: Parser
 
-private struct Parser {
+fileprivate struct Parser {
     /// The lexer in use.
     private var lexer: Lexer
 

@@ -251,7 +251,7 @@ extension String: ByteStreamable {
 // MARK: Formatted Streaming Output
 
 // Not nested because it is generic.
-private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
+fileprivate struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
     let items: [T]
     let separator: String
     
@@ -268,7 +268,7 @@ private struct SeparatedListStreamable<T: ByteStreamable>: ByteStreamable {
 }
 
 // Not nested because it is generic.
-private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
+fileprivate struct TransformedSeparatedListStreamable<T>: ByteStreamable {
     let items: [T]
     let transform: (T) -> ByteStreamable
     let separator: String
@@ -282,7 +282,7 @@ private struct TransformedSeparatedListStreamable<T>: ByteStreamable {
 }
 
 // Not nested because it is generic.
-private struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
+fileprivate struct JSONEscapedTransformedStringListStreamable<T>: ByteStreamable {
     let items: [T]
     let transform: (T) -> String
 
@@ -302,7 +302,7 @@ public struct Format {
     static public func asJSON(_ value: Bool) -> ByteStreamable {
         return JSONEscapedBoolStreamable(value: value)
     }
-    private struct JSONEscapedBoolStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedBoolStreamable: ByteStreamable {
         let value: Bool
         
         func write(to stream: OutputByteStream) {
@@ -314,7 +314,7 @@ public struct Format {
     static public func asJSON(_ value: Int) -> ByteStreamable {
         return JSONEscapedIntStreamable(value: value)
     }
-    private struct JSONEscapedIntStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedIntStreamable: ByteStreamable {
         let value: Int
         
         func write(to stream: OutputByteStream) {
@@ -327,7 +327,7 @@ public struct Format {
     static public func asJSON(_ value: Double) -> ByteStreamable {
         return JSONEscapedDoubleStreamable(value: value)
     }
-    private struct JSONEscapedDoubleStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedDoubleStreamable: ByteStreamable {
         let value: Double
         
         func write(to stream: OutputByteStream) {
@@ -342,7 +342,7 @@ public struct Format {
     static public func asJSON(_ string: String) -> ByteStreamable {
         return JSONEscapedStringStreamable(value: string)
     }
-    private struct JSONEscapedStringStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedStringStreamable: ByteStreamable {
         let value: String
         
         func write(to stream: OutputByteStream) {
@@ -358,7 +358,7 @@ public struct Format {
     static public func asJSON(_ items: [String]) -> ByteStreamable {
         return JSONEscapedStringListStreamable(items: items)
     }
-    private struct JSONEscapedStringListStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedStringListStreamable: ByteStreamable {
         let items: [String]
         
         func write(to stream: OutputByteStream) {
@@ -375,7 +375,7 @@ public struct Format {
     static public func asJSON(_ items: [String: String]) -> ByteStreamable {
         return JSONEscapedDictionaryStreamable(items: items)
     }
-    private struct JSONEscapedDictionaryStreamable: ByteStreamable {
+    fileprivate struct JSONEscapedDictionaryStreamable: ByteStreamable {
         let items: [String: String]
         
         func write(to stream: OutputByteStream) {
