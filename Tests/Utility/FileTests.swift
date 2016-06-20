@@ -17,7 +17,7 @@ import XCTest
 
 class FileTests: XCTestCase {
 
-    private func loadInputFile(_ name: String) throws -> NSFileHandle {
+    private func loadInputFile(_ name: String) throws -> FileHandle {
         let input = Path.join(#file, "../Inputs", name).normpath
         return try fopen(input, mode: .read)
     }

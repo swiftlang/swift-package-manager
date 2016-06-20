@@ -11,7 +11,7 @@
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
-import class Foundation.NSProcessInfo
+import class Foundation.ProcessInfo
 
 public class Git {
     public class Repo {
@@ -67,7 +67,7 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: NSProcessInfo.processInfo().environment, message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }

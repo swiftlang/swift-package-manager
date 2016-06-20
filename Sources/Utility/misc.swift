@@ -25,16 +25,6 @@ import Foundation
     // ERROR: Unsupported platform
 #endif
 
-
-// Temporary extension until SwiftFoundation API is updated.
-#if os(Linux)
-    extension NSFileManager {
-        static func `default`() -> NSFileManager {
-            return defaultManager()
-        }
-    }
-#endif
-
 extension String {
     /// Returns shared dynamic library name of a string by 
     /// appending lib prefix and file extension `dylib` for OSX
