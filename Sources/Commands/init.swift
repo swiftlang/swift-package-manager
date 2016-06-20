@@ -17,6 +17,16 @@ import func Utility.fputs
 import func Utility.makeDirectories
 import struct Utility.Path
 
+private extension FSProxy {
+    /// Write to a file from a stream producer.
+    mutating func writeFileContents(_ path: String, body: @noescape (OutputByteStream) -> ()) throws {
+        let contents = OutputByteStream()
+        body(contents)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
+    }
+}
+
 private enum InitError: ErrorProtocol {
     case manifestAlreadyExists
 }
@@ -60,12 +70,19 @@ final class InitPackage {
     
     func writePackageStructure() throws {
         print("Creating \(mode) package: \(pkgname)")
-        
+
+        // FIXME: We should form everything we want to write, then validate that
+        // none of it exists, and then act.
         try writeManifestFile()
         try writeGitIgnore()
         try writeSources()
         try writeModuleMap()
         try writeTests()
+    }
+
+    private func writePackageFile(_ path: String, body: @noescape (OutputByteStream) -> ()) throws {
+        print("Creating \(Path(path).relative(to: rootd))")
+        try localFS.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {
@@ -73,16 +90,14 @@ final class InitPackage {
         guard manifest.exists == false else {
             throw InitError.manifestAlreadyExists
         }
-        
-        let packageFP = try Utility.fopen(manifest, mode: .write)
-        defer { packageFP.closeFile() }
-        print("Creating \(Manifest.filename)")
-        // print the manifest file
-        try fputs("import PackageDescription\n", packageFP)
-        try fputs("\n", packageFP)
-        try fputs("let package = Package(\n", packageFP)
-        try fputs("    name: \"\(pkgname)\"\n", packageFP)
-        try fputs(")\n", packageFP)
+
+        try writePackageFile(manifest) { stream in
+            stream <<< "import PackageDescription\n"
+            stream <<< "\n"
+            stream <<< "let package = Package(\n"
+            stream <<< "    name: \"\(pkgname)\"\n"
+            stream <<< ")\n"
+        }
     }
     
     private func writeGitIgnore() throws {
@@ -93,12 +108,12 @@ final class InitPackage {
         let gitignoreFP = try Utility.fopen(gitignore, mode: .write)
         defer { gitignoreFP.closeFile() }
     
-        print("Creating .gitignore")
-        // print the .gitignore
-        try fputs(".DS_Store\n", gitignoreFP)
-        try fputs("/.build\n", gitignoreFP)
-        try fputs("/Packages\n", gitignoreFP)
-        try fputs("/*.xcodeproj\n", gitignoreFP)
+        try writePackageFile(gitignore) { stream in
+            stream <<< ".DS_Store\n"
+            stream <<< "/.build\n"
+            stream <<< "/Packages\n"
+            stream <<< "/*.xcodeproj\n"
+        }
     }
     
     private func writeSources() throws {
@@ -114,18 +129,18 @@ final class InitPackage {
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = Path.join(sources, sourceFileName)
-        let sourceFileFP = try Utility.fopen(sourceFile, mode: .write)
-        defer { sourceFileFP.closeFile() }
-        print("Creating Sources/\(sourceFileName)")
-        switch mode {
-        case .library:
-            try fputs("struct \(typeName) {\n\n", sourceFileFP)
-            try fputs("    var text = \"Hello, World!\"\n", sourceFileFP)
-            try fputs("}\n", sourceFileFP)
-        case .executable:
-            try fputs("print(\"Hello, world!\")\n", sourceFileFP)
-        case .systemModule:
-            break
+
+        try writePackageFile(sourceFile) { stream in
+            switch mode {
+            case .library:
+                stream <<< "struct \(typeName) {\n\n"
+                stream <<< "    var text = \"Hello, World!\"\n"
+                stream <<< "}\n"
+            case .executable:
+                stream <<< "print(\"Hello, world!\")\n"
+            case .systemModule:
+                break
+            }
         }
     }
     
@@ -137,16 +152,14 @@ final class InitPackage {
         guard modulemap.exists == false else {
             return
         }
-        let modulemapFP = try Utility.fopen(modulemap, mode: .write)
-        defer { modulemapFP.closeFile() }
         
-        print("Creating module.modulemap")
-        // print the module.modulemap
-        try fputs("module \(moduleName) [system] {\n", modulemapFP)
-        try fputs("  header \"/usr/include/\(moduleName).h\"\n", modulemapFP)
-        try fputs("  link \"\(moduleName)\"\n", modulemapFP)
-        try fputs("  export *\n", modulemapFP)
-        try fputs("}\n", modulemapFP)
+        try writePackageFile(modulemap) { stream in
+            stream <<< "module \(moduleName) [system] {\n"
+            stream <<< "  header \"/usr/include/\(moduleName).h\"\n"
+            stream <<< "  link \"\(moduleName)\"\n"
+            stream <<< "  export *\n"
+            stream <<< "}\n"
+        }
     }
     
     private func writeTests() throws {
@@ -159,7 +172,8 @@ final class InitPackage {
         }
         print("Creating Tests/")
         try Utility.makeDirectories(tests)
-        ///Only libraries are testable for now
+
+        // Only libraries are testable for now.
         if mode == .library {
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
@@ -167,15 +181,13 @@ final class InitPackage {
     }
     
     private func writeLinuxMain(testsPath: String) throws {
-        let linuxMain = Path.join(testsPath, "LinuxMain.swift")
-        let linuxMainFP = try Utility.fopen(linuxMain, mode: .write)
-        defer { linuxMainFP.closeFile() }
-        print("Creating Tests/LinuxMain.swift")
-        try fputs("import XCTest\n", linuxMainFP)
-        try fputs("@testable import \(moduleName)TestSuite\n\n", linuxMainFP)
-        try fputs("XCTMain([\n", linuxMainFP)
-        try fputs("     testCase(\(typeName)Tests.allTests),\n", linuxMainFP)
-        try fputs("])\n", linuxMainFP)
+        try writePackageFile(Path.join(testsPath, "LinuxMain.swift")) { stream in
+            stream <<< "import XCTest\n"
+            stream <<< "@testable import \(moduleName)TestSuite\n\n"
+            stream <<< "XCTMain([\n"
+            stream <<< "     testCase(\(typeName)Tests.allTests),\n"
+            stream <<< "])\n"
+        }
     }
     
     private func writeTestFileStubs(testsPath: String) throws {
@@ -183,27 +195,25 @@ final class InitPackage {
         print("Creating Tests/\(moduleName)/")
         try Utility.makeDirectories(testModule)
         
-        let testsFile = Path.join(testModule, "\(moduleName)Tests.swift")
-        print("Creating Tests/\(moduleName)/\(moduleName)Tests.swift")
-        let testsFileFP = try Utility.fopen(testsFile, mode: .write)
-        defer { testsFileFP.closeFile() }
-        try fputs("import XCTest\n", testsFileFP)
-        try fputs("@testable import \(moduleName)\n", testsFileFP)
-        try fputs("\n", testsFileFP)
-        try fputs("class \(moduleName)Tests: XCTestCase {\n", testsFileFP)
-        try fputs("    func testExample() {\n", testsFileFP)
-        try fputs("        // This is an example of a functional test case.\n", testsFileFP)
-        try fputs("        // Use XCTAssert and related functions to verify your tests produce the correct results.\n", testsFileFP)
-        try fputs("        XCTAssertEqual(\(typeName)().text, \"Hello, World!\")\n", testsFileFP)
-        try fputs("    }\n", testsFileFP)
-        try fputs("\n", testsFileFP)
-        try fputs("\n", testsFileFP)
-        try fputs("    static var allTests : [(String, (\(moduleName)Tests) -> () throws -> Void)] {\n", testsFileFP)
-        try fputs("        return [\n", testsFileFP)
-        try fputs("            (\"testExample\", testExample),\n", testsFileFP)
-        try fputs("        ]\n", testsFileFP)
-        try fputs("    }\n", testsFileFP)
-        try fputs("}\n", testsFileFP)
+        try writePackageFile(Path.join(testModule, "\(moduleName)Tests.swift")) { stream in
+            stream <<< "import XCTest\n"
+            stream <<< "@testable import \(moduleName)\n"
+            stream <<< "\n"
+            stream <<< "class \(moduleName)Tests: XCTestCase {\n"
+            stream <<< "    func testExample() {\n"
+            stream <<< "        // This is an example of a functional test case.\n"
+            stream <<< "        // Use XCTAssert and related functions to verify your tests produce the correct results.\n"
+            stream <<< "        XCTAssertEqual(\(typeName)().text, \"Hello, World!\")\n"
+            stream <<< "    }\n"
+            stream <<< "\n"
+            stream <<< "\n"
+            stream <<< "    static var allTests : [(String, (\(moduleName)Tests) -> () throws -> Void)] {\n"
+            stream <<< "        return [\n"
+            stream <<< "            (\"testExample\", testExample),\n"
+            stream <<< "        ]\n"
+            stream <<< "    }\n"
+            stream <<< "}\n"
+        }
     }
 }
 
