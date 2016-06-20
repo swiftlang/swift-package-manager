@@ -203,8 +203,7 @@ public class CheckoutManager {
         //
         // FIXME: Build out improved file reading support.
         try fopen(statePath) { handle in
-            let data = try handle.enumerate().joined(separator: "\n")
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: data))
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
 
             // Load the state from JSON.
             guard case let .dictionary(contents) = json,

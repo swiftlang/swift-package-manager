@@ -49,24 +49,11 @@ public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
     handle.write(Data(bytes: bytes))
 }
 
-
-extension FileHandle: Sequence {
-    public func enumerate(separatedBy separator: String = "\n") throws -> IndexingIterator<[String]> {
+extension FileHandle {
+    public func readFileContents() throws -> String {
         guard let contents = String(data: readDataToEndOfFile(), encoding: NSUTF8StringEncoding) else {
             throw Error.unicodeDecodingError
         }
-
-        if contents == "" {
-            return [].makeIterator()
-        }
-
-        return contents.components(separatedBy: separator).makeIterator()
-    }
-
-    public func makeIterator() -> IndexingIterator<[String]> {
-        guard let iterator = try? enumerate() else {
-            return [].makeIterator()
-        }
-        return iterator
+        return contents
     }
 }

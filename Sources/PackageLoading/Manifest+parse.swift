@@ -15,6 +15,11 @@ import Utility
 
 import func POSIX.realpath
 
+private enum ManifestParseError: ErrorProtocol {
+    /// The manifest had a string encoding error.
+    case invalidEncoding
+}
+
 extension Manifest {
     /// Create a manifest by loading from the given path.
     ///
@@ -84,7 +89,9 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     cmd += ["-fileno", "\(fp.fileDescriptor)"]
     try system(cmd)
 
-    let toml = try fopen(filePath).reduce("") { $0 + "\n" + $1 }
+    guard let toml = try localFS.readFileContents(filePath).asString else {
+        throw ManifestParseError.invalidEncoding
+    }
     try Utility.removeFileTree(filePath) //Delete the temp file after reading it
 
     return toml != "" ? toml : nil
