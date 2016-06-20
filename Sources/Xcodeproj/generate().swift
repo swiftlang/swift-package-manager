@@ -126,7 +126,7 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     // and re-write only if its new.
     if path.isFile, let data = NSData(contentsOfFile: path) {
         // FIXME: We should have a utility for this.
-        var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8))
+        var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8.self))
         data.getBytes(&contents, length: data.length)
         // If contents are same then no need to re-write.
         if contents == stream.bytes.contents { 
