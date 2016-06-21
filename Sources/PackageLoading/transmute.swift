@@ -59,7 +59,7 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
                     //        test modules named 'Functional'.
                     testModule.dependencies = modules.filter{
                         switch $0.name {
-                        case "Basic", "Utility":
+                        case "Basic", "Utility", "PackageModel":
                             return true
                         default:
                             return false
