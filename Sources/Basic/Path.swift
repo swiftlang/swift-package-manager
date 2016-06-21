@@ -163,12 +163,13 @@ public struct RelativePath {
         _impl = PathImpl(string: normalize(relative: string))
     }
     
-    /// Directory component.  For a relative path, this may be empty.
+    /// Directory component.  For a relative path without any path separators,
+    /// this is the `.` string instead of the empty string.
     public var dirname: String {
         return _impl.dirname
     }
     
-    /// Last path component (including the suffix, if any).  it is never empty.
+    /// Last path component (including the suffix, if any).  It is never empty.
     public var basename: String {
         return _impl.basename
     }
@@ -226,17 +227,17 @@ private struct PathImpl {
     private let string: String
     
     /// Private function that returns the directory part of the stored path
-    /// string (relying on the fact that it has been normalized).  Returns an
-    /// empty string if there is no directory part (which is the case if and
-    /// only if there is no path separator).
+    /// string (relying on the fact that it has been normalized).  Returns a
+    /// string consisting of just `.` if there is no directory part (which is
+    /// the case if and only if there is no path separator).
     private var dirname: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
         // Find the last path separator.
         guard let idx = chars.rindex(of: pathSeparatorCharacter) else {
-            // No path separators, so the directory name is empty.
-            return ""
+            // No path separators, so the directory name is `.`.
+            return "."
         }
         // Check if it's the only one in the string.
         if idx == chars.startIndex {
