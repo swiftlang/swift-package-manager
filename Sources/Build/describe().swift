@@ -95,11 +95,9 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 }
 
 private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
-    try fopen(path, mode: .write) { fp in
-        let stream = OutputByteStream()
-        write(stream)
-        try fputs(stream.bytes.contents, fp)
-    }
+    let stream = OutputByteStream()
+    write(stream)
+    try localFS.writeFileContents(path, bytes: stream.bytes)
     return path
 }
 
