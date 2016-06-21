@@ -75,7 +75,8 @@ public struct AbsolutePath {
     }
     
     /// Suffix (including leading `.` character) if any.  Note that a basename
-    /// that starts with a `.` character is not considered a suffix.
+    /// that starts with a `.` character is not considered a suffix, nor is a
+    /// trailing `.` character.
     public var suffix: String? {
         return _impl.suffix
     }
@@ -159,7 +160,8 @@ public struct RelativePath {
     }
     
     /// Suffix (including leading `.` character) if any.  Note that a basename
-    /// that starts with a `.` character is not considered a suffix.
+    /// that starts with a `.` character is not considered a suffix, nor is a
+    /// trailing `.` character.
     public var suffix: String? {
         return _impl.suffix
     }
