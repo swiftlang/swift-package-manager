@@ -110,7 +110,6 @@ public struct SwiftTestTool {
                         for test in testCase.tests {
                             print(testCase.name + "/" + test)
                         }
-                        print()
                     }
                 }
 
