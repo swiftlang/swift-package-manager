@@ -48,13 +48,30 @@ public struct AbsolutePath {
         _impl = PathImpl(string: normalize(absolute: string))
     }
     
-    /// Initializes the AbsolutePath from an AbsolutePath and a RelativePath.
+    /// Initializes the AbsolutePath by concatenating a relative path to an
+    /// existing absolute path, and renormalizing if necessary.
     public init(_ absPath: AbsolutePath, _ relPath: RelativePath) {
-        // Both paths are already normalized, so we just construct a new path.
-        let absStr = absPath._impl.string
+        // Both paths are already normalized.  The only case in which we have
+        // to renormalize their concatenation is if the relative path starts
+        // with a `..` path component.
         let relStr = relPath._impl.string
-        _impl = PathImpl(string: relStr == "." ? absStr :
-            absStr + String(pathSeparatorCharacter) + relStr)
+        var absStr = absPath._impl.string
+        if absStr != String(pathSeparatorCharacter) {
+            absStr.append(pathSeparatorCharacter)
+        }
+        absStr.append(relStr)
+        
+        // If the relative string starts with `.` or `..`, we need to normalize
+        // the resulting string.
+        // FIXME: We can actually optimize that case, since we know that the
+        // normalization of a relative path can leave `..` path components at
+        // the beginning of the path only.
+        if relStr.hasPrefix(".") {
+            absStr = normalize(absolute: absStr)
+        }
+        
+        // Finally, store the result as our PathImpl.
+        _impl = PathImpl(string: absStr)
     }
     
     /// NOTE: We will want to add other initializers, such as ones that take

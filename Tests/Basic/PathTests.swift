@@ -146,6 +146,16 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/a/b").parentDirectory.parentDirectory, AbsolutePath("/yabba"))
     }
     
+    func testConcatenation() {
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("")).asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath(".")).asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("..")).asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("bar")).asString, "/bar")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).asString, "/foo")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).asString, "/yabba/a/b")
+    }
+    
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
@@ -162,5 +172,6 @@ class PathTests: XCTestCase {
         ("testBaseNameExtraction",       testBaseNameExtraction),
         ("testSuffixExtraction",         testSuffixExtraction),
         ("testParentDirectory",          testParentDirectory),
+        ("testConcatenation",            testConcatenation),
     ]
 }
