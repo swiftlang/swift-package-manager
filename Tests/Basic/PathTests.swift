@@ -110,11 +110,14 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("a").suffix, nil)
         XCTAssertEqual(RelativePath("a.").suffix, nil)
         XCTAssertEqual(RelativePath(".a").suffix, nil)
-        XCTAssertEqual(RelativePath("a.foo").suffix, "foo")
-        XCTAssertEqual(RelativePath(".a.foo").suffix, "foo")
-        XCTAssertEqual(RelativePath(".a.foo.bar").suffix, "bar")
-        XCTAssertEqual(RelativePath("a.foo.bar").suffix, "bar")
-        XCTAssertEqual(RelativePath(".a.foo.bar.baz").suffix, "baz")
+        XCTAssertEqual(RelativePath("").suffix, nil)
+        XCTAssertEqual(RelativePath(".").suffix, nil)
+        XCTAssertEqual(RelativePath("..").suffix, nil)
+        XCTAssertEqual(RelativePath("a.foo").suffix, ".foo")
+        XCTAssertEqual(RelativePath(".a.foo").suffix, ".foo")
+        XCTAssertEqual(RelativePath(".a.foo.bar").suffix, ".bar")
+        XCTAssertEqual(RelativePath("a.foo.bar").suffix, ".bar")
+        XCTAssertEqual(RelativePath(".a.foo.bar.baz").suffix, ".baz")
     }
     
     func testParentDirectory() {
@@ -125,22 +128,12 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/a/b").parentDirectory.parentDirectory, AbsolutePath("/yabba"))
     }
     
-    func testHomeDirectory() {
-        // Only run tests using HOME if it is defined.
-        // FIXME: This needs a lot more testing, especially that the environment variable HOME correctly overrides getpwuid()'s directory etc.
-        if POSIX.getenv("HOME") != nil {
-            XCTAssertEqual(AbsolutePath("~").asString, POSIX.getenv("HOME"))
-        }
-    }
-    
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
     
     // FIXME: We also need test for stat() operations.
-    
-    // FIXME: We also need performance tests for all of this.
-    
+        
     static var allTests = [
         ("testBasics",                   testBasics),
         ("testRepeatedPathSeparators",   testRepeatedPathSeparators),
@@ -151,6 +144,5 @@ class PathTests: XCTestCase {
         ("testBaseNameExtraction",       testBaseNameExtraction),
         ("testSuffixExtraction",         testSuffixExtraction),
         ("testParentDirectory",          testParentDirectory),
-        ("testHomeDirectory",            testHomeDirectory),
     ]
 }
