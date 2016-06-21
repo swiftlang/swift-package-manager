@@ -12,8 +12,6 @@ import Basic
 import PackageModel
 import POSIX
 
-import func Utility.fopen
-import func Utility.fputs
 import func Utility.makeDirectories
 import struct Utility.Path
 
@@ -105,8 +103,6 @@ final class InitPackage {
         guard gitignore.exists == false else {
             return
         } 
-        let gitignoreFP = try Utility.fopen(gitignore, mode: .write)
-        defer { gitignoreFP.closeFile() }
     
         try writePackageFile(gitignore) { stream in
             stream <<< ".DS_Store\n"
