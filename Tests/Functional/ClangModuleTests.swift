@@ -10,7 +10,14 @@
 
 import XCTest
 
+import PackageModel
 import Utility
+
+extension String {
+    private var soname: String {
+        return "lib\(self).\(Product.dynamicLibraryExtension)"
+    }
+}
 
 class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {

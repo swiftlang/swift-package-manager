@@ -29,7 +29,7 @@ public class Product {
         case .Library(.Static):
             return "lib\(name).a"
         case .Library(.Dynamic):
-            return name.soname
+            return "lib\(name).\(Product.dynamicLibraryExtension)"
         case .Test:
             let base = "\(name).xctest"
             #if os(OSX)
@@ -39,6 +39,14 @@ public class Product {
             #endif
         }
     }
+
+    // FIXME: This needs to be come from a toolchain object, not the host
+    // configuration.
+#if os(OSX)
+    public static let dynamicLibraryExtension = "dylib"
+#else
+    public static let dynamicLibraryExtension = "so"
+#endif
 }
 
 extension Product: CustomStringConvertible {
