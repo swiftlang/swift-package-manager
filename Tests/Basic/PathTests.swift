@@ -91,7 +91,25 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("a/../////../////./////").asString, "..")
     }
         
+    func testDirectoryNameExtraction() {
+        XCTAssertEqual(AbsolutePath("/").dirname, "/")
+        XCTAssertEqual(AbsolutePath("/a").dirname, "/")
+        XCTAssertEqual(AbsolutePath("/./a").dirname, "/")
+        XCTAssertEqual(AbsolutePath("/../..").dirname, "/")
+        XCTAssertEqual(AbsolutePath("/ab/c//d/").dirname, "/ab/c")
+        XCTAssertEqual(RelativePath("ab/c//d/").dirname, "ab/c")
+        XCTAssertEqual(RelativePath("../a").dirname, "..")
+        XCTAssertEqual(RelativePath("../a/..").dirname, "")
+        XCTAssertEqual(RelativePath("a/..").dirname, "")
+        XCTAssertEqual(RelativePath("./..").dirname, "")
+        XCTAssertEqual(RelativePath("a/../////../////./////").dirname, "")
+        XCTAssertEqual(RelativePath("abc").dirname, "")
+        XCTAssertEqual(RelativePath("").dirname, "")
+        XCTAssertEqual(RelativePath(".").dirname, "")
+    }
+    
     func testBaseNameExtraction() {
+        XCTAssertEqual(AbsolutePath("/").basename, "/")
         XCTAssertEqual(AbsolutePath("/a").basename, "a")
         XCTAssertEqual(AbsolutePath("/./a").basename, "a")
         XCTAssertEqual(AbsolutePath("/../..").basename, "/")
@@ -100,10 +118,10 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("../a/..").basename, "..")
         XCTAssertEqual(RelativePath("a/..").basename, ".")
         XCTAssertEqual(RelativePath("./..").basename, "..")
-        XCTAssertEqual(RelativePath("a/..").basename, ".")
         XCTAssertEqual(RelativePath("a/../////../////./////").basename, "..")
         XCTAssertEqual(RelativePath("abc").basename, "abc")
         XCTAssertEqual(RelativePath("").basename, ".")
+        XCTAssertEqual(RelativePath(".").basename, ".")
     }
     
     func testSuffixExtraction() {
