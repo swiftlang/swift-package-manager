@@ -18,6 +18,7 @@ import func POSIX.exit
 
 private enum TestError: ErrorProtocol {
     case testsExecutableNotFound
+    case invalidListTestJSONData
 }
 
 extension TestError: CustomStringConvertible {
@@ -25,18 +26,23 @@ extension TestError: CustomStringConvertible {
         switch self {
         case .testsExecutableNotFound:
             return "no tests found to execute, create a module in your `Tests' directory"
+        case .invalidListTestJSONData:
+            return "Invalid list test JSON structure."
         }
     }
 }
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
+    case listTests
     case run(String?)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--help", "-h":
             self = .usage
+        case "-l", "--list-tests":
+            self = .listTests
         case "-s", "--specifier":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .run(specifier)
@@ -49,6 +55,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         switch self {
         case .usage:
             return "--help"
+        case .listTests:
+            return "--list-tests"
         case .run(let specifier):
             return specifier ?? ""
         }
@@ -93,6 +101,19 @@ public struct SwiftTestTool {
             case .usage:
                 usage()
         
+            case .listTests:
+                let testPath = try determineTestPath(opts: opts)
+                let testSuites = try getTestSuites(path: testPath)
+                // Print the tests.
+                for testSuite in testSuites {
+                    for testCase in testSuite.tests {
+                        for test in testCase.tests {
+                            print(testCase.name + "/" + test)
+                        }
+                        print()
+                    }
+                }
+
             case .run(let specifier):
                 let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
                 try build(YAMLPath: yamlPath, target: "test")
@@ -198,6 +219,56 @@ public struct SwiftTestTool {
         let result: Void? = try? system(args, environment: ProcessInfo.processInfo().environment)
         return result != nil
     }
+
+    /// Locates XCTestHelper tool inside the libexec directory and bin directory.
+    /// Note: It is a fatalError if we are not able to locate the tool.
+    ///
+    /// - Returns: Path to XCTestHelper tool.
+    private func xctestHelperPath() -> String {
+        let xctestHelperBin = "swiftpm-xctest-helper"
+        let binDirectory = Process.arguments.first!.abspath.parentDirectory
+        // XCTestHelper tool is installed in libexec.
+        let maybePath = Path.join(binDirectory, "../libexec/swift/pm/", xctestHelperBin)
+        if maybePath.isFile {
+            return maybePath
+        }
+        // This will be true during swiftpm developement.
+        // FIXME: Factor all of the development-time resource location stuff into a common place.
+        let path = Path.join(binDirectory, xctestHelperBin)
+        if path.isFile {
+            return path 
+        }
+        fatalError("XCTestHelper binary not found.") 
+    }
+
+    /// Runs the corresponding tool to get tests JSON and create TestSuite array.
+    /// On OSX, we use the swiftpm-xctest-helper tool bundled with swiftpm.
+    /// On Linux, XCTest can dump the json using `--dump-tests-json` mode.
+    ///
+    /// - Parameters:
+    ///     - path: Path to the XCTest bundle(OSX) or executable(Linux).
+    ///
+    /// - Throws: TestError, SystemError, Utility.Errror
+    ///
+    /// - Returns: Array of TestSuite
+    private func getTestSuites(path: String) throws -> [TestSuite] {
+        // Make sure tests are present.
+        guard path.isValidTest else { throw TestError.testsExecutableNotFound }
+
+        // Run the correct tool.
+      #if os(OSX)
+        let tempFile = try TemporaryFile()
+        let args = [xctestHelperPath(), path, tempFile.path]
+        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
+        // Read the temporary file's content.
+        let data = try fopen(tempFile.path).readFileContents()
+      #else
+        let args = [path, "--dump-tests-json"]
+        let data = try popen(args)
+      #endif
+        // Parse json and return TestSuites.
+        return try TestSuite.parse(jsonString: data)
+    }
 }
 
 private extension String {
@@ -207,5 +278,77 @@ private extension String {
         #else
             return isFile       // otherwise ${foo}.xctest is executable file
         #endif
+    }
+}
+
+/// A struct to hold the XCTestSuite data.
+struct TestSuite {
+
+    /// A struct to hold a XCTestCase data.
+    struct TestCase {
+        /// Name of the test case.
+        let name: String
+
+        /// Array of test methods in this test case.
+        let tests: [String]
+    }
+
+    /// The name of the test suite.
+    let name: String
+
+    /// Array of test cases in this test suite.
+    let tests: [TestCase]
+
+    /// Parses a JSON String to array of TestSuite.
+    ///
+    /// - Parameters:
+    ///     - jsonString: JSON string to be parsed.
+    ///
+    /// - Throws: JSONDecodingError, TestError
+    ///
+    /// - Returns: Array of TestSuite.
+    static func parse(jsonString: String) throws -> [TestSuite] {
+        let json = try JSON(string: jsonString)
+        return try TestSuite.parse(json: json)
+    }
+
+    /// Parses the JSON object into array of TestSuite.
+    ///
+    /// - Parameters:
+    ///     - json: An object of JSON.
+    ///
+    /// - Throws: TestError
+    ///
+    /// - Returns: Array of TestSuite.
+    static func parse(json: JSON) throws -> [TestSuite] {
+        guard case let .dictionary(contents) = json,
+              case let .array(testSuites)? = contents["tests"] else {
+            throw TestError.invalidListTestJSONData
+        }
+
+        return try testSuites.map { testSuite in
+            guard case let .dictionary(testSuiteData) = testSuite,
+                  case let .string(name)? = testSuiteData["name"],
+                  case let .array(allTestsData)? = testSuiteData["tests"] else {
+                throw TestError.invalidListTestJSONData
+            }
+
+            let testCases: [TestSuite.TestCase] = try allTestsData.map { testCase in
+                guard case let .dictionary(testCaseData) = testCase,
+                      case let .string(name)? = testCaseData["name"],
+                      case let .array(tests)? = testCaseData["tests"] else {
+                    throw TestError.invalidListTestJSONData
+                }
+                let testMethods: [String] = try tests.map { test in
+                    guard case let .dictionary(testData) = test,
+                          case let .string(testMethod)? = testData["name"] else {
+                        throw TestError.invalidListTestJSONData
+                    }
+                    return testMethod
+                }
+                return TestSuite.TestCase(name: name, tests: testMethods)
+            }
+            return TestSuite(name: name, tests: testCases)
+        }
     }
 }
