@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import PackageLoading
 import Utility
@@ -61,10 +62,9 @@ extension Command {
 
             // TODO should be llbuild rules∫
             if conf == .debug {
-                try Utility.makeDirectories(outpath.parentDirectory)
-                try fopen(outpath.parentDirectory.parentDirectory, "Info.plist", mode: .write) { fp in
-                    try fputs(product.Info.plist, fp)
-                }
+                let infoPlistPath = Path.join(outpath.parentDirectory.parentDirectory, "Info.plist")
+                try localFS.createDirectory(outpath.parentDirectory, recursive: true)
+                try localFS.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
             }
           #else
             // HACK: To get a path to LinuxMain.swift, we just grab the

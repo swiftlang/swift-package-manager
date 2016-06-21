@@ -134,7 +134,5 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
         }
     }
     // Write the real file.
-    try fopen(path, mode: .write) { fp in
-        try fputs(stream.bytes.contents, fp)
-    }
+    try localFS.writeFileContents(path, bytes: stream.bytes)
 }

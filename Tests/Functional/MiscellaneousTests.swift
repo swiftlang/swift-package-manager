@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import XCTest
+
+import Basic
+
 import struct Utility.Path
-import func Utility.fopen
-import func Utility.fputs
 import func libc.sleep
 import enum POSIX.Error
 import func POSIX.popen
-import XCTest
 
 class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() {
@@ -276,9 +277,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "Bar/Bar.swift", mode: .write) { fp in
-                try fputs("public let bar = \"Goodbye\"\n", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "Bar/Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
             XCTAssertBuilds(prefix)
             output = try popen(execpath)
@@ -302,9 +301,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .write) { fp in
-                try fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix, "app")
             output = try popen(execpath)
@@ -328,9 +325,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .write) { fp in
-                try fputs("public let foo = \"Goodbye\"", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "root/Packages/dep1-1.2.3/Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix, "root")
             output = try popen(execpath)
