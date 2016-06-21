@@ -8,9 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import libc
-import POSIX
-
 
 /// Path separator character (always `/`).  If a path separator occurs at the
 /// beginning of a path, the path is considered to be absolute.
