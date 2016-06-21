@@ -126,7 +126,7 @@ struct PkgConfigParser {
         }
         
         let file = try fopen(self.pcFile, mode: .read)
-        for line in file {
+        for line in try file.readFileContents().components(separatedBy: "\n") {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.

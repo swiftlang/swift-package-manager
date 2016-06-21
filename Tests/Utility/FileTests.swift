@@ -25,8 +25,7 @@ class FileTests: XCTestCase {
     func testOpenFile() {
         do {
             let file = try loadInputFile("empty_file")
-            var generator = try file.enumerate()
-            XCTAssertNil(generator.next())
+            XCTAssertEqual(try file.readFileContents(), "")
         } catch {
             XCTFail("The file should be opened without problem")
         }
@@ -35,7 +34,7 @@ class FileTests: XCTestCase {
     func testOpenFileFail() {
         do {
             let file = try loadInputFile("file_not_existing")
-            let _ = try file.enumerate()
+            let _ = try file.readFileContents()
             XCTFail("The file should not be opened since it is not existing")
         } catch {
             
@@ -45,7 +44,7 @@ class FileTests: XCTestCase {
     func testReadRegularTextFile() {
         do {
             let file = try loadInputFile("regular_text_file")
-            var generator = try file.enumerate()
+            var generator = try file.readFileContents().components(separatedBy: "\n").makeIterator()
             XCTAssertEqual(generator.next(), "Hello world")
             XCTAssertEqual(generator.next(), "It is a regular text file.")
             XCTAssertEqual(generator.next(), "")
@@ -58,7 +57,7 @@ class FileTests: XCTestCase {
     func testReadRegularTextFileWithSeparator() {
         do {
             let file = try loadInputFile("regular_text_file")
-            var generator = try file.enumerate(separatedBy: " ")
+            var generator = try file.readFileContents().components(separatedBy: " ").makeIterator()
             XCTAssertEqual(generator.next(), "Hello")
             XCTAssertEqual(generator.next(), "world\nIt")
             XCTAssertEqual(generator.next(), "is")
