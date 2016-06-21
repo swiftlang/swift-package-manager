@@ -26,7 +26,7 @@ public let pathSeparatorCharacter: Character = "/"
 /// string representation.  This normalization is strictly syntactic, and does
 /// not access the file system in any way.
 ///
-/// The path string is normalized by:
+/// The absolute path string is normalized by:
 /// - Collapsing `..` path components
 /// - Removing `.` path components
 /// - Removing any trailing path separator
@@ -44,8 +44,8 @@ public struct AbsolutePath {
     /// Initializes the AbsolutePath from `string`, which must be an absolute
     /// path (i.e. it must begin with a path separator; this initializer does
     /// not interpret leading `~` characters as home directory specifiers).
-    /// The input string will be normalized if needed, in accordance with the
-    /// rules described in the documentation for AbsolutePath.
+    /// The input string will be normalized if needed, as described in the
+    /// documentation for AbsolutePath.
     public init(_ string: String) {
         // Normalize the absolute string and store it as our PathImpl.
         _impl = PathImpl(string: normalize(absolute: string))
@@ -123,6 +123,17 @@ public struct AbsolutePath {
 /// a `/` character, and holds a normalized string representation.  As with
 /// AbsolutePath, the normalization is strictly syntactic, and does not access
 /// the file system in any way.
+///
+/// The relative path string is normalized by:
+/// - Collapsing `..` path components that aren't at the beginning
+/// - Removing extraneous `.` path components
+/// - Removing any trailing path separator
+/// - Removing any redundant path separators
+/// - Replacing a completely empty path with a `.`
+///
+/// This string manipulation may change the meaning of a path if any of the
+/// path components are symbolic links on disk.  However, the file system is
+/// never accessed in any way when initializing a RelativePath.
 public struct RelativePath {
     /// Private implementation details, shared with the AbsolutePath struct.
     private let _impl: PathImpl
@@ -130,18 +141,8 @@ public struct RelativePath {
     /// Initializes the RelativePath from `str`, which must be a relative path
     /// (which means that it must not begin with a path separator or a tilde).
     /// An empty input path is allowed, but will be normalized to a single `.`
-    /// character.
-    ///
-    /// The path string will be normalized by:
-    /// - Collapsing `..` path components that aren't at the beginning
-    /// - Removing extraneous `.` path components
-    /// - Removing any trailing path separator
-    /// - Removing any redundant path separators
-    /// - Replacing a completely empty path with a `.`
-    ///
-    /// This string manipulation may change the meaning of a path if any of the
-    /// path components are symbolic links on disk.  However, the file system is
-    /// never accessed in any way when initializing an AbsolutePath.
+    /// character.  The input string will be normalized if needed, as described
+    /// in the documentation for RelativePath.
     public init(_ string: String) {
         // Normalize the relative string and store it as our PathImpl.
         _impl = PathImpl(string: normalize(relative: string))
@@ -289,15 +290,7 @@ private struct PathImpl {
 /// Private function that normalizes and returns an absolute string.  Asserts
 /// that `string` starts with a path separator.
 ///
-/// The path string will be normalized by:
-/// - Collapsing `..` path components
-/// - Removing `.` path components
-/// - Removing any trailing path separator
-/// - Removing any redundant path separators
-///
-/// This string manipulation may change the meaning of a path if any of the
-/// path components are symbolic links on disk.  However, the file system is
-/// never accessed in any way as part of the normalization.
+/// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
     // FIXME: We will also need to support a leading `~` for a home directory.
     precondition(string.characters.first == pathSeparatorCharacter)
@@ -365,8 +358,14 @@ private func normalize(absolute string: String) -> String {
 }
 
 
+/// Private function that normalizes and returns a relative string.  Asserts
+/// that `string` does not start with a path separator.
+///
+/// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
+    // FIXME: We should also guard against a leading `~`.
     precondition(string.characters.first != pathSeparatorCharacter)
+    
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.
     let chars = string.characters
