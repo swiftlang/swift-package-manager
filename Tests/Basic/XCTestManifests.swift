@@ -20,6 +20,8 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(LockTests.allTests),
         testCase(OptionParserTests.allTests),
         testCase(OutputByteStreamTests.allTests),
+        testCase(PathTests.allTests),
+        testCase(PathPerfTests.allTests),
         testCase(TOMLTests.allTests),
         testCase(TemporaryFileTests.allTests),
     ]
