@@ -26,7 +26,7 @@ extension Command {
         
         var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
 
-        let outpath = Path.join(prefix, product.outname)
+        let outpath = product.outpath(prefix)
 
         var args: [String]
         switch product.type {
@@ -44,9 +44,7 @@ extension Command {
           #endif
 
         case .Library(.Static):
-            let inputs = buildables.map{ $0.targetName } + objects
-            let outputs = [product.targetName, outpath]
-            return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
+            return Command(node: outpath, tool: ArchiveTool(inputs: objects, outputs: [outpath]))
         }
 
         switch product.type {
@@ -101,9 +99,9 @@ extension Command {
         let shell = ShellTool(
             description: "Linking \(outpath.prettyPath)",
             inputs: objects,
-            outputs: [product.targetName, outpath],
+            outputs: [outpath],
             args: args)
 
-        return Command(node: product.targetName, tool: shell)
+        return Command(node: outpath, tool: shell)
     }
 }

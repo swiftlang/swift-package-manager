@@ -59,10 +59,11 @@ struct ClangModuleBuildMetadata {
         return module.recursiveDependencies.flatMap { module in
             switch module {
             case let module as ClangModule:
-                 let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
-                return product.targetName
-            case let module as CModule:
-                return module.targetName
+                let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
+                return product.outpath(prefix)
+            case is CModule:
+                // There is no actual input dependency in case of CModule, necessary flags are appended in Module.XccFlags(_:) method.
+                return nil
             default:
                 fatalError("ClangModule \(self.module) can't have \(module) as a dependency.")
             }

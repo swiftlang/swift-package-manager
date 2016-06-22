@@ -12,7 +12,6 @@ import PackageModel
 import struct Utility.Path
 
 protocol Buildable {
-    var targetName: String { get }
     var isTest: Bool { get }
 }
 
@@ -44,10 +43,6 @@ extension Module: Buildable {
             }
         }
     }
-
-    var targetName: String {
-        return "<\(name).module>"
-    }
 }
 
 extension Product: Buildable {
@@ -56,18 +51,5 @@ extension Product: Buildable {
             return true
         }
         return false
-    }
-
-    var targetName: String {
-        switch type {
-        case .Library(.Dynamic):
-            return "<\(name).dylib>"
-        case .Test:
-            return "<\(name).test>"
-        case .Library(.Static):
-            return "<\(name).a>"
-        case .Executable:
-            return "<\(name).exe>"
-        }
     }
 }
