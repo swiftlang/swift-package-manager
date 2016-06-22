@@ -11,7 +11,7 @@
 import Utility
 import struct PackageDescription.Version
 
-public class Package {
+public final class Package {
     public let url: String
     public let path: String
     public let name: String
@@ -39,13 +39,11 @@ extension Package: CustomStringConvertible {
 }
 
 extension Package: Hashable, Equatable {
-    //FIXME technically version should be taken into account
-    public var hashValue: Int { return url.hashValue }
+    public var hashValue: Int { return ObjectIdentifier(self).hashValue }
 }
 
 public func ==(lhs: Package, rhs: Package) -> Bool {
-    //FIXME technically version should be taken into account
-    return lhs.url == rhs.url
+    return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
 }
 
 extension Package {
