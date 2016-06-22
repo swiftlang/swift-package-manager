@@ -44,7 +44,7 @@ extension Git {
 extension Git.Repo {
     var versions: [Version] {
         let out = (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
-        let tags = out.characters.split(separator: Character.newline)
+        let tags = out.characters.split(separator: "\n")
         let versions = tags.flatMap(Version.init).sorted()
         if !versions.isEmpty {
             return versions

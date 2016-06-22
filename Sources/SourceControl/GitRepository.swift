@@ -80,6 +80,6 @@ private class GitRepository: Repository {
     func getTags() -> [String] {
         // FIXME: Error handling.
         let tagList = try! Git.runPopen([Git.tool, "-C", path, "tag", "-l"]) ?? ""
-        return tagList.characters.split(separator: Character.newline).map(String.init)
+        return tagList.characters.split(separator: "\n").map(String.init)
     }
 }
