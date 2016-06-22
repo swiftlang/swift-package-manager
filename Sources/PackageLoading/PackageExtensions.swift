@@ -105,7 +105,7 @@ extension Package {
         let modules: [Module]
         if maybeModules.isEmpty {
             do {
-                modules = [try modulify(srcroot, name: self.name)]
+                modules = [try modulify(srcroot, name: self.name, isTest: false)]
             } catch Module.Error.noSources {
                 throw ModuleError.noModules(self)
             }
@@ -117,7 +117,7 @@ extension Package {
                 } else {
                     name = path.basename
                 }
-                return try modulify(path, name: name)
+                return try modulify(path, name: name, isTest: false)
             }
         }
 
@@ -154,7 +154,7 @@ extension Package {
         return modules
     }
     
-    private func modulify(_ path: String, name: String) throws -> Module {
+    private func modulify(_ path: String, name: String, isTest: Bool) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: Sources.validCFamilyExtensions) }
@@ -162,11 +162,11 @@ extension Package {
         
         if !cSources.isEmpty {
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path) }
-            return try ClangModule(name: name, sources: Sources(paths: cSources, root: path))
+            return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
         }
         
         guard !swiftSources.isEmpty else { throw Module.Error.noSources(path) }
-        return try SwiftModule(name: name, sources: Sources(paths: swiftSources, root: path))
+        return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
     }
 
     private func isValidSource(_ path: String) -> Bool {
@@ -227,6 +227,16 @@ extension Package {
             //TODO and then we should prefix all modules with their package probably
             //Suffix 'Tests' to test product so the module name of linux executable don't collide with
             //main package, if present.
+            // FIXME: Ignore C language test modules on linux for now.
+          #if os(Linux)
+            let testModules = testModules.filter { module in
+                if module is ClangModule {
+                    print("warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux.")
+                    return false
+                }
+                return true
+            }
+          #endif
             let product = Product(name: "\(self.name)Tests", type: .Test, modules: testModules)
             products.append(product)
         }
@@ -283,13 +293,7 @@ extension Package {
         //Don't try to walk Tests if it is in excludes
         if testsPath.isDirectory && excludes.contains(testsPath) { return [] }
         return try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
-            let sources = walk(dir, recursing: shouldConsiderDirectory).filter{ isValidSource($0, validExtensions: Sources.validSwiftExtensions) }
-            if sources.count > 0 {
-                return try SwiftModule(name: dir.basename, isTest: true, sources: Sources(paths: sources, root: dir))
-            } else {
-                print("warning: no sources in test module: \(path)")
-                return nil
-            }
+            return [try modulify(dir, name: dir.basename, isTest: true)]
         }
     }
 }

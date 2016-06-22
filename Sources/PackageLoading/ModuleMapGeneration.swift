@@ -65,7 +65,11 @@ extension ClangModule {
     // this there but is difficult in current architecture.
     public func generateModuleMap(inDir wd: String, modulemapStyle: ModuleMapStyle = .library) throws {
         precondition(wd.isAbsolute)
-        
+        // Don't generate modulemap for a Test module.
+        guard !isTest else {
+            return
+        }
+
         ///Return if module map is already present
         guard !moduleMapPath.isFile else {
             return

@@ -15,7 +15,8 @@ import func POSIX.getenv
 import func POSIX.popen
 
 public protocol Toolchain {
-    var platformArgs: [String] { get }
+    var platformArgsClang: [String] { get }
+    var platformArgsSwiftc: [String] { get }
     var sysroot: String?  { get }
     var SWIFT_EXEC: String { get }
     var clang: String { get }

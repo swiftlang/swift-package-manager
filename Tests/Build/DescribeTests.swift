@@ -18,7 +18,8 @@ final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
             struct InvalidToolchain: Toolchain {
-                var platformArgs: [String] { fatalError() }
+                var platformArgsClang: [String] { fatalError() }
+                var platformArgsSwiftc: [String] { fatalError() }
                 var sysroot: String?  { fatalError() }
                 var SWIFT_EXEC: String { fatalError() }
                 var clang: String { fatalError() }
