@@ -49,21 +49,18 @@ final class InitPackage {
     let pkgname: String
 
     /// The name of the example module to create.
-    var moduleName: String {
-        return pkgname
-    }
+    var moduleName: String
 
     /// The name of the example type to create (within the package).
     var typeName: String {
-        return pkgname
+        return moduleName
     }
     
     init(mode: InitMode) throws {
-        // Validate that the name is valid.
-        let _ = try c99name(name: rootd.basename)
-        
         self.mode = mode
         pkgname = rootd.basename
+        // Also validates that the name is valid.
+        moduleName = try c99name(name: rootd.basename)
     }
     
     func writePackageStructure() throws {
@@ -187,8 +184,8 @@ final class InitPackage {
     }
     
     private func writeTestFileStubs(testsPath: String) throws {
-        let testModule = Path.join(testsPath, moduleName)
-        print("Creating Tests/\(moduleName)/")
+        let testModule = Path.join(testsPath, pkgname)
+        print("Creating Tests/\(pkgname)/")
         try Utility.makeDirectories(testModule)
         
         try writePackageFile(Path.join(testModule, "\(moduleName)Tests.swift")) { stream in
