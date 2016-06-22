@@ -69,16 +69,23 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
 
 private enum TestToolFlag: Argument {
     case chdir(String)
+    case skipBuild
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
         case "--chdir", "-C":
             guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .chdir(path)
+        case "--skip-build":
+            self = .skipBuild
         default:
             return nil
         }
     }
+}
+
+private class TestToolOptions: Options {
+    var buildTests: Bool = true
 }
 
 /// swift-test tool namespace
@@ -115,7 +122,9 @@ public struct SwiftTestTool {
 
             case .run(let specifier):
                 let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
-                try build(YAMLPath: yamlPath, target: "test")
+                if opts.buildTests {
+                    try build(YAMLPath: yamlPath, target: "test")
+                }
                 let success = try test(path: determineTestPath(opts: opts), xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
@@ -175,18 +184,21 @@ public struct SwiftTestTool {
         print("  -l, --list-tests                                  Lists test methods in specifier format")
         print("  -C, --chdir <path>     Change working directory before any other operation")
         print("  --build-path <path>    Specify build directory")
+        print("  --skip-build           Skip building the test target")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
 
-    private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, Options) {
+    private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, TestToolOptions) {
         let (mode, flags): (Mode?, [TestToolFlag]) = try Basic.parseOptions(arguments: args)
 
-        let opts = Options()
+        let opts = TestToolOptions()
         for flag in flags {
             switch flag {
             case .chdir(let path):
                 opts.chdir = path
+            case .skipBuild:
+                opts.buildTests = false
             }
         }
 
