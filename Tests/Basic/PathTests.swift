@@ -151,9 +151,19 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath(".")).asString, "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("..")).asString, "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("bar")).asString, "/bar")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/foo/bar"), RelativePath("..")).asString, "/foo")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).asString, "/foo")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).asString, "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).asString, "/yabba/a/b")
+        
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), "").asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), ".").asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), "..").asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), "bar").asString, "/bar")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/foo/bar"), "..").asString, "/foo")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), "../foo").asString, "/foo")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), "../foo/..//").asString, "/")
+        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), "a/b").asString, "/yabba/a/b")
     }
     
     // FIXME: We also need tests for join() operations.

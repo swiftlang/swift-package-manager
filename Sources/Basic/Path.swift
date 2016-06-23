@@ -38,14 +38,14 @@ public struct AbsolutePath {
     /// Private implementation details, shared with the RelativePath struct.
     private let _impl: PathImpl
     
-    /// Initializes the AbsolutePath from `string`, which must be an absolute
+    /// Initializes the AbsolutePath from `absStr`, which must be an absolute
     /// path (i.e. it must begin with a path separator; this initializer does
     /// not interpret leading `~` characters as home directory specifiers).
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
-    public init(_ string: String) {
+    public init(_ absStr: String) {
         // Normalize the absolute string and store it as our PathImpl.
-        _impl = PathImpl(string: normalize(absolute: string))
+        _impl = PathImpl(string: normalize(absolute: absStr))
     }
     
     /// Initializes the AbsolutePath by concatenating a relative path to an
@@ -68,6 +68,42 @@ public struct AbsolutePath {
         // the beginning of the path only.
         if relStr.hasPrefix(".") {
             absStr = normalize(absolute: absStr)
+        }
+        
+        // Finally, store the result as our PathImpl.
+        _impl = PathImpl(string: absStr)
+    }
+    
+    /// Initializes the AbsolutePath by concatenating a relative path string
+    /// to an existing absolute path, and renormalizing if necessary.
+    public init(_ absPath: AbsolutePath, _ relStr: String) {
+        // Quick exit in case of an empty or a "." string, which has no effect
+        // on the absolute path at all.
+        if relStr == "" || relStr == "." {
+            _impl = absPath._impl
+            return
+        }
+        
+        // The absolute path is already normalized, but the relative string
+        // could be anything.
+        var absStr = absPath._impl.string
+        if absStr != String(pathSeparatorCharacter) {
+            absStr.append(pathSeparatorCharacter)
+        }
+        
+        // If the relative string starts with `.` or `..`, we need to normalize
+        // the resulting string.
+        // FIXME: We can actually optimize that case, since we know that the
+        // normalization of a relative path can leave `..` path components at
+        // the beginning of the path only.
+        if relStr.hasPrefix(".") {
+            // We have to normalize the whole string.
+            absStr.append(relStr)
+            absStr = normalize(absolute: absStr)
+        }
+        else {
+            // We only have the normalize the relative string.
+            absStr.append(normalize(relative: relStr))
         }
         
         // Finally, store the result as our PathImpl.
