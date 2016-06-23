@@ -340,6 +340,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.  Therefore, it does not take symbolic links into account.
     public func relative(to base: AbsolutePath) -> RelativePath {
+        let result: RelativePath
         // Split the two paths into their components.
         // FIXME: The is needs to be optimized to avoid unncessary copying.
         let pathComps = self.components
@@ -350,7 +351,7 @@ extension AbsolutePath {
             // Special case, which is a plain path without `..` components.  It
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
-            return RelativePath(relComps.joined(separator: "/"))
+            result = RelativePath(relComps.joined(separator: "/"))
         }
         else {
             // General case, in which we might well need `..` components to go
@@ -366,8 +367,10 @@ extension AbsolutePath {
             // `newBaseComps` followed by what remains in `newPathComps`.
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
-            return RelativePath(relComps.joined(separator: "/"))
+            result = RelativePath(relComps.joined(separator: "/"))
         }
+        assert(base.join(result) == self)
+        return result
     }
 }
 
