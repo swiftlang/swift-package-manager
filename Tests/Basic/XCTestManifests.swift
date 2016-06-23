@@ -18,6 +18,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(FSProxyTests.allTests),
         testCase(LazyCacheTests.allTests),
         testCase(LockTests.allTests),
+        testCase(OrderedSetTests.allTests),
         testCase(OptionParserTests.allTests),
         testCase(OutputByteStreamTests.allTests),
         testCase(PathTests.allTests),
