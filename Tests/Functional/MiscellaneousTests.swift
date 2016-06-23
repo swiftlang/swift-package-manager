@@ -364,6 +364,22 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testInitPackageNonc99Directory() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        XCTAssertTrue(localFS.isDirectory(tempDir.path))
+
+        // Create a directory with non c99name.
+        let packageRoot = AbsolutePath(tempDir.path).join(RelativePath("some-package")).asString
+        try localFS.createDirectory(packageRoot)
+        XCTAssertTrue(localFS.isDirectory(packageRoot))
+
+        // Run package init.
+        _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, env: [:], printIfError: true)
+        // Try building it.
+        XCTAssertBuilds(packageRoot)
+        XCTAssertFileExists(packageRoot, ".build/debug/some_package.swiftmodule")
+    }
+
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
@@ -390,5 +406,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
         ("testProductWithNoModules", testProductWithNoModules),
         ("testProductWithMissingModules", testProductWithMissingModules),
+        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
     ]
 }
