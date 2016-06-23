@@ -109,17 +109,16 @@ public struct AbsolutePath {
     }
     
     /// Returns the absolute path with the relative path applied.
-    public func join(_ subpath: RelativePath) -> AbsolutePath {
+    public func appending(_ subpath: RelativePath) -> AbsolutePath {
         return AbsolutePath(self, subpath)
     }
     
-    /// NOTE: We will want to add other methods here, such as a join() method
+    /// NOTE: We will want to add other methods, such as an appending() method
     ///       that takes an arbitrary number of parameters, etc.  Most likely
-    ///       we will also make the `+` operator mean `join()`.
+    ///       we will also make the `+` operator mean `appending()`.
     
     /// NOTE: We will want to add a method to return the lowest common ancestor
-    ///       path, and another to create a minimal relative path to get from
-    ///       one AbsolutePath to another.
+    ///       path.
     
     /// Root directory (whose string representation is just a path separator).
     public static let root = AbsolutePath(String(pathSeparatorCharacter))
@@ -369,7 +368,7 @@ extension AbsolutePath {
             relComps.append(contentsOf: newPathComps)
             result = RelativePath(relComps.joined(separator: "/"))
         }
-        assert(base.join(result) == self)
+        assert(base.appending(result) == self)
         return result
     }
 }
