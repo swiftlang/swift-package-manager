@@ -73,9 +73,9 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
     }
     
     /// Remove all elements.
-    public mutating func removeAll(keepingCapacity capacity: Bool) {
-        array.removeAll(keepingCapacity: capacity)
-        set.removeAll(keepingCapacity: capacity)
+    public mutating func removeAll(keepingCapacity keepCapacity: Bool) {
+        array.removeAll(keepingCapacity: keepCapacity)
+        set.removeAll(keepingCapacity: keepCapacity)
     }
 }
 
