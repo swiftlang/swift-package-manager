@@ -29,8 +29,8 @@ import Foundation
 // Temporary extension until SwiftFoundation API is updated.
 #if os(Linux)
     extension NSFileManager {
-        static func `default`() -> NSFileManager {
-            return defaultManager()
+        static var `default`: NSFileManager {
+            return NSFileManager.default()
         }
     }
 #endif
