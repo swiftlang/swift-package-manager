@@ -16,6 +16,8 @@ import Utility
 import func POSIX.realpath
 
 private enum ManifestParseError: ErrorProtocol {
+    /// The manifest file is empty.
+    case emptyManifestFile
     /// The manifest had a string encoding error.
     case invalidEncoding
 }
@@ -40,18 +42,15 @@ extension Manifest {
         guard path.isFile else { throw PackageModel.Package.Error.noManifest(path) }
 
         // Load the manifest description.
-        if let toml = try parse(path: path, swiftc: swiftc, libdir: libdir) {
-            let toml = try TOMLItem.parse(toml)
-            let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
-            let products = PackageDescription.Product.fromTOML(toml)
-
-            self.init(path: path, package: package, products: products)
-        } else {
-            // As a special case, we accept an empty file as an unnamed package.
-            //
-            // FIXME: We should deprecate this, now that we have the `init` functionality.
-            self.init(path: path, package: PackageDescription.Package(), products: [])
+        guard let tomlString = try parse(path: path, swiftc: swiftc, libdir: libdir) else {
+            print("Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
+            throw ManifestParseError.emptyManifestFile
         }
+        let toml = try TOMLItem.parse(tomlString)
+        let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
+        let products = PackageDescription.Product.fromTOML(toml)
+
+        self.init(path: path, package: package, products: products)
     }
 }
 
