@@ -166,6 +166,34 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), "a/b").asString, "/yabba/a/b")
     }
     
+    func testPathComponents() {
+        XCTAssertEqual(AbsolutePath("/").components, ["/"])
+        XCTAssertEqual(AbsolutePath("/.").components, ["/"])
+        XCTAssertEqual(AbsolutePath("/..").components, ["/"])
+        XCTAssertEqual(AbsolutePath("/bar").components, ["/", "bar"])
+        XCTAssertEqual(AbsolutePath("/foo/bar/..").components, ["/", "foo"])
+        XCTAssertEqual(AbsolutePath("/bar/../foo").components, ["/", "foo"])
+        XCTAssertEqual(AbsolutePath("/bar/../foo/..//").components, ["/"])
+        XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/a/b/").components, ["/", "yabba", "a", "b"])
+        
+        XCTAssertEqual(RelativePath("").components, ["."])
+        XCTAssertEqual(RelativePath(".").components, ["."])
+        XCTAssertEqual(RelativePath("..").components, [".."])
+        XCTAssertEqual(RelativePath("bar").components, ["bar"])
+        XCTAssertEqual(RelativePath("foo/bar/..").components, ["foo"])
+        XCTAssertEqual(RelativePath("bar/../foo").components, ["foo"])
+        XCTAssertEqual(RelativePath("bar/../foo/..//").components, ["."])
+        XCTAssertEqual(RelativePath("bar/../foo/..//yabba/a/b/").components, ["yabba", "a", "b"])
+        XCTAssertEqual(RelativePath("../..").components, ["..", ".."])
+        XCTAssertEqual(RelativePath(".././/..").components, ["..", ".."])
+        XCTAssertEqual(RelativePath("../a").components, ["..", "a"])
+        XCTAssertEqual(RelativePath("../a/..").components, [".."])
+        XCTAssertEqual(RelativePath("a/..").components, ["."])
+        XCTAssertEqual(RelativePath("./..").components, [".."])
+        XCTAssertEqual(RelativePath("a/../////../////./////").components, [".."])
+        XCTAssertEqual(RelativePath("abc").components, ["abc"])
+    }
+    
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
