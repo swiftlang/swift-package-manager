@@ -107,7 +107,7 @@ enum SwiftPMProduct {
     /// Path to currently built binary.
     var path: String {
       #if os(OSX)
-        for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
+        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return Path.join(bundle.bundlePath.parentDirectory, exec)
         }
         fatalError()
