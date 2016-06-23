@@ -74,42 +74,6 @@ public struct AbsolutePath {
         _impl = PathImpl(string: absStr)
     }
     
-    /// Initializes the AbsolutePath by concatenating a relative path string
-    /// to an existing absolute path, and renormalizing if necessary.
-    public init(_ absPath: AbsolutePath, _ relStr: String) {
-        // Quick exit in case of an empty or a "." string, which has no effect
-        // on the absolute path at all.
-        if relStr == "" || relStr == "." {
-            _impl = absPath._impl
-            return
-        }
-        
-        // The absolute path is already normalized, but the relative string
-        // could be anything.
-        var absStr = absPath._impl.string
-        if absStr != String(pathSeparatorCharacter) {
-            absStr.append(pathSeparatorCharacter)
-        }
-        
-        // If the relative string starts with `.` or `..`, we need to normalize
-        // the resulting string.
-        // FIXME: We can actually optimize that case, since we know that the
-        // normalization of a relative path can leave `..` path components at
-        // the beginning of the path only.
-        if relStr.hasPrefix(".") {
-            // We have to normalize the whole string.
-            absStr.append(relStr)
-            absStr = normalize(absolute: absStr)
-        }
-        else {
-            // We only have the normalize the relative string.
-            absStr.append(normalize(relative: relStr))
-        }
-        
-        // Finally, store the result as our PathImpl.
-        _impl = PathImpl(string: absStr)
-    }
-    
     /// NOTE: We will want to add other initializers, such as ones that take
     ///       an arbtirary number of relative paths.
     
