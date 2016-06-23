@@ -27,7 +27,7 @@ extension String {
         guard let ext = self.fileExt else {
             return false
         }
-        return Sources.validCppExtensions.contains(ext)
+        return SupportedLanguageExtension.cppExtensions.contains(ext)
     }
 }
 

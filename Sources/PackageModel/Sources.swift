@@ -26,14 +26,55 @@ public struct Sources {
         relativePaths = paths.map { Path($0).relative(to: root) }
         self.root = root
     }
-    
-    static public var validSwiftExtensions = Set<String>(["swift"])
-    
-    static public var validCExtensions = Set<String>(["c", "m"])
+}
 
-    static public var validCppExtensions = Set<String>(["mm", "cc", "cpp", "cxx"])
-        
-    static public var validCFamilyExtensions = validCExtensions.union(validCppExtensions)
+/// An enum representing supported source file extensions.
+public enum SupportedLanguageExtension: String {
+    /// Swift
+    case swift
+    /// C
+    case c
+    /// Objective C
+    case m
+    /// Objective-C++
+    case mm
+    /// C++
+    case cc
+    case cpp
+    case cxx
 
-    static public var validExtensions = { validSwiftExtensions.union(validCExtensions).union(validCFamilyExtensions) }()
+    /// Returns a set of valid swift extensions.
+    public static var swiftExtensions: Set<String> = {
+        SupportedLanguageExtension.stringSet(swift)
+    }()
+
+    /// Returns a set of valid c extensions.
+    public static var cExtensions: Set<String> = {
+        SupportedLanguageExtension.stringSet(c, m)
+    }()
+
+    /// Returns a set of valid cpp extensions.
+    public static var cppExtensions: Set<String> = {
+        SupportedLanguageExtension.stringSet(mm, cc, cpp, cxx)
+    }()
+
+    /// Returns a set of valid c family extensions.
+    public static var cFamilyExtensions: Set<String> = {
+        cExtensions.union(cppExtensions)
+    }()
+
+    /// Returns a set of all file extensions we support.
+    public static var validExtensions: Set<String> = {
+        swiftExtensions.union(cFamilyExtensions)
+    }()
+
+    /// Converts array of LanguageExtension into a string set representation.
+    ///
+    /// - Parameters:
+    ///     - extensions: Array of LanguageExtension to be converted to string set.
+    ///
+    /// - Returns: Set of strings.
+    private static func stringSet(_ extensions: SupportedLanguageExtension...) -> Set<String> {
+        return Set(extensions.map{ $0.rawValue })
+    }
 }
