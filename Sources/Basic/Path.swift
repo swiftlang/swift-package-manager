@@ -327,6 +327,54 @@ private struct PathImpl {
 }
 
 
+extension AbsolutePath {
+    /// Returns a relative path that, when concatenated to `base`, yields the
+    /// callee path itself.  If `base` is not an ancestor of the callee, the
+    /// returned path will begin with one or more `..` path components.
+    ///
+    /// Because both paths are absolute, they always have a common ancestor
+    /// (the root path, if nothing else).  Therefore, any path can be made
+    /// relative to any other path by using a sufficient number of `..` path
+    /// components.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.  Therefore, it does not take symbolic links into account.
+    public func relative(to base: AbsolutePath) -> RelativePath {
+        let result: RelativePath
+        // Split the two paths into their components.
+        // FIXME: The is needs to be optimized to avoid unncessary copying.
+        let pathComps = self.components
+        let baseComps = base.components
+        
+        // It's common for the base to be an ancestor, so try that first.
+        if pathComps.starts(with: baseComps) {
+            // Special case, which is a plain path without `..` components.  It
+            // might be an empty path (when self and the base are equal).
+            let relComps = pathComps.dropFirst(baseComps.count)
+            result = RelativePath(relComps.joined(separator: "/"))
+        }
+        else {
+            // General case, in which we might well need `..` components to go
+            // "up" before we can go "down" the directory tree.
+            var newPathComps = ArraySlice(pathComps)
+            var newBaseComps = ArraySlice(baseComps)
+            while newPathComps.prefix(1) == newBaseComps.prefix(1) {
+                // First component matches, so drop it.
+                newPathComps = newPathComps.dropFirst()
+                newBaseComps = newBaseComps.dropFirst()
+            }
+            // Now construct a path consisting of as many `..`s as are in the
+            // `newBaseComps` followed by what remains in `newPathComps`.
+            var relComps = Array(repeating: "..", count: newBaseComps.count)
+            relComps.append(contentsOf: newPathComps)
+            result = RelativePath(relComps.joined(separator: "/"))
+        }
+        assert(base.join(result) == self)
+        return result
+    }
+}
+
+
 // FIXME: We should consider whether to merge the two `normalize()` functions.
 // The argument for doing so is that some of the code is repeated; the argument
 // against doing so is that some of the details are different, and since any
