@@ -36,8 +36,8 @@ class GraphAlgorithmsTests: XCTestCase {
         XCTAssertEqual([1, 2, 3, 4], try topologicalSort([4, 3, 2, 1], diamond))
 
         // Test cycle detection.
-        XCTAssertThrows(GraphError.unexpectedCycle, { _ = try topologicalSort(1, [1: [1]]) })
-        XCTAssertThrows(GraphError.unexpectedCycle, { _ = try topologicalSort(1, [1: [2], 2: [1]]) })
+        XCTAssertThrows(GraphError.unexpectedCycle) { _ = try topologicalSort(1, [1: [1]]) }
+        XCTAssertThrows(GraphError.unexpectedCycle) { _ = try topologicalSort(1, [1: [2], 2: [1]]) }
     }
 
     static var allTests = [
