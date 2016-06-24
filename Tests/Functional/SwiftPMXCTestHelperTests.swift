@@ -49,7 +49,7 @@ func XCTAssertXCTestHelper(_ bundlePath: String..., testCases: NSDictionary) {
         guard let data = NSData(contentsOfFile: outputFile) else {
             XCTFail("No output found in : \(outputFile)"); return;
         }
-        let json = try NSJSONSerialization.jsonObject(with: data, options: [])
+        let json = try JSONSerialization.jsonObject(with: data as Data, options: [])
         XCTAssertTrue(json.isEqual(testCases), "\(json) is not equal to \(testCases)")
     } catch {
         XCTFail("Failed with error: \(error)")
