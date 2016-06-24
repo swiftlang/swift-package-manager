@@ -38,7 +38,7 @@ public func fopen<T>(_ path: String..., mode: FopenMode = .read, body: (FileHand
 }
 
 public func fputs(_ string: String, _ handle: FileHandle) throws {
-    guard let data = string.data(using: NSUTF8StringEncoding) else {
+    guard let data = string.data(using: .utf8) else {
         throw Error.unicodeEncodingError
     }
 
@@ -51,7 +51,7 @@ public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
 
 extension FileHandle {
     public func readFileContents() throws -> String {
-        guard let contents = String(data: readDataToEndOfFile(), encoding: NSUTF8StringEncoding) else {
+        guard let contents = String(data: readDataToEndOfFile(), encoding: .utf8) else {
             throw Error.unicodeDecodingError
         }
         return contents
