@@ -89,7 +89,7 @@ private class TestToolOptions: Options {
 }
 
 /// swift-test tool namespace
-public struct SwiftTestTool {
+public struct SwiftTestTool: SwiftTool {
     let args: [String]
 
     public init(args: [String]) {

@@ -10,5 +10,5 @@
 
 import Commands
 
-let tool = SwiftTestTool(args: Array(Process.arguments.dropFirst()))
+let tool = SwiftTestTool()
 tool.run()

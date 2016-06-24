@@ -122,7 +122,7 @@ private class BuildToolOptions: Options {
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool {
+public struct SwiftBuildTool: SwiftTool {
     let args: [String]
 
     public init(args: [String]) {
@@ -131,7 +131,6 @@ public struct SwiftBuildTool {
 
     public func run() {
         do {
-            let args = Array(Process.arguments.dropFirst())
             let (mode, opts) = try parse(commandLineArguments: args)
         
             verbosity = Verbosity(rawValue: opts.verbosity)
