@@ -822,19 +822,25 @@ def main():
             # add a an option to the `generate-xcodeproj` subcommand to allow
             # a user to specify env variable/value pairs to generate into the
             # scheme, but that seems a bit too arbitrary at this point.
-            cmd = ["sed", "-i", "", "s,shouldUseLaunchSchemeArgsEnv = \"YES\">,"
-                "shouldUseLaunchSchemeArgsEnv=\"NO\">"
-                "<EnvironmentVariables>"
-                    "<EnvironmentVariable"
-                        " key=" + make_xml_string_literal("SWIFT_EXEC") +
-                        " value=" + make_xml_string_literal(args.swiftc_path) +
-                        " isEnabled=\"YES\">"
-                    "</EnvironmentVariable>"
-                "</EnvironmentVariables>,",
+            cmd = ["sed", "-i", "",
+                "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
+                        "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
+                "-e", "s|</TestAction>|"
+                        "<EnvironmentVariables>"
+                          "<EnvironmentVariable"
+                            " key=" + make_xml_string_literal("SWIFT_EXEC") +
+                            " value=" + make_xml_string_literal(args.swiftc_path) +
+                            " isEnabled=\"YES\">"
+                          "</EnvironmentVariable>"
+                        "</EnvironmentVariables>&|",
+                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+            subprocess.call(cmd)
+            # sed(1) doesn't tell us if it can't do the subsitution, so we check
+            cmd = ["fgrep", "-q", "SWIFT_EXEC",
                 "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
             result = subprocess.call(cmd)
             if result != 0:
-                error("xcodeproj modification failed with exit status %d" % (result,))
+                error("xcscheme modification failed; couldn't set SWIFT_EXEC")
 
 if __name__ == '__main__':
     main()
