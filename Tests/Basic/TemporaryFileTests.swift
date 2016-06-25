@@ -78,7 +78,7 @@ class TemporaryFileTests: XCTestCase {
             let tempDir = try TemporaryDirectory()
             XCTAssertTrue(localFS.isDirectory(tempDir.path))
             // Create a file inside the temp directory.
-            let filePath = AbsolutePath(tempDir.path).appending(RelativePath("somefile")).asString
+            let filePath = AbsolutePath(tempDir.path).appending("somefile").asString
             try localFS.writeFileContents(filePath, bytes: ByteString())
             path = tempDir.path
         }
@@ -91,7 +91,7 @@ class TemporaryFileTests: XCTestCase {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             XCTAssertTrue(localFS.isDirectory(tempDir.path))
-            let filePath = AbsolutePath(tempDir.path).appending(RelativePath("somefile")).asString
+            let filePath = AbsolutePath(tempDir.path).appending("somefile").asString
             try localFS.writeFileContents(filePath, bytes: ByteString())
             path = tempDir.path
         }
