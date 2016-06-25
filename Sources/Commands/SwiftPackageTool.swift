@@ -289,6 +289,7 @@ public struct SwiftPackageTool {
         print("  show-dependencies [--format <format>]  Print the resolved dependency graph")
         print("                                         (format: text|dot|json)")
         print("  dump-package [--input <path>]          Print parsed Package.swift as JSON")
+        print("  doctor                                 Check your package for potential problems")
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
