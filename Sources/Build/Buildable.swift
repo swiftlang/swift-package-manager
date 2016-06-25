@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 import struct Utility.Path
 
 protocol Buildable {
@@ -16,18 +16,7 @@ protocol Buildable {
     var isTest: Bool { get }
 }
 
-extension CModule {
-    ///Returns the build directory path of a CModule
-    func buildDirectory(_ prefix: String) -> String {
-        return Path.join(prefix, "\(c99name).build")
-    }
-}
-
 extension Module: Buildable {
-    var isTest: Bool {
-        return self is TestModule
-    }
-
     func XccFlags(_ prefix: String) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {
@@ -44,7 +33,9 @@ extension Module: Buildable {
                 if module.moduleMapPath.isFile {
                     return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
                 }
-                let genModuleMap = Path.join(module.buildDirectory(prefix), module.moduleMap)
+
+                let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
+                let genModuleMap = Path.join(buildMeta.buildDirectory, module.moduleMap)
                 return ["-Xcc", "-fmodule-map-file=\(genModuleMap)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
@@ -56,29 +47,6 @@ extension Module: Buildable {
 
     var targetName: String {
         return "<\(name).module>"
-    }
-}
-
-extension SwiftModule {
-    func pkgConfigArgs() throws -> [String] {
-        return try recursiveDependencies.flatMap { module -> [String] in
-            guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
-                return []
-            }
-            
-            do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName)
-                return pkgConfig.cFlags.map{["-Xcc", $0]}.flatten() + pkgConfig.libs
-            }
-            catch PkgConfigError.CouldNotFindConfigFile {
-                if let providers = module.providers,
-                    provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
-                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
-                    print(provider.installText)
-                }
-            }
-            return []
-        }
     }
 }
 

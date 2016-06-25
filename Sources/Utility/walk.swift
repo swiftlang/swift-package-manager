@@ -119,10 +119,7 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
                 }
                 return nil
             }
-            var dirName = entry.d_name
-            let name = withUnsafePointer(&dirName) { (ptr) -> String in
-                return String(validatingUTF8: UnsafePointer<CChar>(ptr)) ?? ""
-            }
+            let name = entry.name ?? ""
             let path = Path.join(current.path, name)
             if path.isDirectory && !path.isSymlink {
                 towalk.append(path)

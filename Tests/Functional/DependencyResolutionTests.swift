@@ -12,13 +12,18 @@ import XCTest
 import func POSIX.popen
 
 class DependencyResolutionTestCase: XCTestCase {
-
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
             let output = try popen(["\(prefix)/.build/debug/Foo"])
             XCTAssertEqual(output, "Foo\nBar\n")
+        }
+    }
+
+    func testInternalExecAsDep() {
+        fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { prefix in
+            XCTAssertBuildFails(prefix)
         }
     }
 
@@ -39,6 +44,12 @@ class DependencyResolutionTestCase: XCTestCase {
         }
     }
 
+    func testExternalDuplicateModule() {
+        fixture(name: "DependencyResolution/External/DuplicateModules") { prefix in
+            XCTAssertBuildFails(prefix)
+        }
+    }
+
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix, "app")
@@ -52,4 +63,14 @@ class DependencyResolutionTestCase: XCTestCase {
             XCTAssertBuilds(prefix, "app")
         }
     }
+
+    static var allTests = [
+        ("testInternalSimple", testInternalSimple),
+        ("testInternalExecAsDep", testInternalExecAsDep),
+        ("testInternalComplex", testInternalComplex),
+        ("testExternalSimple", testExternalSimple),
+        ("testExternalDuplicateModule", testExternalDuplicateModule),
+        ("testExternalComplex", testExternalComplex),
+        ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
+    ]
 }

@@ -1,0 +1,8 @@
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+
+#some comment
+
+Requires: gdk-3.0 atk
+Libs:-L${prefix} -lgtk-3 
+Cflags:

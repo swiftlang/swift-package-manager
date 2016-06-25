@@ -8,25 +8,26 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getenv
-import func POSIX.mkdir
-import func POSIX.fopen
-import func libc.fclose
-import PackageType
+import Basic
+import PackageModel
 import Utility
+
+import func POSIX.getenv
 
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
 public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
+    precondition(prefix.isAbsolute)
 
     guard modules.count > 0 else {
-        throw Error.NoModules
+        throw Error.noModules
     }
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
-    let prefix = try mkdir(prefix, conf.dirname)  //TODO llbuild this
+    let prefix = Path.join(prefix, conf.dirname)
+    try Utility.makeDirectories(prefix)
     let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC
@@ -38,15 +39,18 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     for module in modules {
         switch module {
         case let module as SwiftModule:
-            let (compile, mkdirs) = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgs, SWIFT_EXEC: SWIFT_EXEC)
-            commands.append(contentsOf: mkdirs + [compile])
-            targets.append(compile, for: module)
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
+            commands.append(compile)
+            targets.append([compile], for: module)
 
         case let module as ClangModule:
-            let (compile, mkdir) = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC)
+            // FIXME: Ignore C language test modules on linux for now.
+          #if os(Linux)
+            if module.isTest { continue }
+          #endif
+            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
-            commands.append(mkdir)
-            targets.main.cmds += compile
+            targets.append(compile, for: module)
 
         case is CModule:
             continue
@@ -65,10 +69,15 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 #if os(Linux)
         rpathArgs += ["-Xlinker", "-rpath=$ORIGIN"]
 #endif
-        
-        let command = try Command.link(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+        let command: Command
+        if product.containsOnlyClangModules {
+            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, CC: CC)
+        } else {
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgsSwiftc + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+        }
+
         commands.append(command)
-        targets.append(command, for: product)
+        targets.append([command], for: product)
     }
 
     return try! write(path: "\(prefix).yaml") { stream in
@@ -90,11 +99,9 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 }
 
 private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
-    try fopen(path, mode: .Write) { fp in
-        let stream = OutputByteStream()
-        write(stream)
-        try fputs(stream.bytes.bytes, fp)
-    }
+    let stream = OutputByteStream()
+    write(stream)
+    try localFS.writeFileContents(path, bytes: stream.bytes)
     return path
 }
 
@@ -102,11 +109,12 @@ private struct Targets {
     var test = Target(node: "test", cmds: [])
     var main = Target(node: "main", cmds: [])
 
-    mutating func append(_ command: Command, for buildable: Buildable) {
-        if buildable.isTest {
-            test.cmds.append(command)
-        } else {
-            main.cmds.append(command)
+    mutating func append(_ commands: [Command], for buildable: Buildable) {
+        if !buildable.isTest {
+            main.cmds += commands
         }
+
+        // Always build everything for the test target.
+        test.cmds += commands
     }
 }

@@ -8,15 +8,17 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import POSIX
-import PackageType
+import Basic
+import PackageModel
+
 import class Utility.Git
 import struct Utility.Path
-import func libc.fclose
 
 public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
+    precondition(rootDir.isAbsolute)
+    
     let dirPath = Path.join(rootDir, ".build/versionData")
-    try mkdir(dirPath)
+    try localFS.createDirectory(dirPath, recursive: true)
 
     try saveRootPackage(dirPath, package: rootPackage)
     for (pkgName, data) in generateData(externalPackages) {
@@ -73,9 +75,5 @@ func versionData(package: Package) -> String {
 
 private func saveVersionData(_ dirPath: String, packageName: String, data: String) throws {
     let filePath = Path.join(dirPath, "\(packageName).swift")
-    let file = try fopen(filePath, mode: .Write)
-    defer {
-        libc.fclose(file)
-    }
-    try fputs(data, file)
+    try localFS.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: data))
 }

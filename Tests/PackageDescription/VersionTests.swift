@@ -234,22 +234,16 @@ class VersionTests: XCTestCase {
 //        XCTAssertNotEqual(v4, Version(0,Int.max,Int.max))
     }
 
-}
-
-
-extension VersionTests {
-    static var allTests : [(String, VersionTests -> () throws -> Void)] {
-        return [
-            ("testEquality", testEquality),
-            ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
-            ("testComparable", testComparable),
-            ("testDescription", testDescription),
-            ("testFromString", testFromString),
-            ("testOrder", testOrder),
-            ("testRange", testRange),
-            ("testSuccessor", testSuccessor),
-            ("testPredecessor", testPredecessor),
-            
-        ]
-    }
+    static var allTests = [
+        ("testEquality", testEquality),
+        ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
+        ("testComparable", testComparable),
+        ("testDescription", testDescription),
+        ("testFromString", testFromString),
+        ("testOrder", testOrder),
+        ("testRange", testRange),
+        ("testSuccessor", testSuccessor),
+        ("testPredecessor", testPredecessor),
+        
+    ]
 }

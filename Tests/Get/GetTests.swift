@@ -8,24 +8,24 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
-@testable import Get
-import struct PackageType.Manifest
-import class PackageType.Package
 import XCTest
+
 import Utility
 
-typealias Sandbox = PackagesDirectory
+import struct PackageModel.Manifest
+import class PackageModel.Package
 
+@testable import struct PackageDescription.Version
+@testable import Get
 
 class GetTests: XCTestCase {
 
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
         mktmpdir { tmpdir in
             guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
-            try popen(["git", "-C", repo.path, "remote", "add", "origin", repo.path])
+            try systemQuietly(["git", "-C", repo.path, "remote", "add", "origin", repo.path])
             let clone = try RawClone(path: repo.path, manifestParser: { _,_ throws -> Manifest in
-                throw Package.Error.NoManifest(tmpdir)
+                throw Package.Error.noManifest(tmpdir)
             })
             XCTAssertEqual(clone.children.count, 0)
         }
@@ -66,7 +66,6 @@ class GetTests: XCTestCase {
     }
 
     func testGitRepoInitialization() {
-
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertNotNil(Git.Repo(path: Path.join(prefix, "app")))
         }
@@ -75,32 +74,9 @@ class GetTests: XCTestCase {
         XCTAssertNil(Git.Repo(path: #file.parentDirectory))
     }
 
-    //TODO enable
-//    func testTransmuteResolvesCModuleDependencies() {
-//        fixture(name: "Miscellaneous/PackageType") { prefix in
-//            let prefix = Path.join(prefix, "App")
-//            let manifest = try Manifest(path: prefix)
-//            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-//            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
-//
-//            XCTAssertEqual(modules.count, 3)
-//            XCTAssertEqual(recursiveDependencies(modules).count, 3)
-//            XCTAssertTrue(modules.dropFirst().first is CModule)
-//        }
-//
-//        fixture(name: "ModuleMaps/Direct") { prefix in
-//            let prefix = Path.join(prefix, "App")
-//            let manifest = try Manifest(path: prefix)
-//            let (rootPackage, externalPackages) = try get(manifest, manifestParser: { try Manifest(path: $0, baseURL: $1) })
-//            let (modules, _,  _) = try transmute(rootPackage, externalPackages: externalPackages)
-//
-//            XCTAssertEqual(modules.count, 2)
-//            XCTAssertTrue(modules.first is CModule)
-//            XCTAssertEqual(modules[1].dependencies.count, 1)
-//            XCTAssertEqual(modules[1].recursiveDependencies.count, 1)
-//            XCTAssertTrue(modules[1].dependencies.contains(modules[0]))
-//        }
-//    }
+    static var allTests = [
+        ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
+        ("testRangeConstrain", testRangeConstrain),
+        ("testGitRepoInitialization", testGitRepoInitialization),
+    ]
 }
-
-

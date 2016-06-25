@@ -8,48 +8,27 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
+import PackageLoading
 import Utility
 
 extension Command {
-    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> (Command, [Command]) {
-
-        let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigArgs())
-        
-        func cmd(_ tool: ToolProtocol) -> Command {
-            return Command(node: module.targetName, tool: tool)
-        }
+    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+        let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigSwiftcArgs()) + module.moduleCacheArgs(prefix: prefix)
+        var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
         switch conf {
-        case .Debug:
-            var args = ["-j8","-Onone","-g","-D","SWIFT_PACKAGE", "-enable-testing"]
-
-          #if os(OSX)
-            args += ["-F", try platformFrameworksPath()]
-          #endif
-
-            let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC)
-
-            //FIXME these should be inferred as implicit inputs by llbuild
-            let mkdirs = Set(tool.objects.map{ $0.parentDirectory }).map(Command.createDirectory)
-            return (cmd(tool), mkdirs)
-
-        case .Release:
-            let inputs = module.dependencies.map{ $0.targetName } + module.sources.paths
-            var args = ["-c", "-emit-module", "-D", "SWIFT_PACKAGE", "-O", "-whole-module-optimization", "-I", prefix] + otherArgs
-            let productPath = Path.join(prefix, "\(module.c99name).o")
-
-            if module.type == .Library {
-                args += ["-parse-as-library"]
-            }
-
-            let tool = ShellTool(
-                description: "Compile \(module.name)",
-                inputs: inputs,
-                outputs: [productPath, module.targetName],
-                args: [SWIFT_EXEC, "-o", productPath] + args + module.sources.paths + otherArgs)
-
-            return (cmd(tool), [])
+        case .debug:
+            args += ["-Onone", "-g", "-enable-testing"]
+        case .release:
+            args += ["-O"]
         }
+
+        #if os(OSX)
+        args += ["-F", try platformFrameworksPath()]
+        #endif
+
+        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
+        return Command(node: module.targetName, tool: tool)
     }
 }

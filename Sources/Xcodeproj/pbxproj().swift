@@ -8,20 +8,17 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
-//TODO escaping
-
-
 import POSIX
-import PackageType
+import PackageModel
 import Utility
 
-public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+// FIXME: escaping
 
+public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
-    let nonTestRootModules = rootModulesSet.filter{ !($0 is TestModule) }
-    let (tests, nonTests) = modules.partition{ $0 is TestModule }
+    let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
+    let (tests, nonTests) = modules.partition{ $0.isTest }
 
     print("// !$*UTF8*$!")
     print("{")
@@ -68,17 +65,35 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
 ////// modules group
     for module in modules {
 
+        let sourceFileRefPaths = fileRefs(forModuleSources: module, srcroot: srcroot)
+        var sourceRefs = sourceFileRefPaths.map{$0.0}
+
+        ////// Info.plist file reference if this a framework target
+        if module.isLibrary {
+            let (ref, path, name) = fileRef(ofInfoPlistFor: module, inDirectory: xcodeprojPath)
+            print("        \(ref) = {")
+            print("            isa = PBXFileReference;")
+            print("            lastKnownFileType = text.plist.xml;")
+            print("            name = '\(name)';")
+            print("            path = '\(Path(path).relative(to: projectRoot))';")
+            print("            sourceTree = SOURCE_ROOT;")
+            print("        };")
+
+            sourceRefs.append(ref)
+        }
+
+
         // the “Project Navigator” group for this module
         print("        \(module.groupReference) = {")
         print("            isa = PBXGroup;")
         print("            name = \(module.name);")
         print("            path = '\(Path(module.sources.root).relative(to: projectRoot))';")
         print("            sourceTree = '<group>';")
-        print("            children = (" + fileRefs(forModuleSources: module, srcroot: srcroot).map{$0.0}.joined(separator: ", ") + ");")
+        print("            children = (" + sourceRefs.joined(separator: ", ") + ");")
         print("        };")
 
         // the contents of the “Project Navigator” group for this module
-        for (ref, path) in fileRefs(forModuleSources: module, srcroot: srcroot) {
+        for (ref, path) in sourceFileRefPaths {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = \(module.fileType);")
@@ -115,18 +130,25 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("            runOnlyForDeploymentPostprocessing = 0;")
         print("        };")
 
-        // link build phase
-        print("        \(module.linkPhaseReference) = {")
-        print("            isa = PBXFrameworksBuildPhase;")
-        print("            files = (\(module.linkPhaseFileRefs));")
-        print("            runOnlyForDeploymentPostprocessing = 0;")
-        print("        };")
-
         // the fileRefs for the children in the build phases
-        for (ref1, ref2) in fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot) + [(module.productReference, fileRef(forLinkPhaseChild: module))] {
+        for (ref1, ref2) in fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot) {
             print("        \(ref2) = {")
             print("            isa = PBXBuildFile;")
             print("            fileRef = \(ref1);")
+            print("        };")
+        }
+
+        // link build phase
+        let linkPhaseFileRefs = module.linkPhaseFileRefs
+        print("        \(module.linkPhaseReference) = {")
+        print("            isa = PBXFrameworksBuildPhase;")
+        print("            files = (\(linkPhaseFileRefs.map{ $0.fileRef }.joined(separator: ", ")));")
+        print("            runOnlyForDeploymentPostprocessing = 0;")
+        print("        };")
+        for item in linkPhaseFileRefs {
+            print("        \(item.fileRef) = {")
+            print("            isa = PBXBuildFile;")
+            print("            fileRef = \(item.dependency.productReference);")
             print("        };")
         }
 
@@ -139,12 +161,12 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("        };")
         print("        \(module.debugConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.getDebugBuildSettings(options)) };")
+        print("            buildSettings = { \(try module.getDebugBuildSettings(options, xcodeProjectPath: xcodeprojPath)) };")
         print("            name = Debug;")
         print("        };")
         print("        \(module.releaseConfigurationReference) = {")
         print("            isa = XCBuildConfiguration;")
-        print("            buildSettings = { \(module.getReleaseBuildSettings(options)) };")
+        print("            buildSettings = { \(try module.getReleaseBuildSettings(options, xcodeProjectPath: xcodeprojPath)) };")
         print("            name = Release;")
         print("        };")
 
@@ -163,11 +185,11 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     // The project-level xcconfig files.
     //
     // FIXME: Generate these into a sane path.
-    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: srcroot)
-    try mkdir(projectXCConfig.2.parentDirectory)
-    try Utility.fopen(projectXCConfig.2, mode: .Write) { fp in
+    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: Path.join(srcroot, projectRoot))
+    try Utility.makeDirectories(projectXCConfig.2.parentDirectory)
+    try open(projectXCConfig.2) { print in
         // Set the standard PRODUCT_NAME.
-        try fputs("PRODUCT_NAME = $(TARGET_NAME)\n", fp)
+        print("PRODUCT_NAME = $(TARGET_NAME)")
         
         // Set SUPPORTED_PLATFORMS to all platforms.
         //
@@ -178,41 +200,51 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         let supportedPlatforms = [
             "macosx",
             "iphoneos", "iphonesimulator",
-            "tvos", "tvsimulator",
+            "appletvos", "appletvsimulator",
             "watchos", "watchsimulator"]
-        try fputs("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))\n", fp)
+        print("SUPPORTED_PLATFORMS = \(supportedPlatforms.joined(separator: " "))")
 
+        // Set a conservative default deployment target.
+        //
+        // We currently *must* do this for SwiftPM to be able to self-host in
+        // Xcode (otherwise, the PackageDescription library will be incompatible
+        // with the default deployment target we pass when building).
+        //
+        // FIXME: Eventually there should be a way for the project using Xcode
+        // generation to have control over this.
+        print("MACOSX_DEPLOYMENT_TARGET = 10.10")
+        
         // Default to @rpath-based install names.
         //
         // The expectation is that the application or executable consuming these
         // products will need to establish the appropriate runpath search paths
         // so that all the products can be found in a relative manner.
-        try fputs("DYLIB_INSTALL_NAME_BASE = @rpath\n", fp)
+        print("DYLIB_INSTALL_NAME_BASE = @rpath")
 
         // Propagate any user provided build flag overrides.
         //
         // FIXME: Need to get quoting correct here.
         if !options.Xcc.isEmpty {
-            try fputs("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))\n", fp)
+            print("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))")
         }
         if !options.Xld.isEmpty {
-            try fputs("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))\n", fp)
+            print("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))")
         }
-        try fputs("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))\n", fp)
+        print("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))")
         
         // Prevents Xcode project upgrade warnings.
-        try fputs("COMBINE_HIDPI_IMAGES = YES\n", fp)
+        print("COMBINE_HIDPI_IMAGES = YES")
 
         // Always disable use of headermaps.
         //
         // The semantics of the build should be explicitly defined by the
         // project structure, we don't want any additional behaviors not shared
         // with `swift build`.
-        try fputs("USE_HEADERMAP = NO\n", fp)
+        print("USE_HEADERMAP = NO")
 
         // If the user provided an overriding xcconfig path, include it here.
         if let path = options.xcconfigOverrides {
-            try fputs("\n#include \"\(path)\"\n", fp)
+            print("\n#include \"\(path)\"")
         }
     }
     let configs = [projectXCConfig]

@@ -1,0 +1,3 @@
+import CSystemModule
+
+print("\(foo())")

@@ -8,11 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
-import func POSIX.mkdir
-import func POSIX.rename
-import PackageType
+import Basic
+import PackageModel
 import Utility
+
+import struct PackageDescription.Version
+import func POSIX.rename
 
 /**
  Implementation detail: a container for fetched packages.
@@ -22,18 +23,31 @@ class PackagesDirectory {
     let manifestParser: (path: String, url: String) throws -> Manifest
 
     init(prefix: String, manifestParser: (path: String, url: String) throws -> Manifest) {
+        precondition(prefix.isAbsolute)
         self.prefix = prefix
         self.manifestParser = manifestParser
     }
+    
+    /// The set of all repositories available within the `Packages` directory, by origin.
+    private lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
+        // FIXME: Lift this higher.
+        guard localFS.isDirectory(self.prefix) else { return [:] }
+
+        var result = Dictionary<String, Git.Repo>()
+        for name in try! localFS.getDirectoryContents(self.prefix) {
+            let prefix = Path.join(self.prefix, name)
+            guard let repo = Git.Repo(path: prefix), origin = repo.origin else { continue } // TODO: Warn user.
+            result[origin] = repo
+        }
+        return result
+    }()
 }
 
 extension PackagesDirectory: Fetcher {
     typealias T = Package
-
+    
     func find(url: String) throws -> Fetchable? {
-        for prefix in walk(self.prefix, recursively: false) {
-            guard let repo = Git.Repo(path: prefix) else { continue }  //TODO warn user
-            guard repo.origin == url else { continue }
+        if let repo = availableRepositories[url] {
             return try Package.make(repo: repo, manifestParser: manifestParser)
         }
         return nil
@@ -56,10 +70,15 @@ extension PackagesDirectory: Fetcher {
         switch fetchable {
         case let clone as RawClone:
             let prefix = Path.join(self.prefix, clone.finalName)
-            try mkdir(prefix.parentDirectory)
+            try Utility.makeDirectories(prefix.parentDirectory)
             try rename(old: clone.path, new: prefix)
             //TODO don't reparse the manifest!
-            return try Package.make(repo: Git.Repo(path: prefix)!, manifestParser: manifestParser)!
+            let repo = Git.Repo(path: prefix)!
+
+            // Update the available repositories.
+            availableRepositories[repo.origin!] = repo
+            
+            return try Package.make(repo: repo, manifestParser: manifestParser)!
         case let pkg as Package:
             return pkg
         default:

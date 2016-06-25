@@ -11,6 +11,7 @@
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
+import class Foundation.ProcessInfo
 
 public class Git {
     public class Repo {
@@ -47,11 +48,9 @@ public class Git {
         public var sha: String! {
             return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
         }
-        
         public func versionSha(tag: String) throws -> String {
             return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
         }
-        
         public var hasLocalChanges: Bool {
             let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
@@ -68,9 +67,9 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", message: nil)
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
             } catch let errror {
-                Git.handle(errror)
+                try Git.checkGitVersion(errror)
             }
         }
     }
@@ -85,7 +84,7 @@ public class Git {
 
     public class var majorVersionNumber: Int? {
         let prefix = "git version"
-        var version = self.version
+        var version = self.version!
         if version.hasPrefix(prefix) {
             let prefixRange = version.startIndex...version.index(version.startIndex, offsetBy: prefix.characters.count)
             version.removeSubrange(prefixRange)
@@ -96,21 +95,36 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func handle(_ error: ErrorProtocol) {
+    @noreturn public class func checkGitVersion(_ error: ErrorProtocol) throws {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
-            print("error: ", Error.ObsoleteGitVersion)
+            // FIXME: This does not belong here.
+            print("error: ", Error.obsoleteGitVersion)
+            exit(1)
         } else {
-            print("error: ", Error.UnknownGitError)
+            throw error
         }
-        exit(1)
     }
 
+    /// Execute a git command while suppressing output.
+    //
+    // FIXME: Move clients of this to using real structured APIs.
+    public class func runCommandQuietly(_ arguments: [String]) throws {
+        do {
+            try system(arguments)
+        } catch let error  {
+            try checkGitVersion(error)
+        }
+    }
+
+    /// Execute a git command and capture the output.
+    //
+    // FIXME: Move clients of this to using real structured APIs.
     public class func runPopen(_ arguments: [String]) throws -> String {
         do {
             return try popen(arguments)
         } catch let error  {
-            handle(error)
+            try checkGitVersion(error)
         }
     }
 }

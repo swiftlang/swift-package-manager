@@ -12,6 +12,7 @@ import struct PackageDescription.Version
 import func POSIX.realpath
 import func POSIX.getenv
 import enum POSIX.Error
+import class Foundation.ProcessInfo
 import Utility
 
 extension Git {
@@ -23,24 +24,16 @@ extension Git {
         }
 
         do {
-            //List of environment variables which might be useful while running git
-            let environmentList = ["SSH_AUTH_SOCK", "GIT_ASKPASS", "SSH_ASKPASS", "XDG_CONFIG_HOME"
-                , "LANG", "LANGUAGE", "EDITOR", "PAGER", "TERM"]
-            let environment = environmentList.reduce([String:String]()) { (accum, env) in
-                var newAccum = accum
-                newAccum[env] = getenv(env)
-                return newAccum
-            }
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, environment: environment, message: "Cloning \(url)")
-        } catch POSIX.Error.ExitStatus {
+                url, dstdir, environment: ProcessInfo.processInfo().environment, message: "Cloning \(url)")
+        } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
-                throw Utility.Error.ObsoleteGitVersion
+                throw Utility.Error.obsoleteGitVersion
             } else {
-                throw Error.GitCloneFailure(url, dstdir)
+                throw Error.gitCloneFailure(url, dstdir)
             }
         }
 
@@ -51,7 +44,7 @@ extension Git {
 extension Git.Repo {
     var versions: [Version] {
         let out = (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
-        let tags = out.characters.split(separator: Character.newline)
+        let tags = out.characters.split(separator: "\n")
         let versions = tags.flatMap(Version.init).sorted()
         if !versions.isEmpty {
             return versions

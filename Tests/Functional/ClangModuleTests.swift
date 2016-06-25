@@ -8,34 +8,36 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
-import func POSIX.symlink
-import func Utility.walk
-import func POSIX.rename
-import func POSIX.mkdir
-import func POSIX.popen
 import XCTest
 
-class TestClangModulesTestCase: XCTestCase {
-    
+import PackageModel
+import Utility
+
+extension String {
+    private var soname: String {
+        return "lib\(self).\(Product.dynamicLibraryExtension)"
+    }
+}
+
+class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libCLibraryFlat.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "CLibraryFlat".soname)
         }
     }
     
     func testSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libCLibrarySources.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "CLibrarySources".soname)
         }
     }
     
     func testMixedSwiftAndC() {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libSeaLib.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "SeaLib".soname)
             let exec = ".build/debug/SeaExec"
             XCTAssertFileExists(prefix, exec)
             let output = try popen([Path.join(prefix, exec)])
@@ -47,7 +49,7 @@ class TestClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
             XCTAssertBuilds(prefix, "Bar")
             XCTAssertFileExists(prefix, "Bar/.build/debug/Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -55,15 +57,15 @@ class TestClangModulesTestCase: XCTestCase {
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libFoo.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libBar.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "Foo".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar".soname)
         }
     }
     
     func testCUsingCDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             XCTAssertBuilds(prefix, "Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -82,7 +84,7 @@ class TestClangModulesTestCase: XCTestCase {
         //The C dependency "Foo" has different layout
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             XCTAssertBuilds(prefix, "Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/libFoo.so")
+            XCTAssertFileExists(prefix, "Bar/.build/debug", "Foo".soname)
             XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
         }
     }
@@ -90,27 +92,31 @@ class TestClangModulesTestCase: XCTestCase {
     func testModuleMapGenerationCases() {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "libUmbrellaHeader.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libFlatInclude.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libUmbellaModuleNameInclude.so")
-            XCTAssertFileExists(prefix, ".build", "debug", "libNoIncludeDir.so")
+            XCTAssertFileExists(prefix, ".build", "debug", "UmbrellaHeader".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "FlatInclude".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "UmbellaModuleNameInclude".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "NoIncludeDir".soname)
             XCTAssertFileExists(prefix, ".build", "debug", "Baz")
         }
     }
-}
 
-
-extension TestClangModulesTestCase {
-    static var allTests : [(String, TestClangModulesTestCase -> () throws -> Void)] {
-        return [
-            ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
-            ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
-            ("testMixedSwiftAndC", testMixedSwiftAndC),
-            ("testExternalSimpleCDep", testExternalSimpleCDep),
-            ("testiquoteDep", testiquoteDep),
-            ("testCUsingCDep", testCUsingCDep),
-            ("testCExecutable", testCExecutable),
-            ("testModuleMapGenerationCases", testModuleMapGenerationCases),
-        ]
+    func testCanForwardExtraFlagsToClang() {
+        // Try building a fixture which needs extra flags to be able to build.
+        fixture(name: "ClangModules/CDynamicLookup") { prefix in
+            XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
+            XCTAssertFileExists(prefix, ".build", "debug", "CDynamicLookup".soname)
+        }
     }
+
+    static var allTests = [
+        ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
+        ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
+        ("testMixedSwiftAndC", testMixedSwiftAndC),
+        ("testExternalSimpleCDep", testExternalSimpleCDep),
+        ("testiquoteDep", testiquoteDep),
+        ("testCUsingCDep", testCUsingCDep),
+        ("testCExecutable", testCExecutable),
+        ("testModuleMapGenerationCases", testModuleMapGenerationCases),
+        ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+    ]
 }

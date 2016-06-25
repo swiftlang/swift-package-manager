@@ -9,6 +9,5 @@
 */
 
 public enum Error: ErrorProtocol {
-    case NoModules
-    case InvalidPlatformPath
+    case noModules
 }

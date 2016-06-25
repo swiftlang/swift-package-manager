@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class PackageType.Package
-import PackageType
+import class PackageModel.Package
+import PackageModel
 import Utility
 
 /**

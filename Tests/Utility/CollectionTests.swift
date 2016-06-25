@@ -63,6 +63,21 @@ class CollectionTests: XCTestCase {
         eq(["f", "o", "o", ":"].split(around: [":"]), (["f", "o", "o"], []))
         eq([":", "b", "a", "r"].split(around: [":"]), ([], ["b", "a", "r"]))
         eq(["f", "o", "o", ":", "b", "a", "r"].split(around: [":"]), (["f", "o", "o"], ["b", "a", "r"]))
-
     }
+
+    func testUnique() {
+       XCTAssertEqual(["a", "b", "c"].unique(), ["a", "b", "c"])
+       XCTAssertEqual(["f", "o", "o"].unique(), ["f", "o"])
+       XCTAssertEqual(["f", "o", "b", "o", "a", "r"].unique(), ["f", "o", "b", "a", "r"])
+       XCTAssertEqual(["f", "f", "o", "b", "f", "b"].unique(), ["f", "o", "b"])
+    }
+
+    static var allTests = [
+        ("testPick", testPick),
+        ("testPartitionByType", testPartitionByType),
+        ("testPartitionByClosure", testPartitionByClosure),
+        ("testSplitAround", testSplitAround),
+        ("testUnique", testUnique)
+    ]
 }
+

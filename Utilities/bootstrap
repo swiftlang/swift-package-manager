@@ -146,7 +146,7 @@ class Target(object):
         self.swift_sources.sort()
 
     def write_swift_compile_commands(self, args, target_build_dir,
-                                     module_dir, output, objects,
+                                     module_dir, include_dir, output, objects,
                                      link_input_nodes, predecessor_node):
         # Compute the derived paths.
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
@@ -174,6 +174,12 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
+        # Enable the workaround for SR-1457 until it is fixed.
+        other_args.extend(["-DEnableWorkaroundForSR1457"])
+
+        if args.libdispatch_source_dir:
+            other_args.extend(["-Xcc", "-fblocks"])
+        
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
         print("    executable: %s" % json.dumps(args.swiftc_path), file=output)
@@ -188,8 +194,21 @@ class Target(object):
               file=output)
         print("    sources: %s" % json.dumps(self.swift_sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
-        print("    import-paths: %s" % json.dumps(
-            [module_dir]), file=output)
+        import_paths = [module_dir, include_dir]
+        if args.foundation_path:
+            import_paths.append(args.foundation_path)
+            import_paths.append(os.path.join(args.foundation_path,
+                                             "usr/lib/swift/CoreFoundation"))
+            import_paths.append(os.path.join(args.foundation_path,
+                                             "usr/lib/swift"))
+        if args.libdispatch_build_dir:
+            import_paths.append(os.path.join(args.libdispatch_build_dir,
+                                             "src"))
+        if args.libdispatch_source_dir:
+            import_paths.append(args.libdispatch_source_dir)
+        if args.xctest_path:
+            import_paths.append(args.xctest_path)
+        print("    import-paths: %s" % json.dumps(import_paths), file=output)
         print("    other-args: %s" % json.dumps(' '.join(other_args)),
               file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
@@ -250,6 +269,34 @@ targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 
 
+# Create a quoted C string literal from an arbitrary string.
+def make_c_string_literal(str):
+    return "\"" + str.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+# Create a quoted XML string literal from an arbitrary string.
+def make_xml_string_literal(str):
+    return "\"" + str.replace("&", "&amp;").replace("\"", "&quot;") + "\""
+
+
+# Write out a header containing version information, and a module map for it.
+def write_bootstrap_version_info(include_path, version_str):
+    # Construct the header and write it out if it's changed.
+    output = StringIO()
+    print("static inline const char * DisplayString() {", file=output)
+    print("    return " + make_c_string_literal(version_str) + ";", file=output)
+    print("}", file=output)
+    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"),
+                          output.getvalue())
+    
+    # Also construct the module map and write it out if it's changed.
+    output = StringIO()
+    print("module VersionInfo [extern_c] {", file=output)
+    print("    header \"VersionInfo.h\"", file=output)
+    print("}", file=output)
+    write_file_if_changed(os.path.join(include_path, "module.map"),
+                          output.getvalue())
+
+
 def create_bootstrap_files(sandbox_path, args):
     # Write out the build file.
     output = StringIO()
@@ -284,6 +331,10 @@ def create_bootstrap_files(sandbox_path, args):
             target.name, json.dumps([target.virtual_node])), file=output)
     print(file=output)
 
+    # Create the shared include dir.
+    inc_dir = os.path.join(sandbox_path, "inc")
+    mkdir_p(inc_dir)
+    
     # Create the shared lib dir.
     lib_dir = os.path.join(sandbox_path, "lib")
     mkdir_p(lib_dir)
@@ -321,7 +372,7 @@ def create_bootstrap_files(sandbox_path, args):
         # Write the Swift compile commands, if used.
         if target.swift_sources:
             target.write_swift_compile_commands(
-                args, target_build_dir, module_dir, output, objects,
+                args, target_build_dir, module_dir, inc_dir, output, objects,
                 link_input_nodes, predecessor_node)
 
         # Form the command line to link.
@@ -349,6 +400,11 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-Xlinker", "-all_load"])
             for lib in target.extra_libs:
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
+            if platform.system() == 'Linux':
+                link_command.extend(
+                    ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
+            if args.foundation_path:
+                link_command.extend(["-L", args.foundation_path])
 
         # Write out the link command.
         print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
@@ -376,6 +432,10 @@ def create_bootstrap_files(sandbox_path, args):
     # Write the output file.
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
                           output.getvalue())
+    
+    # Write out the version info header and module map file, if appropriate.
+    if args.version_str:
+        write_bootstrap_version_info(inc_dir, args.version_str)
 
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
@@ -500,6 +560,7 @@ def get_swiftc_path():
     except:
         error("unable to find 'swiftc' tool for bootstrap build")
 
+
 def main():
     parser = argparse.ArgumentParser(
         usage="%(prog)s [options] [clean|all|test|install]",
@@ -534,8 +595,16 @@ def main():
                         help="Path to Foundation build directory")
     parser.add_argument("--xctest", dest="xctest_path",
                         help="Path to XCTest build directory")
+    parser.add_argument("--libdispatch-build-dir", dest="libdispatch_build_dir",
+                        help="Path to the libdispatch build directory")
+    parser.add_argument("--libdispatch-source-dir", dest="libdispatch_source_dir",
+                        help="Path to the libdispatch source directory")
     parser.add_argument("--release", action="store_true",
                         help="Build stage 2 for release")
+    parser.add_argument("--generate-xcodeproj", action="store_true",
+                        help="Also generate an Xcode project for SwiftPM")
+    parser.add_argument("--version-string", dest="version_str",
+                        help="version string to display for --version")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -602,12 +671,22 @@ def main():
     # Construct a fake toolchain so swift-build can build itself
     # without requiring it to have hacky-edge-case logic
     def make_fake_toolchain():
-        symlink_force(args.swiftc_path, bindir)
-        symlink_force(args.sbt_path, bindir)
-        symlink_force(os.path.join(sandbox_path, "bin", "swift-build"), bootstrapped_product)
+        symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
+        symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
+        symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),
+                      bootstrapped_product)
         if os.path.isdir(libdir) and not os.path.islink(libdir):
-            shutil.rmtree(libdir)   # TODO remove, here to prevent revlock incremental CI build failures
+            # TODO remove, here to prevent revlock incremental CI build failures
+            shutil.rmtree(libdir)
         symlink_force(os.path.join(sandbox_path, "lib"), build_path)
+        if args.foundation_path:
+            libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
+            mkdir_p(libswiftdir)
+            symlink_force(os.path.join(args.foundation_path, 'libFoundation.so'),
+                libswiftdir)
+            if args.libdispatch_build_dir:
+                symlink_force(os.path.join(args.libdispatch_build_dir, "src", ".libs", "libdispatch.so"),
+                    libswiftdir)
 
     make_fake_toolchain()
 
@@ -627,21 +706,45 @@ def main():
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
 
-    if args.foundation_path and args.xctest_path:
+    # If appropriate, add flags for a custom version string:
+    if args.version_str:
+        incdir = os.path.join(sandbox_path, "inc")
+        cmd.extend(["-Xswiftc", "-I{}".format(incdir)])
+        cmd.extend(["-Xswiftc", "-DHasCustomVersionString"])
+    
+    if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
+        # Tell the linker where to look for XCTest, but autolinking
+        # knows to pass -lXCTest.
+        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
+        # Add an RPATH, so that the tests can be run directly.
+        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+
+    if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
         cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
         cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
         cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+
+    if args.libdispatch_build_dir:
+        cmd.extend(["-Xswiftc", "-I{}".format(os.path.join(args.libdispatch_build_dir,
+                                             "src"))])
+        cmd.extend(["-Xswiftc", "-I{}".format(args.libdispatch_source_dir)])
+        cmd.extend(["-Xcc", "-fblocks"])
 
     if args.release:
         cmd.extend(["--configuration", "release"])
+
+    # Always build tests in stage2, unless building for release.
+    #
+    # FIXME: Resolve how we are going to deal with @testable and release builds.
+    if not args.release:
+        cmd.extend(["--build-tests"])
 
     cmd = env_cmd + cmd
 
@@ -656,8 +759,10 @@ def main():
     else:
         conf = "debug"
 
+    swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
+    swiftpm_xctest_helper_path = os.path.join(build_path, conf, "swiftpm-xctest-helper")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
@@ -674,15 +779,27 @@ def main():
                                         "bin")
         lib_install_path = os.path.join(g_project_root, args.install_prefix,
                                         "lib", "swift", "pm")
+        libexec_install_path = os.path.join(g_project_root, args.install_prefix,
+                                        "libexec", "swift", "pm")
         mkdir_p(bin_install_path)
         mkdir_p(lib_install_path)
-        for product_path in [swift_build_path, swift_test_path]:
-            cmd = ["install", product_path, bin_install_path]
+        mkdir_p(libexec_install_path)
+
+        # Install a binary file at the install path.
+        def installBinary(binary_path, install_path):
+            cmd = ["install", binary_path, install_path]
             note("installing %s: %s" % (
-                os.path.basename(product_path), ' '.join(cmd)))
+                os.path.basename(binary_path), ' '.join(cmd)))
             result = subprocess.call(cmd)
             if result != 0:
                 error("install failed with exit status %d" % (result,))
+
+        # Install XCTest helper inside libexec
+        installBinary(swiftpm_xctest_helper_path, libexec_install_path)
+
+        for product_path in [swift_package_path, swift_build_path, swift_test_path]:
+            installBinary(product_path, bin_install_path)
+
         for (resource_path, is_lib) in [(runtime_module_path, False),
                                         (runtime_lib_path, True)]:
             cmd = ["install"]
@@ -694,6 +811,36 @@ def main():
             result = subprocess.call(cmd)
             if result != 0:
                 error("install failed with exit status %d" % (result,))
+    # If generating an Xcode project, also use the build product to do that.
+    if args.generate_xcodeproj:
+        cmd = [swift_package_path, "generate-xcodeproj"]
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("xcodeproj generation failed with exit status %d" % (result,))
+        else:
+            # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
+            # add a an option to the `generate-xcodeproj` subcommand to allow
+            # a user to specify env variable/value pairs to generate into the
+            # scheme, but that seems a bit too arbitrary at this point.
+            cmd = ["sed", "-i", "",
+                "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
+                        "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
+                "-e", "s|</TestAction>|"
+                        "<EnvironmentVariables>"
+                          "<EnvironmentVariable"
+                            " key=" + make_xml_string_literal("SWIFT_EXEC") +
+                            " value=" + make_xml_string_literal(args.swiftc_path) +
+                            " isEnabled=\"YES\">"
+                          "</EnvironmentVariable>"
+                        "</EnvironmentVariables>&|",
+                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+            subprocess.call(cmd)
+            # sed(1) doesn't tell us if it can't do the subsitution, so we check
+            cmd = ["fgrep", "-q", "SWIFT_EXEC",
+                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+            result = subprocess.call(cmd)
+            if result != 0:
+                error("xcscheme modification failed; couldn't set SWIFT_EXEC")
 
 if __name__ == '__main__':
     main()

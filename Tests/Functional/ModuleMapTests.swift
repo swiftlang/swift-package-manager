@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.mkdir
-import func POSIX.popen
-import Utility
 import XCTest
+
+import Utility
+
+import func POSIX.popen
 
 #if os(OSX)
 private let dylib = "dylib"
@@ -24,9 +25,10 @@ class ModuleMapsTestCase: XCTestCase {
     private func fixture(name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
         FunctionalTestSuite.fixture(name: name) { prefix in
             let input = Path.join(prefix, CModuleName, "C/foo.c")
-            let outdir = try mkdir(prefix, rootpkg, ".build/debug")
+            let outdir = Path.join(prefix, rootpkg, ".build/debug")
+            try Utility.makeDirectories(outdir)
             let output = Path.join(outdir, "libfoo.\(dylib)")
-            try popen(["clang", "-shared", input, "-o", output])
+            try systemQuietly(["clang", "-shared", input, "-o", output])
 
             var Xld = ["-L", outdir]
         #if os(Linux)
@@ -64,14 +66,9 @@ class ModuleMapsTestCase: XCTestCase {
             try verify("release")
         }
     }
-}
 
-
-extension ModuleMapsTestCase {
-    static var allTests : [(String, ModuleMapsTestCase -> () throws -> Void)] {
-        return [
-            ("testDirectDependency", testDirectDependency),
-            ("testTransitiveDependency", testTransitiveDependency),
-        ]
-    }
+    static var allTests = [
+        ("testDirectDependency", testDirectDependency),
+        ("testTransitiveDependency", testTransitiveDependency),
+    ]
 }

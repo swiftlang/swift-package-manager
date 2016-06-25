@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
-import PackageType
+import PackageModel
 import Utility
-import libc
+
+import struct PackageDescription.Version
 
 /**
  Initially we clone into a non-final form because we may need to
@@ -40,7 +40,7 @@ class RawClone: Fetchable {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
-            throw Error.Unversioned(path)
+            throw Error.unversioned(path)
         }
     }
 
@@ -49,7 +49,7 @@ class RawClone: Fetchable {
     }
 
     var version: Version {
-        var branch = repo.branch
+        var branch = repo.branch!
         if branch.hasPrefix("heads/") {
             branch = String(branch.characters.dropFirst(6))
         }
@@ -63,15 +63,15 @@ class RawClone: Fetchable {
     func setVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try Git.runPopen([Git.tool, "-C", path, "reset", "--hard", v])
-        try Git.runPopen([Git.tool, "-C", path, "branch", "-m", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path, "reset", "--hard", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path, "branch", "-m", v])
 
         print("Resolved version:", ver)
 
         // we must re-read the manifest
         _manifest = nil
         if manifest == nil {
-            throw Error.NoManifest(path, ver)
+            throw Error.noManifest(path, ver)
         }
     }
 

@@ -23,8 +23,10 @@
  layer for these properties we satisfy the above constraints.
 */
 
+import PackageModel
+import PackageLoading
+
 import struct Utility.Path
-import PackageType
 
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
@@ -53,8 +55,8 @@ extension XcodeModuleProtocol {
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
 }
 
-func fileRef(forLinkPhaseChild module: XcodeModuleProtocol) -> String {
-    return linkPhaseFileRefPrefix + module.c99name
+func fileRef(forLinkPhaseChild module: XcodeModuleProtocol, from: XcodeModuleProtocol) -> String {
+    return linkPhaseFileRefPrefix + module.c99name + "_via_" + from.c99name
 }
 
 private func fileRef(suffixForModuleSourceFile path: String, srcroot: String) -> String {
@@ -76,6 +78,12 @@ func fileRef(inProjectRoot name: String, srcroot: String) -> (String, String, St
     return ("'\(sourceGroupFileRefPrefix)\(suffix)'", name, Path.join(srcroot, name))
 }
 
+func fileRef(ofInfoPlistFor module: XcodeModuleProtocol, inDirectory destdir: String) -> (ref: String, path: String, name: String) {
+    let name = module.infoPlistFileName
+    let path = Path.join(destdir, name)
+    return (ref: "\(sourceGroupFileRefPrefix)\(name)", path: path, name: name)
+}
+
 func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: String) -> [(String, String)] {
     return module.sources.relativePaths.map { relativePath in
         let path = Path.join(module.sources.root, relativePath)
@@ -92,53 +100,50 @@ func fileRefs(forCompilePhaseSourcesInModule module: XcodeModuleProtocol, srcroo
     }
 }
 
-func serializeArray(_ array: [String]) -> String {
-    return "( " + array.map({ "\"\($0)\"" }).joined(separator: ", ") + " )"
-}
-
 extension XcodeModuleProtocol  {
 
-    private var isLibrary: Bool {
-        return type == .Library
+    var isLibrary: Bool {
+        return type == .library
+    }
+
+    var infoPlistFileName: String {
+        return "\(c99name)_Info.plist"
     }
 
     var productType: String {
-        if self is TestModule {
+        if isTest {
             return "com.apple.product-type.bundle.unit-test"
         } else if isLibrary {
-            return "com.apple.product-type.library.dynamic"
+            return "com.apple.product-type.framework"
         } else {
             return "com.apple.product-type.tool"
         }
     }
 
     var explicitFileType: String {
-        func suffix() -> String {
-            if self is TestModule {
-                return "wrapper.cfbundle"
-            } else if isLibrary {
-                return "dylib"
-            } else {
-                return "executable"
-            }
+        if isTest {
+            return "compiled.mach-o.wrapper.cfbundle"
+        } else if isLibrary {
+            return "wrapper.framework"
+        } else {
+            return "compiled.mach-o.executable"
         }
-        return "compiled.mach-o.\(suffix())"
     }
 
 
 
     var productPath: String {
-        if self is TestModule {
+        if isTest {
             return "\(c99name).xctest"
         } else if isLibrary {
-            return "\(c99name).dylib"
+            return "\(c99name).framework"
         } else {
             return name
         }
     }
 
-    var linkPhaseFileRefs: String {
-        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ fileRef(forLinkPhaseChild: $0) }.joined(separator: ", ")
+    var linkPhaseFileRefs: [(dependency: XcodeModuleProtocol, fileRef: String)] {
+        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ (dependency: $0, fileRef: fileRef(forLinkPhaseChild: $0, from: self)) }
     }
 
     var nativeTargetDependencies: String {
@@ -146,7 +151,7 @@ extension XcodeModuleProtocol  {
     }
 
     var productName: String {
-        if isLibrary && !(self is TestModule) {
+        if isLibrary && !isTest {
             // you can go without a lib prefix, but something unexpected will break
             return "'lib$(TARGET_NAME)'"
         } else {
@@ -164,46 +169,114 @@ extension XcodeModuleProtocol  {
             return (headerPathKey, first)
         }
 
-        let headerPathValue = serializeArray(headerPaths)
+        let headerPathValue = headerPaths.joined(separator: " ")
         
         return (headerPathKey, headerPathValue)
     }
 
-    func getDebugBuildSettings(_ options: XcodeprojOptions) -> String {
-        var buildSettings = getCommonBuildSettings(options)
+    func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> String {
+        var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+        // FIXME: Need to honor actual quoting rules here.
+        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    func getReleaseBuildSettings(_ options: XcodeprojOptions) -> String {
-        var buildSettings = getCommonBuildSettings(options)
+    func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> String {
+        var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        return buildSettings.map{ "\($0) = \($1);" }.joined(separator: " ")
+        // FIXME: Need to honor actual quoting rules here.
+        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
     }
 
-    private func getCommonBuildSettings(_ options: XcodeprojOptions) ->[String: String] {
+    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: String) throws -> [String: String] {
         var buildSettings = [String: String]()
+        let plistPath = Path(Path.join(xcodeProjectPath, infoPlistFileName)).relative(to: xcodeProjectPath.parentDirectory)
 
-        if self is TestModule {
+        if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
 
             //FIXME this should not be required
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'@loader_path/../Frameworks'"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "@loader_path/../Frameworks"
 
+            buildSettings["INFOPLIST_FILE"] = plistPath
         } else {
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "'$(TOOLCHAIN_DIR)/usr/lib/swift/macosx'"
+            // We currently force a search path to the toolchain, since we
+            // cannot establish an expected location for the Swift standard
+            // libraries.
+            //
+            // This means the built binaries are not suitable for distribution,
+            // among other things.
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
+
+                // Set a product name consistent with the conventions for
+                // dynamic libraries.
+                //
+                // This is important for SwiftPM itself, because the LLVM JIT
+                // only will search for `lib<foo>` when doing dynamic loading,
+                // and that is the mechanism that we currently use to "load" the
+                // `Package.swift` manifest.
+                //
+                // FIXME: This might not be what we generally want, and if we
+                // moved to producing frameworks it wouldn't work at all. We
+                // need to design a mechanism by which SwiftPM can override the
+                // PRODUCT_NAME for PackageDescription without imposing this
+                // default behavior on all packages.
+
+                buildSettings["PRODUCT_NAME"] = "$(TARGET_NAME:c99extidentifier)"
+                buildSettings["INFOPLIST_FILE"] = plistPath
+
+                buildSettings["PRODUCT_MODULE_NAME"] = "$(TARGET_NAME:c99extidentifier)"
+
+                // FIXME: This should be user speficiable
+                buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = c99name
             } else {
                 // override default behavior, instead link dynamically
                 buildSettings["SWIFT_FORCE_STATIC_LINK_STDLIB"] = "NO"
                 buildSettings["SWIFT_FORCE_DYNAMIC_LINK_STDLIB"] = "YES"
+
+                // Set the runpath search paths so that we can find libraries
+                // built adjacent to ourselves (e.g., in the Xcode
+                // `BUILT_PRODUCTS_DIR`).
+                //
+                // It would be nice to pick another value here which would make
+                // more sense when use in a real deployment scenario (one
+                // example would be `@executable_path/../lib` but there are
+                // other problems to solve first, e.g. how to deal with the
+                // Swift standard library paths).
+                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"]! + " @executable_path"
             }
+        }
+
+        if let pkgArgs = try? self.pkgConfigArgs() {
+            buildSettings["OTHER_LDFLAGS"] = (["$(inherited)"] + pkgArgs.libs).joined(separator: " ")
+            buildSettings["OTHER_SWIFT_FLAGS"] = (["$(inherited)"] + pkgArgs.cFlags).joined(separator: " ")
+        }
+
+        // Add framework search path to build settings.
+        buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
+
+        // Generate modulemap for a ClangModule if not provided by user and add to build settings.
+        if case let clangModule as ClangModule = self where clangModule.type == .library {
+            buildSettings["DEFINES_MODULE"] = "YES"
+            let moduleMapPath: String
+            // If user provided the modulemap no need to generate.
+            if clangModule.moduleMapPath.isFile {
+                moduleMapPath = clangModule.moduleMapPath
+            } else {
+                // Generate and drop the modulemap inside Xcodeproj folder.
+                let path = Path.join(xcodeProjectPath, "GeneratedModuleMap", clangModule.c99name)
+                try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                moduleMapPath = Path.join(path, clangModule.moduleMap)
+            }
+
+            buildSettings["MODULEMAP_FILE"] = Path(moduleMapPath).relative(to: xcodeProjectPath.parentDirectory)
         }
 
         return buildSettings
@@ -217,11 +290,7 @@ extension XcodeModuleProtocol {
     }
 
     var buildableName: String {
-        if isLibrary && !(self is TestModule) {
-            return "lib\(productPath)"
-        } else {
-            return productPath
-        }
+        return productPath
     }
 
     var blueprintName: String {

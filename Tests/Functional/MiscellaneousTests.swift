@@ -8,17 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
-import func Utility.fopen
-import func libc.fclose
-import func libc.sleep
-import enum POSIX.Error
-import func POSIX.fputs
-import func POSIX.popen
 import XCTest
 
-class MiscellaneousTestCase: XCTestCase {
+import Basic
 
+import struct Utility.Path
+import func libc.sleep
+import enum POSIX.Error
+import func POSIX.popen
+
+class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() {
 
         // verifies the stdout contains information about 
@@ -68,10 +67,7 @@ class MiscellaneousTestCase: XCTestCase {
         // Refs: https://github.com/apple/swift-package-manager/pull/83
 
         fixture(name: "Miscellaneous/ExcludeDiagnostic2") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "BarLib.swiftmodule")
-            XCTAssertFileExists(prefix, ".build", "debug", "FooBarLib.swiftmodule")
-            XCTAssertNoSuchPath(prefix, ".build", "debug", "FooLib.swiftmodule")
+            XCTAssertBuildFails(prefix)
         }
     }
 
@@ -182,7 +178,7 @@ class MiscellaneousTestCase: XCTestCase {
         var foo = false
         do {
             try executeSwiftBuild("/")
-        } catch POSIX.Error.ExitStatus(let code, _) {
+        } catch POSIX.Error.exitStatus(let code, _) {
 
             // if our code crashes we'll get an exit code of 256
             XCTAssertEqual(code, Int32(1))
@@ -199,7 +195,7 @@ class MiscellaneousTestCase: XCTestCase {
             var foo = false
             do {
                 try executeSwiftBuild(prefix)
-            } catch POSIX.Error.ExitStatus(let code, _) {
+            } catch POSIX.Error.exitStatus(let code, _) {
 
                 // if our code crashes we'll get an exit code of 256
                 XCTAssertEqual(code, Int32(1))
@@ -215,14 +211,14 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanBuildIfADependencyAlreadyCheckedOut() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try system("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
+            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
             XCTAssertBuilds(prefix, "app")
         }
     }
 
     func testCanBuildIfADependencyClonedButThenAborted() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try system("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
+            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
             XCTAssertBuilds(prefix, "app", configurations: [.Debug])
         }
     }
@@ -234,11 +230,11 @@ class MiscellaneousTestCase: XCTestCase {
             let path = Path.join(prefix, "FisherYates")
 
             // required for some Linux configurations
-            try system("git", "-C", path, "config", "user.email", "example@example.com")
-            try system("git", "-C", path, "config", "user.name", "Example Example")
+            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly("git", "-C", path, "config", "user.name", "Example Example")
 
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "-mwip")
+            try systemQuietly("git", "-C", path, "rm", "Package.swift")
+            try systemQuietly("git", "-C", path, "commit", "-mwip")
 
             XCTAssertBuilds(prefix, "app")
         }
@@ -249,11 +245,11 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let path = Path.join(prefix, "FisherYates")
 
-            try system("git", "-C", path, "config", "user.email", "example@example.com")
-            try system("git", "-C", path, "config", "user.name", "Example McExample")
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "--message", "wip")
-            try system("git", "-C", path, "tag", "--force", "1.2.3")
+            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly("git", "-C", path, "config", "user.name", "Example McExample")
+            try systemQuietly("git", "-C", path, "rm", "Package.swift")
+            try systemQuietly("git", "-C", path, "commit", "--message", "wip")
+            try systemQuietly("git", "-C", path, "tag", "--force", "1.2.3")
 
             XCTAssertBuildFails(prefix, "app")
         }
@@ -281,9 +277,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "Bar/Bar.swift", mode: .Write) { fp in
-                try POSIX.fputs("public let bar = \"Goodbye\"\n", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "Bar/Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
             XCTAssertBuilds(prefix)
             output = try popen(execpath)
@@ -307,9 +301,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift", mode: .Write) { fp in
-                try POSIX.fputs("public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix, "app")
             output = try popen(execpath)
@@ -333,9 +325,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try fopen(prefix, "root/Packages/dep1-1.2.3/Foo.swift", mode: .Write) { fp in
-                try POSIX.fputs("public let foo = \"Goodbye\"", fp)
-            }
+            try localFS.writeFileContents(Path.join(prefix, "root/Packages/dep1-1.2.3/Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix, "root")
             output = try popen(execpath)
@@ -370,7 +360,52 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build/debug/ModuleName1.build/Foo.swift.o")
+            XCTAssertFileExists(prefix, ".build/debug/Module_Name_1.build/Foo.swift.o")
         }
     }
+
+    func testInitPackageNonc99Directory() throws {
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+        XCTAssertTrue(localFS.isDirectory(tempDir.path))
+
+        // Create a directory with non c99name.
+        let packageRoot = AbsolutePath(tempDir.path).appending(RelativePath("some-package")).asString
+        try localFS.createDirectory(packageRoot)
+        XCTAssertTrue(localFS.isDirectory(packageRoot))
+
+        // Run package init.
+        _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, env: [:], printIfError: true)
+        // Try building it.
+        XCTAssertBuilds(packageRoot)
+        XCTAssertFileExists(packageRoot, ".build/debug/some_package.swiftmodule")
+    }
+
+    static var allTests = [
+        ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
+        ("testPackageWithNoSources", testPackageWithNoSources),
+        ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
+        ("testManifestExcludes1", testManifestExcludes1),
+        ("testManifestExcludes2", testManifestExcludes2),
+        ("testManifestExcludes3", testManifestExcludes3),
+        ("testManifestExcludes4", testManifestExcludes4),
+        ("testManifestExcludes5", testManifestExcludes5),
+        ("testTestDependenciesSimple", testTestDependenciesSimple),
+        ("testTestDependenciesComplex", testTestDependenciesComplex),
+        ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
+        ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
+        ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
+        ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
+        ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
+        ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
+        ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
+        ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
+        ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
+        ("testPackageManagerDefine", testPackageManagerDefine),
+        ("testInternalDependencyEdges", testInternalDependencyEdges),
+        ("testExternalDependencyEdges1", testExternalDependencyEdges1),
+        ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+        ("testProductWithNoModules", testProductWithNoModules),
+        ("testProductWithMissingModules", testProductWithMissingModules),
+        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
+    ]
 }

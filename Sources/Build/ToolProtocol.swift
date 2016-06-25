@@ -8,7 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import Basic
+import PackageModel
 import Utility
 
 /// Describes a tool which can be understood by llbuild's BuildSystem library.
@@ -53,19 +54,43 @@ struct SwiftcTool: ToolProtocol {
     let prefix: String
     let otherArgs: [String]
     let executable: String
+    let conf: Configuration
+    static let numThreads = 8
 
     var inputs: [String] {
-        return module.recursiveDependencies.map{ $0.targetName }
+        // For C family targets Swift needs dynamic libraries to be able to interpolate.
+        // We implicitly create dynamic libs for all C targets ie ClangModules, add
+        // input to the product and not the module for ClangModules.
+        return module.recursiveDependencies.map{ module in
+            switch module {
+            case let module as SwiftModule:
+                return module.targetName
+            case let module as ClangModule:
+                let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
+                return product.targetName
+            case let module as CModule:
+                return module.targetName
+            default:
+                fatalError("Unhandled module \(module) for input dependency of module \(self.module).")
+            }
+        }
     }
 
-    var outputs: [String]        { return [module.targetName] + objects }
-    var moduleName: String       { return module.c99name }
-    var moduleOutputPath: String { return Path.join(prefix, "\(module.c99name).swiftmodule") }
-    var importPaths: [String]    { return [prefix] }
-    var tempsPath: String        { return Path.join(prefix, "\(module.c99name).build") }
-    var objects: [String]        { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
-    var sources: [String]        { return module.sources.paths }
-    var isLibrary: Bool          { return module.type == .Library }
+    var outputs: [String]                   { return [module.targetName] + objects }
+    var moduleName: String                  { return module.c99name }
+    var moduleOutputPath: String            { return Path.join(prefix, "\(module.c99name).swiftmodule") }
+    var importPaths: [String]               { return [prefix] }
+    var tempsPath: String                   { return Path.join(prefix, "\(module.c99name).build") }
+    var objects: [String]                   { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
+    var sources: [String]                   { return module.sources.paths }
+    var isLibrary: Bool                     { return module.type == .library }
+    var enableWholeModuleOptimization: Bool {
+        #if EnableWorkaroundForSR1457
+            return false
+        #else
+            return conf == .release
+        #endif
+    }
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: swift-compiler\n"
@@ -80,24 +105,14 @@ struct SwiftcTool: ToolProtocol {
         stream <<< "    other-args: " <<< Format.asJSON(otherArgs) <<< "\n"
         stream <<< "    sources: " <<< Format.asJSON(sources) <<< "\n"
         stream <<< "    is-library: " <<< Format.asJSON(isLibrary) <<< "\n"
+        stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(enableWholeModuleOptimization) <<< "\n"
+        stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftcTool.numThreads)") <<< "\n"
     }
 }
 
 struct Target {
     let node: String
     var cmds: [Command]
-}
-
-struct MkdirTool: ToolProtocol {
-    let path: String
-
-    var inputs: [String] { return [] }
-    var outputs: [String] { return [path] }
-
-    func append(to stream: OutputByteStream) {
-        stream <<< "    tool: mkdir\n"
-        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-    }
 }
 
 struct ClangTool: ToolProtocol {

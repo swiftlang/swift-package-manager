@@ -32,7 +32,7 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
     do {
         let pid = try posix_spawnp(arguments[0], args: arguments, environment: environment)
         let exitStatus = try waitpid(pid)
-        guard exitStatus == 0 else { throw Error.ExitStatus(exitStatus, arguments) }
+        guard exitStatus == 0 else { throw Error.exitStatus(exitStatus, arguments) }
     } catch let underlyingError as SystemError {
         throw ShellError.system(arguments: arguments, underlyingError)
     }
@@ -55,9 +55,9 @@ func posix_spawnp(_ path: String, args: [String], environment: [String: String] 
 
     var environment = environment
 #if Xcode
-    let keys = ["SWIFT_EXEC", "HOME", "PATH"]
+    let keys = ["SWIFT_EXEC", "HOME", "PATH", "TOOLCHAINS", "DEVELOPER_DIR", "LLVM_PROFILE_FILE"]
 #else
-    let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS"]
+    let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS", "DEVELOPER_DIR", "LLVM_PROFILE_FILE"]
 #endif
     for key in keys {
         if environment[key] == nil {
@@ -106,7 +106,7 @@ func waitpid(_ pid: pid_t) throws -> Int32 {
             if WIFEXITED(exitStatus) {
                 return WEXITSTATUS(exitStatus)
             } else {
-                throw Error.ExitSignal
+                throw Error.exitSignal
             }
         } else if errno == EINTR {
             continue  // see: man waitpid

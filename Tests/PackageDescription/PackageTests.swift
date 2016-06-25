@@ -12,9 +12,7 @@
 import XCTest
 
 class PackageTests: XCTestCase {
-
     func testMatchDependencyWithPreReleaseVersion() {
-
         // Tests matching dependency with pre-release suffixed version
         // Refs: https://bugs.swift.org/browse/SR-787
 
@@ -27,12 +25,7 @@ class PackageTests: XCTestCase {
         XCTAssertFalse(majorAndMinorVersionSpecified.versionRange ~= "0.11.0")
     }
 
-}
-
-extension PackageTests {
-    static var allTests : [(String, PackageTests -> () throws -> Void)] {
-        return [
-            ("testMatchDependencyWithPreReleaseVersion", testMatchDependencyWithPreReleaseVersion),
-        ]
-    }
+    static var allTests = [
+        ("testMatchDependencyWithPreReleaseVersion", testMatchDependencyWithPreReleaseVersion),
+    ]
 }

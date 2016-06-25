@@ -8,58 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.chdir
-import func libc.exit
-import Multitool
-import Utility
+import Commands
 
-do {
-    let args = Array(Process.arguments.dropFirst())
-    let (mode, opts) = try parse(commandLineArguments: args)
-
-    if let dir = opts.chdir {
-        try chdir(dir)
-    }
-
-    switch mode {
-    case .Usage:
-        usage()
-
-    case .Run(let specifier):
-        let configuration = "debug"  //FIXME should swift-test support configuration option?
-
-        func determineTestPath() throws -> String {
-
-            //FIXME better, ideally without parsing manifest since
-            // that makes us depend on the whole Manifest system
-
-            let packageName = opts.path.root.basename  //FIXME probably not true
-            let maybePath = Path.join(opts.path.build, configuration, "\(packageName)Tests.xctest")
-
-            if maybePath.exists {
-                return maybePath
-            } else {
-                let possiblePaths = walk(opts.path.build).filter {
-                    $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
-                    $0.hasSuffix(".xctest")
-                }
-                
-                guard let path = possiblePaths.first else {
-                    throw Error.TestsExecutableNotFound
-                }
-                
-                return path
-            }
-        }
-
-        let yamlPath = Path.join(opts.path.build, "\(configuration).yaml")
-        try build(YAMLPath: yamlPath, target: "test")
-        let success = try test(path: determineTestPath(), xctestArg: specifier)
-        exit(success ? 0 : 1)
-    }
-} catch Multitool.Error.BuildYAMLNotFound {
-    print("error: you must run `swift build` first", to: &stderr)
-    exit(1)
-} catch {
-    handle(error: error, usage: usage)
-}
+let tool = SwiftTestTool(args: Array(Process.arguments.dropFirst()))
+tool.run()

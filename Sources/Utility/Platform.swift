@@ -11,11 +11,11 @@
 import func POSIX.popen
 
 public enum Platform {
-    case Darwin
-    case Linux(LinuxFlavor)
+    case darwin
+    case linux(LinuxFlavor)
     
     public enum LinuxFlavor {
-        case Debian
+        case debian
     }
     
     // Lazily return current platform.
@@ -24,14 +24,25 @@ public enum Platform {
         guard let uname = try? popen(["uname"]).chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
-            return .Darwin
+            return .darwin
         case "linux":
             if "/etc/debian_version".isFile {
-                return .Linux(.Debian)
+                return .linux(.debian)
             }
         default:
             return nil
         }
         return nil
     }
+}
+
+public func platformFrameworksPath() throws -> String {
+    // Lazily compute the platform the first time it is needed.
+    struct Static {
+        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
+    }
+    guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
+        throw Error.invalidPlatformPath
+    }
+    return Path.join(chuzzled, "Developer/Library/Frameworks")
 }

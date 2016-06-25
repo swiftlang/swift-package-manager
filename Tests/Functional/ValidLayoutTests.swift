@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct Utility.Path
-import func POSIX.symlink
-import func Utility.walk
-import func POSIX.rename
-import func POSIX.mkdir
-import func POSIX.popen
 import XCTest
+
+import Basic
+import Utility
+
+import func POSIX.symlink
+import func POSIX.rename
+import func POSIX.popen
 
 class ValidLayoutsTestCase: XCTestCase {
 
@@ -93,10 +94,21 @@ class ValidLayoutsTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
         }
     }
+
+    static var allTests = [
+        ("testSingleModuleLibrary", testSingleModuleLibrary),
+        ("testSingleModuleExecutable", testSingleModuleExecutable),
+        ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
+        ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
+        ("testMultipleModulesLibraries", testMultipleModulesLibraries),
+        ("testMultipleModulesExecutables", testMultipleModulesExecutables),
+        ("testPackageIdentifiers", testPackageIdentifiers),
+        ("testMadeValidWithExclude", testMadeValidWithExclude),
+    ]
 }
 
 
-//MARK: Utility
+// MARK: Utility
 
 extension ValidLayoutsTestCase {
     func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(String) throws -> Void) {
@@ -107,98 +119,25 @@ extension ValidLayoutsTestCase {
 
         // 2. Move everything to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
-            let dir = try mkdir(prefix, "Sources")
+            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
+            let dir = Path.join(prefix, "Sources")
+            try Utility.makeDirectories(dir)
             for file in files {
-                let tip = Path(file).relative(to: prefix)
-                try rename(old: file, new: Path.join(dir, tip))
+                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
             }
             try body(prefix)
         }
 
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = walk(prefix, recursively: false).filter{ $0.basename != "Package.swift" }
-            let dir = try mkdir(prefix, "Floobles")
+            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
+            let dir = Path.join(prefix, "Floobles")
+            try Utility.makeDirectories(dir)
             for file in files {
-                let tip = Path(file).relative(to: prefix)
-                try rename(old: file, new: Path.join(dir, tip))
+                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
             }
             try symlink(create: "\(prefix)/Sources", pointingAt: dir, relativeTo: prefix)
             try body(prefix)
         }
-    }
-}
-
-
-extension DependencyResolutionTestCase {
-    static var allTests : [(String, DependencyResolutionTestCase -> () throws -> Void)] {
-        return [
-            ("testInternalSimple", testInternalSimple),
-            ("testInternalComplex", testInternalComplex),
-            ("testExternalSimple", testExternalSimple),
-            ("testExternalComplex", testExternalComplex),
-            ("testIndirectTestsDontBuild", testIndirectTestsDontBuild),
-        ]
-    }
-}
-
-extension InvalidLayoutsTestCase {
-    static var allTests : [(String, InvalidLayoutsTestCase -> () throws -> Void)] {
-        return [
-            ("testMultipleRoots", testMultipleRoots),
-            ("testInvalidLayout1", testInvalidLayout1),
-            ("testInvalidLayout2", testInvalidLayout2),
-            ("testInvalidLayout3", testInvalidLayout3),
-            ("testInvalidLayout4", testInvalidLayout4),
-            ("testInvalidLayout5", testInvalidLayout5),
-        ]
-    }
-}
-
-extension MiscellaneousTestCase {
-    static var allTests : [(String, MiscellaneousTestCase -> () throws -> Void)] {
-        return [
-            ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
-            ("testPackageWithNoSources", testPackageWithNoSources),
-            ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
-            ("testManifestExcludes1", testManifestExcludes1),
-            ("testManifestExcludes2", testManifestExcludes2),
-            ("testManifestExcludes3", testManifestExcludes3),
-            ("testManifestExcludes4", testManifestExcludes4),
-            ("testManifestExcludes5", testManifestExcludes5),
-            ("testTestDependenciesSimple", testTestDependenciesSimple),
-            ("testTestDependenciesComplex", testTestDependenciesComplex),
-            ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
-            ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
-            ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
-            ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-            ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
-            ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
-            ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
-            ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
-            ("testFailsIfVersionTagHasNoPackageSwift", testFailsIfVersionTagHasNoPackageSwift),
-            ("testPackageManagerDefine", testPackageManagerDefine),
-            ("testInternalDependencyEdges", testInternalDependencyEdges),
-            ("testExternalDependencyEdges1", testExternalDependencyEdges1),
-            ("testExternalDependencyEdges2", testExternalDependencyEdges2),
-            ("testProductWithNoModules", testProductWithNoModules),
-            ("testProductWithMissingModules", testProductWithMissingModules),
-        ]
-    }
-}
-
-extension ValidLayoutsTestCase {
-    static var allTests : [(String, ValidLayoutsTestCase -> () throws -> Void)] {
-        return [
-            ("testSingleModuleLibrary", testSingleModuleLibrary),
-            ("testSingleModuleExecutable", testSingleModuleExecutable),
-            ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
-            ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
-            ("testMultipleModulesLibraries", testMultipleModulesLibraries),
-            ("testMultipleModulesExecutables", testMultipleModulesExecutables),
-            ("testPackageIdentifiers", testPackageIdentifiers),
-            ("testMadeValidWithExclude", testMadeValidWithExclude),
-        ]
     }
 }

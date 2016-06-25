@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-@testable import Utility
 import XCTest
+
+@testable import Utility
 
 class GitMoc: Git {
     static var mocVersion: String = "git version 2.5.4 (Apple Git-61)"
@@ -69,7 +70,7 @@ class GitUtilityTests: XCTestCase {
             XCTAssertFalse(repo.hasLocalChanges)
 
             let filePath = Path.join(dir, "file2.swift")
-            try popen(["touch", filePath])
+            try systemQuietly(["touch", filePath])
 
             XCTAssertTrue(repo.hasLocalChanges)
         }
@@ -85,21 +86,17 @@ class GitUtilityTests: XCTestCase {
     
     func commit(_ dstdir: String, file: String) throws {
         let filePath = Path.join(dstdir, file)
-        try popen(["touch", filePath])
+        try systemQuietly(["touch", filePath])
 
-        try popen(["git", "-C", dstdir, "add", "."])
-        try popen(["git", "-C", dstdir, "commit", "-m", "msg"])
+        try systemQuietly(["git", "-C", dstdir, "add", "."])
+        try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
     }
-}
 
-extension GitUtilityTests {
-    static var allTests : [(String, GitUtilityTests -> () throws -> Void)] {
-        return [
-                   ("testGitVersion", testGitVersion),
-                   ("testHeadSha", testHeadSha),
-                   ("testVersionSha", testVersionSha),
-                   ("testHeadAndVersionSha", testHeadAndVersionSha),
-                   ("testHasLocalChanges", testHasLocalChanges),
-        ]
-    }
+    static var allTests = [
+        ("testGitVersion", testGitVersion),
+        ("testHeadSha", testHeadSha),
+        ("testVersionSha", testVersionSha),
+        ("testHeadAndVersionSha", testHeadAndVersionSha),
+        ("testHasLocalChanges", testHasLocalChanges),
+    ]
 }

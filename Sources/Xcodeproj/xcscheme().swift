@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageType
+import PackageModel
 
 func xcscheme(container: String, modules: [XcodeModuleProtocol], printer print: (String) -> Void) {
     print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
@@ -16,8 +16,7 @@ func xcscheme(container: String, modules: [XcodeModuleProtocol], printer print: 
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
     print("    <BuildActionEntries>")
 
-    let nontests = modules.filter{ !($0 is TestModule) }
-    let tests = modules.filter{ $0 is TestModule }
+    let (tests, nontests) = modules.partition { $0.isTest }
 
     for module in nontests {
         print("      <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">")
@@ -37,7 +36,8 @@ func xcscheme(container: String, modules: [XcodeModuleProtocol], printer print: 
     print("    buildConfiguration = \"Debug\"")
     print("    selectedDebuggerIdentifier = \"Xcode.DebuggerFoundation.Debugger.LLDB\"")
     print("    selectedLauncherIdentifier = \"Xcode.DebuggerFoundation.Launcher.LLDB\"")
-    print("    shouldUseLaunchSchemeArgsEnv = \"YES\">")
+    print("    shouldUseLaunchSchemeArgsEnv = \"YES\"")
+    print("    codeCoverageEnabled = \"YES\">")
     print("    <Testables>")
 
     for module in tests {

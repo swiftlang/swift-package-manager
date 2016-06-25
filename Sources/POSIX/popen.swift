@@ -19,7 +19,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
     return out
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws
 {
     do {
         // Create a pipe to use for reading the result.
@@ -94,7 +94,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
         let exitStatus = try POSIX.waitpid(pid)
 
         guard exitStatus == 0 else {
-            throw Error.ExitStatus(exitStatus, arguments)
+            throw Error.exitStatus(exitStatus, arguments)
         }
 
     } catch let underlyingError as SystemError {
