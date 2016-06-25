@@ -147,6 +147,22 @@ public struct AbsolutePath {
     }
 }
 
+/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// to be implicitly converted to AbsolutePaths.
+extension AbsolutePath : StringLiteralConvertible {
+    public typealias UnicodeScalarLiteralType = StringLiteralType
+    public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
 
 /// Represents a relative file system path.  A relative path never starts with
 /// a `/` character, and holds a normalized string representation.  As with
@@ -218,6 +234,21 @@ public struct RelativePath {
     }
 }
 
+/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// to be implicitly converted to RelativePaths.
+extension RelativePath : StringLiteralConvertible {
+    public typealias UnicodeScalarLiteralType = StringLiteralType
+    public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
 
 // Make absolute paths Hashable.
 extension AbsolutePath : Hashable {
