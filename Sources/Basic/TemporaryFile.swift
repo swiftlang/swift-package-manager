@@ -39,18 +39,18 @@ private extension TempFileError {
 ///     - dir: If present this will be the temporary directory.
 ///
 /// - Returns: Path to directory in which temporary file should be created.
-private func determineTempDirectory(_ dir: String? = nil) -> String {
+private func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath {
     // FIXME: Add other platform specific locations.
-    var tmpDir = dir ?? cachedTempDirectory
-    if !tmpDir.hasSuffix("/") { tmpDir += "/" }
-    precondition(tmpDir.isDirectory)
+    let tmpDir = dir ?? cachedTempDirectory
+    // FIXME: This is a runtime condition, so it should throw and not crash.
+    precondition(tmpDir.asString.isDirectory)
     return tmpDir
 }
 
 /// Returns temporary directory location by searching relevant env variables.
 /// Evaluates once per execution.
-private var cachedTempDirectory: String = {
-    return getenv("TMPDIR") ?? getenv("TEMP") ?? getenv("TMP") ?? "/tmp/"
+private var cachedTempDirectory: AbsolutePath = {
+    return AbsolutePath(getenv("TMPDIR") ?? getenv("TEMP") ?? getenv("TMP") ?? "/tmp/")
 }()
 
 /// This class is basically a wrapper over posix's mkstemps() function to creates disposable files.
@@ -63,10 +63,10 @@ public final class TemporaryFile {
     let suffix: String
 
     /// The directory in which the temporary file is created.
-    public let dir: String
+    public let dir: AbsolutePath
 
     /// The full path of the temporary file. For safety file operations should be done via the fileHandle instead of using this path.
-    public let path: String
+    public let path: AbsolutePath
 
     /// The file descriptor of the temporary file. It is used to create NSFileHandle which is exposed to clients.
     private let fd: Int32
@@ -85,29 +85,29 @@ public final class TemporaryFile {
     ///     - suffix: The suffix to the temporary file name.
     ///
     /// - Throws: TempFileError
-    public init(dir: String? = nil, prefix: String = "TemporaryFile", suffix: String = "") throws {
+    public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryFile", suffix: String = "") throws {
         self.suffix = suffix
         self.prefix = prefix
         // Determine in which directory to create the temporary file.
         self.dir = determineTempDirectory(dir)
         // Construct path to the temporary file.
-        let path = self.dir + prefix + ".XXXXXX" + suffix
+        let path = self.dir.appending(RelativePath(prefix + ".XXXXXX" + suffix))
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
 
         fd = libc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
         if fd == -1 { throw TempFileError(errno: errno) }
 
-        self.path = String(cString: template)
+        self.path = AbsolutePath(String(cString: template))
         fileHandle = FileHandle(fileDescriptor: fd)
     }
 
     /// Remove the temporary file before deallocating.
-    deinit { unlink(path) }
+    deinit { unlink(path.asString) }
 }
 
 extension TemporaryFile: CustomStringConvertible {
@@ -159,7 +159,7 @@ public final class TemporaryDirectory {
     let prefix: String
 
     /// The full path of the temporary directory.
-    public let path: String
+    public let path: AbsolutePath
 
     /// If true, try to remove the whole directory tree before deallocating.
     let removeTreeOnDeinit: Bool
@@ -174,30 +174,30 @@ public final class TemporaryDirectory {
     ///     - removeTreeOnDeinit: If enabled try to delete the whole directory tree otherwise remove only if its empty.
     ///
     /// - Throws: MakeDirectoryError
-    public init(dir: String? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false) throws {
+    public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false) throws {
         self.removeTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
-        let path = determineTempDirectory(dir) + prefix + ".XXXXXX"
+        let path = determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
 
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
 
         if libc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)
         }
 
-        self.path = String(cString: template)
+        self.path = AbsolutePath(String(cString: template))
     }
 
     /// Remove the temporary file before deallocating.
     deinit {
         if removeTreeOnDeinit {
-            let _ = try? FileManager.default().removeItem(atPath: path)
+            let _ = try? FileManager.default().removeItem(atPath: path.asString)
         } else {
-            rmdir(path)
+            rmdir(path.asString)
         }
     }
 }
