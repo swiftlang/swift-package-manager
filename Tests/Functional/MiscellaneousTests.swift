@@ -369,7 +369,7 @@ class MiscellaneousTestCase: XCTestCase {
         XCTAssertTrue(localFS.isDirectory(tempDir.path))
 
         // Create a directory with non c99name.
-        let packageRoot = AbsolutePath(tempDir.path).join(RelativePath("some-package")).asString
+        let packageRoot = AbsolutePath(tempDir.path).appending(RelativePath("some-package")).asString
         try localFS.createDirectory(packageRoot)
         XCTAssertTrue(localFS.isDirectory(packageRoot))
 

@@ -155,6 +155,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).asString, "/foo")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).asString, "/")
         XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).asString, "/yabba/a/b")
+        
+        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("")).asString, "/")
+        XCTAssertEqual(AbsolutePath("/").appending(RelativePath(".")).asString, "/")
+        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("..")).asString, "/")
+        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("bar")).asString, "/bar")
+        XCTAssertEqual(AbsolutePath("/foo/bar").appending(RelativePath("..")).asString, "/foo")
+        XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo")).asString, "/foo")
+        XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).asString, "/")
+        XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).asString, "/yabba/a/b")
     }
     
     func testPathComponents() {
