@@ -36,6 +36,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case listTests
     case run(String?)
+    case runInParallel
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -46,6 +47,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case "-s", "--specifier":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .run(specifier)
+        case "--parallel":
+            self = .runInParallel
         default:
             return nil
         }
@@ -59,6 +62,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             return "--list-tests"
         case .run(let specifier):
             return specifier ?? ""
+        case .runInParallel:
+            return "--parallel"
         }
     }
 }
@@ -129,6 +134,13 @@ public struct SwiftTestTool: SwiftTool {
                 let testPath = try determineTestPath(opts: opts)
 
                 let success = test(path: testPath, xctestArg: specifier)
+                exit(success ? 0 : 1)
+
+            case .runInParallel:
+                try buildTestsIfNeeded(opts)
+                let testPath = try determineTestPath(opts: opts)
+
+                let success = try testInParallel(testPath: testPath)
                 exit(success ? 0 : 1)
             }
         } catch Error.buildYAMLNotFound {
@@ -223,6 +235,60 @@ public struct SwiftTestTool: SwiftTool {
         }
 
         return (mode ?? .run(nil), opts)
+    }
+
+    /// Executes the tests in parallel.
+    ///
+    /// - Parameters:
+    ///     - testPath: Path to a valid XCTest binary.
+    ///
+    /// - Returns: True if all the tests exited with return code zero.
+    private func testInParallel(testPath: AbsolutePath) throws -> Bool {
+        precondition(isValidTestPath(testPath))
+
+        // Create a queue to hold specifiers.
+        let queue = SynchronizedQueue<String?>()
+
+        // Find all the test suites present in the test binary.
+        let testSuites = try getTestSuites(path: testPath)
+
+        // Enqueue all the tests.
+        for testSuite in testSuites {
+            for testCase in testSuite.tests {
+                for test in testCase.tests {
+                    queue.enqueue(testCase.name + "/" + test)
+                }
+            }
+        }
+
+        // The number of threads we are going to be spawning.
+        let numJobs = ProcessInfo.processInfo().activeProcessorCount
+
+        // Enqueue the sentinels, we stop a thread when it encounters a sentinel in the queue.
+        for _ in 0..<numJobs {
+            queue.enqueue(nil)
+        }
+
+        var lock = Lock()
+        // Bool to indicate if any of the test execution exits with a non-zero status.
+        var success = true
+        let threads: [Thread] = (0..<numJobs).map { _ in
+            let thread = Thread {
+                // Dequeue a specifier and run it till we encounter nil.
+                while let specifier = queue.dequeue() {
+                    let result = self.test(path: testPath, xctestArg: specifier)
+                    lock.withLock {
+                        success = success && result
+                    }
+                }
+            }
+            thread.start()
+            return thread
+        }
+
+        // Wait till all threads finish execution.
+        threads.forEach { $0.join() }
+        return success
     }
 
     /// Executes the XCTest binary with given arguments.
