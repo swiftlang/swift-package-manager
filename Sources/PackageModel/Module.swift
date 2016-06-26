@@ -15,6 +15,8 @@
  TODO should be a protocol
 */
 
+import Basic
+
 @_exported import enum PackageDescription.SystemPackageProvider
 
 public protocol ModuleProtocol {
@@ -31,7 +33,7 @@ public class Module: ModuleProtocol {
      use c99name if you need uniqueness.
     */
     public let name: String
-    public var dependencies: [Module]  /// in build order
+    public var dependencies: [Module]
     public var c99name: String
     public let isTest: Bool
     private let testModuleNameSuffix = "TestSuite"
@@ -44,8 +46,11 @@ public class Module: ModuleProtocol {
         self.isTest = isTest
     }
 
+    /// The transitive closure of the module dependencies, in build order.
+    //
+    // FIXME: This should be cached, once we have an immutable model.
     public var recursiveDependencies: [Module] {
-        return PackageModel.recursiveDependencies(dependencies)
+        return (try! topologicalSort(dependencies, successors: { $0.dependencies })).reversed()
     }
 
     /// The base prefix for the test module, used to associate with the target it tests.
@@ -139,22 +144,4 @@ extension Module: CustomStringConvertible {
     public var description: String {
         return "\(self.dynamicType)(\(name))"
     }
-}
-
-private func recursiveDependencies(_ modules: [Module]) -> [Module] {
-    // FIXME: Refactor this to a common algorithm.
-    var stack = modules
-    var set = Set<Module>()
-    var rv = [Module]()
-
-    while stack.count > 0 {
-        let top = stack.removeFirst()
-        if !set.contains(top) {
-            rv.append(top)
-            set.insert(top)
-            stack += top.dependencies
-        }
-    }
-
-    return rv
 }
