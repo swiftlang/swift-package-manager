@@ -11,6 +11,7 @@
 import POSIX
 import PackageModel
 import Utility
+import struct Basic.RelativePath
 
 // FIXME: escaping
 
@@ -96,7 +97,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         for (ref, path) in sourceFileRefPaths {
             print("        \(ref) = {")
             print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = \(module.fileType);")
+            print("            lastKnownFileType = \(module.fileType(forSource: RelativePath(path)));")
             print("            name = '\(Path(path).relative(to: module.sources.root))';")
             print("            sourceTree = '<group>';")
             print("        };")

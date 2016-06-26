@@ -18,6 +18,7 @@
 import Basic
 
 @_exported import enum PackageDescription.SystemPackageProvider
+import struct Basic.RelativePath
 
 public protocol ModuleProtocol {
     var name: String { get }
@@ -85,7 +86,7 @@ extension ModuleTypeProtocol {
 
 
 public protocol XcodeModuleProtocol: ModuleProtocol, ModuleTypeProtocol {
-    var fileType: String { get }
+    func fileType(forSource source: RelativePath) -> String
 }
 
 extension Module: Hashable, Equatable {
@@ -106,8 +107,9 @@ public class SwiftModule: Module {
 }
 
 extension SwiftModule: XcodeModuleProtocol {
-    public var fileType: String {
-        return "sourcecode.swift"
+    public func fileType(forSource source: RelativePath) -> String {
+        // SwiftModules only has one type of source so just always return this.
+        return SupportedLanguageExtension.swift.xcodeFileType
     }
 }
 
@@ -134,9 +136,35 @@ public class ClangModule: CModule {
     }
 }
 
+private extension SupportedLanguageExtension {
+    var xcodeFileType: String {
+        switch self {
+        case c:
+            return "sourcecode.c.c"
+        case m:
+            return "sourcecode.c.objc"
+        case cxx, cc, cpp:
+            return "sourcecode.cpp.cpp"
+        case mm:
+            return "sourcecode.cpp.objcpp"
+        case swift:
+            return "sourcecode.swift"
+        }
+    }
+}
+
 extension ClangModule: XcodeModuleProtocol {
-    public var fileType: String {
-        return "sourcecode.c.c"
+    public func fileType(forSource source: RelativePath) -> String {
+        guard let suffix = source.suffix else {
+            fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
+        }
+        // Suffix includes `.` so drop it.
+        assert(suffix.hasPrefix("."))
+        let fileExtension = String(suffix.characters.dropFirst())
+        guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
+            fatalError("Unknown source extension \(source) in ClangModule \(name)")
+        }
+        return ext.xcodeFileType
     }
 }
 
