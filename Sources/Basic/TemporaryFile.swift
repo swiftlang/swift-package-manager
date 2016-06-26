@@ -12,7 +12,6 @@ import libc
 import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
-import Utility
 
 public enum TempFileError: ErrorProtocol {
     /// Could not create a unique temporary filename.
@@ -44,7 +43,7 @@ private func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath 
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? cachedTempDirectory
     // FIXME: This is a runtime condition, so it should throw and not crash.
-    precondition(tmpDir.asString.isDirectory)
+    precondition(localFS.isDirectory(tmpDir))
     return tmpDir
 }
 
