@@ -125,11 +125,10 @@ public struct SwiftTestTool: SwiftTool {
                 }
 
             case .run(let specifier):
-                let yamlPath = opts.path.build.appending(RelativePath("\(configuration).yaml"))
-                if opts.buildTests {
-                    try build(yamlPath: yamlPath, target: "test")
-                }
-                let success = try test(path: determineTestPath(opts: opts), xctestArg: specifier)
+                try buildTestsIfNeeded(opts)
+                let testPath = try determineTestPath(opts: opts)
+
+                let success = test(path: testPath, xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
         } catch Error.buildYAMLNotFound {
@@ -141,6 +140,14 @@ public struct SwiftTestTool: SwiftTool {
     }
 
     private let configuration = "debug"  //FIXME should swift-test support configuration option?
+
+    /// Builds the "test" target if enabled in options.
+    private func buildTestsIfNeeded(_ opts: TestToolOptions) throws {
+        let yamlPath = opts.path.build.appending(RelativePath("\(configuration).yaml"))
+        if opts.buildTests {
+            try build(yamlPath: yamlPath, target: "test")
+        }
+    }
 
     /// Locates the XCTest bundle on OSX and XCTest executable on Linux.
     /// First check if <build_path>/debug/<PackageName>Tests.xctest is present, otherwise
@@ -160,8 +167,10 @@ public struct SwiftTestTool: SwiftTool {
         let packageName = opts.path.root.basename  //FIXME probably not true
         let maybePath = opts.path.build.appending(RelativePath(configuration)).appending(RelativePath("\(packageName)Tests.xctest"))
 
+        let possibleTestPath: AbsolutePath
+
         if maybePath.asString.exists {
-            return maybePath
+            possibleTestPath = maybePath
         } else {
             let possiblePaths = walk(opts.path.build.asString).filter {
                 $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
@@ -172,8 +181,13 @@ public struct SwiftTestTool: SwiftTool {
                 throw TestError.testsExecutableNotFound
             }
 
-            return AbsolutePath(path.abspath)
+            possibleTestPath = AbsolutePath(path.abspath)
         }
+
+        guard isValidTestPath(possibleTestPath) else {
+            throw TestError.testsExecutableNotFound
+        }
+        return possibleTestPath
     }
 
     private func usage(_ print: (String) -> Void = { print($0) }) {
@@ -211,10 +225,15 @@ public struct SwiftTestTool: SwiftTool {
         return (mode ?? .run(nil), opts)
     }
 
-    private func test(path: AbsolutePath, xctestArg: String? = nil) throws -> Bool {
-        guard isValidTestPath(path) else {
-            throw TestError.testsExecutableNotFound
-        }
+    /// Executes the XCTest binary with given arguments.
+    ///
+    /// - Parameters:
+    ///     - path: Path to a valid XCTest binary.
+    ///     - xctestArg: Arguments to pass to the XCTest binary.
+    ///
+    /// - Returns: True if execution exited with return code 0.
+    private func test(path: AbsolutePath, xctestArg: String? = nil) -> Bool {
+        precondition(isValidTestPath(path))
 
         var args: [String] = []
       #if os(OSX)
