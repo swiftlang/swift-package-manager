@@ -175,7 +175,7 @@ private extension Module {
     }
     
     private var recursiveDeps: [Module] {
-        sort(self)
-        return dependencies
+        // FIXME: Eliminate this, it is a bad historical artifact.
+        return recursiveDependencies.reversed()
     }
 }
