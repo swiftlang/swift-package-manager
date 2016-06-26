@@ -12,6 +12,7 @@ import libc
 import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
+import Utility
 
 public enum TempFileError: ErrorProtocol {
     /// Could not create a unique temporary filename.
