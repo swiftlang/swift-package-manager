@@ -40,9 +40,9 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
 
             // Set dependencies for test modules.
             for case let testModule as SwiftModule in testModules {
-                if testModule.basename == "Utility" {
-                    // FIXME: The Utility tests currently have a layering
-                    // violation and a dependency on Basic for infrastructure.
+                if testModule.basename == "Basic" {
+                    // FIXME: The Basic tests currently have a layering
+                    // violation and a dependency on Utility for infrastructure.
                     testModule.dependencies = modules.filter{
                         switch $0.name {
                         case "Basic", "Utility":
