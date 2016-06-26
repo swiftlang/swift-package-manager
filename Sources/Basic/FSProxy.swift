@@ -11,8 +11,6 @@
 import POSIX
 import libc
 
-// FIXME: Eliminate this once we have a real Path type in Basic.
-import Utility
 
 public enum FSProxyError: ErrorProtocol {
     /// Access to the path is denied.
@@ -91,53 +89,80 @@ private extension FSProxyError {
 // FIXME: Design an asynchronous story?
 public protocol FSProxy {
     /// Check whether the given path exists and is accessible.
-    func exists(_ path: String) -> Bool
+    func exists(_ path: AbsolutePath) -> Bool
     
     /// Check whether the given path is accessible and a directory.
-    func isDirectory(_ path: String) -> Bool
+    func isDirectory(_ path: AbsolutePath) -> Bool
     
     /// Get the contents of the given directory, in an undefined order.
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
-    func getDirectoryContents(_ path: String) throws -> [String]
+    func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
     
     /// Create the given directory.
-    mutating func createDirectory(_ path: String) throws
+    mutating func createDirectory(_ path: AbsolutePath) throws
 
     /// Create the given directory.
     ///
     /// - recursive: If true, create missing parent directories if possible.
-    mutating func createDirectory(_ path: String, recursive: Bool) throws
+    mutating func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
 
     /// Get the contents of a file.
     ///
     /// - Returns: The file contents as bytes, or nil if missing.
     //
     // FIXME: This is obviously not a very efficient or flexible API.
-    func readFileContents(_ path: String) throws -> ByteString
+    func readFileContents(_ path: AbsolutePath) throws -> ByteString
     
     /// Write the contents of a file.
     //
     // FIXME: This is obviously not a very efficient or flexible API.
-    mutating func writeFileContents(_ path: String, bytes: ByteString) throws
+    mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 }
 
+/// Convenience implementations (default arguments aren't permitted in protocol
+/// methods).
 public extension FSProxy {
     /// Default implementation of createDirectory(_:)
-    mutating func createDirectory(_ path: String) throws {
+    mutating func createDirectory(_ path: AbsolutePath) throws {
         try createDirectory(path, recursive: false)
+    }
+}
+
+/// Temporary shims during String -> Path transition.
+public extension FSProxy {
+    func exists(_ path: String) -> Bool {
+        return exists(AbsolutePath(path))
+    }
+    func isDirectory(_ path: String) -> Bool {
+        return isDirectory(AbsolutePath(path))
+    }
+    func getDirectoryContents(_ path: String) throws -> [String] {
+        return try getDirectoryContents(AbsolutePath(path))
+    }
+    mutating func createDirectory(_ path: String) throws {
+        try createDirectory(AbsolutePath(path))
+    }
+    mutating func createDirectory(_ path: String, recursive: Bool) throws {
+        try createDirectory(AbsolutePath(path), recursive: recursive)
+    }
+    func readFileContents(_ path: String) throws -> ByteString {
+        return try readFileContents(AbsolutePath(path))
+    }
+    mutating func writeFileContents(_ path: String, bytes: ByteString) throws {
+        try writeFileContents(AbsolutePath(path), bytes: bytes)
     }
 }
 
 /// Concrete FSProxy implementation which communicates with the local file system.
 private class LocalFS: FSProxy {
-    func exists(_ path: String) -> Bool {
-        return (try? stat(path)) != nil
+    func exists(_ path: AbsolutePath) -> Bool {
+        return (try? stat(path.asString)) != nil
     }
     
-    func isDirectory(_ path: String) -> Bool {
-        guard let status = try? stat(path) else {
+    func isDirectory(_ path: AbsolutePath) -> Bool {
+        guard let status = try? stat(path.asString) else {
             return false
         }
         // FIXME: We should probably have wrappers or something for this, so it
@@ -145,8 +170,8 @@ private class LocalFS: FSProxy {
         return (status.st_mode & libc.S_IFDIR) != 0
     }
     
-    func getDirectoryContents(_ path: String) throws -> [String] {
-        guard let dir = libc.opendir(path) else {
+    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+        guard let dir = libc.opendir(path.asString) else {
             throw FSProxyError(errno: errno)
         }
         defer { _ = libc.closedir(dir) }
@@ -186,9 +211,9 @@ private class LocalFS: FSProxy {
         return result
     }
 
-    func createDirectory(_ path: String, recursive: Bool) throws {
+    func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Try to create the directory.
-        let result = mkdir(path, libc.S_IRWXU | libc.S_IRWXG)
+        let result = mkdir(path.asString, libc.S_IRWXU | libc.S_IRWXG)
 
         // If it succeeded, we are done.
         if result == 0 { return }
@@ -211,9 +236,9 @@ private class LocalFS: FSProxy {
         }
     }
     
-    func readFileContents(_ path: String) throws -> ByteString {
+    func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
-        let fp = fopen(path, "rb")
+        let fp = fopen(path.asString, "rb")
         if fp == nil {
             throw FSProxyError(errno: errno)
         }
@@ -240,9 +265,9 @@ private class LocalFS: FSProxy {
         return data.bytes
     }
     
-    func writeFileContents(_ path: String, bytes: ByteString) throws {
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // Open the file.
-        let fp = fopen(path, "wb")
+        let fp = fopen(path.asString, "wb")
         if fp == nil {
             throw FSProxyError(errno: errno)
         }
@@ -296,10 +321,10 @@ public class PseudoFS: FSProxy {
     }
 
     /// Get the node corresponding to get given path.
-    private func getNode(_ path: String) throws -> Node? {
-        func getNodeInternal(_ path: String) throws -> Node? {
+    private func getNode(_ path: AbsolutePath) throws -> Node? {
+        func getNodeInternal(_ path: AbsolutePath) throws -> Node? {
             // If this is the root node, return it.
-            if path == "/" {
+            if path.isRoot {
                 return root
             }
 
@@ -317,14 +342,13 @@ public class PseudoFS: FSProxy {
             return contents.entries[path.basename]
         }
 
-        // Get the node using the normalized path.
-        precondition(path.isAbsolute, "input path must be absolute")
-        return try getNodeInternal(path.normpath)
+        // Get the node that corresponds to the path.
+        return try getNodeInternal(path)
     }
 
     // MARK: FSProxy Implementation
     
-    public func exists(_ path: String) -> Bool {
+    public func exists(_ path: AbsolutePath) -> Bool {
         do {
             return try getNode(path) != nil
         } catch {
@@ -332,7 +356,7 @@ public class PseudoFS: FSProxy {
         }
     }
     
-    public func isDirectory(_ path: String) -> Bool {
+    public func isDirectory(_ path: AbsolutePath) -> Bool {
         do {
             if case .Directory? = try getNode(path)?.contents {
                 return true
@@ -343,7 +367,7 @@ public class PseudoFS: FSProxy {
         }
     }
     
-    public func getDirectoryContents(_ path: String) throws -> [String] {
+    public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
             throw FSProxyError.noEntry
         }
@@ -355,7 +379,7 @@ public class PseudoFS: FSProxy {
         return [String](contents.entries.keys)
     }
 
-    public func createDirectory(_ path: String, recursive: Bool) throws {
+    public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Get the parent directory node.
         let parentPath = path.parentDirectory
         guard let parent = try getNode(parentPath) else {
@@ -395,7 +419,7 @@ public class PseudoFS: FSProxy {
         contents.entries[path.basename] = Node(.Directory(DirectoryContents()))
     }
 
-    public func readFileContents(_ path: String) throws -> ByteString {
+    public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Get the node.
         guard let node = try getNode(path) else {
             throw FSProxyError.noEntry
@@ -411,7 +435,7 @@ public class PseudoFS: FSProxy {
         return contents
     }
 
-    public func writeFileContents(_ path: String, bytes: ByteString) throws {
+    public func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // It is an error if this is the root node.
         let parentPath = path.parentDirectory
         guard path != parentPath else {

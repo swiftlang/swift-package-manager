@@ -268,10 +268,10 @@ public struct SwiftTestTool {
         // Run the correct tool.
       #if os(OSX)
         let tempFile = try TemporaryFile()
-        let args = [xctestHelperPath(), path, tempFile.path]
+        let args = [xctestHelperPath(), path, tempFile.path.asString]
         try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
         // Read the temporary file's content.
-        let data = try fopen(tempFile.path).readFileContents()
+        let data = try fopen(tempFile.path.asString).readFileContents()
       #else
         let args = [path, "--dump-tests-json"]
         let data = try popen(args)
