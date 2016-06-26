@@ -44,14 +44,14 @@ extension Command {
             fatalError("Can't build \(product.name), \(product.type) is not yet supported.")
         }
 
-        let productPath = Path.join(prefix, product.outname)
+        let productPath = product.outpath(prefix)
         args += ["-o", productPath]
         
         let shell = ShellTool(description: "Linking \(product.name)",
                               inputs: objects + inputs,
-                              outputs: [productPath, product.targetName],
+                              outputs: [productPath],
                               args: [CC] + args)
         
-        return Command(node: product.targetName, tool: shell)
+        return Command(node: productPath, tool: shell)
     }
 }

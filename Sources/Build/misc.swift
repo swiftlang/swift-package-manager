@@ -62,6 +62,16 @@ extension ClangModule {
 }
 
 extension Product {
+    /// Creates output path of a product by appending working directory and product outname.
+    ///
+    /// - Parameters:
+    ///     - prefix: Working directory in which product will be created.
+    ///
+    /// - Returns: Output path of the product.
+    func outpath(_ prefix: String) -> String {
+        return Path.join(prefix, outname)
+    }
+
     /// Returns true iff all the modules in this product are ClangModules. 
     var containsOnlyClangModules: Bool {
         return modules.filter{ $0 is ClangModule }.count == modules.count

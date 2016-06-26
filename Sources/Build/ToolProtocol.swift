@@ -61,22 +61,23 @@ struct SwiftcTool: ToolProtocol {
         // For C family targets Swift needs dynamic libraries to be able to interpolate.
         // We implicitly create dynamic libs for all C targets ie ClangModules, add
         // input to the product and not the module for ClangModules.
-        return module.recursiveDependencies.map{ module in
+        return module.recursiveDependencies.flatMap{ module in
             switch module {
             case let module as SwiftModule:
-                return module.targetName
+                return SwiftcTool(module: module, prefix: prefix, otherArgs: [], executable: executable, conf: conf).moduleOutputPath
             case let module as ClangModule:
                 let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
-                return product.targetName
-            case let module as CModule:
-                return module.targetName
+                return product.outpath(prefix)
+            case is CModule:
+                // There is no actual input dependency in case of CModule, necessary flags are appended in Module.XccFlags(_:) method.
+                return nil
             default:
                 fatalError("Unhandled module \(module) for input dependency of module \(self.module).")
             }
         }
     }
 
-    var outputs: [String]                   { return [module.targetName] + objects }
+    var outputs: [String]                   { return [moduleOutputPath] + objects }
     var moduleName: String                  { return module.c99name }
     var moduleOutputPath: String            { return Path.join(prefix, "\(module.c99name).swiftmodule") }
     var importPaths: [String]               { return [prefix] }

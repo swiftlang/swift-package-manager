@@ -29,6 +29,6 @@ extension Command {
         #endif
 
         let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
-        return Command(node: module.targetName, tool: tool)
+        return Command(node: tool.moduleOutputPath, tool: tool)
     }
 }
