@@ -128,7 +128,7 @@ struct ClangTool: ToolProtocol {
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
         // FIXME: This does not work for paths with spaces.
-        stream <<< "    args: " <<< Format.asJSON(args.joined(separator: " ")) <<< "\n"
+        stream <<< "    args: " <<< Format.asJSON(args.map{ $0.shellEscaped() }.joined(separator: " ")) <<< "\n"
         if let deps = deps {
             stream <<< "    deps: " <<< Format.asJSON(deps) <<< "\n"
         }
