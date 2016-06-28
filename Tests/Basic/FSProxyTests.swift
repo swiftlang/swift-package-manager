@@ -71,7 +71,7 @@ class FSProxyTests: XCTestCase {
                 XCTAssert(fs.isDirectory(testPath))
             }
 
-            try! Utility.removeFileTree(tmpDir)
+            try! FileManager.default().removeItem(atPath: tmpDir)
         }
     }
 
@@ -127,7 +127,7 @@ class FSProxyTests: XCTestCase {
             }
             XCTAssert(!fs.exists(missingDir))
 
-            try! Utility.removeFileTree(tmpDir)
+            try! FileManager.default().removeItem(atPath: tmpDir)
         }
     }
 

@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import Utility
 import Xcodeproj
+import class Foundation.FileManager
 
 #if HasCustomVersionString
 import VersionInfo
@@ -210,7 +211,7 @@ public struct SwiftPackageTool {
                             throw Error.repositoryHasChanges(item)
                         }
                     }
-                    try Utility.removeFileTree(opts.path.Packages)
+                    try FileManager.default().removeItem(atPath: opts.path.Packages)
                 }
                 fallthrough
                 
