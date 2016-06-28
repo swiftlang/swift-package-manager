@@ -13,6 +13,7 @@ import func XCTest.XCTFail
 import Basic
 import POSIX
 import Utility
+import class Foundation.FileManager
 
 #if os(OSX)
 import class Foundation.Bundle
@@ -27,7 +28,7 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
 
     do {
         try POSIX.mkdtemp(gsub(fixtureName)) { prefix in
-            defer { _ = try? Utility.removeFileTree(prefix) }
+            defer { _ = try? FileManager.default().removeItem(atPath: prefix) }
 
             let rootd = Path.join(#file, "../../../Fixtures", fixtureName).normpath
 
@@ -188,7 +189,7 @@ func executeSwiftBuild(_ chdir: String, configuration: Configuration = .Debug, p
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(String) throws -> Void) {
     do {
         try POSIX.mkdtemp("spm-tests") { dir in
-            defer { _ = try? Utility.removeFileTree(dir) }
+            defer { _ = try? FileManager.default().removeItem(atPath: dir) }
             try body(dir)
         }
     } catch {

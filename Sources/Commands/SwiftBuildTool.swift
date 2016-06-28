@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import Utility
 import Xcodeproj
+import class Foundation.FileManager
 
 #if HasCustomVersionString
 import VersionInfo
@@ -168,25 +169,25 @@ public struct SwiftBuildTool {
         
             case .clean(.dist):
                 if opts.path.Packages.exists {
-                    try Utility.removeFileTree(opts.path.Packages)
+                    try FileManager.default().removeItem(atPath: opts.path.Packages)
                 }
                 fallthrough
         
             case .clean(.build):
                 let artifacts = ["debug", "release"].map{ Path.join(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
                 for (dir, yml) in artifacts {
-                    if dir.isDirectory { try Utility.removeFileTree(dir) }
-                    if yml.isFile { try Utility.removeFileTree(yml) }
+                    if dir.isDirectory { try FileManager.default().removeItem(atPath: dir) }
+                    if yml.isFile { try FileManager.default().removeItem(atPath: yml) }
                 }
         
                 let db = Path.join(opts.path.build, "build.db")
-                if db.isFile { try Utility.removeFileTree(db) }
+                if db.isFile { try FileManager.default().removeItem(atPath: db) }
         
                 let versionData = Path.join(opts.path.build, "versionData")
-                if versionData.isDirectory { try Utility.removeFileTree(versionData) }
+                if versionData.isDirectory { try FileManager.default().removeItem(atPath: versionData) }
         
                 if opts.path.build.exists {
-                    try Utility.removeFileTree(opts.path.build)
+                    try FileManager.default().removeItem(atPath: opts.path.build)
                 }
         
             case .version:
