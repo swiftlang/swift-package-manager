@@ -37,14 +37,13 @@ let package = Package(
             name: "POSIX",
             dependencies: ["libc"]),
         Target(
-            /** Abstractions for common operations, should migrate to Basic */
-            name: "Utility",
-            dependencies: ["POSIX"]),
-        Target(
             /** Basic support library */
             name: "Basic",
-            dependencies: ["libc", "POSIX", "Utility"]),
-            // FIXME: Eliminate the dependency on Utility above once we have Path.
+            dependencies: ["libc", "POSIX"]),
+        Target(
+            /** Abstractions for common operations, should migrate to Basic */
+            name: "Utility",
+            dependencies: ["POSIX", "Basic"]),
         Target(
             /** Source control operations */
             name: "SourceControl",
