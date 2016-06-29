@@ -125,12 +125,6 @@ public struct AbsolutePath {
     
     // FIXME: We need to add a `home` property to represent the home directory.
     
-    /// Normalized string representation (the normalization rules are described
-    /// in the documentation of the initializer).  This string is never empty.
-    public var asString: String {
-        return _impl.string
-    }
-    
     /// Returns an array of strings that make up the path components of the
     /// absolute path.  This is the same sequence of strings as the basenames
     /// of each successive path component, starting from the root.  Therefore
@@ -162,6 +156,20 @@ extension AbsolutePath : StringLiteralConvertible {
         self.init(stringLiteral: value)
     }
 }
+
+/// Adoption of the CustomStringConvertible protocol allows AbsolutePaths to
+/// be converted to Strings (which is O(1), since AbsolutePaths already store
+/// their string form).
+extension AbsolutePath : CustomStringConvertible {
+    
+    /// Normalized string representation (the normalization rules are described
+    /// in the documentation of the AbsolutePath initializer).  This string is
+    /// never empty.
+    public var description: String {
+        return _impl.string
+    }
+}
+
 
 
 /// Represents a relative file system path.  A relative path never starts with
@@ -211,12 +219,6 @@ public struct RelativePath {
         return _impl.suffix
     }
     
-    /// Normalized string representation (the normalization rules are described
-    /// in the documentation of the initializer).  This string is never empty.
-    public var asString: String {
-        return _impl.string
-    }
-
     /// Returns an array of strings that make up the path components of the
     /// relative path.  This is the same sequence of strings as the basenames
     /// of each successive path component.  Therefore the returned array of
@@ -250,31 +252,44 @@ extension RelativePath : StringLiteralConvertible {
     }
 }
 
+// Adoption of the CustomStringConvertible protocol allows RelativePaths to
+// be converted to Strings (which is O(1), since RelativePaths already store
+// their string form).
+extension RelativePath : CustomStringConvertible {
+    
+    /// Normalized string representation (the normalization rules are described
+    /// in the documentation of the RelativePath initializer).  This string is
+    /// never empty.
+    public var description: String {
+        return _impl.string
+    }
+}
+
 // Make absolute paths Hashable.
 extension AbsolutePath : Hashable {
     public var hashValue: Int {
-        return self.asString.hashValue
+        return String(self).hashValue
     }
 }
 
 // Make absolute paths Equatable.
 extension AbsolutePath : Equatable { }
 public func ==(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString == rhs.asString
+    return String(lhs) == String(rhs)
 }
 
 
 // Make relative paths Hashable.
 extension RelativePath : Hashable {
     public var hashValue: Int {
-        return self.asString.hashValue
+        return String(self).hashValue
     }
 }
 
 // Make relative paths Equatable.
 extension RelativePath : Equatable { }
 public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
-    return lhs.asString == rhs.asString
+    return String(lhs) == String(rhs)
 }
 
 

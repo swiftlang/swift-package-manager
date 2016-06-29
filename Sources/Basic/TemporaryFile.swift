@@ -96,7 +96,7 @@ public final class TemporaryFile {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](String(path).utf8).map{ Int8($0) } + [Int8(0)]
 
         fd = libc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
@@ -107,7 +107,7 @@ public final class TemporaryFile {
     }
 
     /// Remove the temporary file before deallocating.
-    deinit { unlink(path.asString) }
+    deinit { unlink(String(path)) }
 }
 
 extension TemporaryFile: CustomStringConvertible {
@@ -183,7 +183,7 @@ public final class TemporaryDirectory {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](String(path).utf8).map{ Int8($0) } + [Int8(0)]
 
         if libc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)
@@ -195,9 +195,9 @@ public final class TemporaryDirectory {
     /// Remove the temporary file before deallocating.
     deinit {
         if removeTreeOnDeinit {
-            let _ = try? FileManager.default().removeItem(atPath: path.asString)
+            let _ = try? FileManager.default().removeItem(atPath: String(path))
         } else {
-            rmdir(path.asString)
+            rmdir(String(path))
         }
     }
 }
