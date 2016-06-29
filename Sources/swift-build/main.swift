@@ -10,5 +10,5 @@
 
 import Commands
 
-let tool = SwiftBuildTool(args: Array(Process.arguments.dropFirst()))
+let tool = SwiftBuildTool()
 tool.run()
