@@ -76,7 +76,7 @@ private enum TestToolFlag: Argument {
         switch argument {
         case "--chdir", "-C":
             guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .chdir(AbsolutePath(path))
+            self = .chdir(AbsolutePath(path.abspath))
         case "--skip-build":
             self = .skipBuild
         case "--build-path":
@@ -172,7 +172,7 @@ public struct SwiftTestTool: SwiftTool {
                 throw TestError.testsExecutableNotFound
             }
 
-            return AbsolutePath(path)
+            return AbsolutePath(path.abspath)
         }
     }
 

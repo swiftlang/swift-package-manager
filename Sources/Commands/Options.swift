@@ -26,7 +26,7 @@ public class Options {
             set { _build = newValue.asString }
         }
 
-        private var _build = getenv("SWIFT_BUILD_PATH")
+        private var _build = getenv("SWIFT_BUILD_PATH")?.abspath
     }
 
     public init()

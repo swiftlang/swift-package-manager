@@ -103,15 +103,15 @@ private enum PackageToolFlag: Argument {
 
         switch argument {
         case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop()))
+            self = try .chdir(AbsolutePath(forcePop().abspath))
         case "--type":
             self = try .initMode(forcePop())
         case "--format":
             self = try .showDepsMode(forcePop())
         case "--output":
-            self = try .outputPath(AbsolutePath(forcePop()))
+            self = try .outputPath(AbsolutePath(forcePop().abspath))
         case "--input":
-            self = try .inputPath(AbsolutePath(forcePop()))
+            self = try .inputPath(AbsolutePath(forcePop().abspath))
         case "--verbose", "-v":
             self = .verbose(1)
         case "--color":
@@ -129,7 +129,7 @@ private enum PackageToolFlag: Argument {
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
         case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(AbsolutePath(forcePop()))
+            self = try .xcconfigOverrides(AbsolutePath(forcePop().abspath))
         default:
             return nil
         }

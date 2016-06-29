@@ -20,10 +20,10 @@ struct ToolDefaults {
     // FIXME: This isn't correct; we need to handle a missing SWIFT_EXEC.
     static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!.abspath)
     static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!.abspath).appending("../swift-build-tool")
-    static let libdir = AbsolutePath(argv0).parentDirectory
+    static let libdir = AbsolutePath(argv0.abspath).parentDirectory
   #else
-    static let SWIFT_EXEC = AbsolutePath(argv0).appending("../swiftc")
-    static let llbuild = AbsolutePath(argv0).appending("../swift-build-tool")
-    static let libdir = AbsolutePath(argv0).appending("../../lib/swift/pm")
+    static let SWIFT_EXEC = AbsolutePath(argv0.abspath).appending("../swiftc")
+    static let llbuild = AbsolutePath(argv0.abspath).appending("../swift-build-tool")
+    static let libdir = AbsolutePath(argv0.abspath).appending("../../lib/swift/pm")
   #endif
 }

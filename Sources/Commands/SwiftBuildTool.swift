@@ -81,7 +81,7 @@ private enum BuildToolFlag: Argument {
         
         switch argument {
         case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop()))
+            self = try .chdir(AbsolutePath(forcePop().abspath))
         case "--verbose", "-v":
             self = .verbose(1)
         case "-Xcc":
@@ -91,7 +91,7 @@ private enum BuildToolFlag: Argument {
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
         case "--build-path":
-            self = try .buildPath(AbsolutePath(forcePop()))
+            self = try .buildPath(AbsolutePath(forcePop().abspath))
         case "--build-tests":
             self = .buildTests
         case "--color":
@@ -103,7 +103,7 @@ private enum BuildToolFlag: Argument {
         case "--ignore-dependencies":
             self = .ignoreDependencies
         case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(AbsolutePath(forcePop()))
+            self = try .xcconfigOverrides(AbsolutePath(forcePop().abspath))
         default:
             return nil
         }
@@ -173,10 +173,10 @@ public struct SwiftBuildTool: SwiftTool {
                 fallthrough
         
             case .clean(.build):
-                let artifacts = ["debug", "release"].map{ AbsolutePath(opts.path.build, $0) }.map{ ($0, "\($0).yaml") }
+                let artifacts = ["debug", "release"].map{ AbsolutePath(opts.path.build, $0) }.map{ ($0, AbsolutePath("\($0.asString).yaml")) }
                 for (dir, yml) in artifacts {
                     if dir.asString.isDirectory { try Utility.removeFileTree(dir.asString) }
-                    if yml.abspath.isFile { try Utility.removeFileTree(yml) }
+                    if yml.asString.isFile { try Utility.removeFileTree(yml.asString) }
                 }
         
                 let db = opts.path.build.appending("build.db")
