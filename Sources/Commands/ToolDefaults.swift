@@ -8,21 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
-import Utility
 import POSIX
 
 struct ToolDefaults {
-#if Xcode
+  #if Xcode
     // when in Xcode we are built with same toolchain as we will run
     // this is not a production ready mode
 
-    static let SWIFT_EXEC = getenv("SWIFT_EXEC")!.abspath
-    static let llbuild = Path.join(getenv("SWIFT_EXEC")!, "../swift-build-tool").abspath
-    static let libdir = argv0.parentDirectory
-#else
-    static let SWIFT_EXEC = Path.join(argv0, "../swiftc").abspath
-    static let llbuild = Path.join(argv0, "../swift-build-tool").abspath
-    static let libdir = Path.join(argv0, "../../lib/swift/pm").abspath
-#endif
+    // FIXME: This isn't correct; we need to handle a missing SWIFT_EXEC.
+    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!.abspath)
+    static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!.abspath).appending("../swift-build-tool")
+    static let libdir = AbsolutePath(argv0).parentDirectory
+  #else
+    static let SWIFT_EXEC = AbsolutePath(argv0).appending("../swiftc")
+    static let llbuild = AbsolutePath(argv0).appending("../swift-build-tool")
+    static let libdir = AbsolutePath(argv0).appending("../../lib/swift/pm")
+  #endif
 }

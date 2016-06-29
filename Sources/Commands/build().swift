@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 
@@ -15,9 +16,9 @@ import func POSIX.getenv
 import func POSIX.exit
 
 // Builds the default target in the llbuild manifest unless specified.
-public func build(YAMLPath: String, target: String? = nil) throws {
+public func build(yamlPath: AbsolutePath, target: String? = nil) throws {
     do {
-        var args = [ToolDefaults.llbuild, "-f", YAMLPath]
+        var args = [ToolDefaults.llbuild.asString, "-f", yamlPath.asString]
         if let target = target {
             args += [target]
         }
@@ -30,10 +31,10 @@ public func build(YAMLPath: String, target: String? = nil) throws {
         // out its own error conditions and then try
         // to infer what happened afterwards.
 
-        if YAMLPath.isFile {
+        if yamlPath.asString.isFile {
             throw error
         } else {
-            throw Error.buildYAMLNotFound(YAMLPath)
+            throw Error.buildYAMLNotFound(yamlPath.asString)
         }
     }
 }
