@@ -20,6 +20,8 @@ private enum ManifestParseError: ErrorProtocol {
     case emptyManifestFile
     /// The manifest had a string encoding error.
     case invalidEncoding
+    /// The manifest contains invalid format.
+    case invalidManifestFormat
 }
 
 extension Manifest {
@@ -86,7 +88,12 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
 
     //Pass the fd in arguments
     cmd += ["-fileno", "\(fp.fileDescriptor)"]
-    try system(cmd)
+    do {
+        try system(cmd)
+    } catch {
+        print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
+        throw ManifestParseError.invalidManifestFormat
+    }
 
     guard let toml = try localFS.readFileContents(filePath).asString else {
         throw ManifestParseError.invalidEncoding
