@@ -23,7 +23,7 @@ class TemporaryFileTests: XCTestCase {
             XCTAssertTrue(file.path.basename.hasSuffix("mysuffix"))
 
             // Check if file is created.
-            XCTAssertTrue(file.path.asString.isFile)
+            XCTAssertTrue(String(file.path).isFile)
 
             // Try writing some data to the file.
             let stream = OutputByteStream()
@@ -41,7 +41,7 @@ class TemporaryFileTests: XCTestCase {
             filePath = file.path
         }
         // File should be deleted now.
-        XCTAssertFalse(filePath.asString.isFile)
+        XCTAssertFalse(String(filePath).isFile)
     }
 
     func testCanCreateUniqueTempFiles() throws {
@@ -51,16 +51,16 @@ class TemporaryFileTests: XCTestCase {
             let fileOne = try TemporaryFile()
             let fileTwo = try TemporaryFile()
             // Check files exists.
-            XCTAssertTrue(fileOne.path.asString.isFile)
-            XCTAssertTrue(fileTwo.path.asString.isFile)
+            XCTAssertTrue(String(fileOne.path).isFile)
+            XCTAssertTrue(String(fileTwo.path).isFile)
             // Their paths should be different.
             XCTAssertTrue(fileOne.path != fileTwo.path)
 
             filePathOne = fileOne.path
             filePathTwo = fileTwo.path
         }
-        XCTAssertFalse(filePathOne.asString.isFile)
-        XCTAssertFalse(filePathTwo.asString.isFile)
+        XCTAssertFalse(String(filePathOne).isFile)
+        XCTAssertFalse(String(filePathTwo).isFile)
     }
 
     func testBasicTemporaryDirectory() throws {
@@ -78,20 +78,20 @@ class TemporaryFileTests: XCTestCase {
             let tempDir = try TemporaryDirectory()
             XCTAssertTrue(localFS.isDirectory(tempDir.path))
             // Create a file inside the temp directory.
-            let filePath = tempDir.path.appending("somefile").asString
+            let filePath = String(tempDir.path.appending("somefile"))
             try localFS.writeFileContents(filePath, bytes: ByteString())
             path = tempDir.path
         }
         XCTAssertTrue(localFS.isDirectory(path))
         // Cleanup.
-        try FileManager.default().removeItem(atPath: path.asString)
+        try FileManager.default().removeItem(atPath: String(path))
         XCTAssertFalse(localFS.isDirectory(path))
 
         // Test temp directory is removed when its not empty and removeTreeOnDeinit is enabled.
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             XCTAssertTrue(localFS.isDirectory(tempDir.path))
-            let filePath = tempDir.path.appending("somefile").asString
+            let filePath = String(tempDir.path.appending("somefile"))
             try localFS.writeFileContents(filePath, bytes: ByteString())
             path = tempDir.path
         }

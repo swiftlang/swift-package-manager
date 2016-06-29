@@ -158,11 +158,11 @@ public extension FSProxy {
 /// Concrete FSProxy implementation which communicates with the local file system.
 private class LocalFS: FSProxy {
     func exists(_ path: AbsolutePath) -> Bool {
-        return (try? stat(path.asString)) != nil
+        return (try? stat(String(path))) != nil
     }
     
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path.asString) else {
+        guard let status = try? stat(String(path)) else {
             return false
         }
         // FIXME: We should probably have wrappers or something for this, so it
@@ -171,7 +171,7 @@ private class LocalFS: FSProxy {
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        guard let dir = libc.opendir(path.asString) else {
+        guard let dir = libc.opendir(String(path)) else {
             throw FSProxyError(errno: errno)
         }
         defer { _ = libc.closedir(dir) }
@@ -213,7 +213,7 @@ private class LocalFS: FSProxy {
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         // Try to create the directory.
-        let result = mkdir(path.asString, libc.S_IRWXU | libc.S_IRWXG)
+        let result = mkdir(String(path), libc.S_IRWXU | libc.S_IRWXG)
 
         // If it succeeded, we are done.
         if result == 0 { return }
@@ -238,7 +238,7 @@ private class LocalFS: FSProxy {
     
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
-        let fp = fopen(path.asString, "rb")
+        let fp = fopen(String(path), "rb")
         if fp == nil {
             throw FSProxyError(errno: errno)
         }
@@ -267,7 +267,7 @@ private class LocalFS: FSProxy {
     
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // Open the file.
-        let fp = fopen(path.asString, "wb")
+        let fp = fopen(String(path), "wb")
         if fp == nil {
             throw FSProxyError(errno: errno)
         }
