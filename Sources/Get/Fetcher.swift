@@ -9,6 +9,8 @@
 */
 
 import struct PackageDescription.Version
+import func Basic.isSafeToRemove
+import func Utility.removeFileTree
 
 /**
  Testable protocol to recursively fetch versioned resources.
@@ -45,6 +47,13 @@ extension Fetcher {
                     try pkg.setVersion(v)
                 }
 
+                func clone() throws -> [String]  {
+                    let clone = try self.fetch(url: url)
+                    try adjust(clone, specifiedVersionRange)
+                    graph[url] = (clone, specifiedVersionRange)
+                    return try recurse(clone.children) + [url]
+                }
+
                 if let (pkg, cumulativeVersionRange) = graph[url] {
 
                     // this package has already been checked out this instantiation
@@ -79,20 +88,21 @@ extension Fetcher {
                     // of the package manager. Verify it is within the required version
                     // range.
 
-                    guard specifiedVersionRange ~= pkg.version else {
-                        throw Error.updateRequired(url)
+                    if specifiedVersionRange ~= pkg.version {
+                        graph[url] = (pkg, specifiedVersionRange)
+                        return try recurse(pkg.children) + [url]
+                    } else {
+                        guard isSafeToRemove(pkg.localPath) else {
+                            throw Error.updateRequired(url)
+                        }
+                        print("Updating package '\(pkg)'")
+                        try Utility.removeFileTree(pkg.localPath)
+                        return try clone()
                     }
-                    graph[url] = (pkg, specifiedVersionRange)
-                    return try recurse(pkg.children) + [url]
-
                 } else {
 
                     // clone the package
-
-                    let clone = try self.fetch(url: url)
-                    try adjust(clone, specifiedVersionRange)
-                    graph[url] = (clone, specifiedVersionRange)
-                    return try recurse(clone.children) + [url]
+                    return try clone()
                 }
             }
         }

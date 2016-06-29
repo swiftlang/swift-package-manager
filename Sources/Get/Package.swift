@@ -51,4 +51,8 @@ extension Package: Fetchable {
     func setVersion(_ newValue: Version) throws {
         throw Get.Error.invalidDependencyGraph(url)
     }
+
+    var localPath: String {
+        return path
+    }
 }

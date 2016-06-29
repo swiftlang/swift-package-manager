@@ -31,7 +31,7 @@ extension Error: CustomStringConvertible {
         case .invalidDependencyGraphMissingTag(let package, let requestedTag, let existingTags):
             return "The dependency graph could not be satisfied. The package (\(package)) with version tag in range (\(requestedTag)) is not found. Found tags (\(existingTags))"
         case .updateRequired(let package):
-            return "The dependency graph could not be satisfied because an update to `\(package)' is required"
+            return "The dependency graph could not be satisfied. The `\(package)' can't be updated because it has uncommitted changes. Consider committing or discarding them or deleting the Packages/ directory"
         case .gitCloneFailure(let url, let dstdir):
             return "Failed to clone \(url) to \(dstdir)"
         case .unversioned(let package):

@@ -369,6 +369,10 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
     func setVersion(_ newValue: Version) throws {
         _version = newValue
     }
+
+    var localPath: String {
+        return "" //FIXME: Add tests
+    }
 }
 
 private func ==(lhs: MockCheckout, rhs: MockCheckout) -> Bool {
