@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import func POSIX.mkdtemp
 import PackageModel
 import Xcodeproj
@@ -32,7 +33,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 let Xcc = [String]()
                 let Xld = [String]()
                 let Xswiftc = [String]()
-                let xcconfigOverrides: String? = nil
+                let xcconfigOverrides: AbsolutePath? = nil
             }
             let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 

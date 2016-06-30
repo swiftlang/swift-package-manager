@@ -13,15 +13,14 @@ import PackageModel
 import POSIX
 
 import func Utility.makeDirectories
-import struct Utility.Path
 
 private extension FSProxy {
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: String, body: @noescape (OutputByteStream) -> ()) throws {
+    mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         let contents = OutputByteStream()
         body(contents)
-        try createDirectory(path.parentDirectory, recursive: true)
-        try writeFileContents(path, bytes: contents.bytes)
+        try createDirectory(path.parentDirectory.asString, recursive: true)
+        try writeFileContents(path.asString, bytes: contents.bytes)
     }
 }
 
@@ -40,7 +39,7 @@ extension InitError: CustomStringConvertible {
 
 /// Create an initial template package.
 final class InitPackage {
-    let rootd = POSIX.getcwd()
+    let rootd = AbsolutePath(POSIX.getcwd())
 
     /// The mode in use.
     let mode: InitMode
@@ -75,14 +74,14 @@ final class InitPackage {
         try writeTests()
     }
 
-    private func writePackageFile(_ path: String, body: @noescape (OutputByteStream) -> ()) throws {
-        print("Creating \(Path(path).relative(to: rootd))")
+    private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+        print("Creating \(path.relative(to: rootd).asString)")
         try localFS.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {
-        let manifest = Path.join(rootd, Manifest.filename)
-        guard manifest.exists == false else {
+        let manifest = rootd.appending(RelativePath(Manifest.filename))
+        guard manifest.asString.exists == false else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -96,8 +95,8 @@ final class InitPackage {
     }
     
     private func writeGitIgnore() throws {
-        let gitignore = Path.join(rootd, ".gitignore")
-        guard gitignore.exists == false else {
+        let gitignore = rootd.appending(".gitignore")
+        guard gitignore.asString.exists == false else {
             return
         } 
     
@@ -113,15 +112,15 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let sources = Path.join(rootd, "Sources")
-        guard sources.exists == false else {
+        let sources = rootd.appending("Sources")
+        guard sources.asString.exists == false else {
             return
         }
         print("Creating Sources/")
-        try Utility.makeDirectories(sources)
+        try Utility.makeDirectories(sources.asString)
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
-        let sourceFile = Path.join(sources, sourceFileName)
+        let sourceFile = sources.appending(RelativePath(sourceFileName))
 
         try writePackageFile(sourceFile) { stream in
             switch mode {
@@ -141,8 +140,8 @@ final class InitPackage {
         if mode != .systemModule {
             return
         }
-        let modulemap = Path.join(rootd, "module.modulemap")
-        guard modulemap.exists == false else {
+        let modulemap = rootd.appending("module.modulemap")
+        guard modulemap.asString.exists == false else {
             return
         }
         
@@ -159,12 +158,12 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let tests = Path.join(rootd, "Tests")
-        guard tests.exists == false else {
+        let tests = rootd.appending("Tests")
+        guard tests.asString.exists == false else {
             return
         }
         print("Creating Tests/")
-        try Utility.makeDirectories(tests)
+        try Utility.makeDirectories(tests.asString)
 
         // Only libraries are testable for now.
         if mode == .library {
@@ -173,8 +172,8 @@ final class InitPackage {
         }
     }
     
-    private func writeLinuxMain(testsPath: String) throws {
-        try writePackageFile(Path.join(testsPath, "LinuxMain.swift")) { stream in
+    private func writeLinuxMain(testsPath: AbsolutePath) throws {
+        try writePackageFile(testsPath.appending("LinuxMain.swift")) { stream in
             stream <<< "import XCTest\n"
             stream <<< "@testable import \(moduleName)TestSuite\n\n"
             stream <<< "XCTMain([\n"
@@ -183,12 +182,12 @@ final class InitPackage {
         }
     }
     
-    private func writeTestFileStubs(testsPath: String) throws {
-        let testModule = Path.join(testsPath, pkgname)
+    private func writeTestFileStubs(testsPath: AbsolutePath) throws {
+        let testModule = testsPath.appending(RelativePath(pkgname))
         print("Creating Tests/\(pkgname)/")
-        try Utility.makeDirectories(testModule)
+        try Utility.makeDirectories(testModule.asString)
         
-        try writePackageFile(Path.join(testModule, "\(moduleName)Tests.swift")) { stream in
+        try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
             stream <<< "import XCTest\n"
             stream <<< "@testable import \(moduleName)\n"
             stream <<< "\n"

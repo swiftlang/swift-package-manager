@@ -8,24 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import POSIX
 import PackageModel
 import Utility
 
 public class Options {
-    public var chdir: String?
+    public var chdir: AbsolutePath?
     public var path = Path()
 
     public class Path {
         public lazy var root = getroot()
-        public var Packages: String { return Utility.Path.join(self.root, "Packages") }
+        public var packages: AbsolutePath { return root.appending("Packages") }
 
-        public var build: String {
-            get { return _build ?? Utility.Path.join(getroot(), ".build") }
-            set { _build = newValue }
+        public var build: AbsolutePath {
+            get { return _build != nil ? AbsolutePath(_build!) : getroot().appending(".build") }
+            set { _build = newValue.asString }
         }
 
-        private var _build = getenv("SWIFT_BUILD_PATH")
+        private var _build = getenv("SWIFT_BUILD_PATH")?.abspath
     }
 
     public init()
@@ -37,9 +38,9 @@ public struct Flag {
     public static let C = "-C"
 }
 
-private func getroot() -> String {
-    var root = getcwd()
-    while !Path.join(root, Manifest.filename).isFile {
+private func getroot() -> AbsolutePath {
+    var root = AbsolutePath(getcwd())
+    while !root.appending(RelativePath(Manifest.filename)).asString.isFile {
         root = root.parentDirectory
 
         guard root != "/" else {

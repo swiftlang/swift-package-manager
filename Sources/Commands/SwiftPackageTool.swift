@@ -83,14 +83,14 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 private enum PackageToolFlag: Argument {
     case initMode(String)
     case showDepsMode(String)
-    case inputPath(String)
-    case outputPath(String)
-    case chdir(String)
+    case inputPath(AbsolutePath)
+    case outputPath(AbsolutePath)
+    case chdir(AbsolutePath)
     case colorMode(ColorWrap.Mode)
     case xcc(String)
     case xld(String)
     case xswiftc(String)
-    case xcconfigOverrides(String)
+    case xcconfigOverrides(AbsolutePath)
     case ignoreDependencies
     case verbose(Int)
 
@@ -103,15 +103,15 @@ private enum PackageToolFlag: Argument {
 
         switch argument {
         case Flag.chdir, Flag.C:
-            self = try .chdir(forcePop())
+            self = try .chdir(AbsolutePath(forcePop().abspath))
         case "--type":
             self = try .initMode(forcePop())
         case "--format":
             self = try .showDepsMode(forcePop())
         case "--output":
-            self = try .outputPath(forcePop())
+            self = try .outputPath(AbsolutePath(forcePop().abspath))
         case "--input":
-            self = try .inputPath(forcePop())
+            self = try .inputPath(AbsolutePath(forcePop().abspath))
         case "--verbose", "-v":
             self = .verbose(1)
         case "--color":
@@ -129,7 +129,7 @@ private enum PackageToolFlag: Argument {
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
         case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(forcePop())
+            self = try .xcconfigOverrides(AbsolutePath(forcePop().abspath))
         default:
             return nil
         }
@@ -139,14 +139,14 @@ private enum PackageToolFlag: Argument {
 private class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
-    var inputPath: String? = nil
-    var outputPath: String? = nil
+    var inputPath: AbsolutePath? = nil
+    var outputPath: AbsolutePath? = nil
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
     var Xcc: [String] = []
     var Xld: [String] = []
     var Xswiftc: [String] = []
-    var xcconfigOverrides: String? = nil
+    var xcconfigOverrides: AbsolutePath? = nil
     var ignoreDependencies: Bool = false
 }
 
@@ -166,17 +166,17 @@ public struct SwiftPackageTool: SwiftTool {
             colorMode = opts.colorMode
         
             if let dir = opts.chdir {
-                try chdir(dir)
+                try chdir(dir.asString)
             }
         
             func parseManifest(path: String, baseURL: String) throws -> Manifest {
-                let swiftc = ToolDefaults.SWIFT_EXEC
-                let libdir = ToolDefaults.libdir
+                let swiftc = ToolDefaults.SWIFT_EXEC.asString
+                let libdir = ToolDefaults.libdir.asString
                 return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
             }
             
-            func fetch(_ root: String) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root, baseURL: root)
+            func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
+                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
                 if opts.ignoreDependencies {
                     return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
                 } else {
@@ -191,25 +191,25 @@ public struct SwiftPackageTool: SwiftTool {
                             
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
-                if localFS.exists(opts.path.Packages) {
-                    for name in try localFS.getDirectoryContents(opts.path.Packages) {
-                        let item = Path.join(opts.path.Packages, name)
+                if localFS.exists(opts.path.packages) {
+                    for name in try localFS.getDirectoryContents(opts.path.packages) {
+                        let item = opts.path.packages.appending(RelativePath(name))
 
                         // Only look at repositories.
-                        guard Path.join(item, ".git").exists else { continue }
+                        guard item.appending(".git").asString.exists else { continue }
 
                         // If there is a staged or unstaged diff, don't remove the
                         // tree. This won't detect new untracked files, but it is
                         // just a safety measure for now.
                         let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
                         do {
-                            _ = try Git.runPopen([Git.tool, "-C", item, "diff"] + diffArgs)
-                            _ = try Git.runPopen([Git.tool, "-C", item, "diff", "--cached"] + diffArgs)
+                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
+                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
                         } catch {
-                            throw Error.repositoryHasChanges(item)
+                            throw Error.repositoryHasChanges(item.asString)
                         }
                     }
-                    try Utility.removeFileTree(opts.path.Packages)
+                    try Utility.removeFileTree(opts.path.packages.asString)
                 }
                 fallthrough
                 
@@ -241,11 +241,11 @@ public struct SwiftPackageTool: SwiftTool {
                 let externalXcodeModules  = externalModules.flatMap { $0 as? XcodeModuleProtocol }
         
                 let projectName: String
-                let dstdir: String
+                let dstdir: AbsolutePath
                 let packageName = rootPackage.name
         
                 switch opts.outputPath {
-                case let outpath? where outpath.hasSuffix(".xcodeproj"):
+                case let outpath? where outpath.suffix == ".xcodeproj":
                     // if user specified path ending with .xcodeproj, use that
                     projectName = String(outpath.basename.characters.dropLast(10))
                     dstdir = outpath.parentDirectory
@@ -256,13 +256,13 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir.abspath, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir.asString, projectName: projectName, srcroot: opts.path.root.asString, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
         
                 print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root
-                let manifest = try parseManifest(path: root, baseURL: root)
+                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
                 let package = manifest.package
                 let json = try jsonString(package: package)
                 print(json)
