@@ -203,7 +203,7 @@ public struct SwiftTestTool: SwiftTool {
                 opts.chdir = path
             case .skipBuild:
                 opts.buildTests = false
-            case .buildPath(let buildPath): ()
+            case .buildPath(let buildPath):
                 opts.path.build = buildPath
             }
         }
