@@ -133,7 +133,7 @@ func write(path: String, write: (OutputByteStream) -> Void) throws {
 func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt = #line) {
     var out = ""
     do {
-        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project], redirectStandardError: true) {
+        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project, "-alltargets"], redirectStandardError: true) {
             out += $0
         }
     } catch {
