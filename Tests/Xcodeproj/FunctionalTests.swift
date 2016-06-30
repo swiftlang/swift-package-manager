@@ -41,6 +41,7 @@ class FunctionalTests: XCTestCase {
             let build = Path.join(prefix, "build", "Debug")
             XCTAssertDirectoryExists(build, "SeaLib.framework")
             XCTAssertFileExists(build, "SeaExec")
+            XCTAssertFileExists(build, "CExec")
         }
     }
 
