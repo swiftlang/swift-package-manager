@@ -279,7 +279,7 @@ public struct SwiftTestTool: SwiftTool {
         // Read the temporary file's content.
         let data = try fopen(tempFile.path.asString).readFileContents()
       #else
-        let args = [path, "--dump-tests-json"]
+        let args = [path.asString, "--dump-tests-json"]
         let data = try popen(args)
       #endif
         // Parse json and return TestSuites.
