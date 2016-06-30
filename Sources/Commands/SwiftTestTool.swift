@@ -70,6 +70,7 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
 private enum TestToolFlag: Argument {
     case chdir(String)
     case skipBuild
+    case buildPath(String)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -78,6 +79,9 @@ private enum TestToolFlag: Argument {
             self = .chdir(path)
         case "--skip-build":
             self = .skipBuild
+        case "--build-path":
+            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
+            self = .buildPath(path)
         default:
             return nil
         }
@@ -199,6 +203,8 @@ public struct SwiftTestTool: SwiftTool {
                 opts.chdir = path
             case .skipBuild:
                 opts.buildTests = false
+            case .buildPath(let buildPath): ()
+                opts.path.build = buildPath
             }
         }
 
