@@ -103,7 +103,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
             print("        \(fileRef.refId) = {")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = \(module.fileType(forSource: path));")
-            print("            name = '\(fileRef.path.asString)';")
+            print("            path = '\(fileRef.path.relative(to: moduleRoot).asString)';")
             print("            sourceTree = '<group>';")
             print("        };")
         }
