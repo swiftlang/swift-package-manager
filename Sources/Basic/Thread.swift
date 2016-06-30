@@ -32,12 +32,16 @@ final public class Thread {
         finishedCondition = Condition()
 
         // Wrap the task with condition notifying any other threads blocked due to this thread.
-        let theTask = { [unowned self] in
-            self.finishedCondition.lock()
-            defer { self.finishedCondition.unlock() }
+        // Capture self weakly to avoid reference cycle. In case Thread is deinited before the task
+        // runs, skip the use of finishedCondition.
+        let theTask = { [weak self] in
+            self?.finishedCondition.lock()
+            defer { self?.finishedCondition.unlock() }
             task()
-            self.finished = true
-            self.finishedCondition.broadcast()
+            if let strongSelf = self {
+                strongSelf.finished = true
+                strongSelf.finishedCondition.broadcast()
+            }
         }
 
         self.thread = ThreadImpl(theTask)

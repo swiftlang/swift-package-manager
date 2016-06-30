@@ -49,8 +49,27 @@ class ThreadTests: XCTestCase {
         XCTAssertTrue(finishedTwo)
     }
 
+    func testNotDeinitBeforeExecutingTask() {
+        var finishedCondition = Condition()
+        var finished = false
+
+        Thread {
+            finished = true
+            finishedCondition.signal()
+        }.start()
+
+        finishedCondition.lock()
+        while !finished {
+            finishedCondition.wait()
+        }
+        finishedCondition.unlock()
+
+        XCTAssertTrue(finished)
+    }
+
     static var allTests = [
         ("testSingleThread", testSingleThread),
         ("testMultipleThread", testMultipleThread),
+        ("testNotDeinitBeforeExecutingTask", testNotDeinitBeforeExecutingTask),
     ]
 }
