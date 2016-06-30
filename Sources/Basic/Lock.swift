@@ -9,6 +9,7 @@
 */
 
 import class Foundation.Lock
+import class Foundation.Condition
 
 /// A simple lock wrapper.
 public struct Lock {
@@ -22,6 +23,15 @@ public struct Lock {
     public mutating func withLock<T> (_ body: @noescape () throws -> T) rethrows -> T {
         _lock.lock()
         defer { _lock.unlock() }
+        return try body()
+    }
+}
+
+public extension Condition {
+    /// A helper method to execute the given body while condition is locked.
+    public func whileLocked<T>(_ body: @noescape () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
         return try body()
     }
 }

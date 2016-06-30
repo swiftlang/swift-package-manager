@@ -35,12 +35,16 @@ final public class Thread {
         // Capture self weakly to avoid reference cycle. In case Thread is deinited before the task
         // runs, skip the use of finishedCondition.
         let theTask = { [weak self] in
-            self?.finishedCondition.lock()
-            defer { self?.finishedCondition.unlock() }
-            task()
             if let strongSelf = self {
-                strongSelf.finished = true
-                strongSelf.finishedCondition.broadcast()
+                precondition(!strongSelf.finished)
+                strongSelf.finishedCondition.whileLocked {
+                    task()
+                    strongSelf.finished = true
+                    strongSelf.finishedCondition.broadcast()
+                }
+            } else {
+                // If the containing thread has been destroyed, we can ignore the finished condition and just run the task.
+                task()
             }
         }
 
@@ -54,10 +58,10 @@ final public class Thread {
 
     /// Blocks the calling thread until this thread is finished execution.
     public func join() {
-        finishedCondition.lock()
-        defer { finishedCondition.unlock() }
-        while !finished {
-            finishedCondition.wait()
+        finishedCondition.whileLocked {
+            while !finished {
+                finishedCondition.wait()
+            }
         }
     }
 }
