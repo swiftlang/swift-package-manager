@@ -705,6 +705,8 @@ def main():
     else:
         embed_rpath = "@executable_path/../lib/swift/macosx"
     cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
+    if args.verbose:
+        cmd.append("-v")
 
     # If appropriate, add flags for a custom version string:
     if args.version_str:
