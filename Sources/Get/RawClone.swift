@@ -107,8 +107,4 @@ class RawClone: Fetchable {
         let name = manifest.package.name ?? Package.nameForURL(url)
         return "\(name)-\(version)"
     }
-
-    var localPath: String {
-        return path
-    }
 }

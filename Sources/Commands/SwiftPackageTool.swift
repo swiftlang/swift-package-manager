@@ -194,8 +194,10 @@ public struct SwiftPackageTool: SwiftTool {
                 if localFS.exists(opts.path.packages) {
                     for name in try localFS.getDirectoryContents(opts.path.packages) {
                         let item = opts.path.packages.appending(RelativePath(name))
-                        if !isSafeToRemove(item) {
-                            throw Error.repositoryHasChanges(item)
+                        // Only look at repositories.
+                        guard item.appending(".git").asString.exists else { continue }
+                        if !Git.isSafeToRemove(item.asString) {
+                            throw Error.repositoryHasChanges(item.asString)
                         }
                     }
                     try Utility.removeFileTree(opts.path.packages.asString)

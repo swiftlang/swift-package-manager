@@ -28,6 +28,6 @@ protocol Fetchable {
     // a set, so instead we have to have this protocol func
     func setVersion(_ newValue: Version) throws
 
-    /// The localpath whenre Fetchable is stored
-    var localPath: String { get }
+    /// The path where Fetchable is stored
+    var path: String { get }
 }

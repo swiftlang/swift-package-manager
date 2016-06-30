@@ -127,4 +127,19 @@ public class Git {
             try checkGitVersion(error)
         }
     }
+
+    /// Check if it's safe to remove Git direcotry
+    public class func isSafeToRemove(_ item: String) -> Bool {
+        // If there is a staged or unstaged diff, don't remove the
+        // tree. This won't detect new untracked files, but it is
+        // just a safety measure for now.
+        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
+        do {
+            _ = try Git.runPopen([Git.tool, "-C", item, "diff"] + diffArgs)
+            _ = try Git.runPopen([Git.tool, "-C", item, "diff", "--cached"] + diffArgs)
+        } catch {
+            return false
+        }
+        return true
+    }
 }

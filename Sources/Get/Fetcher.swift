@@ -9,7 +9,7 @@
 */
 
 import struct PackageDescription.Version
-import func Basic.isSafeToRemove
+import class Utility.Git
 import func Utility.removeFileTree
 
 /**
@@ -92,11 +92,11 @@ extension Fetcher {
                         graph[url] = (pkg, specifiedVersionRange)
                         return try recurse(pkg.children) + [url]
                     } else {
-                        guard isSafeToRemove(pkg.localPath) else {
+                        guard Git.isSafeToRemove(pkg.path) else {
                             throw Error.updateRequired(url)
                         }
                         print("Updating package '\(pkg)'")
-                        try Utility.removeFileTree(pkg.localPath)
+                        try Utility.removeFileTree(pkg.path)
                         return try clone()
                     }
                 } else {
