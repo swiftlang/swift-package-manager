@@ -20,8 +20,9 @@ import XCTest
 class GenerateXcodeprojTests: XCTestCase {
     func testXcodeBuildCanParseIt() {
         mktmpdir { dstdir in
+            let dstdir = AbsolutePath(dstdir)
             func dummy() throws -> [XcodeModuleProtocol] {
-                return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
+                return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir.asString))]
             }
 
             let projectName = "DummyProjectName"
@@ -37,12 +38,12 @@ class GenerateXcodeprojTests: XCTestCase {
             }
             let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 
-            XCTAssertDirectoryExists(outpath)
-            XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))
+            XCTAssertDirectoryExists(outpath.asString)
+            XCTAssertEqual(outpath, dstdir.appending(RelativePath("\(projectName).xcodeproj")))
 
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-            let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath]).chomp()
+            let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.asString]).chomp()
 
             let expectedOutput = "Information about project \"DummyProjectName\":\n    Targets:\n        DummyModuleName\n\n    Build Configurations:\n        Debug\n        Release\n\n    If no build configuration is specified and -scheme is not passed then \"Debug\" is used.\n\n    Schemes:\n        DummyProjectName\n".chomp()
 

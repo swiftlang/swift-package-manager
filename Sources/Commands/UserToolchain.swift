@@ -10,8 +10,8 @@
 
 import POSIX
 
+import Basic
 import protocol Build.Toolchain
-import struct Utility.Path
 
 #if os(OSX)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
@@ -41,7 +41,7 @@ struct UserToolchain: Toolchain {
         do {
             SWIFT_EXEC = getenv("SWIFT_EXEC")
                 // use the swiftc installed alongside ourselves
-                ?? Path.join(Process.arguments[0], "../swiftc").abspath
+                ?? AbsolutePath(Process.arguments[0].abspath).appending("../swiftc").asString
 
             clang = try getenv("CC") ?? POSIX.popen(whichClangArgs).chomp()
 

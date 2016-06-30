@@ -256,9 +256,9 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir.asString, projectName: projectName, srcroot: opts.path.root.asString, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
         
-                print("generated:", outpath.prettyPath)
+                print("generated:", outpath.asString.prettyPath)
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root
