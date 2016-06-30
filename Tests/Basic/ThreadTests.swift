@@ -13,6 +13,8 @@ import Utility
 import Basic
 import class Foundation.Condition
 
+typealias Thread = Basic.Thread
+
 class ThreadTests: XCTestCase {
 
     func testSingleThread() {

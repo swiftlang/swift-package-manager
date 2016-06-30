@@ -65,7 +65,7 @@ class SyncronizedQueueTests: XCTestCase {
             return Thread {
                 while let element = queue.dequeue() {
                     consumedLock.withLock {
-                        consumed.insert(element)
+                        _ = consumed.insert(element)
                     }
                 }
             }
@@ -91,7 +91,6 @@ class SyncronizedQueueTests: XCTestCase {
         let queueElementsTwo = Set(10000..<50000)
 
         var consumed = Set<Int>()
-        var consumedLock = Basic.Lock()
 
         let canProduceCondition = Condition()
         // Initially we should be able to produce.
