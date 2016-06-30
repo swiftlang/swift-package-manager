@@ -70,7 +70,7 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
 private enum TestToolFlag: Argument {
     case chdir(AbsolutePath)
     case skipBuild
-    case buildPath(String)
+    case buildPath(AbsolutePath)
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
@@ -81,7 +81,7 @@ private enum TestToolFlag: Argument {
             self = .skipBuild
         case "--build-path":
             guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .buildPath(path)
+            self = .buildPath(AbsolutePath(path.abspath))
         default:
             return nil
         }
