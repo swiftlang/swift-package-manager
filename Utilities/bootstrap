@@ -775,6 +775,7 @@ def main():
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))
+
     # If installing, put the build products in the appropriate location.
     if "install" in build_actions:
         bin_install_path = os.path.join(g_project_root, args.install_prefix,
@@ -788,31 +789,73 @@ def main():
         mkdir_p(libexec_install_path)
 
         # Install a binary file at the install path.
-        def installBinary(binary_path, install_path):
+        def installBinary(binary_path, install_path, add_rpath=None):
             cmd = ["install", binary_path, install_path]
             note("installing %s: %s" % (
                 os.path.basename(binary_path), ' '.join(cmd)))
             result = subprocess.call(cmd)
             if result != 0:
                 error("install failed with exit status %d" % (result,))
+                
+            # Remove the hard-coded stdlib RPATHs that `swiftc` bakes in on
+            # Darwin.
+            #
+            # FIXME: We need a way to control this, instead of having to rip it
+            # out after the fact. https://bugs.swift.org/browse/SR-1967
+            if platform.system() == 'Darwin':
+                installed_path = os.path.join(
+                    install_path, os.path.basename(binary_path))
+                stdlib_path = os.path.realpath(
+                    os.path.join(os.path.dirname(args.swiftc_path), "..",
+                                 "lib", "swift", "macosx"))
+                cmd = ["install_name_tool", "-delete_rpath",
+                       stdlib_path, installed_path]
+                note("removing stray RPATH from %s: %s" % (
+                        installed_path, ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("command  failed with exit status %d" % (result,))
 
-        # Install XCTest helper inside libexec
-        installBinary(swiftpm_xctest_helper_path, libexec_install_path)
+                # Add an additional RPATH, if requested.
+                if add_rpath:
+                    cmd = ["install_name_tool", "-add_rpath",
+                           add_rpath, installed_path]
+                    note("adding RPATH to %s: %s" % (
+                            installed_path, ' '.join(cmd)))
+                    result = subprocess.call(cmd)
+                    if result != 0:
+                        error("command  failed with exit status %d" % (result,))
+            else:
+                if add_rpath:
+                    error("unable to add RPATHs on this platform")
 
-        for product_path in [swift_package_path, swift_build_path, swift_test_path]:
+        # Install XCTest helper inside libexec.
+        if platform.system() == 'Darwin':
+            # Append the required RPATH for finding the standard libraries from
+            # the libexec install path.
+            #
+            # FIXME: We need to find a way to express this from within the
+            # package manager. https://bugs.swift.org/browse/SR-1968
+            installBinary(swiftpm_xctest_helper_path, libexec_install_path,
+                          add_rpath=("@executable_path/../../../"
+                                     "lib/swift/macosx"))
+
+        for product_path in [swift_package_path, swift_build_path,
+                             swift_test_path]:
             installBinary(product_path, bin_install_path)
 
-        for (resource_path, is_lib) in [(runtime_module_path, False),
-                                        (runtime_lib_path, True)]:
-            cmd = ["install"]
-            if not is_lib:
-                cmd.extend(["-m", "0644"])
-            cmd.extend([resource_path, lib_install_path])
-            note("installing %s: %s" % (
-                os.path.basename(resource_path), ' '.join(cmd)))
-            result = subprocess.call(cmd)
-            if result != 0:
-                error("install failed with exit status %d" % (result,))
+        # Install the PackageDescription runtime library.
+        installBinary(runtime_lib_path, lib_install_path)
+
+        # Install the PackageDescription module.
+        cmd = ["install", "-m", "0644",
+               runtime_module_path, lib_install_path]
+        note("installing %s: %s" % (
+            os.path.basename(runtime_module_path), ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("install failed with exit status %d" % (result,))
+                
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
         cmd = [swift_package_path, "generate-xcodeproj"]
