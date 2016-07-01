@@ -57,12 +57,12 @@ func fixture(name fixtureName: String, tags: [String] = [], file: StaticString =
                     guard d.isDirectory else { continue }
                     let dstdir = Path.join(prefix, d.basename).normpath
                     try systemQuietly("cp", "-R", try realpath(d), dstdir)
-                    try systemQuietly(["git", "-C", dstdir, "init"])
-                    try systemQuietly(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-                    try systemQuietly(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-                    try systemQuietly(["git", "-C", dstdir, "add", "."])
-                    try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
-                    try systemQuietly(["git", "-C", dstdir, "tag", popVersion()])
+                    try systemQuietly([Git.tool, "-C", dstdir, "init"])
+                    try systemQuietly([Git.tool, "-C", dstdir, "config", "user.email", "example@example.com"])
+                    try systemQuietly([Git.tool, "-C", dstdir, "config", "user.name", "Example Example"])
+                    try systemQuietly([Git.tool, "-C", dstdir, "add", "."])
+                    try systemQuietly([Git.tool, "-C", dstdir, "commit", "-m", "msg"])
+                    try systemQuietly([Git.tool, "-C", dstdir, "tag", popVersion()])
                 }
                 try body(prefix)
             }
@@ -76,13 +76,13 @@ func initGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #fil
     do {
         let file = Path.join(dstdir, "file.swift")
         try systemQuietly(["touch", file])
-        try systemQuietly(["git", "-C", dstdir, "init"])
-        try systemQuietly(["git", "-C", dstdir, "config", "user.email", "example@example.com"])
-        try systemQuietly(["git", "-C", dstdir, "config", "user.name", "Example Example"])
-        try systemQuietly(["git", "-C", dstdir, "add", "."])
-        try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
+        try systemQuietly([Git.tool, "-C", dstdir, "init"])
+        try systemQuietly([Git.tool, "-C", dstdir, "config", "user.email", "example@example.com"])
+        try systemQuietly([Git.tool, "-C", dstdir, "config", "user.name", "Example Example"])
+        try systemQuietly([Git.tool, "-C", dstdir, "add", "."])
+        try systemQuietly([Git.tool, "-C", dstdir, "commit", "-m", "msg"])
         if let tag = tag {
-            try systemQuietly(["git", "-C", dstdir, "tag", tag])
+            try systemQuietly([Git.tool, "-C", dstdir, "tag", tag])
         }
     }
     catch {
