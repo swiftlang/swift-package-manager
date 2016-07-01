@@ -10,4 +10,16 @@
 
 public enum Error: ErrorProtocol {
     case noModules
+    case noProducts
+}
+
+extension Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .noModules:
+            return "no modules found"
+        case .noProducts:
+            return "no products found (note: modulemaps cannot be build)"
+        }
+    }
 }

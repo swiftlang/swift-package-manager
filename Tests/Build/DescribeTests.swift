@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import PackageModel
 import Build
 import Utility
 import POSIX
@@ -38,7 +39,31 @@ final class DescribeTests: XCTestCase {
         }
     }
 
+    func testDescribingNoProductsThrows() {
+        do {
+            struct InvalidToolchain: Toolchain {
+                var platformArgsClang: [String] { fatalError() }
+                var platformArgsSwiftc: [String] { fatalError() }
+                var sysroot: String?  { fatalError() }
+                var SWIFT_EXEC: String { return "" }
+                var clang: String { fatalError() }
+            }
+
+            try POSIX.mkdtemp("spm-tests") { prefix in
+                defer { _ = try? Utility.removeFileTree(prefix) }
+                let _ = try describe(Path.join(prefix, "foo"), .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+                XCTFail("This call should throw")
+            }
+        } catch Build.Error.noProducts {
+            XCTAssert(true, "This error should be thrown")
+        } catch {
+            print(error)
+            XCTFail("No other error should be thrown")
+        }
+    }
+
     static var allTests = [
         ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
+        ("testDescribingNoProductsThrows", testDescribingNoProductsThrows),
     ]
 }

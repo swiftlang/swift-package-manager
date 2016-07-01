@@ -80,6 +80,10 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         targets.append([command], for: product)
     }
 
+    guard commands.count > 0 else {
+        throw Error.noProducts
+    }
+
     return try! write(path: "\(prefix).yaml") { stream in
         stream <<< "client:\n"
         stream <<< "  name: swift-build\n"
