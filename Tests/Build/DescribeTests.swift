@@ -13,8 +13,6 @@ import XCTest
 import Basic
 import PackageModel
 import Build
-import Utility
-import POSIX
 
 final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
@@ -27,11 +25,9 @@ final class DescribeTests: XCTestCase {
                 var clang: String { fatalError() }
             }
 
-            try POSIX.mkdtemp("spm-tests") { prefix in
-                defer { _ = try? Utility.removeFileTree(prefix) }
-                let _ = try describe(prefix.appending("foo"), .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
-                XCTFail("This call should throw")
-            }
+            let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+            _ = try describe(tempDir.path.appending("foo").asString, .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+            XCTFail("This call should throw")
         } catch Build.Error.noModules {
             XCTAssert(true, "This error should be thrown")
         } catch {
@@ -49,11 +45,9 @@ final class DescribeTests: XCTestCase {
                 var clang: String { fatalError() }
             }
 
-            try POSIX.mkdtemp("spm-tests") { prefix in
-                defer { _ = try? Utility.removeFileTree(prefix) }
-                let _ = try describe(Path.join(prefix, "foo"), .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
-                XCTFail("This call should throw")
-            }
+            let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
+            _ = try describe(tempDir.path.appending("foo").asString, .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+            XCTFail("This call should throw")
         } catch Build.Error.noProducts {
             XCTAssert(true, "This error should be thrown")
         } catch {
