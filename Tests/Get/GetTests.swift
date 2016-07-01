@@ -23,7 +23,7 @@ class GetTests: XCTestCase {
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
         mktmpdir { tmpdir in
             guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
-            try systemQuietly(["git", "-C", repo.path, "remote", "add", "origin", repo.path])
+            try systemQuietly([Git.tool, "-C", repo.path, "remote", "add", "origin", repo.path])
             let clone = try RawClone(path: repo.path, manifestParser: { _,_ throws -> Manifest in
                 throw Package.Error.noManifest(tmpdir)
             })
