@@ -33,6 +33,10 @@ extension Command {
 
         args += try ClangModuleBuildMetadata.basicArgs() + otherArgs
         args += ["-L\(prefix)"]
+        // Linux doesn't search executable directory for shared libs so embed runtime search path.
+      #if os(Linux)
+        args += ["-Xlinker", "-rpath=$ORIGIN"]
+      #endif
         args += linkFlags
         args += objects
 

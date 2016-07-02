@@ -26,7 +26,7 @@ public protocol XcodeprojOptions {
     /// If provided, a path to an xcconfig file to be included by the project.
     ///
     /// This allows the client to override settings defined in the project itself.
-    var xcconfigOverrides: String? { get }
+    var xcconfigOverrides: AbsolutePath? { get }
 }
 
 /**

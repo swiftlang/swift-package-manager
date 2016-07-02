@@ -13,6 +13,7 @@ import XCTest
 import Basic
 
 import struct Utility.Path
+import class Utility.Git
 import func libc.sleep
 import enum POSIX.Error
 import func POSIX.popen
@@ -211,14 +212,14 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanBuildIfADependencyAlreadyCheckedOut() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
+            try systemQuietly(Git.tool, "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards-1.2.3"))
             XCTAssertBuilds(prefix, "app")
         }
     }
 
     func testCanBuildIfADependencyClonedButThenAborted() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            try systemQuietly("git", "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
+            try systemQuietly(Git.tool, "clone", Path.join(prefix, "deck-of-playing-cards"), Path.join(prefix, "app/Packages/DeckOfPlayingCards"))
             XCTAssertBuilds(prefix, "app", configurations: [.Debug])
         }
     }
@@ -230,11 +231,11 @@ class MiscellaneousTestCase: XCTestCase {
             let path = Path.join(prefix, "FisherYates")
 
             // required for some Linux configurations
-            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
-            try systemQuietly("git", "-C", path, "config", "user.name", "Example Example")
+            try systemQuietly(Git.tool, "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly(Git.tool, "-C", path, "config", "user.name", "Example Example")
 
-            try systemQuietly("git", "-C", path, "rm", "Package.swift")
-            try systemQuietly("git", "-C", path, "commit", "-mwip")
+            try systemQuietly(Git.tool, "-C", path, "rm", "Package.swift")
+            try systemQuietly(Git.tool, "-C", path, "commit", "-mwip")
 
             XCTAssertBuilds(prefix, "app")
         }
@@ -245,11 +246,11 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let path = Path.join(prefix, "FisherYates")
 
-            try systemQuietly("git", "-C", path, "config", "user.email", "example@example.com")
-            try systemQuietly("git", "-C", path, "config", "user.name", "Example McExample")
-            try systemQuietly("git", "-C", path, "rm", "Package.swift")
-            try systemQuietly("git", "-C", path, "commit", "--message", "wip")
-            try systemQuietly("git", "-C", path, "tag", "--force", "1.2.3")
+            try systemQuietly(Git.tool, "-C", path, "config", "user.email", "example@example.com")
+            try systemQuietly(Git.tool, "-C", path, "config", "user.name", "Example McExample")
+            try systemQuietly(Git.tool, "-C", path, "rm", "Package.swift")
+            try systemQuietly(Git.tool, "-C", path, "commit", "--message", "wip")
+            try systemQuietly(Git.tool, "-C", path, "tag", "--force", "1.2.3")
 
             XCTAssertBuildFails(prefix, "app")
         }
@@ -369,7 +370,7 @@ class MiscellaneousTestCase: XCTestCase {
         XCTAssertTrue(localFS.isDirectory(tempDir.path))
 
         // Create a directory with non c99name.
-        let packageRoot = AbsolutePath(tempDir.path).appending(RelativePath("some-package")).asString
+        let packageRoot = tempDir.path.appending("some-package").asString
         try localFS.createDirectory(packageRoot)
         XCTAssertTrue(localFS.isDirectory(packageRoot))
 

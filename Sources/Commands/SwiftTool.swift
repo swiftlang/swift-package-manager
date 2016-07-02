@@ -6,9 +6,17 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import Commands
+/// A common interface for swift tools
+public protocol SwiftTool {
+    init()
+    init(args: [String])
+    func run()
+}
 
-let tool = SwiftPackageTool()
-tool.run()
+public extension SwiftTool {
+    init() {
+        self.init(args: Array(Process.arguments.dropFirst()))
+    }
+}

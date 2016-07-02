@@ -40,8 +40,11 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertFileExists(prefix, ".build", "debug", "SeaLib".soname)
             let exec = ".build/debug/SeaExec"
             XCTAssertFileExists(prefix, exec)
-            let output = try popen([Path.join(prefix, exec)])
+            var output = try popen([Path.join(prefix, exec)])
             XCTAssertEqual(output, "a = 5\n")
+            let cExec = ".build/debug/CExec"
+            output = try popen([Path.join(prefix, cExec)])
+            XCTAssertEqual(output, "5")
         }
     }
     

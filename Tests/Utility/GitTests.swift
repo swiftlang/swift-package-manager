@@ -88,8 +88,8 @@ class GitUtilityTests: XCTestCase {
         let filePath = Path.join(dstdir, file)
         try systemQuietly(["touch", filePath])
 
-        try systemQuietly(["git", "-C", dstdir, "add", "."])
-        try systemQuietly(["git", "-C", dstdir, "commit", "-m", "msg"])
+        try systemQuietly([Git.tool, "-C", dstdir, "add", "."])
+        try systemQuietly([Git.tool, "-C", dstdir, "commit", "-m", "msg"])
     }
 
     static var allTests = [

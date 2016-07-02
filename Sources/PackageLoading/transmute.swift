@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 
@@ -39,9 +40,9 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
 
             // Set dependencies for test modules.
             for case let testModule as SwiftModule in testModules {
-                if testModule.basename == "Utility" {
-                    // FIXME: The Utility tests currently have a layering
-                    // violation and a dependency on Basic for infrastructure.
+                if testModule.basename == "Basic" {
+                    // FIXME: The Basic tests currently have a layering
+                    // violation and a dependency on Utility for infrastructure.
                     testModule.dependencies = modules.filter{
                         switch $0.name {
                         case "Basic", "Utility":
@@ -99,10 +100,16 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
     return (modules, externalModules, products)
 }
 
+/// Add inter-package dependencies.
+///
+/// This function will add cross-package dependencies between a module and all
+/// of the modules produced by any package in the transitive closure of its
+/// containing package's dependencies.
 private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
     for package in packages {
         let packageModules = modulesForPackage(package)
-        for dep in package.recursiveDependencies {
+        let dependencies = try! topologicalSort(package.dependencies, successors: { $0.dependencies })
+        for dep in dependencies {
             let depModules = modulesForPackage(dep).filter{
                 guard !$0.isTest else { return false }
 
@@ -116,29 +123,10 @@ private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package)
                 }
             }
             for module in packageModules {
+                // FIXME: This is inefficient.
                 module.dependencies.insert(contentsOf: depModules, at: 0)
             }
         }
-    }
-}
-
-extension Package {
-    private var recursiveDependencies: [Package] {
-        // FIXME: Refactor this to a common algorithm.
-        var set = Set<Package>()
-        var stack = dependencies
-        var out = [Package]()
-
-        while !stack.isEmpty {
-            let target = stack.removeFirst()
-            if !set.contains(target) {
-                set.insert(target)
-                stack += target.dependencies
-                out.append(target)
-            }
-        }
-
-        return out
     }
 }
 
