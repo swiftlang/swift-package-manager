@@ -35,7 +35,7 @@ final class DescribeTests: XCTestCase {
         }
     }
 
-    func testDescribingNoProductsThrows() {
+    func testDescribingCModuleThrows() {
         do {
             struct InvalidToolchain: Toolchain {
                 var platformArgsClang: [String] { fatalError() }
@@ -48,16 +48,16 @@ final class DescribeTests: XCTestCase {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             _ = try describe(tempDir.path.appending("foo").asString, .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
-        } catch Build.Error.noProducts {
+        } catch Build.Error.cModule (let name) {
             XCTAssert(true, "This error should be thrown")
+            XCTAssertEqual(name, "MyCModule")
         } catch {
-            print(error)
             XCTFail("No other error should be thrown")
         }
     }
 
     static var allTests = [
         ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
-        ("testDescribingNoProductsThrows", testDescribingNoProductsThrows),
+        ("testDescribingCModuleThrows", testDescribingCModuleThrows),
     ]
 }

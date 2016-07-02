@@ -10,16 +10,16 @@
 
 public enum Error: ErrorProtocol {
     case noModules
-    case noProducts
+    case cModule(name: String)
 }
 
 extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .noModules:
-            return "no modules found"
-        case .noProducts:
-            return "no products found (note: modulemaps cannot be build)"
+            return "no modules found."
+        case .cModule(let name):
+            return "system module package \(name) found. To use this system module package, include it in another project."
         }
     }
 }

@@ -24,6 +24,10 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         throw Error.noModules
     }
 
+    if modules.count == 1, let module = modules.first as? CModule {
+        throw Error.cModule(name: module.name)
+    }
+
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
     let prefix = Path.join(prefix, conf.dirname)
@@ -78,10 +82,6 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 
         commands.append(command)
         targets.append([command], for: product)
-    }
-
-    guard commands.count > 0 else {
-        throw Error.noProducts
     }
 
     return try! write(path: "\(prefix).yaml") { stream in
