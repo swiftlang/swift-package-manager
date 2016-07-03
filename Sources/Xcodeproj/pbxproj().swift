@@ -17,7 +17,7 @@ import Utility
 // FIXME: escaping
 
 
-public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], directoryReferences: [String], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
@@ -57,10 +57,25 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     print("            sourceTree = '<group>';")
     print("        };")
 
+////// Reference directories
+
+    var folderRefs = ""
+    for directoryReference in directoryReferences {
+        let folderRef = fileRef(inProjectRoot: directoryReference.basename, srcroot: srcroot)
+        folderRefs.append("\(folderRef.0),")
+        print("        \(folderRef.0) = {")
+        print("            isa = PBXFileReference;")
+        print("            lastKnownFileType = folder;")
+        print("            name = '\(folderRef.1)';")
+        print("            path = '\(Path(folderRef.2).relative(to: projectRoot))';")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
+
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(packageSwift.refId), \(configsGroupReference), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.refId), \(configsGroupReference), \(sourcesGroupReference), \(folderRefs) \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 

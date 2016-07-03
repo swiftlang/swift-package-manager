@@ -33,7 +33,7 @@ public protocol XcodeprojOptions {
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: AbsolutePath, projectName: String, srcroot: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> AbsolutePath {
+public func generate(dstdir: AbsolutePath, projectName: String, srcroot: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], directoryReferences: [String], options: XcodeprojOptions) throws -> AbsolutePath {
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
@@ -44,7 +44,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, srcroot: Absolut
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath.appending("project.pbxproj")) { stream in
-        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: stream)
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, directoryReferences: directoryReferences, options: options, printer: stream)
     }
 
 ////// the scheme acts like an aggregate target for all our targets

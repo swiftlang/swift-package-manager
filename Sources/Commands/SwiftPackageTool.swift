@@ -183,7 +183,24 @@ public struct SwiftPackageTool: SwiftTool {
                     return try get(manifest, manifestParser: parseManifest)
                 }
             }
-        
+
+            func findDirectoryReferences(path: String) throws -> [String] {
+                let rootDirectories = walk(path, recursively: false)
+                let rootDirectoriesToConsider = rootDirectories.filter {
+                    if $0.hasSuffix(".xcodeproj") { return false }
+                    if $0.hasSuffix(".playground") { return false }
+                    if $0.basename.hasPrefix(".") { return false }
+                    return $0.isDirectory
+                }
+
+                return rootDirectoriesToConsider.filter {
+                    let directoriesWithSwift = walk($0).filter {
+                        $0.hasSuffix(".swift")
+                    }
+                    return directoriesWithSwift.isEmpty
+                }
+            }
+
             switch mode {
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
@@ -243,7 +260,9 @@ public struct SwiftPackageTool: SwiftTool {
                 let projectName: String
                 let dstdir: AbsolutePath
                 let packageName = rootPackage.name
-        
+
+                let directoryReferences = try findDirectoryReferences(path: opts.path.root.asString)
+
                 switch opts.outputPath {
                 case let outpath? where outpath.suffix == ".xcodeproj":
                     // if user specified path ending with .xcodeproj, use that
@@ -256,7 +275,7 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, directoryReferences:directoryReferences, options: opts)
         
                 print("generated:", outpath.asString.prettyPath)
                 
