@@ -33,30 +33,29 @@ public protocol XcodeprojOptions {
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
-    precondition(dstdir.isAbsolute)
+public func generate(dstdir: AbsolutePath, projectName: String, srcroot: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> AbsolutePath {
 
     let xcodeprojName = "\(projectName).xcodeproj"
-    let xcodeprojPath = Path.join(dstdir, xcodeprojName)
-    let schemesDirectory = Path.join(xcodeprojPath, "xcshareddata/xcschemes")
-    try Utility.makeDirectories(xcodeprojPath)
-    try Utility.makeDirectories(schemesDirectory)
+    let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
+    let schemesDirectory = xcodeprojPath.appending("xcshareddata/xcschemes")
+    try Utility.makeDirectories(xcodeprojPath.asString)
+    try Utility.makeDirectories(schemesDirectory.asString)
     let schemeName = "\(projectName).xcscheme"
 
 ////// the pbxproj file describes the project and its targets
-    try open(xcodeprojPath, "project.pbxproj") { stream in
+    try open(xcodeprojPath.appending("project.pbxproj")) { stream in
         try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: stream)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
-    try open(schemesDirectory, schemeName) { stream in
+    try open(schemesDirectory.appending(RelativePath(schemeName))) { stream in
         xcscheme(container: xcodeprojName, modules: modules, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory, "xcschememanagement.plist") { print in
+    try open(schemesDirectory.appending("xcschememanagement.plist")) { print in
         print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         print("<plist version=\"1.0\">")
         print("<dict>")
@@ -75,7 +74,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
-        try open(xcodeprojPath, name) { print in
+        try open(xcodeprojPath.appending(RelativePath(name))) { print in
             print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             print("<plist version=\"1.0\">")
             print("<dict>")
@@ -115,8 +114,7 @@ import class Foundation.NSData
 
 /// Writes the contents to the file specified.
 /// Doesn't re-writes the file in case the new and old contents of file are same.
-func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
-    let path = Path.join(path)
+func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
     let stream = OutputByteStream()
     try body { line in
         stream <<< line
@@ -124,7 +122,7 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     }
     // If file is already present compare its content with our stream
     // and re-write only if its new.
-    if path.isFile, let data = NSData(contentsOfFile: path) {
+    if path.asString.isFile, let data = NSData(contentsOfFile: path.asString) {
         // FIXME: We should have a utility for this.
         var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8.self))
         data.getBytes(&contents, length: data.length)
@@ -134,5 +132,5 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
         }
     }
     // Write the real file.
-    try localFS.writeFileContents(path, bytes: stream.bytes)
+    try localFS.writeFileContents(path.asString, bytes: stream.bytes)
 }
