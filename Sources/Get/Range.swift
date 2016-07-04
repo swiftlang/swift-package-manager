@@ -11,7 +11,7 @@
 import PackageDescription
 
 // FIXME: workaround for inability to constrain the extension to `Bound == Version`.
-protocol _VersionProtocol {}
+protocol _VersionProtocol : Comparable {}
 extension Version : _VersionProtocol {}
 
 extension Range where Bound : _VersionProtocol {
