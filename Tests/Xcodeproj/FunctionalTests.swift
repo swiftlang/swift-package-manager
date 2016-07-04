@@ -83,6 +83,7 @@ class FunctionalTests: XCTestCase {
             let build = Path.join(prefix, "build", "Debug")
             XCTAssertDirectoryExists(build, "A_B.framework")
             XCTAssertDirectoryExists(build, "B_C.framework")
+            XCTAssertDirectoryExists(build, "C_D.framework")
         }
     }
     
