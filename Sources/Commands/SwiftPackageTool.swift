@@ -91,7 +91,6 @@ private enum PackageToolFlag: Argument {
     case xld(String)
     case xswiftc(String)
     case xcconfigOverrides(AbsolutePath)
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: () -> String?) throws {
@@ -120,8 +119,6 @@ private enum PackageToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         case "-Xcc":
             self = try .xcc(forcePop())
         case "-Xlinker":
@@ -147,7 +144,6 @@ private class PackageToolOptions: Options {
     var Xld: [String] = []
     var Xswiftc: [String] = []
     var xcconfigOverrides: AbsolutePath? = nil
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
@@ -177,11 +173,7 @@ public struct SwiftPackageTool: SwiftTool {
             
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
                 let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
-                if opts.ignoreDependencies {
-                    return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
-                } else {
-                    return try get(manifest, manifestParser: parseManifest)
-                }
+                return try get(manifest, manifestParser: parseManifest)
             }
         
             switch mode {
@@ -329,8 +321,6 @@ public struct SwiftPackageTool: SwiftTool {
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
                 opts.xcconfigOverrides = path
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
         if let mode = mode {
