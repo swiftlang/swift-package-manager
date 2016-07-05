@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Basic.FixableError
 import PackageModel
 import Utility
 
@@ -25,28 +26,50 @@ public enum InvalidLayoutType {
     case invalidLayout([String])
 }
 
-extension ModuleError: CustomStringConvertible {
-    public var description: String {
+extension ModuleError: FixableError {
+    public var error: String {
         switch self {
         case .noModules(let package):
-            return "the package \(package) contains no modules. fix: create at least one module."
+            return "the package \(package) contains no modules"
         case .modulesNotFound(let modules):
-            return "these referenced modules could not be found: " + modules.joined(separator: ", ") + ". fix: reference only valid modules."
+            return "these referenced modules could not be found: " + modules.joined(separator: ", ")
         case .invalidLayout(let type):
-            return "the package has an unsupported layout, \(type)"
+            return "the package has an unsupported layout, \(type.error)"
         case .executableAsDependency(let module, let dependency):
-            return "the target \(module) cannot have the executable \(dependency) as a dependency. fix: move the shared logic inside a library, which can be referenced from both the target and the executable."
+            return "the target \(module) cannot have the executable \(dependency) as a dependency"
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .noModules(_):
+            return "create at least one module"
+        case .modulesNotFound(_):
+            return "reference only valid modules"
+        case .invalidLayout(let type):
+            return type.fix
+        case .executableAsDependency(_):
+            return "move the shared logic inside a library, which can be referenced from both the target and the executable"
         }
     }
 }
 
-extension InvalidLayoutType: CustomStringConvertible {
-    public var description: String {
+extension InvalidLayoutType: FixableError {
+    public var error: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.joined(separator: ", ") + ". fix: remove the extra source roots, or add them to the source root exclude list."
+            return "multiple source roots found: " + paths.joined(separator: ", ")
         case .invalidLayout(let paths):
-            return "unexpected source file(s) found: " + paths.joined(separator: ", ") + ". fix: move the file(s) inside a module."
+            return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .multipleSourceRoots(_):
+            return "remove the extra source roots, or add them to the source root exclude list"
+        case .invalidLayout(_):
+            return "move the file(s) inside a module"
         }
     }
 }
@@ -60,15 +83,26 @@ extension Module {
     }
 }
 
-extension Module.Error: CustomStringConvertible {
-    var description: String {
+extension Module.Error: FixableError {
+    var error: String {
         switch self {
         case .noSources(let path):
-            return "the module at \(path) does not contain any source files. fix: either remove the module folder, or add a source file to the module."
+            return "the module at \(path) does not contain any source files"
         case .mixedSources(let path):
-            return "the module at \(path) contains mixed language source files. fix: use only a single language within a module."
+            return "the module at \(path) contains mixed language source files"
         case .duplicateModule(let name):
-            return "multiple modules with the name \(name) found. fix: modules should have a unique name, accross dependencies."
+            return "multiple modules with the name \(name) found"
+        }
+    }
+
+    var fix: String? {
+        switch self {
+        case .noSources(_):
+            return "either remove the module folder, or add a source file to the module"
+        case .mixedSources(_):
+            return "use only a single language within a module"
+        case .duplicateModule(_):
+            return "modules should have a unique name, accross dependencies"
         }
     }
 }
@@ -81,13 +115,22 @@ extension Product {
     }
 }
 
-extension Product.Error: CustomStringConvertible {
-    var description: String {
+extension Product.Error: FixableError {
+    var error: String {
         switch self {
         case .noModules(let product):
-            return "the product named \(product) doesn't reference any modules. fix: reference one or more modules from the product."
+            return "the product named \(product) doesn't reference any modules"
         case .moduleNotFound(let product, let module):
-            return "the product named \(product) references a module that could not be found: \(module). fix: reference only valid modules from the product."
+            return "the product named \(product) references a module that could not be found: \(module)"
+        }
+    }
+
+    var fix: String? {
+        switch self {
+        case .noModules(_):
+            return "reference one or more modules from the product"
+        case .moduleNotFound(_):
+            return "reference only valid modules from the product"
         }
     }
 }

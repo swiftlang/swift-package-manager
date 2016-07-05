@@ -20,27 +20,32 @@ import var Utility.stderr
 public enum Error: ErrorProtocol {
     case noManifestFound
     case invalidToolchain
-    case invalidInstallation(String)
-    case invalidSwiftExec(String)
     case buildYAMLNotFound(String)
     case repositoryHasChanges(String)
 }
 
-extension Error: CustomStringConvertible {
-    public var description: String {
+extension Error: FixableError {
+    public var error: String {
         switch self {
         case .noManifestFound:
             return "no \(Manifest.filename) file found"
         case .invalidToolchain:
             return "invalid inferred toolchain"
-        case .invalidInstallation(let prefix):
-            return "invalid or incomplete Swift toolchain:\n    \(prefix)"
-        case .invalidSwiftExec(let value):
-            return "invalid SWIFT_EXEC value: \(value)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         case .repositoryHasChanges(let value):
             return "repository has changes: \(value)"
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .noManifestFound:
+            return "create a file named \(Manifest.filename) or run `swift package init` to initialize a new package"
+        case .repositoryHasChanges(_):
+            return "stage the changes and reapply them after updating the repository"
+        default:
+            return nil
         }
     }
 }
@@ -68,6 +73,11 @@ extension Error: CustomStringConvertible {
             let argv0 = Process.arguments.first ?? "swift package"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
+    case let error as FixableError:
+        print(error: error.error)
+        if let fix = error.fix {
+            print(fix: fix)
+        }
     default:
         print(error: error)
     }
@@ -77,11 +87,17 @@ extension Error: CustomStringConvertible {
 
 private func print(error: Any) {
     if ColorWrap.isAllowed(for: .stdErr) {
-        let message = String(error).replacingOccurrences(of: " fix:", with: ColorWrap.wrap("\nfix:", with: .Yellow, for: .stdErr))
-        print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), message, to: &stderr)
+        print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
     } else {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
-        let message = String(error).replacingOccurrences(of: "fix:", with: "\nfix:")
-        print("\(cmd): error:", message, to: &stderr)
+        print("\(cmd): error:", error, to: &stderr)
+    }
+}
+
+private func print(fix: String) {
+    if ColorWrap.isAllowed(for: .stdErr) {
+        print(ColorWrap.wrap("fix:", with: .Yellow, for: .stdErr), fix, to: &stderr)
+    } else {
+        print("fix:", fix, to: &stderr)
     }
 }
