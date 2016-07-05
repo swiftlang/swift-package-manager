@@ -29,13 +29,13 @@ extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .noModules(let package):
-            return "the package \(package) contains no modules"
+            return "the package \(package) contains no modules. fix: create at least one module."
         case .modulesNotFound(let modules):
-            return "these referenced modules could not be found: " + modules.joined(separator: ", ")
+            return "these referenced modules could not be found: " + modules.joined(separator: ", ") + ". fix: reference only valid modules."
         case .invalidLayout(let type):
             return "the package has an unsupported layout, \(type)"
         case .executableAsDependency(let module, let dependency):
-            return "the target \(module) cannot have the executable \(dependency) as a dependency"
+            return "the target \(module) cannot have the executable \(dependency) as a dependency. fix: move the shared logic inside a library, which can be referenced from both the target and the executable."
         }
     }
 }
@@ -44,9 +44,9 @@ extension InvalidLayoutType: CustomStringConvertible {
     public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.joined(separator: ", ")
+            return "multiple source roots found: " + paths.joined(separator: ", ") + ". fix: remove the extra source roots, or add them to the source root exclude list."
         case .invalidLayout(let paths):
-            return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+            return "unexpected source file(s) found: " + paths.joined(separator: ", ") + ". fix: move the file(s) inside a module."
         }
     }
 }
@@ -64,11 +64,11 @@ extension Module.Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .noSources(let path):
-            return "the module at \(path) does not contain any source files"
+            return "the module at \(path) does not contain any source files. fix: either remove the module folder, or add a source file to the module."
         case .mixedSources(let path):
-            return "the module at \(path) contains mixed language source files"
+            return "the module at \(path) contains mixed language source files. fix: use only a single language within a module."
         case .duplicateModule(let name):
-            return "multiple modules with the name \(name) found; modules should have a unique name, accross dependencies"
+            return "multiple modules with the name \(name) found. fix: modules should have a unique name, accross dependencies."
         }
     }
 }
@@ -85,9 +85,9 @@ extension Product.Error: CustomStringConvertible {
     var description: String {
         switch self {
         case .noModules(let product):
-            return "the product named \(product) doesn't reference any modules"
+            return "the product named \(product) doesn't reference any modules. fix: reference one or more modules from the product."
         case .moduleNotFound(let product, let module):
-            return "the product named \(product) references a module that could not be found: \(module)"
+            return "the product named \(product) references a module that could not be found: \(module). fix: reference only valid modules from the product."
         }
     }
 }
