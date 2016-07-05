@@ -67,7 +67,7 @@ public enum ColorWrap {
     }
 
     public enum Color {
-        case Red, Green, Blue
+        case Red, Green, Yellow, Blue
     }
 }
 
@@ -83,6 +83,8 @@ extension String {
             return "\(CSI)31m\(self)\(CSI)0m"
         case .Green:
             return "\(CSI)32m\(self)\(CSI)0m"
+        case .Yellow:
+            return "\(CSI)33m\(self)\(CSI)0m"
         case .Blue:
             return "\(CSI)34m\(self)\(CSI)0m"
         }

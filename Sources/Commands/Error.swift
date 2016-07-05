@@ -77,7 +77,7 @@ extension Error: CustomStringConvertible {
 
 private func print(error: Any) {
     if ColorWrap.isAllowed(for: .stdErr) {
-        let message = String(error).replacingOccurrences(of: " fix:", with: ColorWrap.wrap("\nfix:", with: .Green, for: .stdErr))
+        let message = String(error).replacingOccurrences(of: " fix:", with: ColorWrap.wrap("\nfix:", with: .Yellow, for: .stdErr))
         print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), message, to: &stderr)
     } else {
         let cmd = Process.arguments.first?.basename ?? "SwiftPM"
