@@ -47,9 +47,14 @@ public class GitRepositoryProvider: RepositoryProvider {
         do {
             // FIXME: We need infrastructure in this subsystem for reporting
             // status information.
+          #if os(Linux)
+            let env = ProcessInfo.processInfo().environment
+          #else
+            let env = ProcessInfo.processInfo.environment
+          #endif
             try system(
                 Git.tool, "clone", "--bare", repository.url, path,
-                environment: ProcessInfo.processInfo.environment, message: "Cloning \(repository.url)")
+                environment: env, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {

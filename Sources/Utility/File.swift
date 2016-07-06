@@ -20,7 +20,12 @@ public func fopen(_ path: String, mode: FopenMode = .read) throws -> FileHandle 
     switch mode {
     case .read: handle = FileHandle(forReadingAtPath: path)
     case .write:
-        guard FileManager.default.createFile(atPath: path, contents: nil) else {
+      #if os(Linux)
+        let success = FileManager.`default`().createFile(atPath: path, contents: nil)
+      #else
+        let success = FileManager.default.createFile(atPath: path, contents: nil)
+      #endif
+        guard success else {
             throw Error.couldNotCreateFile(path: path)
         }
         handle = FileHandle(forWritingAtPath: path)

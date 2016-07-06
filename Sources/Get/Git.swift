@@ -24,10 +24,15 @@ extension Git {
         }
 
         do {
+          #if os(Linux)
+            let env = ProcessInfo.processInfo().environment
+          #else
+            let env = ProcessInfo.processInfo.environment
+          #endif
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, environment: ProcessInfo.processInfo.environment, message: "Cloning \(url)")
+                url, dstdir, environment: env, message: "Cloning \(url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {

@@ -17,5 +17,9 @@ import Foundation
 /// - param path: The path to create, which must be absolute.
 public func makeDirectories(_ path: String) throws {
     precondition(path.hasPrefix("/"), "unexpected relative path")
+  #if os(Linux)
+    try FileManager.default().createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [:])
+  #else
     try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [:])
+  #endif
 }
