@@ -195,7 +195,7 @@ public final class TemporaryDirectory {
     /// Remove the temporary file before deallocating.
     deinit {
         if removeTreeOnDeinit {
-            let _ = try? FileManager.default().removeItem(atPath: path.asString)
+            let _ = try? FileManager.default.removeItem(atPath: path.asString)
         } else {
             rmdir(path.asString)
         }

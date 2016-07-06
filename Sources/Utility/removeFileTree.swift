@@ -12,5 +12,5 @@ import Foundation
 
 /// Recursively deletes the provided directory.
 public func removeFileTree(_ path: String) throws {
-    try FileManager.default().removeItem(atPath: path)
+    try FileManager.default.removeItem(atPath: path)
 }

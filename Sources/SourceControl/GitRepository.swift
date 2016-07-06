@@ -49,7 +49,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // status information.
             try system(
                 Git.tool, "clone", "--bare", repository.url, path,
-                environment: ProcessInfo.processInfo().environment, message: "Cloning \(repository.url)")
+                environment: ProcessInfo.processInfo.environment, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
