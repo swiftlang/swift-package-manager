@@ -17,5 +17,5 @@ import Foundation
 /// - param path: The path to create, which must be absolute.
 public func makeDirectories(_ path: String) throws {
     precondition(path.hasPrefix("/"), "unexpected relative path")
-    try NSFileManager.default().createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [:])
+    try NSFileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [:])
 }

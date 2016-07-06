@@ -21,7 +21,7 @@ public func fopen(_ path: String, mode: FopenMode = .read) throws -> NSFileHandl
     case .read: handle = NSFileHandle(forReadingAtPath: path)
     case .write:
         #if os(OSX) || os(iOS)
-            guard NSFileManager.`default`().createFile(atPath: path, contents: nil) else {
+            guard NSFileManager.default.createFile(atPath: path, contents: nil) else {
                 throw Error.couldNotCreateFile(path: path)
             }
         #else

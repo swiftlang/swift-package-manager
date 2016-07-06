@@ -49,7 +49,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // status information.
             try system(
                 Git.tool, "clone", "--bare", repository.url, path,
-                environment: NSProcessInfo.processInfo().environment, message: "Cloning \(repository.url)")
+                environment: NSProcessInfo.processInfo.environment, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
