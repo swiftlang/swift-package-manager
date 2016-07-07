@@ -353,8 +353,7 @@ class MiscellaneousTestCase: XCTestCase {
     
     func testProductWithMissingModules() {
         fixture(name: "Miscellaneous/ProductWithMissingModules") { prefix in
-            XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build/debug/libBar.a")
+            XCTAssertBuildFails(prefix)
         }
     }
 

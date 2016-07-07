@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import protocol Basic.FixableError
 import PackageModel
 import Utility
 
@@ -17,7 +18,7 @@ public enum ModuleError: ErrorProtocol {
     case noModules(Package)
     case modulesNotFound([String])
     case invalidLayout(InvalidLayoutType)
-    case executableAsDependency(String)
+    case executableAsDependency(module: String, dependency: String)
 }
 
 public enum InvalidLayoutType {
@@ -25,13 +26,50 @@ public enum InvalidLayoutType {
     case invalidLayout([String])
 }
 
-extension InvalidLayoutType: CustomStringConvertible {
-    public var description: String {
+extension ModuleError: FixableError {
+    public var error: String {
+        switch self {
+        case .noModules(let package):
+            return "the package \(package) contains no modules"
+        case .modulesNotFound(let modules):
+            return "these referenced modules could not be found: " + modules.joined(separator: ", ")
+        case .invalidLayout(let type):
+            return "the package has an unsupported layout, \(type.error)"
+        case .executableAsDependency(let module, let dependency):
+            return "the target \(module) cannot have the executable \(dependency) as a dependency"
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .noModules(_):
+            return "create at least one module"
+        case .modulesNotFound(_):
+            return "reference only valid modules"
+        case .invalidLayout(let type):
+            return type.fix
+        case .executableAsDependency(_):
+            return "move the shared logic inside a library, which can be referenced from both the target and the executable"
+        }
+    }
+}
+
+extension InvalidLayoutType: FixableError {
+    public var error: String {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.joined(separator: ", ")
         case .invalidLayout(let paths):
             return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .multipleSourceRoots(_):
+            return "remove the extra source roots, or add them to the source root exclude list"
+        case .invalidLayout(_):
+            return "move the file(s) inside a module"
         }
     }
 }
@@ -45,10 +83,55 @@ extension Module {
     }
 }
 
+extension Module.Error: FixableError {
+    var error: String {
+        switch self {
+        case .noSources(let path):
+            return "the module at \(path) does not contain any source files"
+        case .mixedSources(let path):
+            return "the module at \(path) contains mixed language source files"
+        case .duplicateModule(let name):
+            return "multiple modules with the name \(name) found"
+        }
+    }
+
+    var fix: String? {
+        switch self {
+        case .noSources(_):
+            return "either remove the module folder, or add a source file to the module"
+        case .mixedSources(_):
+            return "use only a single language within a module"
+        case .duplicateModule(_):
+            return "modules should have a unique name, accross dependencies"
+        }
+    }
+}
+
 extension Product {
     /// An error in a product definition.
     enum Error: ErrorProtocol {
         case noModules(String)
+        case moduleNotFound(product: String, module: String)
+    }
+}
+
+extension Product.Error: FixableError {
+    var error: String {
+        switch self {
+        case .noModules(let product):
+            return "the product named \(product) doesn't reference any modules"
+        case .moduleNotFound(let product, let module):
+            return "the product named \(product) references a module that could not be found: \(module)"
+        }
+    }
+
+    var fix: String? {
+        switch self {
+        case .noModules(_):
+            return "reference one or more modules from the product"
+        case .moduleNotFound(_):
+            return "reference only valid modules from the product"
+        }
     }
 }
 
@@ -135,7 +218,7 @@ extension Package {
                         throw ModuleError.modulesNotFound([name])
                     }
                     if let moduleType = dependency as? ModuleTypeProtocol, moduleType.type != .library {
-                        throw ModuleError.executableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
+                        throw ModuleError.executableAsDependency(module: module.name, dependency: name)
                     }
                     return dependency
                 }
@@ -244,10 +327,9 @@ extension Package {
     ////// add products from the manifest
 
         for p in manifest.products {
-            let modules: [Module] = p.modules.flatMap{ moduleName in
+            let modules: [Module] = try p.modules.flatMap{ moduleName in
                 guard let picked = (modules.pick{ $0.name == moduleName }) else {
-                    print("warning: No module \(moduleName) found for product \(p.name)")
-                    return nil
+                    throw Product.Error.moduleNotFound(product: p.name, module: moduleName)
                 }
                 return picked
             }
