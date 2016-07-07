@@ -234,16 +234,17 @@ class PathTests: XCTestCase {
     // FIXME: We also need test for stat() operations.
         
     static var allTests = [
-        ("testBasics",                   testBasics),
+        ("testBasics",                      testBasics),
+        ("testStringInitialization",        testStringInitialization),
         ("testStringLiteralInitialization", testStringLiteralInitialization),
-        ("testRepeatedPathSeparators",   testRepeatedPathSeparators),
-        ("testTrailingPathSeparators",   testTrailingPathSeparators),
-        ("testDotPathComponents",        testDotPathComponents),
-        ("testDotDotPathComponents",     testDotDotPathComponents),
-        ("testCombinationsAndEdgeCases", testCombinationsAndEdgeCases),
-        ("testBaseNameExtraction",       testBaseNameExtraction),
-        ("testSuffixExtraction",         testSuffixExtraction),
-        ("testParentDirectory",          testParentDirectory),
-        ("testConcatenation",            testConcatenation),
+        ("testRepeatedPathSeparators",      testRepeatedPathSeparators),
+        ("testTrailingPathSeparators",      testTrailingPathSeparators),
+        ("testDotPathComponents",           testDotPathComponents),
+        ("testDotDotPathComponents",        testDotDotPathComponents),
+        ("testCombinationsAndEdgeCases",    testCombinationsAndEdgeCases),
+        ("testBaseNameExtraction",          testBaseNameExtraction),
+        ("testSuffixExtraction",            testSuffixExtraction),
+        ("testParentDirectory",             testParentDirectory),
+        ("testConcatenation",               testConcatenation),
     ]
 }
