@@ -239,7 +239,7 @@ extension String {
         guard isFile else { return nil }
         guard characters.contains(".") else { return nil }
         let parts = characters.split(separator: ".")
-        if let last = parts.last where parts.count > 1 { return String(last) }
+        if let last = parts.last, parts.count > 1 { return String(last) }
         return nil
     }
 

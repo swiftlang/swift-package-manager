@@ -168,7 +168,7 @@ enum Flag: Argument, Equatable {
             guard let str = pop() else { throw OptionParserError.expectedAssociatedValue("") }
             self = .F(str)
         case "--G":
-            guard let str = pop(), int = Int(str) else { throw OptionParserError.expectedAssociatedValue("") }
+            guard let str = pop(), let int = Int(str) else { throw OptionParserError.expectedAssociatedValue("") }
             self = .G(int)
         case "-H":
             self = .H

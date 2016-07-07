@@ -52,7 +52,7 @@ class ThreadTests: XCTestCase {
     }
 
     func testNotDeinitBeforeExecutingTask() {
-        var finishedCondition = Condition()
+        let finishedCondition = Condition()
         var finished = false
 
         Thread {
