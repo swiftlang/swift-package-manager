@@ -13,7 +13,7 @@ import Foundation
 /// Recursively deletes the provided directory.
 public func removeFileTree(_ path: String) throws {
   #if os(Linux)
-    try NSFileManager.default.removeItem(atPath: path)
+    try NSFileManager.default().removeItem(atPath: path)
   #else
     try NSFileManager.default.removeItem(atPath: path)
   #endif
