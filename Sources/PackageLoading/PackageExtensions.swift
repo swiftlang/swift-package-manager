@@ -1,4 +1,4 @@
->>/*
+/*
  This source file is part of the Swift.org open source project
 
  Copyright 2015 - 2016 Apple Inc. and the Swift project authors
