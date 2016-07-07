@@ -10,7 +10,7 @@
 
 public enum Error: ErrorProtocol {
     case noModules
-    case cModule(name: String)
+    case onlyCModule(name: String)
 }
 
 extension Error: CustomStringConvertible {
@@ -18,7 +18,7 @@ extension Error: CustomStringConvertible {
         switch self {
         case .noModules:
             return "no modules found."
-        case .cModule(let name):
+        case .onlyCModule(let name):
             return "system module package \(name) found. To use this system module package, include it in another project."
         }
     }

@@ -25,7 +25,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 
     if modules.count == 1, let module = modules.first as? CModule {
-        throw Error.cModule(name: module.name)
+        throw Error.onlyCModule(name: module.name)
     }
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }

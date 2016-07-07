@@ -15,16 +15,16 @@ import PackageModel
 import Build
 
 final class DescribeTests: XCTestCase {
+    struct InvalidToolchain: Toolchain {
+        var platformArgsClang: [String] { fatalError() }
+        var platformArgsSwiftc: [String] { fatalError() }
+        var sysroot: String?  { fatalError() }
+        var SWIFT_EXEC: String { fatalError() }
+        var clang: String { fatalError() }
+    }
+
     func testDescribingNoModulesThrows() {
         do {
-            struct InvalidToolchain: Toolchain {
-                var platformArgsClang: [String] { fatalError() }
-                var platformArgsSwiftc: [String] { fatalError() }
-                var sysroot: String?  { fatalError() }
-                var SWIFT_EXEC: String { fatalError() }
-                var clang: String { fatalError() }
-            }
-
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             _ = try describe(tempDir.path.appending("foo").asString, .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
@@ -37,18 +37,10 @@ final class DescribeTests: XCTestCase {
 
     func testDescribingCModuleThrows() {
         do {
-            struct InvalidToolchain: Toolchain {
-                var platformArgsClang: [String] { fatalError() }
-                var platformArgsSwiftc: [String] { fatalError() }
-                var sysroot: String?  { fatalError() }
-                var SWIFT_EXEC: String { return "" }
-                var clang: String { fatalError() }
-            }
-
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             _ = try describe(tempDir.path.appending("foo").asString, .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
-        } catch Build.Error.cModule (let name) {
+        } catch Build.Error.onlyCModule (let name) {
             XCTAssert(true, "This error should be thrown")
             XCTAssertEqual(name, "MyCModule")
         } catch {
