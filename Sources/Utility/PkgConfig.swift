@@ -187,7 +187,7 @@ struct PkgConfigParser {
                 // Encountered a seperator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
-                    if let peeked = peek(idx: idx+1) where peeked == " " { continue }
+                    if let peeked = peek(idx: idx+1), peeked == " " { continue }
                     // Append to array of tokens and reset token variable.
                     tokens.append(token)
                     token = ""

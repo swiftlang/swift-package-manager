@@ -90,7 +90,7 @@ public final class Package {
         // See https://bugs.swift.org/browse/SR-1119.
         if Process.argc > 0 {
             if let fileNoOptIndex = Process.arguments.index(of: "-fileno"),
-                   fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
+                   let fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
                 dumpPackageAtExit(self, fileNo: fileNo)
             }
         }
