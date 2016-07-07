@@ -134,7 +134,7 @@ extension Package {
                     guard let dependency = moduleForName(name) else {
                         throw ModuleError.modulesNotFound([name])
                     }
-                    if let moduleType = dependency as? ModuleTypeProtocol where moduleType.type != .library {
+                    if let moduleType = dependency as? ModuleTypeProtocol, moduleType.type != .library {
                         throw ModuleError.executableAsDependency("\(module.name) cannot have an executable \(name) as a dependency")
                     }
                     return dependency
