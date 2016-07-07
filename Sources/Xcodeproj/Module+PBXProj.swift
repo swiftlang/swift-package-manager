@@ -264,7 +264,7 @@ extension XcodeModuleProtocol  {
         buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
 
         // Generate modulemap for a ClangModule if not provided by user and add to build settings.
-        if case let clangModule as ClangModule = self where clangModule.type == .library {
+        if case let clangModule as ClangModule = self, clangModule.type == .library {
             buildSettings["DEFINES_MODULE"] = "YES"
             let moduleMapPath: AbsolutePath
             // If user provided the modulemap no need to generate.

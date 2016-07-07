@@ -176,19 +176,19 @@ extension PackageDescription.Package {
 
 extension PackageDescription.Package.Dependency {
     static func fromTOML(_ item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
-        guard case .array(let array) = item where array.items.count == 3 else {
+        guard case .array(let array) = item, array.items.count == 3 else {
             fatalError("Unexpected TOMLItem")
         }
         guard case .string(let url) = array.items[0],
               case .string(let vv1) = array.items[1],
               case .string(let vv2) = array.items[2],
-              let v1 = Version(vv1), v2 = Version(vv2)
+              let v1 = Version(vv1), let v2 = Version(vv2)
         else {
             fatalError("Unexpected TOMLItem")
         }
 
         func fixURL() -> String {
-            if let baseURL = baseURL where URL.scheme(url) == nil {
+            if let baseURL = baseURL, URL.scheme(url) == nil {
                 return Path.join(baseURL, url).normpath
             } else {
                 return url
