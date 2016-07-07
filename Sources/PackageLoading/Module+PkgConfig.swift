@@ -43,7 +43,7 @@ extension ModuleProtocol {
             }
             catch PkgConfigError.couldNotFindConfigFile {
                 if let providers = module.providers,
-                    provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
+                    let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
                     print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
                     print(provider.installText)
                 }
