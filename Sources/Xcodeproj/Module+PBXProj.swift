@@ -280,6 +280,9 @@ extension XcodeModuleProtocol  {
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString
         }
 
+        // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
+        buildSettings["SWIFT_VERSION"] = "3.0"
+        
         return buildSettings
     }
 }
