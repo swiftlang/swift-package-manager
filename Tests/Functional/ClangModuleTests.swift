@@ -62,6 +62,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix, ".build", "debug", "Foo".soname)
             XCTAssertFileExists(prefix, ".build", "debug", "Bar".soname)
+            XCTAssertFileExists(prefix, ".build", "debug", "Bar with spaces".soname)
         }
     }
     
