@@ -145,8 +145,7 @@ private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
         } else {
             guard let index = set.index(of: top),
                   let moduleInSet = set[index] as? ModuleTypeProtocol,
-                  let module = top as? ModuleTypeProtocol
-                      where module.sources.root != moduleInSet.sources.root else {
+                  let module = top as? ModuleTypeProtocol, module.sources.root != moduleInSet.sources.root else {
                 continue;
             }
 
