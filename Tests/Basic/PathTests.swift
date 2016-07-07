@@ -25,6 +25,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("a/b/c").asString, "a/b/c")
     }
     
+    func testStringInitialization() {
+        let abs1: AbsolutePath = "/"
+        let abs2 = AbsolutePath(abs1, ".")
+        XCTAssertEqual(abs1, abs2)
+        let rel3 = "."
+        let abs3 = AbsolutePath(abs2, rel3)
+        XCTAssertEqual(abs2, abs3)
+    }
+    
     func testStringLiteralInitialization() {
         let abs: AbsolutePath = "/"
         XCTAssertEqual(abs.asString, "/")
@@ -171,6 +180,13 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo")).asString, "/foo")
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).asString, "/")
         XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).asString, "/yabba/a/b")
+        
+        let emptyString = ""
+        XCTAssertEqual(AbsolutePath("/").appending(emptyString).asString, "/")
+        let dotString = "."
+        XCTAssertEqual(AbsolutePath("/").appending(dotString).asString, "/")
+        let dotdotString = dotString + dotString
+        XCTAssertEqual(AbsolutePath("/").appending(dotdotString).asString, "/")
     }
     
     func testPathComponents() {

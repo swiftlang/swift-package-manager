@@ -74,6 +74,11 @@ public struct AbsolutePath {
         _impl = PathImpl(string: absStr)
     }
     
+    /// Convenience initializer that appends a string to a relative path.
+    public init(_ absPath: AbsolutePath, _ relStr: String) {
+        self.init(absPath, RelativePath(relStr))
+    }
+    
     /// NOTE: We will want to add other initializers, such as ones that take
     ///       an arbtirary number of relative paths.
     
@@ -111,6 +116,12 @@ public struct AbsolutePath {
     /// Returns the absolute path with the relative path applied.
     public func appending(_ subpath: RelativePath) -> AbsolutePath {
         return AbsolutePath(self, subpath)
+    }
+    
+    /// Returns the absolute path with the contents of the string (interpreted
+    /// as a relative path, not a single path component) appended.
+    public func appending(_ str: String) -> AbsolutePath {
+        return AbsolutePath(self, str)
     }
     
     /// NOTE: We will want to add other methods, such as an appending() method
