@@ -227,6 +227,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")), RelativePath("../../../a/b/c/d"));
     }
     
+    func testComparison() {
+        XCTAssertTrue(AbsolutePath("/") <= AbsolutePath("/"));
+        XCTAssertTrue(AbsolutePath("/abc") < AbsolutePath("/def"));
+        XCTAssertTrue(AbsolutePath("/2") <= AbsolutePath("/2.1"));
+        XCTAssertTrue(AbsolutePath("/3.1") > AbsolutePath("/2"));
+        XCTAssertTrue(AbsolutePath("/2") >= AbsolutePath("/2"));
+        XCTAssertTrue(AbsolutePath("/2.1") >= AbsolutePath("/2"));
+    }
+    
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
@@ -246,5 +255,6 @@ class PathTests: XCTestCase {
         ("testSuffixExtraction",            testSuffixExtraction),
         ("testParentDirectory",             testParentDirectory),
         ("testConcatenation",               testConcatenation),
+        ("testComparison",                  testComparison),
     ]
 }

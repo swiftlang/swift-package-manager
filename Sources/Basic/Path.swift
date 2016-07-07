@@ -274,6 +274,21 @@ public func ==(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString == rhs.asString
 }
 
+// Make absolute paths Comparable.
+extension AbsolutePath : Comparable { }
+public func <(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString < rhs.asString
+}
+public func <=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString <= rhs.asString
+}
+public func >=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString >= rhs.asString
+}
+public func >(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString > rhs.asString
+}
+
 
 // Make relative paths Hashable.
 extension RelativePath : Hashable {
