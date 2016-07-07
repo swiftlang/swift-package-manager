@@ -36,7 +36,7 @@ class PackagesDirectory {
         var result = Dictionary<String, Git.Repo>()
         for name in try! localFS.getDirectoryContents(self.prefix) {
             let prefix = Path.join(self.prefix, name)
-            guard let repo = Git.Repo(path: prefix), origin = repo.origin else { continue } // TODO: Warn user.
+            guard let repo = Git.Repo(path: prefix), let origin = repo.origin else { continue } // TODO: Warn user.
             result[origin] = repo
         }
         return result
@@ -55,7 +55,7 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         let dstdir = Path.join(prefix, Package.nameForURL(url))
-        if let repo = Git.Repo(path: dstdir) where repo.origin == url {
+        if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestParser)
         }
