@@ -73,7 +73,11 @@ func run() throws {
     }
 
     // Create output file.
+  #if os(Linux)
+    NSFileManager.default().createFile(atPath: outputFile, contents: nil, attributes: nil)
+  #else
     NSFileManager.default.createFile(atPath: outputFile, contents: nil, attributes: nil)
+  #endif
     // Open output file for writing.
     guard let file = NSFileHandle(forWritingAtPath: outputFile) else {
         throw Error.couldNotOpenOutputFile(outputFile)
@@ -95,7 +99,11 @@ extension String {
     func normalizedPath() -> String {
         var path = self
         if !(path as NSString).isAbsolutePath {
+          #if os(Linux)
+            path = NSFileManager.default().currentDirectoryPath + "/" + path
+          #else
             path = NSFileManager.default.currentDirectoryPath + "/" + path
+          #endif
         }
         return (path as NSString).standardizingPath
     }

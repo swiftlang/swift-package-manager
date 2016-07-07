@@ -67,7 +67,12 @@ public class Git {
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: NSProcessInfo.processInfo.environment, message: nil)
+              #if os(Linux)
+                let env = NSProcessInfo.processInfo().environment
+              #else
+                let env = NSProcessInfo.processInfo.environment
+              #endif
+                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: env, message: nil)
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
