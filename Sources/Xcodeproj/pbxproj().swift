@@ -91,7 +91,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         // the “Project Navigator” group for this module
         print("        \(module.groupReference) = {")
         print("            isa = PBXGroup;")
-        print("            name = \(module.name);")
+        print("            name = '\(module.name)';")
         print("            path = '\(moduleRoot.relative(to: projectRoot).asString)';")
         print("            sourceTree = '<group>';")
         print("            children = (" + sourceRefIds.joined(separator: ", ") + ");")
@@ -115,7 +115,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         print("            buildPhases = (\(module.compilePhaseReference), \(module.linkPhaseReference));")
         print("            buildRules = ();")
         print("            dependencies = (\(module.nativeTargetDependencies));")
-        print("            name = \(module.name);")
+        print("            name = '\(module.name)';")
         print("            productName = \(module.c99name);")
         print("            productReference = \(module.productReference);")
         print("            productType = '\(module.productType)';")
