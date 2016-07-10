@@ -11,27 +11,30 @@
 @testable import Utility
 import XCTest
 
+#if os(Linux)
+    import Foundation  // String.hasSuffix
+#endif
+
 class FileTests: XCTestCase {
 
-    private func loadInputFile(name: String) -> File {
+    private func loadInputFile(_ name: String) throws -> FileHandle {
         let input = Path.join(#file, "../Inputs", name).normpath
-        return File(path: input)
+        return try fopen(input, mode: .read)
     }
     
     func testOpenFile() {
-        let file = loadInputFile("empty_file")
         do {
-            let generator = try file.enumerate()
-            XCTAssertNil(generator.next())
+            let file = try loadInputFile("empty_file")
+            XCTAssertEqual(try file.readFileContents(), "")
         } catch {
             XCTFail("The file should be opened without problem")
         }
     }
     
     func testOpenFileFail() {
-        let file = loadInputFile("file_not_existing")
         do {
-            let _ = try file.enumerate()
+            let file = try loadInputFile("file_not_existing")
+            let _ = try file.readFileContents()
             XCTFail("The file should not be opened since it is not existing")
         } catch {
             
@@ -39,11 +42,12 @@ class FileTests: XCTestCase {
     }
     
     func testReadRegularTextFile() {
-        let file = loadInputFile("regular_text_file")
         do {
-            let generator = try file.enumerate()
+            let file = try loadInputFile("regular_text_file")
+            var generator = try file.readFileContents().components(separatedBy: "\n").makeIterator()
             XCTAssertEqual(generator.next(), "Hello world")
             XCTAssertEqual(generator.next(), "It is a regular text file.")
+            XCTAssertEqual(generator.next(), "")
             XCTAssertNil(generator.next())
         } catch {
             XCTFail("The file should be opened without problem")
@@ -51,9 +55,9 @@ class FileTests: XCTestCase {
     }
     
     func testReadRegularTextFileWithSeparator() {
-        let file = loadInputFile("regular_text_file")
         do {
-            let generator = try file.enumerate(" ")
+            let file = try loadInputFile("regular_text_file")
+            var generator = try file.readFileContents().components(separatedBy: " ").makeIterator()
             XCTAssertEqual(generator.next(), "Hello")
             XCTAssertEqual(generator.next(), "world\nIt")
             XCTAssertEqual(generator.next(), "is")
@@ -66,111 +70,11 @@ class FileTests: XCTestCase {
             XCTFail("The file should be opened without problem")
         }
     }
-}
 
-
-extension FileTests {
-    static var allTests : [(String, FileTests -> () throws -> Void)] {
-        return [
-            ("testOpenFile", testOpenFile),
-            ("testOpenFileFail", testOpenFileFail),
-            ("testReadRegularTextFile", testReadRegularTextFile),
-            ("testReadRegularTextFileWithSeparator", testReadRegularTextFileWithSeparator)
-        ]
-    }
-}
-
-
-extension RmtreeTests {
-    static var allTests : [(String, RmtreeTests -> () throws -> Void)] {
-        return [
-            ("testDoesNotFollowSymlinks", testDoesNotFollowSymlinks),
-        ]
-    }
-}
-
-extension PathTests {
-    static var allTests : [(String, PathTests -> () throws -> Void)] {
-        return [
-            ("test", test),
-            ("testPrecombined", testPrecombined),
-            ("testExtraSeparators", testExtraSeparators),
-            ("testEmpties", testEmpties),
-            ("testNormalizePath", testNormalizePath),
-            ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
-            ("testParentDirectory", testParentDirectory),
-        ]
-    }
-}
-
-extension WalkTests {
-    static var allTests : [(String, WalkTests -> () throws -> Void)] {
-        return [
-            ("testNonRecursive", testNonRecursive),
-            ("testRecursive", testRecursive),
-            ("testSymlinksNotWalked", testSymlinksNotWalked),
-            ("testWalkingADirectorySymlinkResolvesOnce", testWalkingADirectorySymlinkResolvesOnce),
-        ]
-    }
-}
-
-extension StatTests {
-    static var allTests : [(String, StatTests -> () throws -> Void)] {
-        return [
-            ("test_isdir", test_isdir),
-            ("test_isfile", test_isfile),
-            ("test_realpath", test_realpath),
-            ("test_basename", test_basename),
-        ]
-    }
-}
-
-extension RelativePathTests {
-    static var allTests : [(String, RelativePathTests -> () throws -> Void)] {
-        return [
-            ("testAbsolute", testAbsolute),
-            ("testRelative", testRelative),
-            ("testMixed", testMixed),
-        ]
-    }
-}
-
-
-extension ResourcesTests {
-    static var allTests : [(String, ResourcesTests -> () throws -> Void)] {
-        return [
-            ("testResources", testResources),
-        ]
-    }
-}
-
-extension ShellTests {
-    static var allTests : [(String, ShellTests -> () throws -> Void)] {
-        return [
-            ("testPopen", testPopen),
-            ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
-            ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
-        ]
-    }
-}
-
-
-extension StringTests {
-    static var allTests : [(String, StringTests -> () throws -> Void)] {
-        return [
-            ("testTrailingChomp", testTrailingChomp),
-            ("testEmptyChomp", testEmptyChomp),
-            ("testSeparatorChomp", testSeparatorChomp),
-            ("testChuzzle", testChuzzle),
-        ]
-    }
-    
-}
-
-extension URLTests {
-    static var allTests : [(String, URLTests -> () throws -> Void)] {
-        return [
-            ("testSchema", testSchema),
-        ]
-    }
+    static var allTests = [
+        ("testOpenFile", testOpenFile),
+        ("testOpenFileFail", testOpenFileFail),
+        ("testReadRegularTextFile", testReadRegularTextFile),
+        ("testReadRegularTextFileWithSeparator", testReadRegularTextFileWithSeparator)
+    ]
 }

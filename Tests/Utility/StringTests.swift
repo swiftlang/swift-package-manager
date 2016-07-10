@@ -12,7 +12,6 @@
 import XCTest
 
 class StringTests: XCTestCase {
-
     func testTrailingChomp() {
         XCTAssertEqual("abc\n".chomp(), "abc")
         XCTAssertEqual("abc\r\n".chomp(), "abc")
@@ -22,9 +21,9 @@ class StringTests: XCTestCase {
     }
     
     func testSeparatorChomp() {
-        XCTAssertEqual("abc".chomp("c"), "ab")
-        XCTAssertEqual("abc\n".chomp("c"), "abc\n")
-        XCTAssertEqual("abc\n c".chomp("c"), "abc\n ")
+        XCTAssertEqual("abc".chomp(separator: "c"), "ab")
+        XCTAssertEqual("abc\n".chomp(separator: "c"), "abc\n")
+        XCTAssertEqual("abc\n c".chomp(separator: "c"), "abc\n ")
     }
 
     func testEmptyChomp() {
@@ -42,17 +41,42 @@ class StringTests: XCTestCase {
         XCTAssertEqual(" a\t\r\n".chuzzle(), "a")
         XCTAssertEqual("b".chuzzle(), "b")
     }
+    
+    func testSplitAround() {
+        func eq(_ lhs: (String, String?), _ rhs: (String, String?), file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
+            XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
+        }
+        
+        eq("".split(around: "::"), ("", nil))
+        eq("foo".split(around: "::"), ("foo", nil))
+        eq("foo::".split(around: "::"), ("foo", ""))
+        eq("::bar".split(around: "::"), ("", "bar"))
+        eq("foo::bar".split(around: "::"), ("foo", "bar"))
+    }
+
+    static var allTests = [
+        ("testTrailingChomp", testTrailingChomp),
+        ("testEmptyChomp", testEmptyChomp),
+        ("testSeparatorChomp", testSeparatorChomp),
+        ("testChuzzle", testChuzzle),
+        ("testSplitAround", testSplitAround)
+    ]
+    
 }
 
-
 class URLTests: XCTestCase {
-
     func testSchema() {
-        let a = "http://github.com/foo/bar"
-        let b = "https://github.com/foo/bar"
-        let c = "git@github.com/foo/bar"
-        XCTAssertEqual(Utility.URL.scheme(a), "http")
-        XCTAssertEqual(Utility.URL.scheme(b), "https")
-        XCTAssertEqual(Utility.URL.scheme(c), "git")
+        XCTAssertEqual(Utility.URL.scheme("http://github.com/foo/bar"), "http")
+        XCTAssertEqual(Utility.URL.scheme("https://github.com/foo/bar"), "https")
+        XCTAssertEqual(Utility.URL.scheme("HTTPS://github.com/foo/bar"), "https")
+        XCTAssertEqual(Utility.URL.scheme("git@github.com/foo/bar"), "git")
+        XCTAssertEqual(Utility.URL.scheme("ssh@github.com/foo/bar"), "ssh")
+        XCTAssertNil(Utility.URL.scheme("github.com/foo/bar"))
+        XCTAssertNil(Utility.URL.scheme("user:/github.com/foo/bar"))
     }
+
+    static var allTests = [
+        ("testSchema", testSchema),
+    ]
 }

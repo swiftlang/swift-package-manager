@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import Utility
 import XCTest
+
 import POSIX
+import Utility
 
 class PathTests: XCTestCase {
 
@@ -73,9 +74,20 @@ class PathTests: XCTestCase {
         XCTAssertEqual("foo/bar/baz".parentDirectory, "foo/bar")
         XCTAssertEqual("foo/bar/baz".parentDirectory.parentDirectory, "foo")
         XCTAssertEqual("/bar".parentDirectory, "/")
+        XCTAssertEqual("/".parentDirectory, "/")
         XCTAssertEqual("/".parentDirectory.parentDirectory, "/")
         XCTAssertEqual("/bar/../foo/..//".parentDirectory.parentDirectory, "/")
     }
+
+    static var allTests = [
+        ("test", test),
+        ("testPrecombined", testPrecombined),
+        ("testExtraSeparators", testExtraSeparators),
+        ("testEmpties", testEmpties),
+        ("testNormalizePath", testNormalizePath),
+        ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
+        ("testParentDirectory", testParentDirectory),
+    ]
 }
 
 class WalkTests: XCTestCase {
@@ -84,10 +96,10 @@ class WalkTests: XCTestCase {
         var expected = ["/usr", "/bin", "/sbin"]
 
         for x in walk("/", recursively: false) {
-            if let i = expected.indexOf(x) {
-                expected.removeAtIndex(i)
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
             }
-            XCTAssertEqual(1, x.characters.split("/").count)
+            XCTAssertEqual(1, x.characters.split(separator: "/").count)
         }
 
         XCTAssertEqual(expected.count, 0)
@@ -101,8 +113,8 @@ class WalkTests: XCTestCase {
         ]
 
         for x in walk(root) {
-            if let i = expected.indexOf(x) {
-                expected.removeAtIndex(i)
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
             }
         }
 
@@ -114,8 +126,8 @@ class WalkTests: XCTestCase {
             try mkdtemp("foo") { root in
                 let root = try realpath(root)  //FIXME not good that we need this?
 
-                try mkdir(root, "foo")
-                try mkdir(root, "bar/baz/goo")
+                try Utility.makeDirectories(Path.join(root, "foo"))
+                try Utility.makeDirectories(Path.join(root, "bar/baz/goo"))
                 try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
 
                 XCTAssertTrue("\(root)/foo/symlink".isSymlink)
@@ -136,14 +148,14 @@ class WalkTests: XCTestCase {
         try! mkdtemp("foo") { root in
             let root = try realpath(root)  //FIXME not good that we need this?
 
-            try mkdir(root, "foo/bar")
-            try mkdir(root, "abc/bar")
+            try Utility.makeDirectories(Path.join(root, "foo/bar"))
+            try Utility.makeDirectories(Path.join(root, "abc/bar"))
             try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
             try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
 
             XCTAssertTrue(Path.join(root, "symlink").isSymlink)
 
-            let results = walk(root, "symlink").map{$0}.sort()
+            let results = walk(root, "symlink").map{$0}.sorted()
 
             // we recurse a symlink to a directory, so this should work,
             // but `abc` should not show because `baz` is a symlink too
@@ -154,6 +166,15 @@ class WalkTests: XCTestCase {
     }
 }
 
+extension WalkTests {
+    static var allTests = [
+        ("testNonRecursive", testNonRecursive),
+        ("testRecursive", testRecursive),
+        ("testSymlinksNotWalked", testSymlinksNotWalked),
+        ("testWalkingADirectorySymlinkResolvesOnce", testWalkingADirectorySymlinkResolvesOnce),
+    ]
+}
+
 class StatTests: XCTestCase {
 
     func test_isdir() {
@@ -161,7 +182,7 @@ class StatTests: XCTestCase {
         XCTAssertTrue("/etc/passwd".isFile)
 
         try! mkdtemp("foo") { root in
-            try mkdir(root, "foo/bar")
+            try Utility.makeDirectories(Path.join(root, "foo/bar"))
             try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
 
             XCTAssertTrue("\(root)/foo/bar".isDirectory)
@@ -169,8 +190,8 @@ class StatTests: XCTestCase {
             XCTAssertTrue("\(root)/symlink".isDirectory)
             XCTAssertTrue("\(root)/symlink".isSymlink)
 
-            try POSIX.rmdir("\(root)/foo/bar")
-            try POSIX.rmdir("\(root)/foo")
+            try Utility.removeFileTree("\(root)/foo/bar")
+            try Utility.removeFileTree("\(root)/foo")
 
             XCTAssertTrue("\(root)/symlink".isSymlink)
             XCTAssertFalse("\(root)/symlink".isDirectory)
@@ -184,7 +205,7 @@ class StatTests: XCTestCase {
     }
 
     func test_realpath() {
-        XCTAssertEqual(try! realpath("."), try! getcwd())
+        XCTAssertEqual(try! realpath("."), getcwd())
     }
 
     func test_basename() {
@@ -193,8 +214,14 @@ class StatTests: XCTestCase {
         XCTAssertNotEqual("bar", "foo/bar/base".basename)
         XCTAssertNotEqual("base.ext", "foo/bar/base".basename)
     }
-}
 
+    static var allTests = [
+        ("test_isdir", test_isdir),
+        ("test_isfile", test_isfile),
+        ("test_realpath", test_realpath),
+        ("test_basename", test_basename),
+    ]
+}
 
 class RelativePathTests: XCTestCase {
 
@@ -208,6 +235,26 @@ class RelativePathTests: XCTestCase {
     }
 
     func testMixed() {
-        XCTAssertEqual("3/4", Path(try! getcwd() + "/1/2/3/4").relative(to: "1/2"))
+        XCTAssertEqual("3/4", Path(getcwd() + "/1/2/3/4").relative(to: "1/2"))
     }
+    
+    func testRelativeCommonSubprefix() {
+        XCTAssertEqual("../4", Path("/1/2/4").relative(to: "/1/2/3"))
+        XCTAssertEqual("../4/5", Path("/1/2/4/5").relative(to: "/1/2/3"))
+        XCTAssertEqual("../../../4/5", Path("/1/2/4/5").relative(to: "/1/2/3/6/7"))
+    }
+    
+    func testCombiningRelativePaths() {
+        XCTAssertEqual("/1/2/3", Path.join("/1/2/4", "../3").normpath)
+        XCTAssertEqual("/1/2", Path.join("/1/2/3", "..").normpath)
+        XCTAssertEqual("2", Path.join("2/3", "..").normpath)
+    }
+
+    static var allTests = [
+        ("testAbsolute", testAbsolute),
+        ("testRelative", testRelative),
+        ("testMixed", testMixed),
+        ("testRelativeCommonSubprefix", testRelativeCommonSubprefix),
+        ("testCombiningRelativePaths", testCombiningRelativePaths)
+    ]
 }

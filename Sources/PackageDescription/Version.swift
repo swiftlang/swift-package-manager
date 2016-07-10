@@ -50,7 +50,7 @@ public func <(lhs: Version, rhs: Version) -> Bool {
     let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
     
     if lhsComparators != rhsComparators {
-        return lhsComparators.lexicographicalCompare(rhsComparators)
+        return lhsComparators.lexicographicallyPrecedes(rhsComparators)
     }
     
     guard lhs.prereleaseIdentifiers.count > 0 else {
@@ -84,9 +84,11 @@ public func <(lhs: Version, rhs: Version) -> Bool {
 
 // MARK: BidirectionalIndexType
 
-extension Version: BidirectionalIndexType {
+// FIXME: do we want to keep these APIs now that Version does not conform to
+// BidirectionalCollection?
+extension Version {
     public func successor() -> Version {
-        return Version(major, minor, patch.successor())
+        return Version(major, minor, patch + 1)
     }
 
     public func predecessor() -> Version {
@@ -108,7 +110,7 @@ extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
         if prereleaseIdentifiers.count > 0 {
-            base += "-" + prereleaseIdentifiers.joinWithSeparator(".")
+            base += "-" + prereleaseIdentifiers.joined(separator: ".")
         }
         if let buildMetadataIdentifier = buildMetadataIdentifier {
             base += "+" + buildMetadataIdentifier

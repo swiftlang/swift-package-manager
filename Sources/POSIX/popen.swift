@@ -10,7 +10,7 @@
 
 import libc
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String
 {
     var out = ""
     try popen(arguments, redirectStandardError: redirectStandardError, environment: environment) { line in
@@ -19,7 +19,7 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
     return out
 }
 
-public func popen(arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: String -> Void) throws
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws
 {
     do {
         // Create a pipe to use for reading the result.
@@ -30,7 +30,11 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
         }
 
         // Create the file actions to use for spawning.
+#if os(OSX)
+        var fileActions: posix_spawn_file_actions_t? = nil
+#else
         var fileActions = posix_spawn_file_actions_t()
+#endif
         posix_spawn_file_actions_init(&fileActions)
 
         // Open /dev/null as stdin.
@@ -60,7 +64,7 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
 
         // Read all of the data from the output pipe.
         let N = 4096
-        var buf = [Int8](count: N + 1, repeatedValue: 0)
+        var buf = [Int8](repeating: 0, count: N + 1)
 
         loop: while true {
             let n = read(pipe[0], &buf, N)
@@ -75,7 +79,7 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
                 break loop
             default:
                 buf[n] = 0 // must null terminate
-                if let str = String.fromCString(buf) {
+                if let str = String(validatingUTF8: buf) {
                     body(str)
                 } else {
                     throw SystemError.popen(EILSEQ, arguments[0])
@@ -90,7 +94,7 @@ public func popen(arguments: [String], redirectStandardError: Bool = false, envi
         let exitStatus = try POSIX.waitpid(pid)
 
         guard exitStatus == 0 else {
-            throw Error.ExitStatus(exitStatus, arguments)
+            throw Error.exitStatus(exitStatus, arguments)
         }
 
     } catch let underlyingError as SystemError {

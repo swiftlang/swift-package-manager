@@ -8,5 +8,4 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
 @_exported import func libc.fileno

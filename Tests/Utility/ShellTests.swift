@@ -18,7 +18,7 @@ class ShellTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
-        let path = Path.join(#file, "../../Get/DependencyGraphTests.swift").normpath
+        let path = Path.join(#file, "../../Get/VersionGraphTests.swift").normpath
         XCTAssertGreaterThan(try! popen(["cat", path]).characters.count, 4096)
     }
 
@@ -27,4 +27,10 @@ class ShellTests: XCTestCase {
             XCTFail("popen succeeded but should have faileds")
         }
     }
+
+    static var allTests = [
+        ("testPopen", testPopen),
+        ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
+        ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
+    ]
 }

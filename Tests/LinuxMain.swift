@@ -1,43 +1,37 @@
+/*
+This source file is part of the Swift.org open source project
 
-// we want to generate this.
-// read the AST and generate it
-// ticket:
+Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+Licensed under Apache License v2.0 with Runtime Library Exception
+
+See http://swift.org/LICENSE.txt for license information
+See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
 
 import XCTest
 
-@testable import Transmutetest
-@testable import Utilitytest
-@testable import Functionaltest
-@testable import Gettest
-@testable import ManifestParsertest
-@testable import PackageDescriptiontest
-@testable import PackageTypetest
-@testable import Buildtest
+import BasicTestSuite
+import BuildTestSuite
+import FunctionalTestSuite
+import GetTestSuite
+import POSIXTestSuite
+import PackageDescriptionTestSuite
+import PackageGraphTestSuite
+import PackageLoadingTestSuite
+import PackageModelTestSuite
+import SourceControlTestSuite
+import UtilityTestSuite
 
-XCTMain([
-    testCase(DependencyResolutionTestCase.allTests),
-    testCase(FileTests.allTests),
-    testCase(GetTests.allTests),
-    testCase(GitTests.allTests),
-    testCase(InvalidLayoutsTestCase.allTests),
-    testCase(ManifestTests.allTests),
-    testCase(MiscellaneousTestCase.allTests),
-    testCase(ManifestParsertest.PackageTests.allTests),
-    testCase(ModuleTests.allTests),
-    testCase(PackageDescriptiontest.PackageTests.allTests),
-    testCase(PackageTypetest.PackageTests.allTests),
-    testCase(PathTests.allTests),
-    testCase(RelativePathTests.allTests),
-    testCase(ResourcesTests.allTests),
-    testCase(ShellTests.allTests),
-    testCase(StatTests.allTests),
-    testCase(StringTests.allTests),
-    testCase(TOMLTests.allTests),
-    testCase(URLTests.allTests),
-    testCase(ValidLayoutsTestCase.allTests),
-    testCase(VersionGraphTests.allTests),
-    testCase(VersionTests.allTests),
-    testCase(WalkTests.allTests),
-    testCase(ModuleMapsTestCase.allTests),
-    testCase(DescribeTests.allTests),
-])
+var tests = [XCTestCaseEntry]()
+tests += BasicTestSuite.allTests()
+tests += BuildTestSuite.allTests()
+tests += FunctionalTestSuite.allTests()
+tests += GetTestSuite.allTests()
+tests += POSIXTestSuite.allTests()
+tests += PackageDescriptionTestSuite.allTests()
+tests += PackageGraphTestSuite.allTests()
+tests += PackageLoadingTestSuite.allTests()
+tests += PackageModelTestSuite.allTests()
+tests += SourceControlTestSuite.allTests()
+tests += UtilityTestSuite.allTests()
+XCTMain(tests)

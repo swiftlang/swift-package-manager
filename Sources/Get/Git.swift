@@ -12,10 +12,11 @@ import struct PackageDescription.Version
 import func POSIX.realpath
 import func POSIX.getenv
 import enum POSIX.Error
+import class Foundation.ProcessInfo
 import Utility
 
 extension Git {
-    class func clone(url: String, to dstdir: String) throws -> Repo {
+    class func clone(_ url: String, to dstdir: String) throws -> Repo {
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {
@@ -23,20 +24,22 @@ extension Git {
         }
 
         do {
-            //List of environment variables which might be useful while running git
-            let environmentList = ["SSH_AUTH_SOCK", "GIT_ASKPASS", "SSH_ASKPASS", "XDG_CONFIG_HOME"
-                , "LANG", "LANGUAGE", "EDITOR", "PAGER", "TERM"]
-            let environment = environmentList.reduce([String:String]()) { (accum, env) in
-                var newAccum = accum
-                newAccum[env] = getenv(env)
-                return newAccum
-            }
+          #if os(Linux)
+            let env = ProcessInfo.processInfo().environment
+          #else
+            let env = ProcessInfo.processInfo.environment
+          #endif
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, environment: environment, message: "Cloning \(url)")
-        } catch POSIX.Error.ExitStatus {
-            throw Error.GitCloneFailure(url, dstdir)
+                url, dstdir, environment: env, message: "Cloning \(url)")
+        } catch POSIX.Error.exitStatus {
+            // Git 2.0 or higher is required
+            if Git.majorVersionNumber < 2 {
+                throw Utility.Error.obsoleteGitVersion
+            } else {
+                throw Error.gitCloneFailure(url, dstdir)
+            }
         }
 
         return Repo(path: dstdir)!  //TODO no bangs
@@ -45,27 +48,18 @@ extension Git {
 
 extension Git.Repo {
     var versions: [Version] {
-        let out = (try? popen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
-        let tags = out.characters.split(Character.newline)
-        let versions = tags.flatMap(Version.init).sort()
+        let out = (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
+        let tags = out.characters.split(separator: "\n")
+        let versions = tags.flatMap(Version.init).sorted()
         if !versions.isEmpty {
             return versions
         } else {
-            return tags.flatMap(Version.vprefix).sort()
+            return tags.flatMap(Version.vprefix).sorted()
         }
     }
 
     /// Check if repo contains a version tag
     var hasVersion: Bool {
         return !versions.isEmpty
-    }
-
-    /**
-     - Returns: true if the package versions in this repository
-     are all prefixed with "v", otherwise false. If there are
-     no versions, returns false.
-     */
-    var versionsArePrefixed: Bool {
-        return (try? popen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
     }
 }

@@ -12,44 +12,96 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftPM",
+    
+    /**
+     The following is parsed by our bootstrap script, so
+     if you make changes here please check the bootstrap still
+     succeeds! Thanks.
+    */
     targets: [
+        // The `PackageDescription` module is special, it defines the API which
+        // is available to the `Package.swift` manifest files.
+        Target(
+            /** Package Definition API */
+            name: "PackageDescription",
+            dependencies: []),
+
+        // MARK: Support libraries
+        
+        Target(
+            /** Cross-platform access to bare `libc` functionality. */
+            name: "libc",
+            dependencies: []),
         Target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
             dependencies: ["libc"]),
         Target(
-            /** Abstractions for common operations */
+            /** Basic support library */
+            name: "Basic",
+            dependencies: ["libc", "POSIX"]),
+        Target(
+            /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
-            dependencies: ["POSIX"]),
+            dependencies: ["POSIX", "Basic"]),
         Target(
-            /** Base types for the package-engine */
-            name: "PackageType",
-            dependencies: ["PackageDescription", "Utility"]),  //FIXME dependency on PackageDescription sucks
-        Target(                                               //FIXME Carpet is too general, we only need `Path`
-            name: "ManifestParser",
-            dependencies: ["PackageDescription", "PackageType"]),
+            /** Source control operations */
+            name: "SourceControl",
+            dependencies: ["Basic", "Utility"]),
+
+        // MARK: Project Model
+        
         Target(
-            /** Turns Packages into Modules & Products */
-            name: "Transmute",
-            dependencies: ["PackageDescription", "PackageType"]),
+            /** Primitive Package model objects */
+            name: "PackageModel",
+            dependencies: ["Basic", "PackageDescription", "Utility"]),
+        Target(
+            /** Package model conventions and loading support */
+            name: "PackageLoading",
+            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
+        Target(
+            /** Data structures and support for complete package graphs */
+            name: "PackageGraph",
+            dependencies: ["Basic", "PackageLoading", "PackageModel"]),
+
+        // MARK: Package Dependency Resolution
+        
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["ManifestParser"]),
+            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
+        
+        // MARK: Package Manager Functionality
+        
         Target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["PackageType"]),
+            dependencies: ["Basic", "PackageGraph"]),
         Target(
-            /** Common components of both executables */
-            name: "Multitool",
-            dependencies: ["PackageType"]),
+            /** Generates Xcode projects */
+            name: "Xcodeproj",
+            dependencies: ["Basic", "PackageGraph"]),
+
+        // MARK: Commands
         Target(
+            /** High-level commands */
+            name: "Commands",
+            dependencies: ["Basic", "Build", "Get", "PackageGraph", "Xcodeproj"]),
+        Target(
+            /** The main executable provided by SwiftPM */
+            name: "swift-package",
+            dependencies: ["Commands"]),
+        Target(
+            /** Builds packages */
             name: "swift-build",
-            dependencies: ["Get", "Transmute", "Build", "Multitool"]),
+            dependencies: ["Commands"]),
         Target(
+            /** Runs package tests */
             name: "swift-test",
-            dependencies: ["Multitool"]),
+            dependencies: ["Commands"]),
+        Target(
+            /** Shim tool to find test names on OS X */
+            name: "swiftpm-xctest-helper"),
     ])
 
 

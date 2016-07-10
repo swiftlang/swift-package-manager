@@ -8,77 +8,57 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct libc.FILE
-import func POSIX.fopen
-import func libc.fclose
-import func libc.ferror
-import func libc.fgetc
-import var libc.EOF
+import Foundation
 
-/**
- An instance of `File` represents a file with a defined path on
- the filesystem that may or may not exist.
-*/
-public struct File {
-    let path: String
-
-    public init(path: String...) {
-        self.path = Path.join(path)
-    }
-
-    /**
-     Returns a generator for the file contents separated by the 
-     provided character.
-     
-     Character must be representable as a single 8 bit integer.
-     
-     Generator ends at EOF or on read error, we cannot report the
-     read error, so to detect this query `ferror`.
-     
-     In the event of read-error we do not feed a partially generated
-     line before ending iteration.
-    */
-    public func enumerate(separator: Character = "\n") throws -> FileLineGenerator {
-        return try FileLineGenerator(path: path, separator: separator)
-    }
+public enum FopenMode: String {
+    case read = "r"
+    case write = "w"
 }
 
-/**
- - See: File.enumerate
-*/
-public class FileLineGenerator: GeneratorType, SequenceType {
-    private let fp: UnsafeMutablePointer<FILE>
-    private let separator: Int32
+public func fopen(_ path: String, mode: FopenMode = .read) throws -> FileHandle {
+    let handle: FileHandle!
+    switch mode {
+    case .read: handle = FileHandle(forReadingAtPath: path)
+    case .write:
+      #if os(Linux)
+        let success = FileManager.`default`().createFile(atPath: path, contents: nil)
+      #else
+        let success = FileManager.default.createFile(atPath: path, contents: nil)
+      #endif
+        guard success else {
+            throw Error.couldNotCreateFile(path: path)
+        }
+        handle = FileHandle(forWritingAtPath: path)
+    }
+    guard handle != nil else {
+        throw Error.fileDoesNotExist(path: path)
+    }
+    return handle
+}
 
-    init(path: String, separator c: Character) throws {
-        separator = Int32(String(c).utf8.first!)
-        fp = try fopen(path)
+public func fopen<T>(_ path: String..., mode: FopenMode = .read, body: (FileHandle) throws -> T) throws -> T {
+    let fp = try fopen(Path.join(path), mode: mode)
+    defer { fp.closeFile() }
+    return try body(fp)
+}
+
+public func fputs(_ string: String, _ handle: FileHandle) throws {
+    guard let data = string.data(using: .utf8) else {
+        throw Error.unicodeEncodingError
     }
 
-    deinit {
-        if fp != nil {
-            fclose(fp)
-        }
-    }
+    handle.write(data)
+}
 
-    public func next() -> String? {
-        var out = ""
-        while true {
-            let c = fgetc(fp)
-            if c == EOF {
-                let err = ferror(fp)
-                if err == 0 {
-                    // if we have some string, return it, then next next() we will
-                    // immediately EOF and stop generating
-                    return out.isEmpty ? nil : out
-                } else {
-                    return nil
-                }
-            }
-            if c == separator { return out }
+public func fputs(_ bytes: [UInt8], _ handle: FileHandle) throws {
+    handle.write(Data(bytes: bytes))
+}
 
-            // fgetc is documented to return unsigned char converted to an int
-            out.append(UnicodeScalar(UInt8(c)))
+extension FileHandle {
+    public func readFileContents() throws -> String {
+        guard let contents = String(data: readDataToEndOfFile(), encoding: .utf8) else {
+            throw Error.unicodeDecodingError
         }
+        return contents
     }
 }

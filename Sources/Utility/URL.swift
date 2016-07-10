@@ -9,24 +9,32 @@
 */
 
 public struct URL {
-    public static func scheme(url: String) -> String? {
-        // this is not fully RFC compliant, so it either has to be
-        // or we need to use CFLite FIXME
+    
+    /// Parses the URL type of a git repository
+    /// e.g. https://github.com/apple/swift returns "https"
+    /// e.g. git@github.com:apple/swift returns "git"
+    ///
+    /// This is *not* a generic URI scheme parser!
+    public static func scheme(_ url: String) -> String? {
 
-        let count = url.characters.count
-
-        func foo(start: Int) -> String? {
-            guard count > start + 3 else { return nil }
-
-            let a = url.startIndex
-            let b = a.advancedBy(start)
-            let c = b.advancedBy(3)
-            if url[b..<c] == "://" || url[b] == "@" {
-                return url[a..<b]
-            } else {
+        func prefixOfSplitBy(_ delimiter: String) -> String? {
+            let (head, tail) = url.split(around: delimiter)
+            if tail == nil {
+                //not found
                 return nil
+            } else {
+                //found, return head
+                //lowercase the "scheme", as specified by the URI RFC (just in case)
+                return head.lowercased()
             }
         }
-        return foo(4) ?? foo(5) ?? foo(3)
+        
+        for delim in ["://", "@"] {
+            if let found = prefixOfSplitBy(delim) {
+                return found
+            }
+        }
+
+        return nil
     }
 }

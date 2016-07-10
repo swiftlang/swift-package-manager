@@ -35,6 +35,6 @@ Where `foo` is an executable and `bar.a` a static library.
 
 ## Other Rules
 
-* Sub directories of directory named `Tests` become test-modules and are executed by `swift test`. `Tests` or any subdirectory can be excluded via Manifest file.
+* Sub directories of directory named `Tests` become test-modules and are executed by `swift test`. `Tests` or any subdirectory can be excluded via Manifest file. The package manager will add an implicit dependency between the test suite and the target it assumes it is trying to test when the sub directory in `Tests` and package *name* are the same.
 * Sub directories of a directory named `Sources`, `Source`, `srcs` or `src` become modules.
 * It is acceptable to have no `Sources` directory, in which case the root directory is treated as a single module (place your sources there) or sub directories of the root are considered modules. Use this layout convention for simple projects.

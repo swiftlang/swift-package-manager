@@ -15,10 +15,10 @@ extension String {
      not remove mixed occurrences of both separators.
     */
     public func chomp(separator: String? = nil) -> String {
-        func scrub(separator: String) -> String {
+        func scrub(_ separator: String) -> String {
             var E = endIndex
             while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
-                E = E.predecessor()
+                E = index(before: E)
             }
             return self[startIndex..<E]
         }
@@ -48,9 +48,9 @@ extension String {
 
         loop: while true {
             switch cc.first {
-            case .None:
+            case nil:
                 return nil
-            case .Some("\n"), .Some("\r"), .Some(" "), .Some("\t"), .Some("\r\n"):
+            case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
                 cc = cc.dropFirst()
             default:
                 break loop
@@ -59,9 +59,9 @@ extension String {
 
         loop: while true {
             switch cc.last {
-            case .None:
+            case nil:
                 return nil
-            case .Some("\n"), .Some("\r"), .Some(" "), .Some("\t"), .Some("\r\n"):
+            case "\n"?, "\r"?, " "?, "\t"?, "\r\n"?:
                 cc = cc.dropLast()
             default:
                 break loop
@@ -69,5 +69,17 @@ extension String {
         }
 
         return String(cc)
+    }
+    
+    /// Splits string around a delimiter string into up to two substrings
+    /// If delimiter is not found, the second returned substring is nil
+    public func split(around delimiter: String) -> (String, String?) {
+        let comps = self.characters.split(around: Array(delimiter.characters))
+        let head = String(comps.0)
+        if let tail = comps.1 {
+            return (head, String(tail))
+        } else {
+            return (head, nil)
+        }
     }
 }

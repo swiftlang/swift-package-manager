@@ -40,7 +40,7 @@ If you are developing an app that consumes a package
 and you need to work on that package simultaneously
 then you have several options:
 
- 1. **Edit the sources the package manager clones**
+ 1. **Edit the sources that the package manager clones**
 
     The sources are cloned visibly into `./Packages` to facilitate this.
 

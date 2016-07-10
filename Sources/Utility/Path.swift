@@ -24,12 +24,12 @@ public struct Path {
        future we support platforms that have a different separator we will
        convert any "/" characters in your strings to the platform separator.
     */
-    public static func join(components: String...) -> String {
+    public static func join(_ components: String...) -> String {
         return Path.join(components)
     }
 
     /// - See: Path.join(components: String...)
-    public static func join(components: [String]) -> String {
+    public static func join(_ components: [String]) -> String {
         return components.reduce("") { memo, component in
             let component = component.onesep
             if component.isEmpty {
@@ -80,12 +80,30 @@ public struct Path {
 
         let abs = (path: string.isAbsolute, pivot: pivot.isAbsolute)
 
-        func go(path: [String], _ pivot: [String]) -> String {
-            let join = { [String].joinWithSeparator($0)("/") }
+        func go(_ path: [String], _ pivot: [String]) -> String {
+            let join = { [String].joined($0)(separator: "/") }
 
-            if path.startsWith(pivot) {
+            if path.starts(with: pivot) {
                 let relativePortion = path.dropFirst(pivot.count)
                 return join(Array(relativePortion))
+            } else if path.starts(with: pivot.prefix(1)) {
+                //only the first matches, so we will be able to find a relative
+                //path by adding jumps back the directory tree
+                var newPath = ArraySlice(path)
+                var newPivot = ArraySlice(pivot)
+                repeat {
+                    //remove all shared components in the prefix
+                    newPath = newPath.dropFirst()
+                    newPivot = newPivot.dropFirst()
+                } while newPath.prefix(1) == newPivot.prefix(1)
+                
+                //as we found the first differing point, the final path is
+                //a) as many ".." as there are components in newPivot
+                //b) what's left in newPath
+                var final = Array(repeating: "..", count: newPivot.count)
+                final.append(contentsOf: newPath)
+                let relativePath = Path.join(final)
+                return relativePath
             } else {
                 let prefix = abs.path ? "/" : ""
                 return prefix + join(path)
@@ -98,23 +116,19 @@ public struct Path {
         // The above function requires both paths to be either relative
         // or absolute. So if they differ we make them both absolute.
         if abs.0 != abs.1 {
-            do {
-                if !abs.path { path = try path.abspath() }
-                if !abs.pivot { pivot = try pivot.abspath() }
-            } catch {
-                return path.normpath
-            }
+            if !abs.path { path = path.abspath }
+            if !abs.pivot { pivot = pivot.abspath }
         }
         
         return go(clean(string), clean(pivot))
     }
 
-    public func join(components: String...) -> String {
+    public func join(_ components: String...) -> String {
         return Path.join([string] + components)
     }
 }
 
-private func clean(parts: [String.CharacterView]) -> [String] {
+private func clean(_ parts: [String.CharacterView]) -> [String] {
     var out = [String]()
     for x in parts.map(String.init) {
         switch x {
@@ -133,8 +147,8 @@ private func clean(parts: [String.CharacterView]) -> [String] {
     return out
 }
 
-private func clean(string: String) -> [String] {
-    return clean(string.characters.split("/"))
+private func clean(_ string: String) -> [String] {
+    return clean(string.characters.split(separator: "/"))
 }
 
 extension String {
@@ -156,20 +170,20 @@ extension String {
         }
 
         let chars = characters
-        var parts = chars.split("/")
+        var parts = chars.split(separator: "/")
         let firstc = chars.first!
 
         if firstc == "~" {
-            var replacement = Path.home.characters.split("/")
+            var replacement = Path.home.characters.split(separator: "/")
             if parts[0].count > 1 {
                 // FIXME not technically correct, but works 99% of the time!
                 replacement.append("..".characters)
                 replacement.append(parts[0].dropFirst())
             }
-            parts.replaceRange(0...0, with: replacement)
+            parts.replaceSubrange(0...0, with: replacement)
         }
 
-        let stringValue = clean(parts).joinWithSeparator("/")
+        let stringValue = clean(parts).joined(separator: "/")
 
         if firstc == "/" || firstc == "~" {
             return "/\(stringValue)"
@@ -183,10 +197,10 @@ extension String {
     /**
      Return a normalized absolutized version of this path. Equivalent to:
 
-         Path.join(try getcwd(), self).normpath
+         Path.join(getcwd(), self).normpath
      */
-    public func abspath() throws -> String {
-        return Path.join(try getcwd(), self).normpath
+    public var abspath: String {
+        return Path.join(getcwd(), self).normpath
     }
 
     /// - Returns: true if the string looks like an absolute path
@@ -208,7 +222,7 @@ extension String {
 
     /**
      - Returns: true if the string is a file on the filesystem
-     - Note: if the entry is a symlink, but the symlink points to Array
+     - Note: if the entry is a symlink, but the symlink points to a
        file, then this function returns true. Use `isSymlink` if the
        distinction is important.
      */
@@ -216,6 +230,17 @@ extension String {
         var mystat = stat()
         let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
+    }
+    
+    /**
+     - Returns: the file extension for a file otherwise nil
+     */
+    public var fileExt: String? {
+        guard isFile else { return nil }
+        guard characters.contains(".") else { return nil }
+        let parts = characters.split(separator: ".")
+        if let last = parts.last, parts.count > 1 { return String(last) }
+        return nil
     }
 
     /**
@@ -242,20 +267,62 @@ extension String {
     */
     public var basename: String {
         guard !isEmpty else { return "." }
-        let parts = characters.split("/")
+        let parts = characters.split(separator: "/")
         guard !parts.isEmpty else { return "/" }
         return String(parts.last!)
     }
 
     public var parentDirectory: String {
-        guard !isEmpty else { return self }
+        guard !isEmpty && self != "/" else { return self }
         return Path.join(self, "..").normpath
     }
 
-    /// - Returns: Ensures single path separators in a path string
+    /// - Returns: Ensures single path separators in a path string, and removes trailing slashes.
     private var onesep: String {
+        // Fast path, for already clean strings.
+        //
+        // It would be more efficient to avoid scrubbing every string that
+        // passes through join(), but this retains the pre-existing semantics.
+        func isClean(_ str: String) -> Bool {
+            // Check if the string contains any occurrence of "//" or ends with "/".
+            let utf8 = str.utf8
+            var idx = utf8.startIndex
+            let end = utf8.endIndex
+            while idx != end {
+                if utf8[idx] == UInt8(ascii: "/") {
+                    utf8.formIndex(after: &idx)
+                    if idx == end || utf8[idx] == UInt8(ascii: "/") {
+                        return false
+                    }
+                }
+                utf8.formIndex(after: &idx)
+            }
+            return true
+        }
+        if isClean(self) {
+            return self
+        }
+        
         let abs = isAbsolute
-        let cleaned = characters.split("/").map(String.init).joinWithSeparator("/")
+        let cleaned = characters.split(separator: "/").map(String.init).joined(separator: "/")
         return abs ? "/\(cleaned)" : cleaned
+    }
+
+    /**
+      - Returns: A path suitable for display to the user, if possible,
+        a path relative to the current working directory.
+      - Note: As such this function relies on the working directory
+        not changing during execution.
+     */
+    public var prettyPath: String {
+        let userDirectory = POSIX.getiwd()
+
+        if self.parentDirectory == userDirectory {
+            return "./\(basename)"
+        } else if hasPrefix(userDirectory) {
+            return Path(self).relative(to: userDirectory)
+        } else {
+            return self
+        }
     }
 }

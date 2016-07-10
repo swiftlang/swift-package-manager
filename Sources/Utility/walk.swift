@@ -13,7 +13,6 @@ import struct libc.dirent
 import func libc.readdir_r
 import func libc.closedir
 import func libc.opendir
-import var libc.DT_DIR
 
 
 /**
@@ -33,7 +32,7 @@ import var libc.DT_DIR
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
 */
-public func walk(paths: String..., recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
+public func walk(_ paths: String..., recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
     return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: { _ in recursively })
 }
 
@@ -54,15 +53,15 @@ public func walk(paths: String..., recursively: Bool = true) -> RecursibleDirect
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
 */
-public func walk(paths: String..., recursing: (String) -> Bool) -> RecursibleDirectoryContentsGenerator {
+public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleDirectoryContentsGenerator {
     return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: recursing)
 }
 
 /**
  A generator for a single directory’s contents
 */
-private class DirectoryContentsGenerator: GeneratorType {
-    private let dirptr: DirHandle
+private class DirectoryContentsGenerator: IteratorProtocol {
+    private let dirptr: DirHandle?
     private let path: String
 
     private init(path: String) {
@@ -72,22 +71,22 @@ private class DirectoryContentsGenerator: GeneratorType {
     }
 
     deinit {
-        if dirptr != nil { closedir(dirptr) }
+        if let openeddir = dirptr { closedir(openeddir) }
     }
 
     func next() -> dirent? {
-        if dirptr == nil { return nil }  // yuck, silently ignoring the error to maintain this pattern
+        guard let validdir = dirptr else { return nil }  // yuck, silently ignoring the error to maintain this pattern
 
         while true {
             var entry = dirent()
-            var result: UnsafeMutablePointer<dirent> = nil
-            guard readdir_r(dirptr, &entry, &result) == 0 else { continue }
+            var result: UnsafeMutablePointer<dirent>? = nil
+            guard readdir_r(validdir, &entry, &result) == 0 else { continue }
             guard result != nil else { return nil }
 
-            switch (Int32(entry.d_type), entry.d_name.0, entry.d_name.1, entry.d_name.2) {
-            case (Int32(DT_DIR), 46, 0, _):   // "."
+            switch (entry.d_name.0, entry.d_name.1, entry.d_name.2) {
+            case (46, 0, _):   // "."
                 continue
-            case (Int32(DT_DIR), 46, 46, 0):  // ".."
+            case (46, 46, 0):  // ".."
                 continue
             default:
                 return entry
@@ -99,7 +98,7 @@ private class DirectoryContentsGenerator: GeneratorType {
 /**
  Produced by `walk`.
 */
-public class RecursibleDirectoryContentsGenerator: GeneratorType, SequenceType {
+public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     private var current: DirectoryContentsGenerator
     private var towalk = [String]()
     private let shouldRecurse: (String) -> Bool
@@ -120,12 +119,10 @@ public class RecursibleDirectoryContentsGenerator: GeneratorType, SequenceType {
                 }
                 return nil
             }
-            var dirName = entry.d_name
-            let name = withUnsafePointer(&dirName) { (ptr) -> String in
-                return String.fromCString(UnsafePointer<CChar>(ptr)) ?? ""
-            }
-            if Int32(entry.d_type) == Int32(DT_DIR) {
-                towalk.append(Path.join(current.path, name))
+            let name = entry.name ?? ""
+            let path = Path.join(current.path, name)
+            if path.isDirectory && !path.isSymlink {
+                towalk.append(path)
             }
             return Path.join(current.path, name)
         }

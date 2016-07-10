@@ -8,31 +8,33 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
-@testable import Get
 import XCTest
+
 import Utility
 
-typealias Sandbox = PackagesDirectory
+import struct PackageModel.Manifest
+import class PackageModel.Package
+
+@testable import struct PackageDescription.Version
+@testable import Get
 
 class GetTests: XCTestCase {
 
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
-        fixture(name: "DependencyResolution/External/Complex") {
-            let path = Path.join($0, "FisherYates")
-            try system("git", "-C", path, "rm", "Package.swift")
-            try system("git", "-C", path, "commit", "-mwip")
-            try system("git", "-C", path, "remote", "add", "origin", path)
-
-            let rawClone = try RawClone(path: path)
-            XCTAssertEqual(rawClone.children.count, 0)
+        mktmpdir { tmpdir in
+            guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
+            try systemQuietly([Git.tool, "-C", repo.path, "remote", "add", "origin", repo.path])
+            let clone = try RawClone(path: repo.path, manifestParser: { _,_ throws -> Manifest in
+                throw Package.Error.noManifest(tmpdir)
+            })
+            XCTAssertEqual(clone.children.count, 0)
         }
     }
     
     func testRangeConstrain() {
         let r1 = Version(2, 0, 0)..<Version(3, 0, 0)
         let r2 = Version(1, 0, 0)..<Version(2, 0, 0)
-        let r3 = Version(1, 0, 0)...Version(2, 0, 0)
+        let r3 = Version(1, 0, 0)..<Version(2, 0, 0).successor()
         let r4 = Version(1, 5, 0)..<Version(2, 5, 0)
         let r5 = Version(2, 5, 0)..<Version(2, 6, 0)
         let r6 = Version(2, 5, 0)..<Version(3, 5, 0)
@@ -40,10 +42,10 @@ class GetTests: XCTestCase {
         let r8 = Version(1, 0, 0)..<Version(4, 0, 0)
         
         let r12: Range<Version>? = nil
-        let r13 = r1.startIndex...r1.startIndex
-        let r14 = r1.startIndex..<r4.endIndex
+        let r13 = r1.lowerBound..<r1.lowerBound.successor()
+        let r14 = r1.lowerBound..<r4.upperBound
         let r15 = r5
-        let r16 = r6.startIndex..<r1.endIndex
+        let r16 = r6.lowerBound..<r1.upperBound
         let r17: Range<Version>? = nil
         let r18 = r1
         
@@ -64,7 +66,6 @@ class GetTests: XCTestCase {
     }
 
     func testGitRepoInitialization() {
-
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertNotNil(Git.Repo(path: Path.join(prefix, "app")))
         }
@@ -72,6 +73,10 @@ class GetTests: XCTestCase {
         XCTAssertNil(Git.Repo(path: #file))
         XCTAssertNil(Git.Repo(path: #file.parentDirectory))
     }
+
+    static var allTests = [
+        ("testRawCloneDoesNotCrashIfManifestIsNotPresent", testRawCloneDoesNotCrashIfManifestIsNotPresent),
+        ("testRangeConstrain", testRangeConstrain),
+        ("testGitRepoInitialization", testGitRepoInitialization),
+    ]
 }
-
-

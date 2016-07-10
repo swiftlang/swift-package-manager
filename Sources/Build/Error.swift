@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum Error: ErrorType {
-    case NoModules
-    case InvalidPlatformPath
+public enum Error: ErrorProtocol {
+    case noModules
 }

@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
-import ManifestParser
-import PackageType
+import PackageModel
 import Utility
-import libc
+
+import struct PackageDescription.Version
 
 /**
  Initially we clone into a non-final form because we may need to
@@ -23,6 +22,7 @@ import libc
  */
 class RawClone: Fetchable {
     let path: String
+    let manifestParser: (path: String, url: String) throws -> Manifest
 
     // lazy because the tip of the default branch does not have to be a valid package
     //FIXME we should error gracefully if a selected version does not however
@@ -30,16 +30,17 @@ class RawClone: Fetchable {
         if let manifest = _manifest {
             return manifest
         } else {
-            _manifest = try? Manifest(path: path, baseURL: repo.origin!)
+            _manifest = try? manifestParser(path: path, url: repo.origin!)
             return _manifest
         }
     }
     private var _manifest: Manifest?
 
-    init(path: String) throws {
+    init(path: String, manifestParser: (path: String, url: String) throws -> Manifest) throws {
         self.path = path
+        self.manifestParser = manifestParser
         if !repo.hasVersion {
-            throw Error.Unversioned(path)
+            throw Error.unversioned(path)
         }
     }
 
@@ -48,7 +49,7 @@ class RawClone: Fetchable {
     }
 
     var version: Version {
-        var branch = repo.branch
+        var branch = repo.branch!
         if branch.hasPrefix("heads/") {
             branch = String(branch.characters.dropFirst(6))
         }
@@ -59,18 +60,18 @@ class RawClone: Fetchable {
     }
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
-    func setVersion(ver: Version) throws {
+    func setVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try popen([Git.tool, "-C", path, "reset", "--hard", v])
-        try popen([Git.tool, "-C", path, "branch", "-m", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path, "reset", "--hard", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path, "branch", "-m", v])
 
         print("Resolved version:", ver)
 
         // we must re-read the manifest
         _manifest = nil
         if manifest == nil {
-            throw Error.NoManifest(path, ver)
+            throw Error.noManifest(path, ver)
         }
     }
 
