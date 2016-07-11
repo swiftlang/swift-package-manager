@@ -37,18 +37,18 @@ extension ClangModule {
         /// Link declaration flag to be used in modulemap.
         var linkDeclFlag: String {
             switch self {
-            case library:
+            case .library:
                 return "link"
-            case framework:
+            case .framework:
                 return "link framework"
             }
         }
 
         var moduleDeclQualifier: String? {
             switch self {
-            case library:
+            case .library:
                 return nil
-            case framework:
+            case .framework:
                 return "framework"
             }
         }
