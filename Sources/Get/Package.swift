@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import struct PackageDescription.Version
 import PackageModel
 import Utility
@@ -15,8 +16,8 @@ import Utility
 extension Package {
     // FIXME we *always* have a manifest, don't reparse it
 
-    static func make(repo: Git.Repo, manifestParser: (path: String, url: String) throws -> Manifest) throws -> Package? {
-        guard let origin = repo.origin else { throw Error.noOrigin(repo.path) }
+    static func make(repo: Git.Repo, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws -> Package? {
+        guard let origin = repo.origin else { throw Error.noOrigin(repo.path.asString) }
         let manifest = try manifestParser(path: repo.path, url: origin)
         let pkg = Package(manifest: manifest, url: origin)
         if let version = Version(pkg.versionString) {

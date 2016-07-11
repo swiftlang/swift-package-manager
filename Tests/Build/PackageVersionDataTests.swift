@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageModel
 import PackageDescription
 
@@ -56,8 +57,8 @@ final class PackageVersionDataTests: XCTestCase {
             let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
             let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg")
 
-            try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
-            XCTAssertFileExists(dir, ".build/versionData/", "\(package.name).swift")
+            try generateVersionData(dir.asString, rootPackage:rootPkg, externalPackages: [package])
+            XCTAssertFileExists(dir.appending(".build/versionData/").appending(package.name + ".swift"))
         }
     }
 

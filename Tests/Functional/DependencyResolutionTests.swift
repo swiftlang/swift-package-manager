@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Basic
 import func POSIX.popen
 
 class DependencyResolutionTestCase: XCTestCase {
@@ -16,7 +17,7 @@ class DependencyResolutionTestCase: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try popen(["\(prefix)/.build/debug/Foo"])
+            let output = try popen([prefix.appending(".build/debug/Foo").asString])
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -31,16 +32,16 @@ class DependencyResolutionTestCase: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try popen(["\(prefix)/.build/debug/Foo"])
+            let output = try popen([prefix.appending(".build/debug/Foo").asString])
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
 
     func testExternalSimple() {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            XCTAssertBuilds(prefix, "Bar")
-            XCTAssertFileExists(prefix, "Bar/.build/debug/Bar")
-            XCTAssertDirectoryExists(prefix, "Bar/Packages/Foo-1.2.3")
+            XCTAssertBuilds(prefix.appending("Bar"))
+            XCTAssertFileExists(prefix.appending("Bar/.build/debug/Bar"))
+            XCTAssertDirectoryExists(prefix.appending("Bar/Packages/Foo-1.2.3"))
         }
     }
 
@@ -52,15 +53,15 @@ class DependencyResolutionTestCase: XCTestCase {
 
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            XCTAssertBuilds(prefix, "app")
-            let output = try POSIX.popen(["\(prefix)/app/.build/debug/Dealer"])
+            XCTAssertBuilds(prefix.appending("app"))
+            let output = try POSIX.popen([prefix.appending("app/.build/debug/Dealer").asString])
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
 
     func testIndirectTestsDontBuild() {
         fixture(name: "DependencyResolution/External/IgnoreIndirectTests") { prefix in
-            XCTAssertBuilds(prefix, "app")
+            XCTAssertBuilds(prefix.appending("app"))
         }
     }
 

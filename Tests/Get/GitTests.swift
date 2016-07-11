@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 @testable import Get
 import struct PackageModel.Manifest
 import struct Utility.Path
@@ -49,7 +50,7 @@ class GitTests: XCTestCase {
 
 //MARK: - Helpers
 
-func makeGitRepo(_ dstdir: String, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
+func makeGitRepo(_ dstdir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
     initGitRepo(dstdir, tag: tag)
     return Git.Repo(path: dstdir)
 }
@@ -60,7 +61,7 @@ private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
         _ = makeGitRepo(path, tag: tag)!
         do {
             _ = try RawClone(path: path, manifestParser: { _ throws in
-                return Manifest(path: path, package: PackageDescription.Package(), products: [])
+                return Manifest(path: path.asString, package: PackageDescription.Package(), products: [])
             })
         } catch Error.unversioned {
             done = shouldCrash

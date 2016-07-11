@@ -22,14 +22,14 @@ class ValidLayoutsTestCase: XCTestCase {
     func testSingleModuleLibrary() {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Library.swiftmodule")
+            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Library.swiftmodule"))
         }
     }
 
     func testSingleModuleExecutable() {
         runLayoutFixture(name: "SingleModule/Executable") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Executable")
+            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Executable"))
         }
     }
 
@@ -40,14 +40,14 @@ class ValidLayoutsTestCase: XCTestCase {
 
         runLayoutFixture(name: "SingleModule/CustomizedName") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Bar.swiftmodule")
+            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Bar.swiftmodule"))
         }
     }
 
     func testSingleModuleSubfolderWithSwiftSuffix() {
         fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "Bar.swiftmodule")
+            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Bar.swiftmodule"))
         }
     }
 
@@ -55,7 +55,7 @@ class ValidLayoutsTestCase: XCTestCase {
         runLayoutFixture(name: "MultipleModules/Libraries") { prefix in
             XCTAssertBuilds(prefix)
             for x in ["Bar", "Baz", "Foo"] {
-                XCTAssertFileExists(prefix, ".build", "debug", "\(x).swiftmodule")
+                XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("\(x).swiftmodule"))
             }
         }
     }
@@ -64,7 +64,7 @@ class ValidLayoutsTestCase: XCTestCase {
         runLayoutFixture(name: "MultipleModules/Executables") { prefix in
             XCTAssertBuilds(prefix)
             for x in ["Bar", "Baz", "Foo"] {
-                let output = try popen(["\(prefix)/.build/debug/\(x)"])
+                let output = try popen([prefix.appending(".build").appending("debug").appending(x).asString])
                 XCTAssertEqual(output, "\(x)\n")
             }
         }
@@ -79,10 +79,10 @@ class ValidLayoutsTestCase: XCTestCase {
         #endif
         
         fixture(name: "DependencyResolution/External/Complex", tags: tags) { prefix in
-            XCTAssertBuilds(prefix, "app", configurations: [.Debug])
-            XCTAssertDirectoryExists(prefix, "app/Packages/DeckOfPlayingCards-1.2.3-beta5")
-            XCTAssertDirectoryExists(prefix, "app/Packages/FisherYates-1.3.4-alpha.beta.gamma1")
-            XCTAssertDirectoryExists(prefix, "app/Packages/PlayingCard-1.2.3+24")
+            XCTAssertBuilds(prefix.appending("app"), configurations: [.Debug])
+            XCTAssertDirectoryExists(prefix.appending("app/Packages/DeckOfPlayingCards-1.2.3-beta5"))
+            XCTAssertDirectoryExists(prefix.appending("app/Packages/FisherYates-1.3.4-alpha.beta.gamma1"))
+            XCTAssertDirectoryExists(prefix.appending("app/Packages/PlayingCard-1.2.3+24"))
         }
     }
 
@@ -111,8 +111,8 @@ class ValidLayoutsTestCase: XCTestCase {
 // MARK: Utility
 
 extension ValidLayoutsTestCase {
-    func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(String) throws -> Void) {
-        let name = "ValidLayouts/\(name)"
+    func runLayoutFixture(name: RelativePath, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+        let name = RelativePath("ValidLayouts/\(name.asString)")
 
         // 1. Rooted layout
         fixture(name: name, file: #file, line: line, body: body)
@@ -120,10 +120,10 @@ extension ValidLayoutsTestCase {
         // 2. Move everything to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
-            let dir = Path.join(prefix, "Sources")
-            try Utility.makeDirectories(dir)
+            let dir = prefix.appending("Sources")
+            try Utility.makeDirectories(dir.asString)
             for file in files {
-                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
+                try rename(old: prefix.appending(file).asString, new: dir.appending(file).asString)
             }
             try body(prefix)
         }
@@ -131,12 +131,12 @@ extension ValidLayoutsTestCase {
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
-            let dir = Path.join(prefix, "Floobles")
-            try Utility.makeDirectories(dir)
+            let dir = prefix.appending("Floobles")
+            try Utility.makeDirectories(dir.asString)
             for file in files {
-                try rename(old: Path.join(prefix, file), new: Path.join(dir, file))
+                try rename(old: prefix.appending(file).asString, new: dir.appending(file).asString)
             }
-            try symlink(create: "\(prefix)/Sources", pointingAt: dir, relativeTo: prefix)
+            try symlink(create: prefix.appending("Sources").asString, pointingAt: dir.asString, relativeTo: prefix.asString)
             try body(prefix)
         }
     }

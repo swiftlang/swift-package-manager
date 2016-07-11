@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 
@@ -21,8 +22,8 @@ import struct PackageDescription.Version
  Sandbox.
  */
 class RawClone: Fetchable {
-    let path: String
-    let manifestParser: (path: String, url: String) throws -> Manifest
+    let path: AbsolutePath
+    let manifestParser: (path: AbsolutePath, url: String) throws -> Manifest
 
     // lazy because the tip of the default branch does not have to be a valid package
     //FIXME we should error gracefully if a selected version does not however
@@ -36,11 +37,11 @@ class RawClone: Fetchable {
     }
     private var _manifest: Manifest?
 
-    init(path: String, manifestParser: (path: String, url: String) throws -> Manifest) throws {
+    init(path: AbsolutePath, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
-            throw Error.unversioned(path)
+            throw Error.unversioned(path.asString)
         }
     }
 
@@ -63,15 +64,15 @@ class RawClone: Fetchable {
     func setVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try Git.runCommandQuietly([Git.tool, "-C", path, "reset", "--hard", v])
-        try Git.runCommandQuietly([Git.tool, "-C", path, "branch", "-m", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", v])
 
         print("Resolved version:", ver)
 
         // we must re-read the manifest
         _manifest = nil
         if manifest == nil {
-            throw Error.noManifest(path, ver)
+            throw Error.noManifest(path.asString, ver)
         }
     }
 

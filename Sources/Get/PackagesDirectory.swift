@@ -19,11 +19,10 @@ import func POSIX.rename
  Implementation detail: a container for fetched packages.
  */
 class PackagesDirectory {
-    let prefix: String
-    let manifestParser: (path: String, url: String) throws -> Manifest
+    let prefix: AbsolutePath
+    let manifestParser: (path: AbsolutePath, url: String) throws -> Manifest
 
-    init(prefix: String, manifestParser: (path: String, url: String) throws -> Manifest) {
-        precondition(prefix.isAbsolute)
+    init(prefix: AbsolutePath, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) {
         self.prefix = prefix
         self.manifestParser = manifestParser
     }
@@ -35,7 +34,7 @@ class PackagesDirectory {
 
         var result = Dictionary<String, Git.Repo>()
         for name in try! localFS.getDirectoryContents(self.prefix) {
-            let prefix = Path.join(self.prefix, name)
+            let prefix = self.prefix.appending(RelativePath(name))
             guard let repo = Git.Repo(path: prefix), let origin = repo.origin else { continue } // TODO: Warn user.
             result[origin] = repo
         }
@@ -54,7 +53,7 @@ extension PackagesDirectory: Fetcher {
     }
 
     func fetch(url: String) throws -> Fetchable {
-        let dstdir = Path.join(prefix, Package.nameForURL(url))
+        let dstdir = prefix.appending(RelativePath(Package.nameForURL(url)))
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestParser)
@@ -69,9 +68,9 @@ extension PackagesDirectory: Fetcher {
     func finalize(_ fetchable: Fetchable) throws -> Package {
         switch fetchable {
         case let clone as RawClone:
-            let prefix = Path.join(self.prefix, clone.finalName)
-            try Utility.makeDirectories(prefix.parentDirectory)
-            try rename(old: clone.path, new: prefix)
+            let prefix = self.prefix.appending(RelativePath(clone.finalName))
+            try Utility.makeDirectories(prefix.parentDirectory.asString)
+            try rename(old: clone.path.asString, new: prefix.asString)
             //TODO don't reparse the manifest!
             let repo = Git.Repo(path: prefix)!
 

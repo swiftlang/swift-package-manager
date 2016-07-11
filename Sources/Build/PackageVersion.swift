@@ -27,7 +27,7 @@ public func generateVersionData(_ rootDir: String, rootPackage: Package, externa
 }
 
 func saveRootPackage(_ dirPath: String, package: Package) throws {
-    guard let repo = Git.Repo(path: package.path) else { return }
+    guard let repo = Git.Repo(path: AbsolutePath(package.path.abspath)) else { return }
     var data = versionData(package: package)
     data += "public let sha: String? = "
 

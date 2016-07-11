@@ -10,6 +10,7 @@
 
 #if os(OSX)
 
+import Basic
 import XCTest
 import Utility
 
@@ -18,7 +19,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix, ".build", "debug", "SwiftPMXCTestHelper.swiftmodule")
+            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
@@ -35,19 +36,18 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ]]]
             ] as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix, ".build", "debug", "SwiftPMXCTestHelperTests.xctest", testCases: testCases)
+            XCTAssertXCTestHelper(prefix.appending(".build").appending("debug").appending("SwiftPMXCTestHelperTests.xctest"), testCases: testCases)
         }
     }
 }
 
-func XCTAssertXCTestHelper(_ bundlePath: String..., testCases: NSDictionary) {
+func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) {
     do {
-        let bundle = Path.join(bundlePath)
         let env = ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()]
-        let outputFile = Path.join(bundle.parentDirectory, "tests.txt")
-        let _ = try SwiftPMProduct.XCTestHelper.execute([bundle, outputFile], env: env, printIfError: true)
-        guard let data = NSData(contentsOfFile: outputFile) else {
-            XCTFail("No output found in : \(outputFile)"); return;
+        let outputFile = bundlePath.parentDirectory.appending("tests.txt")
+        let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.asString, outputFile.asString], env: env, printIfError: true)
+        guard let data = NSData(contentsOfFile: outputFile.asString) else {
+            XCTFail("No output found in : \(outputFile.asString)"); return;
         }
         let json = try JSONSerialization.jsonObject(with: data as Data, options: [])
         XCTAssertTrue(json.isEqual(testCases), "\(json) is not equal to \(testCases)")
