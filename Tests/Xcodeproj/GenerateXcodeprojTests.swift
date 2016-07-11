@@ -20,7 +20,6 @@ import XCTest
 class GenerateXcodeprojTests: XCTestCase {
     func testXcodeBuildCanParseIt() {
         mktmpdir { dstdir in
-            let dstdir = AbsolutePath(dstdir)
             func dummy() throws -> [XcodeModuleProtocol] {
                 return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir.asString))]
             }
@@ -38,8 +37,8 @@ class GenerateXcodeprojTests: XCTestCase {
             }
             let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
 
-            XCTAssertDirectoryExists(outpath.asString)
-            XCTAssertEqual(outpath, dstdir.appending(RelativePath("\(projectName).xcodeproj")))
+            XCTAssertDirectoryExists(outpath)
+            XCTAssertEqual(outpath, dstdir.appending(projectName + ".xcodeproj"))
 
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.

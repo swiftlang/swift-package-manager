@@ -23,11 +23,11 @@ class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
             XCTAssertXcodeprojGen(prefix)
-            let pbx = Path.join(prefix, "Library.xcodeproj")
+            let pbx = prefix.appending("Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = Path.join(prefix, "build", "Debug")
-            XCTAssertDirectoryExists(build, "Library.framework")
+            let build = prefix.appending("build").appending("Debug")
+            XCTAssertDirectoryExists(build.appending("Library.framework"))
         }
     }
 
@@ -35,23 +35,23 @@ class FunctionalTests: XCTestCase {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
-            let pbx = Path.join(prefix, "SwiftCMixed.xcodeproj")
+            let pbx = prefix.appending("SwiftCMixed.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = Path.join(prefix, "build", "Debug")
-            XCTAssertDirectoryExists(build, "SeaLib.framework")
-            XCTAssertFileExists(build, "SeaExec")
-            XCTAssertFileExists(build, "CExec")
+            let build = prefix.appending("build").appending("Debug")
+            XCTAssertDirectoryExists(build.appending("SeaLib.framework"))
+            XCTAssertFileExists(build.appending("SeaExec"))
+            XCTAssertFileExists(build.appending("CExec"))
         }
     }
 
     func testXcodeProjWithPkgConfig() {
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
-            XCTAssertBuilds(prefix, "SystemModule")
-            XCTAssertFileExists(prefix, "SystemModule", ".build", "debug", "libSystemModule.\(Product.dynamicLibraryExtension)")
-            let pcFile = Path.join(prefix, "libSystemModule.pc")
+            XCTAssertBuilds(prefix.appending("SystemModule"))
+            XCTAssertFileExists(prefix.appending("SystemModule").appending(".build").appending("debug").appending("libSystemModule.\(Product.dynamicLibraryExtension)"))
+            let pcFile = prefix.appending("libSystemModule.pc")
             try! write(path: pcFile) { stream in
-                stream <<< "prefix=\(Path.join(prefix, "SystemModule"))\n"
+                stream <<< "prefix=\(prefix.appending("SystemModule").asString)\n"
                 stream <<< "exec_prefix=${prefix}\n"
                 stream <<< "libdir=${exec_prefix}/.build/debug\n"
                 stream <<< "includedir=${prefix}/Sources/include\n"
@@ -63,27 +63,27 @@ class FunctionalTests: XCTestCase {
                 stream <<< "Cflags: -I${includedir}\n"
                 stream <<< "Libs: -L${libdir} -lSystemModule\n"
             }
-            let moduleUser = Path.join(prefix, "SystemModuleUser")
-            let env = ["PKG_CONFIG_PATH": prefix]
+            let moduleUser = prefix.appending("SystemModuleUser")
+            let env = ["PKG_CONFIG_PATH": prefix.asString]
             XCTAssertBuilds(moduleUser, env: env)
             XCTAssertXcodeprojGen(moduleUser, env: env)
-            let pbx = Path.join(moduleUser, "SystemModuleUser.xcodeproj")
+            let pbx = moduleUser.appending("SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            XCTAssertFileExists(moduleUser, "build", "Debug", "SystemModuleUser")
+            XCTAssertFileExists(moduleUser.appending("build").appending("Debug").appending("SystemModuleUser"))
         }
     }
 
     func testModuleNamesWithNonC99Names() {
         fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { prefix in
             XCTAssertXcodeprojGen(prefix)
-            let pbx = Path.join(prefix, "PackageWithNonc99NameModules.xcodeproj")
+            let pbx = prefix.appending("PackageWithNonc99NameModules.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = Path.join(prefix, "build", "Debug")
-            XCTAssertDirectoryExists(build, "A_B.framework")
-            XCTAssertDirectoryExists(build, "B_C.framework")
-            XCTAssertDirectoryExists(build, "C_D.framework")
+            let build = prefix.appending("build").appending("Debug")
+            XCTAssertDirectoryExists(build.appending("A_B.framework"))
+            XCTAssertDirectoryExists(build.appending("B_C.framework"))
+            XCTAssertDirectoryExists(build.appending("C_D.framework"))
         }
     }
     
@@ -106,14 +106,14 @@ class FunctionalTests: XCTestCase {
         }
         // Now we use a fixture for both the system library wrapper and the text executable.
         fixture(name: "Miscellaneous/SystemModules") { prefix in
-            XCTAssertBuilds(prefix, "TestExec", Xld: ["-L/tmp/"])
-            XCTAssertFileExists(prefix, "TestExec", ".build", "debug", "TestExec")
-            let fakeDir = Path.join(prefix, "CFake")
+            XCTAssertBuilds(prefix.appending("TestExec"), Xld: ["-L/tmp/"])
+            XCTAssertFileExists(prefix.appending("TestExec").appending(".build").appending("debug").appending("TestExec"))
+            let fakeDir = prefix.appending("CFake")
             XCTAssertDirectoryExists(fakeDir)
-            let execDir = Path.join(prefix, "TestExec")
+            let execDir = prefix.appending("TestExec")
             XCTAssertDirectoryExists(execDir)
             XCTAssertXcodeprojGen(execDir, flags: ["-Xlinker", "-L/tmp/"])
-            let proj = Path.join(execDir, "TestExec.xcodeproj")
+            let proj = execDir.appending("TestExec.xcodeproj")
             XCTAssertXcodeBuild(project: proj)
         }
     }
@@ -126,16 +126,16 @@ class FunctionalTests: XCTestCase {
     ]
 }
 
-func write(path: String, write: (OutputByteStream) -> Void) throws {
+func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {
     let stream = OutputByteStream()
     write(stream)
     try localFS.writeFileContents(path, bytes: stream.bytes)
 }
 
-func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt = #line) {
+func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     var out = ""
     do {
-        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project, "-alltargets"], redirectStandardError: true) {
+        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project.asString, "-alltargets"], redirectStandardError: true) {
             out += $0
         }
     } catch {
@@ -144,7 +144,7 @@ func XCTAssertXcodeBuild(project: String, file: StaticString = #file, line: UInt
     }
 }
 
-func XCTAssertXcodeprojGen(_ prefix: String, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
+func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
         _ = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"] + flags, chdir: prefix, env: env, printIfError: true)

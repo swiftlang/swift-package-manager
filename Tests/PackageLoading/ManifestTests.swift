@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageDescription
 import PackageModel
 
@@ -20,9 +21,9 @@ import func POSIX.popen
 @testable import Utility
 
 #if os(OSX)
-private func bundleRoot() -> String {
+private func bundleRoot() -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return bundle.bundlePath.parentDirectory
+        return AbsolutePath(bundle.bundlePath).parentDirectory
     }
     fatalError()
 }
@@ -32,29 +33,29 @@ class ManifestTests: XCTestCase {
 
 #if os(OSX)
   #if Xcode
-    let swiftc: String = {
-        let swiftc: String
+    let swiftc: AbsolutePath = {
+        let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = Path.join(base, "usr/bin/swiftc")
+            swiftc = AbsolutePath(base).appending("usr/bin/swiftc")
         } else {
-            swiftc = try! popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
         }
         precondition(swiftc != "/usr/bin/swiftc")
         return swiftc
     }()
   #else
-    let swiftc = Path.join(bundleRoot(), "swiftc")
+    let swiftc = bundleRoot().appending("swiftc")
   #endif
     let libdir = bundleRoot()
 #else
-    let libdir = Process.arguments.first!.parentDirectory.abspath
-    let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath
+    let libdir = AbsolutePath(Process.arguments.first!.parentDirectory.abspath)
+    let swiftc = AbsolutePath(Process.arguments.first!.abspath, "../swiftc")
 #endif
 
-    private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
+    private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
         do {
-            let input = Path.join(#file, "../Inputs", inputName).normpath
-            body(try Manifest(path: input, baseURL: input.parentDirectory, swiftc: swiftc, libdir: libdir))
+            let input = AbsolutePath(#file).appending("../Inputs").appending(inputName)
+            body(try Manifest(path: input.asString, baseURL: input.parentDirectory.asString, swiftc: swiftc.asString, libdir: libdir.asString))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -89,15 +90,15 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc, libdir: libdir)
+        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc.asString, libdir: libdir.asString)
         XCTAssertNil(foo)
     }
 
     func testInvalidTargetName() {
-        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { prefix in
+        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try Manifest(path: Path.join(prefix, "Package.swift"), baseURL: prefix, swiftc: swiftc, libdir: libdir)
-                let package = Package(manifest: manifest, url: prefix)
+                let manifest = try Manifest(path: prefix.appending("Package.swift").asString, baseURL: prefix.asString, swiftc: swiftc.asString, libdir: libdir.asString)
+                let package = Package(manifest: manifest, url: prefix.asString)
 
                 let _ = try package.modules()
 

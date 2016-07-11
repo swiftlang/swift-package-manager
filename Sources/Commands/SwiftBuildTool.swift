@@ -140,15 +140,14 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            /// FIXME: This can't path string be converted to an AbsolutePath until lower-level APIs have been converted.
-            func parseManifest(path: String, baseURL: String) throws -> Manifest {
+            func parseManifest(path: AbsolutePath, baseURL: String) throws -> Manifest {
                 let swiftc = ToolDefaults.SWIFT_EXEC.asString
                 let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
+                return try Manifest(path: path.asString, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
             }
             
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
+                let manifest = try parseManifest(path: root, baseURL: root.asString)
                 if opts.ignoreDependencies {
                     return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
                 } else {

@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import SourceControl
 import Utility
 
@@ -19,21 +20,22 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() {
         try! POSIX.mkdtemp(#function) { path in
-            let testRepoPath = Path.join(path, "test-repo")
-            try! Utility.makeDirectories(testRepoPath)
+            let path = AbsolutePath(path)
+            let testRepoPath = path.appending("test-repo")
+            try! Utility.makeDirectories(testRepoPath.asString)
             initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
-            let testCheckoutPath = Path.join(path, "checkout")
+            let testCheckoutPath = path.appending("checkout")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath)
-            try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
+            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            try! provider.fetch(repository: repoSpec, to: testCheckoutPath.asString)
 
             // Verify the checkout was made.
-            XCTAssert(testCheckoutPath.exists)
+            XCTAssert(testCheckoutPath.asString.exists)
 
             // Test the repository interface.
-            let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
+            let repository = provider.open(repository: repoSpec, at: testCheckoutPath.asString)
             XCTAssertEqual(repository.tags, ["1.2.3"])
         }
     }

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import class PackageModel.Package
 import PackageModel
 import Utility
@@ -17,14 +18,14 @@ import Utility
  - Throws: Error.InvalidDependencyGraph
  - Returns: The modules that this manifest requires building
 */
-public func get(_ manifest: Manifest, manifestParser: (path: String, url: String) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
-    let dir = Path.join(manifest.path.parentDirectory, "Packages")
+public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
+    let dir = AbsolutePath(manifest.path.parentDirectory).appending("Packages")
     let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 
     //TODO don't lose the dependency information during the Fetcher process!
     
     let rootPackage = Package(manifest: manifest, url: manifest.path.parentDirectory)
-    rootPackage.version = Git.Repo(path: rootPackage.path)?.versions.last
+    rootPackage.version = Git.Repo(path: AbsolutePath(rootPackage.path))?.versions.last
     let extPackages = try box.recursivelyFetch(manifest.dependencies)
     
     let pkgs = extPackages + [rootPackage]

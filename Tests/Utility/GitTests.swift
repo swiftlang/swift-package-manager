@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 @testable import Utility
 
 class GitMoc: Git {
@@ -36,7 +37,7 @@ class GitUtilityTests: XCTestCase {
     
     func testHeadSha() {
         mktmpdir { dir in
-            initGitRepo(dir)            
+            initGitRepo(dir)
             let sha = Git.Repo(path: dir)?.sha
             checkSha(sha!)
         }
@@ -44,7 +45,7 @@ class GitUtilityTests: XCTestCase {
     
     func testVersionSha() {
         mktmpdir { dir in
-            initGitRepo(dir, tag: "0.1.0") 
+            initGitRepo(dir, tag: "0.1.0")
             let sha = try Git.Repo(path: dir)?.versionSha(tag: "0.1.0")
             checkSha(sha!)
         }
@@ -69,8 +70,8 @@ class GitUtilityTests: XCTestCase {
             let repo = Git.Repo(path: dir)!
             XCTAssertFalse(repo.hasLocalChanges)
 
-            let filePath = Path.join(dir, "file2.swift")
-            try systemQuietly(["touch", filePath])
+            let filePath = dir.appending("file2.swift")
+            try systemQuietly(["touch", filePath.asString])
 
             XCTAssertTrue(repo.hasLocalChanges)
         }
@@ -84,12 +85,12 @@ class GitUtilityTests: XCTestCase {
         XCTAssertEqual(sha.characters.count, 40)
     }
     
-    func commit(_ dstdir: String, file: String) throws {
-        let filePath = Path.join(dstdir, file)
-        try systemQuietly(["touch", filePath])
+    func commit(_ dstdir: AbsolutePath, file: RelativePath) throws {
+        let filePath = dstdir.appending(file)
+        try systemQuietly(["touch", filePath.asString])
 
-        try systemQuietly([Git.tool, "-C", dstdir, "add", "."])
-        try systemQuietly([Git.tool, "-C", dstdir, "commit", "-m", "msg"])
+        try systemQuietly([Git.tool, "-C", dstdir.asString, "add", "."])
+        try systemQuietly([Git.tool, "-C", dstdir.asString, "commit", "-m", "msg"])
     }
 
     static var allTests = [
