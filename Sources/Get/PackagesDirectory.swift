@@ -28,7 +28,7 @@ class PackagesDirectory {
     }
     
     /// The set of all repositories available within the `Packages` directory, by origin.
-    private lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
+    fileprivate lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
         // FIXME: Lift this higher.
         guard localFS.isDirectory(self.prefix) else { return [:] }
 

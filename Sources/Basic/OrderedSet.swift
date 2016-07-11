@@ -15,8 +15,8 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
     public typealias Index = Int
     public typealias Indices = CountableRange<Int>
 
-    private var array: [Element]
-    private var set: Set<Element>
+    fileprivate var array: [Element]
+    fileprivate var set: Set<Element>
     
     /// Creates an empty ordered set.
     public init() {

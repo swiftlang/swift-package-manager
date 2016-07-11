@@ -237,7 +237,7 @@ extension Package {
         return modules
     }
     
-    private func modulify(_ path: String, name: String, isTest: Bool) throws -> Module {
+    fileprivate func modulify(_ path: String, name: String, isTest: Bool) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }

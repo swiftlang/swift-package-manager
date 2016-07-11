@@ -278,7 +278,7 @@ extension String {
     }
 
     /// - Returns: Ensures single path separators in a path string, and removes trailing slashes.
-    private var onesep: String {
+    fileprivate var onesep: String {
         // Fast path, for already clean strings.
         //
         // It would be more efficient to avoid scrubbing every string that

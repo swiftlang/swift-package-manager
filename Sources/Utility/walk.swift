@@ -62,9 +62,9 @@ public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleD
 */
 private class DirectoryContentsGenerator: IteratorProtocol {
     private let dirptr: DirHandle?
-    private let path: String
+    fileprivate let path: String
 
-    private init(path: String) {
+    fileprivate init(path: String) {
         let path = path.normpath
         dirptr = libc.opendir(path)
         self.path = path

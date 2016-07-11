@@ -23,7 +23,7 @@
 /// and then convert to a `ByteString` when complete.
 public struct ByteString: ArrayLiteralConvertible {
     /// The buffer contents.
-    private var _bytes: [UInt8]
+    fileprivate var _bytes: [UInt8]
 
     /// Create an empty byte string.
     public init() {

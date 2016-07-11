@@ -376,7 +376,7 @@ private func ==(lhs: MockCheckout, rhs: MockCheckout) -> Bool {
 }
 
 private class _MockFetcher: Fetcher {
-    private typealias T = MockCheckout
+    typealias T = MockCheckout
 
     func find(url: String) throws -> Fetchable? {
         return nil

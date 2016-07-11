@@ -16,7 +16,7 @@ import Utility
 
 extension String {
     // FIXME: It doesn't seem right for this to be an extension on String; it isn't inherent "string behavior".
-    private var soname: String {
+    fileprivate var soname: String {
         return "lib\(self).\(Product.dynamicLibraryExtension)"
     }
 }

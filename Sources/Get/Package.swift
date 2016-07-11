@@ -33,7 +33,7 @@ extension Package: Fetchable {
         return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
     }
 
-    private var versionString: String.CharacterView {
+    fileprivate var versionString: String.CharacterView {
         return path.basename.characters.dropFirst(name.characters.count + 1)
     }
 
