@@ -95,7 +95,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
         throw ManifestParseError.invalidManifestFormat
     }
 
-    guard let toml = try localFS.readFileContents(filePath).asString else {
+    guard let toml = try localFileSystem.readFileContents(filePath).asString else {
         throw ManifestParseError.invalidEncoding
     }
     try Utility.removeFileTree(filePath) // Delete the temp file after reading it

@@ -191,8 +191,8 @@ public struct SwiftPackageTool: SwiftTool {
                             
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
-                if localFS.exists(opts.path.packages) {
-                    for name in try localFS.getDirectoryContents(opts.path.packages) {
+                if localFileSystem.exists(opts.path.packages) {
+                    for name in try localFileSystem.getDirectoryContents(opts.path.packages) {
                         let item = opts.path.packages.appending(RelativePath(name))
 
                         // Only look at repositories.

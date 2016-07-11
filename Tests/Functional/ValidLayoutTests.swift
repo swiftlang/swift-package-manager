@@ -119,7 +119,7 @@ extension ValidLayoutsTestCase {
 
         // 2. Move everything to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
+            let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending("Sources")
             try Utility.makeDirectories(dir.asString)
             for file in files {
@@ -130,7 +130,7 @@ extension ValidLayoutsTestCase {
 
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
-            let files = try! localFS.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
+            let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending("Floobles")
             try Utility.makeDirectories(dir.asString)
             for file in files {

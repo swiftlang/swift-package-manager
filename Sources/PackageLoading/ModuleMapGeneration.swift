@@ -83,7 +83,7 @@ extension ClangModule {
             return
         }
         
-        let walked = try localFS.getDirectoryContents(includeDir).map{ Path.join(includeDir, $0) }
+        let walked = try localFileSystem.getDirectoryContents(includeDir).map{ Path.join(includeDir, $0) }
         
         let files = walked.filter{$0.isFile && $0.hasSuffix(".h")}
         let dirs = walked.filter{$0.isDirectory}

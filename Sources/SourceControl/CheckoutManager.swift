@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var Basic.localFS
+import var Basic.localFileSystem
 import struct Basic.ByteString
 import enum Basic.JSON
 import Utility
@@ -252,7 +252,7 @@ public class CheckoutManager {
             })
 
         // FIXME: This should write atomically.
-        try localFS.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        try localFileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
     }
 }
 

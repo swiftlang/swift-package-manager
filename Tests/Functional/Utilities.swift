@@ -65,7 +65,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
                 }
                 
                 // Copy each of the package directories and construct a git repo in it.
-                for fileName in try! localFS.getDirectoryContents(fixtureDir).sorted() {
+                for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                     let srcDir = fixtureDir.appending(fileName)
                     guard srcDir.asString.isDirectory else { continue }
                     let dstDir = tmpDir.appending(fileName)

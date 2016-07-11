@@ -14,20 +14,20 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ByteStringTests.allTests),
-        testCase(JSONTests.allTests),
-        testCase(FSProxyTests.allTests),
+        testCase(FileSystemTests.allTests),
         testCase(GraphAlgorithmsTests.allTests),
+        testCase(JSONTests.allTests),
         testCase(LazyCacheTests.allTests),
         testCase(LockTests.allTests),
-        testCase(OrderedSetTests.allTests),
         testCase(OptionParserTests.allTests),
+        testCase(OrderedSetTests.allTests),
         testCase(OutputByteStreamTests.allTests),
         testCase(PathTests.allTests),
+        testCase(StringConversionTests.allTests),
+        testCase(SyncronizedQueueTests.allTests),
         testCase(TOMLTests.allTests),
         testCase(TemporaryFileTests.allTests),
         testCase(ThreadTests.allTests),
-        testCase(StringConversionTests.allTests),
-        testCase(SyncronizedQueueTests.allTests),
     ]
 }
 #endif

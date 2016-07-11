@@ -30,10 +30,10 @@ class PackagesDirectory {
     /// The set of all repositories available within the `Packages` directory, by origin.
     fileprivate lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
         // FIXME: Lift this higher.
-        guard localFS.isDirectory(self.prefix) else { return [:] }
+        guard localFileSystem.isDirectory(self.prefix) else { return [:] }
 
         var result = Dictionary<String, Git.Repo>()
-        for name in try! localFS.getDirectoryContents(self.prefix) {
+        for name in try! localFileSystem.getDirectoryContents(self.prefix) {
             let prefix = self.prefix.appending(RelativePath(name))
             guard let repo = Git.Repo(path: prefix), let origin = repo.origin else { continue } // TODO: Warn user.
             result[origin] = repo

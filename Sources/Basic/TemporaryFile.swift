@@ -43,7 +43,7 @@ private func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath 
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? cachedTempDirectory
     // FIXME: This is a runtime condition, so it should throw and not crash.
-    precondition(localFS.isDirectory(tmpDir))
+    precondition(localFileSystem.isDirectory(tmpDir))
     return tmpDir
 }
 
@@ -116,8 +116,9 @@ extension TemporaryFile: CustomStringConvertible {
     }
 }
 
-// FIXME: This isn't right place to declare this, probably POSIX or merge with FSProxyError?
 /// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
+//
+// FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
 public enum MakeDirectoryError: ErrorProtocol {
     /// The given path already exists as a directory, file or symbolic link.
     case pathExists
