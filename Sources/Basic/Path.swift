@@ -311,13 +311,13 @@ public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
 /// different.
 private struct PathImpl {
     /// Normalized string of the (absolute or relative) path.  Never empty.
-    private let string: String
+    fileprivate let string: String
     
     /// Private function that returns the directory part of the stored path
     /// string (relying on the fact that it has been normalized).  Returns a
     /// string consisting of just `.` if there is no directory part (which is
     /// the case if and only if there is no path separator).
-    private var dirname: String {
+    fileprivate var dirname: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -336,7 +336,7 @@ private struct PathImpl {
         return String(chars.prefix(upTo: idx))
     }
     
-    private var basename: String {
+    fileprivate var basename: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -356,7 +356,7 @@ private struct PathImpl {
         return String(chars.suffix(from: chars.index(after: idx)))
     }
     
-    private var suffix: String? {
+    fileprivate var suffix: String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -585,11 +585,11 @@ private func normalize(relative string: String) -> String {
 
 /// Private functions for use by the path logic.  These should move out into a
 /// public place, but we'll need to debate the names, etc, etc.
-private extension String.CharacterView {
+extension String.CharacterView {
     
     /// Returns the index of the last occurrence of `char` or nil if none.  If
     /// provided, the `start` index limits the search to a suffix of charview.
-    private func rindex(of char: Character, from start: Index? = nil) -> Index? {
+    fileprivate func rindex(of char: Character, from start: Index? = nil) -> Index? {
         var idx = endIndex
         let firstIdx = start ?? startIndex
         while idx > firstIdx {

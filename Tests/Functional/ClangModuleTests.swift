@@ -14,7 +14,7 @@ import PackageModel
 import Utility
 
 extension String {
-    private var soname: String {
+    fileprivate var soname: String {
         return "lib\(self).\(Product.dynamicLibraryExtension)"
     }
 }

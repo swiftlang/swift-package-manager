@@ -200,7 +200,7 @@ extension PackageDescription.Package.Dependency {
 }
 
 extension PackageDescription.SystemPackageProvider {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
         guard case .table(let table) = item else { fatalError("unexpected item") }
         guard case .string(let name)? = table.items["name"] else { fatalError("missing name") }
         guard case .string(let value)? = table.items["value"] else { fatalError("missing value") }
@@ -216,7 +216,7 @@ extension PackageDescription.SystemPackageProvider {
 }
 
 extension PackageDescription.Target {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
         guard case .table(let table) = item else { fatalError("unexpected item") }
@@ -236,7 +236,7 @@ extension PackageDescription.Target {
 }
 
 extension PackageDescription.Target.Dependency {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
         guard case .string(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
     }

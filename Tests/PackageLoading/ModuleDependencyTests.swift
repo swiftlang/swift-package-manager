@@ -170,11 +170,11 @@ class ModuleDependencyTests: XCTestCase {
 }
 
 private extension Module {
-    private func depends(on target: Module) {
+    fileprivate func depends(on target: Module) {
         dependencies.append(target)
     }
     
-    private var recursiveDeps: [Module] {
+    fileprivate var recursiveDeps: [Module] {
         // FIXME: Eliminate this, it is a bad historical artifact.
         return recursiveDependencies.reversed()
     }

@@ -137,7 +137,7 @@ private extension UInt8 {
 ///
 /// This implementation doesn't yet support multi-line strings.
 private struct Lexer {
-    private enum Token {
+    fileprivate enum Token {
         /// Any comment.
         case comment
         /// Any whitespace.
