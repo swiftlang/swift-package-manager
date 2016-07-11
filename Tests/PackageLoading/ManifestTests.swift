@@ -49,7 +49,7 @@ class ManifestTests: XCTestCase {
     let libdir = bundleRoot()
 #else
     let libdir = AbsolutePath(Process.arguments.first!.parentDirectory.abspath)
-    let swiftc = AbsolutePath(Process.arguments.first!.abspath, "../swiftc")
+    let swiftc = AbsolutePath(Process.arguments.first!.abspath).appending("../swiftc")
 #endif
 
     private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
