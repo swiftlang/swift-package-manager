@@ -22,7 +22,7 @@ extension Error: CustomStringConvertible {
     public var description: String {
         switch self {
         case .obsoleteGitVersion:
-            return "Git 2.0 or higher is required. Please update git and retry."
+            return "Git 2.0 or higher is required. Please update git and retry"
         case .unknownGitError:
             return "Failed to invoke git command. Please try updating git"
         case .unicodeDecodingError: return "Could not decode input file into unicode"
