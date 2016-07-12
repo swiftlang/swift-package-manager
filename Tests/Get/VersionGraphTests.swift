@@ -229,7 +229,7 @@ class VersionGraphTests: XCTestCase {
                 (MockProject.A.url, Version.maxRange),
                 (MockProject.B.url, Version.maxRange)
             ])
-        } catch Error.invalidDependencyGraph(let url) {
+        } catch Get.Error.invalidDependencyGraph(let url) {
             invalidGraph = true
             XCTAssertEqual(url, MockProject.C.url)
         } catch {
@@ -259,7 +259,7 @@ class VersionGraphTests: XCTestCase {
             _ = try MyMockFetcher().recursivelyFetch([
                 (MockProject.A.url, v1..<v1.successor()),
             ])
-        } catch Error.invalidDependencyGraphMissingTag(let url, _, _) {
+        } catch Get.Error.invalidDependencyGraphMissingTag(let url, _, _) {
             XCTAssertEqual(url, MockProject.F.url)
             invalidGraph = true
         } catch {
@@ -278,7 +278,7 @@ class VersionGraphTests: XCTestCase {
         var success = false
         do {
             _ = try MyMockFetcher().recursivelyFetch([(MockProject.A.url, v1..<v2)])
-        } catch Error.invalidDependencyGraphMissingTag {
+        } catch Get.Error.invalidDependencyGraphMissingTag {
             success = true
         } catch {
             XCTFail()
@@ -356,23 +356,24 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
         self.availableVersions = []
     }
 
-    var description: String { return "\(project)\(version)" }
+    var description: String { return "\(project)\(currentVersion)" }
 
     func constrain(to versionRange: Range<Version>) -> Version? {
         return availableVersions.filter{ versionRange ~= $0 }.last
     }
 
-    var version: Version {
+    var currentVersion: Version {
         return _version!
     }
 
-    func setVersion(_ newValue: Version) throws {
+    func setCurrentVersion(_ newValue: Version) throws {
         _version = newValue
     }
 }
 
 private func ==(lhs: MockCheckout, rhs: MockCheckout) -> Bool {
-    return lhs.project == rhs.project && lhs.version == rhs.version
+    return lhs.project == rhs.project &&
+           lhs.currentVersion == rhs.currentVersion
 }
 
 private class _MockFetcher: Fetcher {
