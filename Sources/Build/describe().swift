@@ -24,7 +24,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         throw Error.noModules
     }
 
-    if modules.count == 1, let module = modules.first as? CModule {
+    if modules.count == 1, let module = modules.first as? CModule, !(module is ClangModule) {
         throw Error.onlyCModule(name: module.name)
     }
 
