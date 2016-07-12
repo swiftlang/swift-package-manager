@@ -3,6 +3,8 @@
 xcuserdata
 .DS_Store
 *~
+\#*
+.\#*
 *.xcscmblueprint
 /default.profraw
 *.xcodeproj
