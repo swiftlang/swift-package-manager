@@ -8,31 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import struct PackageDescription.Version
 import PackageModel
-import Utility
 
-extension Package {
-    // FIXME we *always* have a manifest, don't reparse it
-
-    static func make(repo: Git.Repo, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws -> Package? {
-        guard let origin = repo.origin else { throw Error.noOrigin(repo.path.asString) }
-        let manifest = try manifestParser(path: repo.path, url: origin)
-
-        // Compute the package version.
-        //
-        // FIXME: This is really gross, and should not be necessary.
-        let packagePath = manifest.path.parentDirectory
-        let packageName = manifest.package.name ?? Package.nameForURL(origin)
-        let packageVersionString = packagePath.basename.characters.dropFirst(packageName.characters.count + 1)
-        guard let version = Version(packageVersionString) else {
-            return nil
-        }
-        
-        return Package(manifest: manifest, url: origin, version: version)
-    }
-}
+import struct PackageDescription.Version
 
 extension Package: Fetchable {
     var children: [(String, Range<Version>)] {

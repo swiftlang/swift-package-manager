@@ -44,10 +44,30 @@ class PackagesDirectory {
 
 extension PackagesDirectory: Fetcher {
     typealias T = Package
+
+    /// Create a Package for a given repositories current state.
+    //
+    // FIXME: We *always* have a manifest, don't reparse it.
+    private func createPackage(repo: Git.Repo) throws -> Package? {
+        guard let origin = repo.origin else { throw Package.Error.noOrigin(repo.path.asString) }
+        let manifest = try manifestParser(path: repo.path, url: origin)
+
+        // Compute the package version.
+        //
+        // FIXME: This is really gross, and should not be necessary.
+        let packagePath = manifest.path.parentDirectory
+        let packageName = manifest.package.name ?? Package.nameForURL(origin)
+        let packageVersionString = packagePath.basename.characters.dropFirst(packageName.characters.count + 1)
+        guard let version = Version(packageVersionString) else {
+            return nil
+        }
+        
+        return Package(manifest: manifest, url: origin, version: version)
+    }
     
     func find(url: String) throws -> Fetchable? {
         if let repo = availableRepositories[url] {
-            return try Package.make(repo: repo, manifestParser: manifestParser)
+            return try createPackage(repo: repo)
         }
         return nil
     }
@@ -77,7 +97,7 @@ extension PackagesDirectory: Fetcher {
             // Update the available repositories.
             availableRepositories[repo.origin!] = repo
             
-            return try Package.make(repo: repo, manifestParser: manifestParser)!
+            return try createPackage(repo: repo)!
         case let pkg as Package:
             return pkg
         default:
