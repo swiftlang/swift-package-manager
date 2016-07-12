@@ -12,18 +12,32 @@ import Utility
 import struct PackageDescription.Version
 
 public final class Package {
-    public let url: String
-    public let path: String
+    /// The name of the package.
     public let name: String
-    public var version: Version?
-    public var dependencies: [Package] = []
+    
+    /// The URL the package was loaded from.
+    public let url: String
+    
+    /// The local path of the package.
+    public let path: String
+
+    /// The manifest describing the package.
     public let manifest: Manifest
 
-    public init(manifest: Manifest, url: String) {
-        self.manifest = manifest
+    /// The version this package was loaded from, if known.
+    public let version: Version?
+
+    /// The resolved dependencies of the package.
+    ///
+    /// This value is only available once package loading is complete.
+    public var dependencies: [Package] = []
+
+    public init(manifest: Manifest, url: String, version: Version?) {
         self.url = url
+        self.manifest = manifest
         self.path = manifest.path.parentDirectory
         self.name = manifest.package.name ?? Package.nameForURL(url)
+        self.version = version
     }
 
     public enum Error: Swift.Error {

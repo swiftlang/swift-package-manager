@@ -30,9 +30,7 @@ extension Package {
             return nil
         }
         
-        let pkg = Package(manifest: manifest, url: origin)
-        pkg.version = version
-        return pkg
+        return Package(manifest: manifest, url: origin, version: version)
     }
 }
 

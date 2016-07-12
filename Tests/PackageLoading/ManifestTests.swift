@@ -98,7 +98,7 @@ class ManifestTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
                 let manifest = try Manifest(path: prefix.appending("Package.swift").asString, baseURL: prefix.asString, swiftc: swiftc.asString, libdir: libdir.asString)
-                let package = Package(manifest: manifest, url: prefix.asString)
+                let package = Package(manifest: manifest, url: prefix.asString, version: nil)
 
                 let _ = try package.modules()
 
