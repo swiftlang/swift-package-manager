@@ -11,6 +11,8 @@
 @testable import struct PackageDescription.Version
 @testable import Get
 import XCTest
+import struct Utility.Path
+import Basic
 
 class VersionGraphTests: XCTestCase {
 
@@ -285,6 +287,48 @@ class VersionGraphTests: XCTestCase {
         }
         XCTAssertTrue(success)
     }
+
+    func testFoundPackageSameVersion() {
+        let fetcher = SimpleMockFetcher(fetch: MockCheckout(.A, [v1]), find: MockCheckout(.A, v1))
+        let rv: [MockCheckout] = try! fetcher.recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
+        XCTAssertEqual(rv, [ MockCheckout(.A, v1)])
+    }
+
+    func testFoundPackageRunUpdate() {
+        mktmpdir { dir in
+            initGitRepo(dir)
+            let find = MockCheckout(.A, v2)
+            find.path = dir
+
+            let fetcher = SimpleMockFetcher(fetch: MockCheckout(.A, [v1]), find: find)
+            let rv: [MockCheckout] = try! fetcher.recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
+            XCTAssertEqual(rv, [MockCheckout(.A, v1)])
+            XCTAssertNoSuchPath(dir)
+        }
+    }
+
+    func testFoundPackageCantUpdate() {
+        mktmpdir { dir in
+            initGitRepo(dir)
+            try localFS.writeFileContents(Path.join(dir, "file.swift"), bytes: "var a: String")
+
+            let find = MockCheckout(.A, v2)
+            find.path = dir
+
+            let fetcher = SimpleMockFetcher(fetch: MockCheckout(.A, [v1]), find: find)
+            var updateRequired: Bool = false
+            do {
+                let rv: [MockCheckout] = try fetcher.recursivelyFetch([(MockProject.A.url, v1..<v1.successor())])
+                XCTAssertEqual(rv, [ MockCheckout(.A, v1)])
+            } catch Error.updateRequired(_) {
+                updateRequired = true
+            } catch {
+                XCTFail()
+            }
+            XCTAssertTrue(updateRequired)
+        }
+    }
+
 //
 //    func testGetRequiresUpdateToAlreadyInstalledPackage() {
 //        class MyMockFetcher: MockFetcher {
@@ -315,7 +359,10 @@ class VersionGraphTests: XCTestCase {
         ("testVersionConstrain", testVersionConstrain),
         ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Simple),
         ("testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex", testTwoDependenciesRequireMutuallyExclusiveVersionsOfTheSameDependency_Complex),
-        ("testVersionUnavailable", testVersionUnavailable)
+        ("testVersionUnavailable", testVersionUnavailable),
+        ("testFoundPackageSameVersion", testFoundPackageSameVersion),
+        ("testFoundPackageRunUpdate", testFoundPackageRunUpdate),
+        ("testFoundPackageCantUpdate", testFoundPackageCantUpdate),
     ]
 }
 
@@ -342,6 +389,7 @@ private class MockCheckout: Equatable, CustomStringConvertible, Fetchable {
     let children: [(String, Range<Version>)]
     var availableVersions: [Version]
     var _version: Version?
+    var path: String = ""
 
     init(_ project: MockProject, _ availableVersions: [Version], _ dependencies: (String, Range<Version>)...) {
         self.availableVersions = availableVersions
@@ -388,5 +436,22 @@ private class _MockFetcher: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         fatalError("This must be implemented in each test")
+    }
+}
+
+private struct SimpleMockFetcher: Fetcher {
+    let fetch: Fetchable
+    let find: Fetchable?
+
+    func find(url: String) throws -> Fetchable? {
+        return find
+    }
+
+    func finalize(_ fetchable: Fetchable) throws -> MockCheckout {
+        return fetchable as! T
+    }
+
+    func fetch(url: String) throws -> Fetchable {
+        return fetch
     }
 }

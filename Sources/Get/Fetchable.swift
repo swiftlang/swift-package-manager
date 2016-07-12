@@ -27,4 +27,7 @@ protocol Fetchable {
     // so Package has a version { get } already, we cannot add
     // a set, so instead we have to have this protocol func
     func setVersion(_ newValue: Version) throws
+
+    /// The path where Fetchable is stored
+    var path: String { get }
 }

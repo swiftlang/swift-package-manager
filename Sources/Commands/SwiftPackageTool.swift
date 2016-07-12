@@ -194,18 +194,9 @@ public struct SwiftPackageTool: SwiftTool {
                 if localFS.exists(opts.path.packages) {
                     for name in try localFS.getDirectoryContents(opts.path.packages) {
                         let item = opts.path.packages.appending(RelativePath(name))
-
                         // Only look at repositories.
                         guard item.appending(".git").asString.exists else { continue }
-
-                        // If there is a staged or unstaged diff, don't remove the
-                        // tree. This won't detect new untracked files, but it is
-                        // just a safety measure for now.
-                        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-                        do {
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
-                        } catch {
+                        if !Git.isSafeToRemove(item.asString) {
                             throw Error.repositoryHasChanges(item.asString)
                         }
                     }
