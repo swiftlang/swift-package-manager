@@ -11,7 +11,7 @@
 import struct PackageDescription.Version
 
 protocol Fetchable {
-    var version: Version { get }
+    var currentVersion: Version { get }
     var children: [(String, Range<Version>)] { get }
 
     /**
@@ -26,5 +26,5 @@ protocol Fetchable {
     //FIXME protocols cannot impose new property constraints,
     // so Package has a version { get } already, we cannot add
     // a set, so instead we have to have this protocol func
-    func setVersion(_ newValue: Version) throws
+    func setCurrentVersion(_ newValue: Version) throws
 }
