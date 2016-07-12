@@ -102,7 +102,7 @@ extension Module.Error: FixableError {
         case .mixedSources(_):
             return "use only a single language within a module"
         case .duplicateModule(_):
-            return "modules should have a unique name, across dependencies"
+            return "modules should have a unique name across dependencies"
         }
     }
 }
