@@ -139,13 +139,13 @@ enum SwiftPMProduct {
     /// Executable name.
     var exec: RelativePath {
         switch self {
-        case SwiftBuild:
+        case .SwiftBuild:
             return "swift-build"
-        case SwiftPackage:
+        case .SwiftPackage:
             return "swift-package"
-        case SwiftTest:
+        case .SwiftTest:
             return "swift-test"
-        case XCTestHelper:
+        case .XCTestHelper:
             return "swiftpm-xctest-helper"
         }
     }

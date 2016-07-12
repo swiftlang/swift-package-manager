@@ -139,15 +139,15 @@ public class ClangModule: CModule {
 private extension SupportedLanguageExtension {
     var xcodeFileType: String {
         switch self {
-        case c:
+        case .c:
             return "sourcecode.c.c"
-        case m:
+        case .m:
             return "sourcecode.c.objc"
-        case cxx, cc, cpp:
+        case .cxx, .cc, .cpp:
             return "sourcecode.cpp.cpp"
-        case mm:
+        case .mm:
             return "sourcecode.cpp.objcpp"
-        case swift:
+        case .swift:
             return "sourcecode.swift"
         }
     }
