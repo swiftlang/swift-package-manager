@@ -79,7 +79,7 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
     }
 }
 
-extension OrderedSet: ArrayLiteralConvertible {
+extension OrderedSet: ExpressibleByArrayLiteral {
     /// Create an instance initialized with `elements`.
     ///
     /// If an element occurs more than once in `element`, only the first one

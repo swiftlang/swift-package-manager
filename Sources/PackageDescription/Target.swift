@@ -53,9 +53,9 @@ extension Target: TOMLConvertible {
     }
 }
 
-// MARK: StringLiteralConvertible
+// MARK: ExpressibleByStringLiteral
 
-extension Target.Dependency : StringLiteralConvertible {
+extension Target.Dependency : ExpressibleByStringLiteral {
   public init(unicodeScalarLiteral value: String) {
     self = .Target(name: value)
   }
