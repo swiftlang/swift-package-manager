@@ -15,8 +15,8 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
     public typealias Index = Int
     public typealias Indices = CountableRange<Int>
 
-    fileprivate var array: [Element]
-    fileprivate var set: Set<Element>
+    private var array: [Element]
+    private var set: Set<Element>
     
     /// Creates an empty ordered set.
     public init() {
@@ -90,13 +90,13 @@ extension OrderedSet: ArrayLiteralConvertible {
 }
 
 extension OrderedSet: RandomAccessCollection {
-    public var startIndex: Int { return array.startIndex }
-    public var endIndex: Int { return array.endIndex }
+    public var startIndex: Int { return contents.startIndex }
+    public var endIndex: Int { return contents.endIndex }
     public subscript(i: Int) -> Element {
-      return array[i]
+      return contents[i]
     }
 }
 
 public func ==<T>(lhs: OrderedSet<T>, rhs: OrderedSet<T>) -> Bool {
-    return lhs.array == rhs.array
+    return lhs.contents == rhs.contents
 }
