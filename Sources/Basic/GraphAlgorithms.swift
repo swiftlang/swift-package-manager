@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum GraphError: ErrorProtocol {
+public enum GraphError: Swift.Error {
     /// A cycle was detected in the input.
     case unexpectedCycle
 }

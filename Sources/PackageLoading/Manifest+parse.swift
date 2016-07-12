@@ -15,7 +15,7 @@ import Utility
 
 import func POSIX.realpath
 
-private enum ManifestParseError: ErrorProtocol {
+private enum ManifestParseError: Swift.Error {
     /// The manifest file is empty.
     case emptyManifestFile
     /// The manifest had a string encoding error.

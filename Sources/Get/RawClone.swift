@@ -49,7 +49,7 @@ class RawClone: Fetchable {
         return Git.Repo(path: path)!
     }
 
-    var version: Version {
+    var currentVersion: Version {
         var branch = repo.branch!
         if branch.hasPrefix("heads/") {
             branch = String(branch.characters.dropFirst(6))
@@ -61,7 +61,7 @@ class RawClone: Fetchable {
     }
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
-    func setVersion(_ ver: Version) throws {
+    func setCurrentVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
         try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", v])
@@ -106,6 +106,6 @@ class RawClone: Fetchable {
 
     var finalName: String {
         let name = manifest.package.name ?? Package.nameForURL(url)
-        return "\(name)-\(version)"
+        return "\(name)-\(currentVersion)"
     }
 }

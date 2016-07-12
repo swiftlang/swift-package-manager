@@ -169,7 +169,7 @@ public class CheckoutManager {
 
     // MARK: Persistence
 
-    private enum PersistenceError: ErrorProtocol {
+    private enum PersistenceError: Swift.Error {
         /// The schema does not match the current version.
         case invalidVersion
         

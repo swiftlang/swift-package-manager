@@ -24,7 +24,7 @@ private extension FileSystem {
     }
 }
 
-private enum InitError: ErrorProtocol {
+private enum InitError: Swift.Error {
     case manifestAlreadyExists
 }
 

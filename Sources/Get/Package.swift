@@ -37,7 +37,7 @@ extension Package: Fetchable {
         return path.basename.characters.dropFirst(name.characters.count + 1)
     }
 
-    var version: Version {
+    var currentVersion: Version {
         return Version(versionString)!
     }
 
@@ -46,10 +46,10 @@ extension Package: Fetchable {
     }
 
     var availableVersions: [Version] {
-        return [version]
+        return [currentVersion]
     }
 
-    func setVersion(_ newValue: Version) throws {
+    func setCurrentVersion(_ newValue: Version) throws {
         throw Get.Error.invalidDependencyGraph(url)
     }
 }

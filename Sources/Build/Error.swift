@@ -11,7 +11,7 @@
 import protocol Basic.FixableError
 import struct PackageModel.Manifest
 
-public enum Error: ErrorProtocol {
+public enum Error: Swift.Error {
     case noModules
     case onlyCModule(name: String)
 }

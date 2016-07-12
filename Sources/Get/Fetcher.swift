@@ -42,7 +42,7 @@ extension Fetcher {
                     guard let v = pkg.constrain(to: versionRange) else {
                         throw Error.invalidDependencyGraphMissingTag(package: url, requestedTag: "\(versionRange)", existingTags: "\(pkg.availableVersions)")
                     }
-                    try pkg.setVersion(v)
+                    try pkg.setCurrentVersion(v)
                 }
 
                 if let (pkg, cumulativeVersionRange) = graph[url] {
@@ -54,7 +54,7 @@ extension Fetcher {
                         throw Error.invalidDependencyGraph(url)
                     }
 
-                    if updatedRange ~= pkg.version {
+                    if updatedRange ~= pkg.currentVersion {
 
                         // the current checked-out version is within the requested range
 
@@ -79,7 +79,7 @@ extension Fetcher {
                     // of the package manager. Verify it is within the required version
                     // range.
 
-                    guard specifiedVersionRange ~= pkg.version else {
+                    guard specifiedVersionRange ~= pkg.currentVersion else {
                         throw Error.updateRequired(url)
                     }
                     graph[url] = (pkg, specifiedVersionRange)

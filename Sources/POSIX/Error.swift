@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum SystemError: ErrorProtocol {
+public enum SystemError: Swift.Error {
     case chdir(Int32)
     case close(Int32)
     case dirfd(Int32, String)
@@ -86,12 +86,12 @@ extension SystemError: CustomStringConvertible {
 }
 
 
-public enum Error: ErrorProtocol {
+public enum Error: Swift.Error {
     case exitStatus(Int32, [String])
     case exitSignal
 }
 
-public enum ShellError: ErrorProtocol {
+public enum ShellError: Swift.Error {
     case system(arguments: [String], SystemError)
     case popen(arguments: [String], SystemError)
 }

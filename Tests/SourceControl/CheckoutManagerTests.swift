@@ -14,7 +14,7 @@ import SourceControl
 
 import func POSIX.mkdtemp
 
-private enum DummyError: ErrorProtocol {
+private enum DummyError: Swift.Error {
     case invalidRepository
 }
 

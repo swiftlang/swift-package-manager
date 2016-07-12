@@ -12,7 +12,7 @@ import POSIX
 import libc
 
 
-public enum FileSystemError: ErrorProtocol {
+public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
     ///
     /// This is used when an operation cannot be completed because a component of

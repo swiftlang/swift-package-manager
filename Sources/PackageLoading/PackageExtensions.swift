@@ -14,7 +14,7 @@ import Utility
 
 import class PackageDescription.Target
 
-public enum ModuleError: ErrorProtocol {
+public enum ModuleError: Swift.Error {
     case noModules(Package)
     case modulesNotFound([String])
     case invalidLayout(InvalidLayoutType)
@@ -76,7 +76,7 @@ extension InvalidLayoutType: FixableError {
 
 extension Module {
     /// An error in the organization of an individual module.
-    enum Error: ErrorProtocol {
+    enum Error: Swift.Error {
         case noSources(String)
         case mixedSources(String)
         case duplicateModule(String)
@@ -109,7 +109,7 @@ extension Module.Error: FixableError {
 
 extension Product {
     /// An error in a product definition.
-    enum Error: ErrorProtocol {
+    enum Error: Swift.Error {
         case noModules(String)
         case moduleNotFound(product: String, module: String)
     }
