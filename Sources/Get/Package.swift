@@ -19,12 +19,18 @@ extension Package {
     static func make(repo: Git.Repo, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws -> Package? {
         guard let origin = repo.origin else { throw Error.noOrigin(repo.path.asString) }
         let manifest = try manifestParser(path: repo.path, url: origin)
-        let pkg = Package(manifest: manifest, url: origin)
-        if let version = Version(pkg.versionString) {
-            pkg.version = version
+
+        // Compute the package version.
+        //
+        // FIXME: This is really gross, and should not be necessary.
+        let packagePath = manifest.path.parentDirectory
+        let packageName = manifest.package.name ?? Package.nameForURL(origin)
+        let packageVersionString = packagePath.basename.characters.dropFirst(packageName.characters.count + 1)
+        guard let version = Version(packageVersionString) else {
+            return nil
         }
-        guard Version(pkg.versionString) != nil else { return nil }
-        return pkg
+        
+        return Package(manifest: manifest, url: origin, version: version)
     }
 }
 
@@ -33,12 +39,8 @@ extension Package: Fetchable {
         return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
     }
 
-    fileprivate var versionString: String.CharacterView {
-        return path.basename.characters.dropFirst(name.characters.count + 1)
-    }
-
     var currentVersion: Version {
-        return Version(versionString)!
+        return self.version!
     }
 
     func constrain(to versionRange: Range<Version>) -> Version? {
