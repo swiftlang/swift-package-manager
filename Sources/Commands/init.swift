@@ -14,7 +14,7 @@ import POSIX
 
 import func Utility.makeDirectories
 
-private extension FSProxy {
+private extension FileSystem {
     /// Write to a file from a stream producer.
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         let contents = OutputByteStream()
@@ -76,7 +76,7 @@ final class InitPackage {
 
     private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         print("Creating \(path.relative(to: rootd).asString)")
-        try localFS.writeFileContents(path, body: body)
+        try localFileSystem.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {

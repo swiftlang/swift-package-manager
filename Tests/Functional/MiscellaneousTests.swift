@@ -278,7 +278,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try localFS.writeFileContents(prefix.appending("Bar/Bar.swift").asString, bytes: "public let bar = \"Goodbye\"\n")
+            try localFileSystem.writeFileContents(prefix.appending("Bar/Bar.swift").asString, bytes: "public let bar = \"Goodbye\"\n")
 
             XCTAssertBuilds(prefix)
             output = try popen(execpath)
@@ -302,7 +302,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try localFS.writeFileContents(prefix.appending("app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift").asString, bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
+            try localFileSystem.writeFileContents(prefix.appending("app/Packages/FisherYates-1.2.3/src/Fisher-Yates_Shuffle.swift").asString, bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix.appending("app"))
             output = try popen(execpath)
@@ -326,7 +326,7 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try localFS.writeFileContents(prefix.appending("root/Packages/dep1-1.2.3/Foo.swift").asString, bytes: "public let foo = \"Goodbye\"")
+            try localFileSystem.writeFileContents(prefix.appending("root/Packages/dep1-1.2.3/Foo.swift").asString, bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix.appending("root"))
             output = try popen(execpath)
@@ -366,12 +366,12 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testInitPackageNonc99Directory() throws {
         let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-        XCTAssertTrue(localFS.isDirectory(tempDir.path))
+        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
 
         // Create a directory with non c99name.
         let packageRoot = tempDir.path.appending("some-package")
-        try localFS.createDirectory(packageRoot)
-        XCTAssertTrue(localFS.isDirectory(packageRoot))
+        try localFileSystem.createDirectory(packageRoot)
+        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
 
         // Run package init.
         _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, env: [:], printIfError: true)

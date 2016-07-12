@@ -63,8 +63,8 @@ extension Command {
             // TODO should be llbuild rules∫
             if conf == .debug {
                 let infoPlistPath = Path.join(outpath.parentDirectory.parentDirectory, "Info.plist")
-                try localFS.createDirectory(outpath.parentDirectory, recursive: true)
-                try localFS.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
+                try localFileSystem.createDirectory(outpath.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
             }
           #else
             // HACK: To get a path to LinuxMain.swift, we just grab the

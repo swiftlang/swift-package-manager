@@ -25,12 +25,12 @@ func XCTAssertThrows<T where T: ErrorProtocol, T: Equatable>(_ expectedError: T,
     }
 }
 
-class FSProxyTests: XCTestCase {
+class FileSystemTests: XCTestCase {
 
     // MARK: LocalFS Tests
 
     func testLocalBasics() {
-        let fs = Basic.localFS
+        let fs = Basic.localFileSystem
 
         // exists()
         XCTAssert(fs.exists("/"))
@@ -41,7 +41,7 @@ class FSProxyTests: XCTestCase {
         XCTAssert(!fs.isDirectory("/does-not-exist"))
 
         // getDirectoryContents()
-        XCTAssertThrows(FSProxyError.noEntry) {
+        XCTAssertThrows(FileSystemError.noEntry) {
             _ = try fs.getDirectoryContents("/does-not-exist")
         }
         let thisDirectoryContents = try! fs.getDirectoryContents(#file.parentDirectory)
@@ -51,7 +51,7 @@ class FSProxyTests: XCTestCase {
     }
 
     func testLocalCreateDirectory() {
-        var fs = Basic.localFS
+        var fs = Basic.localFileSystem
         
         // FIXME: Migrate to temporary file wrapper, once we have one.
         try! POSIX.mkdtemp(#function) { tmpDir in
@@ -76,7 +76,7 @@ class FSProxyTests: XCTestCase {
     }
 
     func testLocalReadWriteFile() {
-        var fs = Basic.localFS
+        var fs = Basic.localFileSystem
         
         try! POSIX.mkdtemp(#function) { tmpDir in
             // Check read/write of a simple file.
@@ -91,38 +91,38 @@ class FSProxyTests: XCTestCase {
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
         
             // Check read/write of a directory.
-            XCTAssertThrows(FSProxyError.ioError) {
+            XCTAssertThrows(FileSystemError.ioError) {
                 _ = try fs.readFileContents(filePath.parentDirectory)
             }
-            XCTAssertThrows(FSProxyError.isDirectory) {
+            XCTAssertThrows(FileSystemError.isDirectory) {
                 try fs.writeFileContents(filePath.parentDirectory, bytes: [])
             }
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
         
             // Check read/write against root.
-            XCTAssertThrows(FSProxyError.ioError) {
+            XCTAssertThrows(FileSystemError.ioError) {
                 _ = try fs.readFileContents("/")
             }
-            XCTAssertThrows(FSProxyError.isDirectory) {
+            XCTAssertThrows(FileSystemError.isDirectory) {
                 try fs.writeFileContents("/", bytes: [])
             }
             XCTAssert(fs.exists(filePath))
         
             // Check read/write into a non-directory.
-            XCTAssertThrows(FSProxyError.notDirectory) {
+            XCTAssertThrows(FileSystemError.notDirectory) {
                 _ = try fs.readFileContents(Path.join(filePath, "not-possible"))
             }
-            XCTAssertThrows(FSProxyError.notDirectory) {
+            XCTAssertThrows(FileSystemError.notDirectory) {
                 try fs.writeFileContents(Path.join(filePath, "not-possible"), bytes: [])
             }
             XCTAssert(fs.exists(filePath))
         
             // Check read/write into a missing directory.
             let missingDir = Path.join(tmpDir, "does/not/exist")
-            XCTAssertThrows(FSProxyError.noEntry) {
+            XCTAssertThrows(FileSystemError.noEntry) {
                 _ = try fs.readFileContents(missingDir)
             }
-            XCTAssertThrows(FSProxyError.noEntry) {
+            XCTAssertThrows(FileSystemError.noEntry) {
                 try fs.writeFileContents(missingDir, bytes: [])
             }
             XCTAssert(!fs.exists(missingDir))
@@ -143,7 +143,7 @@ class FSProxyTests: XCTestCase {
         XCTAssert(!fs.isDirectory("/does-not-exist"))
 
         // getDirectoryContents()
-        XCTAssertThrows(FSProxyError.noEntry) {
+        XCTAssertThrows(FileSystemError.noEntry) {
             _ = try fs.getDirectoryContents("/does-not-exist")
         }
 
@@ -173,7 +173,7 @@ class FSProxyTests: XCTestCase {
         // Check non-recursive failing subdir case.
         let newsubdir = AbsolutePath("/very-new-dir/subdir")
         XCTAssert(!fs.isDirectory(newsubdir))
-        XCTAssertThrows(FSProxyError.noEntry) {
+        XCTAssertThrows(FileSystemError.noEntry) {
             try fs.createDirectory(newsubdir, recursive: false)
         }
         XCTAssert(!fs.isDirectory(newsubdir))
@@ -182,10 +182,10 @@ class FSProxyTests: XCTestCase {
         let filePath = AbsolutePath("/mach_kernel")
         try! fs.writeFileContents(filePath, bytes: [0xCD, 0x0D])
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
-        XCTAssertThrows(FSProxyError.notDirectory) {
+        XCTAssertThrows(FileSystemError.notDirectory) {
             try fs.createDirectory(filePath, recursive: true)
         }
-        XCTAssertThrows(FSProxyError.notDirectory) {
+        XCTAssertThrows(FileSystemError.notDirectory) {
             try fs.createDirectory(filePath.appending("not-possible"), recursive: true)
         }
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
@@ -208,38 +208,38 @@ class FSProxyTests: XCTestCase {
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
         
         // Check read/write of a directory.
-        XCTAssertThrows(FSProxyError.isDirectory) {
+        XCTAssertThrows(FileSystemError.isDirectory) {
             _ = try fs.readFileContents(filePath.parentDirectory)
         }
-        XCTAssertThrows(FSProxyError.isDirectory) {
+        XCTAssertThrows(FileSystemError.isDirectory) {
             try fs.writeFileContents(filePath.parentDirectory, bytes: [])
         }
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
         
         // Check read/write against root.
-        XCTAssertThrows(FSProxyError.isDirectory) {
+        XCTAssertThrows(FileSystemError.isDirectory) {
             _ = try fs.readFileContents("/")
         }
-        XCTAssertThrows(FSProxyError.isDirectory) {
+        XCTAssertThrows(FileSystemError.isDirectory) {
             try fs.writeFileContents("/", bytes: [])
         }
         XCTAssert(fs.exists(filePath))
         
         // Check read/write into a non-directory.
-        XCTAssertThrows(FSProxyError.notDirectory) {
+        XCTAssertThrows(FileSystemError.notDirectory) {
             _ = try fs.readFileContents(filePath.appending("not-possible"))
         }
-        XCTAssertThrows(FSProxyError.notDirectory) {
+        XCTAssertThrows(FileSystemError.notDirectory) {
             try fs.writeFileContents(filePath.appending("not-possible"), bytes: [])
         }
         XCTAssert(fs.exists(filePath))
         
         // Check read/write into a missing directory.
         let missingDir = AbsolutePath("/does/not/exist")
-        XCTAssertThrows(FSProxyError.noEntry) {
+        XCTAssertThrows(FileSystemError.noEntry) {
             _ = try fs.readFileContents(missingDir)
         }
-        XCTAssertThrows(FSProxyError.noEntry) {
+        XCTAssertThrows(FileSystemError.noEntry) {
             try fs.writeFileContents(missingDir, bytes: [])
         }
         XCTAssert(!fs.exists(missingDir))
