@@ -11,7 +11,7 @@
 import func POSIX.getenv
 import func POSIX.popen
 
-public enum PkgConfigError: ErrorProtocol {
+public enum PkgConfigError: Swift.Error {
     case couldNotFindConfigFile
     case parsingError(String)
     case nonWhitelistedFlags(String)

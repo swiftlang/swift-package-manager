@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum Error: ErrorProtocol {
+public enum Error: Swift.Error {
     case obsoleteGitVersion
     case unknownGitError
     case unicodeDecodingError

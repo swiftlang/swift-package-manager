@@ -733,7 +733,7 @@ private struct Parser {
 }
 
 /// Generic error thrown for any TOML error.
-public struct TOMLParsingError : ErrorProtocol {
+public struct TOMLParsingError : Swift.Error {
     /// The raw errors.
     public let errors: [String]
 }

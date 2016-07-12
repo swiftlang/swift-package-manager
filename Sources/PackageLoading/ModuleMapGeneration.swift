@@ -54,7 +54,7 @@ extension ClangModule {
         }
     }
 
-    public enum ModuleMapError: ErrorProtocol {
+    public enum ModuleMapError: Swift.Error {
         case unsupportedIncludeLayoutForModule(String)
     }
 

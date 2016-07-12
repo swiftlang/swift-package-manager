@@ -13,7 +13,7 @@ import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
 
-public enum TempFileError: ErrorProtocol {
+public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
     /// Some error thrown defined by posix's open().
@@ -119,7 +119,7 @@ extension TemporaryFile: CustomStringConvertible {
 /// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
 //
 // FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
-public enum MakeDirectoryError: ErrorProtocol {
+public enum MakeDirectoryError: Swift.Error {
     /// The given path already exists as a directory, file or symbolic link.
     case pathExists
     /// The path provided was too long.

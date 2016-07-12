@@ -208,7 +208,7 @@ public func c99name(name: String) throws  -> String {
     return mapped.reduce(""){ $0 + String($1) }
 }
 
-enum Error: ErrorProtocol {
+enum Error: Swift.Error {
     case invalidPackageName(String)
 }
 

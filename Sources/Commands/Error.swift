@@ -17,7 +17,7 @@ import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
 
-public enum Error: ErrorProtocol {
+public enum Error: Swift.Error {
     case noManifestFound
     case invalidToolchain
     case buildYAMLNotFound(String)

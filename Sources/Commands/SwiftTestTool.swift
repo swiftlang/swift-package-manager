@@ -16,7 +16,7 @@ import Utility
 import func POSIX.chdir
 import func POSIX.exit
 
-private enum TestError: ErrorProtocol {
+private enum TestError: Swift.Error {
     case testsExecutableNotFound
     case invalidListTestJSONData
 }

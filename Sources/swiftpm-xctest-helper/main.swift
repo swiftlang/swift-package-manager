@@ -85,7 +85,7 @@ func run() throws {
     file.write(outputData)
 }
 
-enum Error: ErrorProtocol {
+enum Error: Swift.Error {
     case invalidUsage
     case unableToLoadBundle(String)
     case couldNotOpenOutputFile(String)

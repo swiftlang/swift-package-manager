@@ -15,7 +15,7 @@ import func POSIX.getenv
 import enum POSIX.Error
 import class Foundation.ProcessInfo
 
-enum GitRepositoryProviderError: ErrorProtocol {
+enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(url: String, path: String)
 }
 extension GitRepositoryProviderError: CustomStringConvertible {

@@ -145,7 +145,7 @@ extension JSON: ByteStreamable {
 
 import Foundation
 
-enum JSONDecodingError: ErrorProtocol {
+enum JSONDecodingError: Swift.Error {
     /// The input byte string is malformed.
     case malformed
 }

@@ -26,7 +26,7 @@ public final class Package {
         self.name = manifest.package.name ?? Package.nameForURL(url)
     }
 
-    public enum Error: ErrorProtocol {
+    public enum Error: Swift.Error {
         case noManifest(String)
         case noOrigin(String)
     }

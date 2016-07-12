@@ -10,7 +10,7 @@
 
 import struct PackageDescription.Version
 
-enum Error: ErrorProtocol {
+enum Error: Swift.Error {
 
     typealias ClonePath = String
     typealias URL = String

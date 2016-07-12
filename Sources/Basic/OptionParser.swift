@@ -12,7 +12,7 @@
     import Foundation  // String.hasPrefix
 #endif
 
-public enum OptionParserError: ErrorProtocol {
+public enum OptionParserError: Swift.Error {
     case unknownArgument(String)
     case multipleModesSpecified([String])
     case expectedAssociatedValue(String)
