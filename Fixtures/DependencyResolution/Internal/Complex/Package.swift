@@ -1,6 +1,7 @@
 import PackageDescription
 
 let package = Package(
+    name: "Complex",
     targets: [
         Target(
             name: "Foo",

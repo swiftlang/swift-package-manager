@@ -18,6 +18,7 @@
 import PackageDescription
 
 let package = Package(
+    name: "packageB",
     targets: [ Target(name: "y")],
     dependencies: [
         .Package(url: "../packageC", majorVersion: 1)
