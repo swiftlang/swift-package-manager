@@ -45,23 +45,39 @@ class PackagesDirectory {
 extension PackagesDirectory: Fetcher {
     typealias T = Package
 
+    /// Extract the package version from a path.
+    //
+    // FIXME: This is really gross, and should not be necessary -- we should
+    // maintain the state we care about in a well defined format, not just via
+    // the file system path.
+    private func extractPackageVersion(_ name: String) -> Version? {
+        // Search each suffix separated by a '-'.
+        var name = name
+        while let separatorIndex = name.characters.rindex(of: "-") {
+            // See if there is a parseable version (there could be prerelease identifiers, etc.).
+            let versionString = String(name.characters.suffix(from: name.index(after: separatorIndex)))
+            if let version = Version(versionString) {
+                return version
+            }
+
+            // If not, keep looking.
+            name = String(name.characters.prefix(upTo: separatorIndex))
+        }
+        return nil
+    }
+        
     /// Create a Package for a given repositories current state.
     //
     // FIXME: We *always* have a manifest, don't reparse it.
     private func createPackage(repo: Git.Repo) throws -> Package? {
-        guard let origin = repo.origin else { throw Package.Error.noOrigin(repo.path.asString) }
-        let manifest = try manifestParser(path: repo.path, url: origin)
-
-        // Compute the package version.
-        //
-        // FIXME: This is really gross, and should not be necessary.
-        let packagePath = manifest.path.parentDirectory
-        let packageName = manifest.package.name ?? Package.nameForURL(origin)
-        let packageVersionString = packagePath.basename.characters.dropFirst(packageName.characters.count + 1)
-        guard let version = Version(packageVersionString) else {
+        guard let origin = repo.origin else {
+            throw Package.Error.noOrigin(repo.path.asString)
+        }
+        guard let version = extractPackageVersion(repo.path.basename) else {
             return nil
         }
         
+        let manifest = try manifestParser(path: repo.path, url: origin)
         return Package(manifest: manifest, url: origin, version: version)
     }
     
