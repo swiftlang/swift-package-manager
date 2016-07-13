@@ -23,6 +23,7 @@ import VersionInfo
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
+import struct PackageDescription.Version
 
 import func POSIX.chdir
 
@@ -140,16 +141,16 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            func parseManifest(path: AbsolutePath, baseURL: String) throws -> Manifest {
+            func parseManifest(path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
                 let swiftc = ToolDefaults.SWIFT_EXEC.asString
                 let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path.asString, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
+                return try Manifest(path: path.asString, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
             }
             
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root, baseURL: root.asString)
+                let manifest = try parseManifest(path: root, baseURL: root.asString, version: nil)
                 if opts.ignoreDependencies {
-                    return (Package(manifest: manifest, url: manifest.path.parentDirectory, version: nil), [])
+                    return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
                 } else {
                     return try get(manifest, manifestParser: parseManifest)
                 }

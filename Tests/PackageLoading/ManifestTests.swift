@@ -55,7 +55,7 @@ class ManifestTests: XCTestCase {
     private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = AbsolutePath(#file).appending("../Inputs").appending(inputName)
-            body(try Manifest(path: input.asString, baseURL: input.parentDirectory.asString, swiftc: swiftc.asString, libdir: libdir.asString))
+            body(try Manifest(path: input.asString, baseURL: input.parentDirectory.asString, swiftc: swiftc.asString, libdir: libdir.asString, version: nil))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -90,15 +90,15 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc.asString, libdir: libdir.asString)
+        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc.asString, libdir: libdir.asString, version: nil)
         XCTAssertNil(foo)
     }
 
     func testInvalidTargetName() {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try Manifest(path: prefix.appending("Package.swift").asString, baseURL: prefix.asString, swiftc: swiftc.asString, libdir: libdir.asString)
-                let package = Package(manifest: manifest, url: prefix.asString, version: nil)
+                let manifest = try Manifest(path: prefix.appending("Package.swift").asString, baseURL: prefix.asString, swiftc: swiftc.asString, libdir: libdir.asString, version: nil)
+                let package = Package(manifest: manifest, url: prefix.asString)
 
                 let _ = try package.modules()
 

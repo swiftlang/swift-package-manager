@@ -19,8 +19,8 @@ import PackageDescription
 final class PackageVersionDataTests: XCTestCase {
 
     func makePackage(version: Version?) -> PackageModel.Package {
-        let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-        return Package(manifest: m, url: "https://github.com/testPkg", version: version)
+        let m = Manifest(path: "path", package: PackageDescription.Package(), products: [], version: version)
+        return Package(manifest: m, url: "https://github.com/testPkg")
     }
 
     func testPackageData(_ package: PackageModel.Package, url: String, version: Version?) {
@@ -52,8 +52,8 @@ final class PackageVersionDataTests: XCTestCase {
         mktmpdir { dir in
             let package = makePackage(version: nil)
 
-            let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg", version: nil)
+            let m = Manifest(path: "path", package: PackageDescription.Package(), products: [], version: nil)
+            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg")
 
             try generateVersionData(dir.asString, rootPackage:rootPkg, externalPackages: [package])
             XCTAssertFileExists(dir.appending(".build/versionData/").appending(package.name + ".swift"))

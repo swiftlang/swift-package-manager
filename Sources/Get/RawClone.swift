@@ -23,21 +23,32 @@ import struct PackageDescription.Version
  */
 class RawClone: Fetchable {
     let path: AbsolutePath
-    let manifestParser: (path: AbsolutePath, url: String) throws -> Manifest
+    let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
 
+    private func getRepositoryVersion() -> Version? {
+        var branch = repo.branch!
+        if branch.hasPrefix("heads/") {
+            branch = String(branch.characters.dropFirst(6))
+        }
+        if branch.hasPrefix("v") {
+            branch = String(branch.characters.dropFirst())
+        }
+        return Version(branch)
+    }
+    
     // lazy because the tip of the default branch does not have to be a valid package
     //FIXME we should error gracefully if a selected version does not however
     var manifest: Manifest! {
         if let manifest = _manifest {
             return manifest
         } else {
-            _manifest = try? manifestParser(path: path, url: repo.origin!)
+            _manifest = try? manifestParser(path: path, url: repo.origin!, version: getRepositoryVersion())
             return _manifest
         }
     }
     private var _manifest: Manifest?
 
-    init(path: AbsolutePath, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws {
+    init(path: AbsolutePath, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
@@ -50,14 +61,7 @@ class RawClone: Fetchable {
     }
 
     var currentVersion: Version {
-        var branch = repo.branch!
-        if branch.hasPrefix("heads/") {
-            branch = String(branch.characters.dropFirst(6))
-        }
-        if branch.hasPrefix("v") {
-            branch = String(branch.characters.dropFirst())
-        }
-        return Version(branch)!
+        return getRepositoryVersion()!
     }
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone

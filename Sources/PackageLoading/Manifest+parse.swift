@@ -28,7 +28,7 @@ extension Manifest {
     /// Create a manifest by loading from the given path.
     ///
     /// - path: The path to the manifest file or directory containing `Package.swift`.
-    public init(path inputPath: String, baseURL: String, swiftc: String, libdir: String) throws {
+    public init(path inputPath: String, baseURL: String, swiftc: String, libdir: String, version: Version?) throws {
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
@@ -52,7 +52,7 @@ extension Manifest {
         let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
         let products = PackageDescription.Product.fromTOML(toml)
 
-        self.init(path: path, package: package, products: products)
+        self.init(path: path, package: package, products: products, version: version)
     }
 }
 

@@ -16,6 +16,8 @@ public final class Package {
     public let name: String
     
     /// The URL the package was loaded from.
+    //
+    // FIXME: This probably doesn't belong here...
     public let url: String
     
     /// The local path of the package.
@@ -25,19 +27,22 @@ public final class Package {
     public let manifest: Manifest
 
     /// The version this package was loaded from, if known.
-    public let version: Version?
+    //
+    // FIXME: Eliminate this method forward.
+    public var version: Version? {
+        return manifest.version
+    }
 
     /// The resolved dependencies of the package.
     ///
     /// This value is only available once package loading is complete.
     public var dependencies: [Package] = []
 
-    public init(manifest: Manifest, url: String, version: Version?) {
+    public init(manifest: Manifest, url: String) {
         self.url = url
         self.manifest = manifest
         self.path = manifest.path.parentDirectory
         self.name = manifest.package.name ?? Package.nameForURL(url)
-        self.version = version
     }
 
     public enum Error: Swift.Error {
