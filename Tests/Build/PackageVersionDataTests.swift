@@ -19,7 +19,7 @@ import PackageDescription
 final class PackageVersionDataTests: XCTestCase {
 
     func makePackage(version: Version?) -> PackageModel.Package {
-        let m = Manifest(path: "/path", url: "https://github.com/testPkg", package: PackageDescription.Package(), products: [], version: version)
+        let m = Manifest(path: "/path", url: "https://github.com/testPkg", package: PackageDescription.Package(name: "a"), products: [], version: version)
         return Package(manifest: m)
     }
 
@@ -52,7 +52,7 @@ final class PackageVersionDataTests: XCTestCase {
         mktmpdir { dir in
             let package = makePackage(version: nil)
 
-            let m = Manifest(path: "/path", url: "https://github.com/rootPkg", package: PackageDescription.Package(), products: [], version: nil)
+            let m = Manifest(path: "/path", url: "https://github.com/rootPkg", package: PackageDescription.Package(name: "a"), products: [], version: nil)
             let rootPkg = Package(manifest: m)
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
