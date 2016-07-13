@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 import POSIX
@@ -23,7 +24,7 @@ private extension ClangModule {
             //transitive closure of the target being built allowing the use of `#include <...>`
 
             includeFlag = externalModules.contains(dep) ? "-I" : "-iquote"
-            args += [includeFlag, dep.path]
+            args += [includeFlag, dep.path.asString]
         }
         return args
     }
@@ -46,13 +47,13 @@ struct ClangModuleBuildMetadata {
     let module: ClangModule
 
     /// Path to working directiory.
-    let prefix: String
+    let prefix: AbsolutePath
 
     /// Extra arguments to append to basic compile and link args.
     let otherArgs: [String]
 
     /// Path to build directory for this module.
-    var buildDirectory: String { return Path.join(prefix, "\(module.c99name).build") }
+    var buildDirectory: AbsolutePath { return prefix.appending(module.c99name + ".build") }
 
     /// Targets this module depends on.
     var inputs: [String] {
@@ -71,17 +72,17 @@ struct ClangModuleBuildMetadata {
 
     /// An array of tuple containing filename, source path, object path and dependency path
     /// for each of the source in this module.
-    func compilePaths() -> [(filename: String, source: String, object: String, deps: String)] {
+    func compilePaths() -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)] {
         return module.sources.relativePaths.map { source in
-            let path = Path.join(module.sources.root, source)
-            let object = Path.join(buildDirectory, "\(source).o")
-            let deps = Path.join(buildDirectory, "\(source).d")
+            let path = module.sources.root.appending(source)
+            let object = buildDirectory.appending(source.asString + ".o")
+            let deps = buildDirectory.appending(source.asString + ".d")
             return (source, path, object, deps)
         }
     }
 
     /// Returns all the objects files for this module.
-    var objects: [String] { return compilePaths().map{$0.object} }
+    var objects: [AbsolutePath] { return compilePaths().map{$0.object} }
 
     /// Basic flags needed to compile this module.
     func basicCompileArgs() throws -> [String] {
@@ -110,7 +111,7 @@ struct ClangModuleBuildMetadata {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: String, CC: String, otherArgs: [String]) throws -> [Command] {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: AbsolutePath, CC: String, otherArgs: [String]) throws -> [Command] {
 
         let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
@@ -125,18 +126,18 @@ extension Command {
 
         for path in buildMeta.compilePaths() {
             var args = basicArgs
-            args += ["-MD", "-MT", "dependencies", "-MF", path.deps]
-            args += ["-c", path.source, "-o", path.object]
+            args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
+            args += ["-c", path.source.asString, "-o", path.object.asString]
             // Add include directory in include search paths.
-            args += ["-I", module.path]
+            args += ["-I", module.path.asString]
 
-            let clang = ClangTool(desc: "Compile \(module.name) \(path.filename)",
-                                  inputs: buildMeta.inputs + [path.source],
-                                  outputs: [path.object],
+            let clang = ClangTool(desc: "Compile \(module.name) \(path.filename.asString)",
+                                  inputs: buildMeta.inputs + [path.source.asString],
+                                  outputs: [path.object.asString],
                                   args: [CC] + args,
-                                  deps: path.deps)
+                                  deps: path.deps.asString)
 
-            let command = Command(node: path.object, tool: clang)
+            let command = Command(node: path.object.asString, tool: clang)
 
             compileCommands.append(command)
         }

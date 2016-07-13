@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import POSIX
 import Utility
 
@@ -17,22 +18,22 @@ class RmtreeTests: XCTestCase {
     func testDoesNotFollowSymlinks() {
         do {
             try mkdtemp("foo") { root in
-                let root = try realpath(root)
+                let root = try AbsolutePath(realpath(root))
+                
+                try Utility.makeDirectories(root.appending("foo").asString)
+                try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
+                try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
+                
+                XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
+                XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
+                XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
 
-                try Utility.makeDirectories(Path.join(root, "foo"))
-                try Utility.makeDirectories(Path.join(root, "bar/baz/goo"))
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                try Utility.removeFileTree(root.appending("foo").asString)
 
-                XCTAssertTrue("\(root)/foo/symlink".isSymlink)
-                XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
-                XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
-
-                try Utility.removeFileTree("\(root)/foo")
-
-                XCTAssertFalse("\(root)/foo".exists)
-                XCTAssertFalse("\(root)/foo".isDirectory)
-                XCTAssertTrue("\(root)/bar/baz".isDirectory)
-                XCTAssertTrue("\(root)/bar/baz/goo".isDirectory)
+                XCTAssertFalse(root.appending("foo").asString.exists)
+                XCTAssertFalse(root.appending("foo").asString.isDirectory)
+                XCTAssertTrue(root.appending("bar/baz").asString.isDirectory)
+                XCTAssertTrue(root.appending("bar/baz/goo").asString.isDirectory)
             }
         } catch {
             print(error)

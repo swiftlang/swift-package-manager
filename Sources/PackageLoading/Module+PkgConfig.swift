@@ -36,15 +36,15 @@ extension ModuleProtocol {
                 return
             }
             do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName)
+                let pkgConfig = try PkgConfig(name: pkgConfigName.asString)
                 cFlags += pkgConfig.cFlags
                 libs += pkgConfig.libs
-                try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
+                try whitelist(pcFile: pkgConfigName.asString, flags: (cFlags, libs))
             }
             catch PkgConfigError.couldNotFindConfigFile {
                 if let providers = module.providers,
                     let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
-                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
+                    print("note: you may be able to install \(pkgConfigName.asString) using your system-packager:\n")
                     print(provider.installText)
                 }
             }

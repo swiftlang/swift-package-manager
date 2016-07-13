@@ -30,6 +30,6 @@ extension Manifest: Fetchable {
     }
 
     func setCurrentVersion(_ newValue: Version) throws {
-        throw Get.Error.invalidDependencyGraph(path)
+        throw Get.Error.invalidDependencyGraph(path.asString)
     }
 }

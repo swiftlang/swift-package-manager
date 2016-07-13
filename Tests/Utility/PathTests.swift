@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import POSIX
 import Utility
 
@@ -93,24 +94,21 @@ class PathTests: XCTestCase {
 class WalkTests: XCTestCase {
 
     func testNonRecursive() {
-        var expected = ["/usr", "/bin", "/sbin"]
+        var expected: [AbsolutePath] = [ "/usr", "/bin", "/sbin" ]
 
         for x in walk("/", recursively: false) {
             if let i = expected.index(of: x) {
                 expected.remove(at: i)
             }
-            XCTAssertEqual(1, x.characters.split(separator: "/").count)
+            XCTAssertEqual(2, x.components.count)
         }
 
         XCTAssertEqual(expected.count, 0)
     }
 
     func testRecursive() {
-        let root = Path.join(#file, "../../../Sources").normpath
-        var expected = [
-            Path.join(root, "Build"),
-            Path.join(root, "Utility")
-        ]
+        let root = AbsolutePath(#file).appending("../../../Sources")
+        var expected: [AbsolutePath] = [ root.appending("Build"), root.appending("Utility") ]
 
         for x in walk(root) {
             if let i = expected.index(of: x) {
@@ -124,20 +122,18 @@ class WalkTests: XCTestCase {
     func testSymlinksNotWalked() {
         do {
             try mkdtemp("foo") { root in
-                let root = try realpath(root)  //FIXME not good that we need this?
+                let root = try AbsolutePath(realpath(root))  //FIXME not good that we need this?
+                try Utility.makeDirectories(root.appending("foo").asString)
+                try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
+                try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
 
-                try Utility.makeDirectories(Path.join(root, "foo"))
-                try Utility.makeDirectories(Path.join(root, "bar/baz/goo"))
-                try symlink(create: "\(root)/foo/symlink", pointingAt: "\(root)/bar", relativeTo: root)
+                XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
+                XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
+                XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
 
-                XCTAssertTrue("\(root)/foo/symlink".isSymlink)
-                XCTAssertEqual(try! realpath("\(root)/foo/symlink"), "\(root)/bar")
-                XCTAssertTrue(try! realpath("\(root)/foo/symlink/baz").isDirectory)
+                let results = walk(root.appending("foo")).map{ $0 }
 
-
-                let results = walk(root, "foo").map{$0}
-
-                XCTAssertEqual(results, ["\(root)/foo/symlink"])
+                XCTAssertEqual(results, [root.appending("foo/symlink")])
             }
         } catch {
             XCTFail("\(error)")
@@ -146,22 +142,22 @@ class WalkTests: XCTestCase {
 
     func testWalkingADirectorySymlinkResolvesOnce() {
         try! mkdtemp("foo") { root in
-            let root = try realpath(root)  //FIXME not good that we need this?
+            let root = try AbsolutePath(realpath(root))  //FIXME not good that we need this?
 
-            try Utility.makeDirectories(Path.join(root, "foo/bar"))
-            try Utility.makeDirectories(Path.join(root, "abc/bar"))
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
-            try symlink(create: "\(root)/foo/baz", pointingAt: "\(root)/abc", relativeTo: root)
+            try Utility.makeDirectories(root.appending("foo/bar").asString)
+            try Utility.makeDirectories(root.appending("abc/bar").asString)
+            try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
+            try symlink(create: root.appending("foo/baz").asString, pointingAt: root.appending("abc").asString, relativeTo: root.asString)
 
-            XCTAssertTrue(Path.join(root, "symlink").isSymlink)
+            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
 
-            let results = walk(root, "symlink").map{$0}.sorted()
+            let results = walk(root.appending("symlink")).map{ $0 }.sorted()
 
             // we recurse a symlink to a directory, so this should work,
             // but `abc` should not show because `baz` is a symlink too
             // and that should *not* be followed
 
-            XCTAssertEqual(results, ["\(root)/symlink/bar", "\(root)/symlink/baz"])
+            XCTAssertEqual(results, [root.appending("symlink/bar"), root.appending("symlink/baz")])
         }
     }
 }
@@ -182,20 +178,22 @@ class StatTests: XCTestCase {
         XCTAssertTrue("/etc/passwd".isFile)
 
         try! mkdtemp("foo") { root in
-            try Utility.makeDirectories(Path.join(root, "foo/bar"))
-            try symlink(create: "\(root)/symlink", pointingAt: "\(root)/foo", relativeTo: root)
+            let root = AbsolutePath(root)
+            
+            try Utility.makeDirectories(root.appending("foo/bar").asString)
+            try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
 
-            XCTAssertTrue("\(root)/foo/bar".isDirectory)
-            XCTAssertTrue("\(root)/symlink/bar".isDirectory)
-            XCTAssertTrue("\(root)/symlink".isDirectory)
-            XCTAssertTrue("\(root)/symlink".isSymlink)
+            XCTAssertTrue(root.appending("foo/bar").asString.isDirectory)
+            XCTAssertTrue(root.appending("symlink/bar").asString.isDirectory)
+            XCTAssertTrue(root.appending("symlink").asString.isDirectory)
+            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
 
-            try Utility.removeFileTree("\(root)/foo/bar")
-            try Utility.removeFileTree("\(root)/foo")
+            try removeFileTree(root.appending("foo/bar").asString)
+            try removeFileTree(root.appending("foo").asString)
 
-            XCTAssertTrue("\(root)/symlink".isSymlink)
-            XCTAssertFalse("\(root)/symlink".isDirectory)
-            XCTAssertFalse("\(root)/symlink".isFile)
+            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
+            XCTAssertFalse(root.appending("symlink").asString.isDirectory)
+            XCTAssertFalse(root.appending("symlink").asString.isFile)
         }
     }
 

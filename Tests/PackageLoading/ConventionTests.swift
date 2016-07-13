@@ -55,7 +55,7 @@ class ConventionTests: XCTestCase {
         let files: [RelativePath] = ["Foo.swift"]
         test(files: files) { (module: SwiftModule) in 
             XCTAssertEqual(module.sources.paths.count, files.count)
-            XCTAssertEqual(Set(module.sources.relativePaths.map{ RelativePath($0) }), Set(files))
+            XCTAssertEqual(Set(module.sources.relativePaths), Set(files))
         }
     }
 
@@ -89,7 +89,7 @@ private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throw
 /// Check the behavior of a test project with the given file paths.
 private func fixture(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
     fixture(files: files) { (prefix: AbsolutePath) in
-        let manifest = Manifest(path: prefix.appending("Package.swift").asString, url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
+        let manifest = Manifest(path: prefix.appending("Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
         let package = Package(manifest: manifest)
         let modules = try package.modules()
         try body(package, modules)

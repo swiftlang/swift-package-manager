@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import Utility
 import PackageModel
 
@@ -57,7 +58,7 @@ extension ClangModule {
     }
 
     var containsCppFiles: Bool {
-        return sources.paths.contains { $0.isCpp } 
+        return sources.paths.contains { $0.asString.isCpp }
     }
 }
 
@@ -139,17 +140,17 @@ extension SystemPackageProvider {
 }
 
 protocol ClangModuleCachable {
-    func moduleCacheArgs(prefix: String) -> [String]
+    func moduleCacheArgs(prefix: AbsolutePath) -> [String]
 }
 
 extension ClangModuleCachable {
-    func moduleCacheDir(prefix: String) -> String {
-        return Path.join(prefix, "ModuleCache")
+    func moduleCacheDir(prefix: AbsolutePath) -> AbsolutePath {
+        return prefix.appending("ModuleCache")
     }
 }
 
 extension ClangModule: ClangModuleCachable {
-    func moduleCacheArgs(prefix: String) -> [String] {
+    func moduleCacheArgs(prefix: AbsolutePath) -> [String] {
         // FIXME: We use this hack to let swiftpm's functional test use shared cache
         // so it doesn't become painfully slow.
         if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
@@ -159,11 +160,11 @@ extension ClangModule: ClangModuleCachable {
 }
 
 extension SwiftModule: ClangModuleCachable {
-    func moduleCacheArgs(prefix: String) -> [String] {
+    func moduleCacheArgs(prefix: AbsolutePath) -> [String] {
         // FIXME: We use this hack to let swiftpm's functional test use shared cache
         // so it doesn't become painfully slow.
         if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
         let moduleCachePath = moduleCacheDir(prefix: prefix)
-        return ["-module-cache-path", moduleCachePath]
+        return ["-module-cache-path", moduleCachePath.asString]
     }
 }

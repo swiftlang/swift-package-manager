@@ -17,8 +17,7 @@ import func POSIX.getenv
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
-    precondition(prefix.isAbsolute)
+public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> AbsolutePath {
 
     guard modules.count > 0 else {
         throw Error.noModules
@@ -30,8 +29,8 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
 
     let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
     let Xld = Xld.flatMap{ ["-Xlinker", $0] }
-    let prefix = Path.join(prefix, conf.dirname)
-    try Utility.makeDirectories(prefix)
+    let prefix = prefix.appending(conf.dirname)
+    try Utility.makeDirectories(prefix.asString)
     let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC
@@ -84,7 +83,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         targets.append([command], for: product)
     }
 
-    return try! write(path: "\(prefix).yaml") { stream in
+    return try! write(path: AbsolutePath("\(prefix.asString).yaml")) { stream in
         stream <<< "client:\n"
         stream <<< "  name: swift-build\n"
         stream <<< "tools: {}\n"
@@ -102,7 +101,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 }
 
-private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
+private func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws -> AbsolutePath {
     let stream = OutputByteStream()
     write(stream)
     try localFileSystem.writeFileContents(path, bytes: stream.bytes)

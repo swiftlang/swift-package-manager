@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import Utility
 import struct PackageDescription.Version
 
@@ -56,7 +57,7 @@ public final class Package {
     }
     
     /// The local path of the package.
-    public var path: String {
+    public var path: AbsolutePath {
         return manifest.path.parentDirectory
     }
 

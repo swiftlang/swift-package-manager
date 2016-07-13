@@ -173,7 +173,7 @@ public struct SwiftPackageTool: SwiftTool {
             func parseManifest(path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
                 let swiftc = ToolDefaults.SWIFT_EXEC.asString
                 let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path.asString, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
+                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
             }
             
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {

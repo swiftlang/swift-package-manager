@@ -144,7 +144,7 @@ public struct SwiftBuildTool: SwiftTool {
             func parseManifest(path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
                 let swiftc = ToolDefaults.SWIFT_EXEC.asString
                 let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path.asString, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
+                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
             }
             
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
@@ -259,7 +259,7 @@ public struct SwiftBuildTool: SwiftTool {
 
     private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> AbsolutePath {
         do {
-            return try AbsolutePath(Build.describe(opts.path.build.asString, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain))
+            return try Build.describe(opts.path.build, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain)
         } catch {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but
