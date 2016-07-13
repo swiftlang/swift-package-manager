@@ -14,13 +14,12 @@ import Utility
 
 import struct PackageDescription.Version
 
-/**
- Initially we clone into a non-final form because we may need to
- adjust the dependency graph due to further specifications as
- we clone more repositories. This is the non-final form. Once
- `recursivelyFetch` completes we finalize these clones into our
- Sandbox.
- */
+/// A clone of a repository which is not yet fully loaded.
+///
+/// Initially we clone into a non-final form because we may need to adjust the
+/// dependency graph due to further specifications as we clone more
+/// repositories. This is the non-final form. Once `recursivelyFetch` completes
+/// we finalize these clones into the `PackagesDirectory`.
 class RawClone: Fetchable {
     let path: AbsolutePath
     let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest

@@ -12,13 +12,13 @@ import PackageModel
 
 import struct PackageDescription.Version
 
-extension Package: Fetchable {
+extension Manifest: Fetchable {
     var children: [(String, Range<Version>)] {
-        return manifest.package.dependencies.map{ ($0.url, $0.versionRange) }
+        return package.dependencies.map{ ($0.url, $0.versionRange) }
     }
 
     var currentVersion: Version {
-        return self.version!
+        return version!
     }
 
     func constrain(to versionRange: Range<Version>) -> Version? {
@@ -30,6 +30,6 @@ extension Package: Fetchable {
     }
 
     func setCurrentVersion(_ newValue: Version) throws {
-        throw Get.Error.invalidDependencyGraph(url)
+        throw Get.Error.invalidDependencyGraph(path)
     }
 }
