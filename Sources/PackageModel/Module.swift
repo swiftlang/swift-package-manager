@@ -18,7 +18,6 @@
 import Basic
 
 @_exported import enum PackageDescription.SystemPackageProvider
-import struct Basic.RelativePath
 
 public protocol ModuleProtocol {
     var name: String { get }
@@ -114,10 +113,10 @@ extension SwiftModule: XcodeModuleProtocol {
 }
 
 public class CModule: Module {
-    public let path: String
-    public let pkgConfig: String?
+    public let path: AbsolutePath
+    public let pkgConfig: RelativePath?
     public let providers: [SystemPackageProvider]?
-    public init(name: String, path: String, isTest: Bool = false, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil) throws {
+    public init(name: String, path: AbsolutePath, isTest: Bool = false, pkgConfig: RelativePath? = nil, providers: [SystemPackageProvider]? = nil) throws {
         self.path = path
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -132,7 +131,7 @@ public class ClangModule: CModule {
     
     public init(name: String, isTest: Bool = false, sources: Sources) throws {
         self.sources = sources
-        try super.init(name: name, path: sources.root + "/include", isTest: isTest)
+        try super.init(name: name, path: sources.root.appending("include"), isTest: isTest)
     }
 }
 

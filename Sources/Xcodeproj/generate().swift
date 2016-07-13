@@ -41,7 +41,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, srcroot: Absolut
     try Utility.makeDirectories(xcodeprojPath.asString)
     try Utility.makeDirectories(schemesDirectory.asString)
     let schemeName = "\(projectName).xcscheme"
-    let directoryReferences = try findDirectoryReferences(path: srcroot.asString)
+    let directoryReferences = try findDirectoryReferences(path: srcroot)
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath.appending("project.pbxproj")) { stream in
@@ -138,24 +138,22 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
 
 /// Finds directories that will be added as blue folder
 /// Excludes hidden directories and Xcode projects and directories that contains source code
-func findDirectoryReferences(path: String) throws -> [AbsolutePath] {
+func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
     let rootDirectories = walk(path, recursively: false)
     let rootDirectoriesToConsider = rootDirectories.filter {
-        if $0.hasSuffix(".xcodeproj") { return false }
-        if $0.hasSuffix(".playground") { return false }
+        if $0.suffix == ".xcodeproj" { return false }
+        if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
-        return $0.isDirectory
+        return $0.asString.isDirectory
     }
     
     let filteredDirectories = rootDirectoriesToConsider.filter {
         let directoriesWithSources = walk($0).filter {
-            guard let fileExt = $0.fileExt else { return false }
+            guard let fileExt = $0.asString.fileExt else { return false }
             return SupportedLanguageExtension.validExtensions.contains(fileExt)
         }
         return directoriesWithSources.isEmpty
-        }.map {
-            AbsolutePath($0)
-        }
+    }
 
     return filteredDirectories;
 }

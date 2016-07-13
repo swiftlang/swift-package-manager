@@ -26,7 +26,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            _ = try describe(tempDir.path.appending("foo").asString, .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+            _ = try describe(tempDir.path.appending("foo"), .debug, [], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.noModules {
             XCTAssert(true, "This error should be thrown")
@@ -38,7 +38,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingCModuleThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            _ = try describe(tempDir.path.appending("foo").asString, .debug, [CModule(name: "MyCModule", path: "")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
+            _ = try describe(tempDir.path.appending("foo"), .debug, [CModule(name: "MyCModule", path: "/")], [], [], Xcc: [], Xld: [], Xswiftc: [], toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {
             XCTAssert(true, "This error should be thrown")

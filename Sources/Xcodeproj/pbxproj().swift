@@ -82,7 +82,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 ////// modules group
     for module in modules {
         // Base directory for source files belonging to the module.
-        let moduleRoot = AbsolutePath(module.sources.root)
+        let moduleRoot = module.sources.root
         
         // Contruct an array of (refId, path, bflId) tuples for all the source files in the model.  The reference id is for the PBXFileReference in the group hierarchy, and the build file id is for the PBXBuildFile in the CompileSources build phase.
         let sourceFileRefs = fileRefs(forModuleSources: module, srcroot: srcroot)
@@ -265,7 +265,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 
         // If the user provided an overriding xcconfig path, include it here.
         if let path = options.xcconfigOverrides {
-            print("\n#include \"\(path)\"")
+            print("\n#include \"\(path.asString)\"")
         }
     }
     let configs = [projectXCConfig]

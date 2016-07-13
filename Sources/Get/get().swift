@@ -34,7 +34,7 @@ public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: 
 }
 
 private func fetchResolvedManifests(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws -> [Manifest] {
-    let dir = AbsolutePath(manifest.path.parentDirectory).appending("Packages")
+    let dir = manifest.path.parentDirectory.appending("Packages")
     let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 
     //TODO don't lose the dependency information during the Fetcher process!

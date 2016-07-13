@@ -37,7 +37,7 @@ public class Git {
 
             } catch {
                 //TODO better
-                print("Bad git repository: \(repo.path)", to: &stderr)
+                print("Bad git repository: \(repo.path.asString)", to: &stderr)
                 return nil
             }
         }(self)

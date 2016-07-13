@@ -28,7 +28,7 @@ extension Manifest {
     /// Create a manifest by loading from the given path.
     ///
     /// - path: The path to the manifest file or directory containing `Package.swift`.
-    public init(path inputPath: String, baseURL: String, swiftc: String, libdir: String, version: Version?) throws {
+    public init(path inputPath: AbsolutePath, baseURL: String, swiftc: String, libdir: String, version: Version?) throws {
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
@@ -38,10 +38,10 @@ extension Manifest {
         }
 
         // Compute the actual input file path.
-        let path: String = inputPath.isDirectory ? Path.join(inputPath, Manifest.filename) : inputPath
+        let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard path.isFile else { throw PackageModel.Package.Error.noManifest(path) }
+        guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }
 
         // Load the manifest description.
         guard let tomlString = try parse(path: path, swiftc: swiftc, libdir: libdir) else {
@@ -56,7 +56,7 @@ extension Manifest {
     }
 }
 
-private func parse(path manifestPath: String, swiftc: String, libdir: String) throws -> String? {
+private func parse(path manifestPath: AbsolutePath, swiftc: String, libdir: String) throws -> String? {
     // For now, we load the manifest by having Swift interpret it directly.
     // Eventually, we should have two loading processes, one that loads only the
     // the declarative package specification using the Swift compiler directly
@@ -79,11 +79,11 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
 #if os(OSX)
     cmd += ["-target", "x86_64-apple-macosx10.10"]
 #endif
-    cmd += [manifestPath]
+    cmd += [manifestPath.asString]
 
     //Create and open a temporary file to write toml to
-    let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
-    let fp = try fopen(filePath, mode: .write)
+    let filePath = manifestPath.parentDirectory.appending(".Package.toml")
+    let fp = try fopen(filePath.asString, mode: .write)
     defer { fp.closeFile() }
 
     //Pass the fd in arguments
@@ -98,7 +98,7 @@ private func parse(path manifestPath: String, swiftc: String, libdir: String) th
     guard let toml = try localFileSystem.readFileContents(filePath).asString else {
         throw ManifestParseError.invalidEncoding
     }
-    try Utility.removeFileTree(filePath) // Delete the temp file after reading it
+    try Utility.removeFileTree(filePath.asString) // Delete the temp file after reading it
 
     return toml != "" ? toml : nil
 }

@@ -85,16 +85,16 @@ func fileRef(inProjectRoot subpath: RelativePath, srcroot: AbsolutePath) -> (ref
 
 /// Returns the (refId, path) tuple for the Info.plist file for a particular module.
 func fileRef(ofInfoPlistFor module: XcodeModuleProtocol, srcroot: AbsolutePath) -> (refId: String, path: AbsolutePath) {
-    let path = srcroot.appending(RelativePath(module.infoPlistFileName))
+    let path = srcroot.appending(module.infoPlistFileName)
     let idSuffix = module.infoPlistFileName
     return (refId: "\(sourceGroupFileRefPrefix)\(idSuffix)", path: path)
 }
 
 /// Returns an array of (refId, path, bflId) tuples of the source files in a module, where `refId` is the object id string of the `PBXFileReference` (in the groups-and-files hierarchy) and `bflId` is the object id string of the corresponding `PBXBuildFile` (in the build phase's file list).
 func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: AbsolutePath) -> [(refId: String, path: AbsolutePath, bflId: String)] {
-    let moduleRoot = AbsolutePath(module.sources.root)
+    let moduleRoot = module.sources.root
     return module.sources.relativePaths.map { relPath in
-        let path = moduleRoot.appending(RelativePath(relPath))
+        let path = moduleRoot.appending(relPath)
         let idSuffix = fileRef(idSuffixForModuleSourceFile: path, srcroot: srcroot)
         return (refId: "'\(sourceGroupFileRefPrefix)\(idSuffix)'", path: path, bflId: "'\(compilePhaseFileRefPrefix)\(idSuffix)'")
     }
@@ -167,10 +167,10 @@ extension XcodeModuleProtocol  {
         guard !headerPaths.isEmpty else { return nil }
 
         if headerPaths.count == 1, let first = headerPaths.first {
-            return (headerPathKey, first)
+            return (headerPathKey, first.asString)
         }
 
-        let headerPathValue = headerPaths.joined(separator: " ")
+        let headerPathValue = headerPaths.map{ $0.asString }.joined(separator: " ")
         
         return (headerPathKey, headerPathValue)
     }
@@ -196,7 +196,7 @@ extension XcodeModuleProtocol  {
 
     private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: String] {
         var buildSettings = [String: String]()
-        let plistPath = xcodeProjectPath.appending(RelativePath(infoPlistFileName))
+        let plistPath = xcodeProjectPath.appending(infoPlistFileName)
 
         if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
@@ -268,13 +268,13 @@ extension XcodeModuleProtocol  {
             buildSettings["DEFINES_MODULE"] = "YES"
             let moduleMapPath: AbsolutePath
             // If user provided the modulemap no need to generate.
-            if clangModule.moduleMapPath.isFile {
-                moduleMapPath = AbsolutePath(clangModule.moduleMapPath)
+            if clangModule.moduleMapPath.asString.isFile {
+                moduleMapPath = clangModule.moduleMapPath
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
-                let path = xcodeProjectPath.appending("GeneratedModuleMap").appending(RelativePath(clangModule.c99name))
-                try clangModule.generateModuleMap(inDir: path.asString, modulemapStyle: .framework)
-                moduleMapPath = path.appending(RelativePath(clangModule.moduleMap))
+                let path = xcodeProjectPath.appending("GeneratedModuleMap").appending(clangModule.c99name)
+                try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                moduleMapPath = path.appending(clangModule.moduleMap)
             }
 
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString

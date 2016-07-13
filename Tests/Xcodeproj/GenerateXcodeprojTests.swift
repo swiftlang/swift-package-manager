@@ -21,7 +21,7 @@ class GenerateXcodeprojTests: XCTestCase {
     func testXcodeBuildCanParseIt() {
         mktmpdir { dstdir in
             func dummy() throws -> [XcodeModuleProtocol] {
-                return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir.asString))]
+                return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
             }
 
             let projectName = "DummyProjectName"
