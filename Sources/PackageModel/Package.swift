@@ -11,20 +11,55 @@
 import Utility
 import struct PackageDescription.Version
 
+/// The basic package representation.
+///
+/// The package manager conceptually works with five different kinds of
+/// packages:
+///
+/// 1. Informally, the repository containing a package can be thought of in some
+/// sense as the "package". However, this isn't accurate, because the actual
+/// Package is derived from its manifest, a Package only actually exists at a
+/// particular repository revision (typically a tag). We also may eventually
+/// want to support multiple packages within a single repository.
+///
+/// 2. The `PackageDescription.Package` as defined inside a manifest is a
+/// declarative specification for (part of) the package but not the object that
+/// the package manager itself is typically working with internally. Rather,
+/// that specification is primarily used to load the package (see the
+/// `PackageLoading` module).
+///
+/// 3. A partially loaded `PackageModel.Package` (i.e. the type here) is used
+/// during package dependency resolution; it has a loaded manifest but has not
+/// had its dependencies populated (or the conventions evaluated to construct
+/// `Module` instances). This is what is generally in use within the algorithm
+/// inside of the `Get` module, and could probably be replaced by `Manifest`.
+///
+/// 4. A loaded `PackageModel.Package` which has had dependencies loaded and
+/// resolved. This is the result after `Get.get()`.
+///
+/// 5. A loaded package, as in #4, for which the modules have also been
+/// loaded. There is not currently a data structure for this, but it is the
+/// result after `PackageLoading.transmute()`.
 public final class Package {
+    /// The manifest describing the package.
+    public let manifest: Manifest
+
     /// The name of the package.
     public let name: String
     
     /// The URL the package was loaded from.
     //
     // FIXME: This probably doesn't belong here...
-    public let url: String
+    //
+    // FIXME: Eliminate this method forward.
+    public var url: String {
+        return manifest.url
+    }
     
     /// The local path of the package.
-    public let path: String
-
-    /// The manifest describing the package.
-    public let manifest: Manifest
+    public var path: String {
+        return manifest.path.parentDirectory
+    }
 
     /// The version this package was loaded from, if known.
     //
@@ -38,11 +73,9 @@ public final class Package {
     /// This value is only available once package loading is complete.
     public var dependencies: [Package] = []
 
-    public init(manifest: Manifest, url: String) {
-        self.url = url
+    public init(manifest: Manifest) {
         self.manifest = manifest
-        self.path = manifest.path.parentDirectory
-        self.name = manifest.package.name ?? Package.nameForURL(url)
+        self.name = manifest.package.name ?? Package.nameForURL(manifest.url)
     }
 
     public enum Error: Swift.Error {

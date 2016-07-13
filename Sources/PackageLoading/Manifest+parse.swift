@@ -52,7 +52,7 @@ extension Manifest {
         let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
         let products = PackageDescription.Product.fromTOML(toml)
 
-        self.init(path: path, package: package, products: products, version: version)
+        self.init(path: path, url: baseURL, package: package, products: products, version: version)
     }
 }
 
