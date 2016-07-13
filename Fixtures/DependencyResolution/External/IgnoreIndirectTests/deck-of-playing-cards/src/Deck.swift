@@ -43,9 +43,9 @@ public struct Deck {
     }
 }
 
-// MARK: - ArrayLiteralConvertible
+// MARK: - ExpressibleByArrayLiteral
 
-extension Deck : ArrayLiteralConvertible {
+extension Deck : ExpressibleByArrayLiteral {
     public init(arrayLiteral elements: PlayingCard...) {
         self.init(elements)
     }

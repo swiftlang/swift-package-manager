@@ -30,7 +30,7 @@ class ByteStringTests: XCTestCase {
 
         XCTAssertEqual(ByteString("A").contents, [65])
 
-        // Test StringLiteralConvertible initialization.
+        // Test ExpressibleByStringLiteral initialization.
         XCTAssertEqual(ByteString([65]), "A")
     }
 

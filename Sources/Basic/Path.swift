@@ -158,9 +158,9 @@ public struct AbsolutePath {
     }
 }
 
-/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
 /// to be implicitly converted to AbsolutePaths.
-extension AbsolutePath : StringLiteralConvertible {
+extension AbsolutePath : ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
     public init(stringLiteral value: String) {
@@ -245,9 +245,9 @@ public struct RelativePath {
     }
 }
 
-/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
 /// to be implicitly converted to RelativePaths.
-extension RelativePath : StringLiteralConvertible {
+extension RelativePath : ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
     public init(stringLiteral value: String) {
