@@ -18,17 +18,13 @@ import Utility
  - Throws: Error.InvalidDependencyGraph
  - Returns: The modules that this manifest requires building
 */
-public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
+public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
     let dir = AbsolutePath(manifest.path.parentDirectory).appending("Packages")
     let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
 
     //TODO don't lose the dependency information during the Fetcher process!
 
-    // FIXME: We shouldn't need to reconstruct the Repo here. Also, this
-    // assignment of a "version" is bogus -- this is really on the version of
-    // the package if the root package sources are at that tag and unmodified.
-    let rootPackageVersion = Git.Repo(path: AbsolutePath(manifest.path.parentDirectory))?.versions.last
-    let rootPackage = Package(manifest: manifest, url: manifest.path.parentDirectory, version: rootPackageVersion)
+    let rootPackage = Package(manifest: manifest, url: manifest.path.parentDirectory)
     let extPackages = try box.recursivelyFetch(manifest.dependencies)
     
     let pkgs = extPackages + [rootPackage]

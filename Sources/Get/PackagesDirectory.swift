@@ -20,9 +20,9 @@ import func POSIX.rename
  */
 class PackagesDirectory {
     let prefix: AbsolutePath
-    let manifestParser: (path: AbsolutePath, url: String) throws -> Manifest
+    let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
 
-    init(prefix: AbsolutePath, manifestParser: (path: AbsolutePath, url: String) throws -> Manifest) {
+    init(prefix: AbsolutePath, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) {
         self.prefix = prefix
         self.manifestParser = manifestParser
     }
@@ -76,9 +76,9 @@ extension PackagesDirectory: Fetcher {
         guard let version = extractPackageVersion(repo.path.basename) else {
             return nil
         }
-        
-        let manifest = try manifestParser(path: repo.path, url: origin)
-        return Package(manifest: manifest, url: origin, version: version)
+
+        let manifest = try manifestParser(path: repo.path, url: origin, version: version)
+        return Package(manifest: manifest, url: origin)
     }
     
     func find(url: String) throws -> Fetchable? {
