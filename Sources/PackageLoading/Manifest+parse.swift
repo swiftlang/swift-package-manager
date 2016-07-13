@@ -119,10 +119,7 @@ extension PackageDescription.Package {
         guard case .table(let topLevelTable) = item else { fatalError("unexpected item") }
         guard case .table(let table)? = topLevelTable.items["package"] else { fatalError("missing package") }
 
-        var name: String? = nil
-        if case .string(let value)? = table.items["name"] {
-            name = value
-        }
+        guard case .string(let name)? = table.items["name"] else { fatalError("missing 'name'") }
         
         var pkgConfig: String? = nil
         if case .string(let value)? = table.items["pkgConfig"] {

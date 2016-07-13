@@ -39,13 +39,13 @@ class SerializationTests: XCTestCase {
     }
 
     func testEmptyTestDependencies() {
-        let p = Package(testDependencies: [])
+        let p = Package(name: "a", testDependencies: [])
         XCTAssertEqual(p.testDependencies, [])
     }
 
     func testTestDependencies() {
         let dependencies = [Package.Dependency.Package(url: "../TestingLib", majorVersion: 1)]
-        let p = Package(testDependencies: dependencies)
+        let p = Package(name: "a", testDependencies: dependencies)
         let pFromTOML = Package.fromTOML(parseTOML(p.toTOML()))
         XCTAssertEqual(pFromTOML.testDependencies, dependencies)
     }
