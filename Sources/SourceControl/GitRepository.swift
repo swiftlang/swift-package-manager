@@ -84,7 +84,7 @@ private class GitRepository: Repository {
     var tagsCache = LazyCache(getTags)
     func getTags() -> [String] {
         // FIXME: Error handling.
-        let tagList = try! Git.runPopen([Git.tool, "-C", path, "tag", "-l"]) ?? ""
+        let tagList = try! Git.runPopen([Git.tool, "-C", path, "tag", "-l"])
         return tagList.characters.split(separator: "\n").map(String.init)
     }
 }
