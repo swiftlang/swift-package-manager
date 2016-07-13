@@ -9,7 +9,6 @@
 */
 
 import Basic
-import func POSIX.mkdtemp
 import PackageModel
 import Xcodeproj
 import Utility

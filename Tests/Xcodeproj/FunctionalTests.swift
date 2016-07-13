@@ -15,8 +15,6 @@ import PackageModel
 import Utility
 import Xcodeproj
 
-import func POSIX.mkdtemp
-
 #if os(OSX)
 
 class FunctionalTests: XCTestCase {

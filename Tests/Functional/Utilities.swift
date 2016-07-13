@@ -26,8 +26,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
         let copyName = fixtureSubpath.components.joined(separator: "_")
         
         // Create a temporary directory for the duration of the block.
-        try POSIX.mkdtemp(copyName) { tmpDir in
-            let tmpDir = AbsolutePath(tmpDir)
+        try mkdtemp(copyName) { tmpDir in
             
             // Schedule removal of the temporary directory, no matter what happens.
             defer { _ = try? Utility.removeFileTree(tmpDir.asString) }
@@ -205,8 +204,7 @@ func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .De
 
 func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
     do {
-        try POSIX.mkdtemp("spm-tests") { dir in
-            let dir = AbsolutePath(dir)
+        try mkdtemp("spm-tests") { dir in
             defer { _ = try? Utility.removeFileTree(dir.asString) }
             try body(dir)
         }

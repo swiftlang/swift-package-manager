@@ -131,15 +131,13 @@ extension XcodeModuleProtocol  {
         }
     }
 
-
-
-    var productPath: String {
+    var productPath: RelativePath {
         if isTest {
-            return "\(c99name).xctest"
+            return RelativePath("\(c99name).xctest")
         } else if isLibrary {
-            return "\(c99name).framework"
+            return RelativePath("\(c99name).framework")
         } else {
-            return name
+            return RelativePath(name)
         }
     }
 
@@ -294,7 +292,7 @@ extension XcodeModuleProtocol {
     }
 
     var buildableName: String {
-        return productPath
+        return productName
     }
 
     var blueprintName: String {

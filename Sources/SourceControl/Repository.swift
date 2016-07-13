@@ -8,6 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+
+
 /// Specifies a repository address.
 public struct RepositorySpecifier {
     /// The URL of the repository.
@@ -37,7 +40,7 @@ public struct RepositorySpecifier {
 /// `CheckoutManager`.
 public protocol RepositoryProvider {
     /// Fetch the complete repository at the given location to `path`.
-    func fetch(repository: RepositorySpecifier, to path: String) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
     /// Open the given repository.
     ///
@@ -45,7 +48,7 @@ public protocol RepositoryProvider {
     ///   - repository: The specifier for the repository.
     ///   - path: The location of the repository on disk, at which the
     ///   repository has previously been created via `fetch`.
-    func open(repository: RepositorySpecifier, at path: String) -> Repository
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository
 }
 
 /// Abstract repository operations.

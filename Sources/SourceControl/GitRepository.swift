@@ -15,8 +15,8 @@ import func POSIX.getenv
 import enum POSIX.Error
 import class Foundation.ProcessInfo
 
-enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(url: String, path: String)
+enum GitRepositoryProviderError: ErrorProtocol {
+    case gitCloneFailure(url: String, path: AbsolutePath)
 }
 extension GitRepositoryProviderError: CustomStringConvertible {
     var description: String {
@@ -32,7 +32,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     public init() {
     }
     
-    public func fetch(repository: RepositorySpecifier, to path: String) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -42,7 +42,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need to define if this is only for the initial clone, or
         // also for the update, and if for the update then we need to handle it
         // here.
-        precondition(!path.exists)
+        precondition(!exists(path))
         
         do {
             // FIXME: We need infrastructure in this subsystem for reporting
@@ -53,7 +53,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             let env = ProcessInfo.processInfo.environment
           #endif
             try system(
-                Git.tool, "clone", "--bare", repository.url, path,
+                Git.tool, "clone", "--bare", repository.url, path.asString,
                 environment: env, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
@@ -65,7 +65,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         }
     }
 
-    public func open(repository: RepositorySpecifier, at path: String) -> Repository {
+    public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
         // FIXME: Cache this.
         return GitRepository(path: path)
     }
@@ -74,9 +74,9 @@ public class GitRepositoryProvider: RepositoryProvider {
 /// A basic `git` repository.
 private class GitRepository: Repository {
     /// The path of the repository on disk.
-    let path: String
+    let path: AbsolutePath
 
-    init(path: String) {
+    init(path: AbsolutePath) {
         self.path = path
     }
     
@@ -84,7 +84,7 @@ private class GitRepository: Repository {
     var tagsCache = LazyCache(getTags)
     func getTags() -> [String] {
         // FIXME: Error handling.
-        let tagList = try! Git.runPopen([Git.tool, "-C", path, "tag", "-l"])
+        let tagList = try! Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])
         return tagList.characters.split(separator: "\n").map(String.init)
     }
 }

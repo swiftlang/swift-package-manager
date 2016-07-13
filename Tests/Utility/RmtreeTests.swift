@@ -18,7 +18,7 @@ class RmtreeTests: XCTestCase {
     func testDoesNotFollowSymlinks() {
         do {
             try mkdtemp("foo") { root in
-                let root = try AbsolutePath(realpath(root))
+                let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
                 
                 try Utility.makeDirectories(root.appending("foo").asString)
                 try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
