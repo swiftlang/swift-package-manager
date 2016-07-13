@@ -9,24 +9,21 @@
 */
 
 import Basic
-import class PackageModel.Package
 import PackageModel
 import Utility
+
+import struct PackageDescription.Version
 
 /**
  Recursively fetches dependencies into "\(manifestPath)/../Packages"
  - Throws: Error.InvalidDependencyGraph
- - Returns: The modules that this manifest requires building
 */
-public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws -> (rootPackage: Package, externalPackages:[Package]) {
-    let dir = AbsolutePath(manifest.path.parentDirectory).appending("Packages")
-    let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
-
-    //TODO don't lose the dependency information during the Fetcher process!
+public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws -> (rootPackage: Package, externalPackages: [Package]) {
+    let extManifests = try fetchResolvedManifests(manifest, manifestParser: manifestParser)
 
     let rootPackage = Package(manifest: manifest)
-    let extPackages = try box.recursivelyFetch(manifest.dependencies)
-    
+    let extPackages = extManifests.map{ Package(manifest: $0) }
+
     let pkgs = extPackages + [rootPackage]
     
     for pkg in pkgs {
@@ -36,12 +33,20 @@ public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: 
     return (rootPackage, extPackages)
 }
 
+private func fetchResolvedManifests(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws -> [Manifest] {
+    let dir = AbsolutePath(manifest.path.parentDirectory).appending("Packages")
+    let box = PackagesDirectory(prefix: dir, manifestParser: manifestParser)
+
+    //TODO don't lose the dependency information during the Fetcher process!
+
+    let extManifests = try box.recursivelyFetch(manifest.dependencies)
+    
+    return extManifests
+}
+
 //TODO normalize urls eg http://github.com -> https://github.com
 //TODO probably should respect any relocation that applies during git transfer
 //TODO detect cycles?
-
-
-import PackageDescription
 
 extension Manifest {
     var dependencies: [(String, Range<Version>)] {

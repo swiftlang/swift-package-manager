@@ -14,7 +14,7 @@ import struct PackageDescription.Version
 /// The basic package representation.
 ///
 /// The package manager conceptually works with five different kinds of
-/// packages:
+/// packages, of which this is only one:
 ///
 /// 1. Informally, the repository containing a package can be thought of in some
 /// sense as the "package". However, this isn't accurate, because the actual
@@ -28,11 +28,10 @@ import struct PackageDescription.Version
 /// that specification is primarily used to load the package (see the
 /// `PackageLoading` module).
 ///
-/// 3. A partially loaded `PackageModel.Package` (i.e. the type here) is used
-/// during package dependency resolution; it has a loaded manifest but has not
-/// had its dependencies populated (or the conventions evaluated to construct
-/// `Module` instances). This is what is generally in use within the algorithm
-/// inside of the `Get` module, and could probably be replaced by `Manifest`.
+/// 3. A loaded `PackageModel.Manifest` is an abstract representation of a
+/// package, and is used during package dependency resolution. It contains the
+/// loaded PackageDescription and information necessary for dependency
+/// resolution, but nothing else.
 ///
 /// 4. A loaded `PackageModel.Package` which has had dependencies loaded and
 /// resolved. This is the result after `Get.get()`.

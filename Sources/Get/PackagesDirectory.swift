@@ -15,9 +15,10 @@ import Utility
 import struct PackageDescription.Version
 import func POSIX.rename
 
-/**
- Implementation detail: a container for fetched packages.
- */
+/// A container for fetched packages.
+///
+/// Despite being called `PackagesDirectory`, currently, this actually holds
+/// repositories and is used to vend a set of resolved manifests.
 class PackagesDirectory {
     let prefix: AbsolutePath
     let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
@@ -43,7 +44,7 @@ class PackagesDirectory {
 }
 
 extension PackagesDirectory: Fetcher {
-    typealias T = Package
+    typealias T = Manifest
 
     /// Extract the package version from a path.
     //
@@ -66,10 +67,8 @@ extension PackagesDirectory: Fetcher {
         return nil
     }
         
-    /// Create a Package for a given repositories current state.
-    //
-    // FIXME: We *always* have a manifest, don't reparse it.
-    private func createPackage(repo: Git.Repo) throws -> Package? {
+    /// Create a Manifest for a given repositories current state.
+    private func createManifest(repo: Git.Repo) throws -> Manifest? {
         guard let origin = repo.origin else {
             throw Package.Error.noOrigin(repo.path.asString)
         }
@@ -77,13 +76,12 @@ extension PackagesDirectory: Fetcher {
             return nil
         }
 
-        let manifest = try manifestParser(path: repo.path, url: origin, version: version)
-        return Package(manifest: manifest)
+        return try manifestParser(path: repo.path, url: origin, version: version)
     }
     
     func find(url: String) throws -> Fetchable? {
         if let repo = availableRepositories[url] {
-            return try createPackage(repo: repo)
+            return try createManifest(repo: repo)
         }
         return nil
     }
@@ -101,7 +99,7 @@ extension PackagesDirectory: Fetcher {
         return try RawClone(path: dstdir, manifestParser: manifestParser)
     }
 
-    func finalize(_ fetchable: Fetchable) throws -> Package {
+    func finalize(_ fetchable: Fetchable) throws -> Manifest {
         switch fetchable {
         case let clone as RawClone:
             let prefix = self.prefix.appending(RelativePath(clone.finalName))
@@ -113,9 +111,9 @@ extension PackagesDirectory: Fetcher {
             // Update the available repositories.
             availableRepositories[repo.origin!] = repo
             
-            return try createPackage(repo: repo)!
-        case let pkg as Package:
-            return pkg
+            return try createManifest(repo: repo)!
+        case let manifest as Manifest:
+            return manifest
         default:
             fatalError("Unexpected Fetchable Type: \(fetchable)")
         }
