@@ -581,23 +581,3 @@ private func normalize(relative string: String) -> String {
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result
 }
-
-
-/// Private functions for use by the path logic.  These should move out into a
-/// public place, but we'll need to debate the names, etc, etc.
-extension String.CharacterView {
-    
-    /// Returns the index of the last occurrence of `char` or nil if none.  If
-    /// provided, the `start` index limits the search to a suffix of charview.
-    fileprivate func rindex(of char: Character, from start: Index? = nil) -> Index? {
-        var idx = endIndex
-        let firstIdx = start ?? startIndex
-        while idx > firstIdx {
-            idx = index(before: idx)
-            if self[idx] == char {
-                return idx
-            }
-        }
-        return nil
-    }
-}
