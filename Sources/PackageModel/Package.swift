@@ -75,7 +75,7 @@ public final class Package {
 
     public init(manifest: Manifest) {
         self.manifest = manifest
-        self.name = manifest.package.name ?? Package.nameForURL(manifest.url)
+        self.name = manifest.package.name
     }
 
     public enum Error: Swift.Error {
@@ -96,23 +96,4 @@ extension Package: Hashable, Equatable {
 
 public func ==(lhs: Package, rhs: Package) -> Bool {
     return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
-}
-
-extension Package {
-    public static func nameForURL(_ url: String) -> String {
-        let base = url.basename
-
-        switch URL.scheme(url) ?? "" {
-        case "http", "https", "git", "ssh":
-            if url.hasSuffix(".git") {
-                let a = base.startIndex
-                let b = base.index(base.endIndex, offsetBy: -4)
-                return base[a..<b]
-            } else {
-                fallthrough
-            }
-        default:
-            return base
-        }
-    }
 }

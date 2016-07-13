@@ -87,7 +87,8 @@ extension PackagesDirectory: Fetcher {
     }
 
     func fetch(url: String) throws -> Fetchable {
-        let dstdir = prefix.appending(RelativePath(Package.nameForURL(url)))
+        // Clone into a staging location, we will rename it once all versions are selected.
+        let dstdir = prefix.appending(url.basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestParser)
