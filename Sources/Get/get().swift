@@ -24,7 +24,7 @@ public func get(_ manifest: Manifest, manifestParser: (path: AbsolutePath, url: 
 
     //TODO don't lose the dependency information during the Fetcher process!
 
-    let rootPackage = Package(manifest: manifest, url: manifest.path.parentDirectory)
+    let rootPackage = Package(manifest: manifest)
     let extPackages = try box.recursivelyFetch(manifest.dependencies)
     
     let pkgs = extPackages + [rootPackage]

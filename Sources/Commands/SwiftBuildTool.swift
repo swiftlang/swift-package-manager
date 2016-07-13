@@ -150,7 +150,7 @@ public struct SwiftBuildTool: SwiftTool {
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
                 let manifest = try parseManifest(path: root, baseURL: root.asString, version: nil)
                 if opts.ignoreDependencies {
-                    return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
+                    return (Package(manifest: manifest), [])
                 } else {
                     return try get(manifest, manifestParser: parseManifest)
                 }

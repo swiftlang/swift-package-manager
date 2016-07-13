@@ -78,7 +78,7 @@ extension PackagesDirectory: Fetcher {
         }
 
         let manifest = try manifestParser(path: repo.path, url: origin, version: version)
-        return Package(manifest: manifest, url: origin)
+        return Package(manifest: manifest)
     }
     
     func find(url: String) throws -> Fetchable? {

@@ -27,6 +27,12 @@ public struct Manifest {
     // to the repository state, it shouldn't matter where it is.
     public let path: String
 
+    /// The repository URL the manifest was loaded from.
+    //
+    // FIXME: This doesn't belong here, we want the Manifest to be purely tied
+    // to the repository state, it shouldn't matter where it is.
+    public let url: String
+
     /// The raw package description.
     public let package: PackageDescription.Package
 
@@ -36,8 +42,9 @@ public struct Manifest {
     /// The version this package was loaded from, if known.
     public let version: Version?
 
-    public init(path: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
+    public init(path: String, url: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
         self.path = path
+        self.url = url
         self.package = package
         self.products = products
         self.version = version
