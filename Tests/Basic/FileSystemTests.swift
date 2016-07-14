@@ -237,6 +237,29 @@ class FileSystemTests: XCTestCase {
         }
         XCTAssert(!fs.exists(missingDir))
     }
+
+    // MARK: RootedFileSystem Tests
+
+    func testRootedFileSystem() throws {
+        // Create the test file system.
+        var baseFileSystem = InMemoryFileSystem() as FileSystem
+        try baseFileSystem.createDirectory("/base/rootIsHere/subdir", recursive: true)
+        try baseFileSystem.writeFileContents("/base/rootIsHere/subdir/file", bytes: "Hello, world!")
+
+        // Create the rooted file system.
+        var rerootedFileSystem = RerootedFileSystemView(&baseFileSystem, rootedAt: "/base/rootIsHere")
+
+        // Check that it has the appropriate view.
+        XCTAssert(rerootedFileSystem.exists("/subdir"))
+        XCTAssert(rerootedFileSystem.isDirectory("/subdir"))
+        XCTAssert(rerootedFileSystem.exists("/subdir/file"))
+        XCTAssertEqual(try rerootedFileSystem.readFileContents("/subdir/file"), "Hello, world!")
+
+        // Check that mutations work appropriately.
+        XCTAssert(!baseFileSystem.exists("/base/rootIsHere/subdir2"))
+        try rerootedFileSystem.createDirectory("/subdir2")
+        XCTAssert(baseFileSystem.isDirectory("/base/rootIsHere/subdir2"))
+    }
     
     static var allTests = [
         ("testLocalBasics", testLocalBasics),
@@ -245,5 +268,6 @@ class FileSystemTests: XCTestCase {
         ("testInMemoryBasics", testInMemoryBasics),
         ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
         ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
+        ("testRootedFileSystem", testRootedFileSystem),
     ]
 }
