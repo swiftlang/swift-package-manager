@@ -35,8 +35,22 @@ public let pathSeparatorCharacter: Character = "/"
 ///
 /// FIXME: We will also need to add support for `~` resolution.
 public struct AbsolutePath {
+    /// Check if the given name is a valid individual path component.
+    ///
+    /// This only checks with regard to the semantics enforced by `AbsolutePath`
+    /// and `RelativePath`; particular file systems may have their own
+    /// additional requirements.
+    public static func isValidComponent(_ name: String) -> Bool {
+        return name != "" && name != "." && name != ".." && !name.contains("/")
+    }
+    
     /// Private implementation details, shared with the RelativePath struct.
     private let _impl: PathImpl
+
+    /// Private initializer when the backing storage is known.
+    private init(_ impl: PathImpl) {
+        _impl = impl
+    }
     
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
     /// path (i.e. it must begin with a path separator; this initializer does
@@ -44,8 +58,9 @@ public struct AbsolutePath {
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(_ absStr: String) {
-        // Normalize the absolute string and store it as our PathImpl.
-        _impl = PathImpl(string: normalize(absolute: absStr))
+        // Normalize the absolute string.
+        
+        self.init(PathImpl(string: normalize(absolute: absStr)))
     }
     
     /// Initializes the AbsolutePath by concatenating a relative path to an
@@ -71,7 +86,7 @@ public struct AbsolutePath {
         }
         
         // Finally, store the result as our PathImpl.
-        _impl = PathImpl(string: absStr)
+        self.init(PathImpl(string: absStr))
     }
     
     /// Convenience initializer that appends a string to a relative path.
@@ -124,6 +139,31 @@ public struct AbsolutePath {
         return AbsolutePath(self, str)
     }
     
+    /// Returns the absolute path with an additional literal component appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(component name: String) -> AbsolutePath {
+        assert(AbsolutePath.isValidComponent(name))
+        if self == AbsolutePath.root {
+            return AbsolutePath(PathImpl(string: "/" + name))
+        } else {
+            return AbsolutePath(PathImpl(string: _impl.string + "/" + name))
+        }            
+    }
+    
+    /// Returns the absolute path with additional literal components appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(components names: String...) -> AbsolutePath {
+        return names.reduce(self, combine: { path, name in
+                path.appending(component: name)
+            })
+    }
+
     /// NOTE: We will want to add other methods, such as an appending() method
     ///       that takes an arbitrary number of parameters, etc.  Most likely
     ///       we will also make the `+` operator mean `appending()`.

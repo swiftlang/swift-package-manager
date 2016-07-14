@@ -180,7 +180,12 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo")).asString, "/foo")
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).asString, "/")
         XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).asString, "/yabba/a/b")
-        
+
+        XCTAssertEqual(AbsolutePath("/").appending(component: "a").asString, "/a")
+        XCTAssertEqual(AbsolutePath("/a").appending(component: "b").asString, "/a/b")
+        XCTAssertEqual(AbsolutePath("/").appending(components: "a", "b").asString, "/a/b")
+        XCTAssertEqual(AbsolutePath("/a").appending(components: "b", "c").asString, "/a/b/c")
+
         let emptyString = ""
         XCTAssertEqual(AbsolutePath("/").appending(emptyString).asString, "/")
         let dotString = "."
