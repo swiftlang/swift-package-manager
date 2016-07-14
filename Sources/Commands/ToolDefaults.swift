@@ -9,10 +9,11 @@
 */
 
 import Basic
+import PackageLoading
 import PackageModel
 import POSIX
 
-struct ToolDefaults {
+struct ToolDefaults: ManifestResourceProvider {
   #if Xcode
     // when in Xcode we are built with same toolchain as we will run
     // this is not a production ready mode
@@ -26,4 +27,12 @@ struct ToolDefaults {
     static let llbuild = AbsolutePath(argv0.abspath).appending("../swift-build-tool")
     static let libdir = AbsolutePath(argv0.abspath).appending("../../lib/swift/pm")
   #endif
+
+    var swiftCompilerPath: AbsolutePath {
+        return ToolDefaults.SWIFT_EXEC
+    }
+
+    var libraryPath: AbsolutePath {
+        return ToolDefaults.libdir
+    }
 }

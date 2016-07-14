@@ -24,11 +24,39 @@ private enum ManifestParseError: Swift.Error {
     case invalidManifestFormat
 }
 
-extension Manifest {
+/// Resources required for manifest loading.
+///
+/// These requirements are abstracted out to make it easier to add support for
+/// using the package manager with alternate toolchains in the future.
+public protocol ManifestResourceProvider {
+    /// The path of the swift compiler.
+    var swiftCompilerPath: AbsolutePath { get }
+
+    /// The path of the library resources.
+    var libraryPath: AbsolutePath { get }
+}
+
+/// Utility class for loading manifest files.
+///
+/// This class is responsible for reading the manifest data and produce a
+/// properly formed `PackageModel.Manifest` object. It currently does so by
+/// interpreting the manifest source using Swift -- that produces a TOML
+/// serialized form of the manifest (as implemented by `PackageDescription`'s
+/// `atexit()` handler) which is then deserialized and loaded.
+public final class ManifestLoader {
+    let resources: ManifestResourceProvider
+
+    public init(resources: ManifestResourceProvider) {
+        self.resources = resources
+    }
+
     /// Create a manifest by loading from the given path.
     ///
-    /// - path: The path to the manifest file or directory containing `Package.swift`.
-    public init(path inputPath: AbsolutePath, baseURL: String, swiftc: String, libdir: String, version: Version?) throws {
+    /// - Parameters:
+    ///   - path: The path to the manifest file or directory containing `Package.swift`.
+    ///   - baseURL: The URL the manifest was loaded from.
+    ///   - version: The version the manifest is from, if known.
+    public func load(path inputPath: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
@@ -44,7 +72,7 @@ extension Manifest {
         guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }
 
         // Load the manifest description.
-        guard let tomlString = try parse(path: path, swiftc: swiftc, libdir: libdir) else {
+        guard let tomlString = try parse(path: path) else {
             print("Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
             throw ManifestParseError.emptyManifestFile
         }
@@ -52,55 +80,56 @@ extension Manifest {
         let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
         let products = PackageDescription.Product.fromTOML(toml)
 
-        self.init(path: path, url: baseURL, package: package, products: products, version: version)
-    }
-}
-
-private func parse(path manifestPath: AbsolutePath, swiftc: String, libdir: String) throws -> String? {
-    // For now, we load the manifest by having Swift interpret it directly.
-    // Eventually, we should have two loading processes, one that loads only the
-    // the declarative package specification using the Swift compiler directly
-    // and validates it.
-
-    var cmd = [swiftc]
-    cmd += ["--driver-mode=swift"]
-    cmd += verbosity.ccArgs
-    cmd += ["-I", libdir]
-
-    // When running from Xcode, load PackageDescription.framework
-    // else load the dylib version of it
-#if Xcode
-    cmd += ["-F", libdir]
-    cmd += ["-framework", "PackageDescription"]
-#else
-    cmd += ["-L", libdir, "-lPackageDescription"] 
-#endif
-
-#if os(OSX)
-    cmd += ["-target", "x86_64-apple-macosx10.10"]
-#endif
-    cmd += [manifestPath.asString]
-
-    //Create and open a temporary file to write toml to
-    let filePath = manifestPath.parentDirectory.appending(".Package.toml")
-    let fp = try fopen(filePath.asString, mode: .write)
-    defer { fp.closeFile() }
-
-    //Pass the fd in arguments
-    cmd += ["-fileno", "\(fp.fileDescriptor)"]
-    do {
-        try system(cmd)
-    } catch {
-        print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
-        throw ManifestParseError.invalidManifestFormat
+        return Manifest(path: path, url: baseURL, package: package, products: products, version: version)
     }
 
-    guard let toml = try localFileSystem.readFileContents(filePath).asString else {
-        throw ManifestParseError.invalidEncoding
+    /// Parse the manifest at the given path to TOML.
+    private func parse(path manifestPath: AbsolutePath) throws -> String? {
+        // For now, we load the manifest by having Swift interpret it directly.
+        // Eventually, we should have two loading processes, one that loads only the
+        // the declarative package specification using the Swift compiler directly
+        // and validates it.
+    
+        var cmd = [resources.swiftCompilerPath.asString]
+        cmd += ["--driver-mode=swift"]
+        cmd += verbosity.ccArgs
+        cmd += ["-I", resources.libraryPath.asString]
+    
+        // When running from Xcode, load PackageDescription.framework
+        // else load the dylib version of it
+    #if Xcode
+        cmd += ["-F", resources.libraryPath.asString]
+        cmd += ["-framework", "PackageDescription"]
+    #else
+        cmd += ["-L", resources.libraryPath.asString, "-lPackageDescription"] 
+    #endif
+    
+    #if os(OSX)
+        cmd += ["-target", "x86_64-apple-macosx10.10"]
+    #endif
+        cmd += [manifestPath.asString]
+    
+        //Create and open a temporary file to write toml to
+        let filePath = manifestPath.parentDirectory.appending(".Package.toml")
+        let fp = try fopen(filePath.asString, mode: .write)
+        defer { fp.closeFile() }
+    
+        //Pass the fd in arguments
+        cmd += ["-fileno", "\(fp.fileDescriptor)"]
+        do {
+            try system(cmd)
+        } catch {
+            print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
+            throw ManifestParseError.invalidManifestFormat
+        }
+    
+        guard let toml = try localFileSystem.readFileContents(filePath).asString else {
+            throw ManifestParseError.invalidEncoding
+        }
+        try Utility.removeFileTree(filePath.asString) // Delete the temp file after reading it
+    
+        return toml != "" ? toml : nil
     }
-    try Utility.removeFileTree(filePath.asString) // Delete the temp file after reading it
-
-    return toml != "" ? toml : nil
 }
 
 // MARK: TOML Deserialization
@@ -158,7 +187,7 @@ extension PackageDescription.Package {
             }
         }
 
-        //Parse the exclude folders.
+        // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = table.items["exclude"] {
             for item in array.items {

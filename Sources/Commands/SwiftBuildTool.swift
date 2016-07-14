@@ -141,18 +141,13 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            func parseManifest(path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
-                let swiftc = ToolDefaults.SWIFT_EXEC.asString
-                let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir, version: version)
-            }
-            
+            let manifestLoader = ManifestLoader(resources: ToolDefaults())
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root, baseURL: root.asString, version: nil)
+                let manifest = try manifestLoader.load(path: root, baseURL: root.asString, version: nil)
                 if opts.ignoreDependencies {
                     return (Package(manifest: manifest), [])
                 } else {
-                    return try get(manifest, manifestParser: parseManifest)
+                    return try get(manifest, manifestParser: manifestLoader.load)
                 }
             }
         

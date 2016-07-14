@@ -29,11 +29,10 @@ private func bundleRoot() -> AbsolutePath {
 }
 #endif
 
-class ManifestTests: XCTestCase {
-
+private struct Resources: ManifestResourceProvider {
 #if os(OSX)
   #if Xcode
-    let swiftc: AbsolutePath = {
+    let swiftCompilerPath: AbsolutePath = {
         let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
             swiftc = AbsolutePath(base).appending("usr/bin/swiftc")
@@ -44,18 +43,21 @@ class ManifestTests: XCTestCase {
         return swiftc
     }()
   #else
-    let swiftc = bundleRoot().appending("swiftc")
+    let swiftCompilerPath = bundleRoot().appending("swiftc")
   #endif
-    let libdir = bundleRoot()
+    let libraryPath = bundleRoot()
 #else
-    let libdir = AbsolutePath(Process.arguments.first!.parentDirectory.abspath)
-    let swiftc = AbsolutePath(Process.arguments.first!.abspath).appending("../swiftc")
+    let libraryPath = AbsolutePath(Process.arguments.first!.parentDirectory.abspath)
+    let swiftCompilerPath = AbsolutePath(Process.arguments.first!.abspath).appending("../swiftc")
 #endif
+}
+
+class ManifestTests: XCTestCase {
 
     private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = AbsolutePath(#file).appending("../Inputs").appending(inputName)
-            body(try Manifest(path: input, baseURL: input.parentDirectory.asString, swiftc: swiftc.asString, libdir: libdir.asString, version: nil))
+            body(try ManifestLoader(resources: Resources()).load(path: input, baseURL: input.parentDirectory.asString, version: nil))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -90,14 +92,14 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc.asString, libdir: libdir.asString, version: nil)
+        let foo = try? ManifestLoader(resources: Resources()).load(path: "/non-existent-file", baseURL: "/", version: nil)
         XCTAssertNil(foo)
     }
 
     func testInvalidTargetName() {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try Manifest(path: prefix.appending("Package.swift"), baseURL: prefix.asString, swiftc: swiftc.asString, libdir: libdir.asString, version: nil)
+                let manifest = try ManifestLoader(resources: Resources()).load(path: prefix.appending("Package.swift"), baseURL: prefix.asString, version: nil)
                 let package = Package(manifest: manifest)
 
                 let _ = try package.modules()
