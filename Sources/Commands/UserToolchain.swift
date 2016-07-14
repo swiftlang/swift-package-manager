@@ -13,7 +13,7 @@ import POSIX
 import Basic
 import protocol Build.Toolchain
 
-#if os(OSX)
+#if os(macOS)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
 #else
     private let whichClangArgs = ["which", "clang"]
@@ -24,7 +24,7 @@ struct UserToolchain: Toolchain {
     let clang: String
     let sysroot: String?
 
-#if os(OSX)
+#if os(macOS)
     var platformArgsClang: [String] {
         return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", sysroot!]
     }
@@ -45,7 +45,7 @@ struct UserToolchain: Toolchain {
 
             clang = try getenv("CC") ?? POSIX.popen(whichClangArgs).chomp()
 
-            #if os(OSX)
+            #if os(macOS)
                 sysroot = try getenv("SYSROOT") ?? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-path"]).chomp()
             #else
                 sysroot = nil

@@ -1,4 +1,4 @@
-#if os(OSX) || os(iOS)
+#if os(macOS) || os(iOS)
 import Darwin
 #else
 import Glibc
@@ -18,7 +18,7 @@ public extension MutableCollection where Index == Int, IndexDistance == Int {
         guard count > 1 else { return }
 
         for i in 0..<count - 1 {
-#if os(OSX) || os(iOS)
+#if os(macOS) || os(iOS)
             let j = Int(arc4random_uniform(UInt32(count - i))) + i
 #else
             let j = Int(random() % (count - i)) + i

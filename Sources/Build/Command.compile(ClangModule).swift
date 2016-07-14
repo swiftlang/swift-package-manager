@@ -101,7 +101,7 @@ struct ClangModuleBuildMetadata {
     /// Basic arguments needed for both compiling and linking.
     static func basicArgs() throws -> [String] {
         var args: [String] = []
-      #if os(OSX)
+      #if os(macOS)
         args += ["-F", try platformFrameworksPath()]
       #else
         args += ["-fPIC"]

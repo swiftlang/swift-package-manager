@@ -66,7 +66,7 @@ final public class Thread {
     }
 }
 
-#if os(OSX)
+#if os(macOS)
 /// A helper subclass of Foundation's Thread with closure support.
 final private class ThreadImpl: Foundation.Thread {
 

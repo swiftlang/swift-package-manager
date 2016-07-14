@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(OSX)
+#if os(macOS)
 import XCTest
 import func Darwin.C.exit
 

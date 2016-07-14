@@ -38,7 +38,7 @@ extension Command {
             args += ["-L\(prefix.asString)"]
             args += ["-o", outpath.asString]
 
-          #if os(OSX)
+          #if os(macOS)
             args += ["-F", try platformFrameworksPath()]
           #endif
 
@@ -55,7 +55,7 @@ extension Command {
             args += ["-module-name", product.name]
             // Link all the Clang Module's objects into XCTest executable.
             objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
-          #if os(OSX)
+          #if os(macOS)
             args += ["-Xlinker", "-bundle"]
             args += ["-F", try platformFrameworksPath()]
 

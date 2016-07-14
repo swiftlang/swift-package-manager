@@ -71,7 +71,7 @@ class ValidLayoutsTestCase: XCTestCase {
     }
 
     func testPackageIdentifiers() {
-        #if os(OSX)
+        #if os(macOS)
             // this because sort orders vary on Linux on Mac currently
             let tags = ["1.3.4-alpha.beta.gamma1", "1.2.3+24", "1.2.3", "1.2.3-beta5"]
         #else

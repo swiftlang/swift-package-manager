@@ -15,7 +15,7 @@ import Utility
 
 import func POSIX.popen
 
-#if os(OSX)
+#if os(macOS)
 private let dylib = "dylib"
 #else
 private let dylib = "so"

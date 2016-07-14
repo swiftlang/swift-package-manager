@@ -14,7 +14,7 @@ import Xcodeproj
 import Utility
 import XCTest
 
-#if os(OSX)
+#if os(macOS)
 
 class GenerateXcodeprojTests: XCTestCase {
     func testXcodeBuildCanParseIt() {

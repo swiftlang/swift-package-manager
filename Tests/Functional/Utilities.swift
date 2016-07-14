@@ -14,7 +14,7 @@ import Basic
 import POSIX
 import Utility
 
-#if os(OSX)
+#if os(macOS)
 import class Foundation.Bundle
 #endif
 
@@ -125,7 +125,7 @@ enum SwiftPMProduct {
 
     /// Path to currently built binary.
     var path: AbsolutePath {
-      #if os(OSX)
+      #if os(macOS)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return AbsolutePath(bundle.bundlePath).parentDirectory.appending(self.exec)
         }

@@ -32,7 +32,7 @@ public class Product {
             return "lib\(name).\(Product.dynamicLibraryExtension)"
         case .Test:
             let base = "\(name).xctest"
-            #if os(OSX)
+            #if os(macOS)
                 return "\(base)/Contents/MacOS/\(name)"
             #else
                 return base
@@ -42,7 +42,7 @@ public class Product {
 
     // FIXME: This needs to be come from a toolchain object, not the host
     // configuration.
-#if os(OSX)
+#if os(macOS)
     public static let dynamicLibraryExtension = "dylib"
 #else
     public static let dynamicLibraryExtension = "so"

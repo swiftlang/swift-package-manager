@@ -104,7 +104,7 @@ public final class ManifestLoader {
         cmd += ["-L", resources.libraryPath.asString, "-lPackageDescription"] 
     #endif
     
-    #if os(OSX)
+    #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
     #endif
         cmd += [manifestPath.asString]

@@ -42,7 +42,7 @@ public func system(_ arguments: [String], environment: [String:String] = [:]) th
 public func system() {}
 
 
-#if os(OSX)
+#if os(macOS)
 typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
 typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t

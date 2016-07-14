@@ -15,7 +15,7 @@ import PackageModel
 import Utility
 import Xcodeproj
 
-#if os(OSX)
+#if os(macOS)
 
 class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {

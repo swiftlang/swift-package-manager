@@ -10,7 +10,7 @@
 
 import XCTest
 
-#if !os(OSX)
+#if !os(macOS)
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(PackageTests.allTests),

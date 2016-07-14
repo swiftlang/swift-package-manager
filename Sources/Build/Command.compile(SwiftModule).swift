@@ -25,7 +25,7 @@ extension Command {
             args += ["-O"]
         }
 
-        #if os(OSX)
+        #if os(macOS)
         args += ["-F", try platformFrameworksPath()]
         #endif
 

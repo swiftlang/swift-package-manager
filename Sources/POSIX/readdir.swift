@@ -11,7 +11,7 @@
 import libc
 
 extension dirent {
-#if !os(OSX)
+#if !os(macOS)
     // Add a portability wrapper.
     //
     // FIXME: This should come from the standard library: https://bugs.swift.org/browse/SR-1726

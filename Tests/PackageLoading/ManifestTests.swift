@@ -20,7 +20,7 @@ import func POSIX.popen
 @testable import PackageLoading
 @testable import Utility
 
-#if os(OSX)
+#if os(macOS)
 private func bundleRoot() -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return AbsolutePath(bundle.bundlePath).parentDirectory
@@ -30,7 +30,7 @@ private func bundleRoot() -> AbsolutePath {
 #endif
 
 private struct Resources: ManifestResourceProvider {
-#if os(OSX)
+#if os(macOS)
   #if Xcode
     let swiftCompilerPath: AbsolutePath = {
         let swiftc: AbsolutePath

@@ -30,7 +30,7 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
         }
 
         // Create the file actions to use for spawning.
-#if os(OSX)
+#if os(macOS)
         var fileActions: posix_spawn_file_actions_t? = nil
 #else
         var fileActions = posix_spawn_file_actions_t()

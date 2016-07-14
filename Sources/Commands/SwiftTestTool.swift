@@ -236,7 +236,7 @@ public struct SwiftTestTool: SwiftTool {
         precondition(isValidTestPath(path))
 
         var args: [String] = []
-      #if os(OSX)
+      #if os(macOS)
         args = ["xcrun", "xctest"]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
@@ -295,7 +295,7 @@ public struct SwiftTestTool: SwiftTool {
         guard isValidTestPath(path) else { throw TestError.testsExecutableNotFound }
 
         // Run the correct tool.
-      #if os(OSX)
+      #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [xctestHelperPath().asString, path.asString, tempFile.path.asString]
         try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
@@ -311,7 +311,7 @@ public struct SwiftTestTool: SwiftTool {
 }
 
 private func isValidTestPath(_ path: AbsolutePath) -> Bool {
-  #if os(OSX)
+  #if os(macOS)
     return path.asString.isDirectory  // ${foo}.xctest is dir on OSX
   #else
     return path.asString.isFile       // otherwise ${foo}.xctest is executable file
