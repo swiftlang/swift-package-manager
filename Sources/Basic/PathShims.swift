@@ -86,7 +86,7 @@ public func mkdtemp<T>(_ template: String, tmpDir: AbsolutePath? = nil, body: @n
         guard dir != nil else {
             throw SystemError.mkdtemp(errno)
         }
-        defer { rmdir(dir) }
+        defer { rmdir(dir!) }
         return try body(AbsolutePath(String(validatingUTF8: dir!)!))
     }
 }
