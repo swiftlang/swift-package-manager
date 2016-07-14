@@ -155,7 +155,7 @@ extension ClangModule: ClangModuleCachable {
         // so it doesn't become painfully slow.
         if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
         let moduleCachePath = moduleCacheDir(prefix: prefix)
-        return ["-fmodules-cache-path=\(moduleCachePath)"]
+        return ["-fmodules-cache-path=" + moduleCachePath.asString]
     }
 }
 
