@@ -14,7 +14,6 @@ import Get
 import PackageLoading
 import PackageModel
 import Utility
-import Xcodeproj
 
 #if HasCustomVersionString
 import VersionInfo

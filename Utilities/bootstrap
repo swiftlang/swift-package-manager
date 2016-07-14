@@ -775,53 +775,58 @@ def main():
     make_fake_toolchain()
 
     # Build the package manager with itself.
-               
-    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
-    if args.sysroot:
-        env_cmd.append("SYSROOT=" + args.sysroot)
 
-    cmd = [bootstrapped_product]
+    # Compute the build flags, needed for swift-build and swift-test.
+    build_flags = []
+    
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
         embed_rpath = "$ORIGIN/../lib/swift/linux"
     else:
         embed_rpath = "@executable_path/../lib/swift/macosx"
-    cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
+    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
     if args.verbose:
-        cmd.append("-v")
+        build_flags.append("-v")
 
     # If appropriate, add flags for a custom version string:
     if args.version_str:
         incdir = os.path.join(sandbox_path, "inc")
-        cmd.extend(["-Xswiftc", "-I{}".format(incdir)])
-        cmd.extend(["-Xswiftc", "-DHasCustomVersionString"])
+        build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
+        build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
     
     if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
-        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
+        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
         # Add an RPATH, so that the tests can be run directly.
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker",
+                            args.foundation_path])
+        build_flags.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        build_flags.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
 
     if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
-        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
+        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
+        build_flags.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
 
     if args.libdispatch_build_dir:
-        cmd.extend(["-Xswiftc", "-I{}".format(os.path.join(args.libdispatch_build_dir,
-                                             "src"))])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.libdispatch_source_dir)])
-        cmd.extend(["-Xcc", "-fblocks"])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            os.path.join(args.libdispatch_build_dir, "src"))])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            args.libdispatch_source_dir)])
+        build_flags.extend(["-Xcc", "-fblocks"])
+    
+    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
+                      "SWIFT_BUILD_PATH=" + build_path]
+    if args.sysroot:
+        env_cmd.append("SYSROOT=" + args.sysroot)
+    cmd = env_cmd + [bootstrapped_product] + build_flags
 
     if args.release:
         cmd.extend(["--configuration", "release"])
@@ -831,8 +836,6 @@ def main():
     # FIXME: Resolve how we are going to deal with @testable and release builds.
     if not args.release:
         cmd.extend(["--build-tests"])
-
-    cmd = env_cmd + cmd
 
     note("building self-hosted 'swift-build': %s" % (
         ' '.join(cmd),))
@@ -848,14 +851,13 @@ def main():
     swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
-    swiftpm_xctest_helper_path = os.path.join(build_path, conf, "swiftpm-xctest-helper")
+    swiftpm_xctest_helper_path = os.path.join(
+        build_path, conf, "swiftpm-xctest-helper")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
-        env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                          "SWIFT_BUILD_PATH=" + build_path]
-        cmd = env_cmd + [swift_test_path]
+        cmd = env_cmd + [swift_test_path] + build_flags
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))
