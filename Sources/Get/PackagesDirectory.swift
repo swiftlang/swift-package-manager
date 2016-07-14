@@ -9,6 +9,7 @@
 */
 
 import Basic
+import PackageLoading
 import PackageModel
 import Utility
 
@@ -17,32 +18,81 @@ import func POSIX.rename
 
 /// A container for fetched packages.
 ///
-/// Despite being called `PackagesDirectory`, currently, this actually holds
+/// Despite being currently called `PackagesDirectory`, this actually holds
 /// repositories and is used to vend a set of resolved manifests.
-class PackagesDirectory {
-    let prefix: AbsolutePath
-    let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
+///
+/// This object also exposes the capability to resolve a package graph while
+/// loading packages. This is not conceptually the right division of
+/// responsibility, but it is pragmatic for now.
+public final class PackagesDirectory {
+    /// The root package path.
+    let rootPath: AbsolutePath
 
-    init(prefix: AbsolutePath, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) {
-        self.prefix = prefix
-        self.manifestParser = manifestParser
+    /// The manifest loader.
+    let manifestLoader: ManifestLoader
+
+    /// Create a new package directory.
+    ///
+    /// - Parameters
+    ///   - rootPath: The path of the root package, inside which the "Packages/"
+    ///   subdirectory will be created.
+    public init(root rootPath: AbsolutePath, manifestLoader: ManifestLoader) {
+        self.rootPath = rootPath
+        self.manifestLoader = manifestLoader
+    }
+
+    /// The path to the packages.
+    var packagesPath: AbsolutePath {
+        return rootPath.appending("Packages")
     }
     
     /// The set of all repositories available within the `Packages` directory, by origin.
     fileprivate lazy var availableRepositories: [String: Git.Repo] = { [unowned self] in
         // FIXME: Lift this higher.
-        guard localFileSystem.isDirectory(self.prefix) else { return [:] }
+        guard localFileSystem.isDirectory(self.packagesPath) else { return [:] }
 
         var result = Dictionary<String, Git.Repo>()
-        for name in try! localFileSystem.getDirectoryContents(self.prefix) {
-            let prefix = self.prefix.appending(RelativePath(name))
+        for name in try! localFileSystem.getDirectoryContents(self.packagesPath) {
+            let prefix = self.packagesPath.appending(RelativePath(name))
             guard let repo = Git.Repo(path: prefix), let origin = repo.origin else { continue } // TODO: Warn user.
             result[origin] = repo
         }
         return result
     }()
+
+    /// Recursively fetch the dependencies for the root package.
+    ///
+    /// - Parameters:
+    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
+    /// - Returns: The loaded root package and all external packages, with dependencies resolved.
+    /// - Throws: Error.InvalidDependencyGraph
+    public func loadPackages(ignoreDependencies: Bool = false) throws -> (rootPackage: Package, externalPackages: [Package]) {
+        // Load the manifest for the root package.
+        let manifest = try manifestLoader.load(path: rootPath, baseURL: rootPath.asString, version: nil)
+        if ignoreDependencies {
+            return (Package(manifest: manifest), [])
+        }
+
+        // Resolve and fetch all package dependencies and their manifests.
+        let extManifests = try recursivelyFetch(manifest.dependencies)
+
+        // Create all the packages.
+        let rootPackage = Package(manifest: manifest)
+        let extPackages = extManifests.map{ Package(manifest: $0) }
+
+        // Load all of the package dependencies.
+        //
+        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
+        let pkgs = extPackages + [rootPackage]
+        for pkg in pkgs {
+            pkg.dependencies = pkg.manifest.package.dependencies.map{ dep in pkgs.pick{ dep.url == $0.url }! }
+        }
+        
+        return (rootPackage, extPackages)
+    }
 }
 
+/// Support fetching using the PackagesDirectory directly.
 extension PackagesDirectory: Fetcher {
     typealias T = Manifest
 
@@ -76,7 +126,7 @@ extension PackagesDirectory: Fetcher {
             return nil
         }
 
-        return try manifestParser(path: repo.path, url: origin, version: version)
+        return try manifestLoader.load(path: repo.path, baseURL: origin, version: version)
     }
     
     func find(url: String) throws -> Fetchable? {
@@ -88,23 +138,23 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
-        let dstdir = prefix.appending(url.basename)
+        let dstdir = packagesPath.appending(url.basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
-            return try RawClone(path: dstdir, manifestParser: manifestParser)
+            return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
         }
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
         try Git.clone(url, to: dstdir).fetch()
 
-        return try RawClone(path: dstdir, manifestParser: manifestParser)
+        return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
     }
 
     func finalize(_ fetchable: Fetchable) throws -> Manifest {
         switch fetchable {
         case let clone as RawClone:
-            let prefix = self.prefix.appending(RelativePath(clone.finalName))
-            try Utility.makeDirectories(prefix.parentDirectory.asString)
+            let prefix = self.packagesPath.appending(RelativePath(clone.finalName))
+            try Utility.makeDirectories(packagesPath.parentDirectory.asString)
             try rename(old: clone.path.asString, new: prefix.asString)
             //TODO don't reparse the manifest!
             let repo = Git.Repo(path: prefix)!
@@ -118,5 +168,15 @@ extension PackagesDirectory: Fetcher {
         default:
             fatalError("Unexpected Fetchable Type: \(fetchable)")
         }
+    }
+}
+
+//TODO normalize urls eg http://github.com -> https://github.com
+//TODO probably should respect any relocation that applies during git transfer
+//TODO detect cycles?
+
+extension Manifest {
+    var dependencies: [(String, Range<Version>)] {
+        return package.dependencies.map{ ($0.url, $0.versionRange) }
     }
 }

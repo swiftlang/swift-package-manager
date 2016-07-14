@@ -69,7 +69,7 @@ let package = Package(
         Target(
             /** Fetches Packages and their dependencies */
             name: "Get",
-            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
+            dependencies: ["Basic", "PackageDescription", "PackageModel", "PackageLoading"]),
         
         // MARK: Package Manager Functionality
         
