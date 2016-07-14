@@ -120,29 +120,25 @@ class WalkTests: XCTestCase {
     }
 
     func testSymlinksNotWalked() {
-        do {
-            try mkdtemp("foo") { root in
-                let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
-                
-                try Utility.makeDirectories(root.appending("foo").asString)
-                try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
-                try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
+        mktmpdir { root in
+            let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
+            
+            try Utility.makeDirectories(root.appending("foo").asString)
+            try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
+            try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
 
-                XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
-                XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
-                XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
+            XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
+            XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
+            XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
 
-                let results = walk(root.appending("foo")).map{ $0 }
+            let results = walk(root.appending("foo")).map{ $0 }
 
-                XCTAssertEqual(results, [root.appending("foo/symlink")])
-            }
-        } catch {
-            XCTFail("\(error)")
+            XCTAssertEqual(results, [root.appending("foo/symlink")])
         }
     }
 
     func testWalkingADirectorySymlinkResolvesOnce() {
-        try! mkdtemp("foo") { root in
+        mktmpdir { root in
             try Utility.makeDirectories(root.appending("foo/bar").asString)
             try Utility.makeDirectories(root.appending("abc/bar").asString)
             try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
@@ -176,7 +172,7 @@ class StatTests: XCTestCase {
         XCTAssertTrue("/usr".isDirectory)
         XCTAssertTrue("/etc/passwd".isFile)
 
-        try! mkdtemp("foo") { root in
+        mktmpdir { root in
             try Utility.makeDirectories(root.appending("foo/bar").asString)
             try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
 

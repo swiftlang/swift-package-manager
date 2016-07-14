@@ -18,7 +18,7 @@ import Utility
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() {
-        mkdtemp(#function) { path in
+        mktmpdir { path in
             let testRepoPath = path.appending("test-repo")
             try! Utility.makeDirectories(testRepoPath.asString)
             initGitRepo(testRepoPath, tag: "1.2.3")

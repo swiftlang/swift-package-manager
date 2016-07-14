@@ -35,7 +35,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
 
 class CheckoutManagerTests: XCTestCase {
     func testBasics() {
-        mkdtemp(#function) { path in
+        mktmpdir { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
 
             // Check that we can "fetch" a repository.
@@ -59,7 +59,7 @@ class CheckoutManagerTests: XCTestCase {
 
     /// Check the behavior of the observer of repository status.
     func testObserver() {
-        mkdtemp(#function) { path in
+        mktmpdir { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
@@ -75,7 +75,7 @@ class CheckoutManagerTests: XCTestCase {
 
     /// Check that the manager is persistent.
     func testPersistence() {
-        mkdtemp(#function) { path in
+        mktmpdir { path in
             let provider = DummyRepositoryProvider()
 
             // Do the initial fetch.

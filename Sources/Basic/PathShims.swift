@@ -76,17 +76,3 @@ public func unlink(_ path: AbsolutePath) throws {
     let rv = libc.unlink(path.asString)
     guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
 }
-
-public func mkdtemp<T>(_ template: String, tmpDir: AbsolutePath? = nil, body: @noescape(AbsolutePath) throws -> T) rethrows -> T {
-    let tmpDir = AbsolutePath(tmpDir?.asString ?? getenv("TMPDIR") ?? "/tmp/")
-    let path = tmpDir.appending(template + ".XXXXXX")
-    return try path.asString.withCString { template in
-        let mutable = UnsafeMutablePointer<Int8>(template)
-        let dir = libc.mkdtemp(mutable)  // TODO get actual TMP dir
-        guard dir != nil else {
-            throw SystemError.mkdtemp(errno)
-        }
-        defer { rmdir(dir!) }
-        return try body(AbsolutePath(String(validatingUTF8: dir!)!))
-    }
-}

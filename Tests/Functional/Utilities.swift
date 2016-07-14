@@ -26,62 +26,55 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
         let copyName = fixtureSubpath.components.joined(separator: "_")
         
         // Create a temporary directory for the duration of the block.
-        try mkdtemp(copyName) { tmpDir in
+        let tmpDir = try TemporaryDirectory(prefix: copyName, removeTreeOnDeinit: true)
             
-            // Schedule removal of the temporary directory, no matter what happens.
-            defer { _ = try? Utility.removeFileTree(tmpDir.asString) }
+        // Construct the expected path of the fixture.
+        // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
+        let fixtureDir = AbsolutePath(#file).appending("../../../Fixtures").appending(fixtureSubpath)
+        
+        // Check that the fixture is really there.
+        guard fixtureDir.asString.isDirectory else {
+            XCTFail("No such fixture: \(fixtureDir.asString)", file: file, line: line)
+            return
+        }
+        
+        // The fixture contains either a checkout or just a Git directory.
+        if fixtureDir.appending("Package.swift").asString.isFile {
+            // It's a single package, so copy the whole directory as-is.
+            let dstDir = tmpDir.path.appending(copyName)
+            try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
             
-            // Construct the expected path of the fixture.
-            // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-            let fixtureDir = AbsolutePath(#file).appending("../../../Fixtures").appending(fixtureSubpath)
-            
-            // Check that the fixture is really there.
-            guard fixtureDir.asString.isDirectory else {
-                XCTFail("No such fixture: \(fixtureDir.asString)", file: file, line: line)
-                return
-            }
-            
-            // The fixture contains either a checkout or just a Git directory.
-            if fixtureDir.appending("Package.swift").asString.isFile {
-                // It's a single package, so copy the whole directory as-is.
-                let dstDir = tmpDir.appending(copyName)
-                try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
-                
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(dstDir)
-            }
-            else {
-                // Not a single package, so we expect it to be a directory of packages.
-                var versions = tags
-                func popVersion() -> String {
-                    if versions.isEmpty {
-                        return "1.2.3"
-                    } else if versions.count == 1 {
-                        return versions.first!
-                    } else {
-                        return versions.removeFirst()
-                    }
+            // Invoke the block, passing it the path of the copied fixture.
+            try body(dstDir)
+        } else {
+            // Not a single package, so we expect it to be a directory of packages.
+            var versions = tags
+            func popVersion() -> String {
+                if versions.isEmpty {
+                    return "1.2.3"
+                } else if versions.count == 1 {
+                    return versions.first!
+                } else {
+                    return versions.removeFirst()
                 }
-                
-                // Copy each of the package directories and construct a git repo in it.
-                for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
-                    let srcDir = fixtureDir.appending(fileName)
-                    guard srcDir.asString.isDirectory else { continue }
-                    let dstDir = tmpDir.appending(fileName)
-                    try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.email", "example@example.com"])
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.name", "Example Example"])
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "add", "."])
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "commit", "-m", "msg"])
-                    try systemQuietly([Git.tool, "-C", dstDir.asString, "tag", popVersion()])
-                }
-                
-                // Invoke the block, passing it the path of the copied fixture.
-                try body(tmpDir)
             }
             
-            // Regardless of how the block ends, the temporary directory will be removed.
+            // Copy each of the package directories and construct a git repo in it.
+            for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+                let srcDir = fixtureDir.appending(fileName)
+                guard srcDir.asString.isDirectory else { continue }
+                let dstDir = tmpDir.path.appending(fileName)
+                try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.email", "example@example.com"])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.name", "Example Example"])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "add", "."])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "commit", "-m", "msg"])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "tag", popVersion()])
+            }
+            
+            // Invoke the block, passing it the path of the copied fixture.
+            try body(tmpDir.path)
         }
     } catch {
         XCTFail("\(error)", file: file, line: line)
@@ -202,12 +195,11 @@ func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .De
     return try swiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
-func mktmpdir(_ file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+/// Test helper utility for executing a block with a temporary directory.
+func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
     do {
-        try mkdtemp("spm-tests") { dir in
-            defer { _ = try? Utility.removeFileTree(dir.asString) }
-            try body(dir)
-        }
+        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(function)", removeTreeOnDeinit: true)
+        try body(tmpDir.path)
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }
