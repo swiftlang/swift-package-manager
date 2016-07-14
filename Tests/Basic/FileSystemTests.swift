@@ -124,10 +124,10 @@ class FileSystemTests: XCTestCase {
         XCTAssert(!fs.exists(missingDir))
     }
 
-    // MARK: PseudoFS Tests
+    // MARK: InMemoryFileSystem Tests
 
-    func testPseudoBasics() {
-        let fs = PseudoFS()
+    func testInMemoryBasics() {
+        let fs = InMemoryFileSystem()
 
         // exists()
         XCTAssert(!fs.exists("/does-not-exist"))
@@ -147,8 +147,8 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.isDirectory("/new-dir/subdir"))
     }
 
-    func testPseudoCreateDirectory() {
-        let fs = PseudoFS()
+    func testInMemoryCreateDirectory() {
+        let fs = InMemoryFileSystem()
         let subdir = AbsolutePath("/new-dir/subdir")
         try! fs.createDirectory(subdir, recursive: true)
         XCTAssert(fs.isDirectory(subdir))
@@ -184,8 +184,8 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
     }
     
-    func testPseudoReadWriteFile() {
-        let fs = PseudoFS()
+    func testInMemoryReadWriteFile() {
+        let fs = InMemoryFileSystem()
         try! fs.createDirectory("/new-dir/subdir", recursive: true)
 
         // Check read/write of a simple file.
@@ -242,8 +242,8 @@ class FileSystemTests: XCTestCase {
         ("testLocalBasics", testLocalBasics),
         ("testLocalCreateDirectory", testLocalCreateDirectory),
         ("testLocalReadWriteFile", testLocalReadWriteFile),
-        ("testPseudoBasics", testPseudoBasics),
-        ("testPseudoCreateDirectory", testPseudoCreateDirectory),
-        ("testPseudoReadWriteFile", testPseudoReadWriteFile),
+        ("testInMemoryBasics", testInMemoryBasics),
+        ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
+        ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
     ]
 }

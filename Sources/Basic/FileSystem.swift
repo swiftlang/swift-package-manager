@@ -292,7 +292,7 @@ private class LocalFileSystem: FileSystem {
 /// Concrete FileSystem implementation which simulates an empty disk.
 //
 // FIXME: This class does not yet support concurrent mutation safely.
-public class PseudoFS: FileSystem {
+public class InMemoryFileSystem: FileSystem {
     private class Node {
         /// The actual node data.
         let contents: NodeContents
