@@ -133,7 +133,7 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
         }
     }
     // Write the real file.
-    try localFileSystem.writeFileContents(path.asString, bytes: stream.bytes)
+    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
 }
 
 /// Finds directories that will be added as blue folder

@@ -19,8 +19,8 @@ private extension FileSystem {
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         let contents = OutputByteStream()
         body(contents)
-        try createDirectory(path.parentDirectory.asString, recursive: true)
-        try writeFileContents(path.asString, bytes: contents.bytes)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
     }
 }
 
