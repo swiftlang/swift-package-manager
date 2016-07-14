@@ -122,7 +122,8 @@ class WalkTests: XCTestCase {
     func testSymlinksNotWalked() {
         do {
             try mkdtemp("foo") { root in
-                let root = try AbsolutePath(realpath(root))  //FIXME not good that we need this?
+                let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
+                
                 try Utility.makeDirectories(root.appending("foo").asString)
                 try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
                 try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
@@ -142,8 +143,6 @@ class WalkTests: XCTestCase {
 
     func testWalkingADirectorySymlinkResolvesOnce() {
         try! mkdtemp("foo") { root in
-            let root = try AbsolutePath(realpath(root))  //FIXME not good that we need this?
-
             try Utility.makeDirectories(root.appending("foo/bar").asString)
             try Utility.makeDirectories(root.appending("abc/bar").asString)
             try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
@@ -178,8 +177,6 @@ class StatTests: XCTestCase {
         XCTAssertTrue("/etc/passwd".isFile)
 
         try! mkdtemp("foo") { root in
-            let root = AbsolutePath(root)
-            
             try Utility.makeDirectories(root.appending("foo/bar").asString)
             try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
 

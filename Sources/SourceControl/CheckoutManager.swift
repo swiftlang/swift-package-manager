@@ -8,9 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import var Basic.localFileSystem
-import struct Basic.ByteString
-import enum Basic.JSON
+import Basic
 import Utility
 
 /// Manages a collection of repository checkouts.
@@ -38,13 +36,13 @@ public class CheckoutManager {
         ///
         /// This is intentionally hidden from the clients so that the manager is
         /// allowed to move repositories transparently.
-        fileprivate let subpath: String
+        fileprivate let subpath: RelativePath
 
         /// The status of the repository.
         fileprivate var status: Status = .uninitialized
 
         /// Create a handle.
-        fileprivate init(manager: CheckoutManager, subpath: String) {
+        fileprivate init(manager: CheckoutManager, subpath: RelativePath) {
             self.manager = manager
             self.subpath = subpath
         }
@@ -58,7 +56,7 @@ public class CheckoutManager {
                 return nil
             }
             self.manager = manager
-            self.subpath = subpath
+            self.subpath = RelativePath(subpath)
             self.status = status
         }
         
@@ -92,13 +90,13 @@ public class CheckoutManager {
         fileprivate func toJSON() -> JSON {
             return .dictionary([
                     "status": .string(status.rawValue),
-                    "subpath": .string(subpath)
+                    "subpath": .string(subpath.asString)
                 ])
         }
     }
 
     /// The path under which repositories are stored.
-    private let path: String
+    private let path: AbsolutePath
 
     /// The repository provider.
     private let provider: RepositoryProvider
@@ -115,7 +113,7 @@ public class CheckoutManager {
     /// - path: The path under which to store repositories. This should be a
     ///         directory in which the content can be completely managed by this
     ///         instance.
-    public init(path: String, provider: RepositoryProvider) {
+    public init(path: AbsolutePath, provider: RepositoryProvider) {
         self.path = path
         self.provider = provider
 
@@ -142,14 +140,14 @@ public class CheckoutManager {
         }
         
         // Otherwise, fetch the repository and return a handle.
-        let subpath = repository.fileSystemIdentifier
+        let subpath = RelativePath(repository.fileSystemIdentifier)
         let handle = RepositoryHandle(manager: self, subpath: subpath)
         repositories[repository.url] = handle
 
         // FIXME: This should run on a background thread.
         do {
             handle.status = .pending
-            try provider.fetch(repository: repository, to: Path.join(path, subpath))
+            try provider.fetch(repository: repository, to: path.appending(subpath))
             handle.status = .available
         } catch {
             // FIXME: Handle failure more sensibly.
@@ -183,8 +181,8 @@ public class CheckoutManager {
     private static var schemaVersion = 0
 
     /// The path at which we persist the manager state.
-    private var statePath: String {
-        return Path.join(path, "manager-state.json")
+    private var statePath: AbsolutePath {
+        return path.appending("manager-state.json")
     }
     
     /// Restore the manager state from disk.
@@ -196,14 +194,14 @@ public class CheckoutManager {
     /// available.
     private func restoreState() throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
-        if !statePath.exists {
+        if !exists(statePath) {
             return false
         }
         
         // Load the state.
         //
         // FIXME: Build out improved file reading support.
-        try fopen(statePath) { handle in
+        try fopen(statePath.asString) { handle in
             let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
 
             // Load the state from JSON.
@@ -258,6 +256,6 @@ public class CheckoutManager {
 
 extension CheckoutManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
-        return "<\(self.dynamicType) subpath:\(subpath.debugDescription)>"
+        return "<\(self.dynamicType) subpath:\(subpath.asString)>"
     }
 }

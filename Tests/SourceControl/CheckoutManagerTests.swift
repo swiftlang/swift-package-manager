@@ -9,10 +9,8 @@
 */
 
 import XCTest
-
+import Basic
 import SourceControl
-
-import func POSIX.mkdtemp
 
 private enum DummyError: Swift.Error {
     case invalidRepository
@@ -21,7 +19,7 @@ private enum DummyError: Swift.Error {
 private class DummyRepositoryProvider: RepositoryProvider {
     var numFetches = 0
     
-    func fetch(repository: RepositorySpecifier, to path: String) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         numFetches += 1
         
         // We only support one dummy URL.
@@ -30,14 +28,14 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
     }
 
-    func open(repository: RepositorySpecifier, at path: String) -> Repository {
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
         fatalError("unexpected API call")
     }
 }
 
 class CheckoutManagerTests: XCTestCase {
     func testBasics() {
-        try! POSIX.mkdtemp(#function) { path in
+        mkdtemp(#function) { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
 
             // Check that we can "fetch" a repository.
@@ -61,7 +59,7 @@ class CheckoutManagerTests: XCTestCase {
 
     /// Check the behavior of the observer of repository status.
     func testObserver() {
-        try! POSIX.mkdtemp(#function) { path in
+        mkdtemp(#function) { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
@@ -77,7 +75,7 @@ class CheckoutManagerTests: XCTestCase {
 
     /// Check that the manager is persistent.
     func testPersistence() {
-        try! POSIX.mkdtemp(#function) { path in
+        mkdtemp(#function) { path in
             let provider = DummyRepositoryProvider()
 
             // Do the initial fetch.

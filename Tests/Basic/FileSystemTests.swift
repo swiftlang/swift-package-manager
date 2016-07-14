@@ -54,9 +54,9 @@ class FileSystemTests: XCTestCase {
         var fs = Basic.localFileSystem
         
         // FIXME: Migrate to temporary file wrapper, once we have one.
-        try! POSIX.mkdtemp(#function) { tmpDir in
+        mkdtemp(#function) { tmpDir in
             do {
-                let testPath = Path.join(tmpDir, "new-dir")
+                let testPath = tmpDir.appending("new-dir")
                 XCTAssert(!fs.exists(testPath))
                 try! fs.createDirectory(testPath)
                 XCTAssert(fs.exists(testPath))
@@ -64,24 +64,24 @@ class FileSystemTests: XCTestCase {
             }
 
             do {
-                let testPath = Path.join(tmpDir, "another-new-dir/with-a-subdir")
+                let testPath = tmpDir.appending("another-new-dir/with-a-subdir")
                 XCTAssert(!fs.exists(testPath))
                 try! fs.createDirectory(testPath, recursive: true)
                 XCTAssert(fs.exists(testPath))
                 XCTAssert(fs.isDirectory(testPath))
             }
 
-            try! Utility.removeFileTree(tmpDir)
+            try! Utility.removeFileTree(tmpDir.asString)
         }
     }
 
     func testLocalReadWriteFile() {
         var fs = Basic.localFileSystem
         
-        try! POSIX.mkdtemp(#function) { tmpDir in
+        mkdtemp(#function) { tmpDir in
             // Check read/write of a simple file.
             let testData = (0..<1000).map { $0.description }.joined(separator: ", ")
-            let filePath = Path.join(tmpDir, "test-data.txt")
+            let filePath = tmpDir.appending("test-data.txt")
             try! fs.writeFileContents(filePath, bytes: ByteString(testData))
             let data = try! fs.readFileContents(filePath)
             XCTAssertEqual(data, ByteString(testData))
@@ -110,15 +110,15 @@ class FileSystemTests: XCTestCase {
         
             // Check read/write into a non-directory.
             XCTAssertThrows(FileSystemError.notDirectory) {
-                _ = try fs.readFileContents(Path.join(filePath, "not-possible"))
+                _ = try fs.readFileContents(filePath.appending("not-possible"))
             }
             XCTAssertThrows(FileSystemError.notDirectory) {
-                try fs.writeFileContents(Path.join(filePath, "not-possible"), bytes: [])
+                try fs.writeFileContents(filePath.appending("not-possible"), bytes: [])
             }
             XCTAssert(fs.exists(filePath))
         
             // Check read/write into a missing directory.
-            let missingDir = Path.join(tmpDir, "does/not/exist")
+            let missingDir = tmpDir.appending("does/not/exist")
             XCTAssertThrows(FileSystemError.noEntry) {
                 _ = try fs.readFileContents(missingDir)
             }
@@ -127,7 +127,7 @@ class FileSystemTests: XCTestCase {
             }
             XCTAssert(!fs.exists(missingDir))
 
-            try! Utility.removeFileTree(tmpDir)
+            try! Utility.removeFileTree(tmpDir.asString)
         }
     }
 
