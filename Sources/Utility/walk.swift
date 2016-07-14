@@ -120,11 +120,11 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
                 return nil
             }
             let name = entry.name ?? ""
-            let path = current.path.appending(name)
+            let path = current.path.appending(component: name)
             if path.asString.isDirectory && !path.asString.isSymlink {
                 towalk.append(path)
             }
-            return current.path.appending(name)
+            return current.path.appending(component: name)
         }
     }
 }

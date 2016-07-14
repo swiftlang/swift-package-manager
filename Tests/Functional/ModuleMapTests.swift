@@ -25,10 +25,10 @@ class ModuleMapsTestCase: XCTestCase {
 
     private func fixture(name: RelativePath, cModuleName: String, rootpkg: String, body: (AbsolutePath, [String]) throws -> Void) {
         FunctionalTestSuite.fixture(name: name) { prefix in
-            let input = prefix.appending(cModuleName).appending("C").appending("foo.c")
-            let outdir = prefix.appending(rootpkg).appending(".build/debug")
+            let input = prefix.appending(components: cModuleName, "C", "foo.c")
+            let outdir = prefix.appending(components: rootpkg, ".build", "debug")
             try Utility.makeDirectories(outdir.asString)
-            let output = outdir.appending("libfoo.\(dylib)")
+            let output = outdir.appending(component: "libfoo.\(dylib)")
             try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 
             var Xld = ["-L", outdir.asString]
@@ -43,11 +43,11 @@ class ModuleMapsTestCase: XCTestCase {
     func testDirectDependency() {
         fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { prefix, Xld in
 
-            XCTAssertBuilds(prefix.appending("App"), Xld: Xld)
+            XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let debugout = try popen([prefix.appending("App/.build/debug/App").asString])
+            let debugout = try popen([prefix.appending(RelativePath("App/.build/debug/App")).asString])
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try popen([prefix.appending("App/.build/release/App").asString])
+            let releaseout = try popen([prefix.appending(RelativePath("App/.build/release/App")).asString])
             XCTAssertEqual(releaseout, "123\n")
         }
     }
@@ -55,11 +55,11 @@ class ModuleMapsTestCase: XCTestCase {
     func testTransitiveDependency() {
         fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { prefix, Xld in
 
-            XCTAssertBuilds(prefix.appending("packageA"), Xld: Xld)
+            XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
                 let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                let out = try popen([prefix.appending("packageA").appending(".build").appending(conf).appending("packageA").asString])
+                let out = try popen([prefix.appending(components: "packageA", ".build", conf, "packageA").asString])
                 XCTAssertEqual(out, expectedOutput)
             }
 

@@ -133,12 +133,6 @@ public struct AbsolutePath {
         return AbsolutePath(self, subpath)
     }
     
-    /// Returns the absolute path with the contents of the string (interpreted
-    /// as a relative path, not a single path component) appended.
-    public func appending(_ str: String) -> AbsolutePath {
-        return AbsolutePath(self, str)
-    }
-    
     /// Returns the absolute path with an additional literal component appended.
     ///
     /// This method should only be used in cases where the input is guaranteed

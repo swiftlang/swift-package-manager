@@ -53,7 +53,7 @@ struct ClangModuleBuildMetadata {
     let otherArgs: [String]
 
     /// Path to build directory for this module.
-    var buildDirectory: AbsolutePath { return prefix.appending(module.c99name + ".build") }
+    var buildDirectory: AbsolutePath { return prefix.appending(component: module.c99name + ".build") }
 
     /// Targets this module depends on.
     var inputs: [String] {
@@ -75,8 +75,8 @@ struct ClangModuleBuildMetadata {
     func compilePaths() -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)] {
         return module.sources.relativePaths.map { source in
             let path = module.sources.root.appending(source)
-            let object = buildDirectory.appending(source.asString + ".o")
-            let deps = buildDirectory.appending(source.asString + ".d")
+            let object = buildDirectory.appending(RelativePath(source.asString + ".o"))
+            let deps = buildDirectory.appending(RelativePath(source.asString + ".d"))
             return (source, path, object, deps)
         }
     }

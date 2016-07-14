@@ -364,7 +364,7 @@ extension Package {
     }
 
     var excludedPaths: [AbsolutePath] {
-        return manifest.package.exclude.map { self.path.appending($0) }
+        return manifest.package.exclude.map { self.path.appending(RelativePath($0)) }
     }
     
     private var pkgConfigPath: RelativePath? {

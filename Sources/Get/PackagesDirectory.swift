@@ -138,7 +138,7 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
-        let dstdir = packagesPath.appending(url.basename)
+        let dstdir = packagesPath.appending(component: url.basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
@@ -153,7 +153,7 @@ extension PackagesDirectory: Fetcher {
     func finalize(_ fetchable: Fetchable) throws -> Manifest {
         switch fetchable {
         case let clone as RawClone:
-            let prefix = self.packagesPath.appending(RelativePath(clone.finalName))
+            let prefix = self.packagesPath.appending(component: clone.finalName)
             try Utility.makeDirectories(packagesPath.parentDirectory.asString)
             try rename(old: clone.path.asString, new: prefix.asString)
             //TODO don't reparse the manifest!

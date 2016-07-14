@@ -80,7 +80,7 @@ final class InitPackage {
     }
     
     private func writeManifestFile() throws {
-        let manifest = rootd.appending(Manifest.filename)
+        let manifest = rootd.appending(component: Manifest.filename)
         guard manifest.asString.exists == false else {
             throw InitError.manifestAlreadyExists
         }

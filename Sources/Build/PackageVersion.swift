@@ -15,7 +15,7 @@ import class Utility.Git
 import struct Utility.Path
 
 public func generateVersionData(_ rootDir: AbsolutePath, rootPackage: Package, externalPackages: [Package]) throws {
-    let dirPath = rootDir.appending(".build/versionData")
+    let dirPath = rootDir.appending(components: ".build", "versionData")
     try localFileSystem.createDirectory(dirPath, recursive: true)
 
     try saveRootPackage(dirPath, package: rootPackage)
@@ -72,6 +72,6 @@ func versionData(package: Package) -> String {
 }
 
 private func saveVersionData(_ dirPath: AbsolutePath, packageName: String, data: String) throws {
-    let filePath = dirPath.appending(packageName + ".swift")
+    let filePath = dirPath.appending(components: packageName + ".swift")
     try localFileSystem.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: data))
 }

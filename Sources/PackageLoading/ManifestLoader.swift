@@ -66,7 +66,7 @@ public final class ManifestLoader {
         }
 
         // Compute the actual input file path.
-        let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(Manifest.filename) : inputPath
+        let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
         guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }

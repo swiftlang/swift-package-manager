@@ -61,7 +61,7 @@ extension Command {
 
             // TODO should be llbuild rules∫
             if conf == .debug {
-                let infoPlistPath = outpath.parentDirectory.parentDirectory.appending("Info.plist")
+                let infoPlistPath = outpath.parentDirectory.parentDirectory.appending(component: "Info.plist")
                 try localFileSystem.createDirectory(outpath.parentDirectory, recursive: true)
                 try localFileSystem.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
             }
@@ -70,7 +70,7 @@ extension Command {
             //       parent directory of the first test module we can find.
             let firstTestModule = product.modules.flatMap{$0 as? SwiftModule}.filter{ $0.isTest }.first!
             let testDirectory = firstTestModule.sources.root.parentDirectory
-            let main = testDirectory.appending("LinuxMain.swift")
+            let main = testDirectory.appending(component: "LinuxMain.swift")
             args.append(main.asString)
             for module in product.modules {
                 args += module.XccFlags(prefix)

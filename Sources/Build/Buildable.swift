@@ -36,7 +36,7 @@ extension Module: Buildable {
                 }
 
                 let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
-                let genModuleMap = buildMeta.buildDirectory.appending(module.moduleMap)
+                let genModuleMap = buildMeta.buildDirectory.appending(component: CModule.moduleMapFilename)
                 return ["-Xcc", "-fmodule-map-file=\(genModuleMap.asString)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]

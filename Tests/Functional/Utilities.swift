@@ -41,7 +41,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
         // The fixture contains either a checkout or just a Git directory.
         if fixtureDir.appending("Package.swift").asString.isFile {
             // It's a single package, so copy the whole directory as-is.
-            let dstDir = tmpDir.path.appending(copyName)
+            let dstDir = tmpDir.path.appending(component: copyName)
             try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
             
             // Invoke the block, passing it the path of the copied fixture.
@@ -61,9 +61,9 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
             
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
-                let srcDir = fixtureDir.appending(fileName)
+                let srcDir = fixtureDir.appending(component: fileName)
                 guard srcDir.asString.isDirectory else { continue }
-                let dstDir = tmpDir.path.appending(fileName)
+                let dstDir = tmpDir.path.appending(component: fileName)
                 try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.email", "example@example.com"])
@@ -84,7 +84,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain exactly one empty file, and if a tag name is provided, a tag with that name will be created.
 func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
-        let file = dir.appending("file.swift")
+        let file = dir.appending(component: "file.swift")
         try systemQuietly(["touch", file.asString])
         try systemQuietly([Git.tool, "-C", dir.asString, "init"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.email", "example@example.com"])

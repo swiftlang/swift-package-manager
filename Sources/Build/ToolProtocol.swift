@@ -78,10 +78,10 @@ struct SwiftcTool: ToolProtocol {
 
     var outputs: [String]                   { return [module.targetName] + objects.map{ $0.asString } }
     var moduleName: String                  { return module.c99name }
-    var moduleOutputPath: AbsolutePath      { return prefix.appending(module.c99name + ".swiftmodule") }
+    var moduleOutputPath: AbsolutePath      { return prefix.appending(component: module.c99name + ".swiftmodule") }
     var importPaths: [AbsolutePath]         { return [prefix] }
-    var tempsPath: AbsolutePath             { return prefix.appending(module.c99name + ".build") }
-    var objects: [AbsolutePath]             { return module.sources.relativePaths.map{ tempsPath.appending($0.asString + ".o") } }
+    var tempsPath: AbsolutePath             { return prefix.appending(component: module.c99name + ".build") }
+    var objects: [AbsolutePath]             { return module.sources.relativePaths.map{ tempsPath.appending(RelativePath($0.asString + ".o")) } }
     var sources: [AbsolutePath]             { return module.sources.paths }
     var isLibrary: Bool                     { return module.type == .library }
     var enableWholeModuleOptimization: Bool {

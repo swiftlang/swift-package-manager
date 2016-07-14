@@ -29,7 +29,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [
 
     let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
     let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
-    let prefix = prefix.appending(conf.dirname)
+    let prefix = prefix.appending(component: conf.dirname)
     try Utility.makeDirectories(prefix.asString)
     let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
 

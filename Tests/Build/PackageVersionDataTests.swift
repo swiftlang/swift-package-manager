@@ -56,7 +56,7 @@ final class PackageVersionDataTests: XCTestCase {
             let rootPkg = Package(manifest: m)
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
-            XCTAssertFileExists(dir.appending(".build/versionData/").appending(package.name + ".swift"))
+            XCTAssertFileExists(dir.appending(components: ".build", "versionData", package.name + ".swift"))
         }
     }
 

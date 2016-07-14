@@ -85,7 +85,7 @@ func fileRef(inProjectRoot subpath: RelativePath, srcroot: AbsolutePath) -> (ref
 
 /// Returns the (refId, path) tuple for the Info.plist file for a particular module.
 func fileRef(ofInfoPlistFor module: XcodeModuleProtocol, srcroot: AbsolutePath) -> (refId: String, path: AbsolutePath) {
-    let path = srcroot.appending(module.infoPlistFileName)
+    let path = srcroot.appending(component: module.infoPlistFileName)
     let idSuffix = module.infoPlistFileName
     return (refId: "\(sourceGroupFileRefPrefix)\(idSuffix)", path: path)
 }
@@ -194,7 +194,7 @@ extension XcodeModuleProtocol  {
 
     private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: String] {
         var buildSettings = [String: String]()
-        let plistPath = xcodeProjectPath.appending(infoPlistFileName)
+        let plistPath = xcodeProjectPath.appending(component: infoPlistFileName)
 
         if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
@@ -270,9 +270,9 @@ extension XcodeModuleProtocol  {
                 moduleMapPath = clangModule.moduleMapPath
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
-                let path = xcodeProjectPath.appending("GeneratedModuleMap").appending(clangModule.c99name)
+                let path = xcodeProjectPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
                 try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
-                moduleMapPath = path.appending(clangModule.moduleMap)
+                moduleMapPath = path.appending(component: CModule.moduleMapFilename)
             }
 
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString

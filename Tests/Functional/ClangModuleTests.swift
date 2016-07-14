@@ -25,25 +25,28 @@ class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("CLibraryFlat".soname))
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(components: "CLibraryFlat".soname))
         }
     }
     
     func testSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("CLibrarySources".soname))
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "CLibrarySources".soname))
         }
     }
     
     func testMixedSwiftAndC() {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build/debug").appending("SeaLib".soname))
-            XCTAssertFileExists(prefix.appending(".build/debug").appending("SeaExec"))
-            var output = try popen([prefix.appending(".build/debug").appending("SeaExec").asString])
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
+            XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
+            var output = try popen([debugPath.appending(component: "SeaExec").asString])
             XCTAssertEqual(output, "a = 5\n")
-            output = try popen([prefix.appending(".build/debug").appending("CExec").asString])
+            output = try popen([debugPath.appending(component: "CExec").asString])
             XCTAssertEqual(output, "5")
         }
     }
@@ -51,34 +54,38 @@ class ClangModulesTestCase: XCTestCase {
     func testExternalSimpleCDep() {
         fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
             XCTAssertBuilds(prefix.appending("Bar"))
-            XCTAssertFileExists(prefix.appending("Bar/.build/debug").appending("Bar"))
-            XCTAssertFileExists(prefix.appending("Bar/.build/debug").appending("Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending("Bar/Packages/Foo-1.2.3"))
+            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Bar"))
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
+            XCTAssertDirectoryExists(prefix.appending(RelativePath("Bar/Packages/Foo-1.2.3")))
         }
     }
     
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build/debug").appending("Foo".soname))
-            XCTAssertFileExists(prefix.appending(".build/debug").appending("Bar".soname))
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Bar with spaces".soname))
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
+            XCTAssertFileExists(debugPath.appending(component: "Bar".soname))
+            XCTAssertFileExists(debugPath.appending(component: "Bar with spaces".soname))
         }
     }
     
     func testCUsingCDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             XCTAssertBuilds(prefix.appending("Bar"))
-            XCTAssertFileExists(prefix.appending("Bar/.build/debug").appending("Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending("Bar/Packages/Foo-1.2.3"))
+            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
+            XCTAssertDirectoryExists(prefix.appending(RelativePath("Bar/Packages/Foo-1.2.3")))
         }
     }
     
     func testCExecutable() {
         fixture(name: "ValidLayouts/SingleModule/CExecutable") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build/debug/CExecutable"))
-            let output = try popen([prefix.appending(".build/debug/CExecutable").asString])
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "CExecutable"))
+            let output = try popen([debugPath.appending(component: "CExecutable").asString])
             XCTAssertEqual(output, "hello 5")
         }
     }
@@ -87,19 +94,21 @@ class ClangModulesTestCase: XCTestCase {
         //The C dependency "Foo" has different layout
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             XCTAssertBuilds(prefix.appending("Bar"))
-            XCTAssertFileExists(prefix.appending("Bar/.build/debug").appending("Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending("Bar/Packages/Foo-1.2.3"))
+            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
+            XCTAssertDirectoryExists(prefix.appending(RelativePath("Bar/Packages/Foo-1.2.3")))
         }
     }
     
     func testModuleMapGenerationCases() {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("UmbrellaHeader".soname))
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("FlatInclude".soname))
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("UmbellaModuleNameInclude".soname))
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("NoIncludeDir".soname))
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("Baz"))
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "UmbrellaHeader".soname))
+            XCTAssertFileExists(debugPath.appending(component: "FlatInclude".soname))
+            XCTAssertFileExists(debugPath.appending(component: "UmbellaModuleNameInclude".soname))
+            XCTAssertFileExists(debugPath.appending(component: "NoIncludeDir".soname))
+            XCTAssertFileExists(debugPath.appending(component: "Baz"))
         }
     }
 
@@ -107,7 +116,8 @@ class ClangModulesTestCase: XCTestCase {
         // Try building a fixture which needs extra flags to be able to build.
         fixture(name: "ClangModules/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
-            XCTAssertFileExists(prefix.appending(".build").appending("debug").appending("CDynamicLookup".soname))
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "CDynamicLookup".soname))
         }
     }
 
