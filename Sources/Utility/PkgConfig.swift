@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors 
 */
 
+import Basic
+
 import func POSIX.getenv
 import func POSIX.popen
 
@@ -89,8 +91,7 @@ public struct PkgConfig {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        let allSearchPaths = (pkgConfigSearchPaths + searchPaths + envSearchPaths).unique()
-        for path in allSearchPaths {
+        for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, name + ".pc")
             if pcFile.isFile {
                 return pcFile
