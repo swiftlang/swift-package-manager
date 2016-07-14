@@ -11,7 +11,6 @@
 import POSIX
 import libc
 
-
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
     ///
@@ -464,6 +463,61 @@ public class InMemoryFileSystem: FileSystem {
 
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
+    }
+}
+
+/// A rerooted view on an existing FileSystem.
+///
+/// This is a simple wrapper which creates a new FileSystem view into a subtree
+/// of an existing filesystem. This is useful for passing to clients which only
+/// need access to a subtree of the filesystem but should otherwise remain
+/// oblivious to its concrete location.
+public struct RerootedFileSystemView: FileSystem {
+    /// The underlying file system.
+    private var underlyingFileSystem: FileSystem
+
+    /// The root path within the containing file system.
+    private let root: AbsolutePath
+    
+    public init(_ underlyingFileSystem: inout FileSystem, rootedAt root: AbsolutePath) {
+        self.underlyingFileSystem = underlyingFileSystem
+        self.root = root
+    }
+
+    /// Adjust the input path for the underlying file system.
+    private func formUnderlyingPath(_ path: AbsolutePath) -> AbsolutePath {
+        if path == AbsolutePath.root {
+            return root
+        } else {
+            // FIXME: Optimize?
+            return root.appending(RelativePath(String(path.asString.characters.dropFirst(1))))
+        }
+    }
+    
+    // MARK: FileSystem Implementation
+
+    public func exists(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.exists(formUnderlyingPath(path))
+    }
+    
+    public func isDirectory(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
+    }
+    
+    public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+        return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
+    }
+
+    public mutating func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        return try underlyingFileSystem.createDirectory(formUnderlyingPath(path), recursive: recursive)
+    }
+
+    public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+        return try underlyingFileSystem.readFileContents(formUnderlyingPath(path))
+    }
+
+    public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+        return try underlyingFileSystem.writeFileContents(formUnderlyingPath(path), bytes: bytes)
     }
 }
 
