@@ -27,9 +27,6 @@ import struct PackageDescription.Version
 
 import func POSIX.chdir
 
-/// Additional conformance for our Options type.
-extension BuildToolOptions: XcodeprojOptions {}
-
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
     case clean(CleanMode)
@@ -71,7 +68,6 @@ private enum BuildToolFlag: Argument {
     case colorMode(ColorWrap.Mode)
     case ignoreDependencies
     case verbose(Int)
-    case xcconfigOverrides(AbsolutePath)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -103,8 +99,6 @@ private enum BuildToolFlag: Argument {
             self = .colorMode(mode)
         case "--ignore-dependencies":
             self = .ignoreDependencies
-        case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(AbsolutePath(forcePop().abspath))
         default:
             return nil
         }
@@ -119,7 +113,6 @@ private class BuildToolOptions: Options {
     var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
     var ignoreDependencies: Bool = false
-    var xcconfigOverrides: AbsolutePath? = nil
 }
 
 /// swift-build tool namespace
@@ -238,8 +231,6 @@ public struct SwiftBuildTool: SwiftTool {
                 opts.buildTests = true
             case .colorMode(let mode):
                 opts.colorMode = mode
-            case .xcconfigOverrides(let path):
-                opts.xcconfigOverrides = path
             case .ignoreDependencies:
                 opts.ignoreDependencies = true
             }
