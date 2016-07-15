@@ -36,6 +36,8 @@ private struct Resources: ManifestResourceProvider {
         let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
             swiftc = AbsolutePath(base).appending("usr/bin/swiftc")
+        } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
+            swiftc = AbsolutePath(override)
         } else {
             swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
         }
