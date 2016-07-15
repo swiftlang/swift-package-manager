@@ -157,7 +157,7 @@ extension Package {
     // FIXME: This should not be public.
     public func modules() throws -> [Module] {
         let moduleMapPath = path.appending("module.modulemap")
-        if moduleMapPath.asString.isFile {
+        if try isFile(moduleMapPath) {
             let sources = Sources(paths: [moduleMapPath], root: path)
             return [try CModule(name: name, sources: sources, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
@@ -169,7 +169,7 @@ extension Package {
         let srcroot = try sourceRoot()
 
         if srcroot != path {
-            let invalidRootFiles = walk(path, recursively: false).filter(isValidSource)
+            let invalidRootFiles = try walk(path, recursively: false).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
@@ -178,7 +178,7 @@ extension Package {
         let maybeModules = walk(srcroot, recursively: false).filter(shouldConsiderDirectory)
 
         if maybeModules.count == 1 && maybeModules[0] != srcroot {
-            let invalidModuleFiles = walk(srcroot, recursively: false).filter(isValidSource)
+            let invalidModuleFiles = try walk(srcroot, recursively: false).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
             }
@@ -239,8 +239,8 @@ extension Package {
     fileprivate func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
-        let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
-        let swiftSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
+        let cSources = try walked.filter{ try isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
+        let swiftSources = try walked.filter{ try isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
         
         if !cSources.isEmpty {
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
@@ -251,15 +251,15 @@ extension Package {
         return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
     }
 
-    private func isValidSource(_ path: AbsolutePath) -> Bool {
-        return isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
+    private func isValidSource(_ path: AbsolutePath) throws -> Bool {
+        return try isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
     }
     
-    private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
+    private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) throws -> Bool {
         if path.basename.hasPrefix(".") { return false }
         if path == manifest.path { return false }
         if excludedPaths.contains(path) { return false }
-        if !path.asString.isFile { return false }
+        if try !isFile(path) { return false }
         guard let ext = path.asString.fileExt else { return false }
         return validExtensions.contains(ext)
     }

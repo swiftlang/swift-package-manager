@@ -127,9 +127,9 @@ class WalkTests: XCTestCase {
             try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
             try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
 
-            XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
+            XCTAssertSymlinkExists(root.appending("foo/symlink"))
             XCTAssertEqual(try! realpath(root.appending("foo/symlink")), root.appending("bar"))
-            XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
+            XCTAssertDirectoryExists(try realpath(root.appending("foo/symlink/baz")))
 
             let results = walk(root.appending("foo")).map{ $0 }
 
@@ -144,7 +144,7 @@ class WalkTests: XCTestCase {
             try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
             try symlink(create: root.appending("foo/baz").asString, pointingAt: root.appending("abc").asString, relativeTo: root.asString)
 
-            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
+            XCTAssertSymlinkExists(root.appending("symlink"))
 
             let results = walk(root.appending("symlink")).map{ $0 }.sorted()
 

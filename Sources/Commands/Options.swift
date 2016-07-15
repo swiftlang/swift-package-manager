@@ -40,7 +40,7 @@ public struct Flag {
 
 private func getroot() -> AbsolutePath {
     var root = AbsolutePath(getcwd())
-    while !root.appending(component: Manifest.filename).asString.isFile {
+    while try! !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
 
         guard root != "/" else {

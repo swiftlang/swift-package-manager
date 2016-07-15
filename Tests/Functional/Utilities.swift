@@ -245,13 +245,19 @@ func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line:
 
 func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if try! !isFile(path) {
-        XCTFail("Expected file doesn’t exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected file doesn’t exist (or isn't a file): \(path.asString)", file: file, line: line)
     }
 }
 
 func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if try! !isDirectory(path) {
-        XCTFail("Expected directory doesn’t exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected directory doesn’t exist (or isn't a directory): \(path.asString)", file: file, line: line)
+    }
+}
+
+func XCTAssertSymlinkExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+    if try! !isSymlink(path) {
+        XCTFail("Expected symlink doesn’t exist (or isn't a symlink): \(path.asString)", file: file, line: line)
     }
 }
 
