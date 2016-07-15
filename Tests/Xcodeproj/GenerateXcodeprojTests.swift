@@ -9,6 +9,8 @@
 */
 
 import Basic
+import PackageDescription
+import PackageGraph
 import PackageModel
 import Xcodeproj
 import Utility
@@ -17,18 +19,16 @@ import XCTest
 #if os(macOS)
 
 class GenerateXcodeprojTests: XCTestCase {
-    func testXcodeBuildCanParseIt() {
+    func testXcodebuildCanParseIt() {
         mktmpdir { dstdir in
-            func dummy() throws -> [XcodeModuleProtocol] {
+            func dummy() throws -> [Module] {
                 return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
             }
 
             let projectName = "DummyProjectName"
-            let srcroot = dstdir
-            let modules = try dummy()
-            let products: [Product] = []
-
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: XcodeprojOptions())
+            let dummyPackage = Package(manifest: Manifest(path: dstdir, url: dstdir.asString, package: PackageDescription.Package(name: "Foo"), products: [], version: nil))
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: try dummy(), externalModules: [], products: [])
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))

@@ -208,13 +208,8 @@ public struct SwiftPackageTool: SwiftTool {
             case .generateXcodeproj:
                 let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
 
-                // FIXME: This doesn't make any sense.
-                let xcodeModules = graph.modules.flatMap { $0 as? XcodeModuleProtocol }
-                let externalXcodeModules  = graph.externalModules.flatMap { $0 as? XcodeModuleProtocol }
-        
                 let projectName: String
                 let dstdir: AbsolutePath
-                let packageName = graph.rootPackage.name
         
                 switch opts.outputPath {
                 case let outpath? where outpath.suffix == ".xcodeproj":
@@ -223,12 +218,12 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = outpath.parentDirectory
                 case let outpath?:
                     dstdir = outpath
-                    projectName = packageName
+                    projectName = graph.rootPackage.name
                 case _:
                     dstdir = opts.path.root
-                    projectName = packageName
+                    projectName = graph.rootPackage.name
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: graph.products, options: opts.xcodeprojOptions)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
         
                 print("generated:", outpath.asString.prettyPath)
                 
