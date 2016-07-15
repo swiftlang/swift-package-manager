@@ -80,13 +80,16 @@ public struct PackageGraphLoader {
                 modules = []
             }
     
+            // TODO: Allow testing of external package tests.
+            var testModules: [Module]
             if isRootPackage {
-                // TODO: allow testing of external package tests.
-                modules += try package.testModules(modules: modules)
+                testModules = try package.testModules(modules: modules)
+            } else {
+                testModules = []
             }
     
-            map[package] = modules
-            products += try package.products(modules)
+            products += try package.products(modules, testModules: testModules)
+            map[package] = modules + testModules
         }
 
         // Load all of the package dependencies.

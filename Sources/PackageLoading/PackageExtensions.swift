@@ -274,12 +274,8 @@ extension Package {
     /// Collects the products defined by a package.
     //
     // FIXME: This should not be public.
-    public func products(_ allModules: [Module]) throws -> [Product] {
+    public func products(_ modules: [Module], testModules: [Module]) throws -> [Product] {
         var products = [Product]()
-
-        let testModules: [Module]
-        let modules: [Module]
-        (testModules, modules) = allModules.partition { $0.isTest }
 
     ////// first auto-determine executables
 
