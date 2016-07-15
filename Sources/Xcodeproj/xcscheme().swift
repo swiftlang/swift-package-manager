@@ -16,9 +16,8 @@ func xcscheme(container: String, modules: [Module], printer print: (String) -> V
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
     print("    <BuildActionEntries>")
 
-    let (tests, nontests) = modules.partition { $0.isTest }
-
-    for module in nontests {
+    // Create buildable references for non-test modules.
+    for module in modules where !module.isTest {
         print("      <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">")
         print("        <BuildableReference")
         print("          BuildableIdentifier = \"primary\"")
@@ -40,7 +39,8 @@ func xcscheme(container: String, modules: [Module], printer print: (String) -> V
     print("    codeCoverageEnabled = \"YES\">")
     print("    <Testables>")
 
-    for module in tests {
+    // Create testable references.
+    for module in modules where module.isTest {
         print("    <TestableReference")
         print("      skipped = \"NO\">")
         print("      <BuildableReference")
