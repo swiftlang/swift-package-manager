@@ -128,7 +128,7 @@ class WalkTests: XCTestCase {
             try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
 
             XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
-            XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
+            XCTAssertEqual(try! realpath(root.appending("foo/symlink")), root.appending("bar"))
             XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
 
             let results = walk(root.appending("foo")).map{ $0 }

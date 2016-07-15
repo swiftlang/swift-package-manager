@@ -24,8 +24,8 @@ class RmtreeTests: XCTestCase {
             try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
             
             XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
-            XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
-            XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
+            XCTAssertEqual(try! realpath(root.appending("foo").appending("symlink")), root.appending("bar"))
+            XCTAssertTrue(try! realpath(root.appending("foo").appending("symlink").appending("baz")).asString.isDirectory)
 
             try Utility.removeFileTree(root.appending("foo").asString)
 

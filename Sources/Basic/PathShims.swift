@@ -46,8 +46,12 @@ public func exists(_ path: AbsolutePath) -> Bool {
     return access(path.asString, F_OK) == 0
 }
 
+/// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func realpath(_ path: AbsolutePath) throws -> AbsolutePath {
-    return try AbsolutePath(realpath(path.asString))
+    guard let rv = libc.realpath(path.asString, nil) else { throw SystemError.realpath(errno, path.asString) }
+    defer { free(rv) }
+    guard let rvv = String(validatingUTF8: rv) else { throw SystemError.realpath(-1, path.asString) }
+    return AbsolutePath(rvv)
 }
 
 public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {
