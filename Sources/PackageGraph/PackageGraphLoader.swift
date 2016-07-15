@@ -54,40 +54,33 @@ public struct PackageGraphLoader {
         // Create the packages directory container.
         let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
 
-        // Fetch and load the manifets.
+        // Fetch and load the manifests.
         let (rootManifest, externalManifests) = try packagesDirectory.loadManifests(ignoreDependencies: ignoreDependencies)
+        let allManifests = externalManifests + [rootManifest]
 
-        // Create the packages.
-        let rootPackage = Package(manifest: rootManifest)
-        let externalPackages = externalManifests.map{ Package(manifest: $0) }
-
-        // Load all of the package dependencies.
-        //
-        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
-        let pkgs = externalPackages + [rootPackage]
-        for pkg in pkgs {
-            // FIXME: This is inefficient.
-            pkg.dependencies = pkg.manifest.package.dependencies.map{ dep in pkgs.pick{ dep.url == $0.url }! }
-        }
-
-        // Convert to modules.
+        // Create the packages and convert to modules.
         //
         // FIXME: This needs to be torn about, the module conversion should be
         // done on an individual package basis.
+        var packages: [Package] = []
         var products: [Product] = []
         var map: [Package: [Module]] = [:]
-        for package in pkgs {
+        for (i, manifest) in allManifests.enumerated() {
+            let package = Package(manifest: manifest)
+            let isRootPackage = (i + 1) == allManifests.count
+            packages.append(package)
+
             var modules: [Module]
             do {
                 modules = try package.modules()
-            } catch ModuleError.noModules(let pkg) where pkg === rootPackage {
+            } catch ModuleError.noModules(let pkg) where isRootPackage {
                 // Ignore and print warning if root package doesn't contain any sources.
                 print("warning: root package '\(pkg)' does not contain any sources")
-                if pkgs.count == 1 { exit(0) } //Exit now if there is no more packages 
+                if allManifests.count == 1 { exit(0) } //Exit now if there is no more packages 
                 modules = []
             }
     
-            if package == rootPackage {
+            if isRootPackage {
                 // TODO: allow testing of external package tests.
                 modules += try package.testModules(modules: modules)
             }
@@ -95,11 +88,22 @@ public struct PackageGraphLoader {
             map[package] = modules
             products += try package.products(modules)
         }
+
+        // Load all of the package dependencies.
+        //
+        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
+        for package in packages {
+            // FIXME: This is inefficient.
+            package.dependencies = package.manifest.package.dependencies.map{ dep in packages.pick{ dep.url == $0.url }! }
+        }
     
-        // ensure modules depend on the modules of any dependent packages
-        fillModuleGraph(pkgs, modulesForPackage: { map[$0]! })
+        // Connect up cross-package module dependencies.
+        fillModuleGraph(packages, modulesForPackage: { map[$0]! })
     
-        let modules = try recursiveDependencies(pkgs.flatMap{ map[$0] ?? [] })
+        let rootPackage = packages.last!
+        let externalPackages = packages.dropLast(1)
+
+        let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
         return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules), products: products)
