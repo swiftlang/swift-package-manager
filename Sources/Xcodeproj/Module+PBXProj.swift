@@ -284,18 +284,3 @@ extension XcodeModuleProtocol  {
         return buildSettings
     }
 }
-
-
-extension XcodeModuleProtocol {
-    var blueprintIdentifier: String {
-        return targetReference
-    }
-
-    var buildableName: String {
-        return productName
-    }
-
-    var blueprintName: String {
-        return name
-    }
-}

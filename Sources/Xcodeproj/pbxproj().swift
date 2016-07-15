@@ -361,3 +361,59 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 ////// done!
     print("}")
 }
+
+extension XcodeModuleProtocol {
+    var blueprintIdentifier: String {
+        return targetReference
+    }
+
+    var buildableName: String {
+        return productName
+    }
+
+    var blueprintName: String {
+        return name
+    }
+}
+
+private extension SupportedLanguageExtension {
+    var xcodeFileType: String {
+        switch self {
+        case .c:
+            return "sourcecode.c.c"
+        case .m:
+            return "sourcecode.c.objc"
+        case .cxx, .cc, .cpp:
+            return "sourcecode.cpp.cpp"
+        case .mm:
+            return "sourcecode.cpp.objcpp"
+        case .swift:
+            return "sourcecode.swift"
+        }
+    }
+}
+
+private extension XcodeModuleProtocol {
+    func fileType(forSource source: RelativePath) -> String {
+        switch self {
+        case is SwiftModule:
+            // SwiftModules only has one type of source so just always return this.
+            return SupportedLanguageExtension.swift.xcodeFileType
+
+        case is ClangModule:
+            guard let suffix = source.suffix else {
+                fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
+            }
+            // Suffix includes `.` so drop it.
+            assert(suffix.hasPrefix("."))
+            let fileExtension = String(suffix.characters.dropFirst())
+            guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
+                fatalError("Unknown source extension \(source) in ClangModule \(name)")
+            }
+            return ext.xcodeFileType
+
+        default:
+            fatalError("unexpected module type")
+        }
+    }
+}
