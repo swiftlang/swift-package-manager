@@ -79,7 +79,6 @@ extension Module {
     enum Error: Swift.Error {
         case noSources(String)
         case mixedSources(String)
-        case duplicateModule(String)
     }
 }
 
@@ -90,8 +89,6 @@ extension Module.Error: FixableError {
             return "the module at \(path) does not contain any source files"
         case .mixedSources(let path):
             return "the module at \(path) contains mixed language source files"
-        case .duplicateModule(let name):
-            return "multiple modules with the name \(name) found"
         }
     }
 
@@ -101,8 +98,6 @@ extension Module.Error: FixableError {
             return "either remove the module folder, or add a source file to the module"
         case .mixedSources(_):
             return "use only a single language within a module"
-        case .duplicateModule(_):
-            return "modules should have a unique name across dependencies"
         }
     }
 }
@@ -158,7 +153,9 @@ extension Package {
     }
 
     /// Collects the modules which are defined by a package.
-    func modules() throws -> [Module] {
+    //
+    // FIXME: This should not be public.
+    public func modules() throws -> [Module] {
         let moduleMapPath = path.appending("module.modulemap")
         if moduleMapPath.asString.isFile {
             let sources = Sources(paths: [moduleMapPath], root: path)
@@ -275,7 +272,9 @@ extension Package {
 
 extension Package {
     /// Collects the products defined by a package.
-    func products(_ allModules: [Module]) throws -> [Product] {
+    //
+    // FIXME: This should not be public.
+    public func products(_ allModules: [Module]) throws -> [Product] {
         var products = [Product]()
 
         let testModules: [Module]
@@ -378,7 +377,8 @@ extension Package {
 }
 
 extension Package {
-    func testModules(modules: [Module]) throws -> [Module] {
+    // FIXME: This should not be public.
+    public func testModules(modules: [Module]) throws -> [Module] {
         let testsPath = self.path.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
