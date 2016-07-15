@@ -153,7 +153,7 @@ extension SwiftPMProduct {
     ///         - printIfError: Print the output on non-zero exit.
     ///
     /// - Returns: The output of the process.
-    func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String], printIfError: Bool = false) throws -> String {
+    func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
         var out = ""
         do {
             var theArgs = [path.asString]

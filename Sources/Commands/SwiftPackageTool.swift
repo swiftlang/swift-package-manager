@@ -171,6 +171,16 @@ public struct SwiftPackageTool: SwiftTool {
             }
         
             switch mode {
+            case .usage:
+                usage()
+        
+            case .version:
+                #if HasCustomVersionString
+                    print(String(cString: VersionInfo.DisplayString()))
+                #else
+                    print("Swift Package Manager – Swift 3.0")
+                #endif
+                
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
                 try initPackage.writePackageStructure()
@@ -202,23 +212,12 @@ public struct SwiftPackageTool: SwiftTool {
             case .fetch:
                 _ = try fetch(opts.path.root)
         
-            case .usage:
-                usage()
-        
             case .doctor:
                 doctor()
             
             case .showDependencies:
                 let (rootPackage, _) = try fetch(opts.path.root)
                 dumpDependenciesOf(rootPackage: rootPackage, mode: opts.showDepsMode)
-        
-            case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
-                
             case .generateXcodeproj:
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)

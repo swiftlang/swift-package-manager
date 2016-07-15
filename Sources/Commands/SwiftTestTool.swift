@@ -34,6 +34,7 @@ extension TestError: CustomStringConvertible {
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
+    case version
     case listTests
     case run(String?)
 
@@ -46,6 +47,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case "-s", "--specifier":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .run(specifier)
+        case "--version":
+            self = .version
         default:
             return nil
         }
@@ -59,6 +62,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             return "--list-tests"
         case .run(let specifier):
             return specifier ?? ""
+        case .version: return "--version"
         }
     }
 }
@@ -111,6 +115,13 @@ public struct SwiftTestTool: SwiftTool {
             switch mode {
             case .usage:
                 usage()
+        
+            case .version:
+                #if HasCustomVersionString
+                    print(String(cString: VersionInfo.DisplayString()))
+                #else
+                    print("Swift Package Manager – Swift 3.0")
+                #endif
         
             case .listTests:
                 let testPath = try determineTestPath(opts: opts)

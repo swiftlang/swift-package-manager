@@ -139,14 +139,21 @@ public struct SwiftBuildTool: SwiftTool {
             }
         
             switch mode {
+            case .usage:
+                usage()
+        
+            case .version:
+                #if HasCustomVersionString
+                    print(String(cString: VersionInfo.DisplayString()))
+                #else
+                    print("Swift Package Manager – Swift 3.0")
+                #endif
+                
             case .build(let conf, let toolchain):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
                 let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
-        
-            case .usage:
-                usage()
         
             case .clean(.dist):
                 if opts.path.packages.asString.exists {
@@ -169,15 +176,7 @@ public struct SwiftBuildTool: SwiftTool {
         
                 if opts.path.build.asString.exists {
                     try Utility.removeFileTree(opts.path.build.asString)
-                }
-        
-            case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
-                
+                }                
             }
         
         } catch {
