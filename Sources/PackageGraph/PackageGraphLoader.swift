@@ -74,46 +74,36 @@ public struct PackageGraphLoader {
         //
         // FIXME: This needs to be torn about, the module conversion should be
         // done on an individual package basis.
-        let (modules, externalModules, products) = try createModules(rootPackage, externalPackages: externalPackages)
+        var products: [Product] = []
+        var map: [Package: [Module]] = [:]
+        for package in pkgs {
+            var modules: [Module]
+            do {
+                modules = try package.modules()
+            } catch ModuleError.noModules(let pkg) where pkg === rootPackage {
+                // Ignore and print warning if root package doesn't contain any sources.
+                print("warning: root package '\(pkg)' does not contain any sources")
+                if pkgs.count == 1 { exit(0) } //Exit now if there is no more packages 
+                modules = []
+            }
+    
+            if package == rootPackage {
+                // TODO: allow testing of external package tests.
+                modules += try package.testModules(modules: modules)
+            }
+    
+            map[package] = modules
+            products += try package.products(modules)
+        }
+    
+        // ensure modules depend on the modules of any dependent packages
+        fillModuleGraph(pkgs, modulesForPackage: { map[$0]! })
+    
+        let modules = try recursiveDependencies(pkgs.flatMap{ map[$0] ?? [] })
+        let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
         return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules), products: products)
     }
-}
-
-/// Load packages into a complete set of modules and products.
-private func createModules(_ rootPackage: Package, externalPackages: [Package]) throws -> (modules: [Module], externalModules: [Module], products: [Product]) {
-    var products: [Product] = []
-    var map: [Package: [Module]] = [:]
-    
-    let packages = externalPackages + [rootPackage]
-
-    for package in packages {
-        var modules: [Module]
-        do {
-            modules = try package.modules()
-        } catch ModuleError.noModules(let pkg) where pkg === rootPackage {
-            // Ignore and print warning if root package doesn't contain any sources.
-            print("warning: root package '\(pkg)' does not contain any sources")
-            if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
-            modules = []
-        }
-
-        if package == rootPackage {
-            // TODO: allow testing of external package tests.
-            modules += try package.testModules(modules: modules)
-        }
-
-        map[package] = modules
-        products += try package.products(modules)
-    }
-
-    // ensure modules depend on the modules of any dependent packages
-    fillModuleGraph(packages, modulesForPackage: { map[$0]! })
-
-    let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
-    let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
-
-    return (modules, externalModules, products)
 }
 
 /// Add inter-package dependencies.
