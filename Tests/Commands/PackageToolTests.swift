@@ -37,6 +37,22 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testUpdate() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending("Bar")
+            let packagesPath = packageRoot.appending(component: "Packages")
+
+            // Perform an initial fetch.
+            _ = try execute(["fetch"], chdir: packageRoot)
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+
+            // Retag the dependency, and update.
+            try tagGitRepo(prefix.appending("Foo"), tag: "1.2.4")
+            _ = try execute(["update"], chdir: packageRoot)
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.4"])
+        }
+    }
+
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending("app")
@@ -70,6 +86,7 @@ final class PackageToolTests: XCTestCase {
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testFetch", testFetch),
+        ("testUpdate", testUpdate),
         ("testDumpPackage", testDumpPackage),
         ("testShowDependencies", testShowDependencies),
     ]

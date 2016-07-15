@@ -92,12 +92,16 @@ func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #
         try systemQuietly([Git.tool, "-C", dir.asString, "add", "."])
         try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", "msg"])
         if let tag = tag {
-            try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
+            try tagGitRepo(dir, tag: tag)
         }
     }
     catch {
         XCTFail("\(error)", file: file, line: line)
     }
+}
+
+func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
 }
 
 enum Configuration {
