@@ -265,7 +265,7 @@ extension Module  {
             buildSettings["DEFINES_MODULE"] = "YES"
             let moduleMapPath: AbsolutePath
             // If user provided the modulemap no need to generate.
-            if clangModule.moduleMapPath.asString.isFile {
+            if try isFile(clangModule.moduleMapPath) {
                 moduleMapPath = clangModule.moduleMapPath
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.

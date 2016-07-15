@@ -130,7 +130,7 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
     }
     // If file is already present compare its content with our stream
     // and re-write only if its new.
-    if path.asString.isFile, let data = NSData(contentsOfFile: path.asString) {
+    if try isFile(path), let data = NSData(contentsOfFile: path.asString) {
         // FIXME: We should have a utility for this.
         var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8.self))
         data.getBytes(&contents, length: data.length)

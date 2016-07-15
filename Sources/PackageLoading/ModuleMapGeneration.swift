@@ -67,22 +67,22 @@ extension ClangModule {
         }
 
         ///Return if module map is already present
-        guard !moduleMapPath.asString.isFile else {
+        guard try !isFile(moduleMapPath) else {
             return
         }
         
         let includeDir = path
         
         // Warn and return if no include directory.
-        guard includeDir.asString.isDirectory else {
+        guard try isDirectory(includeDir) else {
             print("warning: No include directory found for module '\(name)'. A library can not be imported without any public headers.")
             return
         }
         
         let walked = try localFileSystem.getDirectoryContents(includeDir).map{ includeDir.appending(component: $0) }
         
-        let files = walked.filter{ $0.asString.isFile && $0.suffix == ".h" }
-        let dirs = walked.filter{ $0.asString.isDirectory }
+        let files = try walked.filter{ try isFile($0) && $0.suffix == ".h" }
+        let dirs = try walked.filter{ try isDirectory($0) }
 
         // We generate modulemap for a C module `foo` if:
         // * `umbrella header "path/to/include/foo/foo.h"` exists and `foo` is the only
@@ -92,7 +92,7 @@ extension ClangModule {
         // * `umbrella "path/to/include"` in all other cases
 
         let umbrellaHeaderFlat = includeDir.appending(component: c99name + ".h")
-        if umbrellaHeaderFlat.asString.isFile {
+        if try isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(name) }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat), modulemapStyle: modulemapStyle)
             return

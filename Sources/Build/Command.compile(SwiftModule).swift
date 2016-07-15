@@ -15,7 +15,7 @@ import Utility
 
 extension Command {
     static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
-        let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigSwiftcArgs()) + module.moduleCacheArgs(prefix: prefix)
+        let otherArgs = otherArgs + (try module.XccFlags(prefix)) + (try module.pkgConfigSwiftcArgs()) + module.moduleCacheArgs(prefix: prefix)
         var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
         switch conf {

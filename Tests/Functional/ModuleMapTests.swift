@@ -27,7 +27,7 @@ class ModuleMapsTestCase: XCTestCase {
         FunctionalTestSuite.fixture(name: name) { prefix in
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
             let outdir = prefix.appending(components: rootpkg, ".build", "debug")
-            try Utility.makeDirectories(outdir.asString)
+            try mkdir(outdir)
             let output = outdir.appending(component: "libfoo.\(dylib)")
             try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 

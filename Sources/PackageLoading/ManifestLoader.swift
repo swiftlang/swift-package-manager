@@ -69,7 +69,7 @@ public final class ManifestLoader {
         let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }
+        guard try isFile(path) else { throw PackageModel.Package.Error.noManifest(path.asString) }
 
         // Load the manifest description.
         guard let tomlString = try parse(path: path) else {
