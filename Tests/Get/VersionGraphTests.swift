@@ -306,7 +306,6 @@ class VersionGraphTests: XCTestCase {
         ("testNoGraph", testNoGraph),
         ("testOneDependency", testOneDependency),
         ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
-        ("testOneDepenencyWithMultipleAvailableVersions", testOneDepenencyWithMultipleAvailableVersions),
         ("testTwoDependencies", testTwoDependencies),
         ("testTwoDirectDependencies", testTwoDirectDependencies),
         ("testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther", testTwoDirectDependenciesWhereOneAlsoDependsOnTheOther),
