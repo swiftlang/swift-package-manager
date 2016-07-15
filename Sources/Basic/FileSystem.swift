@@ -129,31 +129,6 @@ public extension FileSystem {
     }
 }
 
-/// Temporary shims during String -> Path transition.
-public extension FileSystem {
-    func exists(_ path: String) -> Bool {
-        return exists(AbsolutePath(path))
-    }
-    func isDirectory(_ path: String) -> Bool {
-        return isDirectory(AbsolutePath(path))
-    }
-    func getDirectoryContents(_ path: String) throws -> [String] {
-        return try getDirectoryContents(AbsolutePath(path))
-    }
-    mutating func createDirectory(_ path: String) throws {
-        try createDirectory(AbsolutePath(path))
-    }
-    mutating func createDirectory(_ path: String, recursive: Bool) throws {
-        try createDirectory(AbsolutePath(path), recursive: recursive)
-    }
-    func readFileContents(_ path: String) throws -> ByteString {
-        return try readFileContents(AbsolutePath(path))
-    }
-    mutating func writeFileContents(_ path: String, bytes: ByteString) throws {
-        try writeFileContents(AbsolutePath(path), bytes: bytes)
-    }
-}
-
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
     func exists(_ path: AbsolutePath) -> Bool {

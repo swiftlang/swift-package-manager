@@ -44,7 +44,7 @@ class FileSystemTests: XCTestCase {
         XCTAssertThrows(FileSystemError.noEntry) {
             _ = try fs.getDirectoryContents("/does-not-exist")
         }
-        let thisDirectoryContents = try! fs.getDirectoryContents(#file.parentDirectory)
+        let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
         XCTAssertTrue(!thisDirectoryContents.contains({ $0 == "." }))
         XCTAssertTrue(!thisDirectoryContents.contains({ $0 == ".." }))
         XCTAssertTrue(thisDirectoryContents.contains({ $0 == #file.basename }))
