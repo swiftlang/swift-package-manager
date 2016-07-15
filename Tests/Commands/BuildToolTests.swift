@@ -50,9 +50,32 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testCleanDist() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending("Bar")
+            
+            // Build it.
+            XCTAssertBuilds(packageRoot)
+            XCTAssertFileExists(packageRoot.appending(".build/debug/Bar"))
+            XCTAssert(packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(packageRoot.appending("Packages").asString.isDirectory)
+
+            // Clean, and check for removal of the build directory but not Packages.
+            _ = try execute(["--clean"], chdir: packageRoot)
+            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(packageRoot.appending("Packages").asString.isDirectory)
+
+            // Fully clean, and check for removal of both.
+            _ = try execute(["--clean=dist"], chdir: packageRoot)
+            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(!packageRoot.appending("Packages").asString.isDirectory)
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testBuildAndClean", testBuildAndClean),
+        ("testCleanDist", testCleanDist),
     ]
 }
