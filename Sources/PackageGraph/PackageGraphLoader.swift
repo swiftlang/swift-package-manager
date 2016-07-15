@@ -31,8 +31,14 @@ public struct PackageGraphLoader {
         let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
 
         // Load the packages.
-        let (rootPackage, _) = try packagesDirectory.loadPackages(ignoreDependencies: ignoreDependencies)
+        let (rootPackage, externalPackages) = try packagesDirectory.loadPackages(ignoreDependencies: ignoreDependencies)
 
-        return PackageGraph(rootPackage: rootPackage)
+        // Convert to modules.
+        //
+        // FIXME: This needs to be torn about, the module conversion should be
+        // done on an individual package basis.
+        let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
+
+        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules), products: products)
     }
 }

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basic
 import PackageLoading
 import PackageGraph
 
@@ -20,9 +21,7 @@ public protocol SwiftTool {
 
 // FIXME: Find a home for this. Ultimately it might need access to some of the
 // options, and we might just want the SwiftTool type to become a class.
-private struct SharedPackageGraphLoader {
-    static let packageGraphLoader = PackageGraphLoader(manifestLoader: ManifestLoader(resources: ToolDefaults()))
-}
+private let sharedPackageGraphLoader = PackageGraphLoader(manifestLoader: ManifestLoader(resources: ToolDefaults()))
 
 public extension SwiftTool {
     init() {
@@ -31,6 +30,11 @@ public extension SwiftTool {
 
     /// The shared package graph loader.
     var packageGraphLoader: PackageGraphLoader {
-        return SharedPackageGraphLoader.packageGraphLoader
+        return sharedPackageGraphLoader
+    }
+
+    /// Fetch and load the complete package at the given path.
+    func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
+        return try packageGraphLoader.loadPackage(at: path, ignoreDependencies: ignoreDependencies)
     }
 }

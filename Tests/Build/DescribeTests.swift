@@ -12,10 +12,14 @@ import XCTest
 
 import Basic
 import Build
+import PackageDescription
+import PackageGraph
 import PackageModel
 import Utility
 
 final class DescribeTests: XCTestCase {
+    let dummyPackage = Package(manifest: Manifest(path: AbsolutePath("/"), url: "/", package: PackageDescription.Package(name: "Foo"), products: [], version: nil))
+    
     struct InvalidToolchain: Toolchain {
         var platformArgsClang: [String] { fatalError() }
         var platformArgsSwiftc: [String] { fatalError() }
@@ -27,7 +31,8 @@ final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            _ = try describe(tempDir.path.appending("foo"), .debug, [], [], [], flags: BuildFlags(), toolchain: InvalidToolchain())
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: [], externalModules: [], products: [])
+            _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.noModules {
             XCTAssert(true, "This error should be thrown")
@@ -39,7 +44,8 @@ final class DescribeTests: XCTestCase {
     func testDescribingCModuleThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            _ = try describe(tempDir.path.appending("foo"), .debug, [CModule(name: "MyCModule", path: "/")], [], [], flags: BuildFlags(), toolchain: InvalidToolchain())
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", path: "/")], externalModules: [], products: [])
+            _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {
             XCTAssert(true, "This error should be thrown")

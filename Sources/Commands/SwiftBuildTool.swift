@@ -132,11 +132,6 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let graph = try packageGraphLoader.loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
-                return (rootPackage: graph.rootPackage, externalPackages: [Package](graph.packages.dropFirst(1)))
-            }
-        
             switch mode {
             case .usage:
                 usage()
@@ -149,9 +144,8 @@ public struct SwiftBuildTool: SwiftTool {
                 #endif
                 
             case .build(let conf, let toolchain):
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, flags: opts.flags, toolchain: toolchain)
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
             case .clean(.dist):

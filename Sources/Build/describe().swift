@@ -9,6 +9,7 @@
 */
 
 import Basic
+import PackageGraph
 import PackageModel
 import Utility
 
@@ -17,13 +18,12 @@ import func POSIX.getenv
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], flags: BuildFlags, toolchain: Toolchain) throws -> AbsolutePath {
-
-    guard modules.count > 0 else {
+public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: PackageGraph, flags: BuildFlags, toolchain: Toolchain) throws -> AbsolutePath {
+    guard graph.modules.count > 0 else {
         throw Error.noModules
     }
 
-    if modules.count == 1, let module = modules.first as? CModule, !(module is ClangModule) {
+    if graph.modules.count == 1, let module = graph.modules.first as? CModule, !(module is ClangModule) {
         throw Error.onlyCModule(name: module.name)
     }
 
@@ -39,7 +39,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [
     var commands = [Command]()
     var targets = Targets()
 
-    for module in modules {
+    for module in graph.modules {
         switch module {
         case let module as SwiftModule:
             let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
@@ -51,7 +51,8 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [
           #if os(Linux)
             if module.isTest { continue }
           #endif
-            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
+            // FIXME: Find a way to eliminate `externalModules` from here.
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
             targets.append(compile, for: module)
 
@@ -63,7 +64,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [
         }
     }
 
-    for product in products {
+    for product in graph.products {
         var rpathArgs = [String]()
         
         // On Linux, always embed an RPATH adjacent to the linked binary. Note

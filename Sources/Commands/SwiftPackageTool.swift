@@ -160,11 +160,6 @@ public struct SwiftPackageTool: SwiftTool {
                 try chdir(dir.asString)
             }
         
-            func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let graph = try packageGraphLoader.loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
-                return (rootPackage: graph.rootPackage, externalPackages: [Package](graph.packages.dropFirst(1)))
-            }
-        
             switch mode {
             case .usage:
                 usage()
@@ -205,21 +200,21 @@ public struct SwiftPackageTool: SwiftTool {
                 fallthrough
                 
             case .fetch:
-                _ = try fetch(opts.path.root)
+                _ = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
         
             case .showDependencies:
-                let (rootPackage, _) = try fetch(opts.path.root)
-                dumpDependenciesOf(rootPackage: rootPackage, mode: opts.showDepsMode)
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
             case .generateXcodeproj:
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                
-                let xcodeModules = modules.flatMap { $0 as? XcodeModuleProtocol }
-                let externalXcodeModules  = externalModules.flatMap { $0 as? XcodeModuleProtocol }
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+
+                // FIXME: This doesn't make any sense.
+                let xcodeModules = graph.modules.flatMap { $0 as? XcodeModuleProtocol }
+                let externalXcodeModules  = graph.externalModules.flatMap { $0 as? XcodeModuleProtocol }
         
                 let projectName: String
                 let dstdir: AbsolutePath
-                let packageName = rootPackage.name
+                let packageName = graph.rootPackage.name
         
                 switch opts.outputPath {
                 case let outpath? where outpath.suffix == ".xcodeproj":
@@ -233,7 +228,7 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts.xcodeprojOptions)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: graph.products, options: opts.xcodeprojOptions)
         
                 print("generated:", outpath.asString.prettyPath)
                 
