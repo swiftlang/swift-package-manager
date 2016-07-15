@@ -162,21 +162,10 @@ public struct SwiftBuildTool: SwiftTool {
                 fallthrough
         
             case .clean(.build):
-                let artifacts = ["debug", "release"].map{ AbsolutePath(opts.path.build, $0) }.map{ ($0, AbsolutePath("\($0.asString).yaml")) }
-                for (dir, yml) in artifacts {
-                    if dir.asString.isDirectory { try Utility.removeFileTree(dir.asString) }
-                    if yml.asString.isFile { try Utility.removeFileTree(yml.asString) }
-                }
-        
-                let db = opts.path.build.appending("build.db")
-                if db.asString.isFile { try Utility.removeFileTree(db.asString) }
-        
-                let versionData = opts.path.build.appending("versionData")
-                if versionData.asString.isDirectory { try Utility.removeFileTree(versionData.asString) }
-        
+                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
                 if opts.path.build.asString.exists {
                     try Utility.removeFileTree(opts.path.build.asString)
-                }                
+                }
             }
         
         } catch {
