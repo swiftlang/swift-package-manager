@@ -84,12 +84,6 @@ public class Module: ModuleProtocol {
     }
 }
 
-
-public protocol XcodeModuleProtocol: ModuleProtocol {
-    var type: ModuleType { get }
-    var sources: Sources { get }
-}
-
 extension Module: Hashable, Equatable {
     public var hashValue: Int { return c99name.hashValue }
 }
@@ -110,9 +104,6 @@ public class SwiftModule: Module {
         
         try super.init(name: name, type: type, sources: sources, isTest: isTest)
     }
-}
-
-extension SwiftModule: XcodeModuleProtocol {
 }
 
 public class CModule: Module {
@@ -142,9 +133,6 @@ public class ClangModule: CModule {
         
         try super.init(name: name, type: type, sources: sources, path: sources.root.appending("include"), isTest: isTest)
     }
-}
-
-extension ClangModule: XcodeModuleProtocol {
 }
 
 extension Module: CustomStringConvertible {

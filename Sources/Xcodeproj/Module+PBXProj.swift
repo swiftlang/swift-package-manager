@@ -44,7 +44,7 @@ let linkPhaseFileRefPrefix =                        "_LinkFileRef_"
 let sourceGroupFileRefPrefix =                      "__PBXFileRef_"
 let compilePhaseFileRefPrefix =                     "__src_cc_ref_"
 
-extension XcodeModuleProtocol {
+extension Module {
     var dependencyReference: String           { return "__Dependency_\(c99name)" }
     var productReference: String              { return "_____Product_\(c99name)" }
     var targetReference: String               { return "______Target_\(c99name)" }
@@ -56,7 +56,7 @@ extension XcodeModuleProtocol {
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
 }
 
-func fileRef(forLinkPhaseChild module: XcodeModuleProtocol, from: XcodeModuleProtocol) -> String {
+func fileRef(forLinkPhaseChild module: Module, from: Module) -> String {
     return linkPhaseFileRefPrefix + module.c99name + "_via_" + from.c99name
 }
 
@@ -84,14 +84,14 @@ func fileRef(inProjectRoot subpath: RelativePath, srcroot: AbsolutePath) -> (ref
 }
 
 /// Returns the (refId, path) tuple for the Info.plist file for a particular module.
-func fileRef(ofInfoPlistFor module: XcodeModuleProtocol, srcroot: AbsolutePath) -> (refId: String, path: AbsolutePath) {
+func fileRef(ofInfoPlistFor module: Module, srcroot: AbsolutePath) -> (refId: String, path: AbsolutePath) {
     let path = srcroot.appending(component: module.infoPlistFileName)
     let idSuffix = module.infoPlistFileName
     return (refId: "\(sourceGroupFileRefPrefix)\(idSuffix)", path: path)
 }
 
 /// Returns an array of (refId, path, bflId) tuples of the source files in a module, where `refId` is the object id string of the `PBXFileReference` (in the groups-and-files hierarchy) and `bflId` is the object id string of the corresponding `PBXBuildFile` (in the build phase's file list).
-func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: AbsolutePath) -> [(refId: String, path: AbsolutePath, bflId: String)] {
+func fileRefs(forModuleSources module: Module, srcroot: AbsolutePath) -> [(refId: String, path: AbsolutePath, bflId: String)] {
     let moduleRoot = module.sources.root
     return module.sources.relativePaths.map { relPath in
         let path = moduleRoot.appending(relPath)
@@ -101,8 +101,7 @@ func fileRefs(forModuleSources module: XcodeModuleProtocol, srcroot: AbsolutePat
 }
 
 
-extension XcodeModuleProtocol  {
-
+extension Module  {
     var isLibrary: Bool {
         return type == .library
     }
@@ -141,12 +140,12 @@ extension XcodeModuleProtocol  {
         }
     }
 
-    var linkPhaseFileRefs: [(dependency: XcodeModuleProtocol, fileRef: String)] {
-        return recursiveDependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ (dependency: $0, fileRef: fileRef(forLinkPhaseChild: $0, from: self)) }
+    var linkPhaseFileRefs: [(dependency: Module, fileRef: String)] {
+        return recursiveDependencies.filter{ $0.type != .systemModule }.map{ (dependency: $0, fileRef: fileRef(forLinkPhaseChild: $0, from: self)) }
     }
 
     var nativeTargetDependencies: String {
-        return dependencies.flatMap { $0 as? XcodeModuleProtocol }.map{ $0.dependencyReference }.joined(separator: ", ")
+        return dependencies.filter{ $0.type != .systemModule }.map{ $0.dependencyReference }.joined(separator: ", ")
     }
 
     var productName: String {

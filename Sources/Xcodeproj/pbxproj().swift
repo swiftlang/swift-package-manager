@@ -17,7 +17,7 @@ import Utility
 // FIXME: escaping
 
 
-public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], directoryReferences: [AbsolutePath], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [Module], externalModules: [Module], products _: [Product], directoryReferences: [AbsolutePath], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
@@ -362,7 +362,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     print("}")
 }
 
-extension XcodeModuleProtocol {
+extension Module {
     var blueprintIdentifier: String {
         return targetReference
     }
@@ -393,7 +393,7 @@ private extension SupportedLanguageExtension {
     }
 }
 
-private extension XcodeModuleProtocol {
+private extension Module {
     func fileType(forSource source: RelativePath) -> String {
         switch self {
         case is SwiftModule:

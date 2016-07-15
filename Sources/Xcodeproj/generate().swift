@@ -36,9 +36,11 @@ public struct XcodeprojOptions {
 public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGraph, options: XcodeprojOptions) throws -> AbsolutePath {
     let srcroot = graph.rootPackage.path
 
-    // FIXME: This doesn't make any sense.
-    let modules = graph.modules.flatMap { $0 as? XcodeModuleProtocol }
-    let externalModules  = graph.externalModules.flatMap { $0 as? XcodeModuleProtocol }
+    // Filter out the CModule type, which we don't support.
+    //
+    // FIXME: Sink this lower.
+    let modules = graph.modules.filter{ $0.type != .systemModule }
+    let externalModules = graph.externalModules.filter{ $0.type != .systemModule }
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
