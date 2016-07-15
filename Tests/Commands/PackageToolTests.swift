@@ -26,6 +26,17 @@ final class PackageToolTests: XCTestCase {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
+    func testFetch() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending("Bar")
+            let packagesPath = packageRoot.appending(component: "Packages")
+
+            // Check that `fetch` works.
+            _ = try execute(["fetch"], chdir: packageRoot)
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+        }
+    }
+
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending("app")
@@ -58,6 +69,7 @@ final class PackageToolTests: XCTestCase {
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
+        ("testFetch", testFetch),
         ("testDumpPackage", testDumpPackage),
         ("testShowDependencies", testShowDependencies),
     ]
