@@ -12,8 +12,6 @@ import Basic
 import PackageModel
 import POSIX
 
-import func Utility.makeDirectories
-
 private extension FileSystem {
     /// Write to a file from a stream producer.
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
@@ -117,7 +115,7 @@ final class InitPackage {
             return
         }
         print("Creating Sources/")
-        try Utility.makeDirectories(sources.asString)
+        try mkdir(sources)
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
@@ -163,7 +161,7 @@ final class InitPackage {
             return
         }
         print("Creating Tests/")
-        try Utility.makeDirectories(tests.asString)
+        try mkdir(tests)
 
         // Only libraries are testable for now.
         if mode == .library {
@@ -185,7 +183,7 @@ final class InitPackage {
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = testsPath.appending(RelativePath(pkgname))
         print("Creating Tests/\(pkgname)/")
-        try Utility.makeDirectories(testModule.asString)
+        try mkdir(testModule)
         
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
             stream <<< "import XCTest\n"

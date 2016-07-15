@@ -105,7 +105,7 @@ extension ClangModule {
             try createModuleMap(inDir: wd, type: .header(umbrellaHeader), modulemapStyle: modulemapStyle)
             return
         }
-        try diagnoseInvalidUmbrellaHeader(includeDir.appending(c99name))
+        try diagnoseInvalidUmbrellaHeader(includeDir.appending(component: c99name))
 
         try createModuleMap(inDir: wd, type: .directory(includeDir), modulemapStyle: modulemapStyle)
     }
@@ -113,8 +113,8 @@ extension ClangModule {
     /// Warn user if in case module name and c99name are different and there is a
     /// `name.h` umbrella header.
     private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) throws {
-        let umbrellaHeader = path.appending(c99name + ".h")
-        let invalidUmbrellaHeader = path.appending(name + ".h")
+        let umbrellaHeader = path.appending(component: c99name + ".h")
+        let invalidUmbrellaHeader = path.appending(component: name + ".h")
         if try isFile(invalidUmbrellaHeader) && c99name != name {
             print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
         }
@@ -126,7 +126,7 @@ extension ClangModule {
     }
     
     private func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType, modulemapStyle: ModuleMapStyle) throws {
-        try Utility.makeDirectories(wd.asString)
+        try mkdir(wd)
         let moduleMapFile = wd.appending(component: CModule.moduleMapFilename)
         let moduleMap = try fopen(moduleMapFile.asString, mode: .write)
         defer { moduleMap.closeFile() }

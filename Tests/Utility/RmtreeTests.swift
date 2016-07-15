@@ -19,8 +19,8 @@ class RmtreeTests: XCTestCase {
         mktmpdir { root in
             let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
             
-            try Utility.makeDirectories(root.appending("foo").asString)
-            try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
+            try mkdir(root.appending("foo"))
+            try mkdir(root.appending("bar").appending("baz").appending("goo"))
             try symlink(root.appending("foo").appending("symlink"), pointingAt: root.appending("bar"), relative: true)
             
             XCTAssertTrue(try! isSymlink(root.appending("foo").appending("symlink")))

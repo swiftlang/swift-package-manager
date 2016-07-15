@@ -207,7 +207,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     //
     // FIXME: Generate these into a sane path.
     let projectXCConfig = fileRef(inProjectRoot: RelativePath("\(xcodeprojPath.basename)/Configs/Project.xcconfig"), srcroot: srcroot)
-    try Utility.makeDirectories(projectXCConfig.path.parentDirectory.asString)
+    try mkdir(projectXCConfig.path.parentDirectory)
     try open(projectXCConfig.path) { print in
         // Set the standard PRODUCT_NAME.
         print("PRODUCT_NAME = $(TARGET_NAME)")
