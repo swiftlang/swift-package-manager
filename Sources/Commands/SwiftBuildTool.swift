@@ -142,7 +142,7 @@ public struct SwiftBuildTool: SwiftTool {
             case .build(let conf, let toolchain):
                 let (rootPackage, externalPackages) = try fetch(opts.path.root)
                 let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
+                let yaml = try describe(opts.path.build, conf, modules, Set(externalModules), products, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
             case .usage:
@@ -235,10 +235,6 @@ public struct SwiftBuildTool: SwiftTool {
         }
     
         return try (mode ?? .build(.debug, UserToolchain()), opts)
-    }
-
-    private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> AbsolutePath {
-        return try Build.describe(opts.path.build, conf, modules, externalModules, products, flags: opts.flags, toolchain: toolchain)
     }
 }
 
