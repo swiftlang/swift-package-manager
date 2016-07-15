@@ -9,9 +9,9 @@
 */
 
 import XCTest
-import Utility
+
 import Basic
-import class Foundation.Condition
+import Utility
 
 typealias Thread = Basic.Thread
 
@@ -52,7 +52,7 @@ class ThreadTests: XCTestCase {
     }
 
     func testNotDeinitBeforeExecutingTask() {
-        let finishedCondition = Condition()
+        let finishedCondition = NSCondition()
         var finished = false
 
         Thread {

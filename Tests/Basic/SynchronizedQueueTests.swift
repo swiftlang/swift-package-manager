@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
 import XCTest
-import Utility
+
 import Basic
-import class Foundation.Condition
+import Utility
 
 class SyncronizedQueueTests: XCTestCase {
 
@@ -92,7 +93,7 @@ class SyncronizedQueueTests: XCTestCase {
 
         var consumed = Set<Int>()
 
-        let canProduceCondition = Condition()
+        let canProduceCondition = NSCondition()
         // Initially we should be able to produce.
         var canProduce = true
 
