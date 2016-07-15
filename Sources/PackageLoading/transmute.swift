@@ -27,64 +27,15 @@ public func transmute(_ rootPackage: Package, externalPackages: [Package]) throw
         do {
             modules = try package.modules()
         } catch ModuleError.noModules(let pkg) where pkg === rootPackage {
-            //Ignore and print warning if root package doesn't contain any sources
+            // Ignore and print warning if root package doesn't contain any sources.
             print("warning: root package '\(pkg)' does not contain any sources")
             if packages.count == 1 { exit(0) } //Exit now if there is no more packages 
             modules = []
         }
 
         if package == rootPackage {
-            //TODO allow testing of external package tests
-
-            let testModules = try package.testModules()
-
-            // Set dependencies for test modules.
-            for case let testModule as SwiftModule in testModules {
-                if testModule.basename == "Basic" {
-                    // FIXME: The Basic tests currently have a layering
-                    // violation and a dependency on Utility for infrastructure.
-                    testModule.dependencies = modules.filter{
-                        switch $0.name {
-                        case "Basic", "Utility":
-                            return true
-                        default:
-                            return false
-                        }
-                    }
-                } else if testModule.basename == "Functional" {
-                    // FIXME: swiftpm's own Functional tests module does not
-                    //        follow the normal rules--there is no corresponding
-                    //        'Sources/Functional' module to depend upon. For the
-                    //        time being, assume test modules named 'Functional'
-                    //        depend upon 'Utility', and hope that no users define
-                    //        test modules named 'Functional'.
-                    testModule.dependencies = modules.filter{
-                        switch $0.name {
-                        case "Basic", "Utility", "PackageModel":
-                            return true
-                        default:
-                            return false
-                        }
-                    }
-                } else if testModule.basename == "PackageLoading" {
-                    // FIXME: Turns out PackageLoadingTests violate encapsulation :(
-                    testModule.dependencies = modules.filter{
-                        switch $0.name {
-                        case "Get", "PackageLoading":
-                            return true
-                        default:
-                            return false
-                        }
-                    }
-                } else {
-                    // Normally, test modules are only dependent upon modules with
-                    // the same basename. For example, a test module in
-                    // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
-                    testModule.dependencies = modules.filter{ $0.name == testModule.basename }
-                }
-
-                modules += testModules.map{$0}
-            }
+            // TODO: allow testing of external package tests.
+            modules += try package.testModules(modules: modules)
         }
 
         map[package] = modules

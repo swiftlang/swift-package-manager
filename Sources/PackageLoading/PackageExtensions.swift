@@ -378,12 +378,64 @@ extension Package {
 }
 
 extension Package {
-    func testModules() throws -> [Module] {
+    func testModules(modules: [Module]) throws -> [Module] {
         let testsPath = self.path.appending("Tests")
-        //Don't try to walk Tests if it is in excludes
+        
+        // Don't try to walk Tests if it is in excludes.
         if testsPath.asString.isDirectory && self.excludedPaths.contains(testsPath) { return [] }
-        return try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
+
+        // Create the test modules
+        let testModules = try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
             return [try modulify(dir, name: dir.basename, isTest: true)]
         }
+
+        // Populate the test module dependencies.
+        for case let testModule as SwiftModule in testModules {
+            // FIXME: This is very inefficient, we want a map on the modules.
+            if testModule.basename == "Basic" {
+                // FIXME: The Basic tests currently have a layering
+                // violation and a dependency on Utility for infrastructure.
+                testModule.dependencies = modules.filter{
+                    switch $0.name {
+                    case "Basic", "Utility":
+                        return true
+                    default:
+                        return false
+                    }
+                }
+            } else if testModule.basename == "Functional" {
+                // FIXME: swiftpm's own Functional tests module does not
+                //        follow the normal rules--there is no corresponding
+                //        'Sources/Functional' module to depend upon. For the
+                //        time being, assume test modules named 'Functional'
+                //        depend upon 'Utility', and hope that no users define
+                //        test modules named 'Functional'.
+                testModule.dependencies = modules.filter{
+                    switch $0.name {
+                    case "Basic", "Utility", "PackageModel":
+                        return true
+                    default:
+                        return false
+                    }
+                }
+            } else if testModule.basename == "PackageLoading" {
+                // FIXME: Turns out PackageLoadingTests violate encapsulation :(
+                testModule.dependencies = modules.filter{
+                    switch $0.name {
+                    case "Get", "PackageLoading":
+                        return true
+                    default:
+                        return false
+                    }
+                }
+            } else {
+                // Normally, test modules are only dependent upon modules with
+                // the same basename. For example, a test module in
+                // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
+                testModule.dependencies = modules.filter{ $0.name == testModule.basename }
+            }
+        }
+
+        return testModules
     }
 }
