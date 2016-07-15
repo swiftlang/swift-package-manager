@@ -33,7 +33,7 @@ extension libc.stat {
     /// File system entity kind.
     enum Kind : mode_t {
         // FIXME: It would be great to make these constants equal to S_IFREG, S_IFDIR etc as raw value, but that yields an error since they are not considered constants by the Swift compiler.
-        case file, directory, symlink, fifo, blockdev, chardev, socket, whiteout, unknown
+        case file, directory, symlink, fifo, blockdev, chardev, socket, unknown
     }
     /// Kind of file system entity.
     var kind: Kind {
@@ -44,7 +44,6 @@ extension libc.stat {
             case S_IFBLK:  return .blockdev
             case S_IFCHR:  return .chardev
             case S_IFSOCK: return .socket
-            case S_IFWHT:  return .whiteout
             default:       return .unknown
         }
     }
