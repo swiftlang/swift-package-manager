@@ -19,8 +19,7 @@ public class Git {
         public let path: AbsolutePath
 
         public init?(path: AbsolutePath) {
-            guard let realroot = try? AbsolutePath(realpath(path.asString)) else { return nil }
-            self.path = realroot
+            self.path = resolveSymlinks(path)
             guard path.appending(".git").asString.isDirectory else { return nil }
         }
 

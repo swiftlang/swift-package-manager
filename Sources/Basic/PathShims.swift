@@ -10,6 +10,7 @@
 
 import libc
 import POSIX
+import Foundation
 
 
 /// This file contains temporary shim functions for use during the adoption of
@@ -46,8 +47,9 @@ public func exists(_ path: AbsolutePath) -> Bool {
     return access(path.asString, F_OK) == 0
 }
 
-public func realpath(_ path: AbsolutePath) throws -> AbsolutePath {
-    return try AbsolutePath(realpath(path.asString))
+/// Returns the "real path" corresponding to `path` by resolving any symbolic links.
+public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
+    return AbsolutePath((path.asString as NSString).resolvingSymlinksInPath)
 }
 
 public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {
