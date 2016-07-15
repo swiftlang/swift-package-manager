@@ -21,7 +21,7 @@ class RmtreeTests: XCTestCase {
             
             try Utility.makeDirectories(root.appending("foo").asString)
             try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
-            try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
+            try symlink(root.appending("foo").appending("symlink"), pointingAt: root.appending("bar"), relative: true)
             
             XCTAssertTrue(try! isSymlink(root.appending("foo").appending("symlink")))
             XCTAssertEqual(try! realpath(root.appending("foo").appending("symlink")), root.appending("bar"))

@@ -125,7 +125,7 @@ class WalkTests: XCTestCase {
             
             try Utility.makeDirectories(root.appending("foo").asString)
             try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
-            try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
+            try symlink(root.appending("foo").appending("symlink"), pointingAt: root.appending("bar"), relative: true)
 
             XCTAssertSymlinkExists(root.appending("foo/symlink"))
             XCTAssertEqual(try! realpath(root.appending("foo/symlink")), root.appending("bar"))
@@ -141,8 +141,8 @@ class WalkTests: XCTestCase {
         mktmpdir { root in
             try Utility.makeDirectories(root.appending("foo/bar").asString)
             try Utility.makeDirectories(root.appending("abc/bar").asString)
-            try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
-            try symlink(create: root.appending("foo/baz").asString, pointingAt: root.appending("abc").asString, relativeTo: root.asString)
+            try symlink(root.appending("symlink"), pointingAt: root.appending("foo"), relative: true)
+            try symlink(root.appending("foo").appending("baz"), pointingAt: root.appending("abc"), relative: true)
 
             XCTAssertSymlinkExists(root.appending("symlink"))
 
@@ -174,7 +174,7 @@ class StatTests: XCTestCase {
 
         mktmpdir { root in
             try Utility.makeDirectories(root.appending("foo/bar").asString)
-            try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
+            try symlink(root.appending("symlink"), pointingAt: root.appending("foo"), relative: true)
 
             XCTAssertTrue(root.appending("foo/bar").asString.isDirectory)
             XCTAssertTrue(root.appending("symlink/bar").asString.isDirectory)

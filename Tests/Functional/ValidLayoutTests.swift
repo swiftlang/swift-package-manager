@@ -142,7 +142,7 @@ extension ValidLayoutsTestCase {
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)
             }
-            try symlink(create: prefix.appending(component: "Sources").asString, pointingAt: dir.asString, relativeTo: prefix.asString)
+            try symlink(prefix.appending(component: "Sources"), pointingAt: dir, relative: true)
             try body(prefix)
         }
     }
