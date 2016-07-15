@@ -14,12 +14,16 @@ import Basic
 import Commands
 
 final class BuildToolTests: XCTestCase {
+    private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
+        return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, printIfError: true)
+    }
+    
     func testUsage() throws {
-        XCTAssert(try SwiftPMProduct.SwiftBuild.execute(["--help"], printIfError: true).contains("USAGE: swift build"))
+        XCTAssert(try execute(["--help"]).contains("USAGE: swift build"))
     }
 
     func testVersion() throws {
-        XCTAssert(try SwiftPMProduct.SwiftBuild.execute(["--version"], printIfError: true).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
     func testBuildAndClean() throws {
@@ -37,12 +41,12 @@ final class BuildToolTests: XCTestCase {
             XCTAssert(packageRoot.appending(".build").asString.isDirectory)
 
             // Clean, and check for removal.
-            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
+            _ = try execute(["--clean"], chdir: packageRoot)
             XCTAssert(!packageRoot.appending(".build/debug/Foo").asString.isFile)
             XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
 
             // Clean again to ensure we get no error.
-            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
+            _ = try execute(["--clean"], chdir: packageRoot)
         }
     }
 

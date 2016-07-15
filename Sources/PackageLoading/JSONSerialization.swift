@@ -12,7 +12,6 @@ import Basic
 import PackageDescription
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
-
     let json = package.toJSON()
     let string = json.toString()
     return string

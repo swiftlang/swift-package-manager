@@ -13,12 +13,16 @@ import XCTest
 import Commands
 
 final class TestToolTests: XCTestCase {
+    private func execute(_ args: [String]) throws -> String {
+        return try SwiftPMProduct.SwiftTest.execute(args, printIfError: true)
+    }
+    
     func testUsage() throws {
-        XCTAssert(try SwiftPMProduct.SwiftTest.execute(["--help"], printIfError: true).contains("USAGE: swift test"))
+        XCTAssert(try execute(["--help"]).contains("USAGE: swift test"))
     }
 
     func testVersion() throws {
-        XCTAssert(try SwiftPMProduct.SwiftTest.execute(["--version"], printIfError: true).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
     static var allTests = [
