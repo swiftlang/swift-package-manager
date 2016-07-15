@@ -15,8 +15,8 @@ class StringConversionTests: XCTestCase {
 
     func testShellEscaped() {
 
-        var str = "hello"
-        XCTAssertEqual("hello", str.shellEscaped())
+        var str = "hello-_123"
+        XCTAssertEqual("hello-_123", str.shellEscaped())
 
         str = "hello world"
         XCTAssertEqual("'hello world'", str.shellEscaped())
