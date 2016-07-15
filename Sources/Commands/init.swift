@@ -115,7 +115,7 @@ final class InitPackage {
             return
         }
         print("Creating Sources/")
-        try mkdir(sources)
+        try mkdir(sources, recursive: true)
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
@@ -161,7 +161,7 @@ final class InitPackage {
             return
         }
         print("Creating Tests/")
-        try mkdir(tests)
+        try mkdir(tests, recursive: true)
 
         // Only libraries are testable for now.
         if mode == .library {

@@ -98,7 +98,7 @@ public func realpath(_ path: AbsolutePath) throws -> AbsolutePath {
 }
 
 /// Creates a new, empty directory at `path`.  If there is already a file system entity at `path, a `EEXIST` error is thrown.  If `recursive` is true, any intermediate ancestor directories of `path` that don't exist are also created; if it is false, and the immediate parent directory of `path` doesn't exist, a `ENOENT` error is thrown.
-public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {
+public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = false) throws {
     var rv = libc.mkdir(path.asString, mode)
     if rv < 0 && errno == ENOENT && recursive {
         assert(!path.isRoot)

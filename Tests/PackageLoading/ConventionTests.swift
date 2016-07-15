@@ -78,7 +78,7 @@ class ConventionTests: XCTestCase {
 /// Create a test fixture with empty files at the given paths.
 private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throws -> ()) {
     mktmpdir { prefix in
-        try mkdir(prefix)
+        try mkdir(prefix, recursive: true)
         for file in files {
             try system("touch", prefix.appending(file).asString)
         }
