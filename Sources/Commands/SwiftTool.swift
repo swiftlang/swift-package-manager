@@ -8,6 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basic
+import PackageLoading
+import PackageGraph
+
 /// A common interface for swift tools
 public protocol SwiftTool {
     init()
@@ -15,8 +19,22 @@ public protocol SwiftTool {
     func run()
 }
 
+// FIXME: Find a home for this. Ultimately it might need access to some of the
+// options, and we might just want the SwiftTool type to become a class.
+private let sharedPackageGraphLoader = PackageGraphLoader(manifestLoader: ManifestLoader(resources: ToolDefaults()))
+
 public extension SwiftTool {
     init() {
         self.init(args: Array(Process.arguments.dropFirst()))
+    }
+
+    /// The shared package graph loader.
+    var packageGraphLoader: PackageGraphLoader {
+        return sharedPackageGraphLoader
+    }
+
+    /// Fetch and load the complete package at the given path.
+    func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
+        return try packageGraphLoader.loadPackage(at: path, ignoreDependencies: ignoreDependencies)
     }
 }

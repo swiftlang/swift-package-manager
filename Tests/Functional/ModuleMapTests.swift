@@ -10,11 +10,12 @@
 
 import XCTest
 
+import Basic
 import Utility
 
 import func POSIX.popen
 
-#if os(OSX)
+#if os(macOS)
 private let dylib = "dylib"
 #else
 private let dylib = "so"
@@ -22,17 +23,17 @@ private let dylib = "so"
 
 class ModuleMapsTestCase: XCTestCase {
 
-    private func fixture(name: String, CModuleName: String, rootpkg: String, body: (String, [String]) throws -> Void) {
+    private func fixture(name: RelativePath, cModuleName: String, rootpkg: String, body: (AbsolutePath, [String]) throws -> Void) {
         FunctionalTestSuite.fixture(name: name) { prefix in
-            let input = Path.join(prefix, CModuleName, "C/foo.c")
-            let outdir = Path.join(prefix, rootpkg, ".build/debug")
-            try Utility.makeDirectories(outdir)
-            let output = Path.join(outdir, "libfoo.\(dylib)")
-            try systemQuietly(["clang", "-shared", input, "-o", output])
+            let input = prefix.appending(components: cModuleName, "C", "foo.c")
+            let outdir = prefix.appending(components: rootpkg, ".build", "debug")
+            try Utility.makeDirectories(outdir.asString)
+            let output = outdir.appending(component: "libfoo.\(dylib)")
+            try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 
-            var Xld = ["-L", outdir]
+            var Xld = ["-L", outdir.asString]
         #if os(Linux)
-            Xld += ["-rpath", outdir]
+            Xld += ["-rpath", outdir.asString]
         #endif
 
             try body(prefix, Xld)
@@ -40,25 +41,25 @@ class ModuleMapsTestCase: XCTestCase {
     }
 
     func testDirectDependency() {
-        fixture(name: "ModuleMaps/Direct", CModuleName: "CFoo", rootpkg: "App") { prefix, Xld in
+        fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { prefix, Xld in
 
-            XCTAssertBuilds(prefix, "App", Xld: Xld)
+            XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let debugout = try popen([Path.join(prefix, "App/.build/debug/App")])
+            let debugout = try popen([prefix.appending(RelativePath("App/.build/debug/App")).asString])
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try popen([Path.join(prefix, "App/.build/release/App")])
+            let releaseout = try popen([prefix.appending(RelativePath("App/.build/release/App")).asString])
             XCTAssertEqual(releaseout, "123\n")
         }
     }
 
     func testTransitiveDependency() {
-        fixture(name: "ModuleMaps/Transitive", CModuleName: "packageD", rootpkg: "packageA") { prefix, Xld in
+        fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { prefix, Xld in
 
-            XCTAssertBuilds(prefix, "packageA", Xld: Xld)
+            XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
                 let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                let out = try popen([Path.join(prefix, "packageA/.build", conf, "packageA")])
+                let out = try popen([prefix.appending(components: "packageA", ".build", conf, "packageA").asString])
                 XCTAssertEqual(out, expectedOutput)
             }
 

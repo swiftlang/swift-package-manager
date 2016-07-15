@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import struct Utility.Path
 
@@ -17,7 +18,7 @@ protocol Buildable {
 }
 
 extension Module: Buildable {
-    func XccFlags(_ prefix: String) -> [String] {
+    func XccFlags(_ prefix: AbsolutePath) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {
                 ///For ClangModule we check if there is a user provided module map
@@ -30,15 +31,15 @@ extension Module: Buildable {
                 ///in ClangModule's `generateModuleMap(inDir wd: String)`
                 ///there shouldn't be need to redo this but is difficult in 
                 ///current architecture
-                if module.moduleMapPath.isFile {
-                    return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
+                if module.moduleMapPath.asString.isFile {
+                    return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
                 }
 
                 let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
-                let genModuleMap = Path.join(buildMeta.buildDirectory, module.moduleMap)
-                return ["-Xcc", "-fmodule-map-file=\(genModuleMap)"]
+                let genModuleMap = buildMeta.buildDirectory.appending(component: CModule.moduleMapFilename)
+                return ["-Xcc", "-fmodule-map-file=\(genModuleMap.asString)"]
             } else if let module = module as? CModule {
-                return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath)"]
+                return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
             } else {
                 return []
             }

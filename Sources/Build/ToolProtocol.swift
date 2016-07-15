@@ -51,7 +51,7 @@ struct ShellTool: ToolProtocol {
 
 struct SwiftcTool: ToolProtocol {
     let module: SwiftModule
-    let prefix: String
+    let prefix: AbsolutePath
     let otherArgs: [String]
     let executable: String
     let conf: Configuration
@@ -76,13 +76,13 @@ struct SwiftcTool: ToolProtocol {
         }
     }
 
-    var outputs: [String]                   { return [module.targetName] + objects }
+    var outputs: [String]                   { return [module.targetName] + objects.map{ $0.asString } }
     var moduleName: String                  { return module.c99name }
-    var moduleOutputPath: String            { return Path.join(prefix, "\(module.c99name).swiftmodule") }
-    var importPaths: [String]               { return [prefix] }
-    var tempsPath: String                   { return Path.join(prefix, "\(module.c99name).build") }
-    var objects: [String]                   { return module.sources.relativePaths.map{ Path.join(tempsPath, "\($0).o") } }
-    var sources: [String]                   { return module.sources.paths }
+    var moduleOutputPath: AbsolutePath      { return prefix.appending(component: module.c99name + ".swiftmodule") }
+    var importPaths: [AbsolutePath]         { return [prefix] }
+    var tempsPath: AbsolutePath             { return prefix.appending(component: module.c99name + ".build") }
+    var objects: [AbsolutePath]             { return module.sources.relativePaths.map{ tempsPath.appending(RelativePath($0.asString + ".o")) } }
+    var sources: [AbsolutePath]             { return module.sources.paths }
     var isLibrary: Bool                     { return module.type == .library }
     var enableWholeModuleOptimization: Bool {
         #if EnableWorkaroundForSR1457
@@ -96,14 +96,14 @@ struct SwiftcTool: ToolProtocol {
         stream <<< "    tool: swift-compiler\n"
         stream <<< "    executable: " <<< Format.asJSON(executable) <<< "\n"
         stream <<< "    module-name: " <<< Format.asJSON(moduleName) <<< "\n"
-        stream <<< "    module-output-path: " <<< Format.asJSON(moduleOutputPath) <<< "\n"
+        stream <<< "    module-output-path: " <<< Format.asJSON(moduleOutputPath.asString) <<< "\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-        stream <<< "    import-paths: " <<< Format.asJSON(importPaths) <<< "\n"
-        stream <<< "    temps-path: " <<< Format.asJSON(tempsPath) <<< "\n"
-        stream <<< "    objects: " <<< Format.asJSON(objects) <<< "\n"
+        stream <<< "    import-paths: " <<< Format.asJSON(importPaths.map{ $0.asString }) <<< "\n"
+        stream <<< "    temps-path: " <<< Format.asJSON(tempsPath.asString) <<< "\n"
+        stream <<< "    objects: " <<< Format.asJSON(objects.map{ $0.asString }) <<< "\n"
         stream <<< "    other-args: " <<< Format.asJSON(otherArgs) <<< "\n"
-        stream <<< "    sources: " <<< Format.asJSON(sources) <<< "\n"
+        stream <<< "    sources: " <<< Format.asJSON(sources.map{ $0.asString }) <<< "\n"
         stream <<< "    is-library: " <<< Format.asJSON(isLibrary) <<< "\n"
         stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(enableWholeModuleOptimization) <<< "\n"
         stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftcTool.numThreads)") <<< "\n"
@@ -127,8 +127,7 @@ struct ClangTool: ToolProtocol {
         stream <<< "    description: " <<< Format.asJSON(desc) <<< "\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-        // FIXME: This does not work for paths with spaces.
-        stream <<< "    args: " <<< Format.asJSON(args.joined(separator: " ")) <<< "\n"
+        stream <<< "    args: " <<< Format.asJSON(args) <<< "\n"
         if let deps = deps {
             stream <<< "    deps: " <<< Format.asJSON(deps) <<< "\n"
         }

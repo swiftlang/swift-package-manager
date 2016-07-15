@@ -23,11 +23,9 @@ import VersionInfo
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
+import struct PackageDescription.Version
 
 import func POSIX.chdir
-
-/// Additional conformance for our Options type.
-extension BuildToolOptions: XcodeprojOptions {}
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
@@ -70,7 +68,6 @@ private enum BuildToolFlag: Argument {
     case colorMode(ColorWrap.Mode)
     case ignoreDependencies
     case verbose(Int)
-    case xcconfigOverrides(AbsolutePath)
 
     init?(argument: String, pop: () -> String?) throws {
 
@@ -102,8 +99,6 @@ private enum BuildToolFlag: Argument {
             self = .colorMode(mode)
         case "--ignore-dependencies":
             self = .ignoreDependencies
-        case "--xcconfig-overrides":
-            self = try .xcconfigOverrides(AbsolutePath(forcePop().abspath))
         default:
             return nil
         }
@@ -112,13 +107,10 @@ private enum BuildToolFlag: Argument {
 
 private class BuildToolOptions: Options {
     var verbosity: Int = 0
-    var Xcc: [String] = []
-    var Xld: [String] = []
-    var Xswiftc: [String] = []
+    var flags = BuildFlags()
     var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
     var ignoreDependencies: Bool = false
-    var xcconfigOverrides: AbsolutePath? = nil
 }
 
 /// swift-build tool namespace
@@ -140,54 +132,9 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            /// FIXME: This can't path string be converted to an AbsolutePath until lower-level APIs have been converted.
-            func parseManifest(path: String, baseURL: String) throws -> Manifest {
-                let swiftc = ToolDefaults.SWIFT_EXEC.asString
-                let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
-            }
-            
-            func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
-                if opts.ignoreDependencies {
-                    return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
-                } else {
-                    return try get(manifest, manifestParser: parseManifest)
-                }
-            }
-        
             switch mode {
-            case .build(let conf, let toolchain):
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                let yaml = try describe(opts, conf, modules, Set(externalModules), products, toolchain: toolchain)
-                try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
-        
             case .usage:
                 usage()
-        
-            case .clean(.dist):
-                if opts.path.packages.asString.exists {
-                    try Utility.removeFileTree(opts.path.packages.asString)
-                }
-                fallthrough
-        
-            case .clean(.build):
-                let artifacts = ["debug", "release"].map{ AbsolutePath(opts.path.build, $0) }.map{ ($0, AbsolutePath("\($0.asString).yaml")) }
-                for (dir, yml) in artifacts {
-                    if dir.asString.isDirectory { try Utility.removeFileTree(dir.asString) }
-                    if yml.asString.isFile { try Utility.removeFileTree(yml.asString) }
-                }
-        
-                let db = opts.path.build.appending("build.db")
-                if db.asString.isFile { try Utility.removeFileTree(db.asString) }
-        
-                let versionData = opts.path.build.appending("versionData")
-                if versionData.asString.isDirectory { try Utility.removeFileTree(versionData.asString) }
-        
-                if opts.path.build.asString.exists {
-                    try Utility.removeFileTree(opts.path.build.asString)
-                }
         
             case .version:
                 #if HasCustomVersionString
@@ -196,6 +143,22 @@ public struct SwiftBuildTool: SwiftTool {
                     print("Swift Package Manager – Swift 3.0")
                 #endif
                 
+            case .build(let conf, let toolchain):
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
+                try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
+        
+            case .clean(.dist):
+                if opts.path.packages.asString.exists {
+                    try Utility.removeFileTree(opts.path.packages.asString)
+                }
+                fallthrough
+        
+            case .clean(.build):
+                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
+                if opts.path.build.asString.exists {
+                    try Utility.removeFileTree(opts.path.build.asString)
+                }
             }
         
         } catch {
@@ -236,44 +199,23 @@ public struct SwiftBuildTool: SwiftTool {
             case .verbose(let amount):
                 opts.verbosity += amount
             case .xcc(let value):
-                opts.Xcc.append(value)
+                opts.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.Xld.append(value)
+                opts.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.Xswiftc.append(value)
+                opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
                 opts.path.build = path
             case .buildTests:
                 opts.buildTests = true
             case .colorMode(let mode):
                 opts.colorMode = mode
-            case .xcconfigOverrides(let path):
-                opts.xcconfigOverrides = path
             case .ignoreDependencies:
                 opts.ignoreDependencies = true
             }
         }
     
         return try (mode ?? .build(.debug, UserToolchain()), opts)
-    }
-
-    private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> AbsolutePath {
-        do {
-            return try AbsolutePath(Build.describe(opts.path.build.asString, conf, modules, externalModules, products, Xcc: opts.Xcc, Xld: opts.Xld, Xswiftc: opts.Xswiftc, toolchain: toolchain))
-        } catch {
-#if os(Linux)
-            // it is a common error on Linux for clang++ to not be installed, but
-            // we need it for linking. swiftc itself gives a non-useful error, so
-            // we try to help here.
-        
-            //FIXME we should use C-functions here
-
-            if (try? Utility.popen(["command", "-v", "clang++"])) == nil {
-                print("warning: clang++ not found: this will cause build failure", to: &stderr)
-            }
-#endif
-            throw error
-        }
     }
 }
 

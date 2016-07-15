@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageModel
 import PackageDescription
 
@@ -17,9 +18,9 @@ import PackageDescription
 
 final class PackageVersionDataTests: XCTestCase {
 
-    func makePackage() -> PackageModel.Package {
-        let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-        return Package(manifest: m, url: "https://github.com/testPkg")
+    func makePackage(version: Version?) -> PackageModel.Package {
+        let m = Manifest(path: "/path", url: "https://github.com/testPkg", package: PackageDescription.Package(name: "a"), products: [], version: version)
+        return Package(manifest: m)
     }
 
     func testPackageData(_ package: PackageModel.Package, url: String, version: Version?) {
@@ -38,26 +39,24 @@ final class PackageVersionDataTests: XCTestCase {
     }
 
     func testPackageVersionData() {
-        let package = makePackage()
-        package.version = Version(1, 2, 3)
+        let package = makePackage(version: Version(1, 2, 3))
         testPackageData(package, url: "https://github.com/testPkg", version: Version(1, 2, 3))
     }
 
     func testPackageEmptyVersionData() {
-        let package = makePackage()
-        package.version = nil
+        let package = makePackage(version: nil)
         testPackageData(package, url: "https://github.com/testPkg", version: nil)
     }
 
     func testSavePackageVersionDataToFile() {
         mktmpdir { dir in
-            let package = makePackage()
+            let package = makePackage(version: nil)
 
-            let m = Manifest(path: "path", package: PackageDescription.Package(), products: [])
-            let rootPkg = Package(manifest: m, url: "https://github.com/rootPkg")
+            let m = Manifest(path: "/path", url: "https://github.com/rootPkg", package: PackageDescription.Package(name: "a"), products: [], version: nil)
+            let rootPkg = Package(manifest: m)
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
-            XCTAssertFileExists(dir, ".build/versionData/", "\(package.name).swift")
+            XCTAssertFileExists(dir.appending(components: ".build", "versionData", package.name + ".swift"))
         }
     }
 

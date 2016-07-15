@@ -21,9 +21,9 @@
 /// strings or and by eliminating wasted space in growable arrays). For
 /// construction of byte arrays, clients should use the `OutputByteStream` class
 /// and then convert to a `ByteString` when complete.
-public struct ByteString: ArrayLiteralConvertible {
+public struct ByteString: ExpressibleByArrayLiteral {
     /// The buffer contents.
-    private var _bytes: [UInt8]
+    fileprivate var _bytes: [UInt8]
 
     /// Create an empty byte string.
     public init() {
@@ -119,7 +119,7 @@ extension ByteString: ByteStreamable {
 }
 
 /// StringLiteralConvertable conformance for a ByteString.
-extension ByteString: StringLiteralConvertible {
+extension ByteString: ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
 

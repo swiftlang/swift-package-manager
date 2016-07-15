@@ -113,6 +113,10 @@ if platform.system() == 'Darwin':
         ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
         universal_newlines=True).strip()
 
+if platform.system() == 'Linux':
+    g_shared_lib_ext = ".so"
+else:
+    g_shared_lib_ext = ".dylib"
 
 class Target(object):
     @property
@@ -126,24 +130,50 @@ class Target(object):
     def __init__(self, name, dependencies=[], swiftflags=[], extra_libs=[],
                  subpath=None):
         self.name = name
+        self.module_name = self.name.replace("-", "_")
         self.dependencies = list(dependencies)
         self.swiftflags = list(swiftflags)
         self.extra_libs = list(extra_libs)
 
         # Discover the source files, and whether or not this is a library.
         self.is_library = True
-        self.swift_sources = []
-        for (dirpath, dirnames, filenames) in os.walk(
-                os.path.join(g_source_root, subpath or self.name)):
+        self.is_swift = False
+        # FIXME: Currently only C libraries are supported in bootstrap script.
+        self.is_c = False
+
+        self.sources = []
+        self.module_root_dir = os.path.join(g_source_root, subpath or self.name)
+
+        for (dirpath, dirnames, filenames) in os.walk(self.module_root_dir):
             for name in filenames:
                 path = os.path.join(dirpath, name)
                 _, ext = os.path.splitext(name)
                 if ext == '.swift':
+                    self.is_swift = True
                     if name == 'main.swift':
                         self.is_library = False
-                    self.swift_sources.append(path)
+                    self.sources.append(path)
+                if ext == '.c':
+                    self.is_c = True
+                    self.sources.append(path)
 
-        self.swift_sources.sort()
+        if self.is_swift and self.is_c:
+            error("Target %s contains mixed C and Swift sources which is unsupported." % (self.name))
+
+        self.sources.sort()
+
+    def write_compile_commands(self, args, target_build_dir,
+                                     module_dir, include_dir, output, objects,
+                                     link_input_nodes, predecessor_node):
+        if self.is_swift:
+            self.write_swift_compile_commands(args, target_build_dir, module_dir,
+                                              include_dir, output, objects, link_input_nodes,
+                                              predecessor_node)
+        elif self.is_c:
+            self.write_c_compile_commands(args, target_build_dir, module_dir,
+                                              include_dir, output, objects, link_input_nodes,
+                                              predecessor_node)
+
 
     def write_swift_compile_commands(self, args, target_build_dir,
                                      module_dir, include_dir, output, objects,
@@ -153,7 +183,7 @@ class Target(object):
 
         # Create the per-file entries.
         swift_objects = []
-        for path in self.swift_sources:
+        for path in self.sources:
             filename = os.path.basename(path)
             base_path = os.path.join(
                 target_build_dir, os.path.splitext(filename)[0])
@@ -165,7 +195,6 @@ class Target(object):
         #
         # FIXME: The -j doesn't belong here, and should move into the
         # 'swift' tool.
-        module_name = self.name.replace("-", "_")
         other_args = ['-Onone', '-j%d' % g_num_cpus] + self.swiftflags
         if platform.system() == 'Darwin':
             other_args.extend(["-target", "x86_64-apple-macosx10.10"])
@@ -186,15 +215,22 @@ class Target(object):
         # FIXME: We shouldn't even need to specify the sources here once we have
         # discovered dependencies support.
         print("    inputs: %s" % json.dumps(
-            [predecessor_node] + self.swift_sources), file=output)
+            [predecessor_node] + self.sources), file=output)
         print("    outputs: %s" % json.dumps(
             [compile_swift_node, module_path] + swift_objects), file=output)
-        print("    module-name: %s" % json.dumps(module_name), file=output)
+        print("    module-name: %s" % json.dumps(self.module_name), file=output)
         print("    module-output-path: %s" % json.dumps(module_path),
               file=output)
-        print("    sources: %s" % json.dumps(self.swift_sources), file=output)
+        print("    sources: %s" % json.dumps(self.sources), file=output)
         print("    objects: %s" % json.dumps(swift_objects), file=output)
         import_paths = [module_dir, include_dir]
+
+        # For C interpolation add import path to where modulemap is located.
+        for dependency in self.dependencies:
+            dep_target = target_map[dependency]
+            if dep_target.is_c:
+                import_paths.append(os.path.join(dep_target.module_root_dir, "include"))
+
         if args.foundation_path:
             import_paths.append(args.foundation_path)
             import_paths.append(os.path.join(args.foundation_path,
@@ -215,6 +251,42 @@ class Target(object):
         print("    is-library: %s" % json.dumps(
             str(bool(self.is_library)).lower()), file=output)
         print(file=output)
+
+    def write_c_compile_commands(self, args, target_build_dir,
+                                     module_dir, include_dir, output, objects,
+                                     link_input_nodes, predecessor_node):
+
+        common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name]
+        if platform.system() == 'Darwin':
+            common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
+
+        if args.sysroot:
+            common_args.extend(["-isysroot", args.sysroot])
+
+        common_args.extend(["-g", "-O0", "-MD", "-MT", "dependencies", "-MF"])
+
+        for source in self.sources:
+            filename = os.path.basename(source)
+            base_path = os.path.join(
+                target_build_dir, os.path.splitext(filename)[0])
+            object_path = base_path + ".o"
+            deps_path = base_path + ".d"
+            objects.append(object_path)
+
+            link_input_nodes.append(object_path)
+
+            args = ["clang"]
+            args.extend(common_args)
+            args.extend([deps_path, "-c", source,"-o", object_path])
+
+            print("  %s:" % json.dumps(object_path), file=output)
+            print("    tool: clang", file=output)
+            print("    description: Compile %s" % filename, file=output)
+            print("    inputs: %s" % json.dumps([source]), file=output)
+            print("    outputs: %s" % json.dumps([object_path]), file=output)
+            print("    args: %s" % json.dumps(args), file=output)
+            print("    deps: %s" % json.dumps(deps_path), file=output)
+            print(file=output)
 
 
 # currently only returns the targets parsed from the manifest
@@ -369,20 +441,28 @@ def create_bootstrap_files(sandbox_path, args):
         # Write out the target build commands (we just name the command and node
         # the same).
 
-        # Write the Swift compile commands, if used.
-        if target.swift_sources:
-            target.write_swift_compile_commands(
+        # Write the compile commands, if used.
+        if target.sources:
+            target.write_compile_commands(
                 args, target_build_dir, module_dir, inc_dir, output, objects,
                 link_input_nodes, predecessor_node)
 
+
         # Form the command line to link.
         linked_libraries = []
-        if target.is_library:
+        if target.is_swift and target.is_library:
             link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
             link_command = ['rm', '-f', pipes.quote(link_output_path), ';',
                             'ar', 'cr', pipes.quote(link_output_path)]
             link_command.append(' '.join(pipes.quote(o) for o in objects))
-        else:
+        elif target.is_c and target.is_library:
+            # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
+            link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
+            link_command = ['clang', ' '.join(pipes.quote(o) for o in objects), '-shared',
+                            '-o', pipes.quote(link_output_path)]
+        elif target.is_c and not target.is_library:
+            error("Executable C target not supported by bootstrap yet")
+        elif target.is_swift and not target.is_library:
             link_output_path = os.path.join(bin_dir, target.name)
 
             link_command = [args.swiftc_path,
@@ -393,7 +473,11 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-target", "x86_64-apple-macosx10.10"])
             link_command.append(' '.join(pipes.quote(o) for o in objects))
             for dependency in target.dependencies:
-                dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
+                dep_target = target_map[dependency]
+                if dep_target.is_swift:
+                    dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
+                else:
+                    dependency_lib_path = os.path.join(lib_dir, dependency + g_shared_lib_ext)
                 link_command.append(pipes.quote(dependency_lib_path))
                 linked_libraries.append(dependency_lib_path)
             if platform.system() == 'Darwin':

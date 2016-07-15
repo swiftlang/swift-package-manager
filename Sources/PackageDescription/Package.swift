@@ -47,8 +47,8 @@ public final class Package {
         }
     }
     
-    /// The name of the package, if specified.
-    public let name: String?
+    /// The name of the package.
+    public let name: String
   
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to search for
     /// <name>.pc file to get the additional flags needed for the system module.
@@ -70,7 +70,7 @@ public final class Package {
     public var exclude: [String]
 
     /// Construct a package.
-    public init(name: String? = nil, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -90,7 +90,7 @@ public final class Package {
         // See https://bugs.swift.org/browse/SR-1119.
         if Process.argc > 0 {
             if let fileNoOptIndex = Process.arguments.index(of: "-fileno"),
-                   fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
+                   let fileNo = Int32(Process.arguments[fileNoOptIndex + 1]) {
                 dumpPackageAtExit(self, fileNo: fileNo)
             }
         }
@@ -136,9 +136,7 @@ extension Package: TOMLConvertible {
     public func toTOML() -> String {
         var result = ""
         result += "[package]\n"
-        if let name = self.name {
-            result += "name = \"\(name)\"\n"
-        }
+        result += "name = \"\(name)\"\n"
         if let pkgConfig = self.pkgConfig {
             result += "pkgConfig = \"\(pkgConfig)\"\n"
         }

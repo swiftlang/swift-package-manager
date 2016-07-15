@@ -16,17 +16,16 @@ import Utility
 //FIXME messy :/
 
 extension Command {
-    static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
-        precondition(prefix.isAbsolute)
+    static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
 
-        // Get the set of all input modules.
+        // Get the unique set of all input modules.
         //
         // FIXME: This needs to handle C language targets.
-        let buildables = product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }.unique()
+        let buildables = OrderedSet(product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }).contents
         
         var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
 
-        let outpath = Path.join(prefix, product.outname)
+        let outpath = prefix.appending(product.outname)
 
         var args: [String]
         switch product.type {
@@ -36,48 +35,48 @@ extension Command {
             if conf == .debug {
                 args += ["-g"]
             }
-            args += ["-L\(prefix)"]
-            args += ["-o", outpath]
+            args += ["-L\(prefix.asString)"]
+            args += ["-o", outpath.asString]
 
-          #if os(OSX)
+          #if os(macOS)
             args += ["-F", try platformFrameworksPath()]
           #endif
 
         case .Library(.Static):
-            let inputs = buildables.map{ $0.targetName } + objects
-            let outputs = [product.targetName, outpath]
+            let inputs = buildables.map{ $0.targetName } + objects.map{ $0.asString }
+            let outputs = [product.targetName, outpath.asString]
             return Command(node: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
 
         switch product.type {
         case .Library(.Static):
-            args.append(outpath)
+            args.append(outpath.asString)
         case .Test:
             args += ["-module-name", product.name]
             // Link all the Clang Module's objects into XCTest executable.
             objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
-          #if os(OSX)
+          #if os(macOS)
             args += ["-Xlinker", "-bundle"]
             args += ["-F", try platformFrameworksPath()]
 
             // TODO should be llbuild rules∫
             if conf == .debug {
-                let infoPlistPath = Path.join(outpath.parentDirectory.parentDirectory, "Info.plist")
-                try localFS.createDirectory(outpath.parentDirectory, recursive: true)
-                try localFS.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
+                let infoPlistPath = outpath.parentDirectory.parentDirectory.appending(component: "Info.plist")
+                try localFileSystem.createDirectory(outpath.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
             }
           #else
             // HACK: To get a path to LinuxMain.swift, we just grab the
             //       parent directory of the first test module we can find.
             let firstTestModule = product.modules.flatMap{$0 as? SwiftModule}.filter{ $0.isTest }.first!
             let testDirectory = firstTestModule.sources.root.parentDirectory
-            let main = Path.join(testDirectory, "LinuxMain.swift")
-            args.append(main)
+            let main = testDirectory.appending(component: "LinuxMain.swift")
+            args.append(main.asString)
             for module in product.modules {
                 args += module.XccFlags(prefix)
             }
             args.append("-emit-executable")
-            args += ["-I", prefix]
+            args += ["-I", prefix.asString]
           #endif
         case .Library(.Dynamic):
             args.append("-emit-library")
@@ -89,7 +88,7 @@ extension Command {
             args += try module.pkgConfigSwiftcArgs()
         }
         
-        args += objects
+        args += objects.map{ $0.asString }
 
         if case .Library(.Static) = product.type {
             //HACK we need to be executed passed-through to the shell
@@ -99,9 +98,9 @@ extension Command {
         }
 
         let shell = ShellTool(
-            description: "Linking \(outpath.prettyPath)",
-            inputs: objects,
-            outputs: [product.targetName, outpath],
+            description: "Linking \(outpath.asString.prettyPath)",
+            inputs: objects.map{ $0.asString },
+            outputs: [product.targetName, outpath.asString],
             args: args)
 
         return Command(node: product.targetName, tool: shell)

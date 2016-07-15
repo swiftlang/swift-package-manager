@@ -197,7 +197,7 @@ simple example could be:
     foo/Package.swift
     foo/Sources/main.swift
 
-> `Package.swift` is the manifest file that contains metadata about your package. For simple projects an empty file is OK, however the file must still exist. `Package.swift` is documented in a later section.
+> `Package.swift` is the manifest file that contains metadata about your package. `Package.swift` is documented in a later section.
 
 If you then run the following command in the directory `foo`:
 
@@ -220,8 +220,6 @@ Of course, the package manager is used to build itself, so its own source files
 are laid out following these conventions as well.
 
 > [Further Reading: Source Layouts](Documentation/SourceLayouts.md)
-
-Please note that currently we only build static libraries. In general this has benefits, however we understand the need for dynamic libraries and support for this will be added in due course.
 
 ### Packages & Dependency Management
 

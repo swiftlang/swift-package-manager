@@ -23,14 +23,11 @@ import VersionInfo
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
+import struct PackageDescription.Version
 
 import func POSIX.chdir
 
-/// Additional conformance for our Options type.
-extension PackageToolOptions: XcodeprojOptions {}
-
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case doctor
     case dumpPackage
     case fetch
     case generateXcodeproj
@@ -42,8 +39,6 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "doctor":
-            self = .doctor
         case "dump-package":
             self = .dumpPackage
         case "fetch":
@@ -67,7 +62,6 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .doctor: return "doctor"
         case .dumpPackage: return "dump-package"
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
@@ -143,10 +137,7 @@ private class PackageToolOptions: Options {
     var outputPath: AbsolutePath? = nil
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
-    var Xcc: [String] = []
-    var Xld: [String] = []
-    var Xswiftc: [String] = []
-    var xcconfigOverrides: AbsolutePath? = nil
+    var xcodeprojOptions = XcodeprojOptions()
     var ignoreDependencies: Bool = false
 }
 
@@ -169,30 +160,25 @@ public struct SwiftPackageTool: SwiftTool {
                 try chdir(dir.asString)
             }
         
-            func parseManifest(path: String, baseURL: String) throws -> Manifest {
-                let swiftc = ToolDefaults.SWIFT_EXEC.asString
-                let libdir = ToolDefaults.libdir.asString
-                return try Manifest(path: path, baseURL: baseURL, swiftc: swiftc, libdir: libdir)
-            }
-            
-            func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
-                if opts.ignoreDependencies {
-                    return (Package(manifest: manifest, url: manifest.path.parentDirectory), [])
-                } else {
-                    return try get(manifest, manifestParser: parseManifest)
-                }
-            }
-        
             switch mode {
+            case .usage:
+                usage()
+        
+            case .version:
+                #if HasCustomVersionString
+                    print(String(cString: VersionInfo.DisplayString()))
+                #else
+                    print("Swift Package Manager – Swift 3.0")
+                #endif
+                
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
                 try initPackage.writePackageStructure()
                             
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
-                if localFS.exists(opts.path.packages) {
-                    for name in try localFS.getDirectoryContents(opts.path.packages) {
+                if localFileSystem.exists(opts.path.packages) {
+                    for name in try localFileSystem.getDirectoryContents(opts.path.packages) {
                         let item = opts.path.packages.appending(RelativePath(name))
 
                         // Only look at repositories.
@@ -214,35 +200,16 @@ public struct SwiftPackageTool: SwiftTool {
                 fallthrough
                 
             case .fetch:
-                _ = try fetch(opts.path.root)
+                _ = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
         
-            case .usage:
-                usage()
-        
-            case .doctor:
-                doctor()
-            
             case .showDependencies:
-                let (rootPackage, _) = try fetch(opts.path.root)
-                dumpDependenciesOf(rootPackage: rootPackage, mode: opts.showDepsMode)
-        
-            case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
-                
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
             case .generateXcodeproj:
-                let (rootPackage, externalPackages) = try fetch(opts.path.root)
-                let (modules, externalModules, products) = try transmute(rootPackage, externalPackages: externalPackages)
-                
-                let xcodeModules = modules.flatMap { $0 as? XcodeModuleProtocol }
-                let externalXcodeModules  = externalModules.flatMap { $0 as? XcodeModuleProtocol }
-        
+                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+
                 let projectName: String
                 let dstdir: AbsolutePath
-                let packageName = rootPackage.name
         
                 switch opts.outputPath {
                 case let outpath? where outpath.suffix == ".xcodeproj":
@@ -251,18 +218,18 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = outpath.parentDirectory
                 case let outpath?:
                     dstdir = outpath
-                    projectName = packageName
+                    projectName = graph.rootPackage.name
                 case _:
                     dstdir = opts.path.root
-                    projectName = packageName
+                    projectName = graph.rootPackage.name
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir.asString, projectName: projectName, srcroot: opts.path.root.asString, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
         
-                print("generated:", outpath.prettyPath)
+                print("generated:", outpath.asString.prettyPath)
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root
-                let manifest = try parseManifest(path: root.asString, baseURL: root.asString)
+                let manifest = try packageGraphLoader.manifestLoader.load(path: root, baseURL: root.asString, version: nil)
                 let package = manifest.package
                 let json = try jsonString(package: package)
                 print(json)
@@ -318,17 +285,17 @@ public struct SwiftPackageTool: SwiftTool {
             case .chdir(let path):
                 opts.chdir = path
             case .xcc(let value):
-                opts.Xcc.append(value)
+                opts.xcodeprojOptions.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.Xld.append(value)
+                opts.xcodeprojOptions.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.Xswiftc.append(value)
+                opts.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
             case .verbose(let amount):
                 opts.verbosity += amount
             case .colorMode(let mode):
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
-                opts.xcconfigOverrides = path
+                opts.xcodeprojOptions.xcconfigOverrides = path
             case .ignoreDependencies:
                 opts.ignoreDependencies = true
             }

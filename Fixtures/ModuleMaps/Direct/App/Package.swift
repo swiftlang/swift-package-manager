@@ -1,5 +1,7 @@
 import PackageDescription
 
-let package = Package(dependencies: [
-     .Package(url: "../CFoo", majorVersion: 1),
-])
+let package = Package(
+    name: "App",
+    dependencies: [
+        .Package(url: "../CFoo", majorVersion: 1),
+    ])

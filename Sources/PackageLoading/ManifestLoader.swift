@@ -15,7 +15,7 @@ import Utility
 
 import func POSIX.realpath
 
-private enum ManifestParseError: ErrorProtocol {
+private enum ManifestParseError: Swift.Error {
     /// The manifest file is empty.
     case emptyManifestFile
     /// The manifest had a string encoding error.
@@ -24,11 +24,39 @@ private enum ManifestParseError: ErrorProtocol {
     case invalidManifestFormat
 }
 
-extension Manifest {
+/// Resources required for manifest loading.
+///
+/// These requirements are abstracted out to make it easier to add support for
+/// using the package manager with alternate toolchains in the future.
+public protocol ManifestResourceProvider {
+    /// The path of the swift compiler.
+    var swiftCompilerPath: AbsolutePath { get }
+
+    /// The path of the library resources.
+    var libraryPath: AbsolutePath { get }
+}
+
+/// Utility class for loading manifest files.
+///
+/// This class is responsible for reading the manifest data and produce a
+/// properly formed `PackageModel.Manifest` object. It currently does so by
+/// interpreting the manifest source using Swift -- that produces a TOML
+/// serialized form of the manifest (as implemented by `PackageDescription`'s
+/// `atexit()` handler) which is then deserialized and loaded.
+public final class ManifestLoader {
+    let resources: ManifestResourceProvider
+
+    public init(resources: ManifestResourceProvider) {
+        self.resources = resources
+    }
+
     /// Create a manifest by loading from the given path.
     ///
-    /// - path: The path to the manifest file or directory containing `Package.swift`.
-    public init(path inputPath: String, baseURL: String, swiftc: String, libdir: String) throws {
+    /// - Parameters:
+    ///   - path: The path to the manifest file or directory containing `Package.swift`.
+    ///   - baseURL: The URL the manifest was loaded from.
+    ///   - version: The version the manifest is from, if known.
+    public func load(path inputPath: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
@@ -38,13 +66,13 @@ extension Manifest {
         }
 
         // Compute the actual input file path.
-        let path: String = inputPath.isDirectory ? Path.join(inputPath, Manifest.filename) : inputPath
+        let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard path.isFile else { throw PackageModel.Package.Error.noManifest(path) }
+        guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }
 
         // Load the manifest description.
-        guard let tomlString = try parse(path: path, swiftc: swiftc, libdir: libdir) else {
+        guard let tomlString = try parse(path: path) else {
             print("Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
             throw ManifestParseError.emptyManifestFile
         }
@@ -52,55 +80,56 @@ extension Manifest {
         let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
         let products = PackageDescription.Product.fromTOML(toml)
 
-        self.init(path: path, package: package, products: products)
-    }
-}
-
-private func parse(path manifestPath: String, swiftc: String, libdir: String) throws -> String? {
-    // For now, we load the manifest by having Swift interpret it directly.
-    // Eventually, we should have two loading processes, one that loads only the
-    // the declarative package specification using the Swift compiler directly
-    // and validates it.
-
-    var cmd = [swiftc]
-    cmd += ["--driver-mode=swift"]
-    cmd += verbosity.ccArgs
-    cmd += ["-I", libdir]
-
-    // When running from Xcode, load PackageDescription.framework
-    // else load the dylib version of it
-#if Xcode
-    cmd += ["-F", libdir]
-    cmd += ["-framework", "PackageDescription"]
-#else
-    cmd += ["-L", libdir, "-lPackageDescription"] 
-#endif
-
-#if os(OSX)
-    cmd += ["-target", "x86_64-apple-macosx10.10"]
-#endif
-    cmd += [manifestPath]
-
-    //Create and open a temporary file to write toml to
-    let filePath = Path.join(manifestPath.parentDirectory, ".Package.toml")
-    let fp = try fopen(filePath, mode: .write)
-    defer { fp.closeFile() }
-
-    //Pass the fd in arguments
-    cmd += ["-fileno", "\(fp.fileDescriptor)"]
-    do {
-        try system(cmd)
-    } catch {
-        print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
-        throw ManifestParseError.invalidManifestFormat
+        return Manifest(path: path, url: baseURL, package: package, products: products, version: version)
     }
 
-    guard let toml = try localFS.readFileContents(filePath).asString else {
-        throw ManifestParseError.invalidEncoding
+    /// Parse the manifest at the given path to TOML.
+    private func parse(path manifestPath: AbsolutePath) throws -> String? {
+        // For now, we load the manifest by having Swift interpret it directly.
+        // Eventually, we should have two loading processes, one that loads only the
+        // the declarative package specification using the Swift compiler directly
+        // and validates it.
+    
+        var cmd = [resources.swiftCompilerPath.asString]
+        cmd += ["--driver-mode=swift"]
+        cmd += verbosity.ccArgs
+        cmd += ["-I", resources.libraryPath.asString]
+    
+        // When running from Xcode, load PackageDescription.framework
+        // else load the dylib version of it
+    #if Xcode
+        cmd += ["-F", resources.libraryPath.asString]
+        cmd += ["-framework", "PackageDescription"]
+    #else
+        cmd += ["-L", resources.libraryPath.asString, "-lPackageDescription"] 
+    #endif
+    
+    #if os(macOS)
+        cmd += ["-target", "x86_64-apple-macosx10.10"]
+    #endif
+        cmd += [manifestPath.asString]
+    
+        //Create and open a temporary file to write toml to
+        let filePath = manifestPath.parentDirectory.appending(".Package.toml")
+        let fp = try fopen(filePath.asString, mode: .write)
+        defer { fp.closeFile() }
+    
+        //Pass the fd in arguments
+        cmd += ["-fileno", "\(fp.fileDescriptor)"]
+        do {
+            try system(cmd)
+        } catch {
+            print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
+            throw ManifestParseError.invalidManifestFormat
+        }
+    
+        guard let toml = try localFileSystem.readFileContents(filePath).asString else {
+            throw ManifestParseError.invalidEncoding
+        }
+        try Utility.removeFileTree(filePath.asString) // Delete the temp file after reading it
+    
+        return toml != "" ? toml : nil
     }
-    try Utility.removeFileTree(filePath) //Delete the temp file after reading it
-
-    return toml != "" ? toml : nil
 }
 
 // MARK: TOML Deserialization
@@ -119,10 +148,7 @@ extension PackageDescription.Package {
         guard case .table(let topLevelTable) = item else { fatalError("unexpected item") }
         guard case .table(let table)? = topLevelTable.items["package"] else { fatalError("missing package") }
 
-        var name: String? = nil
-        if case .string(let value)? = table.items["name"] {
-            name = value
-        }
+        guard case .string(let name)? = table.items["name"] else { fatalError("missing 'name'") }
         
         var pkgConfig: String? = nil
         if case .string(let value)? = table.items["pkgConfig"] {
@@ -161,7 +187,7 @@ extension PackageDescription.Package {
             }
         }
 
-        //Parse the exclude folders.
+        // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = table.items["exclude"] {
             for item in array.items {
@@ -176,19 +202,19 @@ extension PackageDescription.Package {
 
 extension PackageDescription.Package.Dependency {
     static func fromTOML(_ item: TOMLItem, baseURL: String?) -> PackageDescription.Package.Dependency {
-        guard case .array(let array) = item where array.items.count == 3 else {
+        guard case .array(let array) = item, array.items.count == 3 else {
             fatalError("Unexpected TOMLItem")
         }
         guard case .string(let url) = array.items[0],
               case .string(let vv1) = array.items[1],
               case .string(let vv2) = array.items[2],
-              let v1 = Version(vv1), v2 = Version(vv2)
+              let v1 = Version(vv1), let v2 = Version(vv2)
         else {
             fatalError("Unexpected TOMLItem")
         }
 
         func fixURL() -> String {
-            if let baseURL = baseURL where URL.scheme(url) == nil {
+            if let baseURL = baseURL, URL.scheme(url) == nil {
                 return Path.join(baseURL, url).normpath
             } else {
                 return url
@@ -200,7 +226,7 @@ extension PackageDescription.Package.Dependency {
 }
 
 extension PackageDescription.SystemPackageProvider {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.SystemPackageProvider {
         guard case .table(let table) = item else { fatalError("unexpected item") }
         guard case .string(let name)? = table.items["name"] else { fatalError("missing name") }
         guard case .string(let value)? = table.items["value"] else { fatalError("missing value") }
@@ -216,7 +242,7 @@ extension PackageDescription.SystemPackageProvider {
 }
 
 extension PackageDescription.Target {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
         guard case .table(let table) = item else { fatalError("unexpected item") }
@@ -236,7 +262,7 @@ extension PackageDescription.Target {
 }
 
 extension PackageDescription.Target.Dependency {
-    private static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
+    fileprivate static func fromTOML(_ item: TOMLItem) -> PackageDescription.Target.Dependency {
         guard case .string(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
     }

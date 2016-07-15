@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.Condition
+import Foundation
 
 /// This class can be used as a shared queue between multiple threads providing
 /// thread safe APIs.
@@ -18,12 +18,12 @@ public final class SynchronizedQueue<Element> {
     private var storage: [Element]
 
     /// Condition variable to block the thread trying dequeue and queue is empty.
-    private var notEmptyCondition: Condition
+    private var notEmptyCondition: NSCondition
 
     /// Create a default instance of queue.
     public init() {
         storage = []
-        notEmptyCondition = Condition()
+        notEmptyCondition = NSCondition()
     }
 
     /// Safely enqueue an element to end of the queue and signals a thread blocked on dequeue.

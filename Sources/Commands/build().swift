@@ -12,9 +12,6 @@ import Basic
 import PackageModel
 import Utility
 
-import func POSIX.getenv
-import func POSIX.exit
-
 // Builds the default target in the llbuild manifest unless specified.
 public func build(yamlPath: AbsolutePath, target: String? = nil) throws {
     do {

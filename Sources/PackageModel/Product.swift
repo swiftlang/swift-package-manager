@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+
 @_exported import enum PackageDescription.ProductType
-import Utility
 
 public class Product {
     public let name: String
@@ -22,27 +23,27 @@ public class Product {
         self.modules = modules
     }
 
-    public var outname: String {
+    public var outname: RelativePath {
         switch type {
         case .Executable:
-            return name
+            return RelativePath(name)
         case .Library(.Static):
-            return "lib\(name).a"
+            return RelativePath("lib\(name).a")
         case .Library(.Dynamic):
-            return "lib\(name).\(Product.dynamicLibraryExtension)"
+            return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
         case .Test:
             let base = "\(name).xctest"
-            #if os(OSX)
-                return "\(base)/Contents/MacOS/\(name)"
+            #if os(macOS)
+                return RelativePath("\(base)/Contents/MacOS/\(name)")
             #else
-                return base
+                return RelativePath(base)
             #endif
         }
     }
 
     // FIXME: This needs to be come from a toolchain object, not the host
     // configuration.
-#if os(OSX)
+#if os(macOS)
     public static let dynamicLibraryExtension = "dylib"
 #else
     public static let dynamicLibraryExtension = "so"

@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageDescription
 import PackageModel
 
@@ -19,42 +20,46 @@ import func POSIX.popen
 @testable import PackageLoading
 @testable import Utility
 
-#if os(OSX)
-private func bundleRoot() -> String {
-    for bundle in Bundle.allBundles() where bundle.bundlePath.hasSuffix(".xctest") {
-        return bundle.bundlePath.parentDirectory
+#if os(macOS)
+private func bundleRoot() -> AbsolutePath {
+    for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+        return AbsolutePath(bundle.bundlePath).parentDirectory
     }
     fatalError()
 }
 #endif
 
-class ManifestTests: XCTestCase {
-
-#if os(OSX)
+private struct Resources: ManifestResourceProvider {
+#if os(macOS)
   #if Xcode
-    let swiftc: String = {
-        let swiftc: String
+    let swiftCompilerPath: AbsolutePath = {
+        let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = Path.join(base, "usr/bin/swiftc")
+            swiftc = AbsolutePath(base).appending("usr/bin/swiftc")
+        } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
+            swiftc = AbsolutePath(override)
         } else {
-            swiftc = try! popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH"
+            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
         }
         precondition(swiftc != "/usr/bin/swiftc")
         return swiftc
     }()
   #else
-    let swiftc = Path.join(bundleRoot(), "swiftc")
+    let swiftCompilerPath = bundleRoot().appending("swiftc")
   #endif
-    let libdir = bundleRoot()
+    let libraryPath = bundleRoot()
 #else
-    let libdir = Process.arguments.first!.parentDirectory.abspath
-    let swiftc = Path.join(Process.arguments.first!, "../swiftc").abspath
+    let libraryPath = AbsolutePath(Process.arguments.first!.parentDirectory.abspath)
+    let swiftCompilerPath = AbsolutePath(Process.arguments.first!.abspath).appending("../swiftc")
 #endif
+}
 
-    private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
+class ManifestTests: XCTestCase {
+
+    private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
         do {
-            let input = Path.join(#file, "../Inputs", inputName).normpath
-            body(try Manifest(path: input, baseURL: input.parentDirectory, swiftc: swiftc, libdir: libdir))
+            let input = AbsolutePath(#file).appending("../Inputs").appending(inputName)
+            body(try ManifestLoader(resources: Resources()).load(path: input, baseURL: input.parentDirectory.asString, version: nil))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -89,15 +94,15 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? Manifest(path: "/non-existent-file", baseURL: "/", swiftc: swiftc, libdir: libdir)
+        let foo = try? ManifestLoader(resources: Resources()).load(path: "/non-existent-file", baseURL: "/", version: nil)
         XCTAssertNil(foo)
     }
 
     func testInvalidTargetName() {
-        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { prefix in
+        fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try Manifest(path: Path.join(prefix, "Package.swift"), baseURL: prefix, swiftc: swiftc, libdir: libdir)
-                let package = Package(manifest: manifest, url: prefix)
+                let manifest = try ManifestLoader(resources: Resources()).load(path: prefix.appending("Package.swift"), baseURL: prefix.asString, version: nil)
+                let package = Package(manifest: manifest)
 
                 let _ = try package.modules()
 

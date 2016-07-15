@@ -12,6 +12,12 @@ import XCTest
 
 @testable import PackageModel
 
+private extension Module {
+    convenience init(name: String) throws {
+        try self.init(name: name, type: .library, sources: Sources(paths: [], root: "/"))
+    }
+}
+
 class ModuleTests: XCTestCase {
     /// Check that module dependencies appear in build order.
     func testDependencyOrder() throws {

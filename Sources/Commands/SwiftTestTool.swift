@@ -16,7 +16,7 @@ import Utility
 import func POSIX.chdir
 import func POSIX.exit
 
-private enum TestError: ErrorProtocol {
+private enum TestError: Swift.Error {
     case testsExecutableNotFound
     case invalidListTestJSONData
 }
@@ -34,6 +34,7 @@ extension TestError: CustomStringConvertible {
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
+    case version
     case listTests
     case run(String?)
 
@@ -46,6 +47,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case "-s", "--specifier":
             guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             self = .run(specifier)
+        case "--version":
+            self = .version
         default:
             return nil
         }
@@ -59,6 +62,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             return "--list-tests"
         case .run(let specifier):
             return specifier ?? ""
+        case .version: return "--version"
         }
     }
 }
@@ -112,6 +116,13 @@ public struct SwiftTestTool: SwiftTool {
             case .usage:
                 usage()
         
+            case .version:
+                #if HasCustomVersionString
+                    print(String(cString: VersionInfo.DisplayString()))
+                #else
+                    print("Swift Package Manager – Swift 3.0")
+                #endif
+        
             case .listTests:
                 let testPath = try determineTestPath(opts: opts)
                 let testSuites = try getTestSuites(path: testPath)
@@ -125,11 +136,10 @@ public struct SwiftTestTool: SwiftTool {
                 }
 
             case .run(let specifier):
-                let yamlPath = opts.path.build.appending(RelativePath("\(configuration).yaml"))
-                if opts.buildTests {
-                    try build(yamlPath: yamlPath, target: "test")
-                }
-                let success = try test(path: determineTestPath(opts: opts), xctestArg: specifier)
+                try buildTestsIfNeeded(opts)
+                let testPath = try determineTestPath(opts: opts)
+
+                let success = test(path: testPath, xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
         } catch Error.buildYAMLNotFound {
@@ -141,6 +151,14 @@ public struct SwiftTestTool: SwiftTool {
     }
 
     private let configuration = "debug"  //FIXME should swift-test support configuration option?
+
+    /// Builds the "test" target if enabled in options.
+    private func buildTestsIfNeeded(_ opts: TestToolOptions) throws {
+        let yamlPath = opts.path.build.appending(RelativePath("\(configuration).yaml"))
+        if opts.buildTests {
+            try build(yamlPath: yamlPath, target: "test")
+        }
+    }
 
     /// Locates the XCTest bundle on OSX and XCTest executable on Linux.
     /// First check if <build_path>/debug/<PackageName>Tests.xctest is present, otherwise
@@ -160,20 +178,27 @@ public struct SwiftTestTool: SwiftTool {
         let packageName = opts.path.root.basename  //FIXME probably not true
         let maybePath = opts.path.build.appending(RelativePath(configuration)).appending(RelativePath("\(packageName)Tests.xctest"))
 
+        let possibleTestPath: AbsolutePath
+
         if maybePath.asString.exists {
-            return maybePath
+            possibleTestPath = maybePath
         } else {
-            let possiblePaths = walk(opts.path.build.asString).filter {
+            let possiblePaths = walk(opts.path.build).filter {
                 $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
-                $0.hasSuffix(".xctest")
+                $0.suffix == ".xctest"
             }
 
             guard let path = possiblePaths.first else {
                 throw TestError.testsExecutableNotFound
             }
 
-            return AbsolutePath(path.abspath)
+            possibleTestPath = path
         }
+
+        guard isValidTestPath(possibleTestPath) else {
+            throw TestError.testsExecutableNotFound
+        }
+        return possibleTestPath
     }
 
     private func usage(_ print: (String) -> Void = { print($0) }) {
@@ -211,13 +236,18 @@ public struct SwiftTestTool: SwiftTool {
         return (mode ?? .run(nil), opts)
     }
 
-    private func test(path: AbsolutePath, xctestArg: String? = nil) throws -> Bool {
-        guard isValidTestPath(path) else {
-            throw TestError.testsExecutableNotFound
-        }
+    /// Executes the XCTest binary with given arguments.
+    ///
+    /// - Parameters:
+    ///     - path: Path to a valid XCTest binary.
+    ///     - xctestArg: Arguments to pass to the XCTest binary.
+    ///
+    /// - Returns: True if execution exited with return code 0.
+    private func test(path: AbsolutePath, xctestArg: String? = nil) -> Bool {
+        precondition(isValidTestPath(path))
 
         var args: [String] = []
-      #if os(OSX)
+      #if os(macOS)
         args = ["xcrun", "xctest"]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
@@ -232,7 +262,11 @@ public struct SwiftTestTool: SwiftTool {
 
         // Execute the XCTest with inherited environment as it is convenient to pass senstive
         // information like username, password etc to test cases via enviornment variables.
+      #if os(Linux)
         let result: Void? = try? system(args, environment: ProcessInfo.processInfo().environment)
+      #else
+        let result: Void? = try? system(args, environment: ProcessInfo.processInfo.environment)
+      #endif
         return result != nil
     }
 
@@ -272,7 +306,7 @@ public struct SwiftTestTool: SwiftTool {
         guard isValidTestPath(path) else { throw TestError.testsExecutableNotFound }
 
         // Run the correct tool.
-      #if os(OSX)
+      #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [xctestHelperPath().asString, path.asString, tempFile.path.asString]
         try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
@@ -288,7 +322,7 @@ public struct SwiftTestTool: SwiftTool {
 }
 
 private func isValidTestPath(_ path: AbsolutePath) -> Bool {
-  #if os(OSX)
+  #if os(macOS)
     return path.asString.isDirectory  // ${foo}.xctest is dir on OSX
   #else
     return path.asString.isFile       // otherwise ${foo}.xctest is executable file

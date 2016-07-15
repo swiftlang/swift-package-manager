@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
@@ -15,17 +16,17 @@ import class Foundation.ProcessInfo
 
 public class Git {
     public class Repo {
-        public let path: String
+        public let path: AbsolutePath
 
-        public init?(path: String) {
-            guard let realroot = try? realpath(path) else { return nil }
+        public init?(path: AbsolutePath) {
+            guard let realroot = try? AbsolutePath(realpath(path.asString)) else { return nil }
             self.path = realroot
-            guard Path.join(path, ".git").isDirectory else { return nil }
+            guard path.appending(".git").asString.isDirectory else { return nil }
         }
 
         public lazy var origin: String? = { repo in
             do {
-                guard let url = try Git.runPopen([Git.tool, "-C", repo.path, "config", "--get", "remote.origin.url"]).chuzzle() else {
+                guard let url = try Git.runPopen([Git.tool, "-C", repo.path.asString, "config", "--get", "remote.origin.url"]).chuzzle() else {
                     return nil
                 }
                 if URL.scheme(url) == nil {
@@ -36,23 +37,23 @@ public class Git {
 
             } catch {
                 //TODO better
-                print("Bad git repository: \(repo.path)", to: &stderr)
+                print("Bad git repository: \(repo.path.asString)", to: &stderr)
                 return nil
             }
         }(self)
 
         public var branch: String! {
-            return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
+            return try? Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
 
         public var sha: String! {
-            return try? Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "HEAD"]).chomp()
+            return try? Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp()
         }
         public func versionSha(tag: String) throws -> String {
-            return try Git.runPopen([Git.tool, "-C", path, "rev-parse", "--verify", "\(tag)"]).chomp()
+            return try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "\(tag)"]).chomp()
         }
         public var hasLocalChanges: Bool {
-            let changes = try? Git.runPopen([Git.tool, "-C", path, "status", "--porcelain"]).chomp()
+            let changes = try? Git.runPopen([Git.tool, "-C", path.asString, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
         }
 
@@ -62,12 +63,16 @@ public class Git {
          no versions, returns false.
          */
         public var versionsArePrefixed: Bool {
-            return (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"]))?.hasPrefix("v") ?? false
+            return (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"]))?.hasPrefix("v") ?? false
         }
 
         public func fetch() throws {
             do {
-                try system(Git.tool, "-C", path, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
+              #if os(Linux)
+                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
+              #else
+                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
+              #endif
             } catch let errror {
                 try Git.checkGitVersion(errror)
             }
@@ -95,7 +100,7 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func checkGitVersion(_ error: ErrorProtocol) throws {
+    @noreturn public class func checkGitVersion(_ error: Swift.Error) throws {
         // Git 2.0 or higher is required
         if Git.majorVersionNumber < 2 {
             // FIXME: This does not belong here.

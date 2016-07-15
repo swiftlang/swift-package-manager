@@ -67,7 +67,7 @@ public enum ColorWrap {
     }
 
     public enum Color {
-        case Red, Blue
+        case Red, Green, Yellow, Blue
     }
 }
 
@@ -79,10 +79,14 @@ extension String {
         let CSI = "\(ESC)["
 
         switch color {
-        case .Blue:
-            return "\(CSI)34m\(self)\(CSI)0m"
         case .Red:
             return "\(CSI)31m\(self)\(CSI)0m"
+        case .Green:
+            return "\(CSI)32m\(self)\(CSI)0m"
+        case .Yellow:
+            return "\(CSI)33m\(self)\(CSI)0m"
+        case .Blue:
+            return "\(CSI)34m\(self)\(CSI)0m"
         }
     }
 }

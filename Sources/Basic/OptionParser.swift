@@ -12,7 +12,7 @@
     import Foundation  // String.hasPrefix
 #endif
 
-public enum OptionParserError: ErrorProtocol {
+public enum OptionParserError: Swift.Error {
     case unknownArgument(String)
     case multipleModesSpecified([String])
     case expectedAssociatedValue(String)
@@ -67,7 +67,7 @@ public func parseOptions<Mode, Flag where Mode: Argument, Mode: Equatable, Flag:
             }
             mode = mkmode
 
-            if let value = value where !popped {
+            if let value = value, !popped {
                 throw OptionParserError.unexpectedAssociatedValue(arg, value)
             }
         } else {
@@ -115,7 +115,7 @@ public func parseOptions<Mode, Flag where Mode: Argument, Mode: Equatable, Flag:
           throw OptionParserError.unknownArgument(arg)
         }
 
-        if let value = value where !popped {
+        if let value = value, !popped {
             throw OptionParserError.unexpectedAssociatedValue(arg, value)
         }
     }

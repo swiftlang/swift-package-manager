@@ -12,7 +12,7 @@ import FisherYates
 import PlayingCard
 
 public struct Deck {
-    private var cards: [PlayingCard]
+    fileprivate var cards: [PlayingCard]
 
     public static func standard52CardDeck() -> Deck {
         let suits: [Suit] = [.Spades, .Hearts, .Diamonds, .Clubs]
@@ -43,9 +43,9 @@ public struct Deck {
     }
 }
 
-// MARK: - ArrayLiteralConvertible
+// MARK: - ExpressibleByArrayLiteral
 
-extension Deck : ArrayLiteralConvertible {
+extension Deck : ExpressibleByArrayLiteral {
     public init(arrayLiteral elements: PlayingCard...) {
         self.init(elements)
     }

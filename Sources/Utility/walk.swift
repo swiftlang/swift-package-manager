@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import struct libc.DirHandle
 import struct libc.dirent
 import func libc.readdir_r
@@ -32,8 +33,8 @@ import func libc.opendir
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
 */
-public func walk(_ paths: String..., recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
-    return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: { _ in recursively })
+public func walk(_ path: AbsolutePath, recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
+    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: { _ in recursively })
 }
 
 /**
@@ -53,8 +54,8 @@ public func walk(_ paths: String..., recursively: Bool = true) -> RecursibleDire
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
 */
-public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleDirectoryContentsGenerator {
-    return RecursibleDirectoryContentsGenerator(path: Path.join(paths), recursionFilter: recursing)
+public func walk(_ path: AbsolutePath, recursing: (AbsolutePath) -> Bool) -> RecursibleDirectoryContentsGenerator {
+    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: recursing)
 }
 
 /**
@@ -62,11 +63,10 @@ public func walk(_ paths: String..., recursing: (String) -> Bool) -> RecursibleD
 */
 private class DirectoryContentsGenerator: IteratorProtocol {
     private let dirptr: DirHandle?
-    private let path: String
+    fileprivate let path: AbsolutePath
 
-    private init(path: String) {
-        let path = path.normpath
-        dirptr = libc.opendir(path)
+    fileprivate init(path: AbsolutePath) {
+        dirptr = libc.opendir(path.asString)
         self.path = path
     }
 
@@ -100,15 +100,15 @@ private class DirectoryContentsGenerator: IteratorProtocol {
 */
 public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     private var current: DirectoryContentsGenerator
-    private var towalk = [String]()
-    private let shouldRecurse: (String) -> Bool
+    private var towalk = [AbsolutePath]()
+    private let shouldRecurse: (AbsolutePath) -> Bool
 
-    private init(path: String, recursionFilter: (String) -> Bool) {
+    private init(path: AbsolutePath, recursionFilter: (AbsolutePath) -> Bool) {
         current = DirectoryContentsGenerator(path: path)
         shouldRecurse = recursionFilter
     }
 
-    public func next() -> String? {
+    public func next() -> AbsolutePath? {
         outer: while true {
             guard let entry = current.next() else {
                 while !towalk.isEmpty {
@@ -120,11 +120,11 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
                 return nil
             }
             let name = entry.name ?? ""
-            let path = Path.join(current.path, name)
-            if path.isDirectory && !path.isSymlink {
+            let path = current.path.appending(component: name)
+            if path.asString.isDirectory && !path.asString.isSymlink {
                 towalk.append(path)
             }
-            return Path.join(current.path, name)
+            return current.path.appending(component: name)
         }
     }
 }

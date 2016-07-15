@@ -8,22 +8,19 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import Utility
 
 public struct Sources {
-    public let relativePaths: [String]
-    public let root: String
+    public let relativePaths: [RelativePath]
+    public let root: AbsolutePath
 
-    public var paths: [String] {
-        for relativePath in relativePaths {
-            assert(!relativePath.hasPrefix("/"))
-        }
-
-        return relativePaths.map{ Path.join(root, $0) }
+    public var paths: [AbsolutePath] {
+        return relativePaths.map{ root.appending($0) }
     }
 
-    public init(paths: [String], root: String) {
-        relativePaths = paths.map { Path($0).relative(to: root) }
+    public init(paths: [AbsolutePath], root: AbsolutePath) {
+        relativePaths = paths.map { $0.relative(to: root) }
         self.root = root
     }
 }

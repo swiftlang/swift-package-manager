@@ -8,10 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors 
 */
 
+import Basic
+
 import func POSIX.getenv
 import func POSIX.popen
 
-public enum PkgConfigError: ErrorProtocol {
+public enum PkgConfigError: Swift.Error {
     case couldNotFindConfigFile
     case parsingError(String)
     case nonWhitelistedFlags(String)
@@ -89,8 +91,7 @@ public struct PkgConfig {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        let allSearchPaths = (pkgConfigSearchPaths + searchPaths + envSearchPaths).unique()
-        for path in allSearchPaths {
+        for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
             let pcFile = Path.join(path, name + ".pc")
             if pcFile.isFile {
                 return pcFile
@@ -187,7 +188,7 @@ struct PkgConfigParser {
                 // Encountered a seperator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
-                    if let peeked = peek(idx: idx+1) where peeked == " " { continue }
+                    if let peeked = peek(idx: idx+1), peeked == " " { continue }
                     // Append to array of tokens and reset token variable.
                     tokens.append(token)
                     token = ""

@@ -25,6 +25,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("a/b/c").asString, "a/b/c")
     }
     
+    func testStringInitialization() {
+        let abs1: AbsolutePath = "/"
+        let abs2 = AbsolutePath(abs1, ".")
+        XCTAssertEqual(abs1, abs2)
+        let rel3 = "."
+        let abs3 = AbsolutePath(abs2, rel3)
+        XCTAssertEqual(abs2, abs3)
+    }
+    
     func testStringLiteralInitialization() {
         let abs: AbsolutePath = "/"
         XCTAssertEqual(abs.asString, "/")
@@ -171,6 +180,11 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo")).asString, "/foo")
         XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).asString, "/")
         XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).asString, "/yabba/a/b")
+
+        XCTAssertEqual(AbsolutePath("/").appending(component: "a").asString, "/a")
+        XCTAssertEqual(AbsolutePath("/a").appending(component: "b").asString, "/a/b")
+        XCTAssertEqual(AbsolutePath("/").appending(components: "a", "b").asString, "/a/b")
+        XCTAssertEqual(AbsolutePath("/a").appending(components: "b", "c").asString, "/a/b/c")
     }
     
     func testPathComponents() {
@@ -211,6 +225,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")), RelativePath("../../../a/b/c/d"));
     }
     
+    func testComparison() {
+        XCTAssertTrue(AbsolutePath("/") <= AbsolutePath("/"));
+        XCTAssertTrue(AbsolutePath("/abc") < AbsolutePath("/def"));
+        XCTAssertTrue(AbsolutePath("/2") <= AbsolutePath("/2.1"));
+        XCTAssertTrue(AbsolutePath("/3.1") > AbsolutePath("/2"));
+        XCTAssertTrue(AbsolutePath("/2") >= AbsolutePath("/2"));
+        XCTAssertTrue(AbsolutePath("/2.1") >= AbsolutePath("/2"));
+    }
+    
     // FIXME: We also need tests for join() operations.
     
     // FIXME: We also need tests for dirname, basename, suffix, etc.
@@ -218,16 +241,18 @@ class PathTests: XCTestCase {
     // FIXME: We also need test for stat() operations.
         
     static var allTests = [
-        ("testBasics",                   testBasics),
+        ("testBasics",                      testBasics),
+        ("testStringInitialization",        testStringInitialization),
         ("testStringLiteralInitialization", testStringLiteralInitialization),
-        ("testRepeatedPathSeparators",   testRepeatedPathSeparators),
-        ("testTrailingPathSeparators",   testTrailingPathSeparators),
-        ("testDotPathComponents",        testDotPathComponents),
-        ("testDotDotPathComponents",     testDotDotPathComponents),
-        ("testCombinationsAndEdgeCases", testCombinationsAndEdgeCases),
-        ("testBaseNameExtraction",       testBaseNameExtraction),
-        ("testSuffixExtraction",         testSuffixExtraction),
-        ("testParentDirectory",          testParentDirectory),
-        ("testConcatenation",            testConcatenation),
+        ("testRepeatedPathSeparators",      testRepeatedPathSeparators),
+        ("testTrailingPathSeparators",      testTrailingPathSeparators),
+        ("testDotPathComponents",           testDotPathComponents),
+        ("testDotDotPathComponents",        testDotDotPathComponents),
+        ("testCombinationsAndEdgeCases",    testCombinationsAndEdgeCases),
+        ("testBaseNameExtraction",          testBaseNameExtraction),
+        ("testSuffixExtraction",            testSuffixExtraction),
+        ("testParentDirectory",             testParentDirectory),
+        ("testConcatenation",               testConcatenation),
+        ("testComparison",                  testComparison),
     ]
 }

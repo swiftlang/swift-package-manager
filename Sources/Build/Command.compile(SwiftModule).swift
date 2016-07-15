@@ -8,12 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import PackageLoading
 import Utility
 
 extension Command {
-    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: String, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
         let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigSwiftcArgs()) + module.moduleCacheArgs(prefix: prefix)
         var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
@@ -24,7 +25,7 @@ extension Command {
             args += ["-O"]
         }
 
-        #if os(OSX)
+        #if os(macOS)
         args += ["-F", try platformFrameworksPath()]
         #endif
 

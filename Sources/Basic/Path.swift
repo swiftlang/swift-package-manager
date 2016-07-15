@@ -35,8 +35,22 @@ public let pathSeparatorCharacter: Character = "/"
 ///
 /// FIXME: We will also need to add support for `~` resolution.
 public struct AbsolutePath {
+    /// Check if the given name is a valid individual path component.
+    ///
+    /// This only checks with regard to the semantics enforced by `AbsolutePath`
+    /// and `RelativePath`; particular file systems may have their own
+    /// additional requirements.
+    public static func isValidComponent(_ name: String) -> Bool {
+        return name != "" && name != "." && name != ".." && !name.contains("/")
+    }
+    
     /// Private implementation details, shared with the RelativePath struct.
     private let _impl: PathImpl
+
+    /// Private initializer when the backing storage is known.
+    private init(_ impl: PathImpl) {
+        _impl = impl
+    }
     
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
     /// path (i.e. it must begin with a path separator; this initializer does
@@ -44,8 +58,9 @@ public struct AbsolutePath {
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(_ absStr: String) {
-        // Normalize the absolute string and store it as our PathImpl.
-        _impl = PathImpl(string: normalize(absolute: absStr))
+        // Normalize the absolute string.
+        
+        self.init(PathImpl(string: normalize(absolute: absStr)))
     }
     
     /// Initializes the AbsolutePath by concatenating a relative path to an
@@ -71,7 +86,12 @@ public struct AbsolutePath {
         }
         
         // Finally, store the result as our PathImpl.
-        _impl = PathImpl(string: absStr)
+        self.init(PathImpl(string: absStr))
+    }
+    
+    /// Convenience initializer that appends a string to a relative path.
+    public init(_ absPath: AbsolutePath, _ relStr: String) {
+        self.init(absPath, RelativePath(relStr))
     }
     
     /// NOTE: We will want to add other initializers, such as ones that take
@@ -113,6 +133,31 @@ public struct AbsolutePath {
         return AbsolutePath(self, subpath)
     }
     
+    /// Returns the absolute path with an additional literal component appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(component name: String) -> AbsolutePath {
+        assert(AbsolutePath.isValidComponent(name))
+        if self == AbsolutePath.root {
+            return AbsolutePath(PathImpl(string: "/" + name))
+        } else {
+            return AbsolutePath(PathImpl(string: _impl.string + "/" + name))
+        }            
+    }
+    
+    /// Returns the absolute path with additional literal components appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(components names: String...) -> AbsolutePath {
+        return names.reduce(self, combine: { path, name in
+                path.appending(component: name)
+            })
+    }
+
     /// NOTE: We will want to add other methods, such as an appending() method
     ///       that takes an arbitrary number of parameters, etc.  Most likely
     ///       we will also make the `+` operator mean `appending()`.
@@ -147,9 +192,9 @@ public struct AbsolutePath {
     }
 }
 
-/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
 /// to be implicitly converted to AbsolutePaths.
-extension AbsolutePath : StringLiteralConvertible {
+extension AbsolutePath : ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
     public init(stringLiteral value: String) {
@@ -234,9 +279,9 @@ public struct RelativePath {
     }
 }
 
-/// Adoption of the StringLiteralConvertible protocol allows literal strings
+/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
 /// to be implicitly converted to RelativePaths.
-extension RelativePath : StringLiteralConvertible {
+extension RelativePath : ExpressibleByStringLiteral {
     public typealias UnicodeScalarLiteralType = StringLiteralType
     public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
     public init(stringLiteral value: String) {
@@ -263,6 +308,21 @@ public func ==(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString == rhs.asString
 }
 
+// Make absolute paths Comparable.
+extension AbsolutePath : Comparable { }
+public func <(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString < rhs.asString
+}
+public func <=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString <= rhs.asString
+}
+public func >=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString >= rhs.asString
+}
+public func >(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+    return lhs.asString > rhs.asString
+}
+
 
 // Make relative paths Hashable.
 extension RelativePath : Hashable {
@@ -285,13 +345,13 @@ public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
 /// different.
 private struct PathImpl {
     /// Normalized string of the (absolute or relative) path.  Never empty.
-    private let string: String
+    fileprivate let string: String
     
     /// Private function that returns the directory part of the stored path
     /// string (relying on the fact that it has been normalized).  Returns a
     /// string consisting of just `.` if there is no directory part (which is
     /// the case if and only if there is no path separator).
-    private var dirname: String {
+    fileprivate var dirname: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -310,7 +370,7 @@ private struct PathImpl {
         return String(chars.prefix(upTo: idx))
     }
     
-    private var basename: String {
+    fileprivate var basename: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -330,7 +390,7 @@ private struct PathImpl {
         return String(chars.suffix(from: chars.index(after: idx)))
     }
     
-    private var suffix: String? {
+    fileprivate var suffix: String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -554,24 +614,4 @@ private func normalize(relative string: String) -> String {
     
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result
-}
-
-
-/// Private functions for use by the path logic.  These should move out into a
-/// public place, but we'll need to debate the names, etc, etc.
-private extension String.CharacterView {
-    
-    /// Returns the index of the last occurrence of `char` or nil if none.  If
-    /// provided, the `start` index limits the search to a suffix of charview.
-    private func rindex(of char: Character, from start: Index? = nil) -> Index? {
-        var idx = endIndex
-        let firstIdx = start ?? startIndex
-        while idx > firstIdx {
-            idx = index(before: idx)
-            if self[idx] == char {
-                return idx
-            }
-        }
-        return nil
-    }
 }

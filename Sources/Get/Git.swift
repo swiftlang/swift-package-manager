@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import struct PackageDescription.Version
 import func POSIX.realpath
 import func POSIX.getenv
@@ -16,7 +17,7 @@ import class Foundation.ProcessInfo
 import Utility
 
 extension Git {
-    class func clone(_ url: String, to dstdir: String) throws -> Repo {
+    class func clone(_ url: String, to dstdir: AbsolutePath) throws -> Repo {
         // canonicalize URL
         var url = url
         if URL.scheme(url) == nil {
@@ -24,16 +25,21 @@ extension Git {
         }
 
         do {
+          #if os(Linux)
+            let env = ProcessInfo.processInfo().environment
+          #else
+            let env = ProcessInfo.processInfo.environment
+          #endif
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir, environment: ProcessInfo.processInfo().environment, message: "Cloning \(url)")
+                url, dstdir.asString, environment: env, message: "Cloning \(url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if Git.majorVersionNumber < 2 {
                 throw Utility.Error.obsoleteGitVersion
             } else {
-                throw Error.gitCloneFailure(url, dstdir)
+                throw Error.gitCloneFailure(url, dstdir.asString)
             }
         }
 
@@ -43,7 +49,7 @@ extension Git {
 
 extension Git.Repo {
     var versions: [Version] {
-        let out = (try? Git.runPopen([Git.tool, "-C", path, "tag", "-l"])) ?? ""
+        let out = (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])) ?? ""
         let tags = out.characters.split(separator: "\n")
         let versions = tags.flatMap(Version.init).sorted()
         if !versions.isEmpty {

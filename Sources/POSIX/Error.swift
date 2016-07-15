@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum SystemError: ErrorProtocol {
+public enum SystemError: Swift.Error {
     case chdir(Int32)
     case close(Int32)
     case dirfd(Int32, String)
     case fgetc(Int32)
     case fread(Int32)
     case getcwd(Int32)
+    case mkdir(Int32, String)
     case mkdtemp(Int32)
     case opendir(Int32, String)
     case pipe(Int32)
@@ -24,7 +25,9 @@ public enum SystemError: ErrorProtocol {
     case readdir(Int32, String)
     case realpath(Int32, String)
     case rename(Int32, old: String, new: String)
+    case rmdir(Int32, String)
     case stat(Int32, String)
+    case symlink(Int32, String, dest: String)
     case symlinkat(Int32, String)
     case unlink(Int32, String)
     case waitpid(Int32)
@@ -55,6 +58,8 @@ extension SystemError: CustomStringConvertible {
             return "fread error: \(strerror(errno))"
         case .getcwd(let errno):
             return "getcwd error: \(strerror(errno))"
+        case .mkdir(let errno, let path):
+            return "mkdir error: \(strerror(errno)): \(path)"
         case .mkdtemp(let errno):
             return "mkdtemp error: \(strerror(errno))"
         case .opendir(let errno, _):
@@ -73,8 +78,12 @@ extension SystemError: CustomStringConvertible {
             return "realpath error: \(strerror(errno)): \(path)"
         case .rename(let errno, let old, let new):
             return "rename error: \(strerror(errno)): \(old) -> \(new)"
+        case .rmdir(let errno, let path):
+            return "rmdir error: \(strerror(errno)): \(path)"
         case .stat(let errno, _):
             return "stat error: \(strerror(errno))"
+        case .symlink(let errno, let path, let dest):
+            return "symlink error: \(strerror(errno)): \(path) -> \(dest)"
         case .symlinkat(let errno, _):
             return "symlinkat error: \(strerror(errno))"
         case .unlink(let errno, let path):
@@ -86,12 +95,12 @@ extension SystemError: CustomStringConvertible {
 }
 
 
-public enum Error: ErrorProtocol {
+public enum Error: Swift.Error {
     case exitStatus(Int32, [String])
     case exitSignal
 }
 
-public enum ShellError: ErrorProtocol {
+public enum ShellError: Swift.Error {
     case system(arguments: [String], SystemError)
     case popen(arguments: [String], SystemError)
 }

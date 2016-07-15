@@ -11,6 +11,7 @@
  This file defines the support for loading the Swift-based manifest files.
 */
 
+import Basic
 import PackageDescription
 
 /**
@@ -18,20 +19,35 @@ import PackageDescription
  files, and the tools for working with the manifest.
 */
 public struct Manifest {
-    public let path: String
+    /// The standard filename for the manifest.
+    public static var filename = "Package.swift"
+
+    /// The path of the manifest file.
+    //
+    // FIXME: This doesn't belong here, we want the Manifest to be purely tied
+    // to the repository state, it shouldn't matter where it is.
+    public let path: AbsolutePath
+
+    /// The repository URL the manifest was loaded from.
+    //
+    // FIXME: This doesn't belong here, we want the Manifest to be purely tied
+    // to the repository state, it shouldn't matter where it is.
+    public let url: String
+
+    /// The raw package description.
     public let package: PackageDescription.Package
+
+    /// The raw product descriptions.
     public let products: [PackageDescription.Product]
 
+    /// The version this package was loaded from, if known.
+    public let version: Version?
 
-    public init(path: String, package: PackageDescription.Package, products: [PackageDescription.Product]) {
+    public init(path: AbsolutePath, url: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
         self.path = path
+        self.url = url
         self.package = package
         self.products = products
+        self.version = version
     }
-
-    // this is here because we need a strictly narrow module for constants
-    // when we lose libc because Swift proper gets a CPOSIX then we can
-    // rename this module to Constants
-
-    public static var filename: String { return "Package.swift" }
 }

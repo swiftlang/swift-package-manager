@@ -10,53 +10,60 @@
 
 import Basic
 import POSIX
+import PackageGraph
 import PackageModel
 import Utility
 
-public protocol XcodeprojOptions {
-    /// The list of additional arguments to pass to the compiler.
-    var Xcc: [String] { get }
-
-    /// The list of additional arguments to pass to the linker.
-    var Xld: [String] { get }
-
-    /// The list of additional arguments to pass to `swiftc`.
-    var Xswiftc: [String] { get }
-
+public struct XcodeprojOptions {
+    /// The build flags.
+    public var flags: BuildFlags
+    
     /// If provided, a path to an xcconfig file to be included by the project.
     ///
     /// This allows the client to override settings defined in the project itself.
-    var xcconfigOverrides: AbsolutePath? { get }
+    public var xcconfigOverrides: AbsolutePath?
+
+    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil) {
+        self.flags = flags
+        self.xcconfigOverrides = xcconfigOverrides
+    }
 }
 
 /**
  Generates an xcodeproj at the specified path.
  - Returns: the path to the generated project
 */
-public func generate(dstdir: String, projectName: String, srcroot: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products: [Product], options: XcodeprojOptions) throws -> String {
-    precondition(dstdir.isAbsolute)
+public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGraph, options: XcodeprojOptions) throws -> AbsolutePath {
+    let srcroot = graph.rootPackage.path
+
+    // Filter out the CModule type, which we don't support.
+    //
+    // FIXME: Sink this lower.
+    let modules = graph.modules.filter{ $0.type != .systemModule }
+    let externalModules = graph.externalModules.filter{ $0.type != .systemModule }
 
     let xcodeprojName = "\(projectName).xcodeproj"
-    let xcodeprojPath = Path.join(dstdir, xcodeprojName)
-    let schemesDirectory = Path.join(xcodeprojPath, "xcshareddata/xcschemes")
-    try Utility.makeDirectories(xcodeprojPath)
-    try Utility.makeDirectories(schemesDirectory)
+    let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
+    let schemesDirectory = xcodeprojPath.appending("xcshareddata/xcschemes")
+    try Utility.makeDirectories(xcodeprojPath.asString)
+    try Utility.makeDirectories(schemesDirectory.asString)
     let schemeName = "\(projectName).xcscheme"
+    let directoryReferences = try findDirectoryReferences(path: srcroot)
 
 ////// the pbxproj file describes the project and its targets
-    try open(xcodeprojPath, "project.pbxproj") { stream in
-        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: products, options: options, printer: stream)
+    try open(xcodeprojPath.appending("project.pbxproj")) { stream in
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: graph.products, directoryReferences: directoryReferences, options: options, printer: stream)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
-    try open(schemesDirectory, schemeName) { stream in
+    try open(schemesDirectory.appending(RelativePath(schemeName))) { stream in
         xcscheme(container: xcodeprojName, modules: modules, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory, "xcschememanagement.plist") { print in
+    try open(schemesDirectory.appending("xcschememanagement.plist")) { print in
         print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         print("<plist version=\"1.0\">")
         print("<dict>")
@@ -75,7 +82,7 @@ public func generate(dstdir: String, projectName: String, srcroot: String, modul
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
-        try open(xcodeprojPath, name) { print in
+        try open(xcodeprojPath.appending(RelativePath(name))) { print in
             print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             print("<plist version=\"1.0\">")
             print("<dict>")
@@ -115,8 +122,7 @@ import class Foundation.NSData
 
 /// Writes the contents to the file specified.
 /// Doesn't re-writes the file in case the new and old contents of file are same.
-func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
-    let path = Path.join(path)
+func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
     let stream = OutputByteStream()
     try body { line in
         stream <<< line
@@ -124,7 +130,7 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
     }
     // If file is already present compare its content with our stream
     // and re-write only if its new.
-    if path.isFile, let data = NSData(contentsOfFile: path) {
+    if path.asString.isFile, let data = NSData(contentsOfFile: path.asString) {
         // FIXME: We should have a utility for this.
         var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8.self))
         data.getBytes(&contents, length: data.length)
@@ -134,5 +140,27 @@ func open(_ path: String..., body: ((String) -> Void) throws -> Void) throws {
         }
     }
     // Write the real file.
-    try localFS.writeFileContents(path, bytes: stream.bytes)
+    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+}
+
+/// Finds directories that will be added as blue folder
+/// Excludes hidden directories and Xcode projects and directories that contains source code
+func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
+    let rootDirectories = walk(path, recursively: false)
+    let rootDirectoriesToConsider = rootDirectories.filter {
+        if $0.suffix == ".xcodeproj" { return false }
+        if $0.suffix == ".playground" { return false }
+        if $0.basename.hasPrefix(".") { return false }
+        return $0.asString.isDirectory
+    }
+    
+    let filteredDirectories = rootDirectoriesToConsider.filter {
+        let directoriesWithSources = walk($0).filter {
+            guard let fileExt = $0.asString.fileExt else { return false }
+            return SupportedLanguageExtension.validExtensions.contains(fileExt)
+        }
+        return directoriesWithSources.isEmpty
+    }
+
+    return filteredDirectories;
 }

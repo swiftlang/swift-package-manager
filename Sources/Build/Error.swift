@@ -8,6 +8,30 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum Error: ErrorProtocol {
+import protocol Basic.FixableError
+import struct PackageModel.Manifest
+
+public enum Error: Swift.Error {
     case noModules
+    case onlyCModule(name: String)
+}
+
+extension Error: FixableError {
+    public var error: String {
+        switch self {
+        case .noModules:
+            return "no modules found"
+        case .onlyCModule(let name):
+            return "only system module package \(name) found"
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+            case .noModules:
+                return "define a module inside \(Manifest.filename)"
+            case .onlyCModule:
+                return "to use this system module package, include it in another project"
+        }
+    }
 }

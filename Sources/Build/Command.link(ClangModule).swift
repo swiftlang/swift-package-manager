@@ -8,20 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import PackageLoading
 import Utility
 
 extension Command {
-    static func linkClangModule(_ product: Product, configuration conf: Configuration, prefix: String, otherArgs: [String], CC: String) throws -> Command {
-        precondition(prefix.isAbsolute)
+    static func linkClangModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], CC: String) throws -> Command {
         precondition(product.containsOnlyClangModules)
 
         let clangModules = product.modules.flatMap { $0 as? ClangModule }
         var args = [String]()
 
         // Collect all the objects.
-        var objects = [String]()
+        var objects = [AbsolutePath]()
         var inputs = [String]()
         var linkFlags = [String]()
         for module in clangModules {
@@ -32,13 +32,13 @@ extension Command {
         }
 
         args += try ClangModuleBuildMetadata.basicArgs() + otherArgs
-        args += ["-L\(prefix)"]
+        args += ["-L\(prefix.asString)"]
         // Linux doesn't search executable directory for shared libs so embed runtime search path.
       #if os(Linux)
         args += ["-Xlinker", "-rpath=$ORIGIN"]
       #endif
         args += linkFlags
-        args += objects
+        args += objects.map{ $0.asString }
 
         switch product.type {
         case .Executable: break
@@ -48,12 +48,12 @@ extension Command {
             fatalError("Can't build \(product.name), \(product.type) is not yet supported.")
         }
 
-        let productPath = Path.join(prefix, product.outname)
-        args += ["-o", productPath]
+        let productPath = prefix.appending(product.outname)
+        args += ["-o", productPath.asString]
         
         let shell = ShellTool(description: "Linking \(product.name)",
-                              inputs: objects + inputs,
-                              outputs: [productPath, product.targetName],
+                              inputs: objects.map{ $0.asString } + inputs,
+                              outputs: [productPath.asString, product.targetName],
                               args: [CC] + args)
         
         return Command(node: product.targetName, tool: shell)

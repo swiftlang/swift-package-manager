@@ -9,40 +9,33 @@
 */
 
 import Basic
-import func POSIX.mkdtemp
+import PackageDescription
+import PackageGraph
 import PackageModel
 import Xcodeproj
 import Utility
 import XCTest
 
-#if os(OSX)
+#if os(macOS)
 
 class GenerateXcodeprojTests: XCTestCase {
-    func testXcodeBuildCanParseIt() {
+    func testXcodebuildCanParseIt() {
         mktmpdir { dstdir in
-            func dummy() throws -> [XcodeModuleProtocol] {
+            func dummy() throws -> [Module] {
                 return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
             }
 
             let projectName = "DummyProjectName"
-            let srcroot = dstdir
-            let modules = try dummy()
-            let products: [Product] = []
-
-            struct Options: XcodeprojOptions {
-                let Xcc = [String]()
-                let Xld = [String]()
-                let Xswiftc = [String]()
-                let xcconfigOverrides: AbsolutePath? = nil
-            }
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
+            let dummyPackage = Package(manifest: Manifest(path: dstdir, url: dstdir.asString, package: PackageDescription.Package(name: "Foo"), products: [], version: nil))
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: try dummy(), externalModules: [], products: [])
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
-            XCTAssertEqual(outpath, Path.join(dstdir, "\(projectName).xcodeproj"))
+            XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-            let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath]).chomp()
+            let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.asString]).chomp()
 
             let expectedOutput = "Information about project \"DummyProjectName\":\n    Targets:\n        DummyModuleName\n\n    Build Configurations:\n        Debug\n        Release\n\n    If no build configuration is specified and -scheme is not passed then \"Debug\" is used.\n\n    Schemes:\n        DummyProjectName\n".chomp()
 

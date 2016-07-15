@@ -8,14 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import POSIX
 import PackageModel
 import Utility
-import struct Basic.RelativePath
+
 
 // FIXME: escaping
 
-public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String, modules: [XcodeModuleProtocol], externalModules: [XcodeModuleProtocol], products _: [Product], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+
+public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [Module], externalModules: [Module], products _: [Product], directoryReferences: [AbsolutePath], options: XcodeprojOptions, printer print: (String) -> Void) throws {
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
@@ -48,57 +50,75 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
 
 ////// Package.swift file
     let packageSwift = fileRef(inProjectRoot: "Package.swift", srcroot: srcroot)
-    print("        \(packageSwift.0) = {")
+    print("        \(packageSwift.refId) = {")
     print("            isa = PBXFileReference;")
     print("            lastKnownFileType = sourcecode.swift;")
-    print("            name = '\(packageSwift.1)';")
-    print("            path = '\(Path(packageSwift.2).relative(to: projectRoot))';")
+    print("            path = '\(packageSwift.path.relative(to: projectRoot).asString)';")
     print("            sourceTree = '<group>';")
     print("        };")
+
+////// Reference directories
+
+    var folderRefs = ""
+    for directoryReference in directoryReferences {
+        let folderRef = fileRef(inProjectRoot: directoryReference.relative(to: srcroot), srcroot: srcroot)
+        folderRefs.append("\(folderRef.refId),")
+        print("        \(folderRef.refId) = {")
+        print("            isa = PBXFileReference;")
+        print("            lastKnownFileType = folder;")
+        print("            name = '\(directoryReference.basename)';")
+        print("            path = '\(folderRef.path.relative(to: projectRoot).asString)';")
+        print("            sourceTree = '<group>';")
+        print("        };")
+    }
 
 ////// root group
     print("        \(rootGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (\(packageSwift.0), \(configsGroupReference), \(sourcesGroupReference), \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
+    print("            children = (\(packageSwift.refId), \(configsGroupReference), \(sourcesGroupReference), \(folderRefs) \(dependenciesGroupReference), \(testsGroupReference), \(productsGroupReference));")
     print("            sourceTree = '<group>';")
     print("        };")
 
 ////// modules group
     for module in modules {
-
-        let sourceFileRefPaths = fileRefs(forModuleSources: module, srcroot: srcroot)
-        var sourceRefs = sourceFileRefPaths.map{$0.0}
+        // Base directory for source files belonging to the module.
+        let moduleRoot = module.sources.root
+        
+        // Contruct an array of (refId, path, bflId) tuples for all the source files in the model.  The reference id is for the PBXFileReference in the group hierarchy, and the build file id is for the PBXBuildFile in the CompileSources build phase.
+        let sourceFileRefs = fileRefs(forModuleSources: module, srcroot: srcroot)
+        
+        // Make an array of all the source file reference ids to add to the main group.
+        var sourceRefIds = sourceFileRefs.map{ $0.refId }
 
         ////// Info.plist file reference if this a framework target
         if module.isLibrary {
-            let (ref, path, name) = fileRef(ofInfoPlistFor: module, inDirectory: xcodeprojPath)
-            print("        \(ref) = {")
+            let infoPlistFileRef = fileRef(ofInfoPlistFor: module, srcroot: xcodeprojPath)
+            print("        \(infoPlistFileRef.refId) = {")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = text.plist.xml;")
-            print("            name = '\(name)';")
-            print("            path = '\(Path(path).relative(to: projectRoot))';")
+            print("            path = '\(infoPlistFileRef.path.relative(to: projectRoot).asString)';")
             print("            sourceTree = SOURCE_ROOT;")
             print("        };")
-
-            sourceRefs.append(ref)
+            sourceRefIds.append(infoPlistFileRef.refId)
         }
 
 
         // the “Project Navigator” group for this module
         print("        \(module.groupReference) = {")
         print("            isa = PBXGroup;")
-        print("            name = \(module.name);")
-        print("            path = '\(Path(module.sources.root).relative(to: projectRoot))';")
+        print("            name = '\(module.name)';")
+        print("            path = '\(moduleRoot.relative(to: projectRoot).asString)';")
         print("            sourceTree = '<group>';")
-        print("            children = (" + sourceRefs.joined(separator: ", ") + ");")
+        print("            children = (" + sourceRefIds.joined(separator: ", ") + ");")
         print("        };")
 
         // the contents of the “Project Navigator” group for this module
-        for (ref, path) in sourceFileRefPaths {
-            print("        \(ref) = {")
+        for fileRef in sourceFileRefs {
+            let path = fileRef.path.relative(to: moduleRoot)
+            print("        \(fileRef.refId) = {")
             print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = \(module.fileType(forSource: RelativePath(path)));")
-            print("            name = '\(Path(path).relative(to: module.sources.root))';")
+            print("            lastKnownFileType = \(module.fileType(forSource: path));")
+            print("            path = '\(fileRef.path.relative(to: moduleRoot).asString)';")
             print("            sourceTree = '<group>';")
             print("        };")
         }
@@ -110,7 +130,7 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         print("            buildPhases = (\(module.compilePhaseReference), \(module.linkPhaseReference));")
         print("            buildRules = ();")
         print("            dependencies = (\(module.nativeTargetDependencies));")
-        print("            name = \(module.name);")
+        print("            name = '\(module.name)';")
         print("            productName = \(module.c99name);")
         print("            productReference = \(module.productReference);")
         print("            productType = '\(module.productType)';")
@@ -127,15 +147,15 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         // sources build phase
         print("        \(module.compilePhaseReference) = {")
         print("            isa = PBXSourcesBuildPhase;")
-        print("            files = (\(fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot).map{$1}.joined(separator: ", ")));")
+        print("            files = (\(sourceFileRefs.map{ $0.bflId }.joined(separator: ", ")));")
         print("            runOnlyForDeploymentPostprocessing = 0;")
         print("        };")
 
         // the fileRefs for the children in the build phases
-        for (ref1, ref2) in fileRefs(forCompilePhaseSourcesInModule: module, srcroot: srcroot) {
-            print("        \(ref2) = {")
+        for fileRef in sourceFileRefs {
+            print("        \(fileRef.bflId) = {")
             print("            isa = PBXBuildFile;")
-            print("            fileRef = \(ref1);")
+            print("            fileRef = \(fileRef.refId);")
             print("        };")
         }
 
@@ -186,9 +206,9 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
     // The project-level xcconfig files.
     //
     // FIXME: Generate these into a sane path.
-    let projectXCConfig = fileRef(inProjectRoot: Path.join(xcodeprojPath.basename, "Configs", "Project.xcconfig"), srcroot: Path.join(srcroot, projectRoot))
-    try Utility.makeDirectories(projectXCConfig.2.parentDirectory)
-    try open(projectXCConfig.2) { print in
+    let projectXCConfig = fileRef(inProjectRoot: RelativePath("\(xcodeprojPath.basename)/Configs/Project.xcconfig"), srcroot: srcroot)
+    try Utility.makeDirectories(projectXCConfig.path.parentDirectory.asString)
+    try open(projectXCConfig.path) { print in
         // Set the standard PRODUCT_NAME.
         print("PRODUCT_NAME = $(TARGET_NAME)")
         
@@ -225,13 +245,13 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
         // Propagate any user provided build flag overrides.
         //
         // FIXME: Need to get quoting correct here.
-        if !options.Xcc.isEmpty {
-            print("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))")
+        if !options.flags.cCompilerFlags.isEmpty {
+            print("OTHER_CFLAGS = \(options.flags.cCompilerFlags.joined(separator: " "))")
         }
-        if !options.Xld.isEmpty {
-            print("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))")
+        if !options.flags.linkerFlags.isEmpty {
+            print("OTHER_LDFLAGS = \(options.flags.linkerFlags.joined(separator: " "))")
         }
-        print("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))")
+        print("OTHER_SWIFT_FLAGS = \((options.flags.swiftCompilerFlags+["-DXcode"]).joined(separator: " "))")
         
         // Prevents Xcode project upgrade warnings.
         print("COMBINE_HIDPI_IMAGES = YES")
@@ -245,23 +265,22 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
 
         // If the user provided an overriding xcconfig path, include it here.
         if let path = options.xcconfigOverrides {
-            print("\n#include \"\(path)\"")
+            print("\n#include \"\(path.asString)\"")
         }
     }
     let configs = [projectXCConfig]
     for configInfo in configs {
-        print("        \(configInfo.0) = {")
+        print("        \(configInfo.refId) = {")
         print("            isa = PBXFileReference;")
         print("            lastKnownFileType = text.xcconfig;")
-        print("            name = '\(configInfo.1.basename)';")
-        print("            path = '\(Path(configInfo.2).relative(to: projectRoot))';")
+        print("            path = '\(configInfo.path.relative(to: projectRoot).asString)';")
         print("            sourceTree = '<group>';")
         print("        };")
     }
     
     print("        \(configsGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (" + configs.map{ $0.0 }.joined(separator: ", ") + ");")
+    print("            children = (" + configs.map{ $0.refId }.joined(separator: ", ") + ");")
     print("            name = Configs;")
     print("            sourceTree = '<group>';")
     print("        };")
@@ -341,4 +360,60 @@ public func pbxproj(srcroot: String, projectRoot: String, xcodeprojPath: String,
 
 ////// done!
     print("}")
+}
+
+extension Module {
+    var blueprintIdentifier: String {
+        return targetReference
+    }
+
+    var buildableName: String {
+        return productName
+    }
+
+    var blueprintName: String {
+        return name
+    }
+}
+
+private extension SupportedLanguageExtension {
+    var xcodeFileType: String {
+        switch self {
+        case .c:
+            return "sourcecode.c.c"
+        case .m:
+            return "sourcecode.c.objc"
+        case .cxx, .cc, .cpp:
+            return "sourcecode.cpp.cpp"
+        case .mm:
+            return "sourcecode.cpp.objcpp"
+        case .swift:
+            return "sourcecode.swift"
+        }
+    }
+}
+
+private extension Module {
+    func fileType(forSource source: RelativePath) -> String {
+        switch self {
+        case is SwiftModule:
+            // SwiftModules only has one type of source so just always return this.
+            return SupportedLanguageExtension.swift.xcodeFileType
+
+        case is ClangModule:
+            guard let suffix = source.suffix else {
+                fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
+            }
+            // Suffix includes `.` so drop it.
+            assert(suffix.hasPrefix("."))
+            let fileExtension = String(suffix.characters.dropFirst())
+            guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
+                fatalError("Unknown source extension \(source) in ClangModule \(name)")
+            }
+            return ext.xcodeFileType
+
+        default:
+            fatalError("unexpected module type")
+        }
+    }
 }

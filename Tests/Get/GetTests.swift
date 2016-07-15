@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import Utility
 
 import struct PackageModel.Manifest
@@ -23,9 +24,9 @@ class GetTests: XCTestCase {
     func testRawCloneDoesNotCrashIfManifestIsNotPresent() {
         mktmpdir { tmpdir in
             guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
-            try systemQuietly([Git.tool, "-C", repo.path, "remote", "add", "origin", repo.path])
-            let clone = try RawClone(path: repo.path, manifestParser: { _,_ throws -> Manifest in
-                throw Package.Error.noManifest(tmpdir)
+            try systemQuietly([Git.tool, "-C", repo.path.asString, "remote", "add", "origin", repo.path.asString])
+            let clone = try RawClone(path: repo.path, manifestParser: { _,_,_ throws -> Manifest in
+                throw Package.Error.noManifest(tmpdir.asString)
             })
             XCTAssertEqual(clone.children.count, 0)
         }
@@ -67,11 +68,11 @@ class GetTests: XCTestCase {
 
     func testGitRepoInitialization() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            XCTAssertNotNil(Git.Repo(path: Path.join(prefix, "app")))
+            XCTAssertNotNil(Git.Repo(path: prefix.appending("app")))
         }
 
         XCTAssertNil(Git.Repo(path: #file))
-        XCTAssertNil(Git.Repo(path: #file.parentDirectory))
+        XCTAssertNil(Git.Repo(path: AbsolutePath(#file).parentDirectory))
     }
 
     static var allTests = [

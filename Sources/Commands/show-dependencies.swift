@@ -20,7 +20,7 @@ func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
     case .dot:
         dumper = DotDumper()
     case .json:
-        dumper = JsonDumper()
+        dumper = JSONDumper()
     }
     dumper.dump(dependenciesOf: rootPackage)
 }
@@ -94,26 +94,19 @@ private final class DotDumper: DependenciesDumper {
     }
 }
 
-private final class JsonDumper: DependenciesDumper {
+private final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: Package) {
-
-        func recursiveWalk(rootpkg: Package, isLast: Bool = true) {
-            print("{")
-            print("\"name\":\"\(rootpkg.name)\",")
-            print("\"url\":\"\(rootpkg.url)\",")
-            let version = rootpkg.version?.description ?? "unspecified"
-            print("\"version\":\"\(version)\",")
-            print("\"path\":\"\(rootpkg.path)\",")
-            print("\"dependencies\": [")
-
-            for (index, dependency) in rootpkg.dependencies.enumerated() {
-                recursiveWalk(rootpkg: dependency, isLast: (index + 1) == rootpkg.dependencies.endIndex)
-            }
-
-            print("]}" + (isLast ? "" : ","))
+        func convert(_ package: Package) -> JSON {
+            return .dictionary([
+                    "name": .string(package.name),
+                    "url": .string(package.url),
+                    "version": .string(package.version?.description ?? "unspecified"),
+                    "path": .string(package.path.asString),
+                    "dependencies": .array(package.dependencies.map(convert))
+                ])
         }
 
-        recursiveWalk(rootpkg: rootpkg)
+        print(convert(rootpkg).toString())
     }
 }
 

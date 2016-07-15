@@ -14,11 +14,9 @@ import PackageModel
 import class Utility.Git
 import struct Utility.Path
 
-public func generateVersionData(_ rootDir: String, rootPackage: Package, externalPackages: [Package]) throws {
-    precondition(rootDir.isAbsolute)
-    
-    let dirPath = Path.join(rootDir, ".build/versionData")
-    try localFS.createDirectory(dirPath, recursive: true)
+public func generateVersionData(_ rootDir: AbsolutePath, rootPackage: Package, externalPackages: [Package]) throws {
+    let dirPath = rootDir.appending(components: ".build", "versionData")
+    try localFileSystem.createDirectory(dirPath, recursive: true)
 
     try saveRootPackage(dirPath, package: rootPackage)
     for (pkgName, data) in generateData(externalPackages) {
@@ -26,7 +24,7 @@ public func generateVersionData(_ rootDir: String, rootPackage: Package, externa
     }
 }
 
-func saveRootPackage(_ dirPath: String, package: Package) throws {
+func saveRootPackage(_ dirPath: AbsolutePath, package: Package) throws {
     guard let repo = Git.Repo(path: package.path) else { return }
     var data = versionData(package: package)
     data += "public let sha: String? = "
@@ -73,7 +71,7 @@ func versionData(package: Package) -> String {
     return data
 }
 
-private func saveVersionData(_ dirPath: String, packageName: String, data: String) throws {
-    let filePath = Path.join(dirPath, "\(packageName).swift")
-    try localFS.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: data))
+private func saveVersionData(_ dirPath: AbsolutePath, packageName: String, data: String) throws {
+    let filePath = dirPath.appending(components: packageName + ".swift")
+    try localFileSystem.writeFileContents(filePath, bytes: ByteString(encodingAsUTF8: data))
 }

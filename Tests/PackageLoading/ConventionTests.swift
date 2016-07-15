@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageDescription
 import PackageModel
 import Utility
@@ -19,7 +20,7 @@ import Utility
 /// Tests for the handling of source layout conventions.
 class ConventionTests: XCTestCase {
     /// Parse the given test files according to the conventions, and check the result.
-    private func test<T: Module>(files: [String], file: StaticString = #file, line: UInt = #line, body: (T) throws -> ()) {
+    private func test<T: Module>(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: (T) throws -> ()) {
         do {
             try fixture(files: files) { (package, modules) in 
                 XCTAssertEqual(modules.count, 1)
@@ -51,7 +52,7 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSingleSwiftModule() throws {
-        let files = ["Foo.swift"]
+        let files: [RelativePath] = ["Foo.swift"]
         test(files: files) { (module: SwiftModule) in 
             XCTAssertEqual(module.sources.paths.count, files.count)
             XCTAssertEqual(Set(module.sources.relativePaths), Set(files))
@@ -75,21 +76,21 @@ class ConventionTests: XCTestCase {
 }
 
 /// Create a test fixture with empty files at the given paths.
-private func fixture(files: [String], body: @noescape (String) throws -> ()) {
+private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throws -> ()) {
     mktmpdir { prefix in
-        try Utility.makeDirectories(prefix)
+        try Utility.makeDirectories(prefix.asString)
         for file in files {
-            try system("touch", Path.join(prefix, file))
+            try system("touch", prefix.appending(file).asString)
         }
         try body(prefix)
     }
 }
 
 /// Check the behavior of a test project with the given file paths.
-private func fixture(files: [String], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
-    fixture(files: files) { (prefix: String) in
-        let manifest = Manifest(path: Path.join(prefix, "Package.swift"), package: Package(name: "name"), products: [])
-        let package = Package(manifest: manifest, url: prefix)
+private func fixture(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
+    fixture(files: files) { (prefix: AbsolutePath) in
+        let manifest = Manifest(path: prefix.appending("Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
+        let package = Package(manifest: manifest)
         let modules = try package.modules()
         try body(package, modules)
     }

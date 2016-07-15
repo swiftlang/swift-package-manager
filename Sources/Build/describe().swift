@@ -9,6 +9,7 @@
 */
 
 import Basic
+import PackageGraph
 import PackageModel
 import Utility
 
@@ -17,18 +18,20 @@ import func POSIX.getenv
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> String {
-    precondition(prefix.isAbsolute)
-
-    guard modules.count > 0 else {
+public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: PackageGraph, flags: BuildFlags, toolchain: Toolchain) throws -> AbsolutePath {
+    guard graph.modules.count > 0 else {
         throw Error.noModules
     }
 
-    let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
-    let Xld = Xld.flatMap{ ["-Xlinker", $0] }
-    let prefix = Path.join(prefix, conf.dirname)
-    try Utility.makeDirectories(prefix)
-    let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
+    if graph.modules.count == 1, let module = graph.modules.first as? CModule, !(module is ClangModule) {
+        throw Error.onlyCModule(name: module.name)
+    }
+
+    let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
+    let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
+    let prefix = prefix.appending(component: conf.dirname)
+    try Utility.makeDirectories(prefix.asString)
+    let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC
     let CC = getenv("CC") ?? "clang"
@@ -36,7 +39,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     var commands = [Command]()
     var targets = Targets()
 
-    for module in modules {
+    for module in graph.modules {
         switch module {
         case let module as SwiftModule:
             let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
@@ -48,7 +51,8 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
           #if os(Linux)
             if module.isTest { continue }
           #endif
-            let compile = try Command.compile(clangModule: module, externalModules: externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
+            // FIXME: Find a way to eliminate `externalModules` from here.
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
             commands += compile
             targets.append(compile, for: module)
 
@@ -60,7 +64,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         }
     }
 
-    for product in products {
+    for product in graph.products {
         var rpathArgs = [String]()
         
         // On Linux, always embed an RPATH adjacent to the linked binary. Note
@@ -80,7 +84,7 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
         targets.append([command], for: product)
     }
 
-    return try! write(path: "\(prefix).yaml") { stream in
+    return try! write(path: AbsolutePath("\(prefix.asString).yaml")) { stream in
         stream <<< "client:\n"
         stream <<< "  name: swift-build\n"
         stream <<< "tools: {}\n"
@@ -98,10 +102,10 @@ public func describe(_ prefix: String, _ conf: Configuration, _ modules: [Module
     }
 }
 
-private func write(path: String, write: (OutputByteStream) -> Void) throws -> String {
+private func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws -> AbsolutePath {
     let stream = OutputByteStream()
     write(stream)
-    try localFS.writeFileContents(path, bytes: stream.bytes)
+    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     return path
 }
 

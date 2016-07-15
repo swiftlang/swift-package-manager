@@ -10,11 +10,14 @@
 
 import XCTest
 
+import PackageModel
 import PackageLoading
 
-import class PackageModel.Module
-
-@testable import PackageLoading
+private extension Module {
+    convenience init(name: String) throws {
+        try self.init(name: name, type: .library, sources: Sources(paths: [], root: "/"))
+    }
+}
 
 func testModules(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
     do {
@@ -170,11 +173,11 @@ class ModuleDependencyTests: XCTestCase {
 }
 
 private extension Module {
-    private func depends(on target: Module) {
+    fileprivate func depends(on target: Module) {
         dependencies.append(target)
     }
     
-    private var recursiveDeps: [Module] {
+    fileprivate var recursiveDeps: [Module] {
         // FIXME: Eliminate this, it is a bad historical artifact.
         return recursiveDependencies.reversed()
     }

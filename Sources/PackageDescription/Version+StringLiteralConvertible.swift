@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-extension Version: StringLiteralConvertible {
+extension Version: ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) {
         self.init(value.characters)!

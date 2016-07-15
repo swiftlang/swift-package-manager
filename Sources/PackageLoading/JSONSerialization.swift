@@ -12,7 +12,6 @@ import Basic
 import PackageDescription
 
 public func jsonString(package: PackageDescription.Package) throws -> String {
-
     let json = package.toJSON()
     let string = json.toString()
     return string
@@ -40,9 +39,7 @@ extension Package.Dependency: JSONSerializable {
 extension Package: JSONSerializable {
     public func toJSON() -> JSON {
         var dict: [String: JSON] = [:]
-        if let name = self.name {
-            dict["name"] = .string(name)
-        }
+        dict["name"] = .string(name)
         if let pkgConfig = self.pkgConfig {
             dict["pkgConfig"] = .string(pkgConfig)
         }

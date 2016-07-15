@@ -13,7 +13,7 @@ import func POSIX.getenv
 import class Foundation.FileHandle
 import class Foundation.FileManager
 
-public enum TempFileError: ErrorProtocol {
+public enum TempFileError: Swift.Error {
     /// Could not create a unique temporary filename.
     case couldNotCreateUniqueName
     /// Some error thrown defined by posix's open().
@@ -43,7 +43,7 @@ private func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath 
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? cachedTempDirectory
     // FIXME: This is a runtime condition, so it should throw and not crash.
-    precondition(localFS.isDirectory(tmpDir))
+    precondition(localFileSystem.isDirectory(tmpDir))
     return tmpDir
 }
 
@@ -116,9 +116,10 @@ extension TemporaryFile: CustomStringConvertible {
     }
 }
 
-// FIXME: This isn't right place to declare this, probably POSIX or merge with FSProxyError?
 /// Contains the error which can be thrown while creating a directory using POSIX's mkdir.
-public enum MakeDirectoryError: ErrorProtocol {
+//
+// FIXME: This isn't right place to declare this, probably POSIX or merge with FileSystemError?
+public enum MakeDirectoryError: Swift.Error {
     /// The given path already exists as a directory, file or symbolic link.
     case pathExists
     /// The path provided was too long.
@@ -195,7 +196,11 @@ public final class TemporaryDirectory {
     /// Remove the temporary file before deallocating.
     deinit {
         if removeTreeOnDeinit {
+          #if os(Linux)
             let _ = try? FileManager.default().removeItem(atPath: path.asString)
+          #else
+            let _ = try? FileManager.default.removeItem(atPath: path.asString)
+          #endif
         } else {
             rmdir(path.asString)
         }

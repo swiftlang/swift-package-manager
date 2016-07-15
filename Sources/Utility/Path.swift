@@ -239,7 +239,7 @@ extension String {
         guard isFile else { return nil }
         guard characters.contains(".") else { return nil }
         let parts = characters.split(separator: ".")
-        if let last = parts.last where parts.count > 1 { return String(last) }
+        if let last = parts.last, parts.count > 1 { return String(last) }
         return nil
     }
 
@@ -278,7 +278,7 @@ extension String {
     }
 
     /// - Returns: Ensures single path separators in a path string, and removes trailing slashes.
-    private var onesep: String {
+    fileprivate var onesep: String {
         // Fast path, for already clean strings.
         //
         // It would be more efficient to avoid scrubbing every string that

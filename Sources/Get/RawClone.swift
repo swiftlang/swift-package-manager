@@ -8,47 +8,23 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 
 import struct PackageDescription.Version
 
-/**
- Initially we clone into a non-final form because we may need to
- adjust the dependency graph due to further specifications as
- we clone more repositories. This is the non-final form. Once
- `recursivelyFetch` completes we finalize these clones into our
- Sandbox.
- */
+/// A clone of a repository which is not yet fully loaded.
+///
+/// Initially we clone into a non-final form because we may need to adjust the
+/// dependency graph due to further specifications as we clone more
+/// repositories. This is the non-final form. Once `recursivelyFetch` completes
+/// we finalize these clones into the `PackagesDirectory`.
 class RawClone: Fetchable {
-    let path: String
-    let manifestParser: (path: String, url: String) throws -> Manifest
+    let path: AbsolutePath
+    let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
 
-    // lazy because the tip of the default branch does not have to be a valid package
-    //FIXME we should error gracefully if a selected version does not however
-    var manifest: Manifest! {
-        if let manifest = _manifest {
-            return manifest
-        } else {
-            _manifest = try? manifestParser(path: path, url: repo.origin!)
-            return _manifest
-        }
-    }
-    private var _manifest: Manifest?
-
-    init(path: String, manifestParser: (path: String, url: String) throws -> Manifest) throws {
-        self.path = path
-        self.manifestParser = manifestParser
-        if !repo.hasVersion {
-            throw Error.unversioned(path)
-        }
-    }
-
-    var repo: Git.Repo {
-        return Git.Repo(path: path)!
-    }
-
-    var version: Version {
+    private func getRepositoryVersion() -> Version? {
         var branch = repo.branch!
         if branch.hasPrefix("heads/") {
             branch = String(branch.characters.dropFirst(6))
@@ -56,22 +32,50 @@ class RawClone: Fetchable {
         if branch.hasPrefix("v") {
             branch = String(branch.characters.dropFirst())
         }
-        return Version(branch)!
+        return Version(branch)
+    }
+    
+    // lazy because the tip of the default branch does not have to be a valid package
+    //FIXME we should error gracefully if a selected version does not however
+    var manifest: Manifest! {
+        if let manifest = _manifest {
+            return manifest
+        } else {
+            _manifest = try? manifestParser(path: path, url: repo.origin!, version: getRepositoryVersion())
+            return _manifest
+        }
+    }
+    private var _manifest: Manifest?
+
+    init(path: AbsolutePath, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws {
+        self.path = path
+        self.manifestParser = manifestParser
+        if !repo.hasVersion {
+            throw Error.unversioned(path.asString)
+        }
+    }
+
+    var repo: Git.Repo {
+        return Git.Repo(path: path)!
+    }
+
+    var currentVersion: Version {
+        return getRepositoryVersion()!
     }
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
-    func setVersion(_ ver: Version) throws {
+    func setCurrentVersion(_ ver: Version) throws {
         let packageVersionsArePrefixed = repo.versionsArePrefixed
         let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try Git.runCommandQuietly([Git.tool, "-C", path, "reset", "--hard", v])
-        try Git.runCommandQuietly([Git.tool, "-C", path, "branch", "-m", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", v])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", v])
 
         print("Resolved version:", ver)
 
         // we must re-read the manifest
         _manifest = nil
         if manifest == nil {
-            throw Error.noManifest(path, ver)
+            throw Error.noManifest(path.asString, ver)
         }
     }
 
@@ -104,7 +108,6 @@ class RawClone: Fetchable {
     }
 
     var finalName: String {
-        let name = manifest.package.name ?? Package.nameForURL(url)
-        return "\(name)-\(version)"
+        return "\(manifest.package.name)-\(currentVersion)"
     }
 }

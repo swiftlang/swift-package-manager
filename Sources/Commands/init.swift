@@ -14,17 +14,17 @@ import POSIX
 
 import func Utility.makeDirectories
 
-private extension FSProxy {
+private extension FileSystem {
     /// Write to a file from a stream producer.
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         let contents = OutputByteStream()
         body(contents)
-        try createDirectory(path.parentDirectory.asString, recursive: true)
-        try writeFileContents(path.asString, bytes: contents.bytes)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
     }
 }
 
-private enum InitError: ErrorProtocol {
+private enum InitError: Swift.Error {
     case manifestAlreadyExists
 }
 
@@ -76,11 +76,11 @@ final class InitPackage {
 
     private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
         print("Creating \(path.relative(to: rootd).asString)")
-        try localFS.writeFileContents(path, body: body)
+        try localFileSystem.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {
-        let manifest = rootd.appending(RelativePath(Manifest.filename))
+        let manifest = rootd.appending(component: Manifest.filename)
         guard manifest.asString.exists == false else {
             throw InitError.manifestAlreadyExists
         }
