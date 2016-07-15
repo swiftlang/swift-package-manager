@@ -181,8 +181,8 @@ class StatTests: XCTestCase {
             XCTAssertTrue(root.appending("symlink").asString.isDirectory)
             XCTAssertTrue(root.appending("symlink").asString.isSymlink)
 
-            try removeFileTree(root.appending("foo/bar").asString)
-            try removeFileTree(root.appending("foo").asString)
+            try remove(root.appending("foo/bar"))
+            try remove(root.appending("foo"))
 
             XCTAssertTrue(root.appending("symlink").asString.isSymlink)
             XCTAssertFalse(root.appending("symlink").asString.isDirectory)

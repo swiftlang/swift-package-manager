@@ -195,7 +195,7 @@ public struct SwiftPackageTool: SwiftTool {
                             throw Error.repositoryHasChanges(item.asString)
                         }
                     }
-                    try Utility.removeFileTree(opts.path.packages.asString)
+                    try remove(opts.path.packages)
                 }
                 fallthrough
                 

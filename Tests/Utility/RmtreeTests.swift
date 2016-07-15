@@ -27,7 +27,7 @@ class RmtreeTests: XCTestCase {
             XCTAssertEqual(try! realpath(root.appending("foo").appending("symlink")), root.appending("bar"))
             XCTAssertTrue(try! realpath(root.appending("foo").appending("symlink").appending("baz")).asString.isDirectory)
 
-            try Utility.removeFileTree(root.appending("foo").asString)
+            try remove(root.appending("foo"))
 
             XCTAssertFalse(root.appending("foo").asString.exists)
             XCTAssertFalse(root.appending("foo").asString.isDirectory)
