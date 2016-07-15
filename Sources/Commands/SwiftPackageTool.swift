@@ -141,10 +141,7 @@ private class PackageToolOptions: Options {
     var outputPath: AbsolutePath? = nil
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
-    var Xcc: [String] = []
-    var Xld: [String] = []
-    var Xswiftc: [String] = []
-    var xcconfigOverrides: AbsolutePath? = nil
+    var xcodeprojOptions = XcodeprojOptions()
     var ignoreDependencies: Bool = false
 }
 
@@ -245,8 +242,7 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let flags = BuildFlags(cCompilerFlags: opts.Xcc, linkerFlags: opts.Xld, swiftCompilerFlags: opts.Xswiftc)
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: XcodeprojOptions(flags: flags, xcconfigOverrides: opts.xcconfigOverrides))
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts.xcodeprojOptions)
         
                 print("generated:", outpath.asString.prettyPath)
                 
@@ -308,17 +304,17 @@ public struct SwiftPackageTool: SwiftTool {
             case .chdir(let path):
                 opts.chdir = path
             case .xcc(let value):
-                opts.Xcc.append(value)
+                opts.xcodeprojOptions.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.Xld.append(value)
+                opts.xcodeprojOptions.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.Xswiftc.append(value)
+                opts.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
             case .verbose(let amount):
                 opts.verbosity += amount
             case .colorMode(let mode):
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
-                opts.xcconfigOverrides = path
+                opts.xcodeprojOptions.xcconfigOverrides = path
             case .ignoreDependencies:
                 opts.ignoreDependencies = true
             }

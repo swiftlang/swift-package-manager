@@ -107,9 +107,7 @@ private enum BuildToolFlag: Argument {
 
 private class BuildToolOptions: Options {
     var verbosity: Int = 0
-    var Xcc: [String] = []
-    var Xld: [String] = []
-    var Xswiftc: [String] = []
+    var flags = BuildFlags()
     var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
     var ignoreDependencies: Bool = false
@@ -220,11 +218,11 @@ public struct SwiftBuildTool: SwiftTool {
             case .verbose(let amount):
                 opts.verbosity += amount
             case .xcc(let value):
-                opts.Xcc.append(value)
+                opts.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.Xld.append(value)
+                opts.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.Xswiftc.append(value)
+                opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
                 opts.path.build = path
             case .buildTests:
@@ -241,8 +239,7 @@ public struct SwiftBuildTool: SwiftTool {
 
     private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> AbsolutePath {
         do {
-            let flags = BuildFlags(cCompilerFlags: opts.Xcc, linkerFlags: opts.Xld, swiftCompilerFlags: opts.Xswiftc)
-            return try Build.describe(opts.path.build, conf, modules, externalModules, products, flags: flags, toolchain: toolchain)
+            return try Build.describe(opts.path.build, conf, modules, externalModules, products, flags: opts.flags, toolchain: toolchain)
         } catch {
 #if os(Linux)
             // it is a common error on Linux for clang++ to not be installed, but

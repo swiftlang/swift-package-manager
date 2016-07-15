@@ -15,12 +15,12 @@ import Utility
 
 public struct XcodeprojOptions {
     /// The build flags.
-    var flags: BuildFlags
+    public var flags: BuildFlags
     
     /// If provided, a path to an xcconfig file to be included by the project.
     ///
     /// This allows the client to override settings defined in the project itself.
-    var xcconfigOverrides: AbsolutePath?
+    public var xcconfigOverrides: AbsolutePath?
 
     public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil) {
         self.flags = flags
