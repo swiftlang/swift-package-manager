@@ -238,22 +238,7 @@ public struct SwiftBuildTool: SwiftTool {
     }
 
     private func describe(_ opts: BuildToolOptions, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], toolchain: Toolchain) throws -> AbsolutePath {
-        do {
-            return try Build.describe(opts.path.build, conf, modules, externalModules, products, flags: opts.flags, toolchain: toolchain)
-        } catch {
-#if os(Linux)
-            // it is a common error on Linux for clang++ to not be installed, but
-            // we need it for linking. swiftc itself gives a non-useful error, so
-            // we try to help here.
-        
-            //FIXME we should use C-functions here
-
-            if (try? Utility.popen(["command", "-v", "clang++"])) == nil {
-                print("warning: clang++ not found: this will cause build failure", to: &stderr)
-            }
-#endif
-            throw error
-        }
+        return try Build.describe(opts.path.build, conf, modules, externalModules, products, flags: opts.flags, toolchain: toolchain)
     }
 }
 
