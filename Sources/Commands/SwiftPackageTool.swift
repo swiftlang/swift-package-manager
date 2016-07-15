@@ -28,7 +28,6 @@ import struct PackageDescription.Version
 import func POSIX.chdir
 
 private enum Mode: Argument, Equatable, CustomStringConvertible {
-    case doctor
     case dumpPackage
     case fetch
     case generateXcodeproj
@@ -40,8 +39,6 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     init?(argument: String, pop: () -> String?) throws {
         switch argument {
-        case "doctor":
-            self = .doctor
         case "dump-package":
             self = .dumpPackage
         case "fetch":
@@ -65,7 +62,6 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .doctor: return "doctor"
         case .dumpPackage: return "dump-package"
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
@@ -212,9 +208,6 @@ public struct SwiftPackageTool: SwiftTool {
             case .fetch:
                 _ = try fetch(opts.path.root)
         
-            case .doctor:
-                doctor()
-            
             case .showDependencies:
                 let (rootPackage, _) = try fetch(opts.path.root)
                 dumpDependenciesOf(rootPackage: rootPackage, mode: opts.showDepsMode)
