@@ -59,10 +59,6 @@ let package = Package(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: ["Basic", "PackageDescription", "PackageModel"]),
-        Target(
-            /** Data structures and support for complete package graphs */
-            name: "PackageGraph",
-            dependencies: ["Basic", "PackageLoading", "PackageModel"]),
 
         // MARK: Package Dependency Resolution
         
@@ -70,6 +66,10 @@ let package = Package(
             /** Fetches Packages and their dependencies */
             name: "Get",
             dependencies: ["Basic", "PackageDescription", "PackageModel", "PackageLoading"]),
+        Target(
+            /** Data structures and support for complete package graphs */
+            name: "PackageGraph",
+            dependencies: ["Basic", "Get", "PackageLoading", "PackageModel"]),
         
         // MARK: Package Manager Functionality
         

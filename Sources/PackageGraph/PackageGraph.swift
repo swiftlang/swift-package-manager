@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basic
 import PackageModel
 
 /// A collection of packages.
@@ -15,13 +16,17 @@ public struct PackageGraph {
     /// The root package.
     public let rootPackage: Package
 
-    /// The complete list of contained packages, in topological order from the
-    /// root package.
+    /// The complete list of contained packages, in topological order starting
+    /// with the root package.
+    ///
+    /// - Precondition: packages[0] === rootPackage
     public let packages: [Package]
 
     /// Construct a package graph directly.
-    public init(rootPackage: Package, packages: [Package]) {
+    public init(rootPackage: Package) {
         self.rootPackage = rootPackage
-        self.packages = packages
+        // This will leave the root package at the beginning, considering the relation we are providing.
+        self.packages = try! topologicalSort([rootPackage], successors: { $0.dependencies })
+        assert(self.rootPackage == self.packages[0])
     }
 }

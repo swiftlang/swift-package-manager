@@ -132,10 +132,9 @@ public struct SwiftBuildTool: SwiftTool {
                 try chdir(dir.asString)
             }
             
-            let manifestLoader = ManifestLoader(resources: ToolDefaults())
             func fetch(_ root: AbsolutePath) throws -> (rootPackage: Package, externalPackages:[Package]) {
-                let packagesDirectory = PackagesDirectory(root: opts.path.root, manifestLoader: manifestLoader)
-                return try packagesDirectory.loadPackages(ignoreDependencies: opts.ignoreDependencies)
+                let graph = try packageGraphLoader.loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                return (rootPackage: graph.rootPackage, externalPackages: [Package](graph.packages.dropFirst(1)))
             }
         
             switch mode {
