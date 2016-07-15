@@ -155,20 +155,22 @@ extension SwiftPMProduct {
     /// - Returns: The output of the process.
     func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
         var out = ""
+        var completeArgs = [path.asString]
+        if let chdir = chdir {
+            completeArgs += ["--chdir", chdir.asString]
+        }
+        completeArgs += args
         do {
-            var theArgs = [path.asString]
-            if let chdir = chdir {
-                theArgs += ["--chdir", chdir.asString]
-            }
-            try POSIX.popen(theArgs + args, redirectStandardError: true, environment: env) {
+            try POSIX.popen(completeArgs, redirectStandardError: true, environment: env) {
                 out += $0
             }
             return out
         } catch {
             if printIfError {
-                print("output:", out)
+                print("**** FAILURE EXECUTING SUBPROCESS ****")
+                print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
                 print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
-                print(exec.asString + ":", path.asString)
+                print("output:", out)
             }
             throw error
         }
