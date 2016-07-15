@@ -10,6 +10,7 @@
 
 import Basic
 import Get
+import PackageModel
 import PackageLoading
 
 /// A helper class for loading a package graph.
@@ -30,8 +31,21 @@ public struct PackageGraphLoader {
         // Create the packages directory container.
         let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
 
-        // Load the packages.
-        let (rootPackage, externalPackages) = try packagesDirectory.loadPackages(ignoreDependencies: ignoreDependencies)
+        // Fetch and load the manifets.
+        let (rootManifest, externalManifests) = try packagesDirectory.loadManifests(ignoreDependencies: ignoreDependencies)
+
+        // Create the packages.
+        let rootPackage = Package(manifest: rootManifest)
+        let externalPackages = externalManifests.map{ Package(manifest: $0) }
+
+        // Load all of the package dependencies.
+        //
+        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
+        let pkgs = externalPackages + [rootPackage]
+        for pkg in pkgs {
+            // FIXME: This is inefficient.
+            pkg.dependencies = pkg.manifest.package.dependencies.map{ dep in pkgs.pick{ dep.url == $0.url }! }
+        }
 
         // Convert to modules.
         //

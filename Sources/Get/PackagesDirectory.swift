@@ -66,29 +66,17 @@ public final class PackagesDirectory {
     ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
     /// - Returns: The loaded root package and all external packages, with dependencies resolved.
     /// - Throws: Error.InvalidDependencyGraph
-    public func loadPackages(ignoreDependencies: Bool = false) throws -> (rootPackage: Package, externalPackages: [Package]) {
+    public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
         let manifest = try manifestLoader.load(path: rootPath, baseURL: rootPath.asString, version: nil)
         if ignoreDependencies {
-            return (Package(manifest: manifest), [])
+            return (manifest, [])
         }
 
         // Resolve and fetch all package dependencies and their manifests.
-        let extManifests = try recursivelyFetch(manifest.dependencies)
+        let externalManifests = try recursivelyFetch(manifest.dependencies)
 
-        // Create all the packages.
-        let rootPackage = Package(manifest: manifest)
-        let extPackages = extManifests.map{ Package(manifest: $0) }
-
-        // Load all of the package dependencies.
-        //
-        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
-        let pkgs = extPackages + [rootPackage]
-        for pkg in pkgs {
-            pkg.dependencies = pkg.manifest.package.dependencies.map{ dep in pkgs.pick{ dep.url == $0.url }! }
-        }
-        
-        return (rootPackage, extPackages)
+        return (manifest, externalManifests)
     }
 }
 
