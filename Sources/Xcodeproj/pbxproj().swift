@@ -245,13 +245,13 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         // Propagate any user provided build flag overrides.
         //
         // FIXME: Need to get quoting correct here.
-        if !options.Xcc.isEmpty {
-            print("OTHER_CFLAGS = \(options.Xcc.joined(separator: " "))")
+        if !options.flags.cCompilerFlags.isEmpty {
+            print("OTHER_CFLAGS = \(options.flags.cCompilerFlags.joined(separator: " "))")
         }
-        if !options.Xld.isEmpty {
-            print("OTHER_LDFLAGS = \(options.Xld.joined(separator: " "))")
+        if !options.flags.linkerFlags.isEmpty {
+            print("OTHER_LDFLAGS = \(options.flags.linkerFlags.joined(separator: " "))")
         }
-        print("OTHER_SWIFT_FLAGS = \((options.Xswiftc+["-DXcode"]).joined(separator: " "))")
+        print("OTHER_SWIFT_FLAGS = \((options.flags.swiftCompilerFlags+["-DXcode"]).joined(separator: " "))")
         
         // Prevents Xcode project upgrade warnings.
         print("COMBINE_HIDPI_IMAGES = YES")

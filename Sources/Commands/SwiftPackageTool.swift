@@ -27,9 +27,6 @@ import struct PackageDescription.Version
 
 import func POSIX.chdir
 
-/// Additional conformance for our Options type.
-extension PackageToolOptions: XcodeprojOptions {}
-
 private enum Mode: Argument, Equatable, CustomStringConvertible {
     case doctor
     case dumpPackage
@@ -248,7 +245,8 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = packageName
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: opts)
+                let flags = BuildFlags(cCompilerFlags: opts.Xcc, linkerFlags: opts.Xld, swiftCompilerFlags: opts.Xswiftc)
+                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: opts.path.root, modules: xcodeModules, externalModules: externalXcodeModules, products: products, options: XcodeprojOptions(flags: flags, xcconfigOverrides: opts.xcconfigOverrides))
         
                 print("generated:", outpath.asString.prettyPath)
                 

@@ -17,7 +17,7 @@ import func POSIX.getenv
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], Xcc: [String], Xld: [String], Xswiftc: [String], toolchain: Toolchain) throws -> AbsolutePath {
+public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [Module], _ externalModules: Set<Module>, _ products: [Product], flags: BuildFlags, toolchain: Toolchain) throws -> AbsolutePath {
 
     guard modules.count > 0 else {
         throw Error.noModules
@@ -27,11 +27,11 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ modules: [
         throw Error.onlyCModule(name: module.name)
     }
 
-    let Xcc = Xcc.flatMap{ ["-Xcc", $0] }
-    let Xld = Xld.flatMap{ ["-Xlinker", $0] }
+    let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
+    let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
     let prefix = prefix.appending(conf.dirname)
     try Utility.makeDirectories(prefix.asString)
-    let swiftcArgs = Xcc + Xswiftc + verbosity.ccArgs
+    let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC
     let CC = getenv("CC") ?? "clang"

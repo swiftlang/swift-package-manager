@@ -28,13 +28,7 @@ class GenerateXcodeprojTests: XCTestCase {
             let modules = try dummy()
             let products: [Product] = []
 
-            struct Options: XcodeprojOptions {
-                let Xcc = [String]()
-                let Xld = [String]()
-                let Xswiftc = [String]()
-                let xcconfigOverrides: AbsolutePath? = nil
-            }
-            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: Options())
+            let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, srcroot: srcroot, modules: modules, externalModules: [], products: products, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
             XCTAssertEqual(outpath, dstdir.appending(projectName + ".xcodeproj"))
