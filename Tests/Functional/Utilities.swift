@@ -30,16 +30,16 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
             
         // Construct the expected path of the fixture.
         // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-        let fixtureDir = AbsolutePath(#file).appending("../../../Fixtures").appending(fixtureSubpath)
+        let fixtureDir = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending("Fixtures").appending(fixtureSubpath)
         
         // Check that the fixture is really there.
-        guard fixtureDir.asString.isDirectory else {
+        guard try isDirectory(fixtureDir) else {
             XCTFail("No such fixture: \(fixtureDir.asString)", file: file, line: line)
             return
         }
         
         // The fixture contains either a checkout or just a Git directory.
-        if fixtureDir.appending("Package.swift").asString.isFile {
+        if try isFile(fixtureDir.appending("Package.swift")) {
             // It's a single package, so copy the whole directory as-is.
             let dstDir = tmpDir.path.appending(component: copyName)
             try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
@@ -62,7 +62,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                 let srcDir = fixtureDir.appending(component: fileName)
-                guard srcDir.asString.isDirectory else { continue }
+                guard try isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
                 try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
@@ -244,19 +244,19 @@ func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line:
 }
 
 func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !path.asString.isFile {
+    if try! !isFile(path) {
         XCTFail("Expected file doesn’t exist: \(path.asString)", file: file, line: line)
     }
 }
 
 func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !path.asString.isDirectory {
+    if try! !isDirectory(path) {
         XCTFail("Expected directory doesn’t exist: \(path.asString)", file: file, line: line)
     }
 }
 
 func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if path.asString.exists {
+    if try! exists(path) {
         XCTFail("path exists but should not: \(path.asString)", file: file, line: line)
     }
 }

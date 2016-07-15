@@ -30,7 +30,7 @@ class GitRepositoryTests: XCTestCase {
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
-            XCTAssert(testCheckoutPath.asString.exists)
+            XCTAssert(try! exists(testCheckoutPath))
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)

@@ -180,7 +180,7 @@ public struct SwiftTestTool: SwiftTool {
 
         let possibleTestPath: AbsolutePath
 
-        if maybePath.asString.exists {
+        if try exists(maybePath) {
             possibleTestPath = maybePath
         } else {
             let possiblePaths = walk(opts.path.build).filter {
