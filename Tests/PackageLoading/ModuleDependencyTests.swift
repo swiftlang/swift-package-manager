@@ -10,11 +10,14 @@
 
 import XCTest
 
+import PackageModel
 import PackageLoading
 
-import class PackageModel.Module
-
-@testable import PackageLoading
+private extension Module {
+    convenience init(name: String) throws {
+        try self.init(name: name, type: .library, sources: Sources(paths: [], root: "/"))
+    }
+}
 
 func testModules(file: StaticString = #file, line: UInt = #line, body: () throws -> Void) {
     do {

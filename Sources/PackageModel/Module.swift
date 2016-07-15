@@ -27,20 +27,41 @@ public protocol ModuleProtocol {
     var isTest: Bool { get }
 }
 
+public enum ModuleType {
+    case executable, library, systemModule
+}
+
 public class Module: ModuleProtocol {
-    /**
-     This name is not the final name in many cases, instead
-     use c99name if you need uniqueness.
-    */
+    /// The name of the module.
+    ///
+    /// NOTE: This name is not the language-level module (i.e., the importable
+    /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
+
+    /// The dependencies of this module, once loaded.
     public var dependencies: [Module]
+
+    /// The language-level module name.
     public var c99name: String
+
+    /// Whether this is a test module.
+    //
+    // FIXME: This should probably be rolled into the type.
     public let isTest: Bool
+    
     private let testModuleNameSuffix = "TestSuite"
 
-    public init(name: String, isTest: Bool = false) throws {
+    /// The "type" of module.
+    public let type: ModuleType
+
+    /// The sources for the module.
+    public let sources: Sources
+
+    public init(name: String, type: ModuleType, sources: Sources, isTest: Bool = false) throws {
         // Append TestSuite to name if its a test module.
         self.name = name + (isTest ? testModuleNameSuffix : "")
+        self.type = type
+        self.sources = sources
         self.dependencies = []
         self.c99name = try PackageModel.c99name(name: self.name)
         self.isTest = isTest
@@ -63,28 +84,11 @@ public class Module: ModuleProtocol {
     }
 }
 
-public enum ModuleType {
-    case library, executable
-}
 
-public protocol ModuleTypeProtocol {
-    var sources: Sources { get }
+public protocol XcodeModuleProtocol: ModuleProtocol {
     var type: ModuleType { get }
-}
-
-extension ModuleTypeProtocol {
-    public var type: ModuleType {
-        let isLibrary = !sources.relativePaths.contains { path in
-           let file = path.basename.lowercased()
-           // Look for a main.xxx file avoiding cases like main.xxx.xxx
-           return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
-        }
-        return isLibrary ? .library : .executable
-    }
-}
-
-
-public protocol XcodeModuleProtocol: ModuleProtocol, ModuleTypeProtocol {
+    var sources: Sources { get }
+    
     func fileType(forSource source: RelativePath) -> String
 }
 
@@ -97,11 +101,16 @@ public func ==(lhs: Module, rhs: Module) -> Bool {
 }
 
 public class SwiftModule: Module {
-    public let sources: Sources
-
     public init(name: String, isTest: Bool = false, sources: Sources) throws {
-        self.sources = sources
-        try super.init(name: name, isTest: isTest)
+        // Compute the module type.
+        let isLibrary = !sources.relativePaths.contains { path in
+            let file = path.basename.lowercased()
+            // Look for a main.xxx file avoiding cases like main.xxx.xxx
+            return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
+        }
+        let type: ModuleType = isLibrary ? .library : .executable
+        
+        try super.init(name: name, type: type, sources: sources, isTest: isTest)
     }
 }
 
@@ -116,22 +125,28 @@ public class CModule: Module {
     public let path: AbsolutePath
     public let pkgConfig: RelativePath?
     public let providers: [SystemPackageProvider]?
-    public init(name: String, path: AbsolutePath, isTest: Bool = false, pkgConfig: RelativePath? = nil, providers: [SystemPackageProvider]? = nil) throws {
+    public init(name: String, type: ModuleType = .systemModule, sources: Sources, path: AbsolutePath, isTest: Bool = false, pkgConfig: RelativePath? = nil, providers: [SystemPackageProvider]? = nil) throws {
         self.path = path
         self.pkgConfig = pkgConfig
         self.providers = providers
         // FIXME: This is wrong, System modules should never be a test module, perhaps ClangModule
         // can be refactored into direct subclass of Module.
-        try super.init(name: name, isTest: isTest)
+        try super.init(name: name, type: type, sources: sources, isTest: isTest)
     }
 }
 
+// FIXME: This should *not* be a subclass of CModule!
 public class ClangModule: CModule {
-    public let sources: Sources
-    
     public init(name: String, isTest: Bool = false, sources: Sources) throws {
-        self.sources = sources
-        try super.init(name: name, path: sources.root.appending("include"), isTest: isTest)
+        // Compute the module type.
+        let isLibrary = !sources.relativePaths.contains { path in
+            let file = path.basename.lowercased()
+            // Look for a main.xxx file avoiding cases like main.xxx.xxx
+            return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
+        }
+        let type: ModuleType = isLibrary ? .library : .executable
+        
+        try super.init(name: name, type: type, sources: sources, path: sources.root.appending("include"), isTest: isTest)
     }
 }
 

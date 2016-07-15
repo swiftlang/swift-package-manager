@@ -143,9 +143,9 @@ private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
             set.insert(top)
             stack += top.dependencies
         } else {
+            // See if the module in the set is actually the same.
             guard let index = set.index(of: top),
-                  let moduleInSet = set[index] as? ModuleTypeProtocol,
-                  let module = top as? ModuleTypeProtocol, module.sources.root != moduleInSet.sources.root else {
+                  top.sources.root != set[index].sources.root else {
                 continue;
             }
 

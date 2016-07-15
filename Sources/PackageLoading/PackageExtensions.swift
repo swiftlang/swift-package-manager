@@ -159,8 +159,10 @@ extension Package {
 
     /// Collects the modules which are defined by a package.
     func modules() throws -> [Module] {
-        guard !path.appending("module.modulemap").asString.isFile else {
-            return [try CModule(name: name, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+        let moduleMapPath = path.appending("module.modulemap")
+        if moduleMapPath.asString.isFile {
+            let sources = Sources(paths: [moduleMapPath], root: path)
+            return [try CModule(name: name, sources: sources, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
 
         if manifest.package.exclude.contains(".") {
@@ -217,7 +219,7 @@ extension Package {
                     guard let dependency = moduleForName(name) else {
                         throw ModuleError.modulesNotFound([name])
                     }
-                    if let moduleType = dependency as? ModuleTypeProtocol, moduleType.type != .library {
+                    if dependency.type != .library {
                         throw ModuleError.executableAsDependency(module: module.name, dependency: name)
                     }
                     return dependency
@@ -298,6 +300,8 @@ extension Package {
                 type = .Executable
             case .library:
                 type = .Library(.Dynamic)
+            case .systemModule:
+                fatalError("unexpected module type")
             }
             let product = Product(name: module.name, type: type, modules: [module])
             products.append(product)
