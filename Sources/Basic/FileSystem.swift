@@ -447,6 +447,12 @@ public class InMemoryFileSystem: FileSystem {
 /// of an existing filesystem. This is useful for passing to clients which only
 /// need access to a subtree of the filesystem but should otherwise remain
 /// oblivious to its concrete location.
+///
+/// NOTE: The rerooting done here is purely at the API level and does not
+/// inherently prevent access outside the rerooted path (e.g., via symlinks). It
+/// is designed for situations where a client is only interested in the contents
+/// *visible* within a subpath and is agnostic to the actual location of those
+/// contents.
 public struct RerootedFileSystemView: FileSystem {
     /// The underlying file system.
     private var underlyingFileSystem: FileSystem
