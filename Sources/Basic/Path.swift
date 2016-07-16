@@ -153,7 +153,7 @@ public struct AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components names: String...) -> AbsolutePath {
-        return names.reduce(self, { path, name in
+        return names.reduce(self, combine: { path, name in
                 path.appending(component: name)
             })
     }
