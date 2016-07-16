@@ -45,8 +45,8 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
     let schemesDirectory = xcodeprojPath.appending("xcshareddata/xcschemes")
-    try Utility.makeDirectories(xcodeprojPath.asString)
-    try Utility.makeDirectories(schemesDirectory.asString)
+    try makeDirectories(xcodeprojPath)
+    try makeDirectories(schemesDirectory)
     let schemeName = "\(projectName).xcscheme"
     let directoryReferences = try findDirectoryReferences(path: srcroot)
 

@@ -34,7 +34,7 @@ class PathShimTests : XCTestCase {
         XCTAssertEqual(resolveSymlinks(slnkPath), slnkPath)
         
         // Create a directory to be the referent of the symbolic link.
-        try! Utility.makeDirectories(fldrPath.asString)
+        try! makeDirectories(fldrPath)
         
         // Resolving the symlink should now point at the directory.
         XCTAssertEqual(resolveSymlinks(slnkPath), fldrPath)
@@ -42,8 +42,24 @@ class PathShimTests : XCTestCase {
         // Resolving the directory should still not change anything.
         XCTAssertEqual(resolveSymlinks(fldrPath), fldrPath)
     }
+
+    func testRescursiveDirectoryCreation() {
+        // For the tests we'll need a temporary directory.
+        let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+        
+        // Create a directory under several ancestor directories.
+        let dirPath = tmpDir.path.appending(components: "abc", "def", "ghi", "mno", "pqr")
+        try! makeDirectories(dirPath)
+        
+        // Check that we were able to actually create the directory.
+        XCTAssertTrue(dirPath.asString.isDirectory)
+        
+        // Check that there's no error if we try to create the directory again.
+        try! makeDirectories(dirPath)
+    }
     
     static var allTests = [
         ("testResolvingSymlinks",  testResolvingSymlinks),
+        ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation)
     ]
 }
