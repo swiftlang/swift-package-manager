@@ -12,43 +12,13 @@
 import XCTest
 
 class CollectionTests: XCTestCase {
-    
     func testPick() {
-        
         let body = { (num: Int) -> Bool in num > 5 }
         
         XCTAssertNil([].pick(body))
         XCTAssertNil([3, 4].pick(body))
         XCTAssertEqual([3, 7].pick(body), 7)
         XCTAssertEqual([3, 8, 7].pick(body), 8)
-    }
-    
-    func testPartitionByType() {
-        
-        let input0: [Any] = []
-        let output0: ([String], [Int]) = input0.partition()
-        XCTAssertEqual(output0.0, [String]())
-        XCTAssertEqual(output0.1, [Int]())
-        
-        let input1: [Any] = [1, "two", 3, "four"]
-        let output1: ([String], [Int]) = input1.partition()
-        XCTAssertEqual(output1.0, ["two", "four"])
-        XCTAssertEqual(output1.1, [1, 3])
-    }
-    
-    func testPartitionByClosure() {
-        
-        func eq(_ lhs: ([Int], [Int]), _ rhs: ([Int], [Int]), file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(lhs.0, rhs.0, file: file, line: line)
-            XCTAssertEqual(lhs.1, rhs.1, file: file, line: line)
-        }
-        
-        let body = { (num: Int) -> Bool in num > 5 }
-        
-        eq([Int]().partition(body), ([], []))
-        eq([2].partition(body), ([], [2]))
-        eq([7].partition(body), ([7], []))
-        eq([7, 4, 2, 9].partition(body), ([7, 9], [4, 2]))
     }
     
     func testSplitAround() {
@@ -67,8 +37,6 @@ class CollectionTests: XCTestCase {
 
     static var allTests = [
         ("testPick", testPick),
-        ("testPartitionByType", testPartitionByType),
-        ("testPartitionByClosure", testPartitionByClosure),
         ("testSplitAround", testSplitAround),
     ]
 }

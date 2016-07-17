@@ -21,7 +21,6 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
-    let (tests, nonTests) = modules.partition{ $0.isTest }
 
     print("// !$*UTF8*$!")
     print("{")
@@ -304,6 +303,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     }
 
 ////// “Tests” group
+    let tests = modules.filter{ $0.isTest }
     if !tests.isEmpty {
         print("        \(testsGroupReference) = {")
         print("            isa = PBXGroup;")
@@ -314,7 +314,6 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     }
 
     var productReferences: [String] = []
-    
     if !tests.isEmpty {
         ////// “Product/Tests” group
         print("       \(testProductsGroupReference) = {")
@@ -328,7 +327,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     }
 
 ////// “Products” group
-    productReferences += nonTests.map { $0.productReference }
+    productReferences += modules.flatMap { !$0.isTest ? $0.productReference : nil }
 
     print("        \(productsGroupReference) = {")
     print("            isa = PBXGroup;")
