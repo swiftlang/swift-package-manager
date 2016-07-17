@@ -51,9 +51,11 @@ public func exists(_ path: AbsolutePath) -> Bool {
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     let pathStr = path.asString
   #if os(Linux)
-    let resolvedPathStr = pathStr.resolvingSymlinksInPath()
+    // FIXME: This is really unfortunate but seems to be the only way to invoke this functionality on Linux.
+    let url = URL(fileURLWithPath: pathStr)
+    guard let resolvedPathStr = (try? url.resolvingSymlinksInPath())?.path else { return path }
   #else
-    // FIXME: It's unfortunate to have to case to NSString here but apparently the String method is deprecated.
+    // FIXME: It's unfortunate to have to cast to NSString here but apparently the String method is deprecated.
     let resolvedPathStr = (pathStr as NSString).resolvingSymlinksInPath
   #endif
     // FIXME: We should measure if it's really more efficient to compare the strings first.
