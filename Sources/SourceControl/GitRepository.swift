@@ -42,7 +42,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need to define if this is only for the initial clone, or
         // also for the update, and if for the update then we need to handle it
         // here.
-        precondition(!exists(path))
+        precondition(try! !exists(path))
         
         do {
             // FIXME: We need infrastructure in this subsystem for reporting

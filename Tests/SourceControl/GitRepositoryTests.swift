@@ -20,7 +20,7 @@ class GitRepositoryTests: XCTestCase {
     func testProvider() {
         mktmpdir { path in
             let testRepoPath = path.appending("test-repo")
-            try! Utility.makeDirectories(testRepoPath.asString)
+            try! mkdir(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
@@ -30,7 +30,7 @@ class GitRepositoryTests: XCTestCase {
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
-            XCTAssert(testCheckoutPath.asString.exists)
+            XCTAssert(try! exists(testCheckoutPath))
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)

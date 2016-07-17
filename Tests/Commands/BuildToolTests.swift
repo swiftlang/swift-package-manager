@@ -38,12 +38,12 @@ final class BuildToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(packageRoot.appending(".build/debug/Foo"))
-            XCTAssert(packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(try! isDirectory(packageRoot.appending(".build")))
 
             // Clean, and check for removal.
             _ = try execute(["--clean"], chdir: packageRoot)
-            XCTAssert(!packageRoot.appending(".build/debug/Foo").asString.isFile)
-            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(try! !isFile(packageRoot.appending(".build/debug/Foo")))
+            XCTAssert(try! !isDirectory(packageRoot.appending(".build")))
 
             // Clean again to ensure we get no error.
             _ = try execute(["--clean"], chdir: packageRoot)

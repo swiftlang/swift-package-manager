@@ -180,7 +180,7 @@ public struct SwiftTestTool: SwiftTool {
 
         let possibleTestPath: AbsolutePath
 
-        if maybePath.asString.exists {
+        if try exists(maybePath) {
             possibleTestPath = maybePath
         } else {
             let possiblePaths = walk(opts.path.build).filter {
@@ -195,7 +195,7 @@ public struct SwiftTestTool: SwiftTool {
             possibleTestPath = path
         }
 
-        guard isValidTestPath(possibleTestPath) else {
+        guard try isValidTestPath(possibleTestPath) else {
             throw TestError.testsExecutableNotFound
         }
         return possibleTestPath
@@ -244,7 +244,7 @@ public struct SwiftTestTool: SwiftTool {
     ///
     /// - Returns: True if execution exited with return code 0.
     private func test(path: AbsolutePath, xctestArg: String? = nil) -> Bool {
-        precondition(isValidTestPath(path))
+        precondition(try! isValidTestPath(path))
 
         var args: [String] = []
       #if os(macOS)
@@ -274,18 +274,18 @@ public struct SwiftTestTool: SwiftTool {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    private func xctestHelperPath() -> AbsolutePath {
+    private func xctestHelperPath() throws -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
         let binDirectory = AbsolutePath(Process.arguments.first!.abspath).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.appending("../libexec/swift/pm/").appending(RelativePath(xctestHelperBin))
-        if maybePath.asString.isFile {
+        if try isFile(maybePath) {
             return maybePath
         }
         // This will be true during swiftpm developement.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(RelativePath(xctestHelperBin))
-        if path.asString.isFile {
+        if try isFile(path) {
             return path 
         }
         fatalError("XCTestHelper binary not found.") 
@@ -303,12 +303,12 @@ public struct SwiftTestTool: SwiftTool {
     /// - Returns: Array of TestSuite
     private func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
         // Make sure tests are present.
-        guard isValidTestPath(path) else { throw TestError.testsExecutableNotFound }
+        guard try isValidTestPath(path) else { throw TestError.testsExecutableNotFound }
 
         // Run the correct tool.
       #if os(macOS)
         let tempFile = try TemporaryFile()
-        let args = [xctestHelperPath().asString, path.asString, tempFile.path.asString]
+        let args = try [xctestHelperPath().asString, path.asString, tempFile.path.asString]
         try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
         // Read the temporary file's content.
         let data = try fopen(tempFile.path.asString).readFileContents()
@@ -321,11 +321,11 @@ public struct SwiftTestTool: SwiftTool {
     }
 }
 
-private func isValidTestPath(_ path: AbsolutePath) -> Bool {
+private func isValidTestPath(_ path: AbsolutePath) throws -> Bool {
   #if os(macOS)
-    return path.asString.isDirectory  // ${foo}.xctest is dir on OSX
+    return try isDirectory(path)  // ${foo}.xctest is dir on OSX
   #else
-    return path.asString.isFile       // otherwise ${foo}.xctest is executable file
+    return try isFile(path)       // otherwise ${foo}.xctest is executable file
   #endif
 }
 

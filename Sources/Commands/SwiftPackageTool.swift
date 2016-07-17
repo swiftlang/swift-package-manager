@@ -182,7 +182,7 @@ public struct SwiftPackageTool: SwiftTool {
                         let item = opts.path.packages.appending(RelativePath(name))
 
                         // Only look at repositories.
-                        guard item.appending(".git").asString.exists else { continue }
+                        guard try exists(item.appending(".git")) else { continue }
 
                         // If there is a staged or unstaged diff, don't remove the
                         // tree. This won't detect new untracked files, but it is
@@ -195,7 +195,7 @@ public struct SwiftPackageTool: SwiftTool {
                             throw Error.repositoryHasChanges(item.asString)
                         }
                     }
-                    try Utility.removeFileTree(opts.path.packages.asString)
+                    try remove(opts.path.packages)
                 }
                 fallthrough
                 

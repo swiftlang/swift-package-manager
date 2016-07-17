@@ -127,7 +127,7 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending(component: "Sources")
-            try Utility.makeDirectories(dir.asString)
+            try mkdir(dir, recursive: true)
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)
             }
@@ -138,11 +138,11 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending("Floobles")
-            try Utility.makeDirectories(dir.asString)
+            try mkdir(dir, recursive: true)
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)
             }
-            try symlink(create: prefix.appending(component: "Sources").asString, pointingAt: dir.asString, relativeTo: prefix.asString)
+            try symlink(prefix.appending(component: "Sources"), pointingAt: dir, relative: true)
             try body(prefix)
         }
     }

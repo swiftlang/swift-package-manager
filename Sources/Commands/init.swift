@@ -12,8 +12,6 @@ import Basic
 import PackageModel
 import POSIX
 
-import func Utility.makeDirectories
-
 private extension FileSystem {
     /// Write to a file from a stream producer.
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
@@ -81,7 +79,7 @@ final class InitPackage {
     
     private func writeManifestFile() throws {
         let manifest = rootd.appending(component: Manifest.filename)
-        guard manifest.asString.exists == false else {
+        guard try !exists(manifest) else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -96,7 +94,7 @@ final class InitPackage {
     
     private func writeGitIgnore() throws {
         let gitignore = rootd.appending(".gitignore")
-        guard gitignore.asString.exists == false else {
+        guard try !exists(gitignore) else {
             return
         } 
     
@@ -113,11 +111,11 @@ final class InitPackage {
             return
         }
         let sources = rootd.appending("Sources")
-        guard sources.asString.exists == false else {
+        guard try !exists(sources) else {
             return
         }
         print("Creating Sources/")
-        try Utility.makeDirectories(sources.asString)
+        try mkdir(sources, recursive: true)
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
@@ -141,7 +139,7 @@ final class InitPackage {
             return
         }
         let modulemap = rootd.appending("module.modulemap")
-        guard modulemap.asString.exists == false else {
+        guard try !exists(modulemap) else {
             return
         }
         
@@ -159,11 +157,11 @@ final class InitPackage {
             return
         }
         let tests = rootd.appending("Tests")
-        guard tests.asString.exists == false else {
+        guard try !exists(tests) else {
             return
         }
         print("Creating Tests/")
-        try Utility.makeDirectories(tests.asString)
+        try mkdir(tests, recursive: true)
 
         // Only libraries are testable for now.
         if mode == .library {
@@ -185,7 +183,7 @@ final class InitPackage {
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = testsPath.appending(RelativePath(pkgname))
         print("Creating Tests/\(pkgname)/")
-        try Utility.makeDirectories(testModule.asString)
+        try mkdir(testModule)
         
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
             stream <<< "import XCTest\n"

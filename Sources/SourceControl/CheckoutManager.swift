@@ -194,7 +194,7 @@ public class CheckoutManager {
     /// available.
     private func restoreState() throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
-        if !exists(statePath) {
+        if try !exists(statePath) {
             return false
         }
         

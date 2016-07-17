@@ -30,7 +30,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
     let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
     let prefix = prefix.appending(component: conf.dirname)
-    try Utility.makeDirectories(prefix.asString)
+    try mkdir(prefix, recursive: true)
     let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC

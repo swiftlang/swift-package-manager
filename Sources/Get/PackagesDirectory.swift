@@ -142,7 +142,7 @@ extension PackagesDirectory: Fetcher {
         switch fetchable {
         case let clone as RawClone:
             let prefix = self.packagesPath.appending(component: clone.finalName)
-            try Utility.makeDirectories(packagesPath.parentDirectory.asString)
+            try mkdir(packagesPath.parentDirectory, recursive: true)
             try rename(old: clone.path.asString, new: prefix.asString)
             //TODO don't reparse the manifest!
             let repo = Git.Repo(path: prefix)!

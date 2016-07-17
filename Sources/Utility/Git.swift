@@ -19,7 +19,7 @@ public class Git {
         public let path: AbsolutePath
 
         public init?(path: AbsolutePath) {
-            guard let realroot = try? AbsolutePath(realpath(path.asString)) else { return nil }
+            guard let realroot = try? realpath(path) else { return nil }
             self.path = realroot
             guard path.appending(".git").asString.isDirectory else { return nil }
         }
