@@ -49,7 +49,15 @@ public func exists(_ path: AbsolutePath) -> Bool {
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
-    return AbsolutePath((path.asString as NSString).resolvingSymlinksInPath)
+    let pathStr = path.asString
+  #if os(Linux)
+    let resolvedPathStr = pathStr.resolvingSymlinksInPath()
+  #else
+    // FIXME: It's unfortunate to have to case to NSString here but apparently the String method is deprecated.
+    let resolvedPathStr = (pathStr as NSString).resolvingSymlinksInPath
+  #endif
+    // FIXME: We should measure if it's really more efficient to compare the strings first.
+    return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
 }
 
 public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {
