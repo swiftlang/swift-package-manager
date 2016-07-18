@@ -821,7 +821,7 @@ def main():
         cmd.extend(["-Xswiftc", "-I{}".format(os.path.join(args.libdispatch_build_dir,
                                              "src"))])
         cmd.extend(["-Xswiftc", "-I{}".format(args.libdispatch_source_dir)])
-        cmd.extend(["-Xcc", "-fblocks"])
+        cmd.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-fblocks"])
 
     if args.release:
         cmd.extend(["--configuration", "release"])
