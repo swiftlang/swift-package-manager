@@ -126,7 +126,7 @@ public final class ManifestLoader {
         guard let toml = try localFileSystem.readFileContents(filePath).asString else {
             throw ManifestParseError.invalidEncoding
         }
-        try Utility.removeFileTree(filePath.asString) // Delete the temp file after reading it
+        try removeFileTree(filePath)  // Delete the temp file after reading it
     
         return toml != "" ? toml : nil
     }
