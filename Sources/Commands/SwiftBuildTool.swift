@@ -150,14 +150,14 @@ public struct SwiftBuildTool: SwiftTool {
         
             case .clean(.dist):
                 if opts.path.packages.asString.exists {
-                    try Utility.removeFileTree(opts.path.packages.asString)
+                    try removeFileTree(opts.path.packages)
                 }
                 fallthrough
         
             case .clean(.build):
                 // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
                 if opts.path.build.asString.exists {
-                    try Utility.removeFileTree(opts.path.build.asString)
+                    try removeFileTree(opts.path.build)
                 }
             }
         

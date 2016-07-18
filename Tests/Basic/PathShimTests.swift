@@ -58,8 +58,38 @@ class PathShimTests : XCTestCase {
         try! makeDirectories(dirPath)
     }
     
+    func testRecursiveDirectoryRemoval() {
+        // For the tests we'll need a temporary directory.
+        let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+        
+        // Create a couple of directories.  The first one shouldn't end up getting removed, the second one will.
+        let keepDirPath = tmpDir.path.appending(components: "abc1")
+        try! makeDirectories(keepDirPath)
+        let tossDirPath = tmpDir.path.appending(components: "abc2", "def", "ghi", "mno", "pqr")
+        try! makeDirectories(tossDirPath)
+        
+        // Create a symbolic link in a directory to be removed; it points to a directory to not remove.
+        let slnkPath = tossDirPath.appending(components: "slnk")
+        try! symlink(create: slnkPath.asString, pointingAt: keepDirPath.asString, relativeTo: tossDirPath.asString)
+        
+        // Make sure the symbolic link got set up correctly.
+        XCTAssertTrue(slnkPath.asString.isSymlink)
+        XCTAssertEqual(resolveSymlinks(slnkPath), keepDirPath)
+        XCTAssertTrue(resolveSymlinks(slnkPath).asString.isDirectory)
+        
+        // Now remove the directory hierarchy that contains the symlink.
+        try! removeFileTree(tossDirPath)
+        
+        // Make sure it got removed, along with the symlink, but that the target of the symlink remains.
+        XCTAssertFalse(tossDirPath.asString.exists)
+        XCTAssertFalse(tossDirPath.asString.isDirectory)
+        XCTAssertTrue(keepDirPath.asString.exists)
+        XCTAssertTrue(keepDirPath.asString.isDirectory)
+    }
+    
     static var allTests = [
-        ("testResolvingSymlinks",  testResolvingSymlinks),
-        ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation)
+        ("testResolvingSymlinks",            testResolvingSymlinks),
+        ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation),
+        ("testRecursiveDirectoryRemoval",    testRecursiveDirectoryRemoval)
     ]
 }
