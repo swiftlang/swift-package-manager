@@ -10,6 +10,7 @@
 
 import libc
 import POSIX
+import Foundation
 
 
 /// This file contains temporary shim functions for use during the adoption of
@@ -46,8 +47,19 @@ public func exists(_ path: AbsolutePath) -> Bool {
     return access(path.asString, F_OK) == 0
 }
 
-public func realpath(_ path: AbsolutePath) throws -> AbsolutePath {
-    return try AbsolutePath(realpath(path.asString))
+/// Returns the "real path" corresponding to `path` by resolving any symbolic links.
+public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
+    let pathStr = path.asString
+  #if os(Linux)
+    // FIXME: This is really unfortunate but seems to be the only way to invoke this functionality on Linux.
+    let url = URL(fileURLWithPath: pathStr)
+    guard let resolvedPathStr = (try? url.resolvingSymlinksInPath())?.path else { return path }
+  #else
+    // FIXME: It's unfortunate to have to cast to NSString here but apparently the String method is deprecated.
+    let resolvedPathStr = (pathStr as NSString).resolvingSymlinksInPath
+  #endif
+    // FIXME: We should measure if it's really more efficient to compare the strings first.
+    return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
 }
 
 public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {

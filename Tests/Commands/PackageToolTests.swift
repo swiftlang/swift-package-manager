@@ -78,7 +78,7 @@ final class PackageToolTests: XCTestCase {
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(path, try realpath(packageRoot).asString)
+            XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
         }
     }
     

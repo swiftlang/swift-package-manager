@@ -121,15 +121,15 @@ class WalkTests: XCTestCase {
 
     func testSymlinksNotWalked() {
         mktmpdir { root in
-            let root = try realpath(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
+            let root = resolveSymlinks(root)  // FIXME: it would be better to not need this, but we end up relying on /tmp -> /private/tmp.
             
             try Utility.makeDirectories(root.appending("foo").asString)
             try Utility.makeDirectories(root.appending("bar/baz/goo").asString)
             try symlink(create: root.appending("foo/symlink").asString, pointingAt: root.appending("bar").asString, relativeTo: root.asString)
 
             XCTAssertTrue(root.appending("foo/symlink").asString.isSymlink)
-            XCTAssertEqual(try! realpath(root.appending("foo/symlink").asString), root.appending("bar").asString)
-            XCTAssertTrue(try! realpath(root.appending("foo/symlink/baz").asString).isDirectory)
+            XCTAssertEqual(resolveSymlinks(root.appending("foo/symlink")), root.appending("bar"))
+            XCTAssertTrue(resolveSymlinks(root.appending("foo/symlink/baz")).asString.isDirectory)
 
             let results = walk(root.appending("foo")).map{ $0 }
 
