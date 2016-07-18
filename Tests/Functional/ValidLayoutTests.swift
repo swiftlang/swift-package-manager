@@ -127,7 +127,7 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending(component: "Sources")
-            try Utility.makeDirectories(dir.asString)
+            try makeDirectories(dir)
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)
             }
@@ -138,7 +138,7 @@ extension ValidLayoutsTestCase {
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0.basename != "Package.swift" }
             let dir = prefix.appending("Floobles")
-            try Utility.makeDirectories(dir.asString)
+            try makeDirectories(dir)
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)
             }

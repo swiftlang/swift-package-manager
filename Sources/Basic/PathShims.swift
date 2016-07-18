@@ -62,14 +62,13 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
 }
 
-public func mkdir(_ path: AbsolutePath, permissions mode: mode_t = S_IRWXU|S_IRWXG|S_IRWXO, recursive: Bool = true) throws {
-    var rv = libc.mkdir(path.asString, mode)
-    if rv < 0 && errno == ENOENT && recursive {
-        assert(!path.isRoot)
-        try mkdir(path.parentDirectory, permissions: mode, recursive: true)
-        rv = libc.mkdir(path.asString, mode)
-    }
-    guard (rv == 0 || errno == EEXIST) else { throw SystemError.mkdir(errno, path.asString) }
+/// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
+public func makeDirectories(_ path: AbsolutePath) throws {
+  #if os(Linux)
+    try FileManager.default().createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
+  #else
+    try FileManager.default.createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
+  #endif
 }
 
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
