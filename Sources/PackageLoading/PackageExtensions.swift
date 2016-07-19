@@ -203,17 +203,29 @@ extension Package {
             }
         }
 
-        func moduleForName(_ name: String) -> Module? {
-            return modules.pick{ $0.name == name }
+        // Create a map of modules indexed by name.
+        var modulesByName = [String: Module]()
+        for module in modules {
+            modulesByName[module.name] = module
         }
 
-        for module in modules {
-            guard let target = targetForName(module.name) else { continue }
+        // Collect the declared module dependencies from the manifest.
+        //
+        // The remaining modules are left with their (empty) dependencies.
+        var missingModuleNames = [String]()
+        for target in manifest.package.targets {
+            // Find the matching module.
+            guard let module = modulesByName[target.name] else {
+                // The manifest referenced an undefined module.
+                missingModuleNames.append(target.name)
+                continue
+            }
 
+            // Collect the dependencies.
             module.dependencies = try target.dependencies.map {
                 switch $0 {
                 case .Target(let name):
-                    guard let dependency = moduleForName(name) else {
+                    guard let dependency = modulesByName[name] else {
                         throw ModuleError.modulesNotFound([name])
                     }
                     if dependency.type != .library {
@@ -224,13 +236,9 @@ extension Package {
             }
         }
 
-        /// Check for targets that are not mapped to any modules.
-        let targetNames = Set(manifest.package.targets.map{ $0.name })
-        let moduleNames = Set(modules.map{ $0.name })
-        let diff = targetNames.subtracting(moduleNames)
-            
-        guard diff.isEmpty else {
-            throw ModuleError.modulesNotFound(Array(diff))
+        // Check for targets that are not mapped to any modules.
+        guard missingModuleNames.isEmpty else {
+            throw ModuleError.modulesNotFound(missingModuleNames)
         }
 
         return modules
@@ -262,10 +270,6 @@ extension Package {
         if !path.asString.isFile { return false }
         guard let ext = path.asString.fileExt else { return false }
         return validExtensions.contains(ext)
-    }
-
-    private func targetForName(_ name: String) -> Target? {
-        return manifest.package.targets.pick{ $0.name == name }
     }
 }
 
