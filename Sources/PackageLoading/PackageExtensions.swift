@@ -15,7 +15,6 @@ import Utility
 import class PackageDescription.Target
 
 public enum ModuleError: Swift.Error {
-    case noModules(Package)
     case modulesNotFound([String])
     case invalidLayout(InvalidLayoutType)
     case executableAsDependency(module: String, dependency: String)
@@ -29,8 +28,6 @@ public enum InvalidLayoutType {
 extension ModuleError: FixableError {
     public var error: String {
         switch self {
-        case .noModules(let package):
-            return "the package \(package) contains no modules"
         case .modulesNotFound(let modules):
             return "these referenced modules could not be found: " + modules.joined(separator: ", ")
         case .invalidLayout(let type):
@@ -42,8 +39,6 @@ extension ModuleError: FixableError {
 
     public var fix: String? {
         switch self {
-        case .noModules(_):
-            return "create at least one module"
         case .modulesNotFound(_):
             return "reference only valid modules"
         case .invalidLayout(let type):
@@ -186,10 +181,12 @@ extension Package {
 
         let modules: [Module]
         if maybeModules.isEmpty {
+            // If there are no sources subdirectories, we have at most a one target package.
             do {
                 modules = [try modulify(srcroot, name: self.name, isTest: false)]
             } catch Module.Error.noSources {
-                throw ModuleError.noModules(self)
+                // Completely empty packages are allowed as a special case.
+                modules = []
             }
         } else {
             modules = try maybeModules.map { path in

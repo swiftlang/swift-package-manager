@@ -17,7 +17,11 @@ import PackageLoading
 import func POSIX.exit
 
 enum PackageGraphError: Swift.Error {
+    /// Indicates two modules with the same name.
     case duplicateModule(String)
+
+    /// Indicates a non-root package with no modules.
+    case noModules(Package)
 }
 
 extension PackageGraphError: FixableError {
@@ -25,6 +29,8 @@ extension PackageGraphError: FixableError {
         switch self {
         case .duplicateModule(let name):
             return "multiple modules with the name \(name) found"
+        case .noModules(let package):
+            return "the package \(package) contains no modules"
         }
     }
 
@@ -32,6 +38,8 @@ extension PackageGraphError: FixableError {
         switch self {
         case .duplicateModule(_):
             return "modules should have a unique name across dependencies"
+        case .noModules(_):
+            return "create at least one module"
         }
     }
 }
@@ -70,14 +78,21 @@ public struct PackageGraphLoader {
             let isRootPackage = (i + 1) == allManifests.count
             packages.append(package)
 
-            var modules: [Module]
-            do {
-                modules = try package.modules()
-            } catch ModuleError.noModules(let pkg) where isRootPackage {
-                // Ignore and print warning if root package doesn't contain any sources.
-                print("warning: root package '\(pkg)' does not contain any sources")
-                if allManifests.count == 1 { exit(0) } //Exit now if there is no more packages 
-                modules = []
+            let modules: [Module] = try package.modules()
+
+            // Diagnose empty non-root packages, which are something we allow as a special case.
+            if modules.isEmpty {
+                if isRootPackage {
+                    // Ignore and print warning if root package doesn't contain any sources.
+                    print("warning: root package '\(package)' does not contain any sources")
+                    
+                    // Exit now if there are no more packages.
+                    //
+                    // FIXME: This does not belong here.
+                    if allManifests.count == 1 { exit(0) }
+                } else {
+                    throw PackageGraphError.noModules(package)
+                }
             }
     
             // TODO: Allow testing of external package tests.
