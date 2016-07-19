@@ -182,7 +182,7 @@ extension SwiftPMProduct {
 }
 
 @discardableResult
-func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xld: [String] = [], env: [String: String] = [:]) throws -> String {
+func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) throws -> String {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -190,7 +190,9 @@ func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .De
     case .Release:
         args.append("release")
     }
+    args += Xcc.flatMap{ ["-Xcc", $0] }
     args += Xld.flatMap{ ["-Xlinker", $0] }
+    args += Xswiftc.flatMap{ ["-Xswiftc", $0] }
 
     let swiftBuild = SwiftPMProduct.SwiftBuild
     var env = env
@@ -211,11 +213,11 @@ func mktmpdir(function: StaticString = #function, file: StaticString = #file, li
     }
 }
 
-func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xld: [String] = [], env: [String: String] = [:]) {
+func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
     for conf in configurations {
         do {
             print("    Building \(conf)")
-            _ = try executeSwiftBuild(path, configuration: conf, printIfError: true, Xld: Xld, env: env)
+            _ = try executeSwiftBuild(path, configuration: conf, printIfError: true, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc, env: env)
         } catch {
             XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
         }
@@ -230,9 +232,9 @@ func XCTAssertSwiftTest(_ path: AbsolutePath, file: StaticString = #file, line: 
     }
 }
 
-func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
     do {
-        _ = try executeSwiftBuild(path)
+        _ = try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
 
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
 
