@@ -260,7 +260,26 @@ class FileSystemTests: XCTestCase {
         try rerootedFileSystem.createDirectory("/subdir2")
         XCTAssert(baseFileSystem.isDirectory("/base/rootIsHere/subdir2"))
     }
-    
+
+    func testLocalFileOutputByteStream() throws {
+        let fs = Basic.localFileSystem
+        let tempFile = try TemporaryFile()
+        let path = tempFile.path
+        let stream = try fs.openFileOutputStream(path)
+        stream <<< "Hello, World!"
+        stream.flush()
+        XCTAssertEqual(try fs.readFileContents(path), "Hello, World!")
+    }
+
+    func testInMemoryFileOutputByteStream() throws {
+        let fs = InMemoryFileSystem()
+        let path = AbsolutePath("/file")
+        let stream = try fs.openFileOutputStream(path)
+        stream <<< "Hello, World!"
+        stream.flush()
+        XCTAssertEqual(try fs.readFileContents(path), "Hello, World!")
+    }
+
     static var allTests = [
         ("testLocalBasics", testLocalBasics),
         ("testLocalCreateDirectory", testLocalCreateDirectory),
@@ -269,5 +288,7 @@ class FileSystemTests: XCTestCase {
         ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
         ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
         ("testRootedFileSystem", testRootedFileSystem),
+        ("testLocalFileOutputByteStream", testLocalFileOutputByteStream),
+        ("testInMemoryFileOutputByteStream", testInMemoryFileOutputByteStream),
     ]
 }

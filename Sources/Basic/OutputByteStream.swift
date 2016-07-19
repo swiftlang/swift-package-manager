@@ -44,7 +44,7 @@ public protocol ByteStreamable {
 /// space.
 public class OutputByteStream: OutputStream {
     /// The data buffer.
-    private var buffer: [UInt8]
+    var buffer: [UInt8]
     
     public init() {
         self.buffer = []

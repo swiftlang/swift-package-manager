@@ -118,6 +118,9 @@ public protocol FileSystem {
     //
     // FIXME: This is obviously not a very efficient or flexible API.
     mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
+
+    /// Opens an output file stream at given path for writing.
+    func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -260,6 +263,10 @@ private class LocalFileSystem: FileSystem {
             }
             break
         }
+    }
+
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try LocalFileOutputByteStream(path)
     }
 }
 
@@ -439,6 +446,10 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
+
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try InMemoryFileOutputByteStream(fileSystem: self, path: path)
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -500,7 +511,47 @@ public struct RerootedFileSystemView: FileSystem {
     public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         return try underlyingFileSystem.writeFileContents(formUnderlyingPath(path), bytes: bytes)
     }
+
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try underlyingFileSystem.openFileOutputStream(path)
+    }
 }
 
 /// Public access to the local FS proxy.
 public var localFileSystem: FileSystem = LocalFileSystem()
+
+/// Implements file output stream for InMemory file system.
+private final class InMemoryFileOutputByteStream: FileOutputByteStream {
+
+    /// Reference to the file system.
+    private let fileSystem: InMemoryFileSystem
+
+    /// Path of the file.
+    private let path: AbsolutePath
+
+    private var error: Swift.Error?
+
+    // FIXME: Need to check and throw error if file can't be written at provided path.
+    /// Creates a stream for the provided path in a in memory file system.
+    init(fileSystem: InMemoryFileSystem, path: AbsolutePath) throws {
+        self.fileSystem = fileSystem
+        self.path = path
+        super.init()
+    }
+
+    override func flush() {
+        do {
+            // FIXME: Flushing entire contents everytime is expensive. Optimize.
+            try fileSystem.writeFileContents(path, bytes: ByteString(self.buffer))
+        } catch {
+            self.error = error
+        }
+    }
+
+    override func close() throws {
+        flush()
+        if let error = error {
+            throw error
+        }
+    }
+}
