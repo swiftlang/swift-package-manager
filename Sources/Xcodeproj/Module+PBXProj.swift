@@ -280,6 +280,11 @@ extension XcodeModuleProtocol  {
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString
         }
 
+        // Set the Swift version to 3 (we will want to make this dynamic in the
+        // future), but for now this is necessary since Xcode 8 Preview 3 and
+        // later require it to determine whether to build as Swift 2.3 or 3.0.
+        buildSettings["SWIFT_VERSION"] = "3.0"
+        
         return buildSettings
     }
 }

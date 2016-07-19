@@ -248,7 +248,7 @@ private struct Lexer {
         // Whitespace.
         case let c where c.isSpace():
             // Scan to the end of the whitespace
-            while let c = look() where c.isSpace() {
+            while let c = look(), c.isSpace() {
                 let _ = eat()
             }
             return .whitespace
@@ -276,7 +276,7 @@ private struct Lexer {
         // numbers are valid identifiers but should be reconfigured as such.
         case let c where c.isNumberInitialChar():
             // Scan to the end of the number.
-            while let c = look() where c.isNumberChar() {
+            while let c = look(), c.isNumberChar() {
                 let _ = eat()
             }
             return .number(value: String(utf8[startIndex..<index]))
@@ -284,7 +284,7 @@ private struct Lexer {
         // Identifiers.
         case let c where c.isIdentifierChar():
             // Scan to the end of the identifier.
-            while let c = look() where c.isIdentifierChar() {
+            while let c = look(), c.isIdentifierChar() {
                 let _ = eat()
             }
 
