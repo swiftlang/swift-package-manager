@@ -58,6 +58,7 @@ public class OutputByteStream: OutputStream {
     }
 
     /// The current contents of the output stream.
+    // FIXME: Remove this once all dependencies are migrated to InMemoryOutputByteStream.
     public var bytes: ByteString {
         return ByteString(self.buffer)
     }
@@ -402,6 +403,15 @@ public struct Format {
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between items.
     static public func asSeparatedList<T>(_ items: [T], transform: (T) -> ByteStreamable, separator: String) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
+    }
+}
+
+/// Represents a stream which operates in memory.
+public final class InMemoryOutputByteStream: OutputByteStream {
+
+    /// The contents of the output stream.
+    override public var bytes: ByteString {
+        return ByteString(self.buffer)
     }
 }
 

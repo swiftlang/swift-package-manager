@@ -112,6 +112,12 @@ class OutputByteStreamTests: XCTestCase {
         }
     }
 
+    func testInMemoryOutputByteStream() {
+        let stream = InMemoryOutputByteStream()
+        stream.write("Hello")
+        XCTAssertEqual(stream.bytes, "Hello")
+    }
+
     func testLocalFileStream() throws {
         let tempFile = try TemporaryFile()
 
@@ -135,6 +141,7 @@ class OutputByteStreamTests: XCTestCase {
         ("testStreamOperator", testStreamOperator),
         ("testJSONEncoding", testJSONEncoding),
         ("testFormattedOutput", testFormattedOutput),
+        ("testInMemoryOutputByteStream", testInMemoryOutputByteStream),
         ("testLocalFileStream", testLocalFileStream),
     ]
 }
