@@ -57,12 +57,6 @@ public class OutputByteStream: OutputStream {
         return buffer.count
     }
 
-    /// The current contents of the output stream.
-    // FIXME: Remove this once all dependencies are migrated to InMemoryOutputByteStream.
-    public var bytes: ByteString {
-        return ByteString(self.buffer)
-    }
-    
     // MARK: Data Output API
 
     public func flush() {
@@ -410,7 +404,7 @@ public struct Format {
 public final class InMemoryOutputByteStream: OutputByteStream {
 
     /// The contents of the output stream.
-    override public var bytes: ByteString {
+    public var bytes: ByteString {
         return ByteString(self.buffer)
     }
 }

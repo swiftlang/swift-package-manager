@@ -222,7 +222,7 @@ private class LocalFileSystem: FileSystem {
         defer { fclose(fp) }
 
         // Read the data one block at a time.
-        let data = OutputByteStream()
+        let data = InMemoryOutputByteStream()
         var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
         while true {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
@@ -243,26 +243,9 @@ private class LocalFileSystem: FileSystem {
     }
     
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        // Open the file.
-        let fp = fopen(path.asString, "wb")
-        if fp == nil {
-            throw FileSystemError(errno: errno)
-        }
-        defer { fclose(fp) }
-
-        // Write the data in one chunk.
-        var contents = bytes.contents
-        while true {
-            let n = fwrite(&contents, 1, contents.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError.ioError
-            }
-            if n != contents.count {
-                throw FileSystemError.ioError
-            }
-            break
-        }
+        let stream = try openFileOutputStream(path)
+        stream <<< bytes
+        try stream.close()
     }
 
     public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {

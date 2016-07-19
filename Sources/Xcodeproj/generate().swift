@@ -123,7 +123,7 @@ import class Foundation.NSData
 /// Writes the contents to the file specified.
 /// Doesn't re-writes the file in case the new and old contents of file are same.
 func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
-    let stream = OutputByteStream()
+    let stream = InMemoryOutputByteStream()
     try body { line in
         stream <<< line
         stream <<< "\n"

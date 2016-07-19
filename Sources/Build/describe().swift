@@ -102,9 +102,9 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
 }
 
 private func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws -> AbsolutePath {
-    let stream = OutputByteStream()
+    let stream = try localFileSystem.openFileOutputStream(path)
     write(stream)
-    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+    try stream.close()
     return path
 }
 
