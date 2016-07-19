@@ -45,9 +45,9 @@ class FileSystemTests: XCTestCase {
             _ = try fs.getDirectoryContents("/does-not-exist")
         }
         let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
-        XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
-        XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
-        XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == #file.basename }))
+        XCTAssertTrue(!thisDirectoryContents.contains({ $0 == "." }))
+        XCTAssertTrue(!thisDirectoryContents.contains({ $0 == ".." }))
+        XCTAssertTrue(thisDirectoryContents.contains({ $0 == #file.basename }))
     }
 
     func testLocalCreateDirectory() throws {
