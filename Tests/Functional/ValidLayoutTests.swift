@@ -101,6 +101,15 @@ class ValidLayoutsTestCase: XCTestCase {
         }
     }
 
+    func testExtraCommandLineFlags() {
+        fixture(name: "ValidLayouts/ExtraCommandLineFlags") { prefix in
+            // This project is expected to require Xcc and Xswiftc overrides.
+            XCTAssertBuildFails(prefix)
+            XCTAssertBuildFails(prefix, Xcc: ["-DEXTRA_C_DEFINE=2"])
+            XCTAssertBuilds(prefix, Xcc: ["-DEXTRA_C_DEFINE=2"], Xswiftc: ["-DEXTRA_SWIFTC_DEFINE"])
+        }
+    }
+
     static var allTests = [
         ("testSingleModuleLibrary", testSingleModuleLibrary),
         ("testSingleModuleExecutable", testSingleModuleExecutable),

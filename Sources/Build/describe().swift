@@ -27,11 +27,10 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         throw Error.onlyCModule(name: module.name)
     }
 
-    let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
     let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
     let prefix = prefix.appending(component: conf.dirname)
     try makeDirectories(prefix)
-    let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
+    let swiftcArgs = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] } + flags.swiftCompilerFlags + verbosity.ccArgs
 
     let SWIFT_EXEC = toolchain.SWIFT_EXEC
     let CC = getenv("CC") ?? "clang"
@@ -52,7 +51,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
             if module.isTest { continue }
           #endif
             // FIXME: Find a way to eliminate `externalModules` from here.
-            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: flags.cCompilerFlags + toolchain.platformArgsClang)
             commands += compile
             targets.append(compile, for: module)
 
