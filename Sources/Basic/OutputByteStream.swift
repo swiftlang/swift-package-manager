@@ -65,7 +65,7 @@ public class OutputByteStream: OutputStream {
 
     /// Write an individual byte to the buffer.
     public func write(_ byte: UInt8) {
-        buffer.append(byte)
+        write([byte])
     }
     
     /// Write a sequence of bytes to the buffer.
@@ -75,12 +75,12 @@ public class OutputByteStream: OutputStream {
     
     /// Write a sequence of bytes to the buffer.
     public func write(_ bytes: ArraySlice<UInt8>) {
-        buffer += bytes
+        write(Array(bytes))
     }
     
     /// Write a sequence of bytes to the buffer.
     public func write<S: Sequence where S.Iterator.Element == UInt8>(_ sequence: S) {
-        buffer += sequence
+        write(Array(sequence))
     }
 
     /// Write a string to the buffer (as UTF8).
@@ -88,16 +88,18 @@ public class OutputByteStream: OutputStream {
         // Fast path for contiguous strings. For some reason Swift itself
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
+        let utf8 = [UInt8]()
         if stringPtrStart != nil {
-            buffer += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
+            utf8 += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
         } else {
-            buffer += string.utf8
+            utf8 += string.utf8
         }
+        write(utf8)
     }
 
     /// Write a character to the buffer (as UTF8).
     public func write(_ character: Character) {
-        buffer += String(character).utf8
+        write([String(character).utf8])
     }
 
     /// Write an arbitrary byte streamable to the buffer.
@@ -119,6 +121,7 @@ public class OutputByteStream: OutputStream {
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
     public func writeJSONEscaped(_ string: String) {
+        var utf8 = [UInt8]()
         // See RFC7159 for reference.
         for character in string.utf8 {
             switch character {
@@ -126,41 +129,42 @@ public class OutputByteStream: OutputStream {
                 //
                 // FIXME: Workaround: <rdar://problem/22546289> Unexpected crash with range to max value for type
             case 0x20...0x21, 0x23...0x5B, 0x5D...0xFE, 0xFF:
-                buffer.append(character)
+                utf8.append(character)
             
                 // Single-character escaped characters.
             case 0x22: // '"'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x22) // '"'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x22) // '"'
             case 0x5C: // '\\'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x5C) // '\'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x5C) // '\'
             case 0x08: // '\b'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x62) // 'b'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x62) // 'b'
             case 0x0C: // '\f'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x66) // 'b'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x66) // 'b'
             case 0x0A: // '\n'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x6E) // 'n'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x6E) // 'n'
             case 0x0D: // '\r'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x72) // 'r'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x72) // 'r'
             case 0x09: // '\t'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x74) // 't'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x74) // 't'
 
                 // Multi-character escaped characters.
             default:
-                buffer.append(0x5C) // '\'
-                buffer.append(0x75) // 'u'
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(character >> 4))
-                buffer.append(hexdigit(character & 0xF))
+                utf8.append(0x5C) // '\'
+                utf8.append(0x75) // 'u'
+                utf8.append(hexdigit(0))
+                utf8.append(hexdigit(0))
+                utf8.append(hexdigit(character >> 4))
+                utf8.append(hexdigit(character & 0xF))
             }
         }
+        write(utf8)
     }
 }
     
