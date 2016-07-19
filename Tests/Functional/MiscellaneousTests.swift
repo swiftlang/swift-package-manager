@@ -48,6 +48,13 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testPackageWithEmptyDependency() throws {
+        // Tests a package with an empty dependency fails (we only allow it in the root package).
+        fixture(name: "Miscellaneous/ExactDependencies") { prefix in
+            XCTAssertBuildFails(prefix.appending("HasEmptyDependency"))
+        }
+    }
+
     func testManifestExcludes1() {
 
         // Tests exclude syntax where no target customization is specified
@@ -382,6 +389,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
         ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),
+        ("testPackageWithEmptyDependency", testPackageWithEmptyDependency),
         ("testManifestExcludes1", testManifestExcludes1),
         ("testManifestExcludes2", testManifestExcludes2),
         ("testManifestExcludes3", testManifestExcludes3),
