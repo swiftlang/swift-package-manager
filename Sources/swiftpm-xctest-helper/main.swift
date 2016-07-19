@@ -22,11 +22,11 @@ import func Darwin.C.exit
 /// loading the bundle and then iterating the default Test Suite.
 func run() throws {
 
-    guard Process.arguments.count == 3 else {
+    guard CommandLine.arguments.count == 3 else {
         throw Error.invalidUsage
     }
-    let bundlePath = Process.arguments[1].normalizedPath()
-    let outputFile = Process.arguments[2].normalizedPath()
+    let bundlePath = CommandLine.arguments[1].normalizedPath()
+    let outputFile = CommandLine.arguments[2].normalizedPath()
 
     // Note that the bundle might write to stdout while it is being loaded, but we don't try to handle that here.
     // Instead the client should decide what to do with any extra output from this tool.

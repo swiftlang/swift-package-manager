@@ -276,7 +276,7 @@ public struct SwiftTestTool: SwiftTool {
     /// - Returns: Path to XCTestHelper tool.
     private func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(Process.arguments.first!.abspath).parentDirectory
+        let binDirectory = AbsolutePath(CommandLine.arguments.first!.abspath).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.appending("../libexec/swift/pm/").appending(RelativePath(xctestHelperBin))
         if maybePath.asString.isFile {

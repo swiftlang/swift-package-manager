@@ -70,7 +70,7 @@ extension Error: FixableError {
     case is OptionParserError:
         print(error: error)
         if isTTY(.stdErr) {
-            let argv0 = Process.arguments.first ?? "swift package"
+            let argv0 = CommandLine.arguments.first ?? "swift package"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
     case let error as FixableError:
@@ -89,7 +89,7 @@ private func print(error: Any) {
     if ColorWrap.isAllowed(for: .stdErr) {
         print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
     } else {
-        let cmd = Process.arguments.first?.basename ?? "SwiftPM"
+        let cmd = CommandLine.arguments.first?.basename ?? "SwiftPM"
         print("\(cmd): error:", error, to: &stderr)
     }
 }

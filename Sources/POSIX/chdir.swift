@@ -16,7 +16,7 @@ import var libc.errno
 */
 public func chdir(_ path: String) throws {
     if memo == nil {
-        let argv0 = try realpath(Process.arguments.first!)
+        let argv0 = try realpath(CommandLine.arguments.first!)
         let cwd = try realpath(getcwd())
         memo = (argv0: argv0, wd: cwd)
     }
@@ -37,5 +37,5 @@ public func getiwd() -> String {
 }
 
 public var argv0: String {
-    return memo?.argv0 ?? Process.arguments.first!
+    return memo?.argv0 ?? CommandLine.arguments.first!
 }
