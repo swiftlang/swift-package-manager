@@ -25,7 +25,7 @@ private let sharedPackageGraphLoader = PackageGraphLoader(manifestLoader: Manife
 
 public extension SwiftTool {
     init() {
-        self.init(args: Array(Process.arguments.dropFirst()))
+        self.init(args: Array(CommandLine.arguments.dropFirst()))
     }
 
     /// The shared package graph loader.
