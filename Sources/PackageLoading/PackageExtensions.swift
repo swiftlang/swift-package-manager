@@ -325,7 +325,7 @@ extension Package {
     ////// add products from the manifest
 
         for p in manifest.products {
-            let modules: [Module] = try p.modules.flatMap{ moduleName in
+            let modules: [Module] = try p.modules.map{ moduleName in
                 guard let picked = (modules.pick{ $0.name == moduleName }) else {
                     throw Product.Error.moduleNotFound(product: p.name, module: moduleName)
                 }
