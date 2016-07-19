@@ -31,21 +31,19 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testPackageWithNoSources() {
-
-        // Tests a package with no source files
-
+    func testPackageWithNoSources() throws {
+        // Tests that a package with no source files doesn't error.
         fixture(name: "Miscellaneous/Empty") { prefix in
-            XCTAssertBuilds(prefix)
+            let output = try executeSwiftBuild(prefix, configuration: .Debug)
+            XCTAssert(output.contains("warning: root package 'Empty' does not contain any sources"), "unexpected output: \(output)")
         }
     }
 
-    func testPackageWithNoSourcesButDependency() {
-
-        // Tests a package with no source files but dependency, dependency should build.
-
+    func testPackageWithNoSourcesButDependency() throws {
+        // Tests a package with no source files but a dependency builds.
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
-            XCTAssertBuilds(prefix.appending("EmptyWithDependency"))
+            let output = try executeSwiftBuild(prefix.appending("EmptyWithDependency"))
+            XCTAssert(output.contains("warning: root package 'EmptyWithDependency' does not contain any sources"), "unexpected output: \(output)")
             XCTAssertFileExists(prefix.appending("EmptyWithDependency/.build/debug/FooLib2.swiftmodule"))
         }
     }
