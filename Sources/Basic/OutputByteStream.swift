@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import libc
+
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
 private func hexdigit(_ value: UInt8) -> UInt8 {
     return value < 10 ? (0x30 + value) : (0x41 + value - 10)
@@ -55,11 +57,8 @@ public class OutputByteStream: OutputStream {
         return buffer.count
     }
 
-    /// The contents of the output stream.
-    ///
-    /// This method implicitly flushes the stream.
+    /// The current contents of the output stream.
     public var bytes: ByteString {
-        flush()
         return ByteString(self.buffer)
     }
     
@@ -405,3 +404,74 @@ public struct Format {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
     }
 }
+
+/// Represents a stream which is backed to a file. Not for instantiating.
+public class FileOutputByteStream: OutputByteStream {
+
+    /// Closes the file flushing any buffered data.
+    public func close() throws {
+        fatalError("close() should be implemented by a subclass")
+    }
+}
+
+/// Implements file output stream for local file system.
+public final class LocalFileOutputByteStream: FileOutputByteStream {
+
+    /// The pointer to the file.
+    let fp: UnsafeMutablePointer<FILE>
+
+    /// True if there were any IO error during writing.
+    private var error: Bool = false
+
+    /// Instantiate using the file pointer.
+    init(fp: UnsafeMutablePointer<FILE>) throws {
+        self.fp = fp
+        super.init()
+    }
+
+    /// Opens the file for writing at the provided path.
+    public init(_ path: AbsolutePath) throws {
+        guard let fp = fopen(path.asString, "wb") else {
+            throw FileSystemError(errno: errno)
+        }
+        self.fp = fp
+        super.init()
+    }
+
+    func errorDetected() {
+        error = true
+    }
+
+    override public func flush() {
+        var contents = buffer
+        while true {
+            let n = fwrite(&contents, 1, contents.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                errorDetected()
+            } else if n != contents.count {
+                errorDetected()
+            }
+            break
+        }
+        // Flush to file too.
+        fflush(fp)
+        // Empty the buffer because we have already written to file.
+        buffer = []
+    }
+
+    override public func close() throws {
+        defer { fclose(fp) }
+        flush()
+        // Throw if errors were found during writing.
+        if error {
+            throw FileSystemError.ioError
+        }
+    }
+}
+
+/// Public stdout stream instance.
+public var stdoutStream: FileOutputByteStream = try! LocalFileOutputByteStream(fp: libc.stdout)
+
+/// Public stderr stream instance.
+public var stderrStream: FileOutputByteStream = try! LocalFileOutputByteStream(fp: libc.stderr)
