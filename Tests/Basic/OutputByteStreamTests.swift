@@ -24,10 +24,9 @@ class OutputByteStreamTests: XCTestCase {
         
         let streamable: Streamable = Character("!")
         stream.write(streamable)
-
-        stream.flush()
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
+        stream.flush()
         XCTAssertEqual(stream.bytes, "Hello, world!")
     }
     

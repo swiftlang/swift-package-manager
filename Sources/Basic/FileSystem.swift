@@ -522,10 +522,23 @@ private final class InMemoryFileOutputByteStream: FileOutputByteStream {
         super.init()
     }
 
-    override func flush() {
+    override func writeImpl(_ bytes: [UInt8]) {
+        // FIXME: This is currently highly inefficient. This reads the contents of file if present and re-writes.
+        // We need append file contents semantics in InMemoryFileSystem to make this efficient.
+        var contents: [UInt8]
         do {
-            // FIXME: Flushing entire contents everytime is expensive. Optimize.
-            try fileSystem.writeFileContents(path, bytes: ByteString(self.buffer))
+            contents = try fileSystem.readFileContents(path).contents
+        } catch FileSystemError.noEntry {
+            contents = [UInt8]()
+        } catch {
+            self.error = error
+            return
+        }
+
+        contents += bytes
+
+        do {
+            try fileSystem.writeFileContents(path, bytes: ByteString(contents))
         } catch {
             self.error = error
         }

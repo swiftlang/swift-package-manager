@@ -44,10 +44,14 @@ public protocol ByteStreamable {
 /// space.
 public class OutputByteStream: OutputStream {
     /// The data buffer.
-    var buffer: [UInt8]
+    private var buffer: [UInt8]
     
     public init() {
         self.buffer = []
+    }
+
+    var bufferSize: Int {
+        return 1024
     }
 
     // MARK: Data Access API
@@ -60,7 +64,14 @@ public class OutputByteStream: OutputStream {
     // MARK: Data Output API
 
     public func flush() {
-        // Do nothing.
+        writeImpl(buffer)
+        buffer.removeAll(keepingCapacity: true)
+    }
+
+    /// For subclasses to implement. This will be called whenever stream is ready to write
+    /// to the underlying device and buffered will be cleared at that point.
+    func writeImpl(_ bytes: [UInt8]) {
+        fatalError("This should be implemented by subclasses.")
     }
 
     /// Write an individual byte to the buffer.
@@ -70,6 +81,33 @@ public class OutputByteStream: OutputStream {
     
     /// Write a sequence of bytes to the buffer.
     public func write(_ bytes: [UInt8]) {
+        // This is based on LLVM's raw_ostream.
+        let availableBufferSize = bufferSize - buffer.count
+        // If we have to insert more than the available space in buffer.
+        if bytes.count > availableBufferSize {
+            // If buffer is empty, start writing and keep the last chunk in buffer.
+            if buffer.isEmpty {
+                let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
+                writeImpl(Array(bytes[bytes.startIndex..<bytesToWrite]))
+
+                // If remaining bytes is more than buffer size write everything.
+                let bytesRemaining = bytes.count - bytesToWrite
+                if bytesRemaining > bufferSize - buffer.count {
+                    writeImpl(Array(bytes[bytesToWrite..<bytes.endIndex]))
+                    return
+                }
+                // Otherwise keep remaining in buffer.
+                buffer += bytes[bytesToWrite..<bytes.endIndex]
+                return
+            }
+
+            // Append whatever we can accomodate.
+            buffer += bytes[bytes.startIndex..<availableBufferSize]
+            flush()
+            write(Array(bytes[availableBufferSize..<bytes.endIndex]))
+            return
+        }
+
         buffer += bytes
     }
     
@@ -88,7 +126,7 @@ public class OutputByteStream: OutputStream {
         // Fast path for contiguous strings. For some reason Swift itself
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
-        let utf8 = [UInt8]()
+        var utf8 = [UInt8]()
         if stringPtrStart != nil {
             utf8 += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
         } else {
@@ -99,7 +137,7 @@ public class OutputByteStream: OutputStream {
 
     /// Write a character to the buffer (as UTF8).
     public func write(_ character: Character) {
-        write([String(character).utf8])
+        write(String(character))
     }
 
     /// Write an arbitrary byte streamable to the buffer.
@@ -407,9 +445,17 @@ public struct Format {
 /// Represents a stream which operates in memory.
 public final class InMemoryOutputByteStream: OutputByteStream {
 
+    /// Contents of the stream.
+    private var contents = [UInt8]()
+
     /// The contents of the output stream.
     public var bytes: ByteString {
-        return ByteString(self.buffer)
+        flush()
+        return ByteString(contents)
+    }
+
+    override func writeImpl(_ bytes: [UInt8]) {
+        contents += bytes
     }
 }
 
@@ -450,8 +496,8 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         error = true
     }
 
-    override public func flush() {
-        var contents = buffer
+    override func writeImpl(_ bytes: [UInt8]) {
+        var contents = bytes
         while true {
             let n = fwrite(&contents, 1, contents.count, fp)
             if n < 0 {
@@ -464,8 +510,6 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         }
         // Flush to file too.
         fflush(fp)
-        // Empty the buffer because we have already written to file.
-        buffer = []
     }
 
     override public func close() throws {
