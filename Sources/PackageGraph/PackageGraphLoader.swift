@@ -67,21 +67,25 @@ public struct PackageGraphLoader {
         let allManifests = externalManifests + [rootManifest]
 
         // Create the packages and convert to modules.
-        //
-        // FIXME: This needs to be torn about, the module conversion should be
-        // done on an individual package basis.
         var packages: [Package] = []
         var products: [Product] = []
         var map: [Package: [Module]] = [:]
         for (i, manifest) in allManifests.enumerated() {
-            let package = Package(manifest: manifest)
             let isRootPackage = (i + 1) == allManifests.count
-            packages.append(package)
 
-            let modules: [Module] = try package.modules()
+            // Create a package from the manifest and sources.
+            //
+            // FIXME: We should always load the tests, but just change which
+            // tests we build based on higher-level logic. This would make it
+            // easier to allow testing of external package tests.
+            let package = try Package.createUsingConventions(manifest: manifest, includingTestModules: isRootPackage)
+            packages.append(package)
+            
+            products += package.products
+            map[package] = package.modules + package.testModules
 
             // Diagnose empty non-root packages, which are something we allow as a special case.
-            if modules.isEmpty {
+            if package.modules.isEmpty {
                 if isRootPackage {
                     // Ignore and print warning if root package doesn't contain any sources.
                     print("warning: root package '\(package)' does not contain any sources")
@@ -94,17 +98,6 @@ public struct PackageGraphLoader {
                     throw PackageGraphError.noModules(package)
                 }
             }
-    
-            // TODO: Allow testing of external package tests.
-            var testModules: [Module]
-            if isRootPackage {
-                testModules = try package.testModules(modules: modules)
-            } else {
-                testModules = []
-            }
-    
-            products += try package.products(modules, testModules: testModules)
-            map[package] = modules + testModules
         }
 
         // Load all of the package dependencies.

@@ -45,7 +45,9 @@ public final class Package {
     public let manifest: Manifest
 
     /// The name of the package.
-    public let name: String
+    public var name: String {
+        return manifest.package.name
+    }        
     
     /// The URL the package was loaded from.
     //
@@ -68,6 +70,23 @@ public final class Package {
         return manifest.version
     }
 
+    /// The modules contained in the package.
+    //
+    // FIXME: Move to an immutable model.
+    public var modules: [Module] = []
+
+    /// The test modules contained in the package.
+    //
+    // FIXME: Move to an immutable model. Also, these should potentially just be
+    // merged with the regular modules.
+    public var testModules: [Module] = []
+
+    /// The products produced by the package.
+    //
+    // FIXME: Move to an immutable model. Also, these should potentially just be
+    // merged with the regular modules.
+    public var products: [Product] = []
+
     /// The resolved dependencies of the package.
     ///
     /// This value is only available once package loading is complete.
@@ -75,7 +94,6 @@ public final class Package {
 
     public init(manifest: Manifest) {
         self.manifest = manifest
-        self.name = manifest.package.name
     }
 
     public enum Error: Swift.Error {

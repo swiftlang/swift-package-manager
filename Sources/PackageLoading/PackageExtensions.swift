@@ -148,9 +148,7 @@ extension Package {
     }
 
     /// Collects the modules which are defined by a package.
-    //
-    // FIXME: This should not be public.
-    public func modules() throws -> [Module] {
+    fileprivate func modules() throws -> [Module] {
         let moduleMapPath = path.appending("module.modulemap")
         if moduleMapPath.asString.isFile {
             let sources = Sources(paths: [moduleMapPath], root: path)
@@ -273,9 +271,7 @@ extension Package {
 
 extension Package {
     /// Collects the products defined by a package.
-    //
-    // FIXME: This should not be public.
-    public func products(_ modules: [Module], testModules: [Module]) throws -> [Product] {
+    fileprivate func products(_ modules: [Module], testModules: [Module]) throws -> [Product] {
         var products = [Product]()
 
     ////// first auto-determine executables
@@ -374,8 +370,7 @@ extension Package {
 }
 
 extension Package {
-    // FIXME: This should not be public.
-    public func testModules(modules: [Module]) throws -> [Module] {
+    fileprivate func testModules(modules: [Module]) throws -> [Module] {
         let testsPath = self.path.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
@@ -434,5 +429,26 @@ extension Package {
         }
 
         return testModules
+    }
+}
+
+extension Package {
+    /// Load the package for the given manifest.
+    ///
+    /// - Parameters:
+    ///   - includingTestModules: Whether the package's test modules should be loaded.
+    //
+    // FIXME: Rearrange this to be immutable and move to using an initializer if
+    // it makes sense.
+    public static func createUsingConventions(manifest: Manifest, includingTestModules: Bool) throws -> Package {
+        let package = Package(manifest: manifest)
+        package.modules = try package.modules()
+        if includingTestModules {
+            package.testModules = try package.testModules(modules: package.modules)
+        } else {
+            package.testModules = []
+        }
+        package.products = try package.products(package.modules, testModules: package.testModules)
+        return package
     }
 }

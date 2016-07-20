@@ -90,8 +90,7 @@ private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throw
 private func fixture(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
     fixture(files: files) { (prefix: AbsolutePath) in
         let manifest = Manifest(path: prefix.appending("Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
-        let package = Package(manifest: manifest)
-        let modules = try package.modules()
-        try body(package, modules)
+        let package = try Package.createUsingConventions(manifest: manifest, includingTestModules: false)
+        try body(package, package.modules)
     }
 }
