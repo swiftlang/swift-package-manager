@@ -63,7 +63,7 @@ class ByteStringTests: XCTestCase {
     }
 
     func testByteStreamable() {
-        let s = OutputByteStream()
+        let s = InMemoryOutputByteStream()
         s <<< ByteString([1, 2, 3])
         XCTAssertEqual(s.bytes, [1, 2, 3])
     }

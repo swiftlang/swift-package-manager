@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import libc
+
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
 private func hexdigit(_ value: UInt8) -> UInt8 {
     return value < 10 ? (0x30 + value) : (0x41 + value - 10)
@@ -48,6 +50,10 @@ public class OutputByteStream: OutputStream {
         self.buffer = []
     }
 
+    var bufferSize: Int {
+        return 1024
+    }
+
     // MARK: Data Access API
 
     /// The current offset within the output stream.
@@ -55,38 +61,64 @@ public class OutputByteStream: OutputStream {
         return buffer.count
     }
 
-    /// The contents of the output stream.
-    ///
-    /// This method implicitly flushes the stream.
-    public var bytes: ByteString {
-        flush()
-        return ByteString(self.buffer)
-    }
-    
     // MARK: Data Output API
 
     public func flush() {
-        // Do nothing.
+        writeImpl(buffer)
+        buffer.removeAll(keepingCapacity: true)
+    }
+
+    /// For subclasses to implement. This will be called whenever stream is ready to write
+    /// to the underlying device and buffered will be cleared at that point.
+    func writeImpl(_ bytes: [UInt8]) {
+        fatalError("This should be implemented by subclasses.")
     }
 
     /// Write an individual byte to the buffer.
     public func write(_ byte: UInt8) {
-        buffer.append(byte)
+        write([byte])
     }
     
     /// Write a sequence of bytes to the buffer.
     public func write(_ bytes: [UInt8]) {
+        // This is based on LLVM's raw_ostream.
+        let availableBufferSize = bufferSize - buffer.count
+        // If we have to insert more than the available space in buffer.
+        if bytes.count > availableBufferSize {
+            // If buffer is empty, start writing and keep the last chunk in buffer.
+            if buffer.isEmpty {
+                let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
+                writeImpl(Array(bytes[bytes.startIndex..<bytesToWrite]))
+
+                // If remaining bytes is more than buffer size write everything.
+                let bytesRemaining = bytes.count - bytesToWrite
+                if bytesRemaining > bufferSize - buffer.count {
+                    writeImpl(Array(bytes[bytesToWrite..<bytes.endIndex]))
+                    return
+                }
+                // Otherwise keep remaining in buffer.
+                buffer += bytes[bytesToWrite..<bytes.endIndex]
+                return
+            }
+
+            // Append whatever we can accomodate.
+            buffer += bytes[bytes.startIndex..<availableBufferSize]
+            flush()
+            write(Array(bytes[availableBufferSize..<bytes.endIndex]))
+            return
+        }
+
         buffer += bytes
     }
     
     /// Write a sequence of bytes to the buffer.
     public func write(_ bytes: ArraySlice<UInt8>) {
-        buffer += bytes
+        write(Array(bytes))
     }
     
     /// Write a sequence of bytes to the buffer.
     public func write<S: Sequence where S.Iterator.Element == UInt8>(_ sequence: S) {
-        buffer += sequence
+        write(Array(sequence))
     }
 
     /// Write a string to the buffer (as UTF8).
@@ -94,16 +126,18 @@ public class OutputByteStream: OutputStream {
         // Fast path for contiguous strings. For some reason Swift itself
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
+        var utf8 = [UInt8]()
         if stringPtrStart != nil {
-            buffer += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
+            utf8 += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
         } else {
-            buffer += string.utf8
+            utf8 += string.utf8
         }
+        write(utf8)
     }
 
     /// Write a character to the buffer (as UTF8).
     public func write(_ character: Character) {
-        buffer += String(character).utf8
+        write(String(character))
     }
 
     /// Write an arbitrary byte streamable to the buffer.
@@ -125,6 +159,7 @@ public class OutputByteStream: OutputStream {
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
     public func writeJSONEscaped(_ string: String) {
+        var utf8 = [UInt8]()
         // See RFC7159 for reference.
         for character in string.utf8 {
             switch character {
@@ -132,41 +167,42 @@ public class OutputByteStream: OutputStream {
                 //
                 // FIXME: Workaround: <rdar://problem/22546289> Unexpected crash with range to max value for type
             case 0x20...0x21, 0x23...0x5B, 0x5D...0xFE, 0xFF:
-                buffer.append(character)
+                utf8.append(character)
             
                 // Single-character escaped characters.
             case 0x22: // '"'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x22) // '"'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x22) // '"'
             case 0x5C: // '\\'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x5C) // '\'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x5C) // '\'
             case 0x08: // '\b'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x62) // 'b'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x62) // 'b'
             case 0x0C: // '\f'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x66) // 'b'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x66) // 'b'
             case 0x0A: // '\n'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x6E) // 'n'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x6E) // 'n'
             case 0x0D: // '\r'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x72) // 'r'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x72) // 'r'
             case 0x09: // '\t'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x74) // 't'
+                utf8.append(0x5C) // '\'
+                utf8.append(0x74) // 't'
 
                 // Multi-character escaped characters.
             default:
-                buffer.append(0x5C) // '\'
-                buffer.append(0x75) // 'u'
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(character >> 4))
-                buffer.append(hexdigit(character & 0xF))
+                utf8.append(0x5C) // '\'
+                utf8.append(0x75) // 'u'
+                utf8.append(hexdigit(0))
+                utf8.append(hexdigit(0))
+                utf8.append(hexdigit(character >> 4))
+                utf8.append(hexdigit(character & 0xF))
             }
         }
+        write(utf8)
     }
 }
     
@@ -405,3 +441,89 @@ public struct Format {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
     }
 }
+
+/// Represents a stream which operates in memory.
+public final class InMemoryOutputByteStream: OutputByteStream {
+
+    /// Contents of the stream.
+    private var contents = [UInt8]()
+
+    /// The contents of the output stream.
+    public var bytes: ByteString {
+        flush()
+        return ByteString(contents)
+    }
+
+    override func writeImpl(_ bytes: [UInt8]) {
+        contents += bytes
+    }
+}
+
+/// Represents a stream which is backed to a file. Not for instantiating.
+public class FileOutputByteStream: OutputByteStream {
+
+    /// Closes the file flushing any buffered data.
+    public func close() throws {
+        fatalError("close() should be implemented by a subclass")
+    }
+}
+
+/// Implements file output stream for local file system.
+public final class LocalFileOutputByteStream: FileOutputByteStream {
+
+    /// The pointer to the file.
+    let fp: UnsafeMutablePointer<FILE>
+
+    /// True if there were any IO error during writing.
+    private var error: Bool = false
+
+    /// Instantiate using the file pointer.
+    init(fp: UnsafeMutablePointer<FILE>) throws {
+        self.fp = fp
+        super.init()
+    }
+
+    /// Opens the file for writing at the provided path.
+    public init(_ path: AbsolutePath) throws {
+        guard let fp = fopen(path.asString, "wb") else {
+            throw FileSystemError(errno: errno)
+        }
+        self.fp = fp
+        super.init()
+    }
+
+    func errorDetected() {
+        error = true
+    }
+
+    override func writeImpl(_ bytes: [UInt8]) {
+        var contents = bytes
+        while true {
+            let n = fwrite(&contents, 1, contents.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                errorDetected()
+            } else if n != contents.count {
+                errorDetected()
+            }
+            break
+        }
+        // Flush to file too.
+        fflush(fp)
+    }
+
+    override public func close() throws {
+        defer { fclose(fp) }
+        flush()
+        // Throw if errors were found during writing.
+        if error {
+            throw FileSystemError.ioError
+        }
+    }
+}
+
+/// Public stdout stream instance.
+public var stdoutStream: FileOutputByteStream = try! LocalFileOutputByteStream(fp: libc.stdout)
+
+/// Public stderr stream instance.
+public var stderrStream: FileOutputByteStream = try! LocalFileOutputByteStream(fp: libc.stderr)

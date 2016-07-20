@@ -60,7 +60,7 @@ public enum FileSystemError: Swift.Error {
     case unknownOSError
 }
 
-private extension FileSystemError {
+extension FileSystemError {
     init(errno: Int32) {
         switch errno {
         case libc.EACCES:
@@ -118,6 +118,9 @@ public protocol FileSystem {
     //
     // FIXME: This is obviously not a very efficient or flexible API.
     mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
+
+    /// Opens an output file stream at given path for writing.
+    func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -219,7 +222,7 @@ private class LocalFileSystem: FileSystem {
         defer { fclose(fp) }
 
         // Read the data one block at a time.
-        let data = OutputByteStream()
+        let data = InMemoryOutputByteStream()
         var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
         while true {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
@@ -240,26 +243,13 @@ private class LocalFileSystem: FileSystem {
     }
     
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        // Open the file.
-        let fp = fopen(path.asString, "wb")
-        if fp == nil {
-            throw FileSystemError(errno: errno)
-        }
-        defer { fclose(fp) }
+        let stream = try openFileOutputStream(path)
+        stream <<< bytes
+        try stream.close()
+    }
 
-        // Write the data in one chunk.
-        var contents = bytes.contents
-        while true {
-            let n = fwrite(&contents, 1, contents.count, fp)
-            if n < 0 {
-                if errno == EINTR { continue }
-                throw FileSystemError.ioError
-            }
-            if n != contents.count {
-                throw FileSystemError.ioError
-            }
-            break
-        }
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try LocalFileOutputByteStream(path)
     }
 }
 
@@ -439,6 +429,10 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
+
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try InMemoryFileOutputByteStream(fileSystem: self, path: path)
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -500,7 +494,60 @@ public struct RerootedFileSystemView: FileSystem {
     public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         return try underlyingFileSystem.writeFileContents(formUnderlyingPath(path), bytes: bytes)
     }
+
+    public func openFileOutputStream(_ path: AbsolutePath) throws -> FileOutputByteStream {
+        return try underlyingFileSystem.openFileOutputStream(path)
+    }
 }
 
 /// Public access to the local FS proxy.
 public var localFileSystem: FileSystem = LocalFileSystem()
+
+/// Implements file output stream for InMemory file system.
+private final class InMemoryFileOutputByteStream: FileOutputByteStream {
+
+    /// Reference to the file system.
+    private let fileSystem: InMemoryFileSystem
+
+    /// Path of the file.
+    private let path: AbsolutePath
+
+    private var error: Swift.Error?
+
+    // FIXME: Need to check and throw error if file can't be written at provided path.
+    /// Creates a stream for the provided path in a in memory file system.
+    init(fileSystem: InMemoryFileSystem, path: AbsolutePath) throws {
+        self.fileSystem = fileSystem
+        self.path = path
+        super.init()
+    }
+
+    override func writeImpl(_ bytes: [UInt8]) {
+        // FIXME: This is currently highly inefficient. This reads the contents of file if present and re-writes.
+        // We need append file contents semantics in InMemoryFileSystem to make this efficient.
+        var contents: [UInt8]
+        do {
+            contents = try fileSystem.readFileContents(path).contents
+        } catch FileSystemError.noEntry {
+            contents = [UInt8]()
+        } catch {
+            self.error = error
+            return
+        }
+
+        contents += bytes
+
+        do {
+            try fileSystem.writeFileContents(path, bytes: ByteString(contents))
+        } catch {
+            self.error = error
+        }
+    }
+
+    override func close() throws {
+        flush()
+        if let error = error {
+            throw error
+        }
+    }
+}

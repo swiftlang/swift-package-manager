@@ -125,9 +125,9 @@ class FunctionalTests: XCTestCase {
 }
 
 func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {
-    let stream = OutputByteStream()
+    let stream = try localFileSystem.openFileOutputStream(path)
     write(stream)
-    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+    try stream.close()
 }
 
 func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line: UInt = #line) {

@@ -10,11 +10,11 @@
 
 import XCTest
 
-import Basic
+@testable import Basic
 
 class OutputByteStreamTests: XCTestCase {
     func testBasics() {
-        let stream = OutputByteStream()
+        let stream = InMemoryOutputByteStream()
         
         stream.write("Hello")
         stream.write(Character(","))
@@ -24,15 +24,14 @@ class OutputByteStreamTests: XCTestCase {
         
         let streamable: Streamable = Character("!")
         stream.write(streamable)
-
-        stream.flush()
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
+        stream.flush()
         XCTAssertEqual(stream.bytes, "Hello, world!")
     }
     
     func testStreamOperator() {
-        let stream = OutputByteStream()
+        let stream = InMemoryOutputByteStream()
 
         let streamable: Streamable = Character("!")
         stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5] <<< streamable
@@ -40,7 +39,7 @@ class OutputByteStreamTests: XCTestCase {
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
         XCTAssertEqual(stream.bytes, "Hello, world!")
 
-        let stream2 = OutputByteStream()
+        let stream2 = InMemoryOutputByteStream()
         stream2 <<< (0..<5)
         XCTAssertEqual(stream2.bytes, [0, 1, 2, 3, 4])
     }
@@ -48,7 +47,7 @@ class OutputByteStreamTests: XCTestCase {
     func testJSONEncoding() {
         // Test string encoding.
         func asJSON(_ value: String) -> ByteString {
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream.writeJSONEscaped(value)
             return stream.bytes
         }
@@ -61,26 +60,34 @@ class OutputByteStreamTests: XCTestCase {
         XCTAssertEqual(asJSON("\u{0001}"), "\\u0001")
 
         // Test other random types.
-        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(false)).bytes, "false")
-        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(1 as Int)).bytes, "1")
-        XCTAssertEqual((OutputByteStream() <<< Format.asJSON(1.2 as Double)).bytes, "1.2")
+        var stream = InMemoryOutputByteStream()
+        stream <<< Format.asJSON(false)
+        XCTAssertEqual(stream.bytes, "false")
+
+        stream = InMemoryOutputByteStream()
+        stream <<< Format.asJSON(1 as Int)
+        XCTAssertEqual(stream.bytes, "1")
+
+        stream = InMemoryOutputByteStream()
+        stream <<< Format.asJSON(1.2 as Double)
+        XCTAssertEqual(stream.bytes, "1.2")
     }
     
     func testFormattedOutput() {
         do {
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asJSON("\n")
             XCTAssertEqual(stream.bytes, "\"\\n\"")
         }
         
         do {
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asJSON(["hello", "world\n"])
             XCTAssertEqual(stream.bytes, "[\"hello\",\"world\\n\"]")
         }
         
         do {
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asJSON(["hello": "world\n"])
             XCTAssertEqual(stream.bytes, "{\"hello\":\"world\\n\"}")
         }
@@ -90,13 +97,13 @@ class OutputByteStreamTests: XCTestCase {
                 let value: String
                 init(_ value: String) { self.value = value }
             }
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asJSON([MyThing("hello"), MyThing("world\n")], transform: { $0.value })
             XCTAssertEqual(stream.bytes, "[\"hello\",\"world\\n\"]")
         }
 
         do {
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asSeparatedList(["hello", "world"], separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
         }
@@ -106,10 +113,34 @@ class OutputByteStreamTests: XCTestCase {
                 let value: String
                 init(_ value: String) { self.value = value }
             }
-            let stream = OutputByteStream()
+            let stream = InMemoryOutputByteStream()
             stream <<< Format.asSeparatedList([MyThing("hello"), MyThing("world")], transform: { $0.value }, separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
         }
+    }
+
+    func testInMemoryOutputByteStream() {
+        let stream = InMemoryOutputByteStream()
+        stream.write("Hello")
+        XCTAssertEqual(stream.bytes, "Hello")
+    }
+
+    func testLocalFileStream() throws {
+        let tempFile = try TemporaryFile()
+
+        func read() -> String? {
+            return try! localFileSystem.readFileContents(tempFile.path).asString
+        }
+
+        let stream = try LocalFileOutputByteStream(tempFile.path)
+        stream <<< "Hello"
+        stream.flush()
+        XCTAssertEqual(read(), "Hello")
+
+        stream <<< " World"
+        try stream.close()
+
+        XCTAssertEqual(read(), "Hello World")
     }
 
     static var allTests = [
@@ -117,5 +148,7 @@ class OutputByteStreamTests: XCTestCase {
         ("testStreamOperator", testStreamOperator),
         ("testJSONEncoding", testJSONEncoding),
         ("testFormattedOutput", testFormattedOutput),
+        ("testInMemoryOutputByteStream", testInMemoryOutputByteStream),
+        ("testLocalFileStream", testLocalFileStream),
     ]
 }

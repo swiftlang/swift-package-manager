@@ -15,10 +15,10 @@ import POSIX
 private extension FileSystem {
     /// Write to a file from a stream producer.
     mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
-        let contents = OutputByteStream()
-        body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
-        try writeFileContents(path, bytes: contents.bytes)
+        let stream = try openFileOutputStream(path)
+        body(stream)
+        try stream.close()
     }
 }
 
