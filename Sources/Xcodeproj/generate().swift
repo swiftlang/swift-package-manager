@@ -118,27 +118,23 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
     return xcodeprojPath
 }
 
-import class Foundation.NSData
-
 /// Writes the contents to the file specified.
-/// Doesn't re-writes the file in case the new and old contents of file are same.
+///
+/// This method doesn't rewrite the file in case the new and old contents of
+/// file are same.
 func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
     let stream = OutputByteStream()
     try body { line in
         stream <<< line
         stream <<< "\n"
     }
-    // If file is already present compare its content with our stream
-    // and re-write only if its new.
-    if path.asString.isFile, let data = NSData(contentsOfFile: path.asString) {
-        // FIXME: We should have a utility for this.
-        var contents = [UInt8](repeating: 0, count: data.length / sizeof(UInt8.self))
-        data.getBytes(&contents, length: data.length)
-        // If contents are same then no need to re-write.
-        if contents == stream.bytes.contents { 
-            return 
-        }
+    // If the file exists with the identical contents, we don't need to rewrite it.
+    //
+    // This avoids unnecessarily triggering Xcode reloads of the project file.
+    if let contents = try? localFileSystem.readFileContents(path), contents == stream.bytes {
+        return
     }
+
     // Write the real file.
     try localFileSystem.writeFileContents(path, bytes: stream.bytes)
 }
