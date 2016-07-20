@@ -19,6 +19,32 @@ import Basic
 #if false
 
 class OutputByteStreamPerfTests: XCTestCase {
+
+    func test1MBOfByte_X10() {
+        let byte = UInt8(0)
+        measure {
+            for _ in 0..<10 {
+                let stream = OutputByteStream()
+                for _ in 0..<(1 << 20) {
+                    stream <<< byte
+                }
+                XCTAssertEqual(stream.bytes.count, 1 << 20)
+            }
+        }
+    }
+
+    func test1MBOfCharacters_X1() {
+        measure {
+            for _ in 0..<1 {
+                let stream = OutputByteStream()
+                for _ in 0..<(1 << 20) {
+                    stream <<< Character("X")
+                }
+                XCTAssertEqual(stream.bytes.count, 1 << 20)
+            }
+        }
+    }
+
     func test1MBOf16ByteArrays_X100() {
         // Test writing 1MB worth of 16 byte strings.
         let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
@@ -34,6 +60,23 @@ class OutputByteStreamPerfTests: XCTestCase {
         }
     }
     
+    // This should give same performance as 16ByteArrays_X100.
+    func test1MBOf16ByteArraySlice_X100() {
+        let bytes32 = [UInt8](repeating: 0, count: 1 << 5)
+        // Test writing 1MB worth of 16 byte strings.
+        let bytes16 = bytes32.suffix(from: bytes32.count/2)
+
+        measure {
+            for _ in 0..<100 {
+                let stream = OutputByteStream()
+                for _ in 0..<(1 << 16) {
+                    stream <<< bytes16
+                }
+                XCTAssertEqual(stream.bytes.count, 1 << 20)
+            }
+        }
+    }
+
     func test1MBOf1KByteArrays_X1000() {
         // Test writing 1MB worth of 1K byte strings.
         let bytes1k = [UInt8](repeating: 0, count: 1 << 10)

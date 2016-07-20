@@ -73,20 +73,25 @@ public class OutputByteStream: OutputStream {
     public func write(_ byte: UInt8) {
         buffer.append(byte)
     }
-    
-    /// Write a sequence of bytes to the buffer.
-    public func write(_ bytes: [UInt8]) {
-        buffer += bytes
+
+    /// Write the contents of a UnsafeBufferPointer<UInt8>.
+    func write(_ ptr: UnsafeBufferPointer<UInt8>) {
+        buffer += ptr
     }
     
     /// Write a sequence of bytes to the buffer.
     public func write(_ bytes: ArraySlice<UInt8>) {
         buffer += bytes
     }
+
+    /// Write a sequence of bytes to the buffer.
+    public func write(_ bytes: [UInt8]) {
+        write(ArraySlice(bytes))
+    }
     
     /// Write a sequence of bytes to the buffer.
     public func write<S: Sequence where S.Iterator.Element == UInt8>(_ sequence: S) {
-        buffer += sequence
+        write(ArraySlice(sequence))
     }
 
     /// Write a string to the buffer (as UTF8).
@@ -95,15 +100,15 @@ public class OutputByteStream: OutputStream {
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
         if stringPtrStart != nil {
-            buffer += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
+            write(UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count))
         } else {
-            buffer += string.utf8
+            write(string.utf8)
         }
     }
 
     /// Write a character to the buffer (as UTF8).
     public func write(_ character: Character) {
-        buffer += String(character).utf8
+        write(String(character))
     }
 
     /// Write an arbitrary byte streamable to the buffer.
@@ -132,39 +137,39 @@ public class OutputByteStream: OutputStream {
                 //
                 // FIXME: Workaround: <rdar://problem/22546289> Unexpected crash with range to max value for type
             case 0x20...0x21, 0x23...0x5B, 0x5D...0xFE, 0xFF:
-                buffer.append(character)
+                write(character)
             
                 // Single-character escaped characters.
             case 0x22: // '"'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x22) // '"'
+                write(0x5C) // '\'
+                write(0x22) // '"'
             case 0x5C: // '\\'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x5C) // '\'
+                write(0x5C) // '\'
+                write(0x5C) // '\'
             case 0x08: // '\b'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x62) // 'b'
+                write(0x5C) // '\'
+                write(0x62) // 'b'
             case 0x0C: // '\f'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x66) // 'b'
+                write(0x5C) // '\'
+                write(0x66) // 'b'
             case 0x0A: // '\n'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x6E) // 'n'
+                write(0x5C) // '\'
+                write(0x6E) // 'n'
             case 0x0D: // '\r'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x72) // 'r'
+                write(0x5C) // '\'
+                write(0x72) // 'r'
             case 0x09: // '\t'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x74) // 't'
+                write(0x5C) // '\'
+                write(0x74) // 't'
 
                 // Multi-character escaped characters.
             default:
-                buffer.append(0x5C) // '\'
-                buffer.append(0x75) // 'u'
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(character >> 4))
-                buffer.append(hexdigit(character & 0xF))
+                write(0x5C) // '\'
+                write(0x75) // 'u'
+                write(hexdigit(0))
+                write(hexdigit(0))
+                write(hexdigit(character >> 4))
+                write(hexdigit(character & 0xF))
             }
         }
     }
