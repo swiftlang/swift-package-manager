@@ -8,16 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import PackageGraph
 import PackageModel
 
-func xcscheme(container: String, modules: [Module], printer print: (String) -> Void) {
+func xcscheme(container: String, graph: PackageGraph, printer print: (String) -> Void) {
     print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
     print("<Scheme LastUpgradeVersion = \"9999\" version = \"1.3\">")
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
     print("    <BuildActionEntries>")
 
     // Create buildable references for non-test modules.
-    for module in modules where !module.isTest {
+    for module in graph.modules where !module.isTest {
+        // Ignore system modules.
+        //
+        // FIXME: We shouldn't need to manually do this here, instead this
+        // should be phrased in terms of the set of targets we computed.
+        if module.type == .systemModule {
+            continue
+        }
+        
         print("      <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">")
         print("        <BuildableReference")
         print("          BuildableIdentifier = \"primary\"")
@@ -40,7 +49,7 @@ func xcscheme(container: String, modules: [Module], printer print: (String) -> V
     print("    <Testables>")
 
     // Create testable references.
-    for module in modules where module.isTest {
+    for module in graph.modules where module.isTest {
         print("    <TestableReference")
         print("      skipped = \"NO\">")
         print("      <BuildableReference")

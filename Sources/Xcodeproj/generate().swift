@@ -37,10 +37,6 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
     let srcroot = graph.rootPackage.path
 
     // Filter out the CModule type, which we don't support.
-    //
-    // FIXME: Sink this lower.
-    let modules = graph.modules.filter{ $0.type != .systemModule }
-    let externalModules = graph.externalModules.filter{ $0.type != .systemModule }
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
@@ -52,13 +48,13 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
 
 ////// the pbxproj file describes the project and its targets
     try open(xcodeprojPath.appending("project.pbxproj")) { stream in
-        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, modules: modules, externalModules: externalModules, products: graph.products, directoryReferences: directoryReferences, options: options, printer: stream)
+        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, graph: graph, directoryReferences: directoryReferences, options: options, printer: stream)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
     try open(schemesDirectory.appending(RelativePath(schemeName))) { stream in
-        xcscheme(container: xcodeprojName, modules: modules, printer: stream)
+        xcscheme(container: xcodeprojName, graph: graph, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
@@ -78,7 +74,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
         print("</plist>")
     }
 
-    for module in modules where module.isLibrary {
+    for module in graph.modules where module.isLibrary {
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName

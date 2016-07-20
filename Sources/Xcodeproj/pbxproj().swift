@@ -10,6 +10,7 @@
 
 import Basic
 import POSIX
+import PackageGraph
 import PackageModel
 import Utility
 
@@ -17,7 +18,11 @@ import Utility
 // FIXME: escaping
 
 
-public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, modules: [Module], externalModules: [Module], products _: [Product], directoryReferences: [AbsolutePath], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojPath: AbsolutePath, graph: PackageGraph, directoryReferences: [AbsolutePath], options: XcodeprojOptions, printer print: (String) -> Void) throws {
+    // FIXME: Push this lower.
+    let modules = graph.modules.filter{ $0.type != .systemModule }
+    let externalModules = graph.externalModules.filter{ $0.type != .systemModule }
+
     // let rootModulesSet = Set(modules).subtract(Set(externalModules))
     let rootModulesSet = modules
     let nonTestRootModules = rootModulesSet.filter{ !$0.isTest }
