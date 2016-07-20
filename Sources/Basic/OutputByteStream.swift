@@ -130,13 +130,12 @@ public class OutputByteStream: OutputStream {
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
     public func writeJSONEscaped(_ string: String) {
-        // See RFC7159 for reference.
+        // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
         for character in string.utf8 {
+            // Handle string escapes; we use constants here to directly match the RFC.
             switch character {
                 // Literal characters.
-                //
-                // FIXME: Workaround: <rdar://problem/22546289> Unexpected crash with range to max value for type
-            case 0x20...0x21, 0x23...0x5B, 0x5D...0xFE, 0xFF:
+            case 0x20...0x21, 0x23...0x5B, 0x5D...0xFF:
                 write(character)
             
                 // Single-character escaped characters.
