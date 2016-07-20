@@ -109,7 +109,7 @@ public struct PackageGraphLoader {
         }
     
         // Connect up cross-package module dependencies.
-        fillModuleGraph(packages, modulesForPackage: { map[$0]! })
+        fillModuleGraph(packages)
     
         let rootPackage = packages.last!
         let externalPackages = packages.dropLast(1)
@@ -126,12 +126,12 @@ public struct PackageGraphLoader {
 /// This function will add cross-package dependencies between a module and all
 /// of the modules produced by any package in the transitive closure of its
 /// containing package's dependencies.
-private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
+private func fillModuleGraph(_ packages: [Package]) {
     for package in packages {
-        let packageModules = modulesForPackage(package)
+        let packageModules = package.modules + package.testModules
         let dependencies = try! topologicalSort(package.dependencies, successors: { $0.dependencies })
         for dep in dependencies {
-            let depModules = modulesForPackage(dep).filter{
+            let depModules = dep.modules.filter {
                 guard !$0.isTest else { return false }
 
                 switch $0 {
