@@ -68,7 +68,6 @@ public struct PackageGraphLoader {
 
         // Create the packages and convert to modules.
         var packages: [Package] = []
-        var products: [Product] = []
         var map: [Package: [Module]] = [:]
         for (i, manifest) in allManifests.enumerated() {
             let isRootPackage = (i + 1) == allManifests.count
@@ -81,7 +80,6 @@ public struct PackageGraphLoader {
             let package = try Package.createUsingConventions(manifest: manifest, includingTestModules: isRootPackage)
             packages.append(package)
             
-            products += package.products
             map[package] = package.modules + package.testModules
 
             // Diagnose empty non-root packages, which are something we allow as a special case.
@@ -117,7 +115,7 @@ public struct PackageGraphLoader {
         let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
-        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules), products: products)
+        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules))
     }
 }
 

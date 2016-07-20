@@ -25,17 +25,22 @@ public struct PackageGraph {
     // FIXME: These are temporary.
     public let modules: [Module]
     public let externalModules: Set<Module>
-    public let products: [Product]
     
     /// Construct a package graph directly.
-    public init(rootPackage: Package, modules: [Module], externalModules: Set<Module>, products: [Product]) {
+    public init(rootPackage: Package, modules: [Module], externalModules: Set<Module>) {
         self.rootPackage = rootPackage
         self.modules = modules
         self.externalModules = externalModules
-        self.products = products
         
         // This will leave the root package at the beginning, considering the relation we are providing.
         self.packages = try! topologicalSort([rootPackage], successors: { $0.dependencies })
         assert(self.rootPackage == self.packages[0])
+    }
+
+    /// A sequence of all of the products in the graph.
+    ///
+    /// This yields all products in topological order starting with the root package.
+    public var products: AnySequence<Product> {
+        return AnySequence(packages.lazy.flatMap{ $0.products })
     }
 }

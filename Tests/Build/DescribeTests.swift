@@ -31,7 +31,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingNoModulesThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            let graph = PackageGraph(rootPackage: dummyPackage, modules: [], externalModules: [], products: [])
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: [], externalModules: [])
             _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.noModules {
@@ -44,7 +44,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingCModuleThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: "/"), path: "/")], externalModules: [], products: [])
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: "/"), path: "/")], externalModules: [])
             _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {
