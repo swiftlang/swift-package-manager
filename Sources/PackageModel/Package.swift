@@ -43,6 +43,9 @@ import struct PackageDescription.Version
 public final class Package {
     /// The manifest describing the package.
     public let manifest: Manifest
+    
+    /// The local path of the package.
+    public let path: AbsolutePath
 
     /// The name of the package.
     public var name: String {
@@ -57,11 +60,6 @@ public final class Package {
     public var url: String {
         return manifest.url
     }
-    
-    /// The local path of the package.
-    public var path: AbsolutePath {
-        return manifest.path.parentDirectory
-    }
 
     /// The version this package was loaded from, if known.
     //
@@ -71,29 +69,27 @@ public final class Package {
     }
 
     /// The modules contained in the package.
-    //
-    // FIXME: Move to an immutable model.
-    public var modules: [Module] = []
+    public let modules: [Module]
 
     /// The test modules contained in the package.
     //
-    // FIXME: Move to an immutable model. Also, these should potentially just be
-    // merged with the regular modules.
-    public var testModules: [Module] = []
+    // FIXME: Should these just be merged with the regular modules?
+    public let testModules: [Module]
 
     /// The products produced by the package.
-    //
-    // FIXME: Move to an immutable model. Also, these should potentially just be
-    // merged with the regular modules.
-    public var products: [Product] = []
+    public let products: [Product]
 
     /// The resolved dependencies of the package.
     ///
     /// This value is only available once package loading is complete.
     public var dependencies: [Package] = []
 
-    public init(manifest: Manifest) {
+    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product]) {
         self.manifest = manifest
+        self.path = path
+        self.modules = modules
+        self.testModules = testModules
+        self.products = products
     }
 
     public enum Error: Swift.Error {

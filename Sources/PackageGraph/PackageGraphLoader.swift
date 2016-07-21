@@ -72,12 +72,18 @@ public struct PackageGraphLoader {
         for (i, manifest) in allManifests.enumerated() {
             let isRootPackage = (i + 1) == allManifests.count
 
+            // Derive the path to the package.
+            //
+            // FIXME: Lift this out of the manifest.
+            let packagePath = manifest.path.parentDirectory
+
             // Create a package from the manifest and sources.
             //
             // FIXME: We should always load the tests, but just change which
             // tests we build based on higher-level logic. This would make it
             // easier to allow testing of external package tests.
-            let package = try Package.createUsingConventions(manifest: manifest, includingTestModules: isRootPackage)
+            let builder = PackageBuilder(manifest: manifest, path: packagePath)
+            let package = try builder.construct(includingTestModules: isRootPackage)
             packages.append(package)
             
             map[package] = package.modules + package.testModules

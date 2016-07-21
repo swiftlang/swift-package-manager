@@ -126,20 +126,45 @@ extension Product.Error: FixableError {
 }
 
 /// Helper for constructing a package following the convention system.
-private struct PackageBuilder {
+public struct PackageBuilder {
     /// The manifest for the package being constructed.
-    let manifest: Manifest
+    private let manifest: Manifest
 
     /// The path of the package.
-    let packagePath: AbsolutePath
+    private let packagePath: AbsolutePath
+
+    /// Create a builder for the given manifest and package `path`.
+    ///
+    /// - Parameters:
+    ///   - path: The root path of the package.
+    public init(manifest: Manifest, path: AbsolutePath) {
+        self.manifest = manifest
+        self.packagePath = path
+    }
+    
+    /// Build a new package following the conventions.
+    ///
+    /// - Parameters:
+    ///   - includingTestModules: Whether the package's test modules should be loaded.
+    public func construct(includingTestModules: Bool) throws -> Package {
+        let modules = try constructModules()
+        let testModules: [Module]
+        if includingTestModules {
+            testModules = try constructTestModules(modules: modules)
+        } else {
+            testModules = []
+        }
+        let products = try constructProducts(modules, testModules: testModules)
+        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: testModules, products: products)
+    }
 
     // MARK: Utility Predicates
     
-    func isValidSource(_ path: AbsolutePath) -> Bool {
+    private func isValidSource(_ path: AbsolutePath) -> Bool {
         return isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
     }
     
-    func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
+    private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
         if path == manifest.path { return false }
         if excludedPaths.contains(path) { return false }
@@ -148,7 +173,7 @@ private struct PackageBuilder {
         return validExtensions.contains(ext)
     }
     
-    func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
+    private func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
         let base = path.basename.lowercased()
         if base == "tests" { return false }
         if base == "include" { return false }
@@ -161,15 +186,15 @@ private struct PackageBuilder {
         return true
     }
 
-    var packagesDirectory: AbsolutePath {
+    private var packagesDirectory: AbsolutePath {
         return packagePath.appending("Packages")
     }
 
-    var excludedPaths: [AbsolutePath] {
+    private var excludedPaths: [AbsolutePath] {
         return manifest.package.exclude.map { packagePath.appending(RelativePath($0)) }
     }
     
-    var pkgConfigPath: RelativePath? {
+    private var pkgConfigPath: RelativePath? {
         guard let pkgConfig = manifest.package.pkgConfig else { return nil }
         return RelativePath(pkgConfig)
     }
@@ -196,7 +221,7 @@ private struct PackageBuilder {
     }
 
     /// Collects the modules which are defined by a package.
-    fileprivate func modules() throws -> [Module] {
+    private func constructModules() throws -> [Module] {
         let moduleMapPath = packagePath.appending("module.modulemap")
         if moduleMapPath.asString.isFile {
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
@@ -287,7 +312,7 @@ private struct PackageBuilder {
         return modules
     }
     
-    fileprivate func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
+    private func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
         let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
@@ -303,7 +328,7 @@ private struct PackageBuilder {
     }
 
     /// Collects the products defined by a package.
-    fileprivate func products(_ modules: [Module], testModules: [Module]) throws -> [Product] {
+    private func constructProducts(_ modules: [Module], testModules: [Module]) throws -> [Product] {
         var products = [Product]()
 
     ////// first auto-determine executables
@@ -372,7 +397,7 @@ private struct PackageBuilder {
         return products
     }
 
-    fileprivate func testModules(modules: [Module]) throws -> [Module] {
+    private func constructTestModules(modules: [Module]) throws -> [Module] {
         let testsPath = packagePath.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
@@ -431,27 +456,5 @@ private struct PackageBuilder {
         }
 
         return testModules
-    }
-}
-
-extension Package {
-    /// Load the package for the given manifest.
-    ///
-    /// - Parameters:
-    ///   - includingTestModules: Whether the package's test modules should be loaded.
-    //
-    // FIXME: Rearrange this to be immutable and move to using an initializer if
-    // it makes sense.
-    public static func createUsingConventions(manifest: Manifest, includingTestModules: Bool) throws -> Package {
-        let package = Package(manifest: manifest)
-        let builder = PackageBuilder(manifest: manifest, packagePath: package.path)
-        package.modules = try builder.modules()
-        if includingTestModules {
-            package.testModules = try builder.testModules(modules: package.modules)
-        } else {
-            package.testModules = []
-        }
-        package.products = try builder.products(package.modules, testModules: package.testModules)
-        return package
     }
 }
