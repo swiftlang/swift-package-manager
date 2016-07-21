@@ -119,7 +119,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
 /// This method doesn't rewrite the file in case the new and old contents of
 /// file are same.
 func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
-    let stream = OutputByteStream()
+    let stream = BufferedOutputByteStream()
     try body { line in
         stream <<< line
         stream <<< "\n"

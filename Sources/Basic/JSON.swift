@@ -92,7 +92,9 @@ public func ==(lhs: JSON, rhs: JSON) -> Bool {
 extension JSON {
     /// Encode a JSON item into a string of bytes.
     public func toBytes() -> ByteString {
-        return (OutputByteStream() <<< self).bytes
+        let stream = BufferedOutputByteStream()
+        stream <<< self
+        return stream.bytes
     }
     
     /// Encode a JSON item into a JSON string

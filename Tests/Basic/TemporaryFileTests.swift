@@ -26,7 +26,7 @@ class TemporaryFileTests: XCTestCase {
             XCTAssertTrue(file.path.asString.isFile)
 
             // Try writing some data to the file.
-            let stream = OutputByteStream()
+            let stream = BufferedOutputByteStream()
             stream <<< "foo"
             stream <<< "bar"
             stream <<< "baz"
