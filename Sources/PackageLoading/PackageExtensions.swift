@@ -125,8 +125,63 @@ extension Product.Error: FixableError {
     }
 }
 
-extension Package {
-    private func sourceRoot() throws -> AbsolutePath {
+/// Helper for constructing a package following the convention system.
+private struct PackageBuilder {
+    /// The package being constructed.
+    let package: Package
+
+    /// The package manifest.
+    var manifest: Manifest {
+        return package.manifest
+    }
+
+    /// The path of the package.
+    var path: AbsolutePath {
+        return package.path
+    }
+
+    // MARK: Utility Predicates
+    
+    func isValidSource(_ path: AbsolutePath) -> Bool {
+        return isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
+    }
+    
+    func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
+        if path.basename.hasPrefix(".") { return false }
+        if path == manifest.path { return false }
+        if excludedPaths.contains(path) { return false }
+        if !path.asString.isFile { return false }
+        guard let ext = path.asString.fileExt else { return false }
+        return validExtensions.contains(ext)
+    }
+    
+    func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
+        let base = path.basename.lowercased()
+        if base == "tests" { return false }
+        if base == "include" { return false }
+        if base.hasSuffix(".xcodeproj") { return false }
+        if base.hasSuffix(".playground") { return false }
+        if base.hasPrefix(".") { return false }  // eg .git
+        if excludedPaths.contains(path) { return false }
+        if path == packagesDirectory { return false }
+        if !path.asString.isDirectory { return false }
+        return true
+    }
+
+    var packagesDirectory: AbsolutePath {
+        return path.appending("Packages")
+    }
+
+    var excludedPaths: [AbsolutePath] {
+        return manifest.package.exclude.map { path.appending(RelativePath($0)) }
+    }
+    
+    var pkgConfigPath: RelativePath? {
+        guard let pkgConfig = manifest.package.pkgConfig else { return nil }
+        return RelativePath(pkgConfig)
+    }
+    
+    func sourceRoot() throws -> AbsolutePath {
         let viableRoots = walk(path, recursively: false).filter { entry in
             switch entry.basename.lowercased() {
             case "sources", "source", "src", "srcs":
@@ -152,7 +207,7 @@ extension Package {
         let moduleMapPath = path.appending("module.modulemap")
         if moduleMapPath.asString.isFile {
             let sources = Sources(paths: [moduleMapPath], root: path)
-            return [try CModule(name: name, sources: sources, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+            return [try CModule(name: package.name, sources: sources, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
 
         if manifest.package.exclude.contains(".") {
@@ -181,7 +236,7 @@ extension Package {
         if maybeModules.isEmpty {
             // If there are no sources subdirectories, we have at most a one target package.
             do {
-                modules = [try modulify(srcroot, name: self.name, isTest: false)]
+                modules = [try modulify(srcroot, name: package.name, isTest: false)]
             } catch Module.Error.noSources {
                 // Completely empty packages are allowed as a special case.
                 modules = []
@@ -190,7 +245,7 @@ extension Package {
             modules = try maybeModules.map { path in
                 let name: String
                 if path == srcroot {
-                    name = self.name
+                    name = package.name
                 } else {
                     name = path.basename
                 }
@@ -254,22 +309,6 @@ extension Package {
         return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
     }
 
-    private func isValidSource(_ path: AbsolutePath) -> Bool {
-        return isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
-    }
-    
-    private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
-        if path.basename.hasPrefix(".") { return false }
-        if path == manifest.path { return false }
-        if excludedPaths.contains(path) { return false }
-        if !path.asString.isFile { return false }
-        guard let ext = path.asString.fileExt else { return false }
-        return validExtensions.contains(ext)
-    }
-}
-
-
-extension Package {
     /// Collects the products defined by a package.
     fileprivate func products(_ modules: [Module], testModules: [Module]) throws -> [Product] {
         var products = [Product]()
@@ -315,7 +354,7 @@ extension Package {
                 return true
             }
           #endif
-            let product = Product(name: "\(self.name)Tests", type: .Test, modules: testModules)
+            let product = Product(name: package.name + "Tests", type: .Test, modules: testModules)
             products.append(product)
         }
 
@@ -339,42 +378,12 @@ extension Package {
 
         return products
     }
-}
 
-extension Package {
-    func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
-        let base = path.basename.lowercased()
-        if base == "tests" { return false }
-        if base == "include" { return false }
-        if base.hasSuffix(".xcodeproj") { return false }
-        if base.hasSuffix(".playground") { return false }
-        if base.hasPrefix(".") { return false }  // eg .git
-        if excludedPaths.contains(path) { return false }
-        if path == packagesDirectory { return false }
-        if !path.asString.isDirectory { return false }
-        return true
-    }
-
-    private var packagesDirectory: AbsolutePath {
-        return path.appending("Packages")
-    }
-
-    var excludedPaths: [AbsolutePath] {
-        return manifest.package.exclude.map { self.path.appending(RelativePath($0)) }
-    }
-    
-    private var pkgConfigPath: RelativePath? {
-        guard let pkgConfig = manifest.package.pkgConfig else { return nil }
-        return RelativePath(pkgConfig)
-    }
-}
-
-extension Package {
     fileprivate func testModules(modules: [Module]) throws -> [Module] {
-        let testsPath = self.path.appending("Tests")
+        let testsPath = package.path.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
-        if testsPath.asString.isDirectory && self.excludedPaths.contains(testsPath) { return [] }
+        if testsPath.asString.isDirectory && excludedPaths.contains(testsPath) { return [] }
 
         // Create the test modules
         let testModules = try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
@@ -442,13 +451,14 @@ extension Package {
     // it makes sense.
     public static func createUsingConventions(manifest: Manifest, includingTestModules: Bool) throws -> Package {
         let package = Package(manifest: manifest)
-        package.modules = try package.modules()
+        let builder = PackageBuilder(package: package)
+        package.modules = try builder.modules()
         if includingTestModules {
-            package.testModules = try package.testModules(modules: package.modules)
+            package.testModules = try builder.testModules(modules: package.modules)
         } else {
             package.testModules = []
         }
-        package.products = try package.products(package.modules, testModules: package.testModules)
+        package.products = try builder.products(package.modules, testModules: package.testModules)
         return package
     }
 }
