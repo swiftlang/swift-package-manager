@@ -18,7 +18,42 @@ import Basic
 // See: https://bugs.swift.org/browse/SR-1354
 #if false
 
+struct ByteSequence: Sequence {
+    let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
+
+    func makeIterator() -> ByteSequenceIterator {
+        return ByteSequenceIterator(bytes16: bytes16)
+    }
+}
+
+struct ByteSequenceIterator: IteratorProtocol {
+    let bytes16: [UInt8]
+    var index: Int
+    init(bytes16: [UInt8]) {
+        self.bytes16 = bytes16
+        index = 0
+    }
+    mutating func next() -> UInt8? {
+        if index == bytes16.count { return nil }
+        defer { index += 1 }
+        return bytes16[index]
+    }
+}
+
 class OutputByteStreamPerfTests: XCTestCase {
+
+    func test1MBOfSequence_X10() {
+        let sequence = ByteSequence()
+        measure {
+            for _ in 0..<10 {
+                let stream = OutputByteStream()
+                for _ in 0..<(1 << 16) {
+                    stream <<< sequence
+                }
+                XCTAssertEqual(stream.bytes.count, 1 << 20)
+            }
+        }
+    }
 
     func test1MBOfByte_X10() {
         let byte = UInt8(0)
