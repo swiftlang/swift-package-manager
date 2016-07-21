@@ -125,7 +125,7 @@ class FunctionalTests: XCTestCase {
 }
 
 func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {
-    let stream = OutputByteStream()
+    let stream = BufferedOutputByteStream()
     write(stream)
     try localFileSystem.writeFileContents(path, bytes: stream.bytes)
 }

@@ -46,7 +46,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         let sequence = ByteSequence()
         measure {
             for _ in 0..<10 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
                     stream <<< sequence
                 }
@@ -59,7 +59,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         let byte = UInt8(0)
         measure {
             for _ in 0..<10 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 20) {
                     stream <<< byte
                 }
@@ -71,7 +71,7 @@ class OutputByteStreamPerfTests: XCTestCase {
     func test1MBOfCharacters_X1() {
         measure {
             for _ in 0..<1 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 20) {
                     stream <<< Character("X")
                 }
@@ -86,7 +86,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         
         measure {
             for _ in 0..<100 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
                     stream <<< bytes16
                 }
@@ -103,7 +103,7 @@ class OutputByteStreamPerfTests: XCTestCase {
 
         measure {
             for _ in 0..<100 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
                     stream <<< bytes16
                 }
@@ -118,7 +118,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         
         measure {
             for _ in 0..<1000 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
                     stream <<< bytes1k
                 }
@@ -133,7 +133,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         
         measure {
             for _ in 0..<10 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
                     stream <<< string16
                 }
@@ -148,7 +148,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         
         measure {
             for _ in 0..<100 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
                     stream <<< bytes1k
                 }
@@ -163,7 +163,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         
         measure {
             for _ in 0..<10 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 16) {
                     stream.writeJSONEscaped(string16)
                 }
@@ -182,7 +182,7 @@ class OutputByteStreamPerfTests: XCTestCase {
         let listOfThings: [Thing] = listOfStrings.map(Thing.init)
         measure {
             for _ in 0..<10 {
-                let stream = OutputByteStream()
+                let stream = BufferedOutputByteStream()
                 for _ in 0..<(1 << 10) {
                     for string in listOfStrings {
                         stream <<< Format.asJSON(string)

@@ -42,10 +42,15 @@ public protocol ByteStreamable {
 /// space.
 public class OutputByteStream: TextOutputStream {
     /// The data buffer.
+    /// Note: Minimum Buffer size should be one.
     private var buffer: [UInt8]
-    
-    public init() {
+
+    /// Default buffer size of the data buffer.
+    private static let bufferSize = 1024
+
+    init() {
         self.buffer = []
+        self.buffer.reserveCapacity(OutputByteStream.bufferSize)
     }
 
     // MARK: Data Access API
@@ -55,27 +60,86 @@ public class OutputByteStream: TextOutputStream {
         return buffer.count
     }
 
-    /// The contents of the output stream.
-    ///
-    /// This method implicitly flushes the stream.
-    public final var bytes: ByteString {
-        flush()
-        return ByteString(self.buffer)
+    /// Currently available buffer size.
+    private var availableBufferSize: Int {
+        return buffer.capacity - buffer.count
     }
-    
+
+     /// Clears the buffer maintaining current capacity.
+    private func clearBuffer() {
+        buffer.removeAll(keepingCapacity: true)
+    }
+
     // MARK: Data Output API
 
     public final func flush() {
+        writeImpl(buffer)
+        clearBuffer()
+        flushImpl()
+    }
+
+    func flushImpl() {
         // Do nothing.
+    }
+
+    func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+        fatalError("Subclasses must implement this")
     }
 
     /// Write an individual byte to the buffer.
     public final func write(_ byte: UInt8) {
+        // If buffer is full, write and clear it.
+        if availableBufferSize == 0 {
+            writeImpl(buffer)
+            clearBuffer()
+        }
+
+        // This will need to change change if we ever have unbuffered stream.
+        precondition(availableBufferSize > 0)
         buffer.append(byte)
     }
 
     /// Write a collection of bytes to the buffer.
-    public final func write<C: Collection where C.Iterator.Element == UInt8>(collection bytes: C) {
+    public final func write<
+                            C: Collection where C.Iterator.Element == UInt8,
+                            C.IndexDistance == Int,
+                            C.SubSequence: Collection,
+                            C.SubSequence.Iterator.Element == UInt8
+                            >(collection bytes: C) {
+        // This is based on LLVM's raw_ostream.
+        let availableBufferSize = self.availableBufferSize
+
+        // If we have to insert more than the available space in buffer.
+        if bytes.count > availableBufferSize {
+            // If buffer is empty, start writing and keep the last chunk in buffer.
+            if buffer.isEmpty {
+                let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
+                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: bytesToWrite)
+                writeImpl(bytes.prefix(upTo: writeUptoIndex))
+
+                // If remaining bytes is more than buffer size write everything.
+                let bytesRemaining = bytes.count - bytesToWrite
+                if bytesRemaining > availableBufferSize {
+                    writeImpl(bytes.suffix(from: writeUptoIndex))
+                    return
+                }
+                // Otherwise keep remaining in buffer.
+                buffer += bytes.suffix(from: writeUptoIndex)
+                return
+            }
+
+            let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
+            // Append whatever we can accomodate.
+            buffer += bytes.prefix(upTo: writeUptoIndex)
+
+            writeImpl(buffer)
+            clearBuffer()
+
+            // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
+            //write(collection: bytes.suffix(from: writeUptoIndex))
+            writeImpl(bytes.suffix(from: writeUptoIndex))
+            return
+        }
         buffer += bytes
     }
 
@@ -214,7 +278,11 @@ public func <<<(stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByt
 }
 
 @discardableResult
-public func <<<<C: Collection where C.Iterator.Element == UInt8>(stream: OutputByteStream, value: C) -> OutputByteStream {
+public func <<<<
+                C: Collection where C.Iterator.Element == UInt8,
+                C.IndexDistance == Int,
+                C.SubSequence: Collection,
+                C.SubSequence.Iterator.Element == UInt8>(stream: OutputByteStream, value: C) -> OutputByteStream {
     stream.write(collection: value)
     return stream
 }
@@ -422,5 +490,34 @@ public struct Format {
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between items.
     static public func asSeparatedList<T>(_ items: [T], transform: (T) -> ByteStreamable, separator: String) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
+    }
+}
+
+/// Inmemory implementation of OutputByteStream.
+public final class BufferedOutputByteStream: OutputByteStream {
+
+    /// Contents of the stream.
+    // FIXME: For inmemory implementation we should be share this buffer with OutputByteStream.
+    // One way to do this is by allowing OuputByteStream to install external buffers.
+    private var contents = [UInt8]()
+
+    override public init() {
+        super.init()
+    }
+
+    /// The contents of the output stream.
+    ///
+    /// Note: This implicitly flushes the stream.
+    public var bytes: ByteString {
+        flush()
+        return ByteString(contents)
+    }
+
+    override final func flushImpl() {
+        // Do nothing.
+    }
+
+    override final func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+        contents += bytes
     }
 }

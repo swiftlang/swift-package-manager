@@ -219,7 +219,7 @@ private class LocalFileSystem: FileSystem {
         defer { fclose(fp) }
 
         // Read the data one block at a time.
-        let data = OutputByteStream()
+        let data = BufferedOutputByteStream()
         var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
         while true {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
