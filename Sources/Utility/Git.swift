@@ -101,7 +101,7 @@ public class Git {
 
     @noreturn public class func checkGitVersion(_ error: Swift.Error) throws {
         // Git 2.0 or higher is required
-        if Git.majorVersionNumber < 2 {
+        if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
             // FIXME: This does not belong here.
             print("error: ", Error.obsoleteGitVersion)
             exit(1)
