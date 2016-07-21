@@ -57,7 +57,7 @@ public class GitRepositoryProvider: RepositoryProvider {
                 environment: env, message: "Cloning \(repository.url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
-            if Git.majorVersionNumber < 2 {
+            if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
                 throw Utility.Error.obsoleteGitVersion
             } else {
                 throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)

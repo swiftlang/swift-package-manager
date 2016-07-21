@@ -36,7 +36,7 @@ extension Git {
                 url, dstdir.asString, environment: env, message: "Cloning \(url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
-            if Git.majorVersionNumber < 2 {
+            if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
                 throw Utility.Error.obsoleteGitVersion
             } else {
                 throw Error.gitCloneFailure(url, dstdir.asString)
