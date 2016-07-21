@@ -43,11 +43,11 @@ public var verbosity = Verbosity.concise
 import func libc.fputs
 import var libc.stderr
 
-public class StandardErrorOutputStream: OutputStream {
+public class StandardErrorOutputStream: TextOutputStream {
     public func write(_ string: String) {
         // Silently ignore write failures here.
         //
-        // FIXME: We would like to throw this error, but can't given the design of `OutputStream`.
+        // FIXME: We would like to throw this error, but can't given the design of `TextOutputStream`.
         _ = libc.fputs(string, libc.stderr)
     }
 }
