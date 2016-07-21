@@ -50,7 +50,7 @@ extension Error: FixableError {
     }
 }
 
-@noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
+public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
 
     switch error {
     case OptionParserError.multipleModesSpecified(let modes):

@@ -10,6 +10,6 @@
 
 import libc
 
-@noreturn public func exit(_ status: Int32) {
+public func exit(_ status: Int32) -> Never {
     libc.exit(status)
 }

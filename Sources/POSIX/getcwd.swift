@@ -28,7 +28,7 @@ import var libc.errno
 */
 public func getcwd() -> String {
 
-    @noreturn func error() {
+    func error() -> Never {
         fputs("error: no current directory\n", libc.stderr)
         libc.exit(2)
     }
