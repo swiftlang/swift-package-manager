@@ -127,18 +127,11 @@ extension Product.Error: FixableError {
 
 /// Helper for constructing a package following the convention system.
 private struct PackageBuilder {
-    /// The package being constructed.
-    let package: Package
-
-    /// The package manifest.
-    var manifest: Manifest {
-        return package.manifest
-    }
+    /// The manifest for the package being constructed.
+    let manifest: Manifest
 
     /// The path of the package.
-    var path: AbsolutePath {
-        return package.path
-    }
+    let packagePath: AbsolutePath
 
     // MARK: Utility Predicates
     
@@ -169,11 +162,11 @@ private struct PackageBuilder {
     }
 
     var packagesDirectory: AbsolutePath {
-        return path.appending("Packages")
+        return packagePath.appending("Packages")
     }
 
     var excludedPaths: [AbsolutePath] {
-        return manifest.package.exclude.map { path.appending(RelativePath($0)) }
+        return manifest.package.exclude.map { packagePath.appending(RelativePath($0)) }
     }
     
     var pkgConfigPath: RelativePath? {
@@ -182,7 +175,7 @@ private struct PackageBuilder {
     }
     
     func sourceRoot() throws -> AbsolutePath {
-        let viableRoots = walk(path, recursively: false).filter { entry in
+        let viableRoots = walk(packagePath, recursively: false).filter { entry in
             switch entry.basename.lowercased() {
             case "sources", "source", "src", "srcs":
                 return entry.asString.isDirectory && !excludedPaths.contains(entry)
@@ -193,7 +186,7 @@ private struct PackageBuilder {
 
         switch viableRoots.count {
         case 0:
-            return path
+            return packagePath
         case 1:
             return viableRoots[0]
         default:
@@ -204,10 +197,10 @@ private struct PackageBuilder {
 
     /// Collects the modules which are defined by a package.
     fileprivate func modules() throws -> [Module] {
-        let moduleMapPath = path.appending("module.modulemap")
+        let moduleMapPath = packagePath.appending("module.modulemap")
         if moduleMapPath.asString.isFile {
-            let sources = Sources(paths: [moduleMapPath], root: path)
-            return [try CModule(name: package.name, sources: sources, path: path, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+            let sources = Sources(paths: [moduleMapPath], root: packagePath)
+            return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
 
         if manifest.package.exclude.contains(".") {
@@ -216,8 +209,8 @@ private struct PackageBuilder {
 
         let srcroot = try sourceRoot()
 
-        if srcroot != path {
-            let invalidRootFiles = walk(path, recursively: false).filter(isValidSource)
+        if srcroot != packagePath {
+            let invalidRootFiles = walk(packagePath, recursively: false).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
@@ -236,7 +229,7 @@ private struct PackageBuilder {
         if maybeModules.isEmpty {
             // If there are no sources subdirectories, we have at most a one target package.
             do {
-                modules = [try modulify(srcroot, name: package.name, isTest: false)]
+                modules = [try modulify(srcroot, name: manifest.name, isTest: false)]
             } catch Module.Error.noSources {
                 // Completely empty packages are allowed as a special case.
                 modules = []
@@ -245,7 +238,7 @@ private struct PackageBuilder {
             modules = try maybeModules.map { path in
                 let name: String
                 if path == srcroot {
-                    name = package.name
+                    name = manifest.name
                 } else {
                     name = path.basename
                 }
@@ -354,7 +347,7 @@ private struct PackageBuilder {
                 return true
             }
           #endif
-            let product = Product(name: package.name + "Tests", type: .Test, modules: testModules)
+            let product = Product(name: manifest.name + "Tests", type: .Test, modules: testModules)
             products.append(product)
         }
 
@@ -380,7 +373,7 @@ private struct PackageBuilder {
     }
 
     fileprivate func testModules(modules: [Module]) throws -> [Module] {
-        let testsPath = package.path.appending("Tests")
+        let testsPath = packagePath.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
         if testsPath.asString.isDirectory && excludedPaths.contains(testsPath) { return [] }
@@ -451,7 +444,7 @@ extension Package {
     // it makes sense.
     public static func createUsingConventions(manifest: Manifest, includingTestModules: Bool) throws -> Package {
         let package = Package(manifest: manifest)
-        let builder = PackageBuilder(package: package)
+        let builder = PackageBuilder(manifest: manifest, packagePath: package.path)
         package.modules = try builder.modules()
         if includingTestModules {
             package.testModules = try builder.testModules(modules: package.modules)

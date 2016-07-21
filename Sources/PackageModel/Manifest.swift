@@ -43,6 +43,11 @@ public struct Manifest {
     /// The version this package was loaded from, if known.
     public let version: Version?
 
+    /// The name of the package.
+    public var name: String {
+        return package.name
+    }
+
     public init(path: AbsolutePath, url: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
         self.path = path
         self.url = url
