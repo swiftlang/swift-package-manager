@@ -30,7 +30,7 @@ public func getcwd() -> String {
 
     @noreturn func error() {
         fputs("error: no current directory\n", libc.stderr)
-        exit(2)
+        libc.exit(2)
     }
 
     let cwd = libc.getcwd(nil, Int(PATH_MAX))
