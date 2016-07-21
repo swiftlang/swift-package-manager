@@ -51,73 +51,82 @@ public class OutputByteStream: TextOutputStream {
     // MARK: Data Access API
 
     /// The current offset within the output stream.
-    public var position: Int {
+    public final var position: Int {
         return buffer.count
     }
 
     /// The contents of the output stream.
     ///
     /// This method implicitly flushes the stream.
-    public var bytes: ByteString {
+    public final var bytes: ByteString {
         flush()
         return ByteString(self.buffer)
     }
     
     // MARK: Data Output API
 
-    public func flush() {
+    public final func flush() {
         // Do nothing.
     }
 
     /// Write an individual byte to the buffer.
-    public func write(_ byte: UInt8) {
+    public final func write(_ byte: UInt8) {
         buffer.append(byte)
     }
 
-    /// Write the contents of a UnsafeBufferPointer<UInt8>.
-    func write(_ ptr: UnsafeBufferPointer<UInt8>) {
-        buffer += ptr
-    }
-    
-    /// Write a sequence of bytes to the buffer.
-    public func write(_ bytes: ArraySlice<UInt8>) {
+    /// Write a collection of bytes to the buffer.
+    public final func write<C: Collection where C.Iterator.Element == UInt8>(collection bytes: C) {
         buffer += bytes
     }
 
-    /// Write a sequence of bytes to the buffer.
-    public func write(_ bytes: [UInt8]) {
-        write(ArraySlice(bytes))
+    /// Write the contents of a UnsafeBufferPointer<UInt8>.
+    final func write(_ ptr: UnsafeBufferPointer<UInt8>) {
+        write(collection: ptr)
     }
     
     /// Write a sequence of bytes to the buffer.
-    public func write<S: Sequence where S.Iterator.Element == UInt8>(_ sequence: S) {
-        write(ArraySlice(sequence))
+    public final func write(_ bytes: ArraySlice<UInt8>) {
+        write(collection: bytes)
+    }
+
+    /// Write a sequence of bytes to the buffer.
+    public final func write(_ bytes: [UInt8]) {
+        write(collection: bytes)
+    }
+    
+    /// Write a sequence of bytes to the buffer.
+    public final func write<S: Sequence where S.Iterator.Element == UInt8>(sequence: S) {
+        // Iterate the sequence and append byte by byte since sequence's append
+        // is not performant anyway.
+        for byte in sequence {
+            write(byte)
+        }
     }
 
     /// Write a string to the buffer (as UTF8).
-    public func write(_ string: String) {
+    public final func write(_ string: String) {
         // Fast path for contiguous strings. For some reason Swift itself
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
         if stringPtrStart != nil {
             write(UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count))
         } else {
-            write(string.utf8)
+            write(sequence: string.utf8)
         }
     }
 
     /// Write a character to the buffer (as UTF8).
-    public func write(_ character: Character) {
+    public final func write(_ character: Character) {
         write(String(character))
     }
 
     /// Write an arbitrary byte streamable to the buffer.
-    public func write(_ value: ByteStreamable) {
+    public final func write(_ value: ByteStreamable) {
         value.write(to: self)
     }
 
     /// Write an arbitrary streamable to the buffer.
-    public func write(_ value: Streamable) {
+    public final func write(_ value: Streamable) {
         // Get a mutable reference.
         var stream: OutputByteStream = self
         value.write(to: &stream)
@@ -129,7 +138,7 @@ public class OutputByteStream: TextOutputStream {
     /// NOTE: This writes the literal data applying JSON string escaping, but
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
-    public func writeJSONEscaped(_ string: String) {
+    public final func writeJSONEscaped(_ string: String) {
         // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
         for character in string.utf8 {
             // Handle string escapes; we use constants here to directly match the RFC.
@@ -205,8 +214,14 @@ public func <<<(stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByt
 }
 
 @discardableResult
+public func <<<<C: Collection where C.Iterator.Element == UInt8>(stream: OutputByteStream, value: C) -> OutputByteStream {
+    stream.write(collection: value)
+    return stream
+}
+
+@discardableResult
 public func <<<<S: Sequence where S.Iterator.Element == UInt8>(stream: OutputByteStream, value: S) -> OutputByteStream {
-    stream.write(value)
+    stream.write(sequence: value)
     return stream
 }
 
