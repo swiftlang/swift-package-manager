@@ -66,15 +66,11 @@ public class Git {
         }
 
         public func fetch() throws {
-            do {
-              #if os(Linux)
-                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
-              #else
-                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
-              #endif
-            } catch let errror {
-                try Git.checkGitVersion(errror)
-            }
+#if os(Linux)
+            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
+#else
+            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
+#endif
         }
     }
 
@@ -99,36 +95,17 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func checkGitVersion(_ error: Swift.Error) throws {
-        // Git 2.0 or higher is required
-        if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
-            // FIXME: This does not belong here.
-            print("error: ", Error.obsoleteGitVersion)
-            exit(1)
-        } else {
-            throw error
-        }
-    }
-
     /// Execute a git command while suppressing output.
     //
     // FIXME: Move clients of this to using real structured APIs.
     public class func runCommandQuietly(_ arguments: [String]) throws {
-        do {
-            try system(arguments)
-        } catch let error  {
-            try checkGitVersion(error)
-        }
+        try system(arguments)
     }
 
     /// Execute a git command and capture the output.
     //
     // FIXME: Move clients of this to using real structured APIs.
     public class func runPopen(_ arguments: [String]) throws -> String {
-        do {
-            return try popen(arguments)
-        } catch let error  {
-            try checkGitVersion(error)
-        }
+        return try popen(arguments)
     }
 }
