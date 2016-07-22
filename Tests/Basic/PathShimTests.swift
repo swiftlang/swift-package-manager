@@ -22,13 +22,15 @@ class PathShimTests : XCTestCase {
         
         // For the rest of the tests we'll need a temporary directory.
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
-        
+        // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
+        let tmpDirPath = resolveSymlinks(tmpDir.path)
+
         // Create a symbolic link and directory.
-        let slnkPath = tmpDir.path.appending("slnk")
-        let fldrPath = tmpDir.path.appending("fldr")
+        let slnkPath = tmpDirPath.appending("slnk")
+        let fldrPath = tmpDirPath.appending("fldr")
         
         // Create a symbolic link pointing at the (so far non-existent) directory.
-        try! symlink(create: slnkPath.asString, pointingAt: fldrPath.asString, relativeTo: tmpDir.path.asString)
+        try! symlink(create: slnkPath.asString, pointingAt: fldrPath.asString, relativeTo: tmpDirPath.asString)
         
         // Resolving the symlink should not yet change anything.
         XCTAssertEqual(resolveSymlinks(slnkPath), slnkPath)
@@ -61,11 +63,13 @@ class PathShimTests : XCTestCase {
     func testRecursiveDirectoryRemoval() {
         // For the tests we'll need a temporary directory.
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
-        
+        // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
+        let tmpDirPath = resolveSymlinks(tmpDir.path)
+
         // Create a couple of directories.  The first one shouldn't end up getting removed, the second one will.
-        let keepDirPath = tmpDir.path.appending(components: "abc1")
+        let keepDirPath = tmpDirPath.appending(components: "abc1")
         try! makeDirectories(keepDirPath)
-        let tossDirPath = tmpDir.path.appending(components: "abc2", "def", "ghi", "mno", "pqr")
+        let tossDirPath = tmpDirPath.appending(components: "abc2", "def", "ghi", "mno", "pqr")
         try! makeDirectories(tossDirPath)
         
         // Create a symbolic link in a directory to be removed; it points to a directory to not remove.

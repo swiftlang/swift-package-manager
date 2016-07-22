@@ -24,6 +24,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(OrderedSetTests.allTests),
         testCase(OutputByteStreamTests.allTests),
         testCase(PathTests.allTests),
+        testCase(PathShimTests.allTests),
         testCase(StringConversionTests.allTests),
         testCase(SyncronizedQueueTests.allTests),
         testCase(TOMLTests.allTests),
