@@ -132,16 +132,11 @@ public extension FileSystem {
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
     func exists(_ path: AbsolutePath) -> Bool {
-        return (try? stat(path.asString)) != nil
+        return Basic.exists(path)
     }
     
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path.asString) else {
-            return false
-        }
-        // FIXME: We should probably have wrappers or something for this, so it
-        // all comes from the POSIX module.
-        return (status.st_mode & libc.S_IFDIR) != 0
+        return Basic.isDirectory(path)
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
