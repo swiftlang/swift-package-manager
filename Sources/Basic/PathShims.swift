@@ -21,30 +21,58 @@ import Foundation
 /// Meanwhile this file bridges the gap to let call sites be as clean as pos-
 /// sible, while making it fairly easy to find those calls later.
 
-public func isDirectory(_ path: AbsolutePath) -> Bool {
-    // Copied from Utilities.Path.
-    var mystat = stat()
-    let rv = stat(path.asString, &mystat)
-    return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFDIR
+/// Returns a structure containing information about the file system entity at `path`, or nil
+/// if that path doesn't exist in the file system.  Read, write or execute permission of the 
+/// file system entity at `path` itself is not required, but all ancestor directories must be searchable.
+/// If they are not, or if any other file system error occurs, this function throws a SystemError.
+/// If `followSymlink` is true and the file system entity at `path` is a symbolic link, it is traversed;
+/// otherwise it is not (any symbolic links in path components other than the last one are always traversed).
+/// If symbolic links are followed and the file system entity at `path` is a symbolic link that points to a
+/// non-existent path, then this function returns nil.
+private func stat(_ path: AbsolutePath, followSymlink: Bool = true) throws -> libc.stat {
+    if followSymlink {
+        return try stat(path.asString)
+    }
+    return try lstat(path.asString)
 }
 
-public func isFile(_ path: AbsolutePath) -> Bool {
-    // Copied from Utilities.Path.
-    var mystat = stat()
-    let rv = stat(path.asString, &mystat)
-    return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
+/// Returns true if and only if `path` refers to an existent file system entity.
+/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains
+/// to the destination of the symlink; otherwise it pertains to the symlink itself.
+/// If any file system error other than non-existence occurs, this function throws an error.
+public func exists(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
+    return (try? stat(path, followSymlink: followSymlink)) != nil
 }
 
+/// Returns true if and only if `path` refers to an existent file system entity and that entity is a regular file.
+/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination 
+/// of the symlink; otherwise it pertains to the symlink itself. If any file system error other than non-existence occurs,
+/// this function throws an error.
+public func isFile(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
+    guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .file else {
+        return false
+    }
+    return true
+}  
+
+/// Returns true if and only if `path` refers to an existent file system entity and that entity is a directory.
+/// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination
+/// of the symlink; otherwise it pertains to the symlink itself.  If any file system error other than non-existence occurs,
+/// this function throws an error.
+public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
+    guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .directory else {
+        return false
+    }
+    return true
+}
+
+/// Returns true if and only if `path` refers to an existent file system entity and that entity is a symbolic link.
+/// If any file system error other than non-existence occurs, this function throws an error.
 public func isSymlink(_ path: AbsolutePath) -> Bool {
-    // Copied from Utilities.Path.
-    var mystat = stat()
-    let rv = lstat(path.asString, &mystat)
-    return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFLNK
-}
-
-public func exists(_ path: AbsolutePath) -> Bool {
-    // Copied from Utilities.Path.
-    return access(path.asString, F_OK) == 0
+    guard let status = try? stat(path, followSymlink: false), status.kind == .symlink else {
+        return false
+    }
+    return true
 }
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
