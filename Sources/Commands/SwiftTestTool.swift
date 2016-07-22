@@ -13,6 +13,10 @@ import class Foundation.ProcessInfo
 import Basic
 import Utility
 
+#if HasCustomVersionString
+import VersionInfo
+#endif
+
 import func POSIX.chdir
 import func POSIX.exit
 
