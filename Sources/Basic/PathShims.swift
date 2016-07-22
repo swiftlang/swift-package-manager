@@ -96,3 +96,117 @@ public func unlink(_ path: AbsolutePath) throws {
     let rv = libc.unlink(path.asString)
     guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
 }
+
+
+/**
+ - Returns: a generator that walks the specified directory producing all
+ files therein. If recursively is true will enter any directories
+ encountered recursively.
+ 
+ - Warning: directories that cannot be entered due to permission problems
+ are silently ignored. So keep that in mind.
+ 
+ - Warning: If path doesn’t exist or cannot be entered this generator will
+ be empty. It is up to you to check `path` is valid before using this
+ function.
+ 
+ - Warning: Symbolic links that point to directories are *not* followed.
+ 
+ - Note: setting recursively to `false` still causes the generator to feed
+ you the directory; just not its contents.
+ */
+public func walk(_ path: AbsolutePath, recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
+    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: { _ in recursively })
+}
+
+/**
+ - Returns: a generator that walks the specified directory producing all
+ files therein. Directories are recursed based on the return value of
+ `recursing`.
+ 
+ - Warning: directories that cannot be entered due to permissions problems
+ are silently ignored. So keep that in mind.
+ 
+ - Warning: If path doesn’t exist or cannot be entered this generator will
+ be empty. It is up to you to check `path` is valid before using this
+ function.
+ 
+ - Warning: Symbolic links that point to directories are *not* followed.
+ 
+ - Note: returning `false` from `recursing` still produces that directory
+ from the generator; just not its contents.
+ */
+public func walk(_ path: AbsolutePath, recursing: (AbsolutePath) -> Bool) -> RecursibleDirectoryContentsGenerator {
+    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: recursing)
+}
+
+/**
+ A generator for a single directory’s contents
+ */
+private class DirectoryContentsGenerator: IteratorProtocol {
+    private let dirptr: DirHandle?
+    fileprivate let path: AbsolutePath
+    
+    fileprivate init(path: AbsolutePath) {
+        dirptr = libc.opendir(path.asString)
+        self.path = path
+    }
+    
+    deinit {
+        if let openeddir = dirptr { closedir(openeddir) }
+    }
+    
+    func next() -> dirent? {
+        guard let validdir = dirptr else { return nil }  // yuck, silently ignoring the error to maintain this pattern
+        
+        while true {
+            var entry = dirent()
+            var result: UnsafeMutablePointer<dirent>? = nil
+            guard readdir_r(validdir, &entry, &result) == 0 else { continue }
+            guard result != nil else { return nil }
+            
+            switch (entry.d_name.0, entry.d_name.1, entry.d_name.2) {
+            case (46, 0, _):   // "."
+                continue
+            case (46, 46, 0):  // ".."
+                continue
+            default:
+                return entry
+            }
+        }
+    }
+}
+
+/**
+ Produced by `walk`.
+ */
+public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
+    private var current: DirectoryContentsGenerator
+    private var towalk = [AbsolutePath]()
+    private let shouldRecurse: (AbsolutePath) -> Bool
+    
+    private init(path: AbsolutePath, recursionFilter: (AbsolutePath) -> Bool) {
+        current = DirectoryContentsGenerator(path: path)
+        shouldRecurse = recursionFilter
+    }
+    
+    public func next() -> AbsolutePath? {
+        outer: while true {
+            guard let entry = current.next() else {
+                while !towalk.isEmpty {
+                    let path = towalk.removeFirst()
+                    guard shouldRecurse(path) else { continue }
+                    current = DirectoryContentsGenerator(path: path)
+                    continue outer
+                }
+                return nil
+            }
+            let name = entry.name ?? ""
+            let path = current.path.appending(component: name)
+            if isDirectory(path) && !isSymlink(path) {
+                towalk.append(path)
+            }
+            return current.path.appending(component: name)
+        }
+    }
+}
