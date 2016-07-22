@@ -134,17 +134,13 @@ public func unlink(_ path: AbsolutePath) throws {
  - Warning: directories that cannot be entered due to permission problems
  are silently ignored. So keep that in mind.
  
- - Warning: If path doesn’t exist or cannot be entered this generator will
- be empty. It is up to you to check `path` is valid before using this
- function.
- 
  - Warning: Symbolic links that point to directories are *not* followed.
  
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
  */
-public func walk(_ path: AbsolutePath, recursively: Bool = true) -> RecursibleDirectoryContentsGenerator {
-    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: { _ in recursively })
+public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursively: Bool = true) throws -> RecursibleDirectoryContentsGenerator {
+    return try RecursibleDirectoryContentsGenerator(path: path, fileSystem: fileSystem, recursionFilter: { _ in recursively })
 }
 
 /**
@@ -155,86 +151,52 @@ public func walk(_ path: AbsolutePath, recursively: Bool = true) -> RecursibleDi
  - Warning: directories that cannot be entered due to permissions problems
  are silently ignored. So keep that in mind.
  
- - Warning: If path doesn’t exist or cannot be entered this generator will
- be empty. It is up to you to check `path` is valid before using this
- function.
- 
  - Warning: Symbolic links that point to directories are *not* followed.
  
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
  */
-public func walk(_ path: AbsolutePath, recursing: (AbsolutePath) -> Bool) -> RecursibleDirectoryContentsGenerator {
-    return RecursibleDirectoryContentsGenerator(path: path, recursionFilter: recursing)
-}
-
-/**
- A generator for a single directory’s contents
- */
-private class DirectoryContentsGenerator: IteratorProtocol {
-    private let dirptr: DirHandle?
-    fileprivate let path: AbsolutePath
-    
-    fileprivate init(path: AbsolutePath) {
-        dirptr = libc.opendir(path.asString)
-        self.path = path
-    }
-    
-    deinit {
-        if let openeddir = dirptr { closedir(openeddir) }
-    }
-    
-    func next() -> dirent? {
-        guard let validdir = dirptr else { return nil }  // yuck, silently ignoring the error to maintain this pattern
-        
-        while true {
-            var entry = dirent()
-            var result: UnsafeMutablePointer<dirent>? = nil
-            guard readdir_r(validdir, &entry, &result) == 0 else { continue }
-            guard result != nil else { return nil }
-            
-            switch (entry.d_name.0, entry.d_name.1, entry.d_name.2) {
-            case (46, 0, _):   // "."
-                continue
-            case (46, 46, 0):  // ".."
-                continue
-            default:
-                return entry
-            }
-        }
-    }
+public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursing: (AbsolutePath) -> Bool) throws -> RecursibleDirectoryContentsGenerator {
+    return try RecursibleDirectoryContentsGenerator(path: path, fileSystem: fileSystem, recursionFilter: recursing)
 }
 
 /**
  Produced by `walk`.
  */
 public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
-    private var current: DirectoryContentsGenerator
+    private var current: (path: AbsolutePath, iterator: IndexingIterator<[String]>)
     private var towalk = [AbsolutePath]()
+
     private let shouldRecurse: (AbsolutePath) -> Bool
+    private let fileSystem: FileSystem
     
-    private init(path: AbsolutePath, recursionFilter: (AbsolutePath) -> Bool) {
-        current = DirectoryContentsGenerator(path: path)
+    private init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: (AbsolutePath) -> Bool) throws {
+        self.fileSystem = fileSystem
+        // FIXME: getDirectoryContents should have an iterator version.
+        current = (path, try fileSystem.getDirectoryContents(path).makeIterator())
         shouldRecurse = recursionFilter
     }
-    
+
     public func next() -> AbsolutePath? {
         outer: while true {
-            guard let entry = current.next() else {
+            guard let entry = current.iterator.next() else {
                 while !towalk.isEmpty {
+                    // FIXME: This looks inefficient.
                     let path = towalk.removeFirst()
                     guard shouldRecurse(path) else { continue }
-                    current = DirectoryContentsGenerator(path: path)
+                    // Ignore if we can't get content for this path.
+                    guard let current = try? fileSystem.getDirectoryContents(path).makeIterator() else { continue }
+                    self.current = (path, current)
                     continue outer
                 }
                 return nil
             }
-            let name = entry.name ?? ""
-            let path = current.path.appending(component: name)
-            if isDirectory(path) && !isSymlink(path) {
+
+            let path = current.path.appending(component: entry)
+            if fileSystem.isDirectory(path) && !fileSystem.isSymlink(path) {
                 towalk.append(path)
             }
-            return current.path.appending(component: name)
+            return path
         }
     }
 }

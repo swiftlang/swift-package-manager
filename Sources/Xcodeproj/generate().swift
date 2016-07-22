@@ -138,7 +138,7 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
 /// Finds directories that will be added as blue folder
 /// Excludes hidden directories and Xcode projects and directories that contains source code
 func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
-    let rootDirectories = walk(path, recursively: false)
+    let rootDirectories = try walk(path, recursively: false)
     let rootDirectoriesToConsider = rootDirectories.filter {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
@@ -146,8 +146,8 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         return $0.asString.isDirectory
     }
     
-    let filteredDirectories = rootDirectoriesToConsider.filter {
-        let directoriesWithSources = walk($0).filter {
+    let filteredDirectories = try rootDirectoriesToConsider.filter {
+        let directoriesWithSources = try walk($0).filter {
             guard let fileExt = $0.asString.fileExt else { return false }
             return SupportedLanguageExtension.validExtensions.contains(fileExt)
         }

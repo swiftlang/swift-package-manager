@@ -102,7 +102,7 @@ class WalkTests : XCTestCase {
             AbsolutePath("/bin"),
             AbsolutePath("/sbin")
         ]
-        for x in walk("/", recursively: false) {
+        for x in try! walk("/", recursively: false) {
             if let i = expected.index(of: x) {
                 expected.remove(at: i)
             }
@@ -117,7 +117,7 @@ class WalkTests : XCTestCase {
             root.appending(component: "Build"),
             root.appending(component: "Utility")
         ]
-        for x in walk(root) {
+        for x in try! walk(root) {
             if let i = expected.index(of: x) {
                 expected.remove(at: i)
             }
@@ -138,7 +138,7 @@ class WalkTests : XCTestCase {
         XCTAssertEqual(resolveSymlinks(tmpDirPath.appending("foo/symlink")), tmpDirPath.appending("bar"))
         XCTAssertTrue(resolveSymlinks(tmpDirPath.appending("foo/symlink/baz")).asString.isDirectory)
 
-        let results = walk(tmpDirPath.appending("foo")).map{ $0 }
+        let results = try! walk(tmpDirPath.appending("foo")).map{ $0 }
 
         XCTAssertEqual(results, [tmpDirPath.appending("foo/symlink")])
     }
@@ -154,7 +154,7 @@ class WalkTests : XCTestCase {
 
         XCTAssertTrue(tmpDirPath.appending("symlink").asString.isSymlink)
 
-        let results = walk(tmpDirPath.appending("symlink")).map{ $0 }.sorted()
+        let results = try! walk(tmpDirPath.appending("symlink")).map{ $0 }.sorted()
 
         // we recurse a symlink to a directory, so this should work,
         // but `abc` should not show because `baz` is a symlink too
