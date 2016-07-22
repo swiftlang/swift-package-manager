@@ -10,7 +10,6 @@
 
 import Basic
 
-
 /// Specifies a repository address.
 public struct RepositorySpecifier {
     /// The URL of the repository.
@@ -54,17 +53,40 @@ public protocol RepositoryProvider {
 /// Abstract repository operations.
 ///
 /// This interface provides access to an abstracted representation of a
-/// repository which is ultimately owned by the a `CheckoutManager`. This
-/// interface is designed in such a way as to provide the minimal facilities
-/// required by the package manager to gather basic information about a
-/// repository, but it does not aim to provide all of the interfaces one might
-/// want for working with an editable checkout of a repository on disk.
+/// repository which is ultimately owned by a `CheckoutManager`. This interface
+/// is designed in such a way as to provide the minimal facilities required by
+/// the package manager to gather basic information about a repository, but it
+/// does not aim to provide all of the interfaces one might want for working
+/// with an editable checkout of a repository on disk.
 ///
 /// The goal of this design is to allow the `CheckoutManager` a large degree of
 /// flexibility in the storage and maintenance of its underlying repositories.
+///
+/// This protocol is designed under the assumption that the repository can only
+/// be mutated via the functions provided here; thus, e.g., `tags` is expected
+/// to be unchanged through the lifetime of an instance except as otherwise
+/// documented. The behavior when this assumption is violated is undefined,
+/// although the expectation is that implementations should throw or crash when
+/// an inconsistency can be detected.
 public protocol Repository {
     /// Get the list of tags in the repository.
     //
     // FIXME: Migrate this to a structured SwiftPM-specific type?
     var tags: [String] { get }
+
+    /// Resolve the revision for a specific tag.
+    ///
+    /// - Precondition: The `tag` should be a member of `tags`.
+    /// - Throws: If a error occurs accessing the named tag.
+    func resolveRevision(tag: String) throws -> Revision
+}
+
+/// A single repository revision.
+public struct Revision {
+    /// A precise identifier for a single repository revision, in a repository-specified manner.
+    ///
+    /// This string is intended to be opaque to the client, but understandable
+    /// by a user. For example, a Git repository might supply the SHA1 of a
+    /// commit, or an SVN repository might supply a string such as 'r123'.
+    public let identifier: String
 }
