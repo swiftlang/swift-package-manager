@@ -14,7 +14,7 @@
 /// FIXME: We can probably get rid of this, since a) this is not likely to be
 /// something we can ever change, and b) the other characters that have special
 /// meaning (such as `.`) do not have similar constants.
-public let pathSeparatorCharacter: Character = "/"
+fileprivate let pathSeparatorCharacter: Character = "/"
 
 
 /// Represents an absolute file system path, independently of what (or whether
