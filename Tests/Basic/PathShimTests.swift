@@ -93,3 +93,81 @@ class PathShimTests : XCTestCase {
         ("testRecursiveDirectoryRemoval",    testRecursiveDirectoryRemoval)
     ]
 }
+
+class WalkTests : XCTestCase {
+
+    func testNonRecursive() {
+        var expected = [
+            AbsolutePath("/usr"),
+            AbsolutePath("/bin"),
+            AbsolutePath("/sbin")
+        ]
+        for x in walk("/", recursively: false) {
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
+            }
+            XCTAssertEqual(2, x.components.count)
+        }
+        XCTAssertEqual(expected.count, 0)
+    }
+
+    func testRecursive() {
+        let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
+        var expected = [
+            root.appending(component: "Build"),
+            root.appending(component: "Utility")
+        ]
+        for x in walk(root) {
+            if let i = expected.index(of: x) {
+                expected.remove(at: i)
+            }
+        }
+        XCTAssertEqual(expected.count, 0)
+    }
+
+    func testSymlinksNotWalked() {
+        let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+        // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
+        let tmpDirPath = resolveSymlinks(tmpDir.path)
+            
+        try! makeDirectories(tmpDirPath.appending("foo"))
+        try! makeDirectories(tmpDirPath.appending("bar/baz/goo"))
+        try! symlink(create: tmpDirPath.appending("foo/symlink").asString, pointingAt: tmpDirPath.appending("bar").asString, relativeTo: tmpDirPath.asString)
+
+        XCTAssertTrue(tmpDirPath.appending("foo/symlink").asString.isSymlink)
+        XCTAssertEqual(resolveSymlinks(tmpDirPath.appending("foo/symlink")), tmpDirPath.appending("bar"))
+        XCTAssertTrue(resolveSymlinks(tmpDirPath.appending("foo/symlink/baz")).asString.isDirectory)
+
+        let results = walk(tmpDirPath.appending("foo")).map{ $0 }
+
+        XCTAssertEqual(results, [tmpDirPath.appending("foo/symlink")])
+    }
+
+    func testWalkingADirectorySymlinkResolvesOnce() {
+        let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+        let tmpDirPath = tmpDir.path
+        
+        try! makeDirectories(tmpDirPath.appending("foo/bar"))
+        try! makeDirectories(tmpDirPath.appending("abc/bar"))
+        try! symlink(create: tmpDirPath.appending("symlink").asString, pointingAt: tmpDirPath.appending("foo").asString, relativeTo: tmpDirPath.asString)
+        try! symlink(create: tmpDirPath.appending("foo/baz").asString, pointingAt: tmpDirPath.appending("abc").asString, relativeTo: tmpDirPath.asString)
+
+        XCTAssertTrue(tmpDirPath.appending("symlink").asString.isSymlink)
+
+        let results = walk(tmpDirPath.appending("symlink")).map{ $0 }.sorted()
+
+        // we recurse a symlink to a directory, so this should work,
+        // but `abc` should not show because `baz` is a symlink too
+        // and that should *not* be followed
+
+        XCTAssertEqual(results, [tmpDirPath.appending("symlink/bar"), tmpDirPath.appending("symlink/baz")])
+    }
+
+    static var allTests = [
+        ("testNonRecursive",                          testNonRecursive),
+        ("testRecursive",                             testRecursive),
+        ("testSymlinksNotWalked",                     testSymlinksNotWalked),
+        ("testWalkingADirectorySymlinkResolvesOnce",  testWalkingADirectorySymlinkResolvesOnce),
+    ]
+}
+
