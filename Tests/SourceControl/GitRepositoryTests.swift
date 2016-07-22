@@ -17,7 +17,7 @@ import Utility
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
-    func testProvider() {
+    func testProvider() throws {
         mktmpdir { path in
             let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
@@ -34,7 +34,15 @@ class GitRepositoryTests: XCTestCase {
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
+            let tags = repository.tags
             XCTAssertEqual(repository.tags, ["1.2.3"])
+
+            let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
+            // FIXME: It would be nice if we had a deterministic hash here...
+            XCTAssertEqual(revision.identifier, try Git.runPopen([Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "1.2.3"]).chomp())
+            if let revision = try? repository.resolveRevision(tag: "<invalid>") {
+                XCTFail("unexpected resolution of invalid tag to \(revision)")
+            }
         }
     }
 
