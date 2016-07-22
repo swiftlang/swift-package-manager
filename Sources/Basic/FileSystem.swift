@@ -93,6 +93,9 @@ public protocol FileSystem {
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool
     
+    /// Check whether the given path is accessible and a file.
+    func isFile(_ path: AbsolutePath) -> Bool
+
     /// Get the contents of the given directory, in an undefined order.
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
@@ -132,16 +135,15 @@ public extension FileSystem {
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
     func exists(_ path: AbsolutePath) -> Bool {
-        return (try? stat(path.asString)) != nil
+        return Basic.exists(path)
     }
     
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path.asString) else {
-            return false
-        }
-        // FIXME: We should probably have wrappers or something for this, so it
-        // all comes from the POSIX module.
-        return (status.st_mode & libc.S_IFDIR) != 0
+        return Basic.isDirectory(path)
+    }
+
+    func isFile(_ path: AbsolutePath) -> Bool {
+        return Basic.isFile(path)
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -340,6 +342,17 @@ public class InMemoryFileSystem: FileSystem {
             return false
         }
     }
+
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        do {
+            if case .file? = try getNode(path)?.contents {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
     
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
@@ -485,6 +498,10 @@ public struct RerootedFileSystemView: FileSystem {
         return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
     }
     
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isFile(formUnderlyingPath(path))
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
     }
