@@ -36,6 +36,13 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.exists("/"))
         XCTAssert(!fs.exists("/does-not-exist"))
 
+        // isFile()
+        let file = try! TemporaryFile()
+        XCTAssertTrue(fs.exists(file.path))
+        XCTAssertTrue(fs.isFile(file.path))
+        XCTAssertFalse(fs.isDirectory(file.path))
+        XCTAssertFalse(fs.isFile("/does-not-exist"))
+
         // isDirectory()
         XCTAssert(fs.isDirectory("/"))
         XCTAssert(!fs.isDirectory("/does-not-exist"))
@@ -79,6 +86,7 @@ class FileSystemTests: XCTestCase {
         let testData = (0..<1000).map { $0.description }.joined(separator: ", ")
         let filePath = tmpDir.path.appending("test-data.txt")
         try! fs.writeFileContents(filePath, bytes: ByteString(testData))
+        XCTAssertTrue(fs.isFile(filePath))
         let data = try! fs.readFileContents(filePath)
         XCTAssertEqual(data, ByteString(testData))
 
@@ -134,6 +142,9 @@ class FileSystemTests: XCTestCase {
 
         // isDirectory()
         XCTAssert(!fs.isDirectory("/does-not-exist"))
+
+        // isFile()
+        XCTAssert(!fs.isFile("/does-not-exist"))
 
         // getDirectoryContents()
         XCTAssertThrows(FileSystemError.noEntry) {
@@ -191,8 +202,10 @@ class FileSystemTests: XCTestCase {
         // Check read/write of a simple file.
         let filePath = AbsolutePath("/new-dir/subdir").appending("new-file.txt")
         XCTAssert(!fs.exists(filePath))
+        XCTAssertFalse(fs.isFile(filePath))
         try! fs.writeFileContents(filePath, bytes: "Hello, world!")
         XCTAssert(fs.exists(filePath))
+        XCTAssertTrue(fs.isFile(filePath))
         XCTAssert(!fs.isDirectory(filePath))
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
 
@@ -217,6 +230,7 @@ class FileSystemTests: XCTestCase {
             try fs.writeFileContents("/", bytes: [])
         }
         XCTAssert(fs.exists(filePath))
+        XCTAssertTrue(fs.isFile(filePath))
         
         // Check read/write into a non-directory.
         XCTAssertThrows(FileSystemError.notDirectory) {

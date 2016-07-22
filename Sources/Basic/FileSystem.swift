@@ -93,6 +93,9 @@ public protocol FileSystem {
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool
     
+    /// Check whether the given path is accessible and a file.
+    func isFile(_ path: AbsolutePath) -> Bool
+
     /// Get the contents of the given directory, in an undefined order.
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
@@ -137,6 +140,10 @@ private class LocalFileSystem: FileSystem {
     
     func isDirectory(_ path: AbsolutePath) -> Bool {
         return Basic.isDirectory(path)
+    }
+
+    func isFile(_ path: AbsolutePath) -> Bool {
+        return Basic.isFile(path)
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -335,6 +342,17 @@ public class InMemoryFileSystem: FileSystem {
             return false
         }
     }
+
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        do {
+            if case .file? = try getNode(path)?.contents {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
     
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
@@ -480,6 +498,10 @@ public struct RerootedFileSystemView: FileSystem {
         return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
     }
     
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isFile(formUnderlyingPath(path))
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
     }
