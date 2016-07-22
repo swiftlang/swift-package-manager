@@ -14,6 +14,7 @@ import Basic
 import SourceControl
 import Utility
 
+@testable import class SourceControl.GitRepository
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
@@ -43,6 +44,31 @@ class GitRepositoryTests: XCTestCase {
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
+        }
+    }
+
+    /// Check hash validation.
+    func testGitRepositoryHash() throws {
+        let validHash = "0123456789012345678901234567890123456789"
+        XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
+        
+        let invalidHexHash = validHash + "1"
+        XCTAssertEqual(GitRepository.Hash(invalidHexHash), nil)
+        
+        let invalidNonHexHash = "012345678901234567890123456789012345678!"
+        XCTAssertEqual(GitRepository.Hash(invalidNonHexHash), nil)
+    }
+    
+    /// Check raw repository facilities.
+    func testRawRepository() throws {
+        mktmpdir { path in
+            let testRepoPath = path.appending("test-repo")
+            try! makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "1.2.3")
+
+            let repo = GitRepository(path: testRepoPath)
+            XCTAssertEqual(try repo.resolveHash(treeish: "1.2.3"),
+                           try repo.resolveHash(treeish: "master"))
         }
     }
 

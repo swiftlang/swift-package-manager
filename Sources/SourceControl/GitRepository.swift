@@ -71,26 +71,80 @@ public class GitRepositoryProvider: RepositoryProvider {
     }
 }
 
+enum GitInterfaceError: Swift.Error {
+    /// This indicates a problem communicating with the `git` tool.
+    case malformedResponse(String)
+}
+
 /// A basic `git` repository.
-private class GitRepository: Repository {
+//
+// FIXME: Currently, this class is serving two goals, it is the Repository
+// interface used by `RepositoryProvider`, but is also a class which can be
+// instantiated directly against non-RepositoryProvider controlled
+// repositories. This may prove inconvenient what is currently `Repository`
+// becomes inconvenient or incompatible with the ideal interface for this
+// class. It is possible we should rename `Repository` to something more
+// abstract, and change the provider to just return an adaptor around this
+// class.
+public class GitRepository: Repository {
+    /// A hash object.
+    struct Hash: Equatable {
+        // FIXME: We should optimize this representation.
+        let bytes: ByteString
+
+        /// Create a hash from the given hexadecimal representation.
+        ///
+        /// - Returns; The hash, or nil if the identifier is invalid.
+        init?(_ identifier: String) {
+            bytes = ByteString(encodingAsUTF8: identifier)
+            if bytes.count != 40 {
+                return nil
+            }
+            for byte in bytes.contents {
+                switch byte {
+                case UInt8(ascii: "0")...UInt8(ascii: "9"),
+                     UInt8(ascii: "a")...UInt8(ascii: "z"):
+                    continue
+                default:
+                    return nil
+                }
+            }
+        }
+    }
+    
     /// The path of the repository on disk.
     let path: AbsolutePath
 
     init(path: AbsolutePath) {
         self.path = path
     }
-    
-    var tags: [String] { return tagsCache.getValue(self) }
-    var tagsCache = LazyCache(getTags)
-    func getTags() -> [String] {
+
+    // MARK: Repository Interface
+
+    public var tags: [String] { return tagsCache.getValue(self) }
+    private var tagsCache = LazyCache(getTags)
+    private func getTags() -> [String] {
         // FIXME: Error handling.
         let tagList = try! Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])
         return tagList.characters.split(separator: "\n").map(String.init)
     }
 
-    func resolveRevision(tag: String) throws -> Revision {
-        let hash = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", tag]).chomp()
-        // FIXME: We should validate we got a hash.
-        return Revision(identifier: hash)
+    public func resolveRevision(tag: String) throws -> Revision {
+        return try Revision(identifier: resolveHash(treeish: tag).bytes.asString!)
     }
+
+    // MARK: Git Operations
+
+    func resolveHash(treeish: String) throws -> Hash {
+        let response = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", treeish]).chomp()
+        if let hash = Hash(response) {
+            return hash
+        } else {
+            throw GitInterfaceError.malformedResponse("expected an object hash in \(response)")
+        }
+    }
+}
+
+func ==(_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
+    return lhs.bytes == rhs.bytes
 }
