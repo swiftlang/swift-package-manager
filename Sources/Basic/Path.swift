@@ -94,9 +94,6 @@ public struct AbsolutePath {
         self.init(absPath, RelativePath(relStr))
     }
     
-    /// NOTE: We will want to add other initializers, such as ones that take
-    ///       an arbtirary number of relative paths.
-    
     /// Directory component.  An absolute path always has a non-empty directory
     /// component (the directory component of the root path is the root itself).
     public var dirname: String {
