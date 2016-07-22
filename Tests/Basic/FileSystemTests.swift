@@ -42,6 +42,15 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(fs.isFile(file.path))
         XCTAssertFalse(fs.isDirectory(file.path))
         XCTAssertFalse(fs.isFile("/does-not-exist"))
+        XCTAssertFalse(fs.isSymlink("/does-not-exist"))
+
+        // isSymlink()
+        let tempDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
+        let sym = tempDir.path.appending("hello")
+        try! symlink(sym, pointingAt: file.path)
+        XCTAssertTrue(fs.isSymlink(sym))
+        XCTAssertTrue(fs.isFile(sym))
+        XCTAssertFalse(fs.isDirectory(sym))
 
         // isDirectory()
         XCTAssert(fs.isDirectory("/"))
@@ -146,6 +155,9 @@ class FileSystemTests: XCTestCase {
         // isFile()
         XCTAssert(!fs.isFile("/does-not-exist"))
 
+        // isSymlink()
+        XCTAssert(!fs.isSymlink("/does-not-exist"))
+
         // getDirectoryContents()
         XCTAssertThrows(FileSystemError.noEntry) {
             _ = try fs.getDirectoryContents("/does-not-exist")
@@ -206,6 +218,7 @@ class FileSystemTests: XCTestCase {
         try! fs.writeFileContents(filePath, bytes: "Hello, world!")
         XCTAssert(fs.exists(filePath))
         XCTAssertTrue(fs.isFile(filePath))
+        XCTAssertFalse(fs.isSymlink(filePath))
         XCTAssert(!fs.isDirectory(filePath))
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
 

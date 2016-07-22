@@ -200,7 +200,7 @@ public struct PackageBuilder {
     }
     
     func sourceRoot() throws -> AbsolutePath {
-        let viableRoots = walk(packagePath, recursively: false).filter { entry in
+        let viableRoots = try walk(packagePath, recursively: false).filter { entry in
             switch entry.basename.lowercased() {
             case "sources", "source", "src", "srcs":
                 return entry.asString.isDirectory && !excludedPaths.contains(entry)
@@ -235,16 +235,16 @@ public struct PackageBuilder {
         let srcroot = try sourceRoot()
 
         if srcroot != packagePath {
-            let invalidRootFiles = walk(packagePath, recursively: false).filter(isValidSource)
+            let invalidRootFiles = try walk(packagePath, recursively: false).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
         }
 
-        let maybeModules = walk(srcroot, recursively: false).filter(shouldConsiderDirectory)
+        let maybeModules = try walk(srcroot, recursively: false).filter(shouldConsiderDirectory)
 
         if maybeModules.count == 1 && maybeModules[0] != srcroot {
-            let invalidModuleFiles = walk(srcroot, recursively: false).filter(isValidSource)
+            let invalidModuleFiles = try walk(srcroot, recursively: false).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
             }
@@ -313,7 +313,7 @@ public struct PackageBuilder {
     }
     
     private func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
-        let walked = walk(path, recursing: shouldConsiderDirectory).map{ $0 }
+        let walked = try walk(path, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
@@ -401,7 +401,7 @@ public struct PackageBuilder {
         let testsPath = packagePath.appending("Tests")
         
         // Don't try to walk Tests if it is in excludes.
-        if testsPath.asString.isDirectory && excludedPaths.contains(testsPath) { return [] }
+        guard testsPath.asString.isDirectory && !excludedPaths.contains(testsPath) else { return [] }
 
         // Create the test modules
         let testModules = try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in

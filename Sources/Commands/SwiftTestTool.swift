@@ -187,7 +187,7 @@ public struct SwiftTestTool: SwiftTool {
         if maybePath.asString.exists {
             possibleTestPath = maybePath
         } else {
-            let possiblePaths = walk(opts.path.build).filter {
+            let possiblePaths = try walk(opts.path.build).filter {
                 $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
                 $0.suffix == ".xctest"
             }

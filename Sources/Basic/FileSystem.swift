@@ -96,6 +96,9 @@ public protocol FileSystem {
     /// Check whether the given path is accessible and a file.
     func isFile(_ path: AbsolutePath) -> Bool
 
+    /// Check whether the given path is accessible and is a symbolic link.
+    func isSymlink(_ path: AbsolutePath) -> Bool
+
     /// Get the contents of the given directory, in an undefined order.
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
@@ -144,6 +147,10 @@ private class LocalFileSystem: FileSystem {
 
     func isFile(_ path: AbsolutePath) -> Bool {
         return Basic.isFile(path)
+    }
+
+    func isSymlink(_ path: AbsolutePath) -> Bool {
+        return Basic.isSymlink(path)
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -353,6 +360,12 @@ public class InMemoryFileSystem: FileSystem {
             return false
         }
     }
+
+    public func isSymlink(_ path: AbsolutePath) -> Bool {
+        // FIXME: Always return false until in memory implementation
+        // gets symbolic link semantics.
+        return false
+    }
     
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
@@ -500,6 +513,10 @@ public struct RerootedFileSystemView: FileSystem {
     
     public func isFile(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isFile(formUnderlyingPath(path))
+    }
+
+    public func isSymlink(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
