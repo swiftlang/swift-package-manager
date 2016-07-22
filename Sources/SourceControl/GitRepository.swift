@@ -87,10 +87,4 @@ private class GitRepository: Repository {
         let tagList = try! Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])
         return tagList.characters.split(separator: "\n").map(String.init)
     }
-
-    func resolveRevision(tag: String) throws -> Revision {
-        let hash = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", tag]).chomp()
-        // FIXME: We should validate we got a hash.
-        return Revision(identifier: hash)
-    }
 }
