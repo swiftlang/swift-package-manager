@@ -133,13 +133,17 @@ public struct PackageBuilder {
     /// The path of the package.
     private let packagePath: AbsolutePath
 
+    /// The filesystem package builder will run on.
+    private let fileSystem: FileSystem
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
     ///   - path: The root path of the package.
-    public init(manifest: Manifest, path: AbsolutePath) {
+    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem) {
         self.manifest = manifest
         self.packagePath = path
+        self.fileSystem = fileSystem
     }
     
     /// Build a new package following the conventions.
@@ -168,9 +172,10 @@ public struct PackageBuilder {
         if path.basename.hasPrefix(".") { return false }
         if path == manifest.path { return false }
         if excludedPaths.contains(path) { return false }
-        if !path.asString.isFile { return false }
-        guard let ext = path.asString.fileExt else { return false }
-        return validExtensions.contains(ext)
+        if !fileSystem.isFile(path) { return false }
+        guard let ext = path.suffix else { return false }
+        // FIXME: Change this when path gets extension property.
+        return validExtensions.contains(String(ext.utf8.dropFirst()))
     }
     
     private func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
@@ -182,7 +187,7 @@ public struct PackageBuilder {
         if base.hasPrefix(".") { return false }  // eg .git
         if excludedPaths.contains(path) { return false }
         if path == packagesDirectory { return false }
-        if !path.asString.isDirectory { return false }
+        if !fileSystem.isDirectory(path) { return false }
         return true
     }
 
@@ -198,12 +203,18 @@ public struct PackageBuilder {
         guard let pkgConfig = manifest.package.pkgConfig else { return nil }
         return RelativePath(pkgConfig)
     }
-    
+
+    /// Returns path to all the items in a directory.
+    func directoryContents(_ path: AbsolutePath) throws -> [AbsolutePath] {
+        return try fileSystem.getDirectoryContents(path).map { path.appending(component: $0) }
+    }
+
     func sourceRoot() throws -> AbsolutePath {
-        let viableRoots = try walk(packagePath, recursively: false).filter { entry in
-            switch entry.basename.lowercased() {
+        let viableRoots = try fileSystem.getDirectoryContents(packagePath).filter { basename in
+            let entry = packagePath.appending(component: basename)
+            switch basename.lowercased() {
             case "sources", "source", "src", "srcs":
-                return entry.asString.isDirectory && !excludedPaths.contains(entry)
+                return fileSystem.isDirectory(entry) && !excludedPaths.contains(entry)
             default:
                 return false
             }
@@ -213,17 +224,17 @@ public struct PackageBuilder {
         case 0:
             return packagePath
         case 1:
-            return viableRoots[0]
+            return packagePath.appending(component: viableRoots[0])
         default:
             // eg. there is a `Sources' AND a `src'
-            throw ModuleError.invalidLayout(.multipleSourceRoots(viableRoots.map{ $0.asString }))
+            throw ModuleError.invalidLayout(.multipleSourceRoots(viableRoots.map{ packagePath.appending(component: $0).asString }))
         }
     }
 
     /// Collects the modules which are defined by a package.
     private func constructModules() throws -> [Module] {
         let moduleMapPath = packagePath.appending("module.modulemap")
-        if moduleMapPath.asString.isFile {
+        if fileSystem.isFile(moduleMapPath) {
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
@@ -235,16 +246,16 @@ public struct PackageBuilder {
         let srcroot = try sourceRoot()
 
         if srcroot != packagePath {
-            let invalidRootFiles = try walk(packagePath, recursively: false).filter(isValidSource)
+            let invalidRootFiles = try directoryContents(packagePath).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
         }
 
-        let maybeModules = try walk(srcroot, recursively: false).filter(shouldConsiderDirectory)
+        let maybeModules = try directoryContents(srcroot).filter(shouldConsiderDirectory)
 
         if maybeModules.count == 1 && maybeModules[0] != srcroot {
-            let invalidModuleFiles = try walk(srcroot, recursively: false).filter(isValidSource)
+            let invalidModuleFiles = try directoryContents(srcroot).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
             }
@@ -313,7 +324,7 @@ public struct PackageBuilder {
     }
     
     private func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
-        let walked = try walk(path, recursing: shouldConsiderDirectory).map{ $0 }
+        let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
         
         let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
@@ -400,11 +411,13 @@ public struct PackageBuilder {
     private func constructTestModules(modules: [Module]) throws -> [Module] {
         let testsPath = packagePath.appending("Tests")
         
-        // Don't try to walk Tests if it is in excludes.
-        guard testsPath.asString.isDirectory && !excludedPaths.contains(testsPath) else { return [] }
+        // Don't try to walk Tests if it is in excludes or doesn't exists.
+        guard fileSystem.isDirectory(testsPath) && !excludedPaths.contains(testsPath) else {
+            return []
+        }
 
         // Create the test modules
-        let testModules = try walk(testsPath, recursively: false).filter(shouldConsiderDirectory).flatMap { dir in
+        let testModules = try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
             return [try modulify(dir, name: dir.basename, isTest: true)]
         }
 
