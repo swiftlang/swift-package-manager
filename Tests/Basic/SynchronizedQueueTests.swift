@@ -141,5 +141,6 @@ class SyncronizedQueueTests: XCTestCase {
     static var allTests = [
         ("testSingleProducerConsumer", testSingleProducerConsumer),
         ("testMultipleProducerConsumer", testMultipleProducerConsumer),
+        ("testMultipleProducerConsumer2", testMultipleProducerConsumer2),
     ]
 }

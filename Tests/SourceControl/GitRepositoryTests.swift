@@ -74,5 +74,7 @@ class GitRepositoryTests: XCTestCase {
 
     static var allTests = [
         ("testProvider", testProvider),
+        ("testGitRepositoryHash", testGitRepositoryHash),
+        ("testRawRepository", testRawRepository),
     ]
 }

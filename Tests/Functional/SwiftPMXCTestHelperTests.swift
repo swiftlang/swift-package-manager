@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(macOS)
-
 import Basic
 import XCTest
 import Utility
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() {
+#if os(macOS)
+
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
@@ -38,9 +38,16 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Run the XCTest helper tool and check result.
             XCTAssertXCTestHelper(prefix.appending(".build").appending("debug").appending("SwiftPMXCTestHelperTests.xctest"), testCases: testCases)
         }
+#endif
     }
+    
+    static var allTests = [
+        ("testBasicXCTestHelper", testBasicXCTestHelper),
+    ]
 }
 
+
+#if os(macOS)
 func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) {
     do {
         let env = ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()]
@@ -55,5 +62,4 @@ func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) 
         XCTFail("Failed with error: \(error)")
     }
 }
-
 #endif

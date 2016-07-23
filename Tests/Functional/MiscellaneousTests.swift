@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import PackageModel
 
 import struct Utility.Path
 import class Utility.Git
@@ -346,7 +347,7 @@ class MiscellaneousTestCase: XCTestCase {
         }
         fixture(name: "Products/DynamicLibrary") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(".build/debug/libProductName.dylib"))
+            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.\(Product.dynamicLibraryExtension)"))
         }
     }
     
@@ -410,8 +411,10 @@ class MiscellaneousTestCase: XCTestCase {
         ("testInternalDependencyEdges", testInternalDependencyEdges),
         ("testExternalDependencyEdges1", testExternalDependencyEdges1),
         ("testExternalDependencyEdges2", testExternalDependencyEdges2),
+        ("testProducts", testProducts),
         ("testProductWithNoModules", testProductWithNoModules),
         ("testProductWithMissingModules", testProductWithMissingModules),
+        ("testSpaces", testSpaces),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
     ]
 }

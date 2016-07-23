@@ -142,6 +142,7 @@ class OutputByteStreamTests: XCTestCase {
 
     static var allTests = [
         ("testBasics", testBasics),
+        ("testBufferCorrectness", testBufferCorrectness),
         ("testStreamOperator", testStreamOperator),
         ("testJSONEncoding", testJSONEncoding),
         ("testFormattedOutput", testFormattedOutput),

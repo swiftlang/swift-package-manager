@@ -103,7 +103,7 @@ class CheckoutManagerTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testBasic", testBasics),
+        ("testBasics", testBasics),
         ("testObserver", testObserver),
         ("testPersistence", testPersistence),
     ]

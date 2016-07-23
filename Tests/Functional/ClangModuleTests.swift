@@ -128,6 +128,7 @@ class ClangModulesTestCase: XCTestCase {
         ("testExternalSimpleCDep", testExternalSimpleCDep),
         ("testiquoteDep", testiquoteDep),
         ("testCUsingCDep", testCUsingCDep),
+        ("testCUsingCDep2", testCUsingCDep2),
         ("testCExecutable", testCExecutable),
         ("testModuleMapGenerationCases", testModuleMapGenerationCases),
         ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),

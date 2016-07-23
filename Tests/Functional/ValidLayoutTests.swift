@@ -119,6 +119,7 @@ class ValidLayoutsTestCase: XCTestCase {
         ("testMultipleModulesExecutables", testMultipleModulesExecutables),
         ("testPackageIdentifiers", testPackageIdentifiers),
         ("testMadeValidWithExclude", testMadeValidWithExclude),
+        ("testExtraCommandLineFlags", testExtraCommandLineFlags),
     ]
 }
 
