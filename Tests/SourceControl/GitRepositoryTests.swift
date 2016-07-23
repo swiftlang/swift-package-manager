@@ -60,15 +60,30 @@ class GitRepositoryTests: XCTestCase {
     }
     
     /// Check raw repository facilities.
+    ///
+    /// In order to be stable, this test uses a static test git repository in
+    /// `Inputs`, which has known commit hashes. See the `construct.sh` script
+    /// contained within it for more information.
     func testRawRepository() throws {
         mktmpdir { path in
-            let testRepoPath = path.appending("test-repo")
-            try! makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath, tag: "1.2.3")
+            // Unarchive the static test repository.
+            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
+            _ = try popen(["tar", "-x", "-v", "-C", path.asString, "-f", inputArchivePath.asString])
+            let testRepoPath = path.appending("TestRepo")
 
+            // Check hash resolution.
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.resolveHash(treeish: "1.2.3"),
+            XCTAssertEqual(try repo.resolveHash(treeish: "1.0", type: "commit"),
                            try repo.resolveHash(treeish: "master"))
+
+            // Get the initial commit.
+            let initialCommitHash = try repo.resolveHash(treeish: "a8b9fcb")
+            XCTAssertEqual(initialCommitHash, GitRepository.Hash("a8b9fcbf893b3b02c0196609059ebae37aeb7f0b"))
+
+            // Check commit loading.
+            let initialCommit = try repo.loadCommit(initialCommitHash)
+            XCTAssertEqual(initialCommit.hash, initialCommitHash)
+            XCTAssertEqual(initialCommit.tree, GitRepository.Hash("9d463c3b538619448c5d2ecac379e92f075a8976"))
         }
     }
 

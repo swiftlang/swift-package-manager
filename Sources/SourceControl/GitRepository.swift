@@ -111,7 +111,16 @@ public class GitRepository: Repository {
             }
         }
     }
-    
+
+    /// A commit object.
+    struct Commit: Equatable {
+        /// The commit hash.
+        let hash: Hash
+
+        /// The tree contained in the commit.
+        let tree: Hash
+    }
+
     /// The path of the repository on disk.
     let path: AbsolutePath
 
@@ -130,19 +139,41 @@ public class GitRepository: Repository {
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
-        return try Revision(identifier: resolveHash(treeish: tag).bytes.asString!)
+        return try Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
     }
 
     // MARK: Git Operations
 
-    func resolveHash(treeish: String) throws -> Hash {
-        let response = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", treeish]).chomp()
+    /// Resolve a "treeish" to a concrete hash.
+    ///
+    /// Technically this method can accept much more than a "treeish", it maps
+    /// to the syntax accepted by `git rev-parse`.
+    func resolveHash(treeish: String, type: String? = nil) throws -> Hash {
+        let specifier: String
+        if let type = type {
+            specifier = treeish + "^{\(type)}"
+        } else {
+            specifier = treeish
+        }
+        let response = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", specifier]).chomp()
         if let hash = Hash(response) {
             return hash
         } else {
             throw GitInterfaceError.malformedResponse("expected an object hash in \(response)")
         }
     }
+
+    /// Load the commit referenced by `hash`.
+    func loadCommit(_ hash: Hash) throws -> Commit {
+        // Currently, we just load the tree, using the typed `rev-parse` syntax.
+        let treeHash = try resolveHash(treeish: hash.bytes.asString!, type: "tree")
+
+        return Commit(hash: hash, tree: treeHash)
+    }
+}
+
+func ==(_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
+    return lhs.hash == rhs.hash && lhs.tree == rhs.tree
 }
 
 func ==(_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
