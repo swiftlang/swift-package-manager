@@ -119,6 +119,7 @@ public func unlink(_ path: AbsolutePath) throws {
 }
 
 /// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's `currentDirectoryPath` method).
+/// FIXME: This should probably go onto `FileSystem`, under the assumption that each file system has its own notion of the `current` working directory.
 public var currentWorkingDirectory: AbsolutePath {
   #if os(Linux)
     let cwdStr = FileManager.default().currentDirectoryPath
