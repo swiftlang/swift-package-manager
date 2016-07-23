@@ -26,7 +26,7 @@ public enum FileSystemError: Swift.Error {
     /// not be decoded correctly.
     case invalidEncoding
     
-    /// IO Errork encoding
+    /// IO Error encoding
     ///
     /// This is used when an operation cannot be completed due to an otherwise
     /// unspecified IO error.
@@ -55,6 +55,12 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX ENOTDIR error code.
     case notDirectory
+    
+    /// Unsupported operation
+    ///
+    /// This is used when an operation is not supported by the concrete file
+    /// system implementation.
+    case unsupported
 
     /// An unspecific operating system error.
     case unknownOSError
@@ -303,7 +309,7 @@ public class InMemoryFileSystem: FileSystem {
         root = Node(.directory(DirectoryContents()))
     }
 
-    /// Get the node corresponding to get given path.
+    /// Get the node corresponding to the given path.
     private func getNode(_ path: AbsolutePath) throws -> Node? {
         func getNodeInternal(_ path: AbsolutePath) throws -> Node? {
             // If this is the root node, return it.

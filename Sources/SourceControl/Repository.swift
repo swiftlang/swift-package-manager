@@ -79,6 +79,22 @@ public protocol Repository {
     /// - Precondition: The `tag` should be a member of `tags`.
     /// - Throws: If a error occurs accessing the named tag.
     func resolveRevision(tag: String) throws -> Revision
+
+    /// Open an immutable file system view for a particular revision.
+    ///
+    /// This view exposes the contents of the repository at the given revision
+    /// as a file system rooted inside the repository. The repository must
+    /// support opening multiple views concurrently, but the expectation is that
+    /// clients should be prepared for this to be inefficient when performing
+    /// interleaved accesses across separate views (i.e., the repository may
+    /// back the view by an actual file system representation of the
+    /// repository).
+    ///
+    /// It is expected behavior that attempts to mutate the given FileSystem
+    /// will fail or crash.
+    ///
+    /// - Throws: If a error occurs accessing the revision.
+    func openFileView(revision: Revision) throws -> FileSystem
 }
 
 /// A single repository revision.

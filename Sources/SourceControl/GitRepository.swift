@@ -88,7 +88,7 @@ enum GitInterfaceError: Swift.Error {
 // class.
 public class GitRepository: Repository {
     /// A hash object.
-    struct Hash: Equatable {
+    struct Hash: Equatable, Hashable {
         // FIXME: We should optimize this representation.
         let bytes: ByteString
 
@@ -116,6 +116,10 @@ public class GitRepository: Repository {
                 }
             }
             self.bytes = ByteString(bytes)
+        }
+
+        public var hashValue: Int {
+            return bytes.hashValue
         }
     }
 
@@ -193,6 +197,10 @@ public class GitRepository: Repository {
         return try Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
     }
 
+    public func openFileView(revision: Revision) throws -> FileSystem {
+        return try GitFileSystemView(repository: self, revision: revision)
+    }
+
     // MARK: Git Operations
 
     /// Resolve a "treeish" to a concrete hash.
@@ -214,7 +222,7 @@ public class GitRepository: Repository {
         }
     }
 
-    /// Load the commit referenced by `hash`.
+    /// Read the commit referenced by `hash`.
     func read(commit hash: Hash) throws -> Commit {
         // Currently, we just load the tree, using the typed `rev-parse` syntax.
         let treeHash = try resolveHash(treeish: hash.bytes.asString!, type: "tree")
@@ -222,7 +230,7 @@ public class GitRepository: Repository {
         return Commit(hash: hash, tree: treeHash)
     }
 
-    /// Load a tree object.
+    /// Read a tree object.
     func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
         let treeInfo = try Git.runPopen([Git.tool, "-C", path.asString, "ls-tree", hash.bytes.asString!])
@@ -267,6 +275,15 @@ public class GitRepository: Repository {
 
         return Tree(hash: hash, contents: contents)
     }
+
+    /// Read a blob object.
+    func read(blob hash: Hash) throws -> ByteString {
+        // Get the contents using `cat-file`.
+        //
+        // FIXME: We need to get the raw bytes back, not a String.
+        let output = try Git.runPopen([Git.tool, "-C", path.asString, "cat-file", "-p", hash.bytes.asString!])
+        return ByteString(encodingAsUTF8: output)
+    }
 }
 
 func ==(_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
@@ -276,4 +293,154 @@ func ==(_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
 func ==(_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
     return lhs.bytes == rhs.bytes
 }
-import libc
+
+/// A `git` file system view.
+///
+/// The current implementation is based on lazily caching data with no eviction
+/// policy, and is very unoptimized.
+private class GitFileSystemView: FileSystem {
+    typealias Hash = GitRepository.Hash
+    typealias Tree = GitRepository.Tree
+    
+    // MARK: Git Object Model
+
+    // The map of loaded trees.
+    var trees: [Hash: Tree] = [:]
+    
+    /// The underlying repository.
+    let repository: GitRepository
+
+    /// The revision this is a view on.
+    let revision: Revision
+
+    /// The root tree hash.
+    let root: GitRepository.Hash
+
+    init(repository: GitRepository, revision: Revision) throws {
+        self.repository = repository
+        self.revision = revision
+        self.root = try repository.read(commit: Hash(revision.identifier)!).tree
+    }
+
+    // MARK: FileSystem Implementation
+
+    private func getEntry(_ path: AbsolutePath) throws -> Tree.Entry? {
+        // Walk the components resolving the tree (starting with a synthetic
+        // root entry).
+        var current: Tree.Entry = Tree.Entry(hash: root, type: .tree, name: "/")
+        for component in path.components.dropFirst(1) {
+            // Skip the root pseudo-component.
+            if component == "/" { continue }
+            
+            // We have a component to resolve, so the current entry must be a tree.
+            guard current.type == .tree else {
+                throw FileSystemError.notDirectory
+            }
+
+            // Fetch the tree.
+            let tree = try getTree(current.hash)
+
+            // Search the tree for the component.
+            //
+            // FIXME: This needs to be optimized, somewhere.
+            guard let index = tree.contents.index(where: { $0.name == component }) else {
+                return nil
+            }
+
+            current = tree.contents[index]
+        }
+
+        return current
+    }
+
+    private func getTree(_ hash: Hash) throws -> Tree {
+        // Check the cache.
+        if let tree = trees[hash] {
+            return tree
+        }
+
+        // Otherwise, load it.
+        let tree = try repository.read(tree: hash)
+        trees[hash] = tree
+        return tree
+    }
+    
+    func exists(_ path: AbsolutePath) -> Bool {
+        do {
+            return try getEntry(path) != nil
+        } catch {
+            return false
+        }
+    }
+    
+    func isFile(_ path: AbsolutePath) -> Bool {
+        do {
+            if let entry = try getEntry(path), entry.type != .tree {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+    
+    func isDirectory(_ path: AbsolutePath) -> Bool {
+        do {
+            if let entry = try getEntry(path), entry.type == .tree {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+    
+    func isSymlink(_ path: AbsolutePath) -> Bool {
+        do {
+            if let entry = try getEntry(path), entry.type == .symlink {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+    
+    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+        guard let entry = try getEntry(path) else {
+            throw FileSystemError.noEntry
+        }
+        guard entry.type == .tree else {
+            throw FileSystemError.notDirectory
+        }
+
+        return try getTree(entry.hash).contents.map{ $0.name }
+    }
+    
+    func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+        guard let entry = try getEntry(path) else {
+            throw FileSystemError.noEntry
+        }
+        guard entry.type != .tree else {
+            throw FileSystemError.isDirectory
+        }
+        guard entry.type != .symlink else {
+            fatalError("FIXME: not implemented")
+        }
+        return try repository.read(blob: entry.hash)
+    }
+
+    // MARK: Unsupported methods.
+    
+    func createDirectory(_ path: AbsolutePath) throws {
+        throw FileSystemError.unsupported
+    }
+
+    func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        throw FileSystemError.unsupported
+    }        
+
+    func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
+        throw FileSystemError.unsupported
+    }
+}

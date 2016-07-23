@@ -16,6 +16,18 @@ import Utility
 
 @testable import class SourceControl.GitRepository
 
+// FIXME: Move to Utilities.
+func XCTAssertThrows<T where T: Swift.Error, T: Equatable>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) {
+    do {
+        try body()
+        XCTFail("body completed successfully", file: file, line: line)
+    } catch let error as T {
+        XCTAssertEqual(error, expectedError, file: file, line: line)
+    } catch {
+        XCTFail("unexpected error thrown", file: file, line: line)
+    }
+}
+
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() throws {
@@ -112,9 +124,80 @@ class GitRepositoryTests: XCTestCase {
        }
     }
 
+    /// Test the Git file system view.
+    func testGitFileView() throws {
+        mktmpdir { path in
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            // Add a couple files and a directory.
+            let test1FileContents: ByteString = "Hello, world!"
+            let test2FileContents: ByteString = "Hello, happy world!"
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-1.txt"), bytes: test1FileContents)
+            try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
+            try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test-file-1.txt", "subdir/test-file-2.txt"])
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            try tagGitRepo(testRepoPath, tag: "test-tag")
+
+            // Get the the repository via the provider. the provider.
+            let testCheckoutPath = path.appending("checkout")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            try provider.fetch(repository: repoSpec, to: testCheckoutPath)
+            let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
+
+            // Get and test the file system view.
+            let view = try repository.openFileView(revision: repository.resolveRevision(tag: "test-tag"))
+
+            // Check basic predicates.
+            XCTAssert(view.isDirectory("/"))
+            XCTAssert(view.isDirectory("/subdir"))
+            XCTAssert(!view.isDirectory("/does-not-exist"))
+            XCTAssert(view.exists("/test-file-1.txt"))
+            XCTAssert(!view.exists("/does-not-exist"))
+            XCTAssert(view.isFile("/test-file-1.txt"))
+            XCTAssert(!view.isSymlink("/test-file-1.txt"))
+
+            // Check read of a directory.
+            XCTAssertEqual(try view.getDirectoryContents("/").sorted(), ["file.swift", "subdir", "test-file-1.txt"])
+            XCTAssertEqual(try view.getDirectoryContents("/subdir").sorted(), ["test-file-2.txt"])
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                _ = try view.readFileContents("/subdir")
+            }
+
+            // Check read versus root.
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                _ = try view.readFileContents("/")
+            }
+
+            // Check read through a non-directory.
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                _ = try view.getDirectoryContents("/test-file-1.txt")
+            }
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                _ = try view.readFileContents("/test-file-1.txt/thing")
+            }
+            
+            // Check read/write into a missing directory.
+            XCTAssertThrows(FileSystemError.noEntry) {
+                _ = try view.getDirectoryContents("/does-not-exist")
+            }
+            XCTAssertThrows(FileSystemError.noEntry) {
+                _ = try view.readFileContents("/does/not/exist")
+            }
+
+            // Check read of a file.
+            XCTAssertEqual(try view.readFileContents("/test-file-1.txt"), test1FileContents)
+            XCTAssertEqual(try view.readFileContents("/subdir/test-file-2.txt"), test2FileContents)
+        }
+    }
+
     static var allTests = [
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testRawRepository", testRawRepository),
+        ("testGitFileView", testGitFileView),
     ]
 }
