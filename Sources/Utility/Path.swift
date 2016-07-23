@@ -199,7 +199,8 @@ extension String {
 
          Path.join(getcwd(), self).normpath
      */
-    public var abspath: String {
+    // Note: This is being made `fileprivate` right now, but is kept for a while since other methods in this file rely on it.
+    fileprivate var abspath: String {
         return Path.join(getcwd(), self).normpath
     }
 
