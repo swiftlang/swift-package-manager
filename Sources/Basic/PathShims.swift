@@ -118,6 +118,16 @@ public func unlink(_ path: AbsolutePath) throws {
     guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
 }
 
+/// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's `currentDirectoryPath` method).
+public var currentWorkingDirectory: AbsolutePath {
+  #if os(Linux)
+    let cwdStr = FileManager.default().currentDirectoryPath
+  #else
+    let cwdStr = FileManager.default.currentDirectoryPath
+  #endif
+    return AbsolutePath(cwdStr)
+}
+
 
 /**
  - Returns: a generator that walks the specified directory producing all
