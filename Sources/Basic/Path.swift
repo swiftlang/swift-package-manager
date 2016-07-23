@@ -123,6 +123,12 @@ public struct AbsolutePath {
     public var suffix: String? {
         return _impl.suffix
     }
+
+    /// Extension of the give path's basename. This follow same rules as
+    /// suffix except that it doesn't include leading `.` character.
+    public var `extension`: String? {
+        return _impl.extension
+    }
     
     /// Absolute path of parent directory.  This always returns a path, because
     /// every directory has a parent (the parent directory of the root directory
@@ -264,6 +270,12 @@ public struct RelativePath {
     public var suffix: String? {
         return _impl.suffix
     }
+
+    /// Extension of the give path's basename. This follow same rules as
+    /// suffix except that it doesn't include leading `.` character.
+    public var `extension`: String? {
+        return _impl.extension
+    }
     
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
@@ -400,6 +412,15 @@ private struct PathImpl {
     }
     
     fileprivate var suffix: String? {
+        return suffix(withDot: true)
+    }
+
+    fileprivate var `extension`: String? {
+        return suffix(withDot: false)
+    }
+
+    /// Returns suffix with leading `.` if withDot is true otherwise without it. 
+    private func suffix(withDot: Bool) -> String? {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
@@ -414,7 +435,8 @@ private struct PathImpl {
         if let idx = chars.rindex(of: ".", from: fIdx) {
             // Unless it's just a `.` at the end, we have found a suffix.
             if chars.distance(from: idx, to: chars.endIndex) > 1 {
-                return String(chars.suffix(from: idx))
+                let fromIndex = withDot ? idx : chars.index(idx, offsetBy: 1)
+                return String(chars.suffix(from: fromIndex))
             }
             else {
                 return nil

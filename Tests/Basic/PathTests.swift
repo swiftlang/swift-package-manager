@@ -147,16 +147,27 @@ class PathTests: XCTestCase {
     
     func testSuffixExtraction() {
         XCTAssertEqual(RelativePath("a").suffix, nil)
+        XCTAssertEqual(RelativePath("a").extension, nil)
         XCTAssertEqual(RelativePath("a.").suffix, nil)
+        XCTAssertEqual(RelativePath("a.").extension, nil)
         XCTAssertEqual(RelativePath(".a").suffix, nil)
+        XCTAssertEqual(RelativePath(".a").extension, nil)
         XCTAssertEqual(RelativePath("").suffix, nil)
+        XCTAssertEqual(RelativePath("").extension, nil)
         XCTAssertEqual(RelativePath(".").suffix, nil)
+        XCTAssertEqual(RelativePath(".").extension, nil)
         XCTAssertEqual(RelativePath("..").suffix, nil)
+        XCTAssertEqual(RelativePath("..").extension, nil)
         XCTAssertEqual(RelativePath("a.foo").suffix, ".foo")
+        XCTAssertEqual(RelativePath("a.foo").extension, "foo")
         XCTAssertEqual(RelativePath(".a.foo").suffix, ".foo")
+        XCTAssertEqual(RelativePath(".a.foo").extension, "foo")
         XCTAssertEqual(RelativePath(".a.foo.bar").suffix, ".bar")
+        XCTAssertEqual(RelativePath(".a.foo.bar").extension, "bar")
         XCTAssertEqual(RelativePath("a.foo.bar").suffix, ".bar")
+        XCTAssertEqual(RelativePath("a.foo.bar").extension, "bar")
         XCTAssertEqual(RelativePath(".a.foo.bar.baz").suffix, ".baz")
+        XCTAssertEqual(RelativePath(".a.foo.bar.baz").extension, "baz")
     }
     
     func testParentDirectory() {
