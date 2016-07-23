@@ -39,7 +39,7 @@ public struct Flag {
 }
 
 private func getroot() -> AbsolutePath {
-    var root = AbsolutePath(getcwd())
+    var root = currentWorkingDirectory
     while !root.appending(component: Manifest.filename).asString.isFile {
         root = root.parentDirectory
 

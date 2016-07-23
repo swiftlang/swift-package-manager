@@ -91,10 +91,17 @@ class PathShimTests : XCTestCase {
         XCTAssertTrue(keepDirPath.asString.isDirectory)
     }
     
+    func testCurrentWorkingDirectory() {
+        // Test against what POSIX returns, at least for now.
+        let cwd = currentWorkingDirectory;
+        XCTAssertEqual(cwd, AbsolutePath(getcwd()))
+    }
+    
     static var allTests = [
         ("testResolvingSymlinks",            testResolvingSymlinks),
         ("testRescursiveDirectoryCreation",  testRescursiveDirectoryCreation),
-        ("testRecursiveDirectoryRemoval",    testRecursiveDirectoryRemoval)
+        ("testRecursiveDirectoryRemoval",    testRecursiveDirectoryRemoval),
+        ("testCurrentWorkingDirectory",      testCurrentWorkingDirectory)
     ]
 }
 

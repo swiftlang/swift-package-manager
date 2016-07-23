@@ -37,7 +37,7 @@ extension InitError: CustomStringConvertible {
 
 /// Create an initial template package.
 final class InitPackage {
-    let rootd = AbsolutePath(POSIX.getcwd())
+    let rootd = currentWorkingDirectory
 
     /// The mode in use.
     let mode: InitMode
