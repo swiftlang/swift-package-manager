@@ -63,6 +63,18 @@ public struct AbsolutePath {
         self.init(PathImpl(string: normalize(absolute: absStr)))
     }
     
+    /// Initializes an AbsolutePath from a string that may be either absolute
+    /// or relative; if relative, `basePath` is used as the anchor; if absolute,
+    /// it is used as is, and in this case `basePath` is ignored.
+    public init(_ str: String, relativeTo basePath: AbsolutePath) {
+        if str.hasPrefix("/") {
+            self.init(str)
+        }
+        else {
+            self.init(basePath, RelativePath(str))
+        }
+    }
+    
     /// Initializes the AbsolutePath by concatenating a relative path to an
     /// existing absolute path, and renormalizing if necessary.
     public init(_ absPath: AbsolutePath, _ relPath: RelativePath) {
