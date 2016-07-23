@@ -47,7 +47,7 @@ class FileSystemTests: XCTestCase {
         // isSymlink()
         let tempDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         let sym = tempDir.path.appending("hello")
-        try! symlink(sym, pointingAt: file.path)
+        try! createSymlink(sym, pointingAt: file.path)
         XCTAssertTrue(fs.isSymlink(sym))
         XCTAssertTrue(fs.isFile(sym))
         XCTAssertFalse(fs.isDirectory(sym))
