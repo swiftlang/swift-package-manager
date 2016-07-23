@@ -138,8 +138,8 @@ public class GitRepository: Repository {
                 case tree
 
                 init?(mode: Int) {
-                    // Although the mode is a full UNIX mode mask, these are the
-                    // only allowed values.
+                    // Although the mode is a full UNIX mode mask, there are
+                    // only a limited set of allowed values.
                     switch mode {
                     case 0o040000:
                         self = .tree
@@ -257,6 +257,11 @@ public class GitRepository: Repository {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
             }
 
+            // FIXME: We do not handle de-quoting of names, currently.
+            if name.hasPrefix("\"") {
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
+            }
+            
             contents.append(Tree.Entry(hash: hash, type: type, name: name))
         }
 

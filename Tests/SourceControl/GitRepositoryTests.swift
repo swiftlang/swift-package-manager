@@ -93,6 +93,22 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(readmeEntry.hash, GitRepository.Hash("92513075b3491a54c45a880be25150d92388e7bc"))
             XCTAssertEqual(readmeEntry.type, .blob)
             XCTAssertEqual(readmeEntry.name, "README.txt")
+
+            // Check loading of odd names.
+            //
+            // This is a commit which has a subdirectory 'funny-names' with
+            // paths with special characters.
+            let funnyNamesCommit = try repo.read(commit: repo.resolveHash(treeish: "a7b19a7"))
+            let funnyNamesRoot = try repo.read(tree: funnyNamesCommit.tree)
+            XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
+            guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
+
+            // FIXME: This isn't yet supported.
+            let funnyNamesSubdirEntry = funnyNamesRoot.contents[1]
+            XCTAssertEqual(funnyNamesSubdirEntry.type, .tree)
+            if let _ = try? repo.read(tree: funnyNamesSubdirEntry.hash) {
+                XCTFail("unexpected success reading tree with funny names")
+            }
        }
     }
 
