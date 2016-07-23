@@ -30,7 +30,7 @@ class PathShimTests : XCTestCase {
         let fldrPath = tmpDirPath.appending("fldr")
         
         // Create a symbolic link pointing at the (so far non-existent) directory.
-        try! symlink(create: slnkPath.asString, pointingAt: fldrPath.asString, relativeTo: tmpDirPath.asString)
+        try! createSymlink(slnkPath, pointingAt: fldrPath, relative: true)
         
         // Resolving the symlink should not yet change anything.
         XCTAssertEqual(resolveSymlinks(slnkPath), slnkPath)
@@ -74,7 +74,7 @@ class PathShimTests : XCTestCase {
         
         // Create a symbolic link in a directory to be removed; it points to a directory to not remove.
         let slnkPath = tossDirPath.appending(components: "slnk")
-        try! symlink(create: slnkPath.asString, pointingAt: keepDirPath.asString, relativeTo: tossDirPath.asString)
+        try! createSymlink(slnkPath, pointingAt: keepDirPath, relative: true)
         
         // Make sure the symbolic link got set up correctly.
         XCTAssertTrue(slnkPath.asString.isSymlink)
@@ -136,7 +136,7 @@ class WalkTests : XCTestCase {
             
         try! makeDirectories(tmpDirPath.appending("foo"))
         try! makeDirectories(tmpDirPath.appending("bar/baz/goo"))
-        try! symlink(create: tmpDirPath.appending("foo/symlink").asString, pointingAt: tmpDirPath.appending("bar").asString, relativeTo: tmpDirPath.asString)
+        try! createSymlink(tmpDirPath.appending("foo/symlink"), pointingAt: tmpDirPath.appending("bar"), relative: true)
 
         XCTAssertTrue(tmpDirPath.appending("foo/symlink").asString.isSymlink)
         XCTAssertEqual(resolveSymlinks(tmpDirPath.appending("foo/symlink")), tmpDirPath.appending("bar"))
@@ -153,8 +153,8 @@ class WalkTests : XCTestCase {
         
         try! makeDirectories(tmpDirPath.appending("foo/bar"))
         try! makeDirectories(tmpDirPath.appending("abc/bar"))
-        try! symlink(create: tmpDirPath.appending("symlink").asString, pointingAt: tmpDirPath.appending("foo").asString, relativeTo: tmpDirPath.asString)
-        try! symlink(create: tmpDirPath.appending("foo/baz").asString, pointingAt: tmpDirPath.appending("abc").asString, relativeTo: tmpDirPath.asString)
+        try! createSymlink(tmpDirPath.appending("symlink"), pointingAt: tmpDirPath.appending("foo"), relative: true)
+        try! createSymlink(tmpDirPath.appending("foo/baz"), pointingAt: tmpDirPath.appending("abc"), relative: true)
 
         XCTAssertTrue(tmpDirPath.appending("symlink").asString.isSymlink)
 

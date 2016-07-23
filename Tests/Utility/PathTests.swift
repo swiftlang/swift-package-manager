@@ -99,7 +99,7 @@ class StatTests: XCTestCase {
 
         mktmpdir { root in
             try makeDirectories(root.appending("foo/bar"))
-            try symlink(create: root.appending("symlink").asString, pointingAt: root.appending("foo").asString, relativeTo: root.asString)
+            try createSymlink(root.appending("symlink"), pointingAt: root.appending("foo"), relative: true)
 
             XCTAssertTrue(root.appending("foo/bar").asString.isDirectory)
             XCTAssertTrue(root.appending("symlink/bar").asString.isDirectory)
