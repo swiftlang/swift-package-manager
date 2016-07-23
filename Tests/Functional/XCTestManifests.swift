@@ -18,6 +18,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(InvalidLayoutsTestCase.allTests),
         testCase(MiscellaneousTestCase.allTests),
         testCase(ModuleMapsTestCase.allTests),
+        testCase(SwiftPMXCTestHelperTests.allTests),
         testCase(ValidLayoutsTestCase.allTests),
     ]
 }
