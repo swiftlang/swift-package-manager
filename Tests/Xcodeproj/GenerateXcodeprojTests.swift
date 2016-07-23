@@ -16,10 +16,9 @@ import Xcodeproj
 import Utility
 import XCTest
 
-#if os(macOS)
-
 class GenerateXcodeprojTests: XCTestCase {
     func testXcodebuildCanParseIt() {
+#if os(macOS)
         mktmpdir { dstdir in
             func dummy() throws -> [Module] {
                 return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
@@ -41,7 +40,10 @@ class GenerateXcodeprojTests: XCTestCase {
 
             XCTAssertEqual(output, expectedOutput)
         }
-    }
-}
-
 #endif
+    }
+    
+    static var allTests = [
+        ("testXcodebuildCanParseIt", testXcodebuildCanParseIt)
+    ]
+}

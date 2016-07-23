@@ -15,10 +15,9 @@ import PackageModel
 import Utility
 import Xcodeproj
 
-#if os(macOS)
-
 class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
+#if os(macOS)
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
             XCTAssertXcodeprojGen(prefix)
             let pbx = prefix.appending(component: "Library.xcodeproj")
@@ -27,9 +26,11 @@ class FunctionalTests: XCTestCase {
             let build = prefix.appending(components: "build", "Debug")
             XCTAssertDirectoryExists(build.appending("Library.framework"))
         }
+#endif
     }
 
     func testSwiftExecWithCDep() {
+#if os(macOS)
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             // This will also test Modulemap generation for xcodeproj.
             XCTAssertXcodeprojGen(prefix)
@@ -41,9 +42,11 @@ class FunctionalTests: XCTestCase {
             XCTAssertFileExists(build.appending(component: "SeaExec"))
             XCTAssertFileExists(build.appending(component: "CExec"))
         }
+#endif
     }
 
     func testXcodeProjWithPkgConfig() {
+#if os(macOS)
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
             XCTAssertBuilds(prefix.appending(component: "SystemModule"))
             XCTAssertFileExists(prefix.appending(components: "SystemModule", ".build", "debug", "libSystemModule.\(Product.dynamicLibraryExtension)"))
@@ -70,9 +73,11 @@ class FunctionalTests: XCTestCase {
             XCTAssertXcodeBuild(project: pbx)
             XCTAssertFileExists(moduleUser.appending(components: "build", "Debug", "SystemModuleUser"))
         }
+#endif
     }
 
     func testModuleNamesWithNonC99Names() {
+#if os(macOS)
         fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { prefix in
             XCTAssertXcodeprojGen(prefix)
             let pbx = prefix.appending(component: "PackageWithNonc99NameModules.xcodeproj")
@@ -83,9 +88,11 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
         }
+#endif
     }
     
     func testSystemModule() {
+#if os(macOS)
         // Because there isn't any one system module that we can depend on for testing purposes, we build our own.
         try! write(path: "/tmp/fake.h") { stream in
             stream <<< "extern const char GetFakeString(void);\n"
@@ -114,6 +121,7 @@ class FunctionalTests: XCTestCase {
             let proj = execDir.appending(component: "TestExec.xcodeproj")
             XCTAssertXcodeBuild(project: proj)
         }
+#endif
     }
 
     static var allTests = [
@@ -121,6 +129,7 @@ class FunctionalTests: XCTestCase {
         ("testSwiftExecWithCDep", testSwiftExecWithCDep),
         ("testXcodeProjWithPkgConfig", testXcodeProjWithPkgConfig),
         ("testModuleNamesWithNonC99Names", testModuleNamesWithNonC99Names),
+        ("testSystemModule", testSystemModule),
     ]
 }
 
@@ -150,5 +159,3 @@ func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [S
         XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }
 }
-
-#endif
