@@ -25,9 +25,9 @@ extension Command {
             args += ["-O"]
         }
 
-        #if os(macOS)
-        args += ["-F", try platformFrameworksPath()]
-        #endif
+      #if os(macOS)
+        args += ["-F", try platformFrameworksPath().asString]
+      #endif
 
         let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
         return Command(node: module.targetName, tool: tool)

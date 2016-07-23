@@ -23,9 +23,9 @@ public enum PkgConfigError: Swift.Error {
 ///
 /// This is needed because on Linux machines, the search paths can be different
 /// from the standard locations that we are currently searching.
-private let pkgConfigSearchPaths: [String] = {
+private let pkgConfigSearchPaths: [AbsolutePath] = {
     let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"]).chomp()
-    return searchPaths?.characters.split(separator: ":").map(String.init) ?? []
+    return searchPaths?.characters.split(separator: ":").map{ AbsolutePath(String($0)) } ?? []
 }()
 
 /// Information on an individual `pkg-config` supported package.
@@ -34,7 +34,7 @@ public struct PkgConfig {
     public let name: String
 
     /// The path to the definition file.
-    public let pcFile: String
+    public let pcFile: AbsolutePath
 
     /// The list of C compiler flags in the definition.
     public let cFlags: [String]
@@ -47,10 +47,10 @@ public struct PkgConfig {
     /// By default, this is combined with the search paths infered from
     /// `pkg-config` itself.
     private static let searchPaths = [
-        "/usr/local/lib/pkgconfig",
-        "/usr/local/share/pkgconfig",
-        "/usr/lib/pkgconfig",
-        "/usr/share/pkgconfig",
+        AbsolutePath("/usr/local/lib/pkgconfig"),
+        AbsolutePath("/usr/local/share/pkgconfig"),
+        AbsolutePath("/usr/lib/pkgconfig"),
+        AbsolutePath("/usr/share/pkgconfig"),
     ]
 
     /// Load the information for the named package.
@@ -80,20 +80,20 @@ public struct PkgConfig {
         self.libs = libs
     }
     
-    private static var envSearchPaths: [String] {
+    private static var envSearchPaths: [AbsolutePath] {
         if let configPath = getenv("PKG_CONFIG_PATH") {
-            return configPath.characters.split(separator: ":").map(String.init)
+            return configPath.characters.split(separator: ":").map{ AbsolutePath(String($0)) }
         }
         return []
     }
     
-    private static func locatePCFile(name: String) throws -> String {
+    private static func locatePCFile(name: String) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
         for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
-            let pcFile = Path.join(path, name + ".pc")
-            if pcFile.isFile {
+            let pcFile = path.appending(component: name + ".pc")
+            if pcFile.asString.isFile {
                 return pcFile
             }
         }
@@ -107,14 +107,14 @@ public struct PkgConfig {
 //
 // FIXME: This is only internal so it can be unit tested.
 struct PkgConfigParser {
-    private let pcFile: String
+    private let pcFile: AbsolutePath
     private(set) var variables = [String: String]()
     var dependencies = [String]()
     var cFlags = [String]()
     var libs = [String]()
     
-    init(pcFile: String) {
-        precondition(pcFile.isFile)
+    init(pcFile: AbsolutePath) {
+        precondition(isFile(pcFile))
         self.pcFile = pcFile
     }
     
@@ -126,7 +126,7 @@ struct PkgConfigParser {
             return line
         }
         
-        let file = try fopen(self.pcFile, mode: .read)
+        let file = try fopen(self.pcFile.asString, mode: .read)
         for line in try file.readFileContents().components(separatedBy: "\n") {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)

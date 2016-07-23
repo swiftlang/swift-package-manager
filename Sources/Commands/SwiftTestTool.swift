@@ -313,7 +313,7 @@ public struct SwiftTestTool: SwiftTool {
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
+        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath().asString])
         // Read the temporary file's content.
         let data = try fopen(tempFile.path.asString).readFileContents()
       #else

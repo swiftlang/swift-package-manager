@@ -102,7 +102,7 @@ struct ClangModuleBuildMetadata {
     static func basicArgs() throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args += ["-F", try platformFrameworksPath()]
+        args += ["-F", try platformFrameworksPath().asString]
       #else
         args += ["-fPIC"]
       #endif

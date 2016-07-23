@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Basic
 
 @testable import Utility
 
@@ -63,7 +64,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
     
     private func loadPCFile(_ inputName: String, body: (PkgConfigParser?) -> Void) {
-        let input = Path.join(#file, "../pkgconfigInputs", inputName).normpath
+        let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
         var parser: PkgConfigParser? = PkgConfigParser(pcFile: input)
         do {
             try parser?.parse()
