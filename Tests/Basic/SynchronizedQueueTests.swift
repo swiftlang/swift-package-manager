@@ -88,8 +88,8 @@ class SyncronizedQueueTests: XCTestCase {
     func testMultipleProducerConsumer2() {
         let queue = SynchronizedQueue<Int?>()
 
-        let queueElementsOne = Set(0..<10000)
-        let queueElementsTwo = Set(10000..<50000)
+        let queueElementsOne = Set(0..<1000)
+        let queueElementsTwo = Set(1000..<5000)
 
         var consumed = Set<Int>()
 
