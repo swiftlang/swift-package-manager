@@ -173,9 +173,8 @@ public struct PackageBuilder {
         if path == manifest.path { return false }
         if excludedPaths.contains(path) { return false }
         if !fileSystem.isFile(path) { return false }
-        guard let ext = path.suffix else { return false }
-        // FIXME: Change this when path gets extension property.
-        return validExtensions.contains(String(ext.utf8.dropFirst()))
+        guard let ext = path.extension else { return false }
+        return validExtensions.contains(ext)
     }
     
     private func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
