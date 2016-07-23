@@ -49,8 +49,9 @@ private struct Resources: ManifestResourceProvider {
   #endif
     let libraryPath = bundleRoot()
 #else
-    let libraryPath = AbsolutePath(CommandLine.arguments.first!.parentDirectory.abspath)
-    let swiftCompilerPath = AbsolutePath(CommandLine.arguments.first!.abspath).appending("../swiftc")
+    let execBinDir = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
+    let libraryPath = execBinDir
+    let swiftCompilerPath = execBinDir.appending(component: "swiftc")
 #endif
 }
 

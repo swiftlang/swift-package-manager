@@ -84,12 +84,12 @@ private enum TestToolFlag: Argument {
         switch argument {
         case "--chdir", "-C":
             guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .chdir(AbsolutePath(path.abspath))
+            self = .chdir(AbsolutePath(path, relativeTo: currentWorkingDirectory))
         case "--skip-build":
             self = .skipBuild
         case "--build-path":
             guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .buildPath(AbsolutePath(path.abspath))
+            self = .buildPath(AbsolutePath(path, relativeTo: currentWorkingDirectory))
         default:
             return nil
         }
@@ -280,7 +280,7 @@ public struct SwiftTestTool: SwiftTool {
     /// - Returns: Path to XCTestHelper tool.
     private func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(CommandLine.arguments.first!.abspath).parentDirectory
+        let binDirectory = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.appending("../libexec/swift/pm/").appending(RelativePath(xctestHelperBin))
         if maybePath.asString.isFile {

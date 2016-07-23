@@ -14,18 +14,24 @@ import PackageModel
 import POSIX
 
 struct ToolDefaults: ManifestResourceProvider {
+    // We have to do things differently depending on whether we're running in
+    // Xcode or in other cases, unfortunately.
+    
+    // First we form the absolute path of the directory that contains the main
+    // executable.
+    static let execBinDir = AbsolutePath(argv0, relativeTo: currentWorkingDirectory).parentDirectory
   #if Xcode
     // when in Xcode we are built with same toolchain as we will run
     // this is not a production ready mode
 
     // FIXME: This isn't correct; we need to handle a missing SWIFT_EXEC.
-    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!.abspath)
-    static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!.abspath).appending("../swift-build-tool")
-    static let libdir = AbsolutePath(argv0.abspath).parentDirectory
+    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory)
+    static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swift-build-tool")
+    static let libdir = execBinDir
   #else
-    static let SWIFT_EXEC = AbsolutePath(argv0.abspath).appending("../swiftc")
-    static let llbuild = AbsolutePath(argv0.abspath).appending("../swift-build-tool")
-    static let libdir = AbsolutePath(argv0.abspath).appending("../../lib/swift/pm")
+    static let SWIFT_EXEC = execBinDir.appending(component: "swiftc")
+    static let llbuild = execBinDir.appending(component: "swift-build-tool")
+    static let libdir = execBinDir.parentDirectory.appending(components: "lib", "swift", "pm")
   #endif
 
     var swiftCompilerPath: AbsolutePath {

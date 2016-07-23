@@ -78,7 +78,7 @@ private enum BuildToolFlag: Argument {
         
         switch argument {
         case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop().abspath))
+            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         case "--verbose", "-v":
             self = .verbose(1)
         case "-Xcc":
@@ -88,7 +88,7 @@ private enum BuildToolFlag: Argument {
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
         case "--build-path":
-            self = try .buildPath(AbsolutePath(forcePop().abspath))
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         case "--build-tests":
             self = .buildTests
         case "--color":
