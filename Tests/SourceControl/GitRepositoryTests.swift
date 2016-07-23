@@ -68,7 +68,7 @@ class GitRepositoryTests: XCTestCase {
         mktmpdir { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
-            _ = try popen(["tar", "-x", "-v", "-C", path.asString, "-f", inputArchivePath.asString])
+            try systemQuietly(["tar", "-x", "-v", "-C", path.asString, "-f", inputArchivePath.asString])
             let testRepoPath = path.appending("TestRepo")
 
             // Check hash resolution.
@@ -81,10 +81,19 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(initialCommitHash, GitRepository.Hash("a8b9fcbf893b3b02c0196609059ebae37aeb7f0b"))
 
             // Check commit loading.
-            let initialCommit = try repo.loadCommit(initialCommitHash)
+            let initialCommit = try repo.read(commit: initialCommitHash)
             XCTAssertEqual(initialCommit.hash, initialCommitHash)
             XCTAssertEqual(initialCommit.tree, GitRepository.Hash("9d463c3b538619448c5d2ecac379e92f075a8976"))
-        }
+
+            // Check tree loading.
+            let initialTree = try repo.read(tree: initialCommit.tree)
+            XCTAssertEqual(initialTree.hash, initialCommit.tree)
+            XCTAssertEqual(initialTree.contents.count, 1)
+            guard let readmeEntry = initialTree.contents.first else { return XCTFail() }
+            XCTAssertEqual(readmeEntry.hash, GitRepository.Hash("92513075b3491a54c45a880be25150d92388e7bc"))
+            XCTAssertEqual(readmeEntry.type, .blob)
+            XCTAssertEqual(readmeEntry.name, "README.txt")
+       }
     }
 
     static var allTests = [
