@@ -225,7 +225,7 @@ public struct SwiftPackageTool: SwiftTool {
                 }
                 let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
         
-                print("generated:", outpath.asString.prettyPath)
+                print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root

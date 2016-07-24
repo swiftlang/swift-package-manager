@@ -28,7 +28,8 @@ public struct RepositorySpecifier {
         // FIXME: Need to do something better here. In particular, we should use
         // a stable hash function since this interacts with the CheckoutManager
         // persistence.
-        return url.basename + "-" + String(url.hashValue)
+        let basename = url.components(separatedBy: "/").last!
+        return basename + "-" + String(url.hashValue)
     }
 }
 

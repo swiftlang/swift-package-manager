@@ -27,8 +27,6 @@ import Basic
 import PackageModel
 import PackageLoading
 
-import struct Utility.Path
-
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
 let rootDebugBuildConfigurationReference =          "_______Debug_"

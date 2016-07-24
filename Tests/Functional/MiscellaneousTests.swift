@@ -13,7 +13,6 @@ import XCTest
 import Basic
 import PackageModel
 
-import struct Utility.Path
 import class Utility.Git
 import func libc.sleep
 import enum POSIX.Error

@@ -205,6 +205,28 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     }
 }
 
+extension AbsolutePath {
+    /// Returns a path suitable for display to the user (if possible, it is made
+    /// to be relative to the current working directory).
+    /// - Note: Therefore this function relies on the working directory's not
+    /// changing during execution.
+    public var prettyPath: String {
+        let currDir = currentWorkingDirectory
+        // FIXME: Instead of string prefix comparison we should add a proper API
+        // to AbsolutePath to determine ancestry.
+        if self == currDir {
+            return "."
+        }
+        else if self.asString.hasPrefix(currDir.asString + "/") {
+            return "./" + self.relative(to: currDir).asString
+        }
+        else {
+            return self.asString
+        }
+    }
+}
+
+
 // FIXME: All of the following will move to the FileSystem class.
 
 public enum FileAccessError : Swift.Error {

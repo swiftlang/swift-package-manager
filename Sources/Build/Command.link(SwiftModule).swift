@@ -98,7 +98,7 @@ extension Command {
         }
 
         let shell = ShellTool(
-            description: "Linking \(outpath.asString.prettyPath)",
+            description: "Linking \(outpath.prettyPath)",
             inputs: objects.map{ $0.asString },
             outputs: [product.targetName, outpath.asString],
             args: args)
