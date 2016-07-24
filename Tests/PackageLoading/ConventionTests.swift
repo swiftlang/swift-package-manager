@@ -96,6 +96,28 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testCInTests() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/main.swift",
+                                "/Tests/MyPackage/abc.c")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkModule("MyPackage") { moduleResult in
+                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "main.swift")
+            }
+
+            result.checkModule("MyPackageTestSuite") { moduleResult in
+                moduleResult.check(type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/MyPackage", paths: "abc.c")
+            }
+
+          #if os(Linux)
+            result.checkDiagnostic("warning: Ignoring MyPackageTestSuite as C language in tests is not yet supported on Linux.")
+          #endif
+        }
+    }
+
     static var allTests = [
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
@@ -103,6 +125,7 @@ class ConventionTests: XCTestCase {
         ("testResolvesSingleClangModule", testResolvesSingleClangModule),
         ("testMixedSources", testMixedSources),
         ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
+        ("testCInTests", testCInTests),
     ]
 }
 
