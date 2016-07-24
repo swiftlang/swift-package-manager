@@ -183,8 +183,6 @@ public struct AbsolutePath {
     /// Root directory (whose string representation is just a path separator).
     public static let root = AbsolutePath(String(pathSeparatorCharacter))
     
-    // FIXME: We need to add a `home` property to represent the home directory.
-    
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var asString: String {
