@@ -136,14 +136,18 @@ public struct PackageBuilder {
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
 
+    /// The stream to which warnings should be published.
+    private let warningStream: OutputByteStream
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
     ///   - path: The root path of the package.
-    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem) {
+    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
+        self.warningStream = warningStream
     }
     
     /// Build a new package following the conventions.
@@ -376,7 +380,8 @@ public struct PackageBuilder {
           #if os(Linux)
             let testModules = testModules.filter { module in
                 if module is ClangModule {
-                    print("warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux.")
+                    warningStream <<< "warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux."
+                    warningStream.flush()
                     return false
                 }
                 return true
