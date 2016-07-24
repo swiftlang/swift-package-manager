@@ -72,7 +72,7 @@ class ConventionTests: XCTestCase {
         try fs.createEmptyFiles("/Sources/main.swift",
                                 "/Sources/main.c")
         PackageBuilderTester("MixedSources", in: fs) { result in
-            result.checkError("the module at /Sources contains mixed language source files fix: use only a single language within a module")
+            result.checkDiagnostic("the module at /Sources contains mixed language source files fix: use only a single language within a module")
         }
     }
 
@@ -163,11 +163,12 @@ private extension FileSystem {
 ///     - package: PackageDescription instance to use for loading this package.
 ///     - path: Directory where the package is located.
 ///     - in: FileSystem in which the package should be loaded from.
+///     - warningStream: OutputByteStream to be passed to package builder.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem) throws -> PackageModel.Package {
+private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: [], version: nil)
-    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs)
+    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream)
     return try builder.construct(includingTestModules: true)
 }
 
@@ -207,15 +208,15 @@ final class PackageBuilderTester {
     @discardableResult
     init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
         do {
-            let loadedPackage = try loadPackage(package, path: path, in: fs)
+            let warningStream = BufferedOutputByteStream()
+            let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
+            // FIXME: Find a better way. Maybe Package can keep array of warnings.
+            uncheckedDiagnostics = Set(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
         } catch {
             let errorStr = String(error)
             result = .error(errorStr)
-            // FIXME: We need to extend dianostics to load warnings too.
-            // Right now warnings are dumped directly to stdout, we can use OutputByteStream
-            // instead to write warnings to a stream and then capture them for testing.
             uncheckedDiagnostics.insert(errorStr)
         }
         body(self)
@@ -233,13 +234,11 @@ final class PackageBuilderTester {
         XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
     }
 
-    func checkError(_ str: String, file: StaticString = #file, line: UInt = #line) {
-        switch result {
-        case .package(let package):
-            XCTFail("\(package) did not have any error", file: file, line: line)
-        case .error(let error):
-            uncheckedDiagnostics.remove(error)
-            XCTAssertEqual(error, str, file: file, line: line)
+    func checkDiagnostic(_ str: String, file: StaticString = #file, line: UInt = #line) {
+        if uncheckedDiagnostics.contains(str) {
+            uncheckedDiagnostics.remove(str)
+        } else {
+            XCTFail("\(result) did not have error: \(str) or is already checked")
         }
     }
 
