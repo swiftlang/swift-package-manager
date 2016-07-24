@@ -258,7 +258,7 @@ extension Module  {
         }
 
         // Add framework search path to build settings.
-        buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
+        buildSettings["FRAMEWORK_SEARCH_PATHS"] = "$(PLATFORM_DIR)/Developer/Library/Frameworks"
 
         // Generate modulemap for a ClangModule if not provided by user and add to build settings.
         if case let clangModule as ClangModule = self, clangModule.type == .library {

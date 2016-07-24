@@ -12,38 +12,9 @@ import XCTest
 
 import Basic
 import POSIX
-import Utility
+@testable import Utility
 
 class PathTests: XCTestCase {
-
-    func test() {
-        XCTAssertEqual(Path.join("a","b","c","d"), "a/b/c/d")
-        XCTAssertEqual(Path.join("/a","b","c","d"), "/a/b/c/d")
-
-        XCTAssertEqual(Path.join("/", "a"), "/a")
-        XCTAssertEqual(Path.join("//", "a"), "/a")
-        XCTAssertEqual(Path.join("//", "//", "/", "///", "", "/", "//", "a"), "/a")
-        XCTAssertEqual(Path.join("//", "//a//"), "/a")
-        XCTAssertEqual(Path.join("/////"), "/")
-    }
-
-    func testPrecombined() {
-        XCTAssertEqual(Path.join("a","b/c","d/"), "a/b/c/d")
-        XCTAssertEqual(Path.join("a","b///c","d/"), "a/b/c/d")
-
-        XCTAssertEqual(Path.join("/a","b/c","d/"), "/a/b/c/d")
-        XCTAssertEqual(Path.join("/a","b///c","d/"), "/a/b/c/d")
-    }
-
-    func testExtraSeparators() {
-        XCTAssertEqual(Path.join("a","b/","c/","d/"), "a/b/c/d")
-        XCTAssertEqual(Path.join("/a","b/","c/","d/"), "/a/b/c/d")
-    }
-
-    func testEmpties() {
-        XCTAssertEqual(Path.join("a","b/","","","c//","d/", ""), "a/b/c/d")
-        XCTAssertEqual(Path.join("/a","b/","","","c//","d/", ""), "/a/b/c/d")
-    }
 
     func testNormalizePath() {
         XCTAssertEqual("".normpath, ".")
@@ -63,12 +34,7 @@ class PathTests: XCTestCase {
         // Only run tests using HOME if it is defined.
         if POSIX.getenv("HOME") != nil {
             XCTAssertEqual("~".normpath, Path.home)
-            XCTAssertEqual("~abc".normpath, Path.join(Path.home, "..", "abc").normpath)
         }
-    }
-
-    func testJoinWithAbsoluteReturnsLastAbsoluteComponent() {
-        XCTAssertEqual(Path.join("foo", "/abc/def"), "/abc/def")
     }
 
     func testParentDirectory() {
@@ -81,12 +47,7 @@ class PathTests: XCTestCase {
     }
 
     static var allTests = [
-        ("test", test),
-        ("testPrecombined", testPrecombined),
-        ("testExtraSeparators", testExtraSeparators),
-        ("testEmpties", testEmpties),
         ("testNormalizePath", testNormalizePath),
-        ("testJoinWithAbsoluteReturnsLastAbsoluteComponent", testJoinWithAbsoluteReturnsLastAbsoluteComponent),
         ("testParentDirectory", testParentDirectory),
     ]
 }
@@ -160,17 +121,10 @@ class RelativePathTests: XCTestCase {
         XCTAssertEqual("../../../4/5", Path("/1/2/4/5").relative(to: "/1/2/3/6/7"))
     }
     
-    func testCombiningRelativePaths() {
-        XCTAssertEqual("/1/2/3", Path.join("/1/2/4", "../3").normpath)
-        XCTAssertEqual("/1/2", Path.join("/1/2/3", "..").normpath)
-        XCTAssertEqual("2", Path.join("2/3", "..").normpath)
-    }
-
     static var allTests = [
         ("testAbsolute", testAbsolute),
         ("testRelative", testRelative),
         ("testMixed", testMixed),
         ("testRelativeCommonSubprefix", testRelativeCommonSubprefix),
-        ("testCombiningRelativePaths", testCombiningRelativePaths)
     ]
 }

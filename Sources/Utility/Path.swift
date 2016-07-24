@@ -24,12 +24,12 @@ public struct Path {
        future we support platforms that have a different separator we will
        convert any "/" characters in your strings to the platform separator.
     */
-    public static func join(_ components: String...) -> String {
+    private static func join(_ components: String...) -> String {
         return Path.join(components)
     }
 
     /// - See: Path.join(components: String...)
-    public static func join(_ components: [String]) -> String {
+    private static func join(_ components: [String]) -> String {
         return components.reduce("") { memo, component in
             let component = component.onesep
             if component.isEmpty {

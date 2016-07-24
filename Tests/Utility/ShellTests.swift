@@ -8,8 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Utility
 import XCTest
+
+import Basic
+import Utility
 
 class ShellTests: XCTestCase {
 
@@ -18,8 +20,8 @@ class ShellTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
-        let path = Path.join(#file, "../../Get/VersionGraphTests.swift").normpath
-        XCTAssertGreaterThan(try! popen(["cat", path]).characters.count, 4096)
+        let path = AbsolutePath(#file).parentDirectory.parentDirectory.appending(components: "Get", "VersionGraphTests.swift")
+        XCTAssertGreaterThan(try! popen(["cat", path.asString]).characters.count, 4096)
     }
 
     func testPopenWithBinaryOutput() {
