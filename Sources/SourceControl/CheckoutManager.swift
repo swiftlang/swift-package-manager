@@ -201,7 +201,7 @@ public class CheckoutManager {
         // Load the state.
         //
         // FIXME: Build out improved file reading support.
-        try fopen(statePath.asString) { handle in
+        try fopen(statePath) { handle in
             let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
 
             // Load the state from JSON.

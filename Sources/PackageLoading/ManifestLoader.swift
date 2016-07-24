@@ -111,7 +111,7 @@ public final class ManifestLoader {
     
         //Create and open a temporary file to write toml to
         let filePath = manifestPath.parentDirectory.appending(".Package.toml")
-        let fp = try fopen(filePath.asString, mode: .write)
+        let fp = try fopen(filePath, mode: .write)
         defer { fp.closeFile() }
     
         //Pass the fd in arguments
