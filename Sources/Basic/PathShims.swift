@@ -236,7 +236,7 @@ public func fopen(_ path: AbsolutePath, mode: FopenMode = .read) throws -> FileH
       case .read: handle = FileHandle(forReadingAtPath: path.asString)
       case .write:
       #if os(Linux)
-        let success = FileManager.default().createFile(atPath: path, contents: nil)
+        let success = FileManager.default().createFile(atPath: path.asString, contents: nil)
       #else
         let success = FileManager.default.createFile(atPath: path.asString, contents: nil)
       #endif
