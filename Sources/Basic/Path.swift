@@ -9,14 +9,6 @@
 */
 
 
-/// Path separator character (always `/`).  If a path separator occurs at the
-/// beginning of a path, the path is considered to be absolute.
-/// FIXME: We can probably get rid of this, since a) this is not likely to be
-/// something we can ever change, and b) the other characters that have special
-/// meaning (such as `.`) do not have similar constants.
-fileprivate let pathSeparatorCharacter: Character = "/"
-
-
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
 /// An absolute path always starts with a `/` character, and holds a normalized
@@ -83,8 +75,8 @@ public struct AbsolutePath {
         // with a `..` path component.
         let relStr = relPath._impl.string
         var absStr = absPath._impl.string
-        if absStr != String(pathSeparatorCharacter) {
-            absStr.append(pathSeparatorCharacter)
+        if absStr != "/" {
+            absStr.append("/")
         }
         absStr.append(relStr)
         
@@ -140,7 +132,7 @@ public struct AbsolutePath {
     /// True if the path is the root directory.
     public var isRoot: Bool {
         let chars = _impl.string.characters
-        return chars.count == 1 && chars.first == pathSeparatorCharacter
+        return chars.count == 1 && chars.first == "/"
     }
     
     /// Returns the absolute path with the relative path applied.
@@ -181,7 +173,7 @@ public struct AbsolutePath {
     ///       path.
     
     /// Root directory (whose string representation is just a path separator).
-    public static let root = AbsolutePath(String(pathSeparatorCharacter))
+    public static let root = AbsolutePath("/")
     
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
@@ -375,14 +367,14 @@ private struct PathImpl {
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
         // Find the last path separator.
-        guard let idx = chars.rindex(of: pathSeparatorCharacter) else {
+        guard let idx = chars.rindex(of: "/") else {
             // No path separators, so the directory name is `.`.
             return "."
         }
         // Check if it's the only one in the string.
         if idx == chars.startIndex {
             // Just one path separator, so the directory name is `/`.
-            return String(pathSeparatorCharacter)
+            return "/"
         }
         // Otherwise, it's the string up to (but not including) the last path
         // separator.
@@ -394,13 +386,13 @@ private struct PathImpl {
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
         // Check for a special case of the root directory.
-        if chars.count == 1 && chars.first == pathSeparatorCharacter {
+        if chars.count == 1 && chars.first == "/" {
             // Root directory, so the basename is a single path separator (the
             // root directory is special in this regard).
-            return String(pathSeparatorCharacter)
+            return "/"
         }
         // Find the last path separator.
-        guard let idx = chars.rindex(of: pathSeparatorCharacter) else {
+        guard let idx = chars.rindex(of: "/") else {
             // No path separators, so the basename is the whole string.
             return string
         }
@@ -423,7 +415,7 @@ private struct PathImpl {
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
         // Find the last path separator, if any.
-        let sIdx = chars.rindex(of: pathSeparatorCharacter)
+        let sIdx = chars.rindex(of: "/")
         // Find the start of the basename.
         let bIdx = (sIdx != nil) ? chars.index(after: sIdx!) : chars.startIndex
         // Find the last `.` (if any), starting from the second character of
@@ -508,14 +500,14 @@ extension AbsolutePath {
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
     // FIXME: We will also need to support a leading `~` for a home directory.
-    precondition(string.characters.first == pathSeparatorCharacter)
+    precondition(string.characters.first == "/")
     
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.
     let chars = string.characters
     
     // At this point we expect to have a path separator as first character.
-    assert(chars.first == pathSeparatorCharacter)
+    assert(chars.first == "/")
     
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
@@ -525,7 +517,7 @@ private func normalize(absolute string: String) -> String {
     // the normalized string representation.
     var parts: [String.CharacterView] = []
     var capacity = 0
-    for part in chars.split(separator: pathSeparatorCharacter) {
+    for part in chars.split(separator: "/") {
         switch part.count {
           case 0:
             // Ignore empty path components.
@@ -554,11 +546,11 @@ private func normalize(absolute string: String) -> String {
     
     // Put the normalized parts back together again.
     var iter = parts.makeIterator()
-    result.append(pathSeparatorCharacter)
+    result.append("/")
     if let first = iter.next() {
         result.append(contentsOf: first)
         while let next = iter.next() {
-            result.append(pathSeparatorCharacter)
+            result.append("/")
             result.append(contentsOf: next)
         }
     }
@@ -579,7 +571,7 @@ private func normalize(absolute string: String) -> String {
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
     // FIXME: We should also guard against a leading `~`.
-    precondition(string.characters.first != pathSeparatorCharacter)
+    precondition(string.characters.first != "/")
     
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.
@@ -593,7 +585,7 @@ private func normalize(relative string: String) -> String {
     // the normalized string representation.
     var parts: [String.CharacterView] = []
     var capacity = 0
-    for part in chars.split(separator: pathSeparatorCharacter) {
+    for part in chars.split(separator: "/") {
         switch part.count {
         case 0:
             // Ignore empty path components.
@@ -632,7 +624,7 @@ private func normalize(relative string: String) -> String {
     if let first = iter.next() {
         result.append(contentsOf: first)
         while let next = iter.next() {
-            result.append(pathSeparatorCharacter)
+            result.append("/")
             result.append(contentsOf: next)
         }
     }
