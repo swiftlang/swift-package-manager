@@ -9,7 +9,6 @@
 */
 
 import Basic
-import Foundation.NSURL
 
 /// Specifies a repository address.
 public struct RepositorySpecifier {
