@@ -143,7 +143,11 @@ public struct PackageBuilder {
     public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem) {
         self.manifest = manifest
         self.packagePath = path
-        self.fileSystem = fileSystem
+        var fileSystem = fileSystem
+        // FIXME: For now let package builder reroot the filesystem at the package path.
+        // Eventually package builder should assume its given a rerooted file system to
+        // work on.
+        self.fileSystem = RerootedFileSystemView(&fileSystem, rootedAt: path)
     }
     
     /// Build a new package following the conventions.
@@ -170,7 +174,7 @@ public struct PackageBuilder {
     
     private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
         if path.basename.hasPrefix(".") { return false }
-        if path == manifest.path { return false }
+        if path == rerootedManifestPath { return false }
         if excludedPaths.contains(path) { return false }
         if !fileSystem.isFile(path) { return false }
         guard let ext = path.extension else { return false }
@@ -190,12 +194,16 @@ public struct PackageBuilder {
         return true
     }
 
+    private var rerootedManifestPath: AbsolutePath {
+        return AbsolutePath.root.appending(component: Manifest.filename)
+    }
+
     private var packagesDirectory: AbsolutePath {
-        return packagePath.appending(component: "Packages")
+        return AbsolutePath.root.appending(component: "Packages")
     }
 
     private var excludedPaths: [AbsolutePath] {
-        return manifest.package.exclude.map { packagePath.appending(RelativePath($0)) }
+        return manifest.package.exclude.map { AbsolutePath.root.appending(RelativePath($0)) }
     }
     
     private var pkgConfigPath: RelativePath? {
@@ -209,8 +217,8 @@ public struct PackageBuilder {
     }
 
     func sourceRoot() throws -> AbsolutePath {
-        let viableRoots = try fileSystem.getDirectoryContents(packagePath).filter { basename in
-            let entry = packagePath.appending(component: basename)
+        let viableRoots = try fileSystem.getDirectoryContents(.root).filter { basename in
+            let entry = AbsolutePath.root.appending(component: basename)
             switch basename.lowercased() {
             case "sources", "source", "src", "srcs":
                 return fileSystem.isDirectory(entry) && !excludedPaths.contains(entry)
@@ -221,20 +229,30 @@ public struct PackageBuilder {
 
         switch viableRoots.count {
         case 0:
-            return packagePath
+            return .root
         case 1:
-            return packagePath.appending(component: viableRoots[0])
+            return AbsolutePath.root.appending(component: viableRoots[0])
         default:
             // eg. there is a `Sources' AND a `src'
             throw ModuleError.invalidLayout(.multipleSourceRoots(viableRoots.map{ packagePath.appending(component: $0).asString }))
         }
     }
 
+    /// Converts a rerouted path to the real path.
+    // FIXME: This is needed currently because modules expect actual paths of the sources.
+    func realPath(_ reroutedPath: AbsolutePath) -> AbsolutePath {
+        return packagePath.appending(reroutedPath.relative(to: .root))
+    }
+
+    func realPath(_ reroutedPaths: [AbsolutePath]) -> [AbsolutePath] {
+        return reroutedPaths.map(realPath)
+    }
+
     /// Collects the modules which are defined by a package.
     private func constructModules() throws -> [Module] {
-        let moduleMapPath = packagePath.appending(component: "module.modulemap")
+        let moduleMapPath = AbsolutePath.root.appending(component: "module.modulemap")
         if fileSystem.isFile(moduleMapPath) {
-            let sources = Sources(paths: [moduleMapPath], root: packagePath)
+            let sources = Sources(paths: realPath([moduleMapPath]), root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
 
@@ -244,8 +262,8 @@ public struct PackageBuilder {
 
         let srcroot = try sourceRoot()
 
-        if srcroot != packagePath {
-            let invalidRootFiles = try directoryContents(packagePath).filter(isValidSource)
+        if srcroot != .root {
+            let invalidRootFiles = try directoryContents(.root).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
@@ -330,11 +348,11 @@ public struct PackageBuilder {
         
         if !cSources.isEmpty {
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
-            return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
+            return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: realPath(cSources), root: realPath(path)))
         }
         
         guard !swiftSources.isEmpty else { throw Module.Error.noSources(path.asString) }
-        return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
+        return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: realPath(swiftSources), root: realPath(path)))
     }
 
     /// Collects the products defined by a package.
@@ -408,7 +426,7 @@ public struct PackageBuilder {
     }
 
     private func constructTestModules(modules: [Module]) throws -> [Module] {
-        let testsPath = packagePath.appending(component: "Tests")
+        let testsPath = AbsolutePath.root.appending(component: "Tests")
         
         // Don't try to walk Tests if it is in excludes or doesn't exists.
         guard fileSystem.isDirectory(testsPath) && !excludedPaths.contains(testsPath) else {
