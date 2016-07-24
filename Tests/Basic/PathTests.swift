@@ -23,6 +23,7 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".").asString, ".")
         XCTAssertEqual(RelativePath("a").asString, "a")
         XCTAssertEqual(RelativePath("a/b/c").asString, "a/b/c")
+        XCTAssertEqual(RelativePath("~").asString, "~")  // `~` is not special
     }
     
     func testStringInitialization() {
@@ -37,6 +38,8 @@ class PathTests: XCTestCase {
         XCTAssertEqual(abs4, AbsolutePath("/a/b/c"))
         let abs5 = AbsolutePath("./a/b/c", relativeTo: base)
         XCTAssertEqual(abs5, AbsolutePath("/base/path/a/b/c"))
+        let abs6 = AbsolutePath("~/bla", relativeTo: base)  // `~` isn't special
+        XCTAssertEqual(abs6, AbsolutePath("/base/path/~/bla"))
     }
     
     func testStringLiteralInitialization() {
@@ -44,6 +47,8 @@ class PathTests: XCTestCase {
         XCTAssertEqual(abs.asString, "/")
         let rel: RelativePath = "."
         XCTAssertEqual(rel.asString, ".")
+        let rel2: RelativePath = "~"
+        XCTAssertEqual(rel2.asString, "~")  // `~` is not special
     }
     
     func testRepeatedPathSeparators() {

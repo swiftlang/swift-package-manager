@@ -25,7 +25,10 @@
 /// path components are symbolic links on disk.  However, the file system is
 /// never accessed in any way when initializing an AbsolutePath.
 ///
-/// FIXME: We will also need to add support for `~` resolution.
+/// Note that `~` (home directory resolution) is *not* done as part of path
+/// normalization, because it is normally the responsibility of the shell and
+/// not the program being invoked (e.g. when invoking `cd ~`, it is the shell
+/// that evaluates the tilde; the `cd` command receives an absolute path).
 public struct AbsolutePath {
     /// Check if the given name is a valid individual path component.
     ///
@@ -51,7 +54,6 @@ public struct AbsolutePath {
     /// documentation for AbsolutePath.
     public init(_ absStr: String) {
         // Normalize the absolute string.
-        
         self.init(PathImpl(string: normalize(absolute: absStr)))
     }
     
@@ -193,7 +195,9 @@ public struct AbsolutePath {
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
-        return ["/"] + _impl.string.components(separatedBy: "/").filter { !$0.isEmpty }
+        return ["/"] + _impl.string.components(separatedBy: "/").filter {
+            !$0.isEmpty
+        }
     }
 }
 
@@ -499,7 +503,6 @@ extension AbsolutePath {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
-    // FIXME: We will also need to support a leading `~` for a home directory.
     precondition(string.characters.first == "/")
     
     // Get a hold of the character view.
@@ -570,7 +573,6 @@ private func normalize(absolute string: String) -> String {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
-    // FIXME: We should also guard against a leading `~`.
     precondition(string.characters.first != "/")
     
     // Get a hold of the character view.
