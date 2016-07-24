@@ -23,7 +23,8 @@ private class DummyRepositoryProvider: RepositoryProvider {
         numFetches += 1
         
         // We only support one dummy URL.
-        if repository.url.basename != "dummy" {
+        let basename = repository.url.components(separatedBy: "/").last!
+        if basename != "dummy" {
             throw DummyError.invalidRepository
         }
     }

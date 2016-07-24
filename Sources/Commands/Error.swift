@@ -89,7 +89,7 @@ private func print(error: Any) {
     if ColorWrap.isAllowed(for: .stdErr) {
         print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
     } else {
-        let cmd = CommandLine.arguments.first?.basename ?? "SwiftPM"
+        let cmd = AbsolutePath(CommandLine.arguments.first!, relativeTo:currentWorkingDirectory).basename
         print("\(cmd): error:", error, to: &stderr)
     }
 }

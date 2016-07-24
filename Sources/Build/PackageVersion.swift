@@ -12,7 +12,6 @@ import Basic
 import PackageModel
 
 import class Utility.Git
-import struct Utility.Path
 
 public func generateVersionData(_ rootDir: AbsolutePath, rootPackage: Package, externalPackages: [Package]) throws {
     let dirPath = rootDir.appending(components: ".build", "versionData")

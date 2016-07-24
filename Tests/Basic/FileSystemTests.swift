@@ -63,7 +63,7 @@ class FileSystemTests: XCTestCase {
         let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
         XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
         XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
-        XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == #file.basename }))
+        XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
     }
 
     func testLocalCreateDirectory() throws {

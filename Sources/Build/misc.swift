@@ -23,9 +23,9 @@ public protocol Toolchain {
     var clang: String { get }
 }
 
-extension String {
+extension AbsolutePath {
     var isCpp: Bool {
-        guard let ext = self.fileExt else {
+        guard let ext = self.extension else {
             return false
         }
         return SupportedLanguageExtension.cppExtensions.contains(ext)
@@ -58,7 +58,7 @@ extension ClangModule {
     }
 
     var containsCppFiles: Bool {
-        return sources.paths.contains { $0.asString.isCpp }
+        return sources.paths.contains { $0.isCpp }
     }
 }
 

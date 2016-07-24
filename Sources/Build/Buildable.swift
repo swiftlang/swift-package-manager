@@ -10,7 +10,6 @@
 
 import Basic
 import PackageModel
-import struct Utility.Path
 
 protocol Buildable {
     var targetName: String { get }

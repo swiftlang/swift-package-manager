@@ -148,7 +148,7 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
     
     let filteredDirectories = try rootDirectoriesToConsider.filter {
         let directoriesWithSources = try walk($0).filter {
-            guard let fileExt = $0.asString.fileExt else { return false }
+            guard let fileExt = $0.extension else { return false }
             return SupportedLanguageExtension.validExtensions.contains(fileExt)
         }
         return directoriesWithSources.isEmpty
