@@ -94,30 +94,30 @@ class PathTests: XCTestCase {
 class StatTests: XCTestCase {
 
     func test_isdir() {
-        XCTAssertTrue("/usr".isDirectory)
-        XCTAssertTrue("/etc/passwd".isFile)
+        XCTAssertTrue(isDirectory("/usr"))
+        XCTAssertTrue(isFile("/etc/passwd"))
 
         mktmpdir { root in
             try makeDirectories(root.appending("foo/bar"))
             try createSymlink(root.appending("symlink"), pointingAt: root.appending("foo"), relative: true)
 
-            XCTAssertTrue(root.appending("foo/bar").asString.isDirectory)
-            XCTAssertTrue(root.appending("symlink/bar").asString.isDirectory)
-            XCTAssertTrue(root.appending("symlink").asString.isDirectory)
-            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
+            XCTAssertTrue(isDirectory(root.appending("foo/bar")))
+            XCTAssertTrue(isDirectory(root.appending("symlink/bar")))
+            XCTAssertTrue(isDirectory(root.appending("symlink")))
+            XCTAssertTrue(isSymlink(root.appending("symlink")))
 
             try removeFileTree(root.appending("foo/bar"))
             try removeFileTree(root.appending("foo"))
 
-            XCTAssertTrue(root.appending("symlink").asString.isSymlink)
-            XCTAssertFalse(root.appending("symlink").asString.isDirectory)
-            XCTAssertFalse(root.appending("symlink").asString.isFile)
+            XCTAssertTrue(isSymlink(root.appending("symlink")))
+            XCTAssertFalse(isDirectory(root.appending("symlink")))
+            XCTAssertFalse(isFile(root.appending("symlink")))
         }
     }
 
     func test_isfile() {
-        XCTAssertTrue(!"/usr".isFile)
-        XCTAssertTrue("/etc/passwd".isFile)
+        XCTAssertTrue(!isFile("/usr"))
+        XCTAssertTrue(isFile("/etc/passwd"))
     }
 
     func test_realpath() {

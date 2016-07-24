@@ -27,7 +27,7 @@ public enum Platform {
         case "darwin":
             return .darwin
         case "linux":
-            if "/etc/debian_version".isFile {
+            if isFile("/etc/debian_version") {
                 return .linux(.debian)
             }
         default:

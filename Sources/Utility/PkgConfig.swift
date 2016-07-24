@@ -93,7 +93,7 @@ public struct PkgConfig {
         // we end up searching for a reasonably sized number of packages.
         for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
             let pcFile = path.appending(component: name + ".pc")
-            if pcFile.asString.isFile {
+            if isFile(pcFile) {
                 return pcFile
             }
         }

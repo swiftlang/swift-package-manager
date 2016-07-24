@@ -45,7 +45,7 @@ public struct Flag {
 
 private func getroot() -> AbsolutePath {
     var root = currentWorkingDirectory
-    while !root.appending(component: Manifest.filename).asString.isFile {
+    while !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
 
         guard root != "/" else {

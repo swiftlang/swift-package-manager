@@ -55,7 +55,7 @@ class PathShimTests : XCTestCase {
         try! makeDirectories(dirPath)
         
         // Check that we were able to actually create the directory.
-        XCTAssertTrue(dirPath.asString.isDirectory)
+        XCTAssertTrue(isDirectory(dirPath))
         
         // Check that there's no error if we try to create the directory again.
         try! makeDirectories(dirPath)
@@ -78,18 +78,18 @@ class PathShimTests : XCTestCase {
         try! createSymlink(slnkPath, pointingAt: keepDirPath, relative: true)
         
         // Make sure the symbolic link got set up correctly.
-        XCTAssertTrue(slnkPath.asString.isSymlink)
+        XCTAssertTrue(isSymlink(slnkPath))
         XCTAssertEqual(resolveSymlinks(slnkPath), keepDirPath)
-        XCTAssertTrue(resolveSymlinks(slnkPath).asString.isDirectory)
+        XCTAssertTrue(isDirectory(resolveSymlinks(slnkPath)))
         
         // Now remove the directory hierarchy that contains the symlink.
         try! removeFileTree(tossDirPath)
         
         // Make sure it got removed, along with the symlink, but that the target of the symlink remains.
-        XCTAssertFalse(tossDirPath.asString.exists)
-        XCTAssertFalse(tossDirPath.asString.isDirectory)
-        XCTAssertTrue(keepDirPath.asString.exists)
-        XCTAssertTrue(keepDirPath.asString.isDirectory)
+        XCTAssertFalse(exists(tossDirPath))
+        XCTAssertFalse(isDirectory(tossDirPath))
+        XCTAssertTrue(exists(keepDirPath))
+        XCTAssertTrue(isDirectory(keepDirPath))
     }
     
     func testCurrentWorkingDirectory() {
@@ -146,9 +146,9 @@ class WalkTests : XCTestCase {
         try! makeDirectories(tmpDirPath.appending("bar/baz/goo"))
         try! createSymlink(tmpDirPath.appending("foo/symlink"), pointingAt: tmpDirPath.appending("bar"), relative: true)
 
-        XCTAssertTrue(tmpDirPath.appending("foo/symlink").asString.isSymlink)
+        XCTAssertTrue(isSymlink(tmpDirPath.appending("foo/symlink")))
         XCTAssertEqual(resolveSymlinks(tmpDirPath.appending("foo/symlink")), tmpDirPath.appending("bar"))
-        XCTAssertTrue(resolveSymlinks(tmpDirPath.appending("foo/symlink/baz")).asString.isDirectory)
+        XCTAssertTrue(isDirectory(resolveSymlinks(tmpDirPath.appending("foo/symlink/baz"))))
 
         let results = try! walk(tmpDirPath.appending("foo")).map{ $0 }
 
@@ -164,7 +164,7 @@ class WalkTests : XCTestCase {
         try! createSymlink(tmpDirPath.appending("symlink"), pointingAt: tmpDirPath.appending("foo"), relative: true)
         try! createSymlink(tmpDirPath.appending("foo/baz"), pointingAt: tmpDirPath.appending("abc"), relative: true)
 
-        XCTAssertTrue(tmpDirPath.appending("symlink").asString.isSymlink)
+        XCTAssertTrue(isSymlink(tmpDirPath.appending("symlink")))
 
         let results = try! walk(tmpDirPath.appending("symlink")).map{ $0 }.sorted()
 

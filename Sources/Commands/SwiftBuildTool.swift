@@ -149,14 +149,14 @@ public struct SwiftBuildTool: SwiftTool {
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
             case .clean(.dist):
-                if opts.path.packages.asString.exists {
+                if exists(opts.path.packages) {
                     try removeFileTree(opts.path.packages)
                 }
                 fallthrough
         
             case .clean(.build):
                 // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-                if opts.path.build.asString.exists {
+                if exists(opts.path.build) {
                     try removeFileTree(opts.path.build)
                 }
             }
