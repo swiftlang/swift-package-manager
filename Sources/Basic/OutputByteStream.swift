@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import libc
+
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
 private func hexdigit(_ value: UInt8) -> UInt8 {
     return value < 10 ? (0x30 + value) : (0x41 + value - 10)
@@ -521,3 +523,102 @@ public final class BufferedOutputByteStream: OutputByteStream {
         contents += bytes
     }
 }
+
+/// Represents a stream which is backed to a file. Not for instantiating.
+public class FileOutputByteStream: OutputByteStream {
+
+    /// Closes the file flushing any buffered data.
+    public final func close() throws {
+        flush()
+        try closeImpl()
+    }
+
+    func closeImpl() throws {
+        fatalError("closeImpl() should be implemented by a subclass")
+    }
+}
+
+/// Implements file output stream for local file system.
+public final class LocalFileOutputByteStream: FileOutputByteStream {
+
+    /// The pointer to the file.
+    let fp: UnsafeMutablePointer<FILE>
+
+    /// True if there were any IO error during writing.
+    private var error: Bool = false
+
+    /// Closes the file on deinit if true.
+    private var closeOnDeinit: Bool
+
+    /// Instantiate using the file pointer.
+    init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true) throws {
+        self.fp = filePointer
+        self.closeOnDeinit = closeOnDeinit
+        super.init()
+    }
+
+    /// Opens the file for writing at the provided path.
+    ///
+    /// - Parameters:
+    ///     - path: Path to the file this stream should operate on.
+    ///     - closeOnDeinit: If true closes the file on deinit. clients can use close() if they
+    ///                      want to close themselves or catch errors encountered during writing
+    ///                      to the file. Default value is true.
+    ///
+    /// - Throws: FileSystemError
+    public init(_ path: AbsolutePath, closeOnDeinit: Bool = true) throws {
+        guard let fp = fopen(path.asString, "wb") else {
+            throw FileSystemError(errno: errno)
+        }
+        self.fp = fp
+        self.closeOnDeinit = closeOnDeinit
+        super.init()
+    }
+
+    deinit {
+        if closeOnDeinit {
+            fclose(fp)
+        }
+    }
+
+    func errorDetected() {
+        error = true
+    }
+
+    override final func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+        // FIXME: This will be copying bytes but we don't have option currently.
+        var contents = [UInt8](bytes)
+        while true {
+            let n = fwrite(&contents, 1, contents.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                errorDetected()
+            } else if n != contents.count {
+                errorDetected()
+            }
+            break
+        }
+    }
+
+    override final func flushImpl() {
+        fflush(fp)
+    }
+
+    override final func closeImpl() throws {
+        defer {
+            fclose(fp)
+            // If clients called close we shouldn't call fclose again in deinit.
+            closeOnDeinit = false
+        }
+        // Throw if errors were found during writing.
+        if error {
+            throw FileSystemError.ioError
+        }
+    }
+}
+
+/// Public stdout stream instance.
+public var stdoutStream: FileOutputByteStream = try! LocalFileOutputByteStream(filePointer: libc.stdout, closeOnDeinit: false)
+
+/// Public stderr stream instance.
+public var stderrStream: FileOutputByteStream = try! LocalFileOutputByteStream(filePointer: libc.stderr, closeOnDeinit: false)

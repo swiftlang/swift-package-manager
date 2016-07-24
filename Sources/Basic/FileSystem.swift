@@ -66,7 +66,7 @@ public enum FileSystemError: Swift.Error {
     case unknownOSError
 }
 
-private extension FileSystemError {
+extension FileSystemError {
     init(errno: Int32) {
         switch errno {
         case libc.EACCES:
