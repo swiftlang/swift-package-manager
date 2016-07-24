@@ -20,10 +20,10 @@ public class Options {
 
     public class Path {
         public lazy var root = getroot()
-        public var packages: AbsolutePath { return root.appending("Packages") }
+        public var packages: AbsolutePath { return root.appending(component: "Packages") }
 
         public var build: AbsolutePath {
-            get { return _build != nil ? AbsolutePath(_build!) : getroot().appending(".build") }
+            get { return _build != nil ? AbsolutePath(_build!) : getroot().appending(component: ".build") }
             set { _build = newValue.asString }
         }
         private var _build = getEnvBuildPath()?.asString

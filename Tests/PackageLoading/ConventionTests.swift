@@ -39,7 +39,7 @@ class ConventionTests: XCTestCase {
     
     func testDotFilesAreIgnored() throws {
         do {
-            try fixture(files: [".Bar.swift", "Foo.swift"]) { (package, modules) in
+            try fixture(files: [ RelativePath(".Bar.swift"), RelativePath("Foo.swift") ]) { (package, modules) in
                 XCTAssertEqual(modules.count, 1)
                 guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
                 XCTAssertEqual(swiftModule.sources.paths.count, 1)
@@ -52,7 +52,7 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSingleSwiftModule() throws {
-        let files: [RelativePath] = ["Foo.swift"]
+        let files = [ RelativePath("Foo.swift") ]
         test(files: files) { (module: SwiftModule) in 
             XCTAssertEqual(module.sources.paths.count, files.count)
             XCTAssertEqual(Set(module.sources.relativePaths), Set(files))
@@ -60,11 +60,11 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSystemModulePackage() throws {
-        test(files: ["module.modulemap"]) { module in }
+        test(files: [ RelativePath("module.modulemap") ]) { module in }
     }
 
     func testResolvesSingleClangModule() throws {
-        test(files: ["Foo.c", "Foo.h"]) { module in }
+        test(files: [ RelativePath("Foo.c"), RelativePath("Foo.h") ]) { module in }
     }
 
     static var allTests = [
@@ -89,7 +89,7 @@ private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throw
 /// Check the behavior of a test project with the given file paths.
 private func fixture(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
     fixture(files: files) { (prefix: AbsolutePath) in
-        let manifest = Manifest(path: prefix.appending("Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
+        let manifest = Manifest(path: prefix.appending(component: "Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
         let package = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
         try body(package, package.modules)
     }

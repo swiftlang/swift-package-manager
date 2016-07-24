@@ -53,7 +53,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     print("        };")
 
 ////// Package.swift file
-    let packageSwift = fileRef(inProjectRoot: "Package.swift", srcroot: srcroot)
+    let packageSwift = fileRef(inProjectRoot: RelativePath("Package.swift"), srcroot: srcroot)
     print("        \(packageSwift.refId) = {")
     print("            isa = PBXFileReference;")
     print("            lastKnownFileType = sourcecode.swift;")

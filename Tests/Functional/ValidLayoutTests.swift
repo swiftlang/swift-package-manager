@@ -22,7 +22,7 @@ class ValidLayoutsTestCase: XCTestCase {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
-            XCTAssertFileExists(debugPath.appending("Library.swiftmodule"))
+            XCTAssertFileExists(debugPath.appending(component: "Library.swiftmodule"))
         }
     }
 
@@ -30,7 +30,7 @@ class ValidLayoutsTestCase: XCTestCase {
         runLayoutFixture(name: "SingleModule/Executable") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
-            XCTAssertFileExists(debugPath.appending("Executable"))
+            XCTAssertFileExists(debugPath.appending(component: "Executable"))
         }
     }
 
@@ -42,7 +42,7 @@ class ValidLayoutsTestCase: XCTestCase {
         runLayoutFixture(name: "SingleModule/CustomizedName") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
-            XCTAssertFileExists(debugPath.appending("Bar.swiftmodule"))
+            XCTAssertFileExists(debugPath.appending(component: "Bar.swiftmodule"))
         }
     }
 
@@ -50,7 +50,7 @@ class ValidLayoutsTestCase: XCTestCase {
         fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
-            XCTAssertFileExists(debugPath.appending("Bar.swiftmodule"))
+            XCTAssertFileExists(debugPath.appending(component: "Bar.swiftmodule"))
         }
     }
 
@@ -126,8 +126,8 @@ class ValidLayoutsTestCase: XCTestCase {
 // MARK: Utility
 
 extension ValidLayoutsTestCase {
-    func runLayoutFixture(name: RelativePath, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
-        let name = RelativePath("ValidLayouts/\(name.asString)")
+    func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+        let name = "ValidLayouts/\(name)"
 
         // 1. Rooted layout
         fixture(name: name, file: #file, line: line, body: body)
@@ -146,7 +146,7 @@ extension ValidLayoutsTestCase {
         // 3. Symlink some other directory to a directory called "Sources"
         fixture(name: name, file: #file, line: line) { prefix in
             let files = try! localFileSystem.getDirectoryContents(prefix).filter{ $0 != "Package.swift" }
-            let dir = prefix.appending("Floobles")
+            let dir = prefix.appending(component: "Floobles")
             try makeDirectories(dir)
             for file in files {
                 try rename(old: prefix.appending(component: file).asString, new: dir.appending(component: file).asString)

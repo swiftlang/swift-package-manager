@@ -68,7 +68,7 @@ class GetTests: XCTestCase {
 
     func testGitRepoInitialization() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            XCTAssertNotNil(Git.Repo(path: prefix.appending("app")))
+            XCTAssertNotNil(Git.Repo(path: prefix.appending(component: "app")))
         }
 
         XCTAssertNil(Git.Repo(path: #file))

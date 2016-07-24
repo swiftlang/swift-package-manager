@@ -33,7 +33,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic1") { prefix in
             XCTAssertBuildFails(prefix)
-            try removeFileTree(prefix.appending("main.swift"))
+            try removeFileTree(prefix.appending(component: "main.swift"))
             XCTAssertBuilds(prefix)
         }
     }
@@ -48,7 +48,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic2") { prefix in
             XCTAssertBuildFails(prefix)
-            try removeFileTree(prefix.appending("main.swift"))
+            try removeFileTree(prefix.appending(component: "main.swift"))
             XCTAssertBuilds(prefix)
         }
     }
@@ -63,7 +63,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic3") { prefix in
             XCTAssertBuildFails(prefix)
-            try removeFileTree(prefix.appending("Sources").appending("main.swift"))
+            try removeFileTree(prefix.appending(components: "Sources", "main.swift"))
             XCTAssertBuilds(prefix)
         }
     }
@@ -78,7 +78,7 @@ class InvalidLayoutsTestCase: XCTestCase {
         */
         fixture(name: "InvalidLayouts/Generic4") { prefix in
             XCTAssertBuildFails(prefix)
-            try removeFileTree(prefix.appending("main.swift"))
+            try removeFileTree(prefix.appending(component: "main.swift"))
             XCTAssertBuilds(prefix)
         }
     }
@@ -100,8 +100,8 @@ class InvalidLayoutsTestCase: XCTestCase {
             // determineTargets() but also we are saying: this
             // layout is only for *very* simple projects.
 
-            try removeFileTree(prefix.appending("Foo").appending("Foo.swift"))
-            try removeFileTree(prefix.appending("Foo"))
+            try removeFileTree(prefix.appending(components: "Foo", "Foo.swift"))
+            try removeFileTree(prefix.appending(component: "Foo"))
             XCTAssertBuilds(prefix)
         }
     }

@@ -294,22 +294,6 @@ public struct RelativePath {
     }
 }
 
-/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
-/// to be implicitly converted to RelativePaths.
-extension RelativePath : ExpressibleByStringLiteral {
-    public typealias UnicodeScalarLiteralType = StringLiteralType
-    public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-}
-
 // Make absolute paths Hashable.
 extension AbsolutePath : Hashable {
     public var hashValue: Int {

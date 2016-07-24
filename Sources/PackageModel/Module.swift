@@ -131,7 +131,7 @@ public class ClangModule: CModule {
         }
         let type: ModuleType = isLibrary ? .library : .executable
         
-        try super.init(name: name, type: type, sources: sources, path: sources.root.appending("include"), isTest: isTest)
+        try super.init(name: name, type: type, sources: sources, path: sources.root.appending(component: "include"), isTest: isTest)
     }
 }
 

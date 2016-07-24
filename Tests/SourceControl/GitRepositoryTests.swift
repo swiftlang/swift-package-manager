@@ -32,12 +32,12 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() throws {
         mktmpdir { path in
-            let testRepoPath = path.appending("test-repo")
+            let testRepoPath = path.appending(component: "test-repo")
             try! makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
-            let testCheckoutPath = path.appending("checkout")
+            let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
@@ -81,7 +81,7 @@ class GitRepositoryTests: XCTestCase {
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
             try systemQuietly(["tar", "-x", "-v", "-C", path.asString, "-f", inputArchivePath.asString])
-            let testRepoPath = path.appending("TestRepo")
+            let testRepoPath = path.appending(component: "TestRepo")
 
             // Check hash resolution.
             let repo = GitRepository(path: testRepoPath)
@@ -142,7 +142,7 @@ class GitRepositoryTests: XCTestCase {
             try tagGitRepo(testRepoPath, tag: "test-tag")
 
             // Get the the repository via the provider. the provider.
-            let testCheckoutPath = path.appending("checkout")
+            let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try provider.fetch(repository: repoSpec, to: testCheckoutPath)

@@ -182,7 +182,7 @@ public class CheckoutManager {
 
     /// The path at which we persist the manager state.
     private var statePath: AbsolutePath {
-        return path.appending("manager-state.json")
+        return path.appending(component: "manager-state.json")
     }
     
     /// Restore the manager state from disk.

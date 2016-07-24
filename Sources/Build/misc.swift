@@ -145,7 +145,7 @@ protocol ClangModuleCachable {
 
 extension ClangModuleCachable {
     func moduleCacheDir(prefix: AbsolutePath) -> AbsolutePath {
-        return prefix.appending("ModuleCache")
+        return prefix.appending(component: "ModuleCache")
     }
 }
 

@@ -43,7 +43,7 @@ public final class PackagesDirectory {
 
     /// The path to the packages.
     var packagesPath: AbsolutePath {
-        return rootPath.appending("Packages")
+        return rootPath.appending(component: "Packages")
     }
     
     /// The set of all repositories available within the `Packages` directory, by origin.

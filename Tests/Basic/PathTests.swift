@@ -45,9 +45,9 @@ class PathTests: XCTestCase {
     func testStringLiteralInitialization() {
         let abs: AbsolutePath = "/"
         XCTAssertEqual(abs.asString, "/")
-        let rel: RelativePath = "."
-        XCTAssertEqual(rel.asString, ".")
-        let rel2: RelativePath = "~"
+        let rel1 = RelativePath(".")
+        XCTAssertEqual(rel1.asString, ".")
+        let rel2 = RelativePath("~")
         XCTAssertEqual(rel2.asString, "~")  // `~` is not special
     }
     

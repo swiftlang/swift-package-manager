@@ -28,7 +28,7 @@ final class PackageToolTests: XCTestCase {
 
     func testFetch() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending("Bar")
+            let packageRoot = prefix.appending(component: "Bar")
             let packagesPath = packageRoot.appending(component: "Packages")
 
             // Check that `fetch` works.
@@ -39,7 +39,7 @@ final class PackageToolTests: XCTestCase {
 
     func testUpdate() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending("Bar")
+            let packageRoot = prefix.appending(component: "Bar")
             let packagesPath = packageRoot.appending(component: "Packages")
 
             // Perform an initial fetch.
@@ -47,7 +47,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
 
             // Retag the dependency, and update.
-            try tagGitRepo(prefix.appending("Foo"), tag: "1.2.4")
+            try tagGitRepo(prefix.appending(component: "Foo"), tag: "1.2.4")
             _ = try execute(["update"], chdir: packageRoot)
             XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.4"])
         }
@@ -55,7 +55,7 @@ final class PackageToolTests: XCTestCase {
 
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let packageRoot = prefix.appending("app")
+            let packageRoot = prefix.appending(component: "app")
             let dumpOutput = try execute(["dump-package"], chdir: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
@@ -66,7 +66,7 @@ final class PackageToolTests: XCTestCase {
 
     func testShowDependencies() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let packageRoot = prefix.appending("app")
+            let packageRoot = prefix.appending(component: "app")
             let textOutput = try execute(["show-dependencies", "--format=text"], chdir: packageRoot)
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 

@@ -40,14 +40,14 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
 
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
-    let schemesDirectory = xcodeprojPath.appending("xcshareddata/xcschemes")
+    let schemesDirectory = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
     try makeDirectories(xcodeprojPath)
     try makeDirectories(schemesDirectory)
     let schemeName = "\(projectName).xcscheme"
     let directoryReferences = try findDirectoryReferences(path: srcroot)
 
 ////// the pbxproj file describes the project and its targets
-    try open(xcodeprojPath.appending("project.pbxproj")) { stream in
+    try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, graph: graph, directoryReferences: directoryReferences, options: options, printer: stream)
     }
 
@@ -59,7 +59,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory.appending("xcschememanagement.plist")) { print in
+    try open(schemesDirectory.appending(component: "xcschememanagement.plist")) { print in
         print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         print("<plist version=\"1.0\">")
         print("<dict>")

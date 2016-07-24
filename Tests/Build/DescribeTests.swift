@@ -32,7 +32,7 @@ final class DescribeTests: XCTestCase {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             let graph = PackageGraph(rootPackage: dummyPackage, modules: [], externalModules: [])
-            _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
+            _ = try describe(tempDir.path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.noModules {
             XCTAssert(true, "This error should be thrown")
@@ -45,7 +45,7 @@ final class DescribeTests: XCTestCase {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
             let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: "/"), path: "/")], externalModules: [])
-            _ = try describe(tempDir.path.appending("foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
+            _ = try describe(tempDir.path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {
             XCTAssert(true, "This error should be thrown")

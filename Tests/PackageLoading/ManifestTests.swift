@@ -35,7 +35,7 @@ private struct Resources: ManifestResourceProvider {
     let swiftCompilerPath: AbsolutePath = {
         let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = AbsolutePath(base).appending("usr/bin/swiftc")
+            swiftc = AbsolutePath(base).appending(components: "usr", "bin", "swiftc")
         } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
             swiftc = AbsolutePath(override)
         } else {
@@ -56,9 +56,9 @@ private struct Resources: ManifestResourceProvider {
 
 class ManifestTests: XCTestCase {
 
-    private func loadManifest(_ inputName: RelativePath, line: UInt = #line, body: (Manifest) -> Void) {
+    private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
-            let input = AbsolutePath(#file).appending("../Inputs").appending(inputName)
+            let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: inputName)
             body(try ManifestLoader(resources: Resources()).load(path: input, baseURL: input.parentDirectory.asString, version: nil))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
@@ -101,7 +101,7 @@ class ManifestTests: XCTestCase {
     func testInvalidTargetName() {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try ManifestLoader(resources: Resources()).load(path: prefix.appending("Package.swift"), baseURL: prefix.asString, version: nil)
+                let manifest = try ManifestLoader(resources: Resources()).load(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
                 _ = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
             } catch ModuleError.modulesNotFound(let moduleNames) {
                 XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))

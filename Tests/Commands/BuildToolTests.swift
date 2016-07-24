@@ -29,7 +29,7 @@ final class BuildToolTests: XCTestCase {
     func testBuildAndClean() throws {
         mktmpdir { path in
             // Create a known directory.
-            let packageRoot = path.appending("Foo")
+            let packageRoot = path.appending(component: "Foo")
             try localFileSystem.createDirectory(packageRoot)
 
             // Run package init.
@@ -37,13 +37,13 @@ final class BuildToolTests: XCTestCase {
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(".build/debug/Foo"))
-            XCTAssert(isDirectory(packageRoot.appending(".build")))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Foo"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
 
             // Clean, and check for removal.
             _ = try execute(["--clean"], chdir: packageRoot)
-            XCTAssert(!isFile(packageRoot.appending(".build/debug/Foo")))
-            XCTAssert(!isDirectory(packageRoot.appending(".build")))
+            XCTAssert(!isFile(packageRoot.appending(components: ".build", "debug", "Foo")))
+            XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
 
             // Clean again to ensure we get no error.
             _ = try execute(["--clean"], chdir: packageRoot)
@@ -52,23 +52,23 @@ final class BuildToolTests: XCTestCase {
 
     func testCleanDist() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending("Bar")
+            let packageRoot = prefix.appending(component: "Bar")
             
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(".build/debug/Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(".build")))
-            XCTAssert(isDirectory(packageRoot.appending("Packages")))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["--clean"], chdir: packageRoot)
-            XCTAssert(!isDirectory(packageRoot.appending(".build")))
-            XCTAssert(isDirectory(packageRoot.appending("Packages")))
+            XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
 
             // Fully clean, and check for removal of both.
             _ = try execute(["--clean=dist"], chdir: packageRoot)
-            XCTAssert(!isDirectory(packageRoot.appending(".build")))
-            XCTAssert(!isDirectory(packageRoot.appending("Packages")))
+            XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssert(!isDirectory(packageRoot.appending(component: "Packages")))
         }
     }
 

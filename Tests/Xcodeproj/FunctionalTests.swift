@@ -24,7 +24,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
             let build = prefix.appending(components: "build", "Debug")
-            XCTAssertDirectoryExists(build.appending("Library.framework"))
+            XCTAssertDirectoryExists(build.appending(component: "Library.framework"))
         }
 #endif
     }
