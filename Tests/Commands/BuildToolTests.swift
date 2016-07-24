@@ -38,12 +38,12 @@ final class BuildToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(packageRoot.appending(".build/debug/Foo"))
-            XCTAssert(packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(isDirectory(packageRoot.appending(".build")))
 
             // Clean, and check for removal.
             _ = try execute(["--clean"], chdir: packageRoot)
-            XCTAssert(!packageRoot.appending(".build/debug/Foo").asString.isFile)
-            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
+            XCTAssert(!isFile(packageRoot.appending(".build/debug/Foo")))
+            XCTAssert(!isDirectory(packageRoot.appending(".build")))
 
             // Clean again to ensure we get no error.
             _ = try execute(["--clean"], chdir: packageRoot)
@@ -57,18 +57,18 @@ final class BuildToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(packageRoot.appending(".build/debug/Bar"))
-            XCTAssert(packageRoot.appending(".build").asString.isDirectory)
-            XCTAssert(packageRoot.appending("Packages").asString.isDirectory)
+            XCTAssert(isDirectory(packageRoot.appending(".build")))
+            XCTAssert(isDirectory(packageRoot.appending("Packages")))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["--clean"], chdir: packageRoot)
-            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
-            XCTAssert(packageRoot.appending("Packages").asString.isDirectory)
+            XCTAssert(!isDirectory(packageRoot.appending(".build")))
+            XCTAssert(isDirectory(packageRoot.appending("Packages")))
 
             // Fully clean, and check for removal of both.
             _ = try execute(["--clean=dist"], chdir: packageRoot)
-            XCTAssert(!packageRoot.appending(".build").asString.isDirectory)
-            XCTAssert(!packageRoot.appending("Packages").asString.isDirectory)
+            XCTAssert(!isDirectory(packageRoot.appending(".build")))
+            XCTAssert(!isDirectory(packageRoot.appending("Packages")))
         }
     }
 

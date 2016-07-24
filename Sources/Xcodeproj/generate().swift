@@ -143,7 +143,7 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
-        return $0.asString.isDirectory
+        return isDirectory($0)
     }
     
     let filteredDirectories = try rootDirectoriesToConsider.filter {

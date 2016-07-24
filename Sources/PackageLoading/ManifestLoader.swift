@@ -66,10 +66,10 @@ public final class ManifestLoader {
         }
 
         // Compute the actual input file path.
-        let path: AbsolutePath = inputPath.asString.isDirectory ? inputPath.appending(component: Manifest.filename) : inputPath
+        let path: AbsolutePath = isDirectory(inputPath) ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard path.asString.isFile else { throw PackageModel.Package.Error.noManifest(path.asString) }
+        guard isFile(path) else { throw PackageModel.Package.Error.noManifest(path.asString) }
 
         // Load the manifest description.
         guard let tomlString = try parse(path: path) else {

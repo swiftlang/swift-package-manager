@@ -79,7 +79,7 @@ final class InitPackage {
     
     private func writeManifestFile() throws {
         let manifest = rootd.appending(component: Manifest.filename)
-        guard manifest.asString.exists == false else {
+        guard exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -94,7 +94,7 @@ final class InitPackage {
     
     private func writeGitIgnore() throws {
         let gitignore = rootd.appending(".gitignore")
-        guard gitignore.asString.exists == false else {
+        guard exists(gitignore) == false else {
             return
         } 
     
@@ -111,7 +111,7 @@ final class InitPackage {
             return
         }
         let sources = rootd.appending("Sources")
-        guard sources.asString.exists == false else {
+        guard exists(sources) == false else {
             return
         }
         print("Creating Sources/")
@@ -139,7 +139,7 @@ final class InitPackage {
             return
         }
         let modulemap = rootd.appending("module.modulemap")
-        guard modulemap.asString.exists == false else {
+        guard exists(modulemap) == false else {
             return
         }
         
@@ -157,7 +157,7 @@ final class InitPackage {
             return
         }
         let tests = rootd.appending("Tests")
-        guard tests.asString.exists == false else {
+        guard exists(tests) == false else {
             return
         }
         print("Creating Tests/")

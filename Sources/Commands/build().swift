@@ -28,7 +28,7 @@ public func build(yamlPath: AbsolutePath, target: String? = nil) throws {
         // out its own error conditions and then try
         // to infer what happened afterwards.
 
-        if yamlPath.asString.isFile {
+        if isFile(yamlPath) {
             throw error
         } else {
             throw Error.buildYAMLNotFound(yamlPath.asString)

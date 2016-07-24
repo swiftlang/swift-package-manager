@@ -67,22 +67,22 @@ extension ClangModule {
         }
 
         ///Return if module map is already present
-        guard !moduleMapPath.asString.isFile else {
+        guard !isFile(moduleMapPath) else {
             return
         }
         
         let includeDir = path
         
         // Warn and return if no include directory.
-        guard includeDir.asString.isDirectory else {
+        guard isDirectory(includeDir) else {
             print("warning: No include directory found for module '\(name)'. A library can not be imported without any public headers.")
             return
         }
         
         let walked = try localFileSystem.getDirectoryContents(includeDir).map{ includeDir.appending(component: $0) }
         
-        let files = walked.filter{ $0.asString.isFile && $0.suffix == ".h" }
-        let dirs = walked.filter{ $0.asString.isDirectory }
+        let files = walked.filter{ isFile($0) && $0.suffix == ".h" }
+        let dirs = walked.filter{ isDirectory($0) }
 
         // We generate modulemap for a C module `foo` if:
         // * `umbrella header "path/to/include/foo/foo.h"` exists and `foo` is the only
@@ -92,7 +92,7 @@ extension ClangModule {
         // * `umbrella "path/to/include"` in all other cases
 
         let umbrellaHeaderFlat = includeDir.appending(component: c99name + ".h")
-        if umbrellaHeaderFlat.asString.isFile {
+        if isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(name) }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat), modulemapStyle: modulemapStyle)
             return
@@ -100,7 +100,7 @@ extension ClangModule {
         diagnoseInvalidUmbrellaHeader(includeDir)
 
         let umbrellaHeader = includeDir.appending(components: c99name, c99name + ".h")
-        if umbrellaHeader.asString.isFile {
+        if isFile(umbrellaHeader) {
             guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(name) }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeader), modulemapStyle: modulemapStyle)
             return
@@ -115,7 +115,7 @@ extension ClangModule {
     private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) {
         let umbrellaHeader = path.appending(component: c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: name + ".h")
-        if c99name != name && invalidUmbrellaHeader.asString.isFile {
+        if c99name != name && isFile(invalidUmbrellaHeader) {
             print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
         }
     }

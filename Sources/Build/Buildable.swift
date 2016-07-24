@@ -31,7 +31,7 @@ extension Module: Buildable {
                 ///in ClangModule's `generateModuleMap(inDir wd: String)`
                 ///there shouldn't be need to redo this but is difficult in 
                 ///current architecture
-                if module.moduleMapPath.asString.isFile {
+                if isFile(module.moduleMapPath) {
                     return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
                 }
 

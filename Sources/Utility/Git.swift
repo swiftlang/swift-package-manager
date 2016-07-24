@@ -20,7 +20,7 @@ public class Git {
 
         public init?(path: AbsolutePath) {
             self.path = resolveSymlinks(path)
-            guard path.appending(".git").asString.isDirectory else { return nil }
+            guard isDirectory(path.appending(component: ".git")) else { return nil }
         }
 
         public lazy var origin: String? = { repo in

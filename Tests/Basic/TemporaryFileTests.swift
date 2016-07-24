@@ -23,7 +23,7 @@ class TemporaryFileTests: XCTestCase {
             XCTAssertTrue(file.path.basename.hasSuffix("mysuffix"))
 
             // Check if file is created.
-            XCTAssertTrue(file.path.asString.isFile)
+            XCTAssertTrue(isFile(file.path))
 
             // Try writing some data to the file.
             let stream = BufferedOutputByteStream()
@@ -41,7 +41,7 @@ class TemporaryFileTests: XCTestCase {
             filePath = file.path
         }
         // File should be deleted now.
-        XCTAssertFalse(filePath.asString.isFile)
+        XCTAssertFalse(isFile(filePath))
     }
 
     func testCanCreateUniqueTempFiles() throws {
@@ -51,16 +51,16 @@ class TemporaryFileTests: XCTestCase {
             let fileOne = try TemporaryFile()
             let fileTwo = try TemporaryFile()
             // Check files exists.
-            XCTAssertTrue(fileOne.path.asString.isFile)
-            XCTAssertTrue(fileTwo.path.asString.isFile)
+            XCTAssertTrue(isFile(fileOne.path))
+            XCTAssertTrue(isFile(fileTwo.path))
             // Their paths should be different.
             XCTAssertTrue(fileOne.path != fileTwo.path)
 
             filePathOne = fileOne.path
             filePathTwo = fileTwo.path
         }
-        XCTAssertFalse(filePathOne.asString.isFile)
-        XCTAssertFalse(filePathTwo.asString.isFile)
+        XCTAssertFalse(isFile(filePathOne))
+        XCTAssertFalse(isFile(filePathTwo))
     }
 
     func testBasicTemporaryDirectory() throws {

@@ -123,7 +123,7 @@ public func system(_ arguments: String..., environment: [String:String] = [:], m
 }
 
 private func which(_ arg0: String) -> String {
-    if arg0.isAbsolute {
+    if arg0.hasPrefix("/") {
         return arg0
     } else if let fullpath = try? POSIX.popen(["which", arg0]) {
         return fullpath.chomp()

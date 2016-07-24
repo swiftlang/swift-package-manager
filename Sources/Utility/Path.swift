@@ -205,7 +205,7 @@ extension String {
     }
 
     /// - Returns: true if the string looks like an absolute path
-    public var isAbsolute: Bool {
+    fileprivate var isAbsolute: Bool {
         return hasPrefix("/")
     }
 
@@ -215,7 +215,7 @@ extension String {
        directory, then this function returns true. Use `isSymlink`
        if the distinction is important.
     */
-    public var isDirectory: Bool {
+    fileprivate var isDirectory: Bool {
         var mystat = stat()
         let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFDIR
@@ -227,7 +227,7 @@ extension String {
        file, then this function returns true. Use `isSymlink` if the
        distinction is important.
      */
-    public var isFile: Bool {
+    fileprivate var isFile: Bool {
         var mystat = stat()
         let rv = stat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFREG
@@ -247,7 +247,7 @@ extension String {
     /**
      - Returns: true if the string is a symlink on the filesystem
      */
-    public var isSymlink: Bool {
+    fileprivate var isSymlink: Bool {
         var mystat = stat()
         let rv = lstat(self, &mystat)
         return rv == 0 && (mystat.st_mode & S_IFMT) == S_IFLNK
@@ -257,7 +257,7 @@ extension String {
      - Returns: true if the string is an entry on the filesystem
      - Note: symlinks are resolved
      */
-    public var exists: Bool {
+    fileprivate var exists: Bool {
         return access(self, F_OK) == 0
     }
 
