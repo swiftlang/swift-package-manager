@@ -215,7 +215,8 @@ extension PackageDescription.Package.Dependency {
 
         func fixURL() -> String {
             if let baseURL = baseURL, URL.scheme(url) == nil {
-                return Path.join(baseURL, url).normpath
+                // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
+                return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).asString
             } else {
                 return url
             }
