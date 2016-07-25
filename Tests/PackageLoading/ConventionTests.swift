@@ -207,7 +207,7 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-    init(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil, _ body: @noescape (PackageBuilderTester) -> Void) {
+    init(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
         do {
             let loadedPackage = try loadPackage(path, in: fs, package: package)
             result = .package(loadedPackage)
@@ -221,36 +221,36 @@ final class PackageBuilderTester {
             uncheckedDiagnostics.insert(errorStr)
         }
         body(self)
-        validateDiagnostics()
-        validateCheckedModules()
+        validateDiagnostics(file: file, line: line)
+        validateCheckedModules(file: file, line: line)
     }
 
-    private func validateDiagnostics() {
+    private func validateDiagnostics(file: StaticString, line: UInt) {
         guard !ignoreDiagnostics && !uncheckedDiagnostics.isEmpty else { return }
-        XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)")
+        XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)", file: file, line: line)
     }
 
-    private func validateCheckedModules() {
+    private func validateCheckedModules(file: StaticString, line: UInt) {
         guard !ignoreOtherModules && !uncheckedModules.isEmpty else { return }
-        XCTFail("Unchecked modules: \(uncheckedModules)")
+        XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
     }
 
-    func checkError(_ str: String) {
+    func checkError(_ str: String, file: StaticString = #file, line: UInt = #line) {
         switch result {
         case .package(let package):
-            XCTFail("\(package) did not have any error")
+            XCTFail("\(package) did not have any error", file: file, line: line)
         case .error(let error):
             uncheckedDiagnostics.remove(error)
-            XCTAssertEqual(error, str)
+            XCTAssertEqual(error, str, file: file, line: line)
         }
     }
 
-    func checkModule(_ name: String, _ body: (@noescape (ModuleResult) -> Void)? = nil) {
+    func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: (@noescape (ModuleResult) -> Void)? = nil) {
         guard case .package(let package) = result else {
-            return XCTFail("Expected package did not load \(self)")
+            return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
         guard let module = package.allModules.first(where: {$0.name == name}) else {
-            return XCTFail("Module: \(name) not found")
+            return XCTFail("Module: \(name) not found", file: file, line: line)
         }
         uncheckedModules.remove(module)
         body?(ModuleResult(module))
@@ -264,24 +264,24 @@ final class PackageBuilderTester {
             self.module = module
         }
 
-        func check(c99name: String? = nil, type: ModuleType? = nil, isTest: Bool? = nil) {
+        func check(c99name: String? = nil, type: ModuleType? = nil, isTest: Bool? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
-                XCTAssertEqual(module.c99name, c99name)
+                XCTAssertEqual(module.c99name, c99name, file: file, line: line)
             }
             if let type = type {
-                XCTAssertEqual(module.type, type)
+                XCTAssertEqual(module.type, type, file: file, line: line)
             }
             if let isTest = isTest {
-                XCTAssertEqual(module.isTest, isTest)
+                XCTAssertEqual(module.isTest, isTest, file: file, line: line)
             }
         }
 
-        func checkSources(root: String? = nil, paths: String...) {
+        func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
             if let root = root {
-                XCTAssertEqual(module.sources.root, AbsolutePath(root))
+                XCTAssertEqual(module.sources.root, AbsolutePath(root), file: file, line: line)
             }
             for path in paths {
-                XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)")
+                XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)", file: file, line: line)
             }
         }
     }
