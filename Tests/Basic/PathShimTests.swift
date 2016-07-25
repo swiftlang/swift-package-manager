@@ -27,8 +27,8 @@ class PathShimTests : XCTestCase {
         let tmpDirPath = resolveSymlinks(tmpDir.path)
 
         // Create a symbolic link and directory.
-        let slnkPath = tmpDirPath.appending("slnk")
-        let fldrPath = tmpDirPath.appending("fldr")
+        let slnkPath = tmpDirPath.appending(component: "slnk")
+        let fldrPath = tmpDirPath.appending(component: "fldr")
         
         // Create a symbolic link pointing at the (so far non-existent) directory.
         try! createSymlink(slnkPath, pointingAt: fldrPath, relative: true)
@@ -114,7 +114,7 @@ class WalkTests : XCTestCase {
             AbsolutePath("/bin"),
             AbsolutePath("/sbin")
         ]
-        for x in try! walk("/", recursively: false) {
+        for x in try! walk(AbsolutePath("/"), recursively: false) {
             if let i = expected.index(of: x) {
                 expected.remove(at: i)
             }
@@ -142,37 +142,37 @@ class WalkTests : XCTestCase {
         // FIXME: it would be better to not need to resolve symbolic links, but we end up relying on /tmp -> /private/tmp.
         let tmpDirPath = resolveSymlinks(tmpDir.path)
             
-        try! makeDirectories(tmpDirPath.appending("foo"))
-        try! makeDirectories(tmpDirPath.appending("bar/baz/goo"))
-        try! createSymlink(tmpDirPath.appending("foo/symlink"), pointingAt: tmpDirPath.appending("bar"), relative: true)
+        try! makeDirectories(tmpDirPath.appending(component: "foo"))
+        try! makeDirectories(tmpDirPath.appending(components: "bar", "baz", "goo"))
+        try! createSymlink(tmpDirPath.appending(components: "foo", "symlink"), pointingAt: tmpDirPath.appending(component: "bar"), relative: true)
 
-        XCTAssertTrue(isSymlink(tmpDirPath.appending("foo/symlink")))
-        XCTAssertEqual(resolveSymlinks(tmpDirPath.appending("foo/symlink")), tmpDirPath.appending("bar"))
-        XCTAssertTrue(isDirectory(resolveSymlinks(tmpDirPath.appending("foo/symlink/baz"))))
+        XCTAssertTrue(isSymlink(tmpDirPath.appending(components: "foo", "symlink")))
+        XCTAssertEqual(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink")), tmpDirPath.appending(component: "bar"))
+        XCTAssertTrue(isDirectory(resolveSymlinks(tmpDirPath.appending(components: "foo", "symlink", "baz"))))
 
-        let results = try! walk(tmpDirPath.appending("foo")).map{ $0 }
+        let results = try! walk(tmpDirPath.appending(component: "foo")).map{ $0 }
 
-        XCTAssertEqual(results, [tmpDirPath.appending("foo/symlink")])
+        XCTAssertEqual(results, [tmpDirPath.appending(components: "foo", "symlink")])
     }
 
     func testWalkingADirectorySymlinkResolvesOnce() {
         let tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         let tmpDirPath = tmpDir.path
         
-        try! makeDirectories(tmpDirPath.appending("foo/bar"))
-        try! makeDirectories(tmpDirPath.appending("abc/bar"))
-        try! createSymlink(tmpDirPath.appending("symlink"), pointingAt: tmpDirPath.appending("foo"), relative: true)
-        try! createSymlink(tmpDirPath.appending("foo/baz"), pointingAt: tmpDirPath.appending("abc"), relative: true)
+        try! makeDirectories(tmpDirPath.appending(components: "foo", "bar"))
+        try! makeDirectories(tmpDirPath.appending(components: "abc", "bar"))
+        try! createSymlink(tmpDirPath.appending(component: "symlink"), pointingAt: tmpDirPath.appending(component: "foo"), relative: true)
+        try! createSymlink(tmpDirPath.appending(components: "foo", "baz"), pointingAt: tmpDirPath.appending(component: "abc"), relative: true)
 
-        XCTAssertTrue(isSymlink(tmpDirPath.appending("symlink")))
+        XCTAssertTrue(isSymlink(tmpDirPath.appending(component: "symlink")))
 
-        let results = try! walk(tmpDirPath.appending("symlink")).map{ $0 }.sorted()
+        let results = try! walk(tmpDirPath.appending(component: "symlink")).map{ $0 }.sorted()
 
         // we recurse a symlink to a directory, so this should work,
         // but `abc` should not show because `baz` is a symlink too
         // and that should *not* be followed
 
-        XCTAssertEqual(results, [tmpDirPath.appending("symlink/bar"), tmpDirPath.appending("symlink/baz")])
+        XCTAssertEqual(results, [tmpDirPath.appending(components: "symlink", "bar"), tmpDirPath.appending(components: "symlink", "baz")])
     }
 
     static var allTests = [

@@ -25,7 +25,7 @@ class POSIXTests : XCTestCase {
         XCTAssertFalse(isFile(dir.path))
         XCTAssertTrue(isDirectory(dir.path))
 
-        let sym = dir.path.appending("hello")
+        let sym = dir.path.appending(component: "hello")
         try createSymlink(sym, pointingAt: file.path)
         XCTAssertTrue(exists(sym))
         XCTAssertFalse(isFile(sym, followSymlink: false))
@@ -34,7 +34,7 @@ class POSIXTests : XCTestCase {
         XCTAssertFalse(isDirectory(sym, followSymlink: true))
 
         let dir2 = try TemporaryDirectory()
-        let dirSym = dir.path.appending("dir2")
+        let dirSym = dir.path.appending(component: "dir2")
         try createSymlink(dirSym, pointingAt: dir2.path)
         XCTAssertTrue(exists(dirSym))
         XCTAssertFalse(isFile(dirSym, followSymlink: false))

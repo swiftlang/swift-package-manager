@@ -206,23 +206,6 @@ public struct AbsolutePath {
     }
 }
 
-/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
-/// to be implicitly converted to AbsolutePaths.
-extension AbsolutePath : ExpressibleByStringLiteral {
-    public typealias UnicodeScalarLiteralType = StringLiteralType
-    public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-}
-
-
 /// Represents a relative file system path.  A relative path never starts with
 /// a `/` character, and holds a normalized string representation.  As with
 /// AbsolutePath, the normalization is strictly syntactic, and does not access
@@ -296,22 +279,6 @@ public struct RelativePath {
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
         return _impl.string.components(separatedBy: "/").filter { !$0.isEmpty }
-    }
-}
-
-/// Adoption of the ExpressibleByStringLiteral protocol allows literal strings
-/// to be implicitly converted to RelativePaths.
-extension RelativePath : ExpressibleByStringLiteral {
-    public typealias UnicodeScalarLiteralType = StringLiteralType
-    public typealias ExtendedGraphemeClusterLiteralType = StringLiteralType
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
     }
 }
 

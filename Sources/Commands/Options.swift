@@ -20,10 +20,10 @@ public class Options {
 
     public class Path {
         public lazy var root = getroot()
-        public var packages: AbsolutePath { return root.appending("Packages") }
+        public var packages: AbsolutePath { return root.appending(component: "Packages") }
 
         public var build: AbsolutePath {
-            get { return _build != nil ? AbsolutePath(_build!) : getroot().appending(".build") }
+            get { return _build != nil ? AbsolutePath(_build!) : getroot().appending(component: ".build") }
             set { _build = newValue.asString }
         }
         private var _build = getEnvBuildPath()?.asString
@@ -48,7 +48,7 @@ private func getroot() -> AbsolutePath {
     while !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
 
-        guard root != "/" else {
+        guard !root.isRoot else {
             // abort because lazy properties cannot throw and we
             // want erroring on no manifest found to be “lazy” so
             // any path that requires this property errors, but we

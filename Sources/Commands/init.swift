@@ -93,7 +93,7 @@ final class InitPackage {
     }
     
     private func writeGitIgnore() throws {
-        let gitignore = rootd.appending(".gitignore")
+        let gitignore = rootd.appending(component: ".gitignore")
         guard exists(gitignore) == false else {
             return
         } 
@@ -110,7 +110,7 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let sources = rootd.appending("Sources")
+        let sources = rootd.appending(component: "Sources")
         guard exists(sources) == false else {
             return
         }
@@ -138,7 +138,7 @@ final class InitPackage {
         if mode != .systemModule {
             return
         }
-        let modulemap = rootd.appending("module.modulemap")
+        let modulemap = rootd.appending(component: "module.modulemap")
         guard exists(modulemap) == false else {
             return
         }
@@ -156,7 +156,7 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let tests = rootd.appending("Tests")
+        let tests = rootd.appending(component: "Tests")
         guard exists(tests) == false else {
             return
         }
@@ -171,7 +171,7 @@ final class InitPackage {
     }
     
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
-        try writePackageFile(testsPath.appending("LinuxMain.swift")) { stream in
+        try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< "import XCTest\n"
             stream <<< "@testable import \(moduleName)TestSuite\n\n"
             stream <<< "XCTMain([\n"

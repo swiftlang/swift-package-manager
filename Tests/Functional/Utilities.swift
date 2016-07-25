@@ -19,10 +19,11 @@ import class Foundation.Bundle
 #endif
 
 
-/// Test-helper function that runs a block of code on a copy of a test fixture package.  The copy is made into a temporary directory, and the block is given a path to that directory.  The block is permitted to modify the copy.  The temporary copy is deleted after the block returns.
-func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+/// Test-helper function that runs a block of code on a copy of a test fixture package.  The copy is made into a temporary directory, and the block is given a path to that directory.  The block is permitted to modify the copy.  The temporary copy is deleted after the block returns.  The fixture name may contain `/` characters, which are treated as path separators, exactly as if the name were a relative path.
+func fixture(name: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
     do {
         // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = RelativePath(name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
         
         // Create a temporary directory for the duration of the block.
@@ -30,7 +31,7 @@ func fixture(name fixtureSubpath: RelativePath, tags: [String] = [], file: Stati
             
         // Construct the expected path of the fixture.
         // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
-        let fixtureDir = AbsolutePath(#file).appending("../../../Fixtures").appending(fixtureSubpath)
+        let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
         
         // Check that the fixture is really there.
         guard isDirectory(fixtureDir) else {
@@ -136,13 +137,13 @@ enum SwiftPMProduct {
     var exec: RelativePath {
         switch self {
         case .SwiftBuild:
-            return "swift-build"
+            return RelativePath("swift-build")
         case .SwiftPackage:
-            return "swift-package"
+            return RelativePath("swift-package")
         case .SwiftTest:
-            return "swift-test"
+            return RelativePath("swift-test")
         case .XCTestHelper:
-            return "swiftpm-xctest-helper"
+            return RelativePath("swiftpm-xctest-helper")
         }
     }
 }

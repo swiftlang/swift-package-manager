@@ -191,7 +191,7 @@ public struct PackageBuilder {
     }
 
     private var packagesDirectory: AbsolutePath {
-        return packagePath.appending("Packages")
+        return packagePath.appending(component: "Packages")
     }
 
     private var excludedPaths: [AbsolutePath] {
@@ -232,7 +232,7 @@ public struct PackageBuilder {
 
     /// Collects the modules which are defined by a package.
     private func constructModules() throws -> [Module] {
-        let moduleMapPath = packagePath.appending("module.modulemap")
+        let moduleMapPath = packagePath.appending(component: "module.modulemap")
         if fileSystem.isFile(moduleMapPath) {
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
@@ -408,7 +408,7 @@ public struct PackageBuilder {
     }
 
     private func constructTestModules(modules: [Module]) throws -> [Module] {
-        let testsPath = packagePath.appending("Tests")
+        let testsPath = packagePath.appending(component: "Tests")
         
         // Don't try to walk Tests if it is in excludes or doesn't exists.
         guard fileSystem.isDirectory(testsPath) && !excludedPaths.contains(testsPath) else {

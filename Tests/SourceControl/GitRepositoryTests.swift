@@ -32,12 +32,12 @@ class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testProvider() throws {
         mktmpdir { path in
-            let testRepoPath = path.appending("test-repo")
+            let testRepoPath = path.appending(component: "test-repo")
             try! makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
 
             // Test the provider.
-            let testCheckoutPath = path.appending("checkout")
+            let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
@@ -81,7 +81,7 @@ class GitRepositoryTests: XCTestCase {
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
             try systemQuietly(["tar", "-x", "-v", "-C", path.asString, "-f", inputArchivePath.asString])
-            let testRepoPath = path.appending("TestRepo")
+            let testRepoPath = path.appending(component: "TestRepo")
 
             // Check hash resolution.
             let repo = GitRepository(path: testRepoPath)
@@ -142,7 +142,7 @@ class GitRepositoryTests: XCTestCase {
             try tagGitRepo(testRepoPath, tag: "test-tag")
 
             // Get the the repository via the provider. the provider.
-            let testCheckoutPath = path.appending("checkout")
+            let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try provider.fetch(repository: repoSpec, to: testCheckoutPath)
@@ -152,45 +152,45 @@ class GitRepositoryTests: XCTestCase {
             let view = try repository.openFileView(revision: repository.resolveRevision(tag: "test-tag"))
 
             // Check basic predicates.
-            XCTAssert(view.isDirectory("/"))
-            XCTAssert(view.isDirectory("/subdir"))
-            XCTAssert(!view.isDirectory("/does-not-exist"))
-            XCTAssert(view.exists("/test-file-1.txt"))
-            XCTAssert(!view.exists("/does-not-exist"))
-            XCTAssert(view.isFile("/test-file-1.txt"))
-            XCTAssert(!view.isSymlink("/test-file-1.txt"))
+            XCTAssert(view.isDirectory(AbsolutePath("/")))
+            XCTAssert(view.isDirectory(AbsolutePath("/subdir")))
+            XCTAssert(!view.isDirectory(AbsolutePath("/does-not-exist")))
+            XCTAssert(view.exists(AbsolutePath("/test-file-1.txt")))
+            XCTAssert(!view.exists(AbsolutePath("/does-not-exist")))
+            XCTAssert(view.isFile(AbsolutePath("/test-file-1.txt")))
+            XCTAssert(!view.isSymlink(AbsolutePath("/test-file-1.txt")))
 
             // Check read of a directory.
-            XCTAssertEqual(try view.getDirectoryContents("/").sorted(), ["file.swift", "subdir", "test-file-1.txt"])
-            XCTAssertEqual(try view.getDirectoryContents("/subdir").sorted(), ["test-file-2.txt"])
+            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt"])
+            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/subdir")).sorted(), ["test-file-2.txt"])
             XCTAssertThrows(FileSystemError.isDirectory) {
-                _ = try view.readFileContents("/subdir")
+                _ = try view.readFileContents(AbsolutePath("/subdir"))
             }
 
             // Check read versus root.
             XCTAssertThrows(FileSystemError.isDirectory) {
-                _ = try view.readFileContents("/")
+                _ = try view.readFileContents(AbsolutePath("/"))
             }
 
             // Check read through a non-directory.
             XCTAssertThrows(FileSystemError.notDirectory) {
-                _ = try view.getDirectoryContents("/test-file-1.txt")
+                _ = try view.getDirectoryContents(AbsolutePath("/test-file-1.txt"))
             }
             XCTAssertThrows(FileSystemError.notDirectory) {
-                _ = try view.readFileContents("/test-file-1.txt/thing")
+                _ = try view.readFileContents(AbsolutePath("/test-file-1.txt/thing"))
             }
             
             // Check read/write into a missing directory.
             XCTAssertThrows(FileSystemError.noEntry) {
-                _ = try view.getDirectoryContents("/does-not-exist")
+                _ = try view.getDirectoryContents(AbsolutePath("/does-not-exist"))
             }
             XCTAssertThrows(FileSystemError.noEntry) {
-                _ = try view.readFileContents("/does/not/exist")
+                _ = try view.readFileContents(AbsolutePath("/does/not/exist"))
             }
 
             // Check read of a file.
-            XCTAssertEqual(try view.readFileContents("/test-file-1.txt"), test1FileContents)
-            XCTAssertEqual(try view.readFileContents("/subdir/test-file-2.txt"), test2FileContents)
+            XCTAssertEqual(try view.readFileContents(AbsolutePath("/test-file-1.txt")), test1FileContents)
+            XCTAssertEqual(try view.readFileContents(AbsolutePath("/subdir/test-file-2.txt")), test2FileContents)
         }
     }
 

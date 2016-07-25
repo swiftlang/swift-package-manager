@@ -54,7 +54,7 @@ class GitUtilityTests: XCTestCase {
     func testHeadAndVersionSha() {
         mktmpdir { dir in
             initGitRepo(dir, tag: "0.1.0")
-            try commit(dir, file: "file2.swift") 
+            try commit(dir, file: RelativePath("file2.swift"))
             
             let headSha = Git.Repo(path: dir)?.sha
             let versionSha = try Git.Repo(path: dir)?.versionSha(tag: "0.1.0")
@@ -70,7 +70,7 @@ class GitUtilityTests: XCTestCase {
             let repo = Git.Repo(path: dir)!
             XCTAssertFalse(repo.hasLocalChanges)
 
-            let filePath = dir.appending("file2.swift")
+            let filePath = dir.appending(component: "file2.swift")
             try systemQuietly(["touch", filePath.asString])
 
             XCTAssertTrue(repo.hasLocalChanges)

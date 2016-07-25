@@ -10,12 +10,13 @@
 
 import XCTest
 
+import Basic
 import PackageModel
 import PackageLoading
 
 private extension Module {
     convenience init(name: String) throws {
-        try self.init(name: name, type: .library, sources: Sources(paths: [], root: "/"))
+        try self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")))
     }
 }
 
