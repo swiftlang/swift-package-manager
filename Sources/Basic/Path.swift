@@ -343,6 +343,13 @@ public func >(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString > rhs.asString
 }
 
+/// Make absolute paths CustomStringConvertible.
+extension AbsolutePath : CustomStringConvertible {
+    public var description: String {
+        // FIXME: We should really be escaping backslashes and quotes here.
+        return "<AbsolutePath:\"\(asString)\">"
+    }
+}
 
 // Make relative paths Hashable.
 extension RelativePath : Hashable {
@@ -355,6 +362,14 @@ extension RelativePath : Hashable {
 extension RelativePath : Equatable { }
 public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
     return lhs.asString == rhs.asString
+}
+
+/// Make relative paths CustomStringConvertible.
+extension RelativePath : CustomStringConvertible {
+    public var description: String {
+        // FIXME: We should realy be escaping backslashes and quotes here.
+        return "<RelativePath:\"\(asString)\">"
+    }
 }
 
 
