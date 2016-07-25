@@ -45,7 +45,7 @@ private struct Resources: ManifestResourceProvider {
         return swiftc
     }()
   #else
-    let swiftCompilerPath = bundleRoot().appending("swiftc")
+    let swiftCompilerPath = bundleRoot().appending(component: "swiftc")
   #endif
     let libraryPath = bundleRoot()
 #else
