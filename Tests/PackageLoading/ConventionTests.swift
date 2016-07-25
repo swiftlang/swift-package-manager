@@ -86,14 +86,13 @@ class ConventionTests: XCTestCase {
             result.checkModule("ModuleA") { moduleResult in
                 moduleResult.check(c99name: "ModuleA", type: .executable)
                 moduleResult.check(isTest: false)
-                moduleResult.checkSources("main.swift")
-                moduleResult.checkSources(root: "/Sources/ModuleA")
+                moduleResult.checkSources(root: "/Sources/ModuleA", paths: "main.swift")
             }
 
             result.checkModule("ModuleB") { moduleResult in
                 moduleResult.check(c99name: "ModuleB", type: .executable, isTest: false)
-                moduleResult.checkSources("main.c", "foo.c")
                 moduleResult.checkSources(root: "/Sources/ModuleB")
+                moduleResult.checkSources(paths: "main.c", "foo.c")
             }
         }
     }
@@ -277,11 +276,10 @@ final class PackageBuilderTester {
             }
         }
 
-        func checkSources(root: String) {
-            XCTAssertEqual(module.sources.root, AbsolutePath(root))
-        }
-
-        func checkSources(_ paths: String...) {
+        func checkSources(root: String? = nil, paths: String...) {
+            if let root = root {
+                XCTAssertEqual(module.sources.root, AbsolutePath(root))
+            }
             for path in paths {
                 XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)")
             }
