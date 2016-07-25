@@ -71,7 +71,7 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Sources/main.swift",
                                 "/Sources/main.c")
-        PackageBuilderTester(.root, in: fs) { result in
+        PackageBuilderTester("MixedSources", in: fs) { result in
             result.checkError("the module at /Sources contains mixed language source files fix: use only a single language within a module")
         }
     }
@@ -82,18 +82,16 @@ class ConventionTests: XCTestCase {
                                 "/Sources/ModuleB/main.c",
                                 "/Sources/ModuleB/foo.c")
 
-        PackageBuilderTester(.root, in: fs) { result in
+        PackageBuilderTester("MixedLanguage", in: fs) { result in
             result.checkModule("ModuleA") { moduleResult in
                 moduleResult.check(c99name: "ModuleA", type: .executable)
                 moduleResult.check(isTest: false)
-                moduleResult.checkSources("main.swift")
-                moduleResult.checkSources(root: "/Sources/ModuleA")
+                moduleResult.checkSources(root: "/Sources/ModuleA", paths: "main.swift")
             }
 
             result.checkModule("ModuleB") { moduleResult in
                 moduleResult.check(c99name: "ModuleB", type: .executable, isTest: false)
-                moduleResult.checkSources("main.c", "foo.c")
-                moduleResult.checkSources(root: "/Sources/ModuleB")
+                moduleResult.checkSources(root: "/Sources/ModuleB", paths: "main.c", "foo.c")
             }
         }
     }
@@ -159,23 +157,16 @@ private extension FileSystem {
     }
 }
 
-/// Loads a package using PackageBuilder at the given path. If package description is provided it is used,
-/// otherwise a default package with name of directory is passed to manifest.
+/// Loads a package using PackageBuilder at the given path.
 ///
 /// - Parameters:
+///     - package: PackageDescription instance to use for loading this package.
 ///     - path: Directory where the package is located.
 ///     - in: FileSystem in which the package should be loaded from.
-///     - package: PackageDescription instance to use for loading this package.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil) throws -> PackageModel.Package {
-    let pkg: PackageDescription.Package
-    if let package = package {
-        pkg = package
-    } else {
-        pkg = Package(name: path.basename)
-    }
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: pkg, products: [], version: nil)
+private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: [], version: nil)
     let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs)
     return try builder.construct(includingTestModules: true)
 }
@@ -208,9 +199,15 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-    init(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil, _ body: @noescape (PackageBuilderTester) -> Void) {
+   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+       let package = Package(name: name)
+       self.init(package, path: path, in: fs, file: file, line: line, body)
+    }
+
+    @discardableResult
+    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
         do {
-            let loadedPackage = try loadPackage(path, in: fs, package: package)
+            let loadedPackage = try loadPackage(package, path: path, in: fs)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
         } catch {
@@ -222,36 +219,36 @@ final class PackageBuilderTester {
             uncheckedDiagnostics.insert(errorStr)
         }
         body(self)
-        validateDiagnostics()
-        validateCheckedModules()
+        validateDiagnostics(file: file, line: line)
+        validateCheckedModules(file: file, line: line)
     }
 
-    private func validateDiagnostics() {
+    private func validateDiagnostics(file: StaticString, line: UInt) {
         guard !ignoreDiagnostics && !uncheckedDiagnostics.isEmpty else { return }
-        XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)")
+        XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)", file: file, line: line)
     }
 
-    private func validateCheckedModules() {
+    private func validateCheckedModules(file: StaticString, line: UInt) {
         guard !ignoreOtherModules && !uncheckedModules.isEmpty else { return }
-        XCTFail("Unchecked modules: \(uncheckedModules)")
+        XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
     }
 
-    func checkError(_ str: String) {
+    func checkError(_ str: String, file: StaticString = #file, line: UInt = #line) {
         switch result {
         case .package(let package):
-            XCTFail("\(package) did not have any error")
+            XCTFail("\(package) did not have any error", file: file, line: line)
         case .error(let error):
             uncheckedDiagnostics.remove(error)
-            XCTAssertEqual(error, str)
+            XCTAssertEqual(error, str, file: file, line: line)
         }
     }
 
-    func checkModule(_ name: String, _ body: (@noescape (ModuleResult) -> Void)? = nil) {
+    func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: (@noescape (ModuleResult) -> Void)? = nil) {
         guard case .package(let package) = result else {
-            return XCTFail("Expected package did not load \(self)")
+            return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
         guard let module = package.allModules.first(where: {$0.name == name}) else {
-            return XCTFail("Module: \(name) not found")
+            return XCTFail("Module: \(name) not found", file: file, line: line)
         }
         uncheckedModules.remove(module)
         body?(ModuleResult(module))
@@ -265,26 +262,39 @@ final class PackageBuilderTester {
             self.module = module
         }
 
-        func check(c99name: String? = nil, type: ModuleType? = nil, isTest: Bool? = nil) {
+        func check(c99name: String? = nil, type: ModuleType? = nil, isTest: Bool? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
-                XCTAssertEqual(module.c99name, c99name)
+                XCTAssertEqual(module.c99name, c99name, file: file, line: line)
             }
             if let type = type {
-                XCTAssertEqual(module.type, type)
+                XCTAssertEqual(module.type, type, file: file, line: line)
             }
             if let isTest = isTest {
-                XCTAssertEqual(module.isTest, isTest)
+                XCTAssertEqual(module.isTest, isTest, file: file, line: line)
             }
         }
 
-        func checkSources(root: String) {
-            XCTAssertEqual(module.sources.root, AbsolutePath(root))
+        func checkSources(root: String? = nil, sources paths: [String], file: StaticString = #file, line: UInt = #line) {
+            if let root = root {
+                XCTAssertEqual(module.sources.root, AbsolutePath(root), file: file, line: line)
+            }
+            var sources = self.sources
+
+            for path in paths.lazy.map(RelativePath.init) {
+                let contains = sources.contains(path)
+                XCTAssert(contains, "\(path) not found in module \(module.name)", file: file, line: line)
+                if contains {
+                    sources.remove(path)
+                }
+            }
+
+            guard sources.isEmpty else {
+                return XCTFail("Unchecked sources in package \(self): \(sources)", file: file, line: line)
+            }
         }
 
-        func checkSources(_ paths: String...) {
-            for path in paths {
-                XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)")
-            }
+        func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
+            checkSources(root: root, sources: paths, file: file, line: line)
         }
     }
 }
