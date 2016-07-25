@@ -143,7 +143,7 @@ class FileSystemTests: XCTestCase {
 
     // MARK: InMemoryFileSystem Tests
 
-    func testInMemoryBasics() {
+    func testInMemoryBasics() throws {
         let fs = InMemoryFileSystem()
 
         // exists()
@@ -165,9 +165,11 @@ class FileSystemTests: XCTestCase {
 
         // createDirectory()
         XCTAssert(!fs.isDirectory(AbsolutePath("/new-dir")))
-        try! fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
+        try fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
         XCTAssert(fs.isDirectory(AbsolutePath("/new-dir")))
         XCTAssert(fs.isDirectory(AbsolutePath("/new-dir/subdir")))
+        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath("/")), ["new-dir"])
+        XCTAssertEqual(try fs.getDirectoryContents(AbsolutePath("/new-dir")), ["subdir"])
     }
 
     func testInMemoryCreateDirectory() {
