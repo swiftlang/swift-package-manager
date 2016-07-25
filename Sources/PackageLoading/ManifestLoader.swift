@@ -108,14 +108,11 @@ public final class ManifestLoader {
         cmd += ["-target", "x86_64-apple-macosx10.10"]
     #endif
         cmd += [manifestPath.asString]
-    
-        //Create and open a temporary file to write toml to
-        let filePath = manifestPath.parentDirectory.appending(component: ".Package.toml")
-        let fp = try fopen(filePath, mode: .write)
-        defer { fp.closeFile() }
-    
-        //Pass the fd in arguments
-        cmd += ["-fileno", "\(fp.fileDescriptor)"]
+
+        // Create and open a temporary file to write toml to.
+        let file = try TemporaryFile()
+        // Pass the fd in arguments.
+        cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
         do {
             try system(cmd)
         } catch {
@@ -123,10 +120,9 @@ public final class ManifestLoader {
             throw ManifestParseError.invalidManifestFormat
         }
     
-        guard let toml = try localFileSystem.readFileContents(filePath).asString else {
+        guard let toml = try localFileSystem.readFileContents(file.path).asString else {
             throw ManifestParseError.invalidEncoding
         }
-        try removeFileTree(filePath)  // Delete the temp file after reading it
     
         return toml != "" ? toml : nil
     }
