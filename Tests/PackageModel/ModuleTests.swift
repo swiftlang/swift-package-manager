@@ -9,12 +9,13 @@
 */
 
 import XCTest
+import Basic
 
 @testable import PackageModel
 
 private extension Module {
     convenience init(name: String) throws {
-        try self.init(name: name, type: .library, sources: Sources(paths: [], root: "/"))
+        try self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")))
     }
 }
 

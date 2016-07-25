@@ -44,7 +44,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingCModuleThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: "/"), path: "/")], externalModules: [])
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: AbsolutePath("/")), path: AbsolutePath("/"))], externalModules: [])
             _ = try describe(tempDir.path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {

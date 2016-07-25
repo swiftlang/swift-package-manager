@@ -114,7 +114,7 @@ class WalkTests : XCTestCase {
             AbsolutePath("/bin"),
             AbsolutePath("/sbin")
         ]
-        for x in try! walk("/", recursively: false) {
+        for x in try! walk(AbsolutePath("/"), recursively: false) {
             if let i = expected.index(of: x) {
                 expected.remove(at: i)
             }

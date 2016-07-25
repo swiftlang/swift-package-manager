@@ -94,10 +94,10 @@ class FunctionalTests: XCTestCase {
     func testSystemModule() {
 #if os(macOS)
         // Because there isn't any one system module that we can depend on for testing purposes, we build our own.
-        try! write(path: "/tmp/fake.h") { stream in
+        try! write(path: AbsolutePath("/tmp/fake.h")) { stream in
             stream <<< "extern const char GetFakeString(void);\n"
         }
-        try! write(path: "/tmp/fake.c") { stream in
+        try! write(path: AbsolutePath("/tmp/fake.c")) { stream in
             stream <<< "const char * GetFakeString(void) { return \"abc\"; }\n"
         }
         var out = ""

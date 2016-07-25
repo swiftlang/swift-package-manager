@@ -71,7 +71,7 @@ class GetTests: XCTestCase {
             XCTAssertNotNil(Git.Repo(path: prefix.appending(component: "app")))
         }
 
-        XCTAssertNil(Git.Repo(path: #file))
+        XCTAssertNil(Git.Repo(path: AbsolutePath(#file)))
         XCTAssertNil(Git.Repo(path: AbsolutePath(#file).parentDirectory))
     }
 

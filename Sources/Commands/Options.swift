@@ -48,7 +48,7 @@ private func getroot() -> AbsolutePath {
     while !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
 
-        guard root != "/" else {
+        guard !root.isRoot else {
             // abort because lazy properties cannot throw and we
             // want erroring on no manifest found to be “lazy” so
             // any path that requires this property errors, but we

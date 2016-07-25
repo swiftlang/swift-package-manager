@@ -187,7 +187,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testNoArgumentsExitsWithOne() {
         var foo = false
         do {
-            try executeSwiftBuild("/")
+            try executeSwiftBuild(AbsolutePath("/"))
         } catch POSIX.Error.exitStatus(let code, _) {
 
             // if our code crashes we'll get an exit code of 256

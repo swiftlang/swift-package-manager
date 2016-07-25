@@ -41,7 +41,7 @@ private struct Resources: ManifestResourceProvider {
         } else {
             swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
         }
-        precondition(swiftc != "/usr/bin/swiftc")
+        precondition(swiftc != AbsolutePath("/usr/bin/swiftc"))
         return swiftc
     }()
   #else
@@ -94,7 +94,7 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? ManifestLoader(resources: Resources()).load(path: "/non-existent-file", baseURL: "/", version: nil)
+        let foo = try? ManifestLoader(resources: Resources()).load(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
         XCTAssertNil(foo)
     }
 

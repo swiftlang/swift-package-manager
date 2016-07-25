@@ -19,8 +19,8 @@ import PackageDescription
 final class PackageVersionDataTests: XCTestCase {
 
     func makePackage(version: Version?) -> PackageModel.Package {
-        let m = Manifest(path: "/path", url: "https://github.com/testPkg", package: PackageDescription.Package(name: "a"), products: [], version: version)
-        return Package(manifest: m, path: "/path", modules: [], testModules: [], products: [])
+        let m = Manifest(path: AbsolutePath("/path"), url: "https://github.com/testPkg", package: PackageDescription.Package(name: "a"), products: [], version: version)
+        return Package(manifest: m, path: AbsolutePath("/path"), modules: [], testModules: [], products: [])
     }
 
     func testPackageData(_ package: PackageModel.Package, url: String, version: Version?) {
@@ -52,8 +52,8 @@ final class PackageVersionDataTests: XCTestCase {
         mktmpdir { dir in
             let package = makePackage(version: nil)
 
-            let m = Manifest(path: "/path", url: "https://github.com/rootPkg", package: PackageDescription.Package(name: "a"), products: [], version: nil)
-            let rootPkg = Package(manifest: m, path: "/path", modules: [], testModules: [], products: [])
+            let m = Manifest(path: AbsolutePath("/path"), url: "https://github.com/rootPkg", package: PackageDescription.Package(name: "a"), products: [], version: nil)
+            let rootPkg = Package(manifest: m, path: AbsolutePath("/path"), modules: [], testModules: [], products: [])
 
             try generateVersionData(dir, rootPackage:rootPkg, externalPackages: [package])
             XCTAssertFileExists(dir.appending(components: ".build", "versionData", package.name + ".swift"))
