@@ -71,7 +71,7 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Sources/main.swift",
                                 "/Sources/main.c")
-        PackageBuilderTester("/", in: fs) { result in
+        PackageBuilderTester(.root, in: fs) { result in
             result.checkError("the module at /Sources contains mixed language source files fix: use only a single language within a module")
         }
     }
@@ -82,7 +82,7 @@ class ConventionTests: XCTestCase {
                                 "/Sources/ModuleB/main.c",
                                 "/Sources/ModuleB/foo.c")
 
-        PackageBuilderTester("/", in: fs) { result in
+        PackageBuilderTester(.root, in: fs) { result in
             result.checkModule("ModuleA") { moduleResult in
                 moduleResult.check(c99name: "ModuleA", type: .executable)
                 moduleResult.check(isTest: false)
@@ -149,9 +149,10 @@ private extension FileSystem {
     ///     - files: Paths of empty files to create.
     ///
     /// - Throws: FileSystemError
-    mutating func createEmptyFiles(_ files: AbsolutePath...) throws {
+    mutating func createEmptyFiles(_ files: String ...) throws {
         // Auto create the tree.
-        for file in files {
+        for filePath in files {
+            let file = AbsolutePath(filePath)
             try createDirectory(file.parentDirectory, recursive: true)
             try writeFileContents(file, bytes: ByteString())
         }
@@ -276,13 +277,13 @@ final class PackageBuilderTester {
             }
         }
 
-        func checkSources(root: AbsolutePath) {
-            XCTAssertEqual(module.sources.root, root)
+        func checkSources(root: String) {
+            XCTAssertEqual(module.sources.root, AbsolutePath(root))
         }
 
-        func checkSources(_ paths: RelativePath...) {
+        func checkSources(_ paths: String...) {
             for path in paths {
-                XCTAssert(sources.contains(path), "\(path.asString) not found in module \(module.name)")
+                XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)")
             }
         }
     }
