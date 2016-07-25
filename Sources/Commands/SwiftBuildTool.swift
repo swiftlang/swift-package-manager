@@ -174,7 +174,7 @@ public struct SwiftBuildTool: SwiftTool {
         print("")
         print("MODES:")
         print("  -c, --configuration <value>   Build with configuration (debug|release) [default: debug]")
-        print("  --clean <mode>                Delete artifacts (build|dist) [default: build]")
+        print("  --clean [<mode>]              Delete artifacts (build|dist) [default: build]")
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>       Change working directory before any other operation")
