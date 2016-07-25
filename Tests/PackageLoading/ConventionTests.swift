@@ -19,23 +19,6 @@ import Utility
 
 /// Tests for the handling of source layout conventions.
 class ConventionTests: XCTestCase {
-    /// Parse the given test files according to the conventions, and check the result.
-    private func test<T: Module>(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: (T) throws -> ()) {
-        do {
-            try fixture(files: files) { (package, modules) in 
-                XCTAssertEqual(modules.count, 1)
-                guard let module = modules.first as? T else { XCTFail(file: #file, line: line); return }
-                XCTAssertEqual(module.name, package.name)
-                do {
-                    try body(module)
-                } catch {
-                    XCTFail("\(error)", file: file, line: line)
-                }
-            }
-        } catch {
-            XCTFail("\(error)", file: file, line: line)
-        }
-    }
     
     func testDotFilesAreIgnored() throws {
         var fs = InMemoryFileSystem()
@@ -151,26 +134,6 @@ class ConventionTests: XCTestCase {
         ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
         ("testCInTests", testCInTests),
     ]
-}
-
-/// Create a test fixture with empty files at the given paths.
-private func fixture(files: [RelativePath], body: @noescape (AbsolutePath) throws -> ()) {
-    mktmpdir { prefix in
-        try makeDirectories(prefix)
-        for file in files {
-            try system("touch", prefix.appending(file).asString)
-        }
-        try body(prefix)
-    }
-}
-
-/// Check the behavior of a test project with the given file paths.
-private func fixture(files: [RelativePath], file: StaticString = #file, line: UInt = #line, body: @noescape (PackageModel.Package, [Module]) throws -> ()) throws {
-    fixture(files: files) { (prefix: AbsolutePath) in
-        let manifest = Manifest(path: prefix.appending(component: "Package.swift"), url: prefix.asString, package: Package(name: "name"), products: [], version: nil)
-        let package = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
-        try body(package, package.modules)
-    }
 }
 
 // FIXME: These test Utilities can/should be moved to test-specific library when we start supporting them.
