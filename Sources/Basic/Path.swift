@@ -162,14 +162,19 @@ public struct AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components names: String...) -> AbsolutePath {
+        // FIXME: This doesn't seem a particularly efficient way to do this.
         return names.reduce(self, { path, name in
                 path.appending(component: name)
             })
     }
 
-    /// NOTE: We will want to add other methods, such as an appending() method
-    ///       that takes an arbitrary number of parameters, etc.  Most likely
-    ///       we will also make the `+` operator mean `appending()`.
+    /// NOTE: We will most likely want to add other `appending()` methods, such
+    ///       as `appending(suffix:)`, and also perhaps `replacing()` methods,
+    ///       such as `replacing(suffix:)` or `replacing(basename:)` for some
+    ///       of the more common path operations.
+    
+    /// NOTE: We may want to consider adding operators such as `+` for appending
+    ///       a path component.
     
     /// NOTE: We will want to add a method to return the lowest common ancestor
     ///       path.
