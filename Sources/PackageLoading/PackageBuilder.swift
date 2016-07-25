@@ -372,21 +372,21 @@ public struct PackageBuilder {
 
     ////// auto-determine tests
 
+        // FIXME: Ignore C language test modules on linux for now.
+      #if os(Linux)
+        let testModules = testModules.filter { module in
+            if module is ClangModule {
+                warningStream <<< "warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux."
+                warningStream.flush()
+                return false
+            }
+            return true
+        }
+      #endif
         if !testModules.isEmpty {
             //TODO and then we should prefix all modules with their package probably
             //Suffix 'Tests' to test product so the module name of linux executable don't collide with
             //main package, if present.
-            // FIXME: Ignore C language test modules on linux for now.
-          #if os(Linux)
-            let testModules = testModules.filter { module in
-                if module is ClangModule {
-                    warningStream <<< "warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux."
-                    warningStream.flush()
-                    return false
-                }
-                return true
-            }
-          #endif
             let product = Product(name: manifest.name + "Tests", type: .Test, modules: testModules)
             products.append(product)
         }
