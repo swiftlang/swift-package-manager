@@ -109,7 +109,7 @@ public protocol FileSystem {
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
-    func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
+    func getDirectoryContents(_ path: AbsolutePath) throws -> AnySequence<String>
     
     /// Create the given directory.
     mutating func createDirectory(_ path: AbsolutePath) throws
@@ -159,8 +159,8 @@ private class LocalFileSystem: FileSystem {
         return Basic.isSymlink(path)
     }
     
-    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        return try DirectoryContentsIterator(at: path).map { $0 }
+    func getDirectoryContents(_ path: AbsolutePath) throws -> AnySequence<String> {
+        return AnySequence(try DirectoryContentsIterator(at: path))
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -387,16 +387,14 @@ public class InMemoryFileSystem: FileSystem {
         return false
     }
     
-    public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    public func getDirectoryContents(_ path: AbsolutePath) throws -> AnySequence<String> {
         guard let node = try getNode(path) else {
             throw FileSystemError.noEntry
         }
         guard case .directory(let contents) = node.contents else {
             throw FileSystemError.notDirectory
         }
-
-        // FIXME: Perhaps we should change the protocol to allow lazy behavior.
-        return [String](contents.entries.keys)
+        return AnySequence(contents.entries.keys)
     }
 
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -539,7 +537,7 @@ public struct RerootedFileSystemView: FileSystem {
         return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
     }
 
-    public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    public func getDirectoryContents(_ path: AbsolutePath) throws -> AnySequence<String> {
         return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
     }
 

@@ -406,7 +406,7 @@ private class GitFileSystemView: FileSystem {
         }
     }
     
-    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    func getDirectoryContents(_ path: AbsolutePath) throws -> AnySequence<String> {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry
         }
@@ -414,7 +414,9 @@ private class GitFileSystemView: FileSystem {
             throw FileSystemError.notDirectory
         }
 
-        return try getTree(entry.hash).contents.map{ $0.name }
+        let contents = try getTree(entry.hash).contents.map{ $0.name }
+        // FIXME: Implement lazy behavior here.
+        return AnySequence(contents)
     }
     
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
