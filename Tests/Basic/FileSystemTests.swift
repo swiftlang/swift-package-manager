@@ -174,6 +174,11 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryCreateDirectory() {
         let fs = InMemoryFileSystem()
+        // Make sure root entry isn't created.
+        try! fs.createDirectory(AbsolutePath("/"), recursive: true)
+        let rootContents = try! fs.getDirectoryContents(.root)
+        XCTAssertEqual(rootContents, [])
+
         let subdir = AbsolutePath("/new-dir/subdir")
         try! fs.createDirectory(subdir, recursive: true)
         XCTAssert(fs.isDirectory(subdir))
