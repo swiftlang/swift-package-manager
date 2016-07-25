@@ -71,7 +71,7 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Sources/main.swift",
                                 "/Sources/main.c")
-        PackageBuilderTester(.root, in: fs) { result in
+        PackageBuilderTester("MixedSources", in: fs) { result in
             result.checkError("the module at /Sources contains mixed language source files fix: use only a single language within a module")
         }
     }
@@ -82,7 +82,7 @@ class ConventionTests: XCTestCase {
                                 "/Sources/ModuleB/main.c",
                                 "/Sources/ModuleB/foo.c")
 
-        PackageBuilderTester(.root, in: fs) { result in
+        PackageBuilderTester("MixedLanguage", in: fs) { result in
             result.checkModule("ModuleA") { moduleResult in
                 moduleResult.check(c99name: "ModuleA", type: .executable)
                 moduleResult.check(isTest: false)
@@ -157,23 +157,16 @@ private extension FileSystem {
     }
 }
 
-/// Loads a package using PackageBuilder at the given path. If package description is provided it is used,
-/// otherwise a default package with name of directory is passed to manifest.
+/// Loads a package using PackageBuilder at the given path.
 ///
 /// - Parameters:
+///     - package: PackageDescription instance to use for loading this package.
 ///     - path: Directory where the package is located.
 ///     - in: FileSystem in which the package should be loaded from.
-///     - package: PackageDescription instance to use for loading this package.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil) throws -> PackageModel.Package {
-    let pkg: PackageDescription.Package
-    if let package = package {
-        pkg = package
-    } else {
-        pkg = Package(name: path.basename)
-    }
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: pkg, products: [], version: nil)
+private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: [], version: nil)
     let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs)
     return try builder.construct(includingTestModules: true)
 }
@@ -206,9 +199,15 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-    init(_ path: AbsolutePath, in fs: FileSystem, package: PackageDescription.Package? = nil, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+       let package = Package(name: name)
+       self.init(package, path: path, in: fs, file: file, line: line, body)
+    }
+
+    @discardableResult
+    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
         do {
-            let loadedPackage = try loadPackage(path, in: fs, package: package)
+            let loadedPackage = try loadPackage(package, path: path, in: fs)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
         } catch {
