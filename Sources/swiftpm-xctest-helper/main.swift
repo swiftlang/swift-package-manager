@@ -69,7 +69,8 @@ func run() throws {
 
             return ["name": name as NSString, "tests": tests as NSArray]
         }
-        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString, "tests": testSuite])
+        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString,
+                          "tests": testSuite as NSArray])
     }
 
     // Create output file.

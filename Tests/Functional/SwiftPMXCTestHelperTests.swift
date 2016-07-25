@@ -56,7 +56,7 @@ func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) 
         guard let data = NSData(contentsOfFile: outputFile.asString) else {
             XCTFail("No output found in : \(outputFile.asString)"); return;
         }
-        let json = try JSONSerialization.jsonObject(with: data as Data, options: [])
+        let json = try JSONSerialization.jsonObject(with: data as Data, options: []) as AnyObject
         XCTAssertTrue(json.isEqual(testCases), "\(json) is not equal to \(testCases)")
     } catch {
         XCTFail("Failed with error: \(error)")
