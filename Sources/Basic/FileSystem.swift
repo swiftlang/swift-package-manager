@@ -386,6 +386,10 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        // Ignore if client passes root.
+        guard !path.isRoot else {
+            return
+        }
         // Get the parent directory node.
         let parentPath = path.parentDirectory
         guard let parent = try getNode(parentPath) else {
