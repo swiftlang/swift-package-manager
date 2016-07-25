@@ -91,8 +91,7 @@ class ConventionTests: XCTestCase {
 
             result.checkModule("ModuleB") { moduleResult in
                 moduleResult.check(c99name: "ModuleB", type: .executable, isTest: false)
-                moduleResult.checkSources(root: "/Sources/ModuleB")
-                moduleResult.checkSources(paths: "main.c", "foo.c")
+                moduleResult.checkSources(root: "/Sources/ModuleB", paths: "main.c", "foo.c")
             }
         }
     }
@@ -276,13 +275,27 @@ final class PackageBuilderTester {
             }
         }
 
-        func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
+        func checkSources(root: String? = nil, sources paths: [String], file: StaticString = #file, line: UInt = #line) {
             if let root = root {
                 XCTAssertEqual(module.sources.root, AbsolutePath(root), file: file, line: line)
             }
-            for path in paths {
-                XCTAssert(sources.contains(RelativePath(path)), "\(path) not found in module \(module.name)", file: file, line: line)
+            var sources = self.sources
+
+            for path in paths.lazy.map(RelativePath.init) {
+                let contains = sources.contains(path)
+                XCTAssert(contains, "\(path) not found in module \(module.name)", file: file, line: line)
+                if contains {
+                    sources.remove(path)
+                }
             }
+
+            guard sources.isEmpty else {
+                return XCTFail("Unchecked sources in package \(self): \(sources)", file: file, line: line)
+            }
+        }
+
+        func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
+            checkSources(root: root, sources: paths, file: file, line: line)
         }
     }
 }
