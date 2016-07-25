@@ -160,44 +160,7 @@ private class LocalFileSystem: FileSystem {
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
-        guard let dir = libc.opendir(path.asString) else {
-            throw FileSystemError(errno: errno)
-        }
-        defer { _ = libc.closedir(dir) }
-        
-        var result: [String] = []
-        var entry = dirent()
-        
-        while true {
-            var entryPtr: UnsafeMutablePointer<dirent>? = nil
-            if readdir_r(dir, &entry, &entryPtr) < 0 {
-                // FIXME: Are there ever situation where we would want to
-                // continue here?
-                throw FileSystemError(errno: errno)
-            }
-            
-            // If the entry pointer is null, we reached the end of the directory.
-            if entryPtr == nil {
-                break
-            }
-            
-            // Otherwise, the entry pointer should point at the storage we provided.
-            assert(entryPtr == &entry)
-            
-            // Add the entry to the result.
-            guard let name = entry.name else {
-                throw FileSystemError.invalidEncoding
-            }
-            
-            // Ignore the pseudo-entries.
-            if name == "." || name == ".." {
-                continue
-            }
-
-            result.append(name)
-        }
-        
-        return result
+        return try DirectoryContentsIterator(at: path).map { $0 }
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
@@ -274,6 +237,57 @@ private class LocalFileSystem: FileSystem {
                 throw FileSystemError.ioError
             }
             break
+        }
+    }
+
+    /// An iterator to move though contents of a directory.
+    private final class DirectoryContentsIterator: Sequence, IteratorProtocol {
+        private let dir: DirHandle?
+        private let path: AbsolutePath
+        private var entry = dirent()
+
+        private init(at path: AbsolutePath) throws {
+            guard let dir = libc.opendir(path.asString) else {
+                throw FileSystemError(errno: errno)
+            }
+            self.dir = dir
+            self.path = path
+        }
+
+        deinit { _ = libc.closedir(dir) }
+
+        public func next() -> String? {
+            while true {
+                var entryPtr: UnsafeMutablePointer<dirent>? = nil
+                if readdir_r(dir, &entry, &entryPtr) < 0 {
+                    // FIXME: Are there ever situation where we would want to
+                    // continue here?
+                    // FIXME: We're ignoring the error here, find a way to notify clients.
+                    return nil
+                }
+
+                // If the entry pointer is null, we reached the end of the directory.
+                if entryPtr == nil {
+                    break
+                }
+
+                // Otherwise, the entry pointer should point at the storage we provided.
+                assert(entryPtr == &entry)
+
+                // Add the entry to the result.
+                guard let name = entry.name else {
+                    // FIXME: We're ignoring the error here, find a way to notify clients.
+                    return nil
+                }
+
+                // Ignore the pseudo-entries.
+                if name == "." || name == ".." {
+                    continue
+                }
+
+                return name
+            }
+            return nil
         }
     }
 }
