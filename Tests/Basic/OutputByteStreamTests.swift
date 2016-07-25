@@ -140,11 +140,30 @@ class OutputByteStreamTests: XCTestCase {
         }
     }
 
+    func testLocalFileStream() throws {
+        let tempFile = try TemporaryFile()
+
+        func read() -> String? {
+            return try! localFileSystem.readFileContents(tempFile.path).asString
+        }
+
+        let stream = try LocalFileOutputByteStream(tempFile.path)
+        stream <<< "Hello"
+        stream.flush()
+        XCTAssertEqual(read(), "Hello")
+
+        stream <<< " World"
+        try stream.close()
+
+        XCTAssertEqual(read(), "Hello World")
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBufferCorrectness", testBufferCorrectness),
         ("testStreamOperator", testStreamOperator),
         ("testJSONEncoding", testJSONEncoding),
         ("testFormattedOutput", testFormattedOutput),
+        ("testLocalFileStream", testLocalFileStream),
     ]
 }
