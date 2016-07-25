@@ -38,33 +38,57 @@ class ConventionTests: XCTestCase {
     }
     
     func testDotFilesAreIgnored() throws {
-        do {
-            try fixture(files: [ RelativePath(".Bar.swift"), RelativePath("Foo.swift") ]) { (package, modules) in
-                XCTAssertEqual(modules.count, 1)
-                guard let swiftModule = modules.first as? SwiftModule else { return XCTFail() }
-                XCTAssertEqual(swiftModule.sources.paths.count, 1)
-                XCTAssertEqual(swiftModule.sources.paths.first?.basename, "Foo.swift")
-                XCTAssertEqual(swiftModule.name, package.name)
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/.Bar.swift",
+                                "/Foo.swift")
+
+        let name = "DotFilesAreIgnored"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "Foo.swift")
             }
-        } catch {
-            XCTFail("\(error)")
         }
     }
 
     func testResolvesSingleSwiftModule() throws {
-        let files = [ RelativePath("Foo.swift") ]
-        test(files: files) { (module: SwiftModule) in 
-            XCTAssertEqual(module.sources.paths.count, files.count)
-            XCTAssertEqual(Set(module.sources.relativePaths), Set(files))
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Foo.swift")
+
+        let name = "SingleSwiftModule"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "Foo.swift")
+            }
         }
     }
 
     func testResolvesSystemModulePackage() throws {
-        test(files: [ RelativePath("module.modulemap") ]) { module in }
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/module.modulemap")
+
+        let name = "SystemModulePackage"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .systemModule, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "module.modulemap")
+            }
+        }
     }
 
     func testResolvesSingleClangModule() throws {
-        test(files: [ RelativePath("Foo.c"), RelativePath("Foo.h") ]) { module in }
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Foo.h",
+                                "/Foo.c")
+
+        let name = "SingleClangModule"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "Foo.c")
+            }
+        }
     }
 
     func testMixedSources() throws {
