@@ -20,6 +20,8 @@ import Utility
 /// Tests for the handling of source layout conventions.
 class ConventionTests: XCTestCase {
     
+    // MARK:- Valid Layouts Tests
+
     func testDotFilesAreIgnored() throws {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/.Bar.swift",
@@ -34,7 +36,7 @@ class ConventionTests: XCTestCase {
         }
     }
 
-    func testResolvesSingleSwiftModule() throws {
+    func testResolvesSingleSwiftLibraryModule() throws {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Foo.swift")
 
@@ -43,6 +45,30 @@ class ConventionTests: XCTestCase {
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .library, isTest: false)
                 moduleResult.checkSources(root: "/", paths: "Foo.swift")
+            }
+        }
+
+        // Single swift module inside Sources.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo.swift",
+                                "/Sources/Bar.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "Foo.swift", "Bar.swift")
+            }
+        }
+
+        // Single swift module inside its own directory.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/lib/Foo.swift",
+                                "/Sources/lib/Bar.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.swift", "Bar.swift")
             }
         }
     }
@@ -60,7 +86,7 @@ class ConventionTests: XCTestCase {
         }
     }
 
-    func testResolvesSingleClangModule() throws {
+    func testResolvesSingleClangLibraryModule() throws {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Foo.h",
                                 "/Foo.c")
@@ -72,6 +98,295 @@ class ConventionTests: XCTestCase {
                 moduleResult.checkSources(root: "/", paths: "Foo.c")
             }
         }
+
+        // Single clang module inside Sources.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo.h",
+                                "/Sources/Foo.c")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "Foo.c")
+            }
+        }
+
+        // Single clang module inside its own directory.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/lib/Foo.h",
+                                "/Sources/lib/Foo.c")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule("lib") { moduleResult in
+                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.c")
+            }
+        }
+    }
+
+    func testSingleExecutableSwiftModule() throws {
+        // Single swift executable module.
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/main.swift",
+                                "/Bar.swift")
+
+        let name = "SingleExecutable"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
+            }
+        }
+
+        // Single swift executable module inside Sources.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/main.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "main.swift")
+            }
+        }
+
+        // Single swift executable module inside its own directory.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/exec/main.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule("exec") { moduleResult in
+                moduleResult.check(c99name: "exec", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
+            }
+        }
+    }
+
+    func testSingleExecutableClangModule() throws {
+        // Single swift executable module.
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/main.c",
+                                "/Bar.c")
+
+        let name = "SingleExecutable"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "main.c", "Bar.c")
+            }
+        }
+
+        // Single swift executable module inside Sources.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/main.cpp")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "main.cpp")
+            }
+        }
+
+        // Single swift executable module inside its own directory.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/c/main.c")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule("c") { moduleResult in
+                moduleResult.check(c99name: "c", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/c", paths: "main.c")
+            }
+        }
+    }
+
+    func testDotSwiftSuffixDirectory() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/hello.swift"))
+        try fs.createEmptyFiles("/main.swift",
+                                "/Bar.swift")
+
+        let name = "pkg"
+        // FIXME: This fails currently, it is a bug.
+        #if false
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
+            }
+        }
+        #endif
+
+        fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/hello.swift"))
+        try fs.createEmptyFiles("/Sources/main.swift",
+                                "/Sources/Bar.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "main.swift", "Bar.swift")
+            }
+        }
+
+        fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/Sources/exe/hello.swift"), recursive: true)
+        try fs.createEmptyFiles("/Sources/exe/main.swift",
+                                "/Sources/exe/Bar.swift")
+
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule("exe") { moduleResult in
+                moduleResult.check(c99name: "exe", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/exe", paths: "main.swift", "Bar.swift")
+            }
+        }
+    }
+
+    func testMultipleSwiftModules() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/A/main.swift",
+                                "/Sources/A/foo.swift",
+                                "/Sources/B/main.swift",
+                                "/Sources/C/Foo.swift")
+
+        PackageBuilderTester("MultipleModules", in: fs) { result in
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(c99name: "A", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift", "foo.swift")
+            }
+
+            result.checkModule("B") { moduleResult in
+                moduleResult.check(c99name: "B", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/B", paths: "main.swift")
+            }
+
+            result.checkModule("C") { moduleResult in
+                moduleResult.check(c99name: "C", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/C", paths: "Foo.swift")
+            }
+        }
+    }
+
+    func testMultipleClangModules() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/A/main.c",
+                                "/Sources/A/foo.h",
+                                "/Sources/A/foo.c",
+                                "/Sources/B/include/foo.h",
+                                "/Sources/B/foo.c",
+                                "/Sources/B/bar.c",
+                                "/Sources/C/main.cpp")
+
+        PackageBuilderTester("MultipleModules", in: fs) { result in
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(c99name: "A", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/A", paths: "main.c", "foo.c")
+            }
+
+            result.checkModule("B") { moduleResult in
+                moduleResult.check(c99name: "B", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/B", paths: "foo.c", "bar.c")
+            }
+
+            result.checkModule("C") { moduleResult in
+                moduleResult.check(c99name: "C", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/C", paths: "main.cpp")
+            }
+        }
+    }
+
+    func testTestsLayouts() throws {
+        // Single module layout.
+        for singleModuleSource in ["/", "/Sources/", "/Sources/Foo/"].lazy.map(AbsolutePath.init) {
+            var fs = InMemoryFileSystem()
+            try fs.createEmptyFiles(singleModuleSource.appending(component: "Foo.swift").asString,
+                                    "/Tests/Foo/FooTests.swift",
+                                    "/Tests/Foo/BarTests.swift",
+                                    "/Tests/Bar/BazTests.swift")
+
+            PackageBuilderTester("Foo", in: fs) { result in
+                result.checkModule("Foo") { moduleResult in
+                    moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                    moduleResult.checkSources(root: singleModuleSource.asString, paths: "Foo.swift")
+                }
+
+                result.checkModule("FooTestSuite") { moduleResult in
+                    moduleResult.check(c99name: "FooTestSuite", type: .library, isTest: true)
+                    moduleResult.checkSources(root: "/Tests/Foo", paths: "FooTests.swift", "BarTests.swift")
+                    moduleResult.check(dependencies: ["Foo"])
+                    moduleResult.check(recursiveDependencies: ["Foo"])
+                }
+
+                result.checkModule("BarTestSuite") { moduleResult in
+                    moduleResult.check(c99name: "BarTestSuite", type: .library, isTest: true)
+                    moduleResult.checkSources(root: "/Tests/Bar", paths: "BazTests.swift")
+                    moduleResult.check(dependencies: [])
+                    moduleResult.check(recursiveDependencies: [])
+                }
+            }
+        }
+
+       var fs = InMemoryFileSystem()
+       try fs.createEmptyFiles("/Sources/A/main.swift", // Swift exec
+                               "/Sources/B/Foo.swift",  // Swift lib
+                               "/Sources/D/Foo.c",      // Clang lib
+                               "/Sources/E/main.c",     // Clang exec
+                               "/Tests/A/Foo.swift",
+                               "/Tests/B/Foo.swift",
+                               "/Tests/D/Foo.swift",
+                               "/Tests/E/Foo.swift")
+
+       PackageBuilderTester("Foo", in: fs) { result in
+           result.checkModule("A") { moduleResult in
+               moduleResult.check(c99name: "A", type: .executable, isTest: false)
+               moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+           }
+
+           result.checkModule("B") { moduleResult in
+               moduleResult.check(c99name: "B", type: .library, isTest: false)
+               moduleResult.checkSources(root: "/Sources/B", paths: "Foo.swift")
+           }
+
+           result.checkModule("D") { moduleResult in
+               moduleResult.check(c99name: "D", type: .library, isTest: false)
+               moduleResult.checkSources(root: "/Sources/D", paths: "Foo.c")
+           }
+
+           result.checkModule("E") { moduleResult in
+               moduleResult.check(c99name: "E", type: .executable, isTest: false)
+               moduleResult.checkSources(root: "/Sources/E", paths: "main.c")
+           }
+
+           result.checkModule("ATestSuite") { moduleResult in
+               moduleResult.check(c99name: "ATestSuite", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/A", paths: "Foo.swift")
+               moduleResult.check(dependencies: ["A"])
+               moduleResult.check(recursiveDependencies: ["A"])
+           }
+
+           result.checkModule("BTestSuite") { moduleResult in
+               moduleResult.check(c99name: "BTestSuite", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
+               moduleResult.check(dependencies: ["B"])
+               moduleResult.check(recursiveDependencies: ["B"])
+           }
+
+           result.checkModule("DTestSuite") { moduleResult in
+               moduleResult.check(c99name: "DTestSuite", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/D", paths: "Foo.swift")
+               moduleResult.check(dependencies: ["D"])
+               moduleResult.check(recursiveDependencies: ["D"])
+           }
+
+           result.checkModule("ETestSuite") { moduleResult in
+               moduleResult.check(c99name: "ETestSuite", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/E", paths: "Foo.swift")
+               moduleResult.check(dependencies: ["E"])
+               moduleResult.check(recursiveDependencies: ["E"])
+           }
+       }
+    }
+
+    func testNoSources() throws {
+        PackageBuilderTester("MixedSources", in: InMemoryFileSystem()) { _ in }
     }
 
     func testMixedSources() throws {
@@ -126,13 +441,20 @@ class ConventionTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testDotFilesAreIgnored", testDotFilesAreIgnored),
-        ("testResolvesSingleSwiftModule", testResolvesSingleSwiftModule),
-        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
-        ("testResolvesSingleClangModule", testResolvesSingleClangModule),
-        ("testMixedSources", testMixedSources),
-        ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
-        ("testCInTests", testCInTests),
+        ("testCInTests"                        , testCInTests),
+        ("testDotFilesAreIgnored"              , testDotFilesAreIgnored),
+        ("testDotSwiftSuffixDirectory"         , testDotSwiftSuffixDirectory),
+        ("testMixedSources"                    , testMixedSources),
+        ("testMultipleClangModules"            , testMultipleClangModules),
+        ("testMultipleSwiftModules"            , testMultipleSwiftModules),
+        ("testNoSources"                       , testNoSources),
+        ("testResolvesSingleClangLibraryModule", testResolvesSingleClangLibraryModule),
+        ("testResolvesSingleSwiftLibraryModule", testResolvesSingleSwiftLibraryModule),
+        ("testResolvesSystemModulePackage"     , testResolvesSystemModulePackage),
+        ("testSingleExecutableClangModule"     , testSingleExecutableClangModule),
+        ("testSingleExecutableSwiftModule"     , testSingleExecutableSwiftModule),
+        ("testTestsLayouts"                    , testTestsLayouts),
+        ("testTwoModulesMixedLanguage"         , testTwoModulesMixedLanguage),
     ]
 }
 
