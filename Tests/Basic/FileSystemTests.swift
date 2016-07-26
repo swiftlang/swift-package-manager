@@ -14,7 +14,7 @@ import Basic
 import POSIX
 import Utility
 
-func XCTAssertThrows<T where T: Swift.Error, T: Equatable>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) {
+func XCTAssertThrows<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
     do {
         try body()
         XCTFail("body completed successfully", file: file, line: line)
