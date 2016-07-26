@@ -23,9 +23,13 @@ public struct XcodeprojOptions {
     /// This allows the client to override settings defined in the project itself.
     public var xcconfigOverrides: AbsolutePath?
 
-    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil) {
+    /// Whether code coverage should be enabled in the generated scheme.
+    public var enableCodeCoverage: Bool
+    
+    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil, enableCodeCoverage: Bool = false) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
+        self.enableCodeCoverage = enableCodeCoverage
     }
 }
 
@@ -54,7 +58,7 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
     try open(schemesDirectory.appending(RelativePath(schemeName))) { stream in
-        xcscheme(container: xcodeprojName, graph: graph, printer: stream)
+        xcscheme(container: xcodeprojName, graph: graph, enableCodeCoverage: options.enableCodeCoverage, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
