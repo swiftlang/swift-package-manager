@@ -70,7 +70,6 @@ private enum BuildToolFlag: Argument {
     case verbose(Int)
 
     init?(argument: String, pop: () -> String?) throws {
-
         func forcePop() throws -> String {
             guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             return value
