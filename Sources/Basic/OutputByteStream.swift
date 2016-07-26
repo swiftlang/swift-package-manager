@@ -251,7 +251,10 @@ public class OutputByteStream: TextOutputStream {
     
 /// Define an output stream operator. We need it to be left associative, so we
 /// use `<<<`.
-infix operator <<< { associativity left }
+infix operator <<< : StreamingPrecedence
+precedencegroup StreamingPrecedence {
+  associativity: left
+}
 
 // MARK: Output Operator Implementations
 //
