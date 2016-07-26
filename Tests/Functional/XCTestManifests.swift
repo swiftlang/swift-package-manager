@@ -15,7 +15,6 @@ public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ClangModulesTestCase.allTests),
         testCase(DependencyResolutionTestCase.allTests),
-        testCase(InvalidLayoutsTestCase.allTests),
         testCase(MiscellaneousTestCase.allTests),
         testCase(ModuleMapsTestCase.allTests),
         testCase(SwiftPMXCTestHelperTests.allTests),

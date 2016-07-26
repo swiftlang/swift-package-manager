@@ -34,18 +34,6 @@ class ValidLayoutsTestCase: XCTestCase {
         }
     }
 
-    func testSingleModuleCustomizedName() {
-
-        // Package.swift for a single module with a customized name
-        // names that target after the package name
-
-        runLayoutFixture(name: "SingleModule/CustomizedName") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", "debug")
-            XCTAssertFileExists(debugPath.appending(component: "Bar.swiftmodule"))
-        }
-    }
-
     func testSingleModuleSubfolderWithSwiftSuffix() {
         fixture(name: "ValidLayouts/SingleModule/SubfolderWithSwiftSuffix", file: #file, line: #line) { prefix in
             XCTAssertBuilds(prefix)
@@ -112,7 +100,6 @@ class ValidLayoutsTestCase: XCTestCase {
     static var allTests = [
         ("testSingleModuleLibrary", testSingleModuleLibrary),
         ("testSingleModuleExecutable", testSingleModuleExecutable),
-        ("testSingleModuleCustomizedName", testSingleModuleCustomizedName),
         ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
         ("testMultipleModulesLibraries", testMultipleModulesLibraries),
         ("testMultipleModulesExecutables", testMultipleModulesExecutables),
