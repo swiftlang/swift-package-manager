@@ -144,7 +144,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         print("        \(module.productReference) = {")
         print("            isa = PBXFileReference;")
         print("            explicitFileType = '\(module.explicitFileType)';")
-        print("            path = '\(module.productPath)';")
+        print("            path = '\(module.productPath.asString)';")
         print("            sourceTree = BUILT_PRODUCTS_DIR;")
         print("        };")
 
