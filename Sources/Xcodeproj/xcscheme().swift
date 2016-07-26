@@ -11,7 +11,7 @@
 import PackageGraph
 import PackageModel
 
-func xcscheme(container: String, graph: PackageGraph, printer print: (String) -> Void) {
+func xcscheme(container: String, graph: PackageGraph, enableCodeCoverage: Bool, printer print: (String) -> Void) {
     print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
     print("<Scheme LastUpgradeVersion = \"9999\" version = \"1.3\">")
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
@@ -45,7 +45,7 @@ func xcscheme(container: String, graph: PackageGraph, printer print: (String) ->
     print("    selectedDebuggerIdentifier = \"Xcode.DebuggerFoundation.Debugger.LLDB\"")
     print("    selectedLauncherIdentifier = \"Xcode.DebuggerFoundation.Launcher.LLDB\"")
     print("    shouldUseLaunchSchemeArgsEnv = \"YES\"")
-    print("    codeCoverageEnabled = \"YES\">")
+    print("    codeCoverageEnabled = \"\(enableCodeCoverage ? "YES" : "NO")\">")
     print("    <Testables>")
 
     // Create testable references.

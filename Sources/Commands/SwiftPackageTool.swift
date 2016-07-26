@@ -77,6 +77,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
 private enum PackageToolFlag: Argument {
     case initMode(String)
     case showDepsMode(String)
+    case enableCodeCoverage
     case inputPath(AbsolutePath)
     case outputPath(AbsolutePath)
     case chdir(AbsolutePath)
@@ -100,6 +101,8 @@ private enum PackageToolFlag: Argument {
             self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         case "--type":
             self = try .initMode(forcePop())
+        case "--enable-code-coverage":
+            self = .enableCodeCoverage
         case "--format":
             self = try .showDepsMode(forcePop())
         case "--output":
@@ -259,6 +262,7 @@ public struct SwiftPackageTool: SwiftTool {
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
         print("  --color <mode>            Specify color mode (auto|always|never)")
+        print("  --enable-code-coverage    Enable code coverage in generated Xcode projects")
         print("  -v, --verbose             Increase verbosity of informational output")
         print("  --version                 Print the Swift Package Manager version")
         print("  -Xcc <flag>               Pass flag through to all C compiler invocations")
@@ -284,6 +288,8 @@ public struct SwiftPackageTool: SwiftTool {
                 opts.outputPath = path
             case .chdir(let path):
                 opts.chdir = path
+            case .enableCodeCoverage:
+                opts.xcodeprojOptions.enableCodeCoverage = true
             case .xcc(let value):
                 opts.xcodeprojOptions.flags.cCompilerFlags.append(value)
             case .xld(let value):
