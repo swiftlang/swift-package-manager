@@ -77,19 +77,32 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
 
 private enum TestToolFlag: Argument {
     case chdir(AbsolutePath)
-    case skipBuild
     case buildPath(AbsolutePath)
+    case colorMode(ColorWrap.Mode)
+    case skipBuild
+    case verbose(Int)
 
     init?(argument: String, pop: () -> String?) throws {
+        func forcePop() throws -> String {
+            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
+            return value
+        }
+        
         switch argument {
-        case "--chdir", "-C":
-            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .chdir(AbsolutePath(path, relativeTo: currentWorkingDirectory))
+        case Flag.chdir, Flag.C:
+            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--verbose", "-v":
+            self = .verbose(1)
         case "--skip-build":
             self = .skipBuild
         case "--build-path":
-            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .buildPath(AbsolutePath(path, relativeTo: currentWorkingDirectory))
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--color":
+            let rawValue = try forcePop()
+            guard let mode = ColorWrap.Mode(rawValue) else  {
+                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
+            }
+            self = .colorMode(mode)
         default:
             return nil
         }
@@ -97,7 +110,9 @@ private enum TestToolFlag: Argument {
 }
 
 private class TestToolOptions: Options {
+    var verbosity: Int = 0
     var buildTests: Bool = true
+    var colorMode: ColorWrap.Mode = .Auto
 }
 
 /// swift-test tool namespace
@@ -112,6 +127,9 @@ public struct SwiftTestTool: SwiftTool {
         do {
             let (mode, opts) = try parseOptions(commandLineArguments: args)
         
+            verbosity = Verbosity(rawValue: opts.verbosity)
+            colorMode = opts.colorMode
+
             if let dir = opts.chdir {
                 try chdir(dir.asString)
             }
@@ -217,6 +235,8 @@ public struct SwiftTestTool: SwiftTool {
         print("  -l, --list-tests                                  Lists test methods in specifier format")
         print("  -C, --chdir <path>     Change working directory before any other operation")
         print("  --build-path <path>    Specify build directory")
+        print("  --color <mode>         Specify color mode (auto|always|never) [default: auto]")
+        print("  -v, --verbose          Increase verbosity of informational output")
         print("  --skip-build           Skip building the test target")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
@@ -230,10 +250,14 @@ public struct SwiftTestTool: SwiftTool {
             switch flag {
             case .chdir(let path):
                 opts.chdir = path
-            case .skipBuild:
-                opts.buildTests = false
+            case .verbose(let amount):
+                opts.verbosity += amount
             case .buildPath(let buildPath):
                 opts.path.build = buildPath
+            case .colorMode(let mode):
+                opts.colorMode = mode
+            case .skipBuild:
+                opts.buildTests = false
             }
         }
 
