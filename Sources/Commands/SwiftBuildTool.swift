@@ -220,7 +220,7 @@ public struct SwiftBuildTool: SwiftTool {
 }
 
 extension Build.Configuration {
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "debug"?:
             self = .debug
@@ -237,7 +237,7 @@ extension Build.Configuration {
 enum CleanMode: CustomStringConvertible {
     case build, dist
 
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
             self = .build

@@ -280,7 +280,7 @@ final class PackageBuilderTester {
         private let module: Module
         private lazy var sources: Set<RelativePath> = { Set(self.module.sources.relativePaths) }()
 
-        private init(_ module: Module) {
+        fileprivate init(_ module: Module) {
             self.module = module
         }
 

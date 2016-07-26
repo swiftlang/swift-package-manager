@@ -174,7 +174,7 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     private let shouldRecurse: (AbsolutePath) -> Bool
     private let fileSystem: FileSystem
     
-    private init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: (AbsolutePath) -> Bool) throws {
+    fileprivate init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: (AbsolutePath) -> Bool) throws {
         self.fileSystem = fileSystem
         // FIXME: getDirectoryContents should have an iterator version.
         current = (path, try fileSystem.getDirectoryContents(path).makeIterator())
