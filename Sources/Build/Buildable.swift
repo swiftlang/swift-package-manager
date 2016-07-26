@@ -10,6 +10,7 @@
 
 import Basic
 import PackageModel
+import var PackageLoading.moduleMapFilename
 
 protocol Buildable {
     var targetName: String { get }
@@ -35,7 +36,7 @@ extension Module: Buildable {
                 }
 
                 let buildMeta = ClangModuleBuildMetadata(module: module, prefix: buildDir, otherArgs: [])
-                let genModuleMap = buildMeta.buildDirectory.appending(component: CModule.moduleMapFilename)
+                let genModuleMap = buildMeta.buildDirectory.appending(component: moduleMapFilename)
                 return ["-Xcc", "-fmodule-map-file=\(genModuleMap.asString)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]

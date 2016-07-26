@@ -24,7 +24,7 @@ private extension ClangModule {
             //transitive closure of the target being built allowing the use of `#include <...>`
 
             includeFlag = externalModules.contains(dep) ? "-I" : "-iquote"
-            args += [includeFlag, dep.path.asString]
+            args += [includeFlag, dep.includeDir.asString]
         }
         return args
     }
@@ -129,7 +129,7 @@ extension Command {
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
             // Add include directory in include search paths.
-            args += ["-I", module.path.asString]
+            args += ["-I", module.includeDir.asString]
 
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename.asString)",
                                   inputs: buildMeta.inputs + [path.source.asString],
