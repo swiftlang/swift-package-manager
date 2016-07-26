@@ -305,5 +305,27 @@ final class PackageBuilderTester {
         func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
             checkSources(root: root, sources: paths, file: file, line: line)
         }
+
+        func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
+            let dependencies = Set(module.dependencies.map{$0.name})
+            var uncheckedDeps = dependencies
+
+            for depToCheck in depsToCheck {
+                let contains = dependencies.contains(depToCheck)
+                XCTAssert(contains, "\(depToCheck) dependency not found in \(module.name)", file: file, line: line)
+                if contains {
+                    uncheckedDeps.remove(depToCheck)
+                }
+            }
+
+            guard uncheckedDeps.isEmpty else {
+                return XCTFail("Unchecked dependencies in \(self)'s module '\(module.name)':  \(uncheckedDeps)", file: file, line: line)
+            }
+        }
+
+        func check(recursiveDependencies: [String], file: StaticString = #file, line: UInt = #line) {
+            // We need to check in build order here.
+            XCTAssertEqual(module.recursiveDependencies.map { $0.name }, recursiveDependencies, file: file, line: line)
+        }
     }
 }
