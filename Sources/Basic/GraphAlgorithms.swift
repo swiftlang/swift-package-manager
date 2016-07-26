@@ -30,7 +30,7 @@ public enum GraphError: Swift.Error {
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-public func topologicalSort<T where T: Hashable>(
+public func topologicalSort<T: Hashable>(
             _ nodes: [T], successors: @noescape (T) -> [T]) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,

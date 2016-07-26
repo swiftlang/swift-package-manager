@@ -84,7 +84,7 @@ public class OutputByteStream: TextOutputStream {
         // Do nothing.
     }
 
-    func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+    func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
         fatalError("Subclasses must implement this")
     }
 
@@ -102,12 +102,12 @@ public class OutputByteStream: TextOutputStream {
     }
 
     /// Write a collection of bytes to the buffer.
-    public final func write<
-                            C: Collection where C.Iterator.Element == UInt8,
-                            C.IndexDistance == Int,
-                            C.SubSequence: Collection,
-                            C.SubSequence.Iterator.Element == UInt8
-                            >(collection bytes: C) {
+    public final func write<C: Collection>(collection bytes: C) where
+        C.IndexDistance == Int,
+        C.Iterator.Element == UInt8,
+        C.SubSequence: Collection,
+        C.SubSequence.Iterator.Element == UInt8
+    {
         // This is based on LLVM's raw_ostream.
         let availableBufferSize = self.availableBufferSize
 
@@ -161,7 +161,7 @@ public class OutputByteStream: TextOutputStream {
     }
     
     /// Write a sequence of bytes to the buffer.
-    public final func write<S: Sequence where S.Iterator.Element == UInt8>(sequence: S) {
+    public final func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
         // Iterate the sequence and append byte by byte since sequence's append
         // is not performant anyway.
         for byte in sequence {
@@ -280,17 +280,18 @@ public func <<<(stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByt
 }
 
 @discardableResult
-public func <<<<
-                C: Collection where C.Iterator.Element == UInt8,
-                C.IndexDistance == Int,
-                C.SubSequence: Collection,
-                C.SubSequence.Iterator.Element == UInt8>(stream: OutputByteStream, value: C) -> OutputByteStream {
+public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
+    C.Iterator.Element == UInt8,
+    C.IndexDistance == Int,
+    C.SubSequence: Collection,
+    C.SubSequence.Iterator.Element == UInt8
+{
     stream.write(collection: value)
     return stream
 }
 
 @discardableResult
-public func <<<<S: Sequence where S.Iterator.Element == UInt8>(stream: OutputByteStream, value: S) -> OutputByteStream {
+public func <<< <S: Sequence>(stream: OutputByteStream, value: S) -> OutputByteStream where S.Iterator.Element == UInt8 {
     stream.write(sequence: value)
     return stream
 }
@@ -519,7 +520,7 @@ public final class BufferedOutputByteStream: OutputByteStream {
         // Do nothing.
     }
 
-    override final func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+    override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
         contents += bytes
     }
 }
@@ -585,7 +586,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         error = true
     }
 
-    override final func writeImpl<C: Collection where C.Iterator.Element == UInt8>(_ bytes: C) {
+    override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
         // FIXME: This will be copying bytes but we don't have option currently.
         var contents = [UInt8](bytes)
         while true {
