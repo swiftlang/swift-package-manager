@@ -30,6 +30,8 @@ extension Version: Hashable {
 
 extension String: PackageContainerIdentifier { }
 
+private typealias MockPackageConstraint = PackageContainerConstraint<String>
+
 private enum MockLoadingError: Error {
     case unknownModule
 }
@@ -45,9 +47,9 @@ private struct MockPackageContainer: PackageContainer {
         return dependenciesByVersion.keys.sorted().reversed()
     }
 
-    func getDependencies(at version: Version) -> [DependencyConstraint<Identifier>] {
+    func getDependencies(at version: Version) -> [MockPackageConstraint] {
         return dependenciesByVersion[version]!.map{ (name, versions) in
-            return DependencyConstraint(container: name, versionRequirement: versions)
+            return MockPackageConstraint(container: name, versionRequirement: versions)
         }
     }
 }
@@ -94,7 +96,7 @@ class DependencyResolverTests: XCTestCase {
 
         let delegate = MockResolverDelegate()
         let resolver = DependencyResolver(
-            constraints: [DependencyConstraint(container: "A", versionRequirement: v1Range)],
+            constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)],
             provider: provider,
             delegate: delegate)
         let packages = try resolver.resolve()

@@ -52,7 +52,7 @@ public protocol PackageContainer {
     /// Fetch the declared dependencies for a particular version.
     ///
     /// - precondition: `versions.contains(version)`
-    func getDependencies(at version: Version) -> [DependencyConstraint<Identifier>]
+    func getDependencies(at version: Version) -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.
@@ -65,21 +65,21 @@ public protocol PackageContainerProvider {
     func getContainer(for identifier: Container.Identifier) throws -> Container
 }
 
-/// An individual dependency constraint for a package.
-public struct DependencyConstraint<T> where T: PackageContainerIdentifier {
+/// An individual constraint onto a container.
+public struct PackageContainerConstraint<T> where T: PackageContainerIdentifier {
     public typealias Identifier = T
     public typealias VersionRequirement = Range<Version>
 
-    /// The identifier for the package container the constraint is on.
-    public let container: Identifier
+    /// The identifier for the container the constraint is on.
+    public let identifier: Identifier
 
     /// The version requirements.
     public let versionRequirement: VersionRequirement
 
-    /// Create a dependency requiring the given `container` satisfying the
+    /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(container: Identifier, versionRequirement: VersionRequirement) {
-        self.container = container
+    public init(container identifier: Identifier, versionRequirement: VersionRequirement) {
+        self.identifier = identifier
         self.versionRequirement = versionRequirement
     }
 }
@@ -145,9 +145,15 @@ public class DependencyResolver<
     public typealias Delegate = D
     public typealias Container = Provider.Container
     public typealias Identifier = Container.Identifier
+    
+    /// The type of the constraints the resolver operates on.
+    ///
+    /// Technically this is a container constraint, but that is currently the
+    /// only kind of constraints we operate on.
+    public typealias Constraint = PackageContainerConstraint<Identifier>
 
     /// The initial constraints.
-    public let constraints: [DependencyConstraint<Identifier>]
+    public let constraints: [Constraint]
 
     /// The container provider used to load package containers.
     public let provider: Provider
@@ -156,7 +162,7 @@ public class DependencyResolver<
     public let delegate: Delegate
 
     public init(
-        constraints: [DependencyConstraint<Identifier>],
+        constraints: [Constraint],
         provider: Provider,
         delegate: Delegate)
     {
@@ -187,11 +193,11 @@ public class DependencyResolver<
             let constraints = container.getDependencies(at: latestVersion)
 
             for constraint in constraints {
-                try visit(constraint.container)
+                try visit(constraint.identifier)
             }
         }
         for constraint in constraints {
-            try visit(constraint.container)
+            try visit(constraint.identifier)
         }
 
         return containers.map { (identifier, container) in
