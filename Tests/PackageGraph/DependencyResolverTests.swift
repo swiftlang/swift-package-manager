@@ -42,7 +42,7 @@ private struct MockPackageContainer: PackageContainer {
     let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: Range<Version>)]]
 
     var versions: [Version] {
-        return dependenciesByVersion.keys.sorted()
+        return dependenciesByVersion.keys.sorted().reversed()
     }
 
     func getDependencies(at version: Version) -> [DependencyConstraint<Identifier>] {
@@ -67,8 +67,14 @@ private struct MockPackagesProvider: PackageContainerProvider {
     }
 }
 
-private struct MockResolverDelegate: DependencyResolverDelegate {
+private class MockResolverDelegate: DependencyResolverDelegate {
     typealias Identifier = MockPackageContainer.Identifier
+
+    var messages = [String]()
+    
+    func added(container identifier: Identifier) {
+        messages.append("added container: \(identifier)")
+    }
 }
 
 class DependencyResolverTests: XCTestCase {
@@ -93,6 +99,10 @@ class DependencyResolverTests: XCTestCase {
             delegate: delegate)
         let packages = try resolver.resolve()
         XCTAssertEqual(packages.map{ $0.container }.sorted(), ["A", "B", "C"])
+        XCTAssertEqual(delegate.messages, [
+                "added container: A",
+                "added container: B",
+                "added container: C"])
     }
 
     static var allTests = [

@@ -87,6 +87,9 @@ public struct DependencyConstraint<T> where T: PackageContainerIdentifier {
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
+
+    /// Called when a new container is being considered.
+    func added(container identifier: Identifier)
 }
 
 /// A general purpose package dependency resolver.
@@ -144,13 +147,13 @@ public class DependencyResolver<
     public typealias Identifier = Container.Identifier
 
     /// The initial constraints.
-    let constraints: [DependencyConstraint<Identifier>]
+    public let constraints: [DependencyConstraint<Identifier>]
 
     /// The container provider used to load package containers.
-    let provider: Provider
+    public let provider: Provider
 
     /// The resolver's delegate.
-    let delegate: Delegate
+    public let delegate: Delegate
 
     public init(
         constraints: [DependencyConstraint<Identifier>],
@@ -167,7 +170,6 @@ public class DependencyResolver<
         // For now, we just load the transitive closure of the dependencies at
         // the latest version, and ignore the version requirements.
 
-        var containers: [Identifier: Container] = [:]
         func visit(_ identifier: Identifier) throws {
             // If we already have this identifier, skip it.
             if containers.keys.contains(identifier) {
@@ -175,16 +177,12 @@ public class DependencyResolver<
             }
 
             // Otherwise, load the container and visit its dependencies.
-            let container = try provider.getContainer(for: identifier)
-            containers[identifier] =  container
+            let container = try getContainer(for: identifier)
 
             // Visit the dependencies at the latest version.
             //
             // FIXME: What if this dependency has no versions? We should
             // consider it unavailable.
-            //
-            // FIXME: We should assert (somewhere) that we got the versions in
-            // order.
             let latestVersion = container.versions.last!
             let constraints = container.getDependencies(at: latestVersion)
 
@@ -199,5 +197,41 @@ public class DependencyResolver<
         return containers.map { (identifier, container) in
             return (container: identifier, version: container.versions.last!)
         }
+    }
+
+    // MARK: Container Management
+
+    /// The active set of managed containers.
+    private var containers: [Identifier: Container] = [:]
+
+    /// Get the container for the given identifier, loading it if necessary.
+    private func getContainer(for identifier: Identifier) throws -> Container {
+        // Return the cached container, if available.
+        if let container = containers[identifier] {
+            return container
+        }
+
+        // Otherwise, load it.
+        return try addContainer(for: identifier)
+    }
+
+    /// Add a managed container.
+    //
+    // FIXME: In order to support concurrent fetching of dependencies, we need
+    // to have some measure of asynchronicity here.
+    private func addContainer(for identifier: Identifier) throws -> Container {
+        assert(!containers.keys.contains(identifier))
+
+        let container = try provider.getContainer(for: identifier)
+        containers[identifier] = container
+
+        // Validate the versions in the container.
+        let versions = container.versions
+        assert(versions.sorted() == versions, "container versions are improperly ordered")
+
+        // Inform the delegate we are considering a new container.
+        delegate.added(container: identifier)
+        
+        return container
     }
 }
