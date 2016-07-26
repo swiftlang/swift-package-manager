@@ -440,6 +440,118 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    // MARK:- Invalid Layouts Tests
+
+    func testMultipleRoots() throws {
+
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Foo.swift",
+                                "/main.swift",
+                                "/src/FooBarLib/FooBar.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Foo.swift, /main.swift fix: move the file(s) inside a module")
+        }
+
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/BarExec/main.swift",
+                                "/Sources/BarExec/Bar.swift",
+                                "/src/FooBarLib/FooBar.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /src, /Sources fix: remove the extra source roots, or add them to the source root exclude list")
+        }
+    }
+
+    func testInvalidLayout1() throws {
+        /*
+         Package
+         ├── main.swift   <-- invalid
+         └── Sources
+             └── File2.swift
+        */
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Files2.swift",
+                                "/main.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+        }
+    }
+
+    func testInvalidLayout2() throws {
+        /*
+         Package
+         ├── main.swift  <-- invalid
+         └── Bar
+             └── Sources
+                 └── File2.swift
+        */
+        // FIXME: We should allow this by not making modules at root and only inside Sources/.
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Bar/Sources/Files2.swift",
+                                "/main.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+        }
+    }
+
+    func testInvalidLayout3() throws {
+        /*
+         Package
+         └── Sources
+             ├── main.swift  <-- Invalid
+             └── Bar
+                 └── File2.swift
+        */
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/main.swift",
+                                "/Sources/Bar/File2.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/main.swift fix: move the file(s) inside a module")
+        }
+    }
+
+    func testInvalidLayout4() throws {
+        /*
+         Package
+         ├── main.swift  <-- Invalid
+         └── Sources
+             └── Bar
+                 └── File2.swift
+        */
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/main.swift",
+                                "/Sources/Bar/File2.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+        }
+    }
+
+    func testInvalidLayout5() throws {
+        /*
+         Package
+         ├── File1.swift
+         └── Foo
+             └── Foo.swift  <-- Invalid
+        */
+        var fs = InMemoryFileSystem()
+        // for the simplest layout it is invalid to have any
+        // subdirectories. It is the compromise you make.
+        // the reason for this is mostly performance in
+        // determineTargets() but also we are saying: this
+        // layout is only for *very* simple projects.
+        try fs.createEmptyFiles("/File1.swift",
+                                "/Foo/Foo.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /File1.swift fix: move the file(s) inside a module")
+        }
+    }
+
     static var allTests = [
         ("testCInTests"                        , testCInTests),
         ("testDotFilesAreIgnored"              , testDotFilesAreIgnored),
@@ -455,6 +567,12 @@ class ConventionTests: XCTestCase {
         ("testSingleExecutableSwiftModule"     , testSingleExecutableSwiftModule),
         ("testTestsLayouts"                    , testTestsLayouts),
         ("testTwoModulesMixedLanguage"         , testTwoModulesMixedLanguage),
+        ("testMultipleRoots"                   , testMultipleRoots),
+        ("testInvalidLayout1"                  , testInvalidLayout1),
+        ("testInvalidLayout2"                  , testInvalidLayout2),
+        ("testInvalidLayout3"                  , testInvalidLayout3),
+        ("testInvalidLayout4"                  , testInvalidLayout4),
+        ("testInvalidLayout5"                  , testInvalidLayout5),
     ]
 }
 
