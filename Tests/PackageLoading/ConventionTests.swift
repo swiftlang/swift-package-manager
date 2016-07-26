@@ -553,26 +553,26 @@ class ConventionTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testCInTests"                        , testCInTests),
-        ("testDotFilesAreIgnored"              , testDotFilesAreIgnored),
-        ("testDotSwiftSuffixDirectory"         , testDotSwiftSuffixDirectory),
-        ("testMixedSources"                    , testMixedSources),
-        ("testMultipleClangModules"            , testMultipleClangModules),
-        ("testMultipleSwiftModules"            , testMultipleSwiftModules),
-        ("testNoSources"                       , testNoSources),
+        ("testCInTests", testCInTests),
+        ("testDotFilesAreIgnored", testDotFilesAreIgnored),
+        ("testDotSwiftSuffixDirectory", testDotSwiftSuffixDirectory),
+        ("testMixedSources", testMixedSources),
+        ("testMultipleClangModules", testMultipleClangModules),
+        ("testMultipleSwiftModules", testMultipleSwiftModules),
+        ("testNoSources", testNoSources),
         ("testResolvesSingleClangLibraryModule", testResolvesSingleClangLibraryModule),
         ("testResolvesSingleSwiftLibraryModule", testResolvesSingleSwiftLibraryModule),
-        ("testResolvesSystemModulePackage"     , testResolvesSystemModulePackage),
-        ("testSingleExecutableClangModule"     , testSingleExecutableClangModule),
-        ("testSingleExecutableSwiftModule"     , testSingleExecutableSwiftModule),
-        ("testTestsLayouts"                    , testTestsLayouts),
-        ("testTwoModulesMixedLanguage"         , testTwoModulesMixedLanguage),
-        ("testMultipleRoots"                   , testMultipleRoots),
-        ("testInvalidLayout1"                  , testInvalidLayout1),
-        ("testInvalidLayout2"                  , testInvalidLayout2),
-        ("testInvalidLayout3"                  , testInvalidLayout3),
-        ("testInvalidLayout4"                  , testInvalidLayout4),
-        ("testInvalidLayout5"                  , testInvalidLayout5),
+        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
+        ("testSingleExecutableClangModule", testSingleExecutableClangModule),
+        ("testSingleExecutableSwiftModule", testSingleExecutableSwiftModule),
+        ("testTestsLayouts", testTestsLayouts),
+        ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
+        ("testMultipleRoots", testMultipleRoots),
+        ("testInvalidLayout1", testInvalidLayout1),
+        ("testInvalidLayout2", testInvalidLayout2),
+        ("testInvalidLayout3", testInvalidLayout3),
+        ("testInvalidLayout4", testInvalidLayout4),
+        ("testInvalidLayout5", testInvalidLayout5),
     ]
 }
 
@@ -705,7 +705,6 @@ final class PackageBuilderTester {
 
     final class ModuleResult {
         private let module: Module
-        private lazy var sources: Set<RelativePath> = { Set(self.module.sources.relativePaths) }()
 
         fileprivate init(_ module: Module) {
             self.module = module
@@ -727,19 +726,8 @@ final class PackageBuilderTester {
             if let root = root {
                 XCTAssertEqual(module.sources.root, AbsolutePath(root), file: file, line: line)
             }
-            var sources = self.sources
-
-            for path in paths.lazy.map(RelativePath.init) {
-                let contains = sources.contains(path)
-                XCTAssert(contains, "\(path) not found in module \(module.name)", file: file, line: line)
-                if contains {
-                    sources.remove(path)
-                }
-            }
-
-            guard sources.isEmpty else {
-                return XCTFail("Unchecked sources in package \(self): \(sources)", file: file, line: line)
-            }
+            let sources = Set(self.module.sources.relativePaths.map{$0.asString})
+            XCTAssertEqual(sources, Set(paths), "unexpected source files in \(module.name)", file: file, line: line)
         }
 
         func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
@@ -747,20 +735,7 @@ final class PackageBuilderTester {
         }
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            let dependencies = Set(module.dependencies.map{$0.name})
-            var uncheckedDeps = dependencies
-
-            for depToCheck in depsToCheck {
-                let contains = dependencies.contains(depToCheck)
-                XCTAssert(contains, "\(depToCheck) dependency not found in \(module.name)", file: file, line: line)
-                if contains {
-                    uncheckedDeps.remove(depToCheck)
-                }
-            }
-
-            guard uncheckedDeps.isEmpty else {
-                return XCTFail("Unchecked dependencies in \(self)'s module '\(module.name)':  \(uncheckedDeps)", file: file, line: line)
-            }
+            XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
         }
 
         func check(recursiveDependencies: [String], file: StaticString = #file, line: UInt = #line) {
