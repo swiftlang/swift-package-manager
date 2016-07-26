@@ -459,7 +459,7 @@ class ConventionTests: XCTestCase {
                                 "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /src, /Sources fix: remove the extra source roots, or add them to the source root exclude list")
+            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /Sources, /src fix: remove the extra source roots, or add them to the source root exclude list")
         }
     }
 
@@ -688,7 +688,7 @@ final class PackageBuilderTester {
         if uncheckedDiagnostics.contains(str) {
             uncheckedDiagnostics.remove(str)
         } else {
-            XCTFail("\(result) did not have error: \(str) or is already checked")
+            XCTFail("\(result) did not have error: \(str) or is already checked", file: file, line: line)
         }
     }
 

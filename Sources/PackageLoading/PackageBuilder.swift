@@ -53,9 +53,9 @@ extension InvalidLayoutType: FixableError {
     public var error: String {
         switch self {
         case .multipleSourceRoots(let paths):
-            return "multiple source roots found: " + paths.joined(separator: ", ")
+            return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
         case .invalidLayout(let paths):
-            return "unexpected source file(s) found: " + paths.joined(separator: ", ")
+            return "unexpected source file(s) found: " + paths.sorted().joined(separator: ", ")
         }
     }
 
