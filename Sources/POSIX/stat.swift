@@ -17,7 +17,7 @@ extension libc.stat {
      public enum Kind {
          case file, directory, symlink, fifo, blockdev, chardev, socket, unknown
 
-         private init(mode: mode_t) {
+         fileprivate init(mode: mode_t) {
              switch mode {
                  case S_IFREG:  self = .file
                  case S_IFDIR:  self = .directory

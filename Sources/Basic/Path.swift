@@ -223,7 +223,7 @@ public struct AbsolutePath {
 /// never accessed in any way when initializing a RelativePath.
 public struct RelativePath {
     /// Private implementation details, shared with the AbsolutePath struct.
-    private let _impl: PathImpl
+    fileprivate let _impl: PathImpl
     
     /// Initializes the RelativePath from `str`, which must be a relative path
     /// (which means that it must not begin with a path separator or a tilde).
