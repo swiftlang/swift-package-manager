@@ -117,7 +117,7 @@ extension Command {
         let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
         if module.type == .library {
-            let moduleMapGenerator = ModuleMapGenerator(for: module)
+            var moduleMapGenerator = ModuleMapGenerator(for: module)
             try moduleMapGenerator.generateModuleMap(inDir: buildMeta.buildDirectory)
         }
         

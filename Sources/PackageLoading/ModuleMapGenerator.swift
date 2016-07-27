@@ -55,8 +55,12 @@ public struct ModuleMapGenerator {
     /// The clang module to operate on.
     private let module: ClangModule
 
-    public init(for module: ClangModule) {
+    /// The file system to be used.
+    private var fileSystem: FileSystem
+
+    public init(for module: ClangModule, fileSystem: FileSystem = localFileSystem) {
         self.module = module
+        self.fileSystem = fileSystem
     }
 
     /// A link-declaration specifies a library or framework
@@ -98,31 +102,31 @@ public struct ModuleMapGenerator {
     // FIXME: We recompute the generated modulemap's path when building swift
     // modules in `XccFlags(prefix: String)` there shouldn't be need to redo
     // this there but is difficult in current architecture.
-    public func generateModuleMap(inDir wd: AbsolutePath, modulemapStyle: ModuleMapStyle = .library) throws {
+    public mutating func generateModuleMap(inDir wd: AbsolutePath, modulemapStyle: ModuleMapStyle = .library) throws {
         // Don't generate modulemap for a Test module.
         guard !module.isTest else {
             return
         }
 
         ///Return if module map is already present
-        guard !isFile(module.moduleMapPath) else {
+        guard !fileSystem.isFile(module.moduleMapPath) else {
             return
         }
 
         let includeDir = module.includeDir
         // Warn and return if no include directory.
-        guard isDirectory(includeDir) else {
+        guard fileSystem.isDirectory(includeDir) else {
             print("warning: No include directory found for module '\(module.name)'. A library can not be imported without any public headers.")
             return
         }
         
-        let walked = try localFileSystem.getDirectoryContents(includeDir).map{ includeDir.appending(component: $0) }
+        let walked = try fileSystem.getDirectoryContents(includeDir).map{ includeDir.appending(component: $0) }
         
-        let files = walked.filter{ isFile($0) && $0.suffix == ".h" }
-        let dirs = walked.filter{ isDirectory($0) }
+        let files = walked.filter{ fileSystem.isFile($0) && $0.suffix == ".h" }
+        let dirs = walked.filter{ fileSystem.isDirectory($0) }
 
         let umbrellaHeaderFlat = includeDir.appending(component: module.c99name + ".h")
-        if isFile(umbrellaHeaderFlat) {
+        if fileSystem.isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name) }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat), modulemapStyle: modulemapStyle)
             return
@@ -130,7 +134,7 @@ public struct ModuleMapGenerator {
         diagnoseInvalidUmbrellaHeader(includeDir)
 
         let umbrellaHeader = includeDir.appending(components: module.c99name, module.c99name + ".h")
-        if isFile(umbrellaHeader) {
+        if fileSystem.isFile(umbrellaHeader) {
             guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name) }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeader), modulemapStyle: modulemapStyle)
             return
@@ -145,7 +149,7 @@ public struct ModuleMapGenerator {
     private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) {
         let umbrellaHeader = path.appending(component: module.c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: module.name + ".h")
-        if module.c99name != module.name && isFile(invalidUmbrellaHeader) {
+        if module.c99name != module.name && fileSystem.isFile(invalidUmbrellaHeader) {
             print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
         }
     }
@@ -155,27 +159,27 @@ public struct ModuleMapGenerator {
         case directory(AbsolutePath)
     }
     
-    private func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType, modulemapStyle: ModuleMapStyle) throws {
-        try makeDirectories(wd)
-        let moduleMapFile = wd.appending(component: moduleMapFilename)
-        let moduleMap = try fopen(moduleMapFile, mode: .write)
-        defer { moduleMap.closeFile() }
-        
-        var output = ""
+    private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType, modulemapStyle: ModuleMapStyle) throws {
+        let stream = BufferedOutputByteStream()
+
         if let qualifier = modulemapStyle.moduleDeclQualifier {
-            output += qualifier + " "
+            stream <<< qualifier <<< " "
         }
-        output += "module \(module.c99name) {\n"
+        stream <<< "module \(module.c99name) {\n"
         switch type {
         case .header(let header):
-            output += "    umbrella header \"\(header.asString)\"\n"
+            stream <<< "    umbrella header \"\(header.asString)\"\n"
         case .directory(let path):
-            output += "    umbrella \"\(path.asString)\"\n"
+            stream <<< "    umbrella \"\(path.asString)\"\n"
         }
-        output += "    \(modulemapStyle.linkDeclFlag) \"\(module.c99name)\"\n"
-        output += "    export *\n"
-        output += "}\n"
+        stream <<< "    \(modulemapStyle.linkDeclFlag) \"\(module.c99name)\"\n"
+        stream <<< "    export *\n"
+        stream <<< "}\n"
 
-        try fputs(output, moduleMap)
+        // FIXME: This doesn't belong here.
+        try fileSystem.createDirectory(wd, recursive: true)
+
+        let file = wd.appending(component: moduleMapFilename)
+        try fileSystem.writeFileContents(file, bytes: stream.bytes)
     }
 }
