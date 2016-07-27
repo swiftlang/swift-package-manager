@@ -141,6 +141,8 @@ private func fillModuleGraph(_ packages: [Package]) {
                 switch $0 {
                 case let module as SwiftModule where module.type == .library:
                     return true
+                case let module as ClangModule where module.type == .library:
+                    return true
                 case is CModule:
                     return true
                 default:

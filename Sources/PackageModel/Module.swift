@@ -114,14 +114,16 @@ public class CModule: Module {
         self.path = path
         self.pkgConfig = pkgConfig
         self.providers = providers
-        // FIXME: This is wrong, System modules should never be a test module, perhaps ClangModule
-        // can be refactored into direct subclass of Module.
-        try super.init(name: name, type: type, sources: sources, isTest: isTest)
+        try super.init(name: name, type: type, sources: sources, isTest: false)
     }
 }
 
-// FIXME: This should *not* be a subclass of CModule!
-public class ClangModule: CModule {
+public class ClangModule: Module {
+
+    public var includeDir: AbsolutePath {
+        return sources.root.appending(component: "include")
+    }
+
     public init(name: String, isTest: Bool = false, sources: Sources) throws {
         // Compute the module type.
         let isLibrary = !sources.relativePaths.contains { path in
@@ -131,7 +133,7 @@ public class ClangModule: CModule {
         }
         let type: ModuleType = isLibrary ? .library : .executable
         
-        try super.init(name: name, type: type, sources: sources, path: sources.root.appending(component: "include"), isTest: isTest)
+        try super.init(name: name, type: type, sources: sources, isTest: isTest)
     }
 }
 

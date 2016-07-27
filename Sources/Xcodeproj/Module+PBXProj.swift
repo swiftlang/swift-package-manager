@@ -157,7 +157,16 @@ extension Module  {
 
     var headerSearchPaths: (key: String, value: String)? {
         let headerPathKey = "HEADER_SEARCH_PATHS"
-        let headerPaths = dependencies.filter{$0 is CModule}.map{($0 as! CModule).path}
+        let headerPaths = dependencies.flatMap { module -> AbsolutePath? in
+            switch module {
+            case let cModule as CModule:
+                return cModule.path
+            case let clangModule as ClangModule:
+                return clangModule.includeDir
+            default:
+                return nil
+            }
+        }
 
         guard !headerPaths.isEmpty else { return nil }
 
@@ -269,7 +278,7 @@ extension Module  {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeProjectPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
                 try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
-                moduleMapPath = path.appending(component: CModule.moduleMapFilename)
+                moduleMapPath = path.appending(component: moduleMapFilename)
             }
 
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString

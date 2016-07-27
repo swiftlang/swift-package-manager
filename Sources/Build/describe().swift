@@ -23,7 +23,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         throw Error.noModules
     }
 
-    if graph.modules.count == 1, let module = graph.modules.first as? CModule, !(module is ClangModule) {
+    if graph.modules.count == 1, let module = graph.modules.first as? CModule {
         throw Error.onlyCModule(name: module.name)
     }
 

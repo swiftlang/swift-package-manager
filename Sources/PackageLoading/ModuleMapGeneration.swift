@@ -12,11 +12,31 @@ import Basic
 import Utility
 import PackageModel
 
-extension CModule {
-    public static let moduleMapFilename = "module.modulemap"
-    
+public let moduleMapFilename = "module.modulemap"
+
+/// A protocol for modules which might have a modulemap.
+protocol ModuleMapProtocol {
+
+    var moduleMapPath: AbsolutePath { get }
+
+    var moduleMapDirectory: AbsolutePath { get }
+}
+
+extension ModuleMapProtocol {
     public var moduleMapPath: AbsolutePath {
-        return path.appending(component: CModule.moduleMapFilename)
+        return moduleMapDirectory.appending(component: moduleMapFilename)
+    }
+}
+
+extension CModule: ModuleMapProtocol {
+    var moduleMapDirectory: AbsolutePath {
+        return path
+    }
+}
+
+extension ClangModule: ModuleMapProtocol {
+    var moduleMapDirectory: AbsolutePath {
+        return includeDir
     }
 }
 
@@ -70,8 +90,6 @@ extension ClangModule {
         guard !isFile(moduleMapPath) else {
             return
         }
-        
-        let includeDir = path
         
         // Warn and return if no include directory.
         guard isDirectory(includeDir) else {
@@ -127,7 +145,7 @@ extension ClangModule {
     
     private func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType, modulemapStyle: ModuleMapStyle) throws {
         try makeDirectories(wd)
-        let moduleMapFile = wd.appending(component: CModule.moduleMapFilename)
+        let moduleMapFile = wd.appending(component: moduleMapFilename)
         let moduleMap = try fopen(moduleMapFile, mode: .write)
         defer { moduleMap.closeFile() }
         
