@@ -16,7 +16,7 @@ class ReaddirTests: XCTestCase {
     func testName() {
         do {
             var s = dirent()
-            withUnsafeMutablePointer(&s.d_name) { ptr in
+            withUnsafeMutablePointer(to: &s.d_name) { ptr in
                 let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
                 ptr[0] = UInt8(ascii: "A")
                 ptr[1] = UInt8(ascii: "B")
@@ -27,7 +27,7 @@ class ReaddirTests: XCTestCase {
         
         do {
             var s = dirent()
-            withUnsafeMutablePointer(&s.d_name) { ptr in
+            withUnsafeMutablePointer(to: &s.d_name) { ptr in
                 let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
                 ptr[0] = 0xFF
                 ptr[1] = 0xFF
@@ -39,7 +39,7 @@ class ReaddirTests: XCTestCase {
         do {
             var s = dirent()
             let n = sizeof(s.d_name.dynamicType)
-            withUnsafeMutablePointer(&s.d_name) { ptr in
+            withUnsafeMutablePointer(to: &s.d_name) { ptr in
                 let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
                 for i in 0 ..< n {
                     ptr[i] = UInt8(ascii: "A")
