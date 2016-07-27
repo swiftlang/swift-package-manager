@@ -268,7 +268,7 @@ private struct Lexer {
                     break
                 }
             }
-            return .stringLiteral(value: String(utf8[utf8.index(after: startIndex)..<endIndex]))
+            return .stringLiteral(value: String(utf8[utf8.index(after: startIndex)..<endIndex])!)
 
         // Numeric literals.
         //
@@ -279,7 +279,7 @@ private struct Lexer {
             while let c = look(), c.isNumberChar() {
                 let _ = eat()
             }
-            return .number(value: String(utf8[startIndex..<index]))
+            return .number(value: String(utf8[startIndex..<index])!)
 
         // Identifiers.
         case let c where c.isIdentifierChar():
@@ -289,7 +289,7 @@ private struct Lexer {
             }
 
             // Match special strings.
-            let value: String = String(utf8[startIndex..<index])
+            let value: String = String(utf8[startIndex..<index])!
             switch value {
             case "true":
                 return .boolean(value: true)
@@ -761,5 +761,5 @@ public extension TOMLItem {
 /// returns: A list of the lexed tokens' string representations.
 internal func lexTOML(_ data: String) -> [String] {
     let lexer = Lexer(data)
-    return lexer.map { String($0) }
+    return lexer.map { String(describing: $0) }
 }
