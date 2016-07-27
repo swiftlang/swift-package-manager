@@ -440,6 +440,95 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testValidSources() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/main.swift",
+                                "/noExtension",
+                                "/Package.swift",
+                                "/.git/anchor",
+                                "/.xcodeproj/anchor",
+                                "/.playground/anchor",
+                                "/Package.swift",
+                                "/Packages/MyPackage/main.c")
+        let name = "pkg"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/", paths: "main.swift")
+            }
+        }
+    }
+
+    func testCustomTargetDependencies() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
+                                "/Sources/Bar/Bar.swift",
+                                "/Sources/Baz/Baz.swift")
+
+        // Direct.
+        var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["Bar"])
+                moduleResult.check(recursiveDependencies: ["Bar"])
+            }
+
+            for module in ["Bar", "Baz"] {
+                result.checkModule(module) { moduleResult in
+                    moduleResult.check(c99name: module, type: .library, isTest: false)
+                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+                }
+            }
+        }
+
+        // Transitive.
+        package = PackageDescription.Package(name: "pkg",
+                                                 targets: [Target(name: "Foo", dependencies: ["Bar"]),
+                                                           Target(name: "Bar", dependencies: ["Baz"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["Bar"])
+                moduleResult.check(recursiveDependencies: ["Baz", "Bar"])
+            }
+
+            result.checkModule("Bar") { moduleResult in
+                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
+                moduleResult.check(dependencies: ["Baz"])
+                moduleResult.check(recursiveDependencies: ["Baz"])
+            }
+
+            result.checkModule("Baz") { moduleResult in
+                moduleResult.check(c99name: "Baz", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
+            }
+        }
+    }
+
+    func testManifestTargetDeclErrors() throws {
+        // Reference a target which doesn't exist.
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Foo.swift")
+        var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Random")])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
+        }
+
+        // Executable as dependency.
+        // FIXME: maybe should support this and condiser it as build order dependency.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/exec/main.swift",
+                                "/Sources/lib/lib.swift")
+        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("the target lib cannot have the executable exec as a dependency fix: move the shared logic inside a library, which can be referenced from both the target and the executable")
+        }
+    }
+
     // MARK:- Invalid Layouts Tests
 
     func testMultipleRoots() throws {
@@ -552,6 +641,36 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testNoSourcesInModule() throws {
+        let fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the module at /Sources/Module does not contain any source files fix: either remove the module folder, or add a source file to the module")
+        }
+    }
+
+    func testExcludes() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/A/main.swift",
+                                "/Sources/A/foo.swift", // File will be excluded.
+                                "/Sources/B/main.swift" // Dir will be excluded.
+                               )
+
+        // Excluding everything.
+        var package = PackageDescription.Package(name: "pkg", exclude: ["."])
+        PackageBuilderTester(package, in: fs) { _ in }
+
+        // Test excluding a file and a directory.
+        package = PackageDescription.Package(name: "pkg", exclude: ["Sources/A/foo.swift", "Sources/B"])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+            }
+        }
+    }
+
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
@@ -573,6 +692,11 @@ class ConventionTests: XCTestCase {
         ("testInvalidLayout3", testInvalidLayout3),
         ("testInvalidLayout4", testInvalidLayout4),
         ("testInvalidLayout5", testInvalidLayout5),
+        ("testNoSourcesInModule", testNoSourcesInModule),
+        ("testValidSources", testValidSources),
+        ("testExcludes", testExcludes),
+        ("testCustomTargetDependencies", testCustomTargetDependencies),
+        ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
     ]
 }
 
