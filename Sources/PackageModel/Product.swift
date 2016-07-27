@@ -70,3 +70,21 @@ extension Product: CustomStringConvertible {
         }
     }
 }
+
+extension ProductType: Equatable {}
+public func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+    switch (lhs, rhs) {
+    case (.Executable, .Executable):
+        return true
+    case (.Executable, _):
+        return false
+    case (.Test, .Test):
+        return true
+    case (.Test, _):
+        return false
+    case (.Library(let lhsType), .Library(let rhsType)):
+        return lhsType == rhsType
+    case (.Library(_), _):
+        return false
+    }
+}
