@@ -529,6 +529,43 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testProducts() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
+                                "/Sources/Bar/Bar.swift")
+        let products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
+
+        PackageBuilderTester("pkg", in: fs, products: products) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+            }
+
+            result.checkModule("Bar") { moduleResult in
+                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
+            }
+
+            result.checkProduct("libpm") { productResult in
+                productResult.check(type: .Library(.Dynamic), modules: ["Foo", "Bar"])
+            }
+        }
+    }
+
+    func testBadProducts() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Foo.swift")
+        var products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
+            result.checkDiagnostic("the product named libpm references a module that could not be found: Bar fix: reference only valid modules from the product")
+        }
+
+        products = [Product(name: "libpm", type: .Library(.Dynamic), modules: [])]
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
+            result.checkDiagnostic("the product named libpm doesn\'t reference any modules fix: reference one or more modules from the product")
+        }
+    }
+
     // MARK:- Invalid Layouts Tests
 
     func testMultipleRoots() throws {
@@ -697,6 +734,8 @@ class ConventionTests: XCTestCase {
         ("testExcludes", testExcludes),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
+        ("testProducts", testProducts),
+        ("testBadProducts", testBadProducts),
     ]
 }
 
@@ -737,11 +776,12 @@ private extension FileSystem {
 ///     - package: PackageDescription instance to use for loading this package.
 ///     - path: Directory where the package is located.
 ///     - in: FileSystem in which the package should be loaded from.
+///     - products: List of products in the package.
 ///     - warningStream: OutputByteStream to be passed to package builder.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: [], version: nil)
+private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, products: [PackageDescription.Product], warningStream: OutputByteStream) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: products, version: nil)
     let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream)
     return try builder.construct(includingTestModules: true)
 }
@@ -774,16 +814,16 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
        let package = Package(name: name)
-       self.init(package, path: path, in: fs, file: file, line: line, body)
+       self.init(package, path: path, in: fs, products: products, file: file, line: line, body)
     }
 
     @discardableResult
-    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
         do {
             let warningStream = BufferedOutputByteStream()
-            let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
+            let loadedPackage = try loadPackage(package, path: path, in: fs, products: products, warningStream: warningStream)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
             // FIXME: Find a better way. Maybe Package can keep array of warnings.
@@ -825,6 +865,29 @@ final class PackageBuilderTester {
         }
         uncheckedModules.remove(module)
         body?(ModuleResult(module))
+    }
+
+    func checkProduct(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: (@noescape (ProductResult) -> Void)? = nil) {
+        guard case .package(let package) = result else {
+            return XCTFail("Expected package did not load \(self)", file: file, line: line)
+        }
+        guard let product = package.products.first(where: {$0.name == name}) else {
+            return XCTFail("Product: \(name) not found", file: file, line: line)
+        }
+        body?(ProductResult(product))
+    }
+
+    final class ProductResult {
+        private let product: PackageModel.Product
+
+        init(_ product: PackageModel.Product) {
+            self.product = product
+        }
+
+        func check(type: PackageDescription.ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(product.type, type, file: file, line: line)
+            XCTAssertEqual(product.modules.map{$0.name}, modules, file: file, line: line)
+        }
     }
 
     final class ModuleResult {
