@@ -293,8 +293,7 @@ public struct PackageBuilder {
                 // Completely empty packages are allowed as a special case.
                 modules = []
             }
-        }
-        else {
+        } else {
             // We have at least one directory that looks like a module, so we try to create a module for each one.
             modules = try potentialModulePaths.map { path in
                 return try createModule(path, name: path.basename, isTest: false)
@@ -356,8 +355,7 @@ public struct PackageBuilder {
             // No C sources, so we expect to have Swift sources, and we create a Swift module.
             guard !swiftSources.isEmpty else { throw Module.Error.noSources(path.asString) }
             return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
-        }
-        else {
+        } else {
             // No Swift sources, so we expect to have C sources, and we create a C module.
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
             return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
