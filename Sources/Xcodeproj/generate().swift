@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Foundation
 import POSIX
 import PackageGraph
 import PackageModel
@@ -58,57 +59,36 @@ public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGr
     }
 
 ////// we generate this file to ensure our main scheme is listed
-   /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory.appending(component: "xcschememanagement.plist")) { print in
-        print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        print("<plist version=\"1.0\">")
-        print("<dict>")
-        print("  <key>SchemeUserState</key>")
-        print("  <dict>")
-        print("    <key>\(schemeName)</key>")
-        print("    <dict></dict>")
-        print("  </dict>")
-        print("  <key>SuppressBuildableAutocreation</key>")
-        print("  <dict></dict>")
-        print("</dict>")
-        print("</plist>")
-    }
-
+   /// before any inferred schemes Xcode may autocreate.
+    let xcschememanagement = [
+        "SchemeUserState": [
+            schemeName: [:],
+            "SuppressBuildableAutocreation": [:],
+        ]
+    ]
+    NSDictionary(dictionary: xcschememanagement).write(toFile: schemesDirectory.appending(component: "xcschememanagement.plist").asString, atomically: true)
+    
     for module in graph.modules where module.isLibrary {
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
-        try open(xcodeprojPath.appending(RelativePath(name))) { print in
-            print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-            print("<plist version=\"1.0\">")
-            print("<dict>")
-            print("  <key>CFBundleDevelopmentRegion</key>")
-            print("  <string>en</string>")
-            print("  <key>CFBundleExecutable</key>")
-            print("  <string>$(EXECUTABLE_NAME)</string>")
-            print("  <key>CFBundleIdentifier</key>")
-            print("  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>")
-            print("  <key>CFBundleInfoDictionaryVersion</key>")
-            print("  <string>6.0</string>")
-            print("  <key>CFBundleName</key>")
-            print("  <string>$(PRODUCT_NAME)</string>")
-            print("  <key>CFBundlePackageType</key>")
-            if module.isTest {
-                print("  <string>BNDL</string>")
-            } else {
-                print("  <string>FMWK</string>")
-            }
-            print("  <key>CFBundleShortVersionString</key>")
-            print("  <string>1.0</string>")
-            print("  <key>CFBundleSignature</key>")
-            print("  <string>????</string>")
-            print("  <key>CFBundleVersion</key>")
-            print("  <string>$(CURRENT_PROJECT_VERSION)</string>")
-            print("  <key>NSPrincipalClass</key>")
-            print("  <string></string>")
-            print("</dict>")
-            print("</plist>")
-        }
+        let path = xcodeprojPath.appending(RelativePath(name)).asString
+        let packageType = module.isTest ? "BNDL" : "FMWK"
+        
+        let scheme = [
+            "CFBundleDevelopmentRegion": "en",
+            "CFBundleExecutable": "$(EXECUTABLE_NAME)",
+            "CFBundleIdentifier": "$(PRODUCT_BUNDLE_IDENTIFIER)",
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleName": "$(PRODUCT_NAME)",
+            "CFBundlePackageType": packageType,
+            "CFBundleShortVersionString": "1.0",
+            "CFBundleSignature": "????",
+            "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+            "NSPrincipalClass": ""
+        ]
+        NSDictionary(dictionary: scheme).write(toFile: path, atomically: true)
+        NSDictionary(dictionary: scheme).write(toFile: "/Users/chris/test.plist", atomically: true)
     }
 
     return xcodeprojPath
