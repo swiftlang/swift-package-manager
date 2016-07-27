@@ -275,13 +275,7 @@ public struct PackageBuilder {
             }
         } else {
             modules = try maybeModules.map { path in
-                let name: String
-                if path == srcroot {
-                    name = manifest.name
-                } else {
-                    name = path.basename
-                }
-                return try modulify(path, name: name, isTest: false)
+                try modulify(path, name: path.basename, isTest: false)
             }
         }
 
