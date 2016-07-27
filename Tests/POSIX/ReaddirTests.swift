@@ -46,7 +46,7 @@ class ReaddirTests: XCTestCase {
                 }
             }
             s.d_namlen = UInt16(n)
-            XCTAssertEqual(s.name, String(repeating: Character("A"), count: n))
+            XCTAssertEqual(s.name, String(repeating: "A", count: n))
         }
     }
     

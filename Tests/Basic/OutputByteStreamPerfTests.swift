@@ -129,7 +129,7 @@ class OutputByteStreamPerfTests: XCTestCase {
 
     func test1MBOf16ByteStrings_X10() {
         // Test writing 1MB worth of 16 byte strings.
-        let string16 = String(repeating: Character("X"), count: 1 << 4)
+        let string16 = String(repeating: "X", count: 1 << 4)
         
         measure {
             for _ in 0..<10 {
@@ -144,7 +144,7 @@ class OutputByteStreamPerfTests: XCTestCase {
 
     func test1MBOf1KByteStrings_X100() {
         // Test writing 1MB worth of 1K byte strings.
-        let bytes1k = String(repeating: Character("X"), count: 1 << 10)
+        let bytes1k = String(repeating: "X", count: 1 << 10)
         
         measure {
             for _ in 0..<100 {
@@ -159,7 +159,7 @@ class OutputByteStreamPerfTests: XCTestCase {
     
     func test1MBOfJSONEncoded16ByteStrings_X10() {
         // Test writing 1MB worth of JSON encoded 16 byte strings.
-        let string16 = String(repeating: Character("X"), count: 1 << 4)
+        let string16 = String(repeating: "X", count: 1 << 4)
         
         measure {
             for _ in 0..<10 {
