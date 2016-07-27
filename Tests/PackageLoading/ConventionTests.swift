@@ -518,6 +518,12 @@ class ConventionTests: XCTestCase {
             result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
         }
 
+        // Reference an invalid dependency.
+        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["Foo"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
+        }
+
         // Executable as dependency.
         // FIXME: maybe should support this and condiser it as build order dependency.
         fs = InMemoryFileSystem()
