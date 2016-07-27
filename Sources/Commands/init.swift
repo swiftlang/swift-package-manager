@@ -114,7 +114,7 @@ final class InitPackage {
         guard exists(sources) == false else {
             return
         }
-        print("Creating Sources/")
+        print("Creating \(sources.relative(to: rootd).asString)/")
         try makeDirectories(sources)
     
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
@@ -160,7 +160,7 @@ final class InitPackage {
         guard exists(tests) == false else {
             return
         }
-        print("Creating Tests/")
+        print("Creating \(tests.relative(to: rootd).asString)/")
         try makeDirectories(tests)
 
         // Only libraries are testable for now.
@@ -173,7 +173,7 @@ final class InitPackage {
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< "import XCTest\n"
-            stream <<< "@testable import \(moduleName)TestSuite\n\n"
+            stream <<< "@testable import \(moduleName)Tests\n\n"
             stream <<< "XCTMain([\n"
             stream <<< "     testCase(\(typeName)Tests.allTests),\n"
             stream <<< "])\n"
@@ -181,8 +181,8 @@ final class InitPackage {
     }
     
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname))
-        print("Creating Tests/\(pkgname)/")
+        let testModule = testsPath.appending(RelativePath(pkgname + Module.testModuleNameSuffix))
+        print("Creating \(testModule.relative(to: rootd).asString)/")
         try makeDirectories(testModule)
         
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in

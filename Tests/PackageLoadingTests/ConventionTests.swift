@@ -298,9 +298,9 @@ class ConventionTests: XCTestCase {
         for singleModuleSource in ["/", "/Sources/", "/Sources/Foo/"].lazy.map(AbsolutePath.init) {
             var fs = InMemoryFileSystem()
             try fs.createEmptyFiles(singleModuleSource.appending(component: "Foo.swift").asString,
-                                    "/Tests/Foo/FooTests.swift",
-                                    "/Tests/Foo/BarTests.swift",
-                                    "/Tests/Bar/BazTests.swift")
+                                    "/Tests/FooTests/FooTests.swift",
+                                    "/Tests/FooTests/BarTests.swift",
+                                    "/Tests/BarTests/BazTests.swift")
 
             PackageBuilderTester("Foo", in: fs) { result in
                 result.checkModule("Foo") { moduleResult in
@@ -308,16 +308,16 @@ class ConventionTests: XCTestCase {
                     moduleResult.checkSources(root: singleModuleSource.asString, paths: "Foo.swift")
                 }
 
-                result.checkModule("FooTestSuite") { moduleResult in
-                    moduleResult.check(c99name: "FooTestSuite", type: .library, isTest: true)
-                    moduleResult.checkSources(root: "/Tests/Foo", paths: "FooTests.swift", "BarTests.swift")
+                result.checkModule("FooTests") { moduleResult in
+                    moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                    moduleResult.checkSources(root: "/Tests/FooTests", paths: "FooTests.swift", "BarTests.swift")
                     moduleResult.check(dependencies: ["Foo"])
                     moduleResult.check(recursiveDependencies: ["Foo"])
                 }
 
-                result.checkModule("BarTestSuite") { moduleResult in
-                    moduleResult.check(c99name: "BarTestSuite", type: .library, isTest: true)
-                    moduleResult.checkSources(root: "/Tests/Bar", paths: "BazTests.swift")
+                result.checkModule("BarTests") { moduleResult in
+                    moduleResult.check(c99name: "BarTests", type: .library, isTest: true)
+                    moduleResult.checkSources(root: "/Tests/BarTests", paths: "BazTests.swift")
                     moduleResult.check(dependencies: [])
                     moduleResult.check(recursiveDependencies: [])
                 }
@@ -329,10 +329,10 @@ class ConventionTests: XCTestCase {
                                "/Sources/B/Foo.swift",  // Swift lib
                                "/Sources/D/Foo.c",      // Clang lib
                                "/Sources/E/main.c",     // Clang exec
-                               "/Tests/A/Foo.swift",
-                               "/Tests/B/Foo.swift",
-                               "/Tests/D/Foo.swift",
-                               "/Tests/E/Foo.swift")
+                               "/Tests/ATests/Foo.swift",
+                               "/Tests/BTests/Foo.swift",
+                               "/Tests/DTests/Foo.swift",
+                               "/Tests/ETests/Foo.swift")
 
        PackageBuilderTester("Foo", in: fs) { result in
            result.checkModule("A") { moduleResult in
@@ -355,30 +355,30 @@ class ConventionTests: XCTestCase {
                moduleResult.checkSources(root: "/Sources/E", paths: "main.c")
            }
 
-           result.checkModule("ATestSuite") { moduleResult in
-               moduleResult.check(c99name: "ATestSuite", type: .library, isTest: true)
-               moduleResult.checkSources(root: "/Tests/A", paths: "Foo.swift")
+           result.checkModule("ATests") { moduleResult in
+               moduleResult.check(c99name: "ATests", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["A"])
                moduleResult.check(recursiveDependencies: ["A"])
            }
 
-           result.checkModule("BTestSuite") { moduleResult in
-               moduleResult.check(c99name: "BTestSuite", type: .library, isTest: true)
-               moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
+           result.checkModule("BTests") { moduleResult in
+               moduleResult.check(c99name: "BTests", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/BTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["B"])
                moduleResult.check(recursiveDependencies: ["B"])
            }
 
-           result.checkModule("DTestSuite") { moduleResult in
-               moduleResult.check(c99name: "DTestSuite", type: .library, isTest: true)
-               moduleResult.checkSources(root: "/Tests/D", paths: "Foo.swift")
+           result.checkModule("DTests") { moduleResult in
+               moduleResult.check(c99name: "DTests", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/DTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["D"])
                moduleResult.check(recursiveDependencies: ["D"])
            }
 
-           result.checkModule("ETestSuite") { moduleResult in
-               moduleResult.check(c99name: "ETestSuite", type: .library, isTest: true)
-               moduleResult.checkSources(root: "/Tests/E", paths: "Foo.swift")
+           result.checkModule("ETests") { moduleResult in
+               moduleResult.check(c99name: "ETests", type: .library, isTest: true)
+               moduleResult.checkSources(root: "/Tests/ETests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["E"])
                moduleResult.check(recursiveDependencies: ["E"])
            }
@@ -421,7 +421,7 @@ class ConventionTests: XCTestCase {
     func testCInTests() throws {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Tests/MyPackage/abc.c")
+                                "/Tests/MyPackageTests/abc.c")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkModule("MyPackage") { moduleResult in
@@ -429,13 +429,13 @@ class ConventionTests: XCTestCase {
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift")
             }
 
-            result.checkModule("MyPackageTestSuite") { moduleResult in
+            result.checkModule("MyPackageTests") { moduleResult in
                 moduleResult.check(type: .library, isTest: true)
-                moduleResult.checkSources(root: "/Tests/MyPackage", paths: "abc.c")
+                moduleResult.checkSources(root: "/Tests/MyPackageTests", paths: "abc.c")
             }
 
           #if os(Linux)
-            result.checkDiagnostic("warning: Ignoring MyPackageTestSuite as C language in tests is not yet supported on Linux.")
+            result.checkDiagnostic("warning: Ignoring MyPackageTests as C language in tests is not yet supported on Linux.")
           #endif
         }
     }

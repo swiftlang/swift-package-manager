@@ -26,11 +26,11 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             let testCases = ["name": "All Tests", "tests": [["name" : "SwiftPMXCTestHelperTests.xctest",
                 "tests": [
                 [
-                "name": "Objc",
+                "name": "ObjCTests",
                 "tests": [["name": "test_example"], ["name": "testThisThing"]]
                 ],
                 [
-                "name": "SwiftPMXCTestHelperTestSuite.SwiftPMXCTestHelperTests1",
+                "name": "SwiftPMXCTestHelperTests.SwiftPMXCTestHelperTests1",
                 "tests": [["name": "test_Example2"], ["name": "testExample1"]]
                 ]
               ]]]
