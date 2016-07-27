@@ -19,7 +19,7 @@ extension ModuleProtocol {
     // swift compiler.
     public func pkgConfigSwiftcArgs() throws -> [String] {
         let pkgArgs = try pkgConfigArgs()
-        return pkgArgs.cFlags.map{["-Xcc", $0]}.flatten() + pkgArgs.libs
+        return pkgArgs.cFlags.map{["-Xcc", $0]}.joined() + pkgArgs.libs
     }
 
     /// Finds cFlags and link flags for all the CModule i.e. System Module
