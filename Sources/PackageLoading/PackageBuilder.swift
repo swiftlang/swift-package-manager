@@ -14,15 +14,23 @@ import Utility
 
 import class PackageDescription.Target
 
+/// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
+    
+    /// One or more referenced modules could not be found.
     case modulesNotFound([String])
+    
+    /// Package layout is invalid.
     case invalidLayout(InvalidLayoutType)
+    
+        /// Describes a way in which a package layout is invalid.
+        public enum InvalidLayoutType {
+            case multipleSourceRoots([String])
+            case invalidLayout([String])
+        }
+    
+    /// A module was marked as being dependent on an executable.
     case executableAsDependency(module: String, dependency: String)
-}
-
-public enum InvalidLayoutType {
-    case multipleSourceRoots([String])
-    case invalidLayout([String])
 }
 
 extension ModuleError: FixableError {
@@ -49,7 +57,7 @@ extension ModuleError: FixableError {
     }
 }
 
-extension InvalidLayoutType: FixableError {
+extension ModuleError.InvalidLayoutType: FixableError {
     public var error: String {
         switch self {
         case .multipleSourceRoots(let paths):
@@ -208,10 +216,12 @@ public struct PackageBuilder {
     }
 
     /// Returns path to all the items in a directory.
+    /// FIXME: This is generic functionality, and should move to FileSystem.
     func directoryContents(_ path: AbsolutePath) throws -> [AbsolutePath] {
         return try fileSystem.getDirectoryContents(path).map { path.appending(component: $0) }
     }
 
+    /// Returns the path of the source directory, throwing an error in case of an invalid layout (such as the presence of both `Sources` and `src` directories).
     func sourceRoot() throws -> AbsolutePath {
         let viableRoots = try fileSystem.getDirectoryContents(packagePath).filter { basename in
             let entry = packagePath.appending(component: basename)
@@ -234,48 +244,60 @@ public struct PackageBuilder {
         }
     }
 
-    /// Collects the modules which are defined by a package.
+    /// Private function that creates and returns a list of non-test Modules defined by a package.
     private func constructModules() throws -> [Module] {
+        
+        // Check for a modulemap file, which indicates a system module.
         let moduleMapPath = packagePath.appending(component: "module.modulemap")
         if fileSystem.isFile(moduleMapPath) {
+            // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
         }
 
+        // If everything is excluded, just return an empty array.
         if manifest.package.exclude.contains(".") {
             return []
         }
-
-        let srcroot = try sourceRoot()
-
-        if srcroot != packagePath {
+        
+        // Locate the source directory inside the package.
+        let srcDir = try sourceRoot()
+        
+        // If there is a source directory, we expect all source files to be located in it.
+        if srcDir != packagePath {
             let invalidRootFiles = try directoryContents(packagePath).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
             }
         }
-
-        let maybeModules = try directoryContents(srcroot).filter(shouldConsiderDirectory)
-
-        if maybeModules.count == 1 && maybeModules[0] != srcroot {
-            let invalidModuleFiles = try directoryContents(srcroot).filter(isValidSource)
+        
+        // Locate any directories that might be the roots of modules inside the source directory.
+        let potentialModulePaths = try directoryContents(srcDir).filter(shouldConsiderDirectory)
+        
+        // If there's a single module inside the source directory, make sure there are no loose source files in the sources directory.
+        if potentialModulePaths.count == 1 && potentialModulePaths[0] != srcDir {
+            let invalidModuleFiles = try directoryContents(srcDir).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
             }
         }
-
+        
+        // With preliminary checks done, we can start creating modules.
         let modules: [Module]
-        if maybeModules.isEmpty {
-            // If there are no sources subdirectories, we have at most a one target package.
+        if potentialModulePaths.isEmpty {
+            // There are no directories that look like modules, so try to create a module for the source directory itself (with the name coming from the name in the manifest).
             do {
-                modules = [try modulify(srcroot, name: manifest.name, isTest: false)]
-            } catch Module.Error.noSources {
+                modules = [try createModule(srcDir, name: manifest.name, isTest: false)]
+            }
+            catch Module.Error.noSources {
                 // Completely empty packages are allowed as a special case.
                 modules = []
             }
-        } else {
-            modules = try maybeModules.map { path in
-                try modulify(path, name: path.basename, isTest: false)
+        }
+        else {
+            // We have at least one directory that looks like a module, so we try to create a module for each one.
+            modules = try potentialModulePaths.map { path in
+                return try createModule(path, name: path.basename, isTest: false)
             }
         }
 
@@ -320,19 +342,26 @@ public struct PackageBuilder {
         return modules
     }
     
-    private func modulify(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
+    /// Private function that constructs a single Module object for the moduel at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
+    private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
+        // Find all the files under the module path.
         let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
         
+        // Select any source files for the C-based languages and for Swift.
         let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
         let swiftSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
         
-        if !cSources.isEmpty {
+        // Create and return the right kind of module depending on what kind of sources we found.
+        if cSources.isEmpty {
+            // No C sources, so we expect to have Swift sources, and we create a Swift module.
+            guard !swiftSources.isEmpty else { throw Module.Error.noSources(path.asString) }
+            return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
+        }
+        else {
+            // No Swift sources, so we expect to have C sources, and we create a C module.
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
             return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
         }
-        
-        guard !swiftSources.isEmpty else { throw Module.Error.noSources(path.asString) }
-        return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
     }
 
     /// Collects the products defined by a package.
@@ -416,7 +445,7 @@ public struct PackageBuilder {
 
         // Create the test modules
         let testModules = try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
-            return [try modulify(dir, name: dir.basename, isTest: true)]
+            return [try createModule(dir, name: dir.basename, isTest: true)]
         }
 
         // Populate the test module dependencies.
