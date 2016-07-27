@@ -746,7 +746,7 @@ class ConventionTests: XCTestCase {
 }
 
 // FIXME: These test Utilities can/should be moved to test-specific library when we start supporting them.
-private extension FileSystem {
+extension FileSystem {
     /// Create a file on the filesystem while recursively creating the parent directory tree.
     ///
     /// - Parameters:

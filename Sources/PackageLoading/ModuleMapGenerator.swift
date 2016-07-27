@@ -155,7 +155,7 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = path.appending(component: module.c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: module.name + ".h")
         if module.c99name != module.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            warningStream <<< "warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header"
+            warningStream <<< "warning: \(invalidUmbrellaHeader.asString) should be renamed to \(umbrellaHeader.asString) to be used as an umbrella header"
             warningStream.flush()
         }
     }
