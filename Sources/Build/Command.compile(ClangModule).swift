@@ -10,6 +10,7 @@
 
 import Basic
 import PackageModel
+import struct PackageLoading.ModuleMapGenerator
 import Utility
 import POSIX
 
@@ -116,7 +117,8 @@ extension Command {
         let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
         if module.type == .library {
-            try module.generateModuleMap(inDir: buildMeta.buildDirectory)
+            let moduleMapGenerator = ModuleMapGenerator(for: module)
+            try moduleMapGenerator.generateModuleMap(inDir: buildMeta.buildDirectory)
         }
         
         ///------------------------------ Compile -----------------------------------------
