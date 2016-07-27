@@ -58,9 +58,13 @@ public struct ModuleMapGenerator {
     /// The file system to be used.
     private var fileSystem: FileSystem
 
-    public init(for module: ClangModule, fileSystem: FileSystem = localFileSystem) {
+    /// Stream on which warnings will be emitted.
+    private let warningStream: OutputByteStream
+
+    public init(for module: ClangModule, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
         self.module = module
         self.fileSystem = fileSystem
+        self.warningStream = warningStream
     }
 
     /// A link-declaration specifies a library or framework
@@ -116,7 +120,8 @@ public struct ModuleMapGenerator {
         let includeDir = module.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {
-            print("warning: No include directory found for module '\(module.name)'. A library can not be imported without any public headers.")
+            warningStream <<< "warning: No include directory found for module '\(module.name)'. A library can not be imported without any public headers."
+            warningStream.flush()
             return
         }
         
@@ -150,7 +155,8 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = path.appending(component: module.c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: module.name + ".h")
         if module.c99name != module.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            print("warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
+            warningStream <<< "warning: \(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header"
+            warningStream.flush()
         }
     }
 
