@@ -24,7 +24,7 @@ private let dylib = "so"
 class ModuleMapsTestCase: XCTestCase {
 
     private func fixture(name: String, cModuleName: String, rootpkg: String, body: (AbsolutePath, [String]) throws -> Void) {
-        FunctionalTestSuite.fixture(name: name) { prefix in
+        FunctionalTests.fixture(name: name) { prefix in
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
             let outdir = prefix.appending(components: rootpkg, ".build", "debug")
             try makeDirectories(outdir)

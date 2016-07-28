@@ -1,9 +1,9 @@
 @import XCTest;
 
-@interface Objc: XCTestCase
+@interface ObjCTests: XCTestCase
 @end
 
-@implementation Objc
+@implementation ObjCTests
 
 - (void)testThisThing {
 }

@@ -49,7 +49,8 @@ public class Module: ModuleProtocol {
     // FIXME: This should probably be rolled into the type.
     public let isTest: Bool
     
-    private let testModuleNameSuffix = "TestSuite"
+    /// Suffix that's expected for test modules.
+    public static let testModuleNameSuffix = "Tests"
 
     /// The "type" of module.
     public let type: ModuleType
@@ -58,8 +59,7 @@ public class Module: ModuleProtocol {
     public let sources: Sources
 
     public init(name: String, type: ModuleType, sources: Sources, isTest: Bool = false) throws {
-        // Append TestSuite to name if its a test module.
-        self.name = name + (isTest ? testModuleNameSuffix : "")
+        self.name = name
         self.type = type
         self.sources = sources
         self.dependencies = []
@@ -79,8 +79,8 @@ public class Module: ModuleProtocol {
         guard isTest else {
             fatalError("\(self.dynamicType) should be a test module to access basename.")
         }
-        precondition(name.hasSuffix(testModuleNameSuffix))
-        return name[name.startIndex..<name.index(name.endIndex, offsetBy: -testModuleNameSuffix.characters.count)]
+        precondition(name.hasSuffix(Module.testModuleNameSuffix))
+        return name[name.startIndex..<name.index(name.endIndex, offsetBy: -Module.testModuleNameSuffix.characters.count)]
     }
 }
 

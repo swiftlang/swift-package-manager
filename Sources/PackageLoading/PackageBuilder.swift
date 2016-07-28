@@ -78,9 +78,25 @@ extension ModuleError.InvalidLayoutType: FixableError {
 }
 
 extension Module {
-    /// An error in the organization of an individual module.
+    
+    /// An error in the organization or configuration of an individual module.
     enum Error: Swift.Error {
+        
+        /// The module's name is invalid.
+        case invalidName(path: String, name: String, problem: ModuleNameProblem)
+        enum ModuleNameProblem {
+            /// Empty module name.
+            case emptyName
+            /// Test module doesn't have a "Tests" suffix.
+            case noTestSuffix
+            /// Non-test module does have a "Tests" suffix.
+            case hasTestSuffix
+        }
+        
+        /// The module contains no source code at all.
         case noSources(String)
+        
+        /// The module contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(String)
     }
 }
@@ -88,15 +104,19 @@ extension Module {
 extension Module.Error: FixableError {
     var error: String {
         switch self {
-        case .noSources(let path):
+          case .invalidName(let path, let name, let problem):
+            return "the module at \(path) has an invalid name ('\(name)'): \(problem.error)"
+          case .noSources(let path):
             return "the module at \(path) does not contain any source files"
-        case .mixedSources(let path):
+          case .mixedSources(let path):
             return "the module at \(path) contains mixed language source files"
         }
     }
 
     var fix: String? {
         switch self {
+        case .invalidName(_, _, let problem):
+            return "rename the module (\(problem.fix))"
         case .noSources(_):
             return "either remove the module folder, or add a source file to the module"
         case .mixedSources(_):
@@ -104,6 +124,30 @@ extension Module.Error: FixableError {
         }
     }
 }
+
+extension Module.Error.ModuleNameProblem : FixableError {
+    var error: String {
+        switch self {
+          case .emptyName:
+            return "the module name is empty"
+          case .noTestSuffix:
+            return "the name of a test module has no ‘Tests’ suffix"
+          case .hasTestSuffix:
+            return "the name of a non-test module has a ‘Tests’ suffix"
+        }
+    }
+    var fix: String? {
+        switch self {
+          case .emptyName:
+            return "give the module a name"
+          case .noTestSuffix:
+            return "add a ‘Tests’ suffix"
+          case .hasTestSuffix:
+            return "remove the ‘Tests’ suffix"
+        }
+    }
+}
+
 
 extension Product {
     /// An error in a product definition.
@@ -341,8 +385,26 @@ public struct PackageBuilder {
         return modules
     }
     
+    /// Private function that checks whether a module name is valid.  This method doesn't return anything, but rather, if there's a problem, it throws an error describing what the problem is.
+    // FIXME: We will eventually be loosening this restriction to allow test-only libraries etc
+    private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
+        if name.isEmpty {
+            throw Module.Error.invalidName(path: path.asString, name: name, problem: .emptyName)
+        }
+        if name.hasSuffix(Module.testModuleNameSuffix) && !isTest {
+            throw Module.Error.invalidName(path: path.asString, name: name, problem: .hasTestSuffix)
+        }
+        if !name.hasSuffix(Module.testModuleNameSuffix) && isTest {
+            throw Module.Error.invalidName(path: path.asString, name: name, problem: .noTestSuffix)
+        }
+    }
+    
     /// Private function that constructs a single Module object for the moduel at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
     private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
+        
+        // Validate the module name.  This function will throw an error if it detects a problem.
+        try validateModuleName(path, name, isTest: isTest)
+        
         // Find all the files under the module path.
         let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
         

@@ -20,7 +20,7 @@ class ShellTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
-        let path = AbsolutePath(#file).parentDirectory.parentDirectory.appending(components: "Get", "VersionGraphTests.swift")
+        let path = AbsolutePath(#file).parentDirectory.parentDirectory.appending(components: "GetTests", "VersionGraphTests.swift")
         XCTAssertGreaterThan(try! popen(["cat", path.asString]).characters.count, 4096)
     }
 
