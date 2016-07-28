@@ -296,7 +296,7 @@ public struct PackageBuilder {
         } else {
             // We have at least one directory that looks like a module, so we try to create a module for each one.
             modules = try potentialModulePaths.map { path in
-                return try createModule(path, name: path.basename, isTest: false)
+                try createModule(path, name: path.basename, isTest: false)
             }
         }
 
