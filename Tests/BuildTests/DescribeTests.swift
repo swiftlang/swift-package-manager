@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import Build
+@testable import Build
 import PackageDescription
 import PackageGraph
 import PackageModel
@@ -55,8 +55,17 @@ final class DescribeTests: XCTestCase {
         }
     }
 
+    func testClangModuleCanHaveSwiftDep() throws {
+        let clangModule = try ClangModule(name: "ClangModule", sources: Sources(paths: [], root: .root))
+        let swiftModule = try SwiftModule(name: "SwiftModule", sources: Sources(paths: [], root: .root))
+        clangModule.dependencies = [swiftModule]
+        let buildMeta = ClangModuleBuildMetadata(module: clangModule, prefix: .root, otherArgs: [])
+        XCTAssertEqual(buildMeta.inputs, ["<SwiftModule.module>"])
+    }
+
     static var allTests = [
         ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
         ("testDescribingCModuleThrows", testDescribingCModuleThrows),
+        ("testClangModuleCanHaveSwiftDep", testClangModuleCanHaveSwiftDep),
     ]
 }
