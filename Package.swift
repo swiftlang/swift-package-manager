@@ -101,7 +101,19 @@ let package = Package(
             dependencies: ["Commands"]),
         Target(
             /** Shim tool to find test names on OS X */
-            name: "swiftpm-xctest-helper"),
+            name: "swiftpm-xctest-helper",
+            dependencies: []),
+        Target(
+            /** FIXME: The Basic tests currently have a layering violation and a dependency on Utility for infrastructure. */
+            name: "BasicTests",
+            dependencies: ["Basic", "Utility"]),
+        Target(
+            name: "FunctionalTests",
+            dependencies: ["Basic", "Utility", "PackageModel"]),
+        Target(
+            /** FIXME: Turns out PackageLoadingTests violate encapsulation :( */
+            name: "PackageLoadingTests",
+            dependencies: ["Get", "PackageLoading"]),
     ])
 
 

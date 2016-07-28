@@ -214,6 +214,7 @@ public struct PackageBuilder {
         } else {
             testModules = []
         }
+        try fillDependencies(modules: modules + testModules)
         let products = try constructProducts(modules, testModules: testModules)
         return Package(manifest: manifest, path: packagePath, modules: modules, testModules: testModules, products: products)
     }
@@ -344,6 +345,12 @@ public struct PackageBuilder {
             }
         }
 
+        return modules
+    }
+
+    /// Fills the module dependencies delcared via targets in manifest.
+    private func fillDependencies(modules: [Module]) throws {
+
         // Create a map of modules indexed by name.
         var modulesByName = [String: Module]()
         for module in modules {
@@ -382,7 +389,15 @@ public struct PackageBuilder {
             throw ModuleError.modulesNotFound(missingModuleNames)
         }
 
-        return modules
+        // Normally, test modules are only dependent upon modules with
+        // the same basename. For example, a test module in
+        // 'Root/Tests/FooTests' is dependent upon 'Root/Sources/Foo'.
+        // Only do this if there is no explict dependency declared in manifest.
+        for module in modules where module.isTest && module.dependencies.isEmpty {
+            if let baseModule = modulesByName[module.basename] {
+                module.dependencies = [baseModule]
+            }
+        }
     }
     
     /// Private function that checks whether a module name is valid.  This method doesn't return anything, but rather, if there's a problem, it throws an error describing what the problem is.
@@ -504,57 +519,8 @@ public struct PackageBuilder {
         }
 
         // Create the test modules
-        let testModules = try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
+        return try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
             return [try createModule(dir, name: dir.basename, isTest: true)]
         }
-
-        // Populate the test module dependencies.
-        for case let testModule as SwiftModule in testModules {
-            // FIXME: This is very inefficient, we want a map on the modules.
-            if testModule.basename == "Basic" {
-                // FIXME: The Basic tests currently have a layering
-                // violation and a dependency on Utility for infrastructure.
-                testModule.dependencies = modules.filter{
-                    switch $0.name {
-                    case "Basic", "Utility":
-                        return true
-                    default:
-                        return false
-                    }
-                }
-            } else if testModule.basename == "Functional" {
-                // FIXME: swiftpm's own Functional tests module does not
-                //        follow the normal rules--there is no corresponding
-                //        'Sources/Functional' module to depend upon. For the
-                //        time being, assume test modules named 'Functional'
-                //        depend upon 'Utility', and hope that no users define
-                //        test modules named 'Functional'.
-                testModule.dependencies = modules.filter{
-                    switch $0.name {
-                    case "Basic", "Utility", "PackageModel":
-                        return true
-                    default:
-                        return false
-                    }
-                }
-            } else if testModule.basename == "PackageLoading" {
-                // FIXME: Turns out PackageLoadingTests violate encapsulation :(
-                testModule.dependencies = modules.filter{
-                    switch $0.name {
-                    case "Get", "PackageLoading":
-                        return true
-                    default:
-                        return false
-                    }
-                }
-            } else {
-                // Normally, test modules are only dependent upon modules with
-                // the same basename. For example, a test module in
-                // 'Root/Tests/Foo' is dependent upon 'Root/Sources/Foo'.
-                testModule.dependencies = modules.filter{ $0.name == testModule.basename }
-            }
-        }
-
-        return testModules
     }
 }
