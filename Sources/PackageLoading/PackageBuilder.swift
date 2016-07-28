@@ -115,8 +115,8 @@ extension Module.Error: FixableError {
 
     var fix: String? {
         switch self {
-        case .invalidName(_, _, let problem):
-            return "rename the module (\(problem.fix))"
+        case .invalidName(let path, _, let problem):
+            return "rename the module at ‘\(path)’\(problem.fix ?? "")"
         case .noSources(_):
             return "either remove the module folder, or add a source file to the module"
         case .mixedSources(_):
@@ -139,11 +139,11 @@ extension Module.Error.ModuleNameProblem : FixableError {
     var fix: String? {
         switch self {
           case .emptyName:
-            return "give the module a name"
+            return " to have a non-empty name"
           case .noTestSuffix:
-            return "add a ‘Tests’ suffix"
+            return " to have a ‘Tests’ suffix"
           case .hasTestSuffix:
-            return "remove the ‘Tests’ suffix"
+            return " to not have a ‘Tests’ suffix"
         }
     }
 }
@@ -389,13 +389,13 @@ public struct PackageBuilder {
     // FIXME: We will eventually be loosening this restriction to allow test-only libraries etc
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
-            throw Module.Error.invalidName(path: path.asString, name: name, problem: .emptyName)
+            throw Module.Error.invalidName(path: path.relative(to: packagePath).asString, name: name, problem: .emptyName)
         }
         if name.hasSuffix(Module.testModuleNameSuffix) && !isTest {
-            throw Module.Error.invalidName(path: path.asString, name: name, problem: .hasTestSuffix)
+            throw Module.Error.invalidName(path: path.relative(to: packagePath).asString, name: name, problem: .hasTestSuffix)
         }
         if !name.hasSuffix(Module.testModuleNameSuffix) && isTest {
-            throw Module.Error.invalidName(path: path.asString, name: name, problem: .noTestSuffix)
+            throw Module.Error.invalidName(path: path.relative(to: packagePath).asString, name: name, problem: .noTestSuffix)
         }
     }
     
