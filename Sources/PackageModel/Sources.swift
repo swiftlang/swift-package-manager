@@ -11,6 +11,7 @@
 import Basic
 import Utility
 
+/// A grouping of related source files.
 public struct Sources {
     public let relativePaths: [RelativePath]
     public let root: AbsolutePath
