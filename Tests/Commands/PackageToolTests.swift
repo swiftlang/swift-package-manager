@@ -33,7 +33,7 @@ final class PackageToolTests: XCTestCase {
 
             // Check that `fetch` works.
             _ = try execute(["fetch"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath).map{$0}, ["Foo-1.2.3"])
         }
     }
 
@@ -44,12 +44,12 @@ final class PackageToolTests: XCTestCase {
 
             // Perform an initial fetch.
             _ = try execute(["fetch"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath).map{$0}, ["Foo-1.2.3"])
 
             // Retag the dependency, and update.
             try tagGitRepo(prefix.appending(component: "Foo"), tag: "1.2.4")
             _ = try execute(["update"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.4"])
+            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath).map{$0}, ["Foo-1.2.4"])
         }
     }
 

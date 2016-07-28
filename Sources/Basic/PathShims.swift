@@ -168,7 +168,7 @@ public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem,
  Produced by `walk`.
  */
 public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
-    private var current: (path: AbsolutePath, iterator: IndexingIterator<[String]>)
+    private var current: (path: AbsolutePath, iterator: AnyIterator<String>)
     private var towalk = [AbsolutePath]()
 
     private let shouldRecurse: (AbsolutePath) -> Bool
@@ -176,7 +176,6 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     
     fileprivate init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: (AbsolutePath) -> Bool) throws {
         self.fileSystem = fileSystem
-        // FIXME: getDirectoryContents should have an iterator version.
         current = (path, try fileSystem.getDirectoryContents(path).makeIterator())
         shouldRecurse = recursionFilter
     }
