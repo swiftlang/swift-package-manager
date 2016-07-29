@@ -3,7 +3,7 @@
 ## Table of Contents
 
 * [Overview](README.md)
-* [**Using Swift Package Manager**](UsingSwiftPackageManager.md)
+* [**Usage**](UsingSwiftPackageManager.md)
   * [Create a Module](#create-a-module)
   * [Create a Library](#create-a-library)
   * [Define Dependencies](#define-dependencies)
