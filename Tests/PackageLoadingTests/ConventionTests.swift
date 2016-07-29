@@ -784,6 +784,8 @@ class ConventionTests: XCTestCase {
         ("testValidSources", testValidSources),
         ("testExcludes", testExcludes),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
+        ("testTestTargetDependencies", testTestTargetDependencies),
+        ("testInvalidTestTargets", testInvalidTestTargets),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
