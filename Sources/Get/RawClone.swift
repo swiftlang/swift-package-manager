@@ -47,7 +47,7 @@ class RawClone: Fetchable {
     }
     private var _manifest: Manifest?
 
-    init(path: AbsolutePath, manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws {
+    init(path: AbsolutePath, manifestParser: @escaping (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
