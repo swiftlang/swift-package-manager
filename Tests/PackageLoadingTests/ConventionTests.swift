@@ -509,6 +509,51 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testTestTargetDependencies() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo/source.swift",
+                                "/Sources/Bar/source.swift",
+                                "/Tests/FooTests/source.swift"
+                                )
+
+        let package = PackageDescription.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "source.swift")
+            }
+
+            result.checkModule("Bar") { moduleResult in
+                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Bar", paths: "source.swift")
+            }
+
+            result.checkModule("FooTests") { moduleResult in
+                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/FooTests", paths: "source.swift")
+                moduleResult.check(dependencies: ["Bar"])
+                moduleResult.check(recursiveDependencies: ["Bar"])
+            }
+        }
+    }
+
+    func testInvalidTestTargets() throws {
+        // Test module in Sources/
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/FooTests/source.swift")
+        PackageBuilderTester("TestsInSources", in: fs) { result in
+            result.checkDiagnostic("the module at Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test module has a ‘Tests’ suffix fix: rename the module at ‘Sources/FooTests’ to not have a ‘Tests’ suffix")
+        }
+
+        // Normal module in Tests/
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/main.swift",
+                                "/Tests/Foo/source.swift")
+        PackageBuilderTester("TestsInSources", in: fs) { result in
+            result.checkDiagnostic("the module at Tests/Foo has an invalid name (\'Foo\'): the name of a test module has no ‘Tests’ suffix fix: rename the module at ‘Tests/Foo’ to have a ‘Tests’ suffix")
+        }
+    }
+
     func testManifestTargetDeclErrors() throws {
         // Reference a target which doesn't exist.
         var fs = InMemoryFileSystem()
