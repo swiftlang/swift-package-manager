@@ -2,7 +2,7 @@
 
 ## Table of Contents
 
-* [Overview](../#README.md)
+* [Overview](README.md)
 * [Usage](UsingSwiftPackageManager.md)
 * [**Reference**](Reference.md)
   * [Module Format Reference](#module-format-reference)

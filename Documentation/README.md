@@ -8,7 +8,7 @@ We’ve designed the system to make it really easy to share packages on services
 
 ## Table of Contents
 
-* [**Overview**](#README.md)
+* [**Overview**](README.md)
   * [About Packages](#about-packages)
   * [About Modules](#about-modules)
     * [Building Swift Modules](#building-swift-modules)

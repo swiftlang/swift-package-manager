@@ -2,7 +2,7 @@
 
 ## Table of Contents
 
-* [Overview](../README.md)
+* [Overview](README.md)
 * [**Using Swift Package Manager**](UsingSwiftPackageManager.md)
   * [Create a Module](#create-a-module)
   * [Create a Library](#create-a-library)
@@ -18,13 +18,19 @@
 
 ## Create a Module
 
+*Content to come.*
+
 ---
 
 ## Create a Library
 
+*Content to come.*
+
 ---
 
 ## Define Dependencies
+
+*Content to come.*
 
 ---
 
@@ -250,6 +256,8 @@ For example, `libarchive` optionally depends on `xz`, which means it can be comp
 
 ## Build an Executable
 
+*Content to come.*
+
 ---
 
 ## Create a Package
@@ -314,3 +322,4 @@ import Foundation
 
 ## Distribute a Package
 
+*Content to come.*
