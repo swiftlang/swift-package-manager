@@ -65,6 +65,8 @@ struct ClangModuleBuildMetadata {
                 return product.targetName
             case let module as CModule:
                 return module.targetName
+            case let module as SwiftModule:
+                return module.targetName
             default:
                 fatalError("ClangModule \(self.module) can't have \(module) as a dependency.")
             }
