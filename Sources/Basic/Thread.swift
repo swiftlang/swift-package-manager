@@ -26,7 +26,7 @@ final public class Thread {
     private var finished: Bool
 
     /// Creates an instance of thread class with closure to be executed when start() is called.
-    public init(task: () -> Void) {
+    public init(task: @escaping () -> Void) {
         finished = false
         finishedCondition = NSCondition()
 

@@ -160,7 +160,7 @@ public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem,
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
  */
-public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursing: (AbsolutePath) -> Bool) throws -> RecursibleDirectoryContentsGenerator {
+public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursing: @escaping (AbsolutePath) -> Bool) throws -> RecursibleDirectoryContentsGenerator {
     return try RecursibleDirectoryContentsGenerator(path: path, fileSystem: fileSystem, recursionFilter: recursing)
 }
 
@@ -174,7 +174,7 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
     private let shouldRecurse: (AbsolutePath) -> Bool
     private let fileSystem: FileSystem
     
-    fileprivate init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: (AbsolutePath) -> Bool) throws {
+    fileprivate init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: @escaping (AbsolutePath) -> Bool) throws {
         self.fileSystem = fileSystem
         // FIXME: getDirectoryContents should have an iterator version.
         current = (path, try fileSystem.getDirectoryContents(path).makeIterator())
