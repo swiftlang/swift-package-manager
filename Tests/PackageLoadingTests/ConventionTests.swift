@@ -835,7 +835,7 @@ final class PackageBuilderTester {
             // FIXME: Find a better way. Maybe Package can keep array of warnings.
             uncheckedDiagnostics = Set(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
         } catch {
-            let errorStr = String(error)
+            let errorStr = String(describing: error)
             result = .error(errorStr)
             uncheckedDiagnostics.insert(errorStr)
         }

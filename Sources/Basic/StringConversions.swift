@@ -54,7 +54,7 @@ public extension String {
         }
 
         // Otherwise iterate and escape all the single quotes.
-        var newString = "'" + String(utf8[utf8.startIndex..<singleQuotePos])
+        var newString = "'" + String(utf8[utf8.startIndex..<singleQuotePos])!
 
         for char in utf8[singleQuotePos..<utf8.endIndex] {
             if char == UInt8(ascii: "'") {
