@@ -6,11 +6,11 @@
 * [Usage](UsingSwiftPackageManager.md)
 * [Reference](Reference.md)
 * [**Resources**](Resources.md)
-** [Known Issues](#known-issues)
-** [Future Plans](#future-plans)
-** [Support](#support)
-** [Reporting Bugs](#reporting-bugs)
-** [Community Proposal](#community-proposal)
+  * [Known Issues](#known-issues)
+  * [Future Plans](#future-plans)
+  * [Support](#support)
+  * [Reporting Bugs](#reporting-bugs)
+  * [Community Proposal](#community-proposal)
 
 ---
 

@@ -5,12 +5,12 @@
 * [Overview](../#README.md)
 * [Usage](UsingSwiftPackageManager.md)
 * [**Reference**](Reference.md)
-** [Module Format Reference](#module-format-reference)
-*** [Source Layouts](#source-layouts)
-*** [Other Rules](#other-rules)
-** [Package Manifest File Format Reference](#package-manifest-file-format-reference)
-*** [Customizing Builds](#customizing-builds)
-*** [Depending on Apple Modules](#depending-on-apple-modules)
+  * [Module Format Reference](#module-format-reference)
+    * [Source Layouts](#source-layouts)
+    * [Other Rules](#other-rules)
+  * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
+    * [Customizing Builds](#customizing-builds)
+    * [Depending on Apple Modules](#depending-on-apple-modules)
 * [Resources](Resources.md)
 
 ---
