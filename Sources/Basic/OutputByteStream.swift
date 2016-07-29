@@ -484,7 +484,7 @@ public struct Format {
     /// Write the input list (after applying a transform to each item) encoded as a JSON object.
     //
     // FIXME: We might be able to make this more generic through the use of a "JSONEncodable" protocol.
-    static public func asJSON<T>(_ items: [T], transform: (T) -> String) -> ByteStreamable {
+    static public func asJSON<T>(_ items: [T], transform: @escaping (T) -> String) -> ByteStreamable {
         return JSONEscapedTransformedStringListStreamable(items: items, transform: transform)
     }
 
@@ -494,7 +494,7 @@ public struct Format {
     }
 
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between items.
-    static public func asSeparatedList<T>(_ items: [T], transform: (T) -> ByteStreamable, separator: String) -> ByteStreamable {
+    static public func asSeparatedList<T>(_ items: [T], transform: @escaping (T) -> ByteStreamable, separator: String) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
     }
 }
