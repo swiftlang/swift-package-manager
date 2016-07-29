@@ -76,7 +76,7 @@ final private class ThreadImpl: Foundation.Thread {
         task()
     }
 
-    init(_ task: () -> Void) {
+    init(_ task: @escaping () -> Void) {
         self.task = task
     }
 }
