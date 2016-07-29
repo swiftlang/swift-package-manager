@@ -9,15 +9,15 @@ We’ve designed the system to make it really easy to share packages on services
 ## Table of Contents
 
 * [**Overview**](#README.md)
-** [About Packages](#about-packages)
-** [About Modules](#about-modules)
-*** [Building Swift Modules](#building-swift-modules)
-** [About Products](#about-products)
-** [About Dependencies](#about#dependencies)
-*** [Dependency Hell](#dependency-hell)
-* [Usage](Documentation/UsingSwiftPackageManager.md)
-* [Reference](Documentation/Reference.md)
-* [Resources](Documentation/Resources.md)
+  * [About Packages](#about-packages)
+  * [About Modules](#about-modules)
+    * [Building Swift Modules](#building-swift-modules)
+  * [About Products](#about-products)
+  * [About Dependencies](#about#dependencies)
+    * [Dependency Hell](#dependency-hell)
+* [Usage](UsingSwiftPackageManager.md)
+* [Reference](Reference.md)
+* [Resources](Resources.md)
 
 ---
 
