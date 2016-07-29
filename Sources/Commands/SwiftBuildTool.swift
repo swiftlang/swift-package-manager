@@ -32,7 +32,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case version
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())

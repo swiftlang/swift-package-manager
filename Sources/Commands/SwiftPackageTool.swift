@@ -37,7 +37,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case version
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "dump-package":
             self = .dumpPackage
