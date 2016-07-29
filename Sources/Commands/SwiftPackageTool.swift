@@ -89,7 +89,7 @@ private enum PackageToolFlag: Argument {
     case ignoreDependencies
     case verbose(Int)
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
 
         func forcePop() throws -> String {
             guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
