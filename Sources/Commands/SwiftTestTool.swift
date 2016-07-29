@@ -46,7 +46,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case listTests
     case run(String?)
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--help", "-h":
             self = .usage

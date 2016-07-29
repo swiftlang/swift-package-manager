@@ -141,7 +141,7 @@ class OptionParserTests: XCTestCase {
 enum Mode: String, Argument {
     case A, B, C
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--A":
             self = .A
@@ -158,7 +158,7 @@ enum Mode: String, Argument {
 enum Flag: Argument, Equatable {
     case D, E, F(String), G(Int), H, I, J, K(String)
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--D":
             self = .D
