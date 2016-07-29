@@ -9,10 +9,9 @@
 */
 
 import XCTest
-import POSIX
-import Basic
-import Utility
 
+import Basic
+import POSIX
 
 class PathTests: XCTestCase {
     

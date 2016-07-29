@@ -83,6 +83,7 @@ let package = Package(
             dependencies: ["Basic", "PackageGraph"]),
 
         // MARK: Commands
+        
         Target(
             /** High-level commands */
             name: "Commands",
@@ -103,17 +104,12 @@ let package = Package(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: []),
-        Target(
-            /** FIXME: The Basic tests currently have a layering violation and a dependency on Utility for infrastructure. */
-            name: "BasicTests",
-            dependencies: ["Basic", "Utility"]),
+
+        // MARK: Additional Test Dependencies
+        
         Target(
             name: "FunctionalTests",
             dependencies: ["Basic", "Utility", "PackageModel"]),
-        Target(
-            /** FIXME: Turns out PackageLoadingTests violate encapsulation :( */
-            name: "PackageLoadingTests",
-            dependencies: ["Get", "PackageLoading"]),
     ])
 
 

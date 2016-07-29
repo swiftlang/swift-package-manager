@@ -9,9 +9,10 @@
 */
 
 import XCTest
-import Utility
-import Basic
+
 import class Foundation.FileManager
+
+import Basic
 
 class TemporaryFileTests: XCTestCase {
     func testBasicReadWrite() throws {

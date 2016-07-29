@@ -11,7 +11,6 @@
 import XCTest
 
 import Basic
-import Utility
 
 typealias Thread = Basic.Thread
 

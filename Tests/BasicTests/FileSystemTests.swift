@@ -12,7 +12,6 @@ import XCTest
 
 import Basic
 import POSIX
-import Utility
 
 func XCTAssertThrows<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
     do {

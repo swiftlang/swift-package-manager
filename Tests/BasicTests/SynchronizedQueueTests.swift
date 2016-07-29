@@ -12,7 +12,6 @@ import Foundation
 import XCTest
 
 import Basic
-import Utility
 
 class SyncronizedQueueTests: XCTestCase {
 

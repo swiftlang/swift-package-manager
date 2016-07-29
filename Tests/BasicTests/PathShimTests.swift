@@ -13,7 +13,6 @@ import XCTest
 
 import Basic
 import POSIX
-import Utility
 
 class PathShimTests : XCTestCase {
 
