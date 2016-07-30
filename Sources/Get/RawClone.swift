@@ -22,7 +22,7 @@ import struct PackageDescription.Version
 /// we finalize these clones into the `PackagesDirectory`.
 class RawClone: Fetchable {
     let path: AbsolutePath
-    let manifestParser: (path: AbsolutePath, url: String, version: Version?) throws -> Manifest
+    let manifestParser: (_ path: AbsolutePath, _ url: String, _ version: Version?) throws -> Manifest
 
     private func getRepositoryVersion() -> Version? {
         var branch = repo.branch!
@@ -41,13 +41,13 @@ class RawClone: Fetchable {
         if let manifest = _manifest {
             return manifest
         } else {
-            _manifest = try? manifestParser(path: path, url: repo.origin!, version: getRepositoryVersion())
+            _manifest = try? manifestParser(path, repo.origin!, getRepositoryVersion())
             return _manifest
         }
     }
     private var _manifest: Manifest?
 
-    init(path: AbsolutePath, manifestParser: @escaping (path: AbsolutePath, url: String, version: Version?) throws -> Manifest) throws {
+    init(path: AbsolutePath, manifestParser: @escaping (_ path: AbsolutePath, _ url: String, _ version: Version?) throws -> Manifest) throws {
         self.path = path
         self.manifestParser = manifestParser
         if !repo.hasVersion {
