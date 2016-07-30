@@ -10,6 +10,58 @@
 
 import struct PackageDescription.Version
 
+/// An abstract definition for a set of versions.
+public enum VersionSetSpecifier: Equatable {
+    /// The empty set.
+    case empty
+
+    /// A non-empty range of version.
+    case range(Range<Version>)
+
+    /// Compute the intersection of two set specifiers.
+    public func intersection(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
+        switch (self, rhs) {
+        case (.empty, _):
+            return .empty
+        case (_, .empty):
+            return .empty
+        case (.range(let lhs), .range(let rhs)):
+            let start = Swift.max(lhs.lowerBound, rhs.lowerBound)
+            let end = Swift.min(lhs.upperBound, rhs.upperBound)
+            if start < end {
+                return .range(start..<end)
+            } else {
+                return .empty
+            }
+        default:
+            // FIXME: Compiler should be able to prove this? https://bugs.swift.org/browse/SR-2221
+            fatalError("not reachable")
+        }
+    }
+
+    /// Check if the set contains a version.
+    public func contains(_ version: Version) -> Bool {
+        switch self {
+        case .empty:
+            return false
+        case .range(let range):
+            return range.contains(version)
+        }
+    }
+}
+public func ==(_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
+    switch (lhs, rhs) {
+    case (.empty, .empty):
+        return true
+    case (.empty, _):
+        return false
+    case (.range(let lhs), .range(let rhs)):
+        return lhs == rhs
+    case (.range, _):
+        return false
+    }
+}
+
 /// An identifier which unambiguously references a package container.
 ///
 /// This identifier is used to abstractly refer to another container when
@@ -68,17 +120,16 @@ public protocol PackageContainerProvider {
 /// An individual constraint onto a container.
 public struct PackageContainerConstraint<T> where T: PackageContainerIdentifier {
     public typealias Identifier = T
-    public typealias VersionRequirement = Range<Version>
 
     /// The identifier for the container the constraint is on.
     public let identifier: Identifier
 
     /// The version requirements.
-    public let versionRequirement: VersionRequirement
+    public let versionRequirement: VersionSetSpecifier
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(container identifier: Identifier, versionRequirement: VersionRequirement) {
+    public init(container identifier: Identifier, versionRequirement: VersionSetSpecifier) {
         self.identifier = identifier
         self.versionRequirement = versionRequirement
     }

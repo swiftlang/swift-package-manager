@@ -10,9 +10,9 @@
 
 import XCTest
 
-import struct PackageDescription.Version
 import PackageGraph
 
+import struct PackageDescription.Version
 extension Version: Hashable {
     public var hashValue: Int {
         let mul: UInt64 = 0x9ddfea08eb382d69
@@ -41,7 +41,7 @@ private struct MockPackageContainer: PackageContainer {
 
     let name: Identifier
 
-    let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: Range<Version>)]]
+    let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
 
     var versions: [Version] {
         return dependenciesByVersion.keys.sorted().reversed()
@@ -73,7 +73,7 @@ private class MockResolverDelegate: DependencyResolverDelegate {
     typealias Identifier = MockPackageContainer.Identifier
 
     var messages = [String]()
-    
+
     func added(container identifier: Identifier) {
         messages.append("added container: \(identifier)")
     }
@@ -83,8 +83,8 @@ class DependencyResolverTests: XCTestCase {
     func testBasics() throws {
         let v1: Version = "1.0.0"
         let v2: Version = "2.0.0"
-        let v1Range: Range<Version> = v1..<v2
-        
+        let v1Range: VersionSetSpecifier = .range(v1..<v2)
+
         // Check that a trivial example resolves the closure.
         let provider = MockPackagesProvider(containers: [
                 MockPackageContainer(name: "A", dependenciesByVersion: [
@@ -107,7 +107,30 @@ class DependencyResolverTests: XCTestCase {
                 "added container: C"])
     }
 
+    func testVersionSetSpecifier() {
+        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+        let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
+        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+        let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
+        let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
+        let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
+        let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
+
+        // Check `contains`.
+        XCTAssert(v1Range.contains("1.1.0"))
+        XCTAssert(!v1Range.contains("2.0.0"))
+
+        // Check `intersection`.
+        XCTAssert(v1Range.intersection(v1_1Range) == v1_1Range)
+        XCTAssert(v1Range.intersection(v1_1_0Range) == v1_1_0Range)
+        XCTAssert(v1Range.intersection(v2Range) == .empty)
+        XCTAssert(v1Range.intersection(v2_0_0Range) == .empty)
+        XCTAssert(v1Range.intersection(v1_1Range) == v1_1Range)
+        XCTAssert(v1_to_3Range.intersection(v2_to_4Range) == .range("2.0.0" ..< "3.0.0"))
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testVersionSetSpecifier", testVersionSetSpecifier),
     ]
 }
