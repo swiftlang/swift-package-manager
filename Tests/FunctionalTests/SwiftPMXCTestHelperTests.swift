@@ -27,14 +27,14 @@ class SwiftPMXCTestHelperTests: XCTestCase {
                 "tests": [
                 [
                 "name": "ObjCTests",
-                "tests": [["name": "test_example"], ["name": "testThisThing"]]
+                "tests": [["name": "test_example"], ["name": "testThisThing"]] as Array<Dictionary<String, String>>
                 ],
                 [
                 "name": "SwiftPMXCTestHelperTests.SwiftPMXCTestHelperTests1",
-                "tests": [["name": "test_Example2"], ["name": "testExample1"]]
+                "tests": [["name": "test_Example2"], ["name": "testExample1"]] as Array<Dictionary<String, String>>
                 ]
-              ]]]
-            ] as NSDictionary
+              ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
+            ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
             XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelperTests.xctest"), testCases: testCases)
         }

@@ -80,7 +80,7 @@ func run() throws {
         throw Error.couldNotOpenOutputFile(outputFile)
     }
     // Create output dictionary.
-    let output = ["name": "All Tests", "tests": testCases as NSArray] as NSDictionary
+    let output = ["name" as NSString: "All Tests" as NSString, "tests" as NSString: testCases as NSArray] as NSDictionary
     // Convert output dictionary to JSON and write to output file.
     let outputData = try JSONSerialization.data(withJSONObject: output, options: .prettyPrinted)
     file.write(outputData)
