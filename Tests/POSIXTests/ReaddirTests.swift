@@ -12,6 +12,12 @@ import XCTest
 
 import POSIX
 
+extension MemoryLayout {
+  fileprivate static func ofInstance(_: @autoclosure () -> T) -> MemoryLayout<T>.Type {
+    return MemoryLayout<T>.self
+  }
+}
+
 class ReaddirTests: XCTestCase {
     func testName() {
         do {
@@ -38,7 +44,7 @@ class ReaddirTests: XCTestCase {
         
         do {
             var s = dirent()
-            let n = sizeof(s.d_name.dynamicType)
+            let n = MemoryLayout.ofInstance(s.d_name).size
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
                 let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
                 for i in 0 ..< n {
