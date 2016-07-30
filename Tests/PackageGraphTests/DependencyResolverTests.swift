@@ -13,6 +13,10 @@ import XCTest
 import PackageGraph
 
 import struct PackageDescription.Version
+
+// FIXME: We have no @testable way to import generic structures.
+@testable import PackageGraph
+
 extension Version: Hashable {
     public var hashValue: Int {
         let mul: UInt64 = 0x9ddfea08eb382d69
@@ -42,6 +46,10 @@ private struct MockPackageContainer: PackageContainer {
     let name: Identifier
 
     let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+
+    var identifier: Identifier {
+        return name
+    }
 
     var versions: [Version] {
         return dependenciesByVersion.keys.sorted().reversed()
@@ -129,8 +137,62 @@ class DependencyResolverTests: XCTestCase {
         XCTAssert(v1_to_3Range.intersection(v2_to_4Range) == .range("2.0.0" ..< "3.0.0"))
     }
 
+    func testVersionAssignment() {
+        let v1: Version = "1.0.0"
+        let v2: Version = "2.0.0"
+        let v1Range: VersionSetSpecifier = .range(v1 ..< v2)
+        let v1_1Range: VersionSetSpecifier = .range(v1 ..< "1.1.0")
+
+        // Check basics.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [(container: "B", versionRequirement: v1Range)],
+                    v2: [(container: "C", versionRequirement: v1_1Range)],
+                ])
+            let b = MockPackageContainer(name: "B", dependenciesByVersion: [
+                    v1: [(container: "C", versionRequirement: v1Range)]])
+
+            var assignment = VersionAssignment<MockPackageContainer>()
+            XCTAssertEqual(assignment.constraints, [:])
+            XCTAssert(assignment.isValid(binding: .version(v2), for: b))
+
+            // Add an assignment and check the constraints.
+            assignment[a] = .version(v1)
+            XCTAssertEqual(assignment.constraints, ["B": v1Range])
+            XCTAssert(assignment.isValid(binding: .version(v1), for: b))
+            XCTAssert(!assignment.isValid(binding: .version(v2), for: b))
+
+            // Check another assignment.
+            assignment[b] = .version(v1)
+            XCTAssertEqual(assignment.constraints, ["B": v1Range, "C": v1Range])
+
+            // Check excluding 'A'.
+            assignment[a] = .excluded
+            XCTAssertEqual(assignment.constraints, ["C": v1Range])
+
+            // Check bringing back 'A' at a different version, which has only a
+            // more restrictive 'C' dependency.
+            assignment[a] = .version(v2)
+            XCTAssertEqual(assignment.constraints, ["C": v1_1Range])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
+        ("testVersionAssignment", testVersionAssignment),
     ]
+}
+
+private func ==(_ lhs: [String: VersionSetSpecifier], _ rhs: [String: VersionSetSpecifier]) -> Bool {
+    if lhs.count != rhs.count {
+        return false
+    }
+    for (key, lhsSet) in lhs {
+        guard let rhsSet = rhs[key] else { return false }
+        if lhsSet != rhsSet {
+            return false
+        }
+    }
+    return true
 }

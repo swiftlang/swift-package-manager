@@ -91,6 +91,9 @@ public protocol PackageContainer {
     /// The type of packages contained.
     associatedtype Identifier: PackageContainerIdentifier
 
+    /// The identifier for the package.
+    var identifier: Identifier { get }
+
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version last.
@@ -141,6 +144,116 @@ public protocol DependencyResolverDelegate {
 
     /// Called when a new container is being considered.
     func added(container identifier: Identifier)
+}
+
+/// A bound version for a package within an assignment.
+//
+// FIXME: This should be nested, but cannot be currently.
+enum BoundVersion {
+    /// The assignment should not include the package.
+    ///
+    /// This is different from the absence of an assignment for a particular
+    /// package, which only indicates the assignment is agnostic to its
+    /// version. This value signifies the package *may not* be present.
+    case excluded
+
+    /// The version of the package to include.
+    case version(Version)
+}
+
+/// An assignment of versions for a set of packages.
+///
+/// This is intended to be an efficient data structure for accumulating a set of
+/// version assignments along with efficient access to the derived information
+/// about the assignment (for example, the unified set of constraints it
+/// induces).
+//
+// FIXME: Actually make efficient.
+struct VersionAssignment<C> where C: PackageContainer {
+    typealias Container = C
+    typealias Identifier = Container.Identifier
+
+    /// The assignment records.
+    //
+    // FIXME: Does it really make sense to key on the identifier here. Should we
+    // require referential equality of containers and use that to simplify?
+    private var assignments: [Identifier: (container: Container, binding: BoundVersion)]
+
+    /// Create an empty assignment.
+    init() {
+        assignments = [:]
+    }
+
+    /// The assignment for the given `container`.
+    subscript(container: Container) -> BoundVersion? {
+        get {
+            return assignments[container.identifier]?.binding
+        }
+        set {
+            // We disallow deletion.
+            let newBinding = newValue!
+
+            // Validate this is a valid assignment.
+            assert(isValid(binding: newBinding, for: container))
+
+            assignments[container.identifier] = (container: container, binding: newBinding)
+        }
+    }
+
+    /// The combined version constraints induced by the assignment.
+    ///
+    /// This consists of the merged constraints which need to be satisfied on
+    /// each package as a result of the versions selected in the assignment.
+    //
+    // FIXME: We need to cache this.
+    var constraints: [Identifier: VersionSetSpecifier] {
+        // Collect all of the constraints.
+        var result = [Identifier: VersionSetSpecifier]()
+        for (_, (container: container, binding: binding)) in assignments {
+            switch binding {
+            case .excluded:
+                // If the package is excluded, it doesn't contribute.
+                continue
+
+            case .version(let version):
+                // If we have a version, add the constraints from that package version.
+                //
+                // FIXME: We should cache this too, possibly at a layer
+                // different than above (like the entry record).
+                for constraint in container.getDependencies(at: version) {
+                    // Merge in the constraint.
+                    let i = constraint.identifier
+                    if let existing = result[i] {
+                        result[i] = existing.intersection(constraint.versionRequirement)
+                    } else {
+                        result[i] = constraint.versionRequirement
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    /// Check if the given `binding` for `container` is valid within the assignment.
+    //
+    // FIXME: This is currently very inefficient.
+    func isValid(binding: BoundVersion, for container: Container) -> Bool {
+        switch binding {
+        case .excluded:
+            // A package can be excluded if there are no constraints on the
+            // package (it has not been requested by any other package in the
+            // assignment).
+            return constraints[container.identifier] == nil
+
+        case .version(let version):
+            // A version is valid if it is contained in the constraints, or there are no constraints.
+            if let versionSet = constraints[container.identifier] {
+                return versionSet.contains(version)
+            } else {
+                return true
+            }
+        }
+    }
 }
 
 /// A general purpose package dependency resolver.
@@ -196,7 +309,7 @@ public class DependencyResolver<
     public typealias Delegate = D
     public typealias Container = Provider.Container
     public typealias Identifier = Container.Identifier
-    
+
     /// The type of the constraints the resolver operates on.
     ///
     /// Technically this is a container constraint, but that is currently the
@@ -288,7 +401,7 @@ public class DependencyResolver<
 
         // Inform the delegate we are considering a new container.
         delegate.added(container: identifier)
-        
+
         return container
     }
 }
