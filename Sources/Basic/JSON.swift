@@ -160,7 +160,7 @@ enum JSONDecodingError: Swift.Error {
 // This allows the code to be portable, and expose a portable API, but it is not
 // very efficient.
 
-private let nsBooleanType = NSNumber(value: false).dynamicType
+private let nsBooleanType = type(of: NSNumber(value: false))
 extension JSON {
     private static func convertToJSON(_ object: Any) -> JSON {
         switch object {
@@ -173,7 +173,7 @@ extension JSON {
             // Check if this is a boolean.
             //
             // FIXME: This is all rather unfortunate and expensive.
-            if value.dynamicType === nsBooleanType {
+            if type(of: value) === nsBooleanType {
                 return .bool(value != 0)
             }
 
@@ -214,7 +214,7 @@ extension JSON {
             return .dictionary(result)
 
         default:
-            fatalError("unexpected object: \(object) \(object.dynamicType)")
+            fatalError("unexpected object: \(object) \(type(of: object))")
         }
     }
     

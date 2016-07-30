@@ -77,7 +77,7 @@ public class Module: ModuleProtocol {
     /// The base prefix for the test module, used to associate with the target it tests.
     public var basename: String {
         guard isTest else {
-            fatalError("\(self.dynamicType) should be a test module to access basename.")
+            fatalError("\(type(of: self)) should be a test module to access basename.")
         }
         precondition(name.hasSuffix(Module.testModuleNameSuffix))
         return name[name.startIndex..<name.index(name.endIndex, offsetBy: -Module.testModuleNameSuffix.characters.count)]
@@ -139,6 +139,6 @@ public class ClangModule: Module {
 
 extension Module: CustomStringConvertible {
     public var description: String {
-        return "\(self.dynamicType)(\(name))"
+        return "\(type(of: self))(\(name))"
     }
 }

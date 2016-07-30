@@ -256,6 +256,6 @@ public class CheckoutManager {
 
 extension CheckoutManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
-        return "<\(self.dynamicType) subpath:\(subpath.asString)>"
+        return "<\(type(of: self)) subpath:\(subpath.asString)>"
     }
 }
