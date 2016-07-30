@@ -38,7 +38,7 @@ class ReaddirTests: XCTestCase {
         
         do {
             var s = dirent()
-            let n = sizeof(s.d_name.dynamicType)
+            let n = sizeof(type(of: s.d_name))
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
                 let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
                 for i in 0 ..< n {

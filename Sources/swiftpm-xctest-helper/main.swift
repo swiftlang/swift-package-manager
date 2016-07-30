@@ -49,7 +49,7 @@ func run() throws {
             // otherwise use the name property (which only gives subclass name).
             let name: String
             if let firstTest = testCaseSuite.tests.first {
-                name = String(reflecting: firstTest.dynamicType)
+                name = String(reflecting: type(of: firstTest))
             } else {
                 name = testCaseSuite.name ?? "nil"
             }
