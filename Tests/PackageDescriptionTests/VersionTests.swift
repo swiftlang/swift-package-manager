@@ -29,6 +29,18 @@ class VersionTests: XCTestCase {
         XCTAssertEqual(Version(-1, -2, -3), Version(0,0,0))
     }
 
+    func testHashable() {
+        XCTAssertEqual(Set([Version(1,2,3)]), Set([Version(1,2,3)]))
+        XCTAssertEqual(
+            Set([Version(1,2,3, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011")]),
+            Set([Version(1,2,3, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011")]))
+        XCTAssertEqual(
+            Set((1...4).map{ Version($0,0,0) }),
+            Set((1...4).map{ Version($0,0,0) }))
+        XCTAssertNotEqual(Set([Version(1,2,3)]), Set([Version(1,2,3, prereleaseIdentifiers: ["alpha"])]))
+        XCTAssertNotEqual(Set([Version(1,2,3)]), Set([Version(1,2,3, buildMetadataIdentifier: "1011")]))
+    }
+
     func testComparable() {
         do {
             let v1 = Version(1,2,3)

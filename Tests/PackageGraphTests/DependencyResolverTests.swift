@@ -17,21 +17,6 @@ import struct PackageDescription.Version
 // FIXME: We have no @testable way to import generic structures.
 @testable import PackageGraph
 
-extension Version: Hashable {
-    public var hashValue: Int {
-        let mul: UInt64 = 0x9ddfea08eb382d69
-        var result: UInt64 = 0
-        result = (result &* mul) ^ UInt64(major.hashValue)
-        result = (result &* mul) ^ UInt64(minor.hashValue)
-        result = (result &* mul) ^ UInt64(patch.hashValue)
-        result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64($1.hashValue) })
-        if let build = buildMetadataIdentifier {
-            result = (result &* mul) ^ UInt64(build.hashValue)
-        }
-        return Int(result)
-    }
-}
-
 extension String: PackageContainerIdentifier { }
 
 private typealias MockPackageConstraint = PackageContainerConstraint<String>
