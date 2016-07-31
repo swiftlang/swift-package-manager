@@ -120,6 +120,9 @@ class DependencyResolverTests: XCTestCase {
         XCTAssert(v1Range.intersection(v2_0_0Range) == .empty)
         XCTAssert(v1Range.intersection(v1_1Range) == v1_1Range)
         XCTAssert(v1_to_3Range.intersection(v2_to_4Range) == .range("2.0.0" ..< "3.0.0"))
+        XCTAssert(v1Range.intersection(.any) == v1Range)
+        XCTAssert(VersionSetSpecifier.empty.intersection(.any) == .empty)
+        XCTAssert(VersionSetSpecifier.any.intersection(.any) == .any)
     }
 
     func testVersionAssignment() {

@@ -12,6 +12,9 @@ import struct PackageDescription.Version
 
 /// An abstract definition for a set of versions.
 public enum VersionSetSpecifier: Equatable {
+    /// The universal set.
+    case any
+
     /// The empty set.
     case empty
 
@@ -21,6 +24,10 @@ public enum VersionSetSpecifier: Equatable {
     /// Compute the intersection of two set specifiers.
     public func intersection(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
         switch (self, rhs) {
+        case (.any, _):
+            return rhs
+        case (_, .any):
+            return self
         case (.empty, _):
             return .empty
         case (_, .empty):
@@ -46,11 +53,17 @@ public enum VersionSetSpecifier: Equatable {
             return false
         case .range(let range):
             return range.contains(version)
+        case .any:
+            return true
         }
     }
 }
 public func ==(_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
     switch (lhs, rhs) {
+    case (.any, .any):
+        return true
+    case (.any, _):
+        return false
     case (.empty, .empty):
         return true
     case (.empty, _):
