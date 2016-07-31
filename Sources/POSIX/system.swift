@@ -65,7 +65,7 @@ func posix_spawnp(_ path: String, args: [String], environment: [String: String] 
         }
     }
 
-    let env: [UnsafeMutablePointer<CChar>?] = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }
+    let env: [UnsafeMutablePointer<CChar>?] = environment.map{ "\($0)=\($1)".withCString(strdup) }
     defer { for case let arg? in env { free(arg) } }
     
     var pid = pid_t()

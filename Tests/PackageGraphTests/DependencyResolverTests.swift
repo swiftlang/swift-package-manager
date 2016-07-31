@@ -93,7 +93,7 @@ class DependencyResolverTests: XCTestCase {
             provider: provider,
             delegate: delegate)
         let packages = try resolver.resolve()
-        XCTAssertEqual(packages.map{ $0.container }.sorted(), ["A", "B", "C"])
+        XCTAssertEqual(packages.map{ container, _ in container }.sorted(), ["A", "B", "C"])
         XCTAssertEqual(delegate.messages, [
                 "added container: A",
                 "added container: B",
