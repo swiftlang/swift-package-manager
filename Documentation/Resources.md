@@ -3,7 +3,7 @@
 ## Table of Contents
 
 * [Overview](README.md)
-* [Usage](UsingSwiftPackageManager.md)
+* [Usage](Usage.md)
 * [Reference](Reference.md)
 * [**Resources**](Resources.md)
   * [Known Issues](#known-issues)

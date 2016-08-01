@@ -15,7 +15,7 @@ We’ve designed the system to make it really easy to share packages on services
   * [About Products](#about-products)
   * [About Dependencies](#about#dependencies)
     * [Dependency Hell](#dependency-hell)
-* [Usage](UsingSwiftPackageManager.md)
+* [Usage](Usage.md)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
