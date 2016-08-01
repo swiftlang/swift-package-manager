@@ -340,7 +340,7 @@ def parse_manifest():
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
-g_ignored_targets = ["swiftpm-xctest-helper", "BasicTests", "FunctionalTests", "PackageLoadingTests"]
+g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport", "BuildTests", "CommandsTests", "FunctionalTests", "GetTests", "PackageLoadingTests", "SourceControlTests", "UtilityTests"]
 targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 

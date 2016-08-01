@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import TestSupport
 import Basic
 import func POSIX.popen
 

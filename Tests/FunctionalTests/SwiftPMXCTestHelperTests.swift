@@ -9,6 +9,7 @@
 */
 
 import Basic
+import TestSupport
 import XCTest
 import Utility
 
