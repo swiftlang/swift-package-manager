@@ -10,6 +10,7 @@
 
 import XCTest
 
+import TestSupport
 import Basic
 @testable import Get
 import struct PackageModel.Manifest

@@ -10,6 +10,7 @@
 
 import XCTest
 
+import TestSupport
 import Commands
 
 final class TestToolTests: XCTestCase {

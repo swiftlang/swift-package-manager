@@ -48,6 +48,10 @@ let package = Package(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["Basic", "Utility"]),
+        Target(
+            /** Test support library */
+            name: "TestSupport",
+            dependencies: ["Basic", "Utility", "POSIX"]),
 
         // MARK: Project Model
         
@@ -108,8 +112,26 @@ let package = Package(
         // MARK: Additional Test Dependencies
         
         Target(
+            name: "BuildTests",
+            dependencies: ["Build", "TestSupport"]),
+        Target(
+            name: "CommandsTests",
+            dependencies: ["Commands", "TestSupport"]),
+        Target(
             name: "FunctionalTests",
-            dependencies: ["Basic", "Utility", "PackageModel"]),
+            dependencies: ["Basic", "Utility", "PackageModel", "TestSupport"]),
+        Target(
+            name: "GetTests",
+            dependencies: ["Get", "TestSupport"]),
+        Target(
+            name: "PackageLoadingTests",
+            dependencies: ["PackageLoading", "TestSupport"]),
+        Target(
+            name: "SourceControlTests",
+            dependencies: ["SourceControl", "TestSupport"]),
+        Target(
+            name: "UtilityTests",
+            dependencies: ["Utility", "TestSupport"]),
     ])
 
 

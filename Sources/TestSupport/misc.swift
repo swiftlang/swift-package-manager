@@ -20,7 +20,7 @@ import class Foundation.Bundle
 
 
 /// Test-helper function that runs a block of code on a copy of a test fixture package.  The copy is made into a temporary directory, and the block is given a path to that directory.  The block is permitted to modify the copy.  The temporary copy is deleted after the block returns.  The fixture name may contain `/` characters, which are treated as path separators, exactly as if the name were a relative path.
-func fixture(name: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+public func fixture(name: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = RelativePath(name)
@@ -83,7 +83,7 @@ func fixture(name: String, tags: [String] = [], file: StaticString = #file, line
 }
 
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain exactly one empty file, and if a tag name is provided, a tag with that name will be created.
-func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
+public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
         let file = dir.appending(component: "file.swift")
         try systemQuietly(["touch", file.asString])
@@ -101,89 +101,19 @@ func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #
     }
 }
 
-func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
+public func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
     try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
 }
 
-enum Configuration {
+public enum Configuration {
     case Debug
     case Release
 }
 
 private var globalSymbolInMainBinary = 0
 
-/// Defines the executables used by SwiftPM.
-/// Contains path to the currently built executable and
-/// helper method to execute them.
-enum SwiftPMProduct {
-    case SwiftBuild
-    case SwiftPackage
-    case SwiftTest
-    case XCTestHelper
-
-    /// Path to currently built binary.
-    var path: AbsolutePath {
-      #if os(macOS)
-        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return AbsolutePath(bundle.bundlePath).parentDirectory.appending(self.exec)
-        }
-        fatalError()
-      #else
-        return AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(self.exec)
-      #endif
-    }
-
-    /// Executable name.
-    var exec: RelativePath {
-        switch self {
-        case .SwiftBuild:
-            return RelativePath("swift-build")
-        case .SwiftPackage:
-            return RelativePath("swift-package")
-        case .SwiftTest:
-            return RelativePath("swift-test")
-        case .XCTestHelper:
-            return RelativePath("swiftpm-xctest-helper")
-        }
-    }
-}
-
-extension SwiftPMProduct {
-    /// Executes the product with specified arguments.
-    ///
-    /// - Parameters:
-    ///         - args: The arguments to pass.
-    ///         - env: Enviroment variables to pass. Enviroment will never be inherited.
-    ///         - chdir: Adds argument `--chdir <path>` if not nil.
-    ///         - printIfError: Print the output on non-zero exit.
-    ///
-    /// - Returns: The output of the process.
-    func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
-        var out = ""
-        var completeArgs = [path.asString]
-        if let chdir = chdir {
-            completeArgs += ["--chdir", chdir.asString]
-        }
-        completeArgs += args
-        do {
-            try POSIX.popen(completeArgs, redirectStandardError: true, environment: env) {
-                out += $0
-            }
-            return out
-        } catch {
-            if printIfError {
-                print("**** FAILURE EXECUTING SUBPROCESS ****")
-                print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
-                print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
-                print("output:", out)
-            }
-            throw error
-        }
-    }
-}
-
 @discardableResult
-func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) throws -> String {
+public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) throws -> String {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -205,7 +135,7 @@ func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .De
 }
 
 /// Test helper utility for executing a block with a temporary directory.
-func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+public func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
     do {
         let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(function)", removeTreeOnDeinit: true)
         try body(tmpDir.path)
@@ -214,63 +144,13 @@ func mktmpdir(function: StaticString = #function, file: StaticString = #file, li
     }
 }
 
-func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
-    for conf in configurations {
-        do {
-            print("    Building \(conf)")
-            _ = try executeSwiftBuild(path, configuration: conf, printIfError: true, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc, env: env)
-        } catch {
-            XCTFail("`swift build -c \(conf)' failed:\n\n\(error)\n", file: file, line: line)
-        }
-    }
-}
-
-func XCTAssertSwiftTest(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, env: [String: String] = [:]) {
-    do {
-        _ = try SwiftPMProduct.SwiftTest.execute([], chdir: path, env: env, printIfError: true)
-    } catch {
-        XCTFail("`swift test' failed:\n\n\(error)\n", file: file, line: line)
-    }
-}
-
-func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
-    do {
-        _ = try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
-
-        XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
-
-    } catch POSIX.Error.exitStatus(let status, _) where status == 1{
-        // noop
-    } catch {
-        XCTFail("`swift build' failed in an unexpected manner")
-    }
-}
-
-func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !isFile(path) {
-        XCTFail("Expected file doesn’t exist: \(path.asString)", file: file, line: line)
-    }
-}
-
-func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if !isDirectory(path) {
-        XCTFail("Expected directory doesn’t exist: \(path.asString)", file: file, line: line)
-    }
-}
-
-func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    if exists(path) {
-        XCTFail("path exists but should not: \(path.asString)", file: file, line: line)
-    }
-}
-    
-func systemQuietly(_ args: [String]) throws {
+public func systemQuietly(_ args: [String]) throws {
     // Discard the output, by default.
     //
     // FIXME: Find a better default behavior here.
     let _ = try POSIX.popen(args, redirectStandardError: true)
 }
 
-func systemQuietly(_ args: String...) throws {
+public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }

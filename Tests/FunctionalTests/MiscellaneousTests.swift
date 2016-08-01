@@ -9,7 +9,7 @@
 */
 
 import XCTest
-
+import TestSupport
 import Basic
 import PackageModel
 

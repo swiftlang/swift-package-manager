@@ -10,6 +10,7 @@
 
 import XCTest
 
+import TestSupport
 import Basic
 import PackageDescription
 import PackageModel
