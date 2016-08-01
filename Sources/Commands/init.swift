@@ -55,9 +55,10 @@ final class InitPackage {
     
     init(mode: InitMode) throws {
         self.mode = mode
-        pkgname = rootd.basename
-        // Also validates that the name is valid.
-        moduleName = try c99name(name: rootd.basename)
+        let dirname = rootd.basename
+        assert(!dirname.isEmpty)  // a base name is never empty
+        self.pkgname = dirname
+        self.moduleName = dirname.mangledToC99ExtendedIdentifier()
     }
     
     func writePackageStructure() throws {
