@@ -17,7 +17,6 @@ public enum SystemError: Swift.Error {
     case getcwd(Int32)
     case mkdir(Int32, String)
     case mkdtemp(Int32)
-    case opendir(Int32, String)
     case pipe(Int32)
     case popen(Int32, String)
     case posix_spawn(Int32, [String])
@@ -62,8 +61,6 @@ extension SystemError: CustomStringConvertible {
             return "mkdir error: \(strerror(errno)): \(path)"
         case .mkdtemp(let errno):
             return "mkdtemp error: \(strerror(errno))"
-        case .opendir(let errno, _):
-            return "opendir error: \(strerror(errno))"
         case .pipe(let errno):
             return "pipe error: \(strerror(errno))"
         case .posix_spawn(let errno, let args):
