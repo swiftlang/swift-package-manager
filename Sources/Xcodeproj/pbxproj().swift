@@ -92,7 +92,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         let sourceFileRefs = fileRefs(forModuleSources: module, srcroot: srcroot)
         
         // Make an array of all the source file reference ids to add to the main group.
-        var sourceRefIds = sourceFileRefs.map{ refId, _, _ in refId }
+        var sourceRefIds = sourceFileRefs.map{ $0.refId }
 
         ////// Info.plist file reference if this a framework target
         if module.isLibrary {
@@ -151,7 +151,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         // sources build phase
         print("        \(module.compilePhaseReference) = {")
         print("            isa = PBXSourcesBuildPhase;")
-        print("            files = (\(sourceFileRefs.map{ _, _, bflId in bflId }.joined(separator: ", ")));")
+        print("            files = (\(sourceFileRefs.map{ $0.bflId }.joined(separator: ", ")));")
         print("            runOnlyForDeploymentPostprocessing = 0;")
         print("        };")
 
@@ -167,7 +167,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         let linkPhaseFileRefs = module.linkPhaseFileRefs
         print("        \(module.linkPhaseReference) = {")
         print("            isa = PBXFrameworksBuildPhase;")
-        print("            files = (\(linkPhaseFileRefs.map{ _, fileRef in fileRef }.joined(separator: ", ")));")
+        print("            files = (\(linkPhaseFileRefs.map{ $0.fileRef }.joined(separator: ", ")));")
         print("            runOnlyForDeploymentPostprocessing = 0;")
         print("        };")
         for item in linkPhaseFileRefs {
@@ -284,7 +284,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     
     print("        \(configsGroupReference) = {")
     print("            isa = PBXGroup;")
-    print("            children = (" + configs.map{ refId, _ in refId }.joined(separator: ", ") + ");")
+    print("            children = (" + configs.map{ $0.refId }.joined(separator: ", ") + ");")
     print("            name = Configs;")
     print("            sourceTree = '<group>';")
     print("        };")
