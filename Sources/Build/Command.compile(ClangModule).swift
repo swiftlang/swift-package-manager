@@ -85,7 +85,7 @@ struct ClangModuleBuildMetadata {
     }
 
     /// Returns all the objects files for this module.
-    var objects: [AbsolutePath] { return compilePaths().map{ _, _, object, _ in object} }
+    var objects: [AbsolutePath] { return compilePaths().map{$0.object} }
 
     /// Basic flags needed to compile this module.
     func basicCompileArgs() throws -> [String] {
