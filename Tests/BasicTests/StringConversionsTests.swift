@@ -37,8 +37,8 @@ class StringConversionTests: XCTestCase {
         str = "hello\nA\"B C>D*[$;()^><"
         XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.shellEscaped())
     }
-
+    
     static var allTests = [
-        ("testShellEscaped", testShellEscaped),
+        ("testShellEscaped",  testShellEscaped),
     ]
 }

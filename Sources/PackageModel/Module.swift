@@ -63,7 +63,7 @@ public class Module: ModuleProtocol {
         self.type = type
         self.sources = sources
         self.dependencies = []
-        self.c99name = try PackageModel.c99name(name: self.name)
+        self.c99name = self.name.mangledToC99ExtendedIdentifier()
         self.isTest = isTest
     }
 
