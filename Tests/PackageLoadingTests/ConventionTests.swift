@@ -598,7 +598,7 @@ class ConventionTests: XCTestCase {
             }
 
             result.checkProduct("libpm") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Foo", "Bar"])
+                productResult.check(type: .Library(.Dynamic), modules: ["Bar", "Foo"])
             }
         }
     }
@@ -939,7 +939,7 @@ final class PackageBuilderTester {
 
         func check(type: PackageDescription.ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(product.type, type, file: file, line: line)
-            XCTAssertEqual(product.modules.map{$0.name}, modules, file: file, line: line)
+            XCTAssertEqual(product.modules.map{$0.name}.sorted(), modules, file: file, line: line)
         }
     }
 
