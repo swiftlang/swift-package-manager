@@ -482,10 +482,10 @@ public struct PackageBuilder {
         }
       #endif
         if !testModules.isEmpty {
-            //TODO and then we should prefix all modules with their package probably
-            //Suffix 'Tests' to test product so the module name of linux executable don't collide with
-            //main package, if present.
-            let product = Product(name: manifest.name + "Tests", type: .Test, modules: testModules)
+            // TODO and then we should prefix all modules with their package probably.
+            // Add suffix 'PackageTests' to test product so the module name of linux executable don't collide with
+            // main package, if present.
+            let product = Product(name: manifest.name + "PackageTests", type: .Test, modules: testModules)
             products.append(product)
         }
 
