@@ -85,20 +85,12 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
 
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
 public func makeDirectories(_ path: AbsolutePath) throws {
-  #if os(Linux)
-    try FileManager.default().createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
-  #else
     try FileManager.default.createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
-  #endif
 }
 
 /// Recursively deletes the file system entity at `path`.  If there is no file system entity at `path`, this function does nothing (in particular, this is not considered to be an error).
 public func removeFileTree(_ path: AbsolutePath) throws {
-  #if os(Linux)
-    try FileManager.default().removeItem(atPath: path.asString)
-  #else
     try FileManager.default.removeItem(atPath: path.asString)
-  #endif
 }
 
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
@@ -121,11 +113,7 @@ public func unlink(_ path: AbsolutePath) throws {
 /// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's `currentDirectoryPath` method).
 /// FIXME: This should probably go onto `FileSystem`, under the assumption that each file system has its own notion of the `current` working directory.
 public var currentWorkingDirectory: AbsolutePath {
-  #if os(Linux)
-    let cwdStr = FileManager.default().currentDirectoryPath
-  #else
     let cwdStr = FileManager.default.currentDirectoryPath
-  #endif
     return AbsolutePath(cwdStr)
 }
 
@@ -257,11 +245,7 @@ public func fopen(_ path: AbsolutePath, mode: FopenMode = .read) throws -> FileH
     switch mode {
       case .read: handle = FileHandle(forReadingAtPath: path.asString)
       case .write:
-      #if os(Linux)
-        let success = FileManager.default().createFile(atPath: path.asString, contents: nil)
-      #else
         let success = FileManager.default.createFile(atPath: path.asString, contents: nil)
-      #endif
         guard success else {
             throw FileAccessError.couldNotCreateFile(path: path.asString)
         }
