@@ -9,7 +9,7 @@
 */
 
 public enum SystemError: Swift.Error {
-    case chdir(Int32)
+    case chdir(Int32, String)
     case close(Int32)
     case dirfd(Int32, String)
     case fgetc(Int32)
@@ -45,8 +45,8 @@ extension SystemError: CustomStringConvertible {
         }
 
         switch self {
-        case .chdir(let errno):
-            return "chdir error: \(strerror(errno))"
+        case .chdir(let errno, let path):
+            return "chdir error: \(strerror(errno)): \(path)"
         case .close(let errno):
             return "close error: \(strerror(errno))"
         case .dirfd(let errno, _):
