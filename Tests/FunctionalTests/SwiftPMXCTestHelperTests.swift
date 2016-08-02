@@ -24,7 +24,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
-            let testCases = ["name": "All Tests", "tests": [["name" : "SwiftPMXCTestHelperTests.xctest",
+            let testCases = ["name": "All Tests", "tests": [["name" : "SwiftPMXCTestHelperPackageTests.xctest",
                 "tests": [
                 [
                 "name": "ObjCTests",
@@ -37,7 +37,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
             ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelperTests.xctest"), testCases: testCases)
+            XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
 #endif
     }

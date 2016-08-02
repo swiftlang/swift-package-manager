@@ -603,6 +603,62 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testTestsProduct() throws {
+        // Make sure product name and test module name are different in single module package.
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo.swift",
+                                "/Tests/FooTests/Bar.swift")
+
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "Foo.swift")
+            }
+
+            result.checkModule("FooTests") { moduleResult in
+                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/FooTests", paths: "Bar.swift")
+            }
+
+            result.checkProduct("FooPackageTests") { productResult in
+                productResult.check(type: .Test, modules: ["FooTests"])
+            }
+        }
+
+        // Multi module tests package.
+        fs = InMemoryFileSystem()
+        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
+                                "/Sources/Bar/Bar.swift",
+                                "/Tests/FooTests/Foo.swift",
+                                "/Tests/BarTests/Bar.swift")
+
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+            }
+
+            result.checkModule("Bar") { moduleResult in
+                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
+            }
+
+            result.checkModule("FooTests") { moduleResult in
+                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/FooTests", paths: "Foo.swift")
+            }
+
+            result.checkModule("BarTests") { moduleResult in
+                moduleResult.check(c99name: "BarTests", type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/BarTests", paths: "Bar.swift")
+            }
+
+            result.checkProduct("FooPackageTests") { productResult in
+                productResult.check(type: .Test, modules: ["BarTests", "FooTests"])
+            }
+        }
+    }
+
     func testBadProducts() throws {
         var fs = InMemoryFileSystem()
         try fs.createEmptyFiles("/Foo.swift")
@@ -789,6 +845,7 @@ class ConventionTests: XCTestCase {
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
+        ("testTestsProduct", testTestsProduct),
     ]
 }
 
