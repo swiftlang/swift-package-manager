@@ -139,29 +139,42 @@ class DependencyResolverTests: XCTestCase {
                 ])
             let b = MockPackageContainer(name: "B", dependenciesByVersion: [
                     v1: [(container: "C", versionRequirement: v1Range)]])
+            let c = MockPackageContainer(name: "C", dependenciesByVersion: [
+                    v1: []])
 
-            var assignment = VersionAssignment<MockPackageContainer>()
+            var assignment = VersionAssignmentSet<MockPackageContainer>()
             XCTAssertEqual(assignment.constraints, [:])
             XCTAssert(assignment.isValid(binding: .version(v2), for: b))
+            // An empty assignment is valid.
+            XCTAssert(assignment.checkIfValidAndComplete())
 
             // Add an assignment and check the constraints.
             assignment[a] = .version(v1)
             XCTAssertEqual(assignment.constraints, ["B": v1Range])
             XCTAssert(assignment.isValid(binding: .version(v1), for: b))
             XCTAssert(!assignment.isValid(binding: .version(v2), for: b))
+            // This is invalid (no 'B' assignment).
+            XCTAssert(!assignment.checkIfValidAndComplete())
 
             // Check another assignment.
             assignment[b] = .version(v1)
             XCTAssertEqual(assignment.constraints, ["B": v1Range, "C": v1Range])
+            XCTAssert(!assignment.checkIfValidAndComplete())
 
             // Check excluding 'A'.
             assignment[a] = .excluded
             XCTAssertEqual(assignment.constraints, ["C": v1Range])
+            XCTAssert(!assignment.checkIfValidAndComplete())
+
+            // Check completing the assignment.
+            assignment[c] = .version(v1)
+            XCTAssert(assignment.checkIfValidAndComplete())
 
             // Check bringing back 'A' at a different version, which has only a
             // more restrictive 'C' dependency.
             assignment[a] = .version(v2)
             XCTAssertEqual(assignment.constraints, ["C": v1_1Range])
+            XCTAssert(assignment.checkIfValidAndComplete())
         }
     }
 

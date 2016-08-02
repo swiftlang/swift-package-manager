@@ -174,15 +174,19 @@ enum BoundVersion {
     case version(Version)
 }
 
-/// An assignment of versions for a set of packages.
+/// A container for version assignments for a set of packages.
 ///
 /// This is intended to be an efficient data structure for accumulating a set of
 /// version assignments along with efficient access to the derived information
 /// about the assignment (for example, the unified set of constraints it
 /// induces).
+///
+/// The set itself is designed to only ever contain a consistent set of
+/// assignments, i.e. each assignment should satisfy the induced
+/// `constraints`, but this invariant is not explicitly enforced.
 //
 // FIXME: Actually make efficient.
-struct VersionAssignment<C> where C: PackageContainer {
+struct VersionAssignmentSet<C> where C: PackageContainer {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -217,6 +221,9 @@ struct VersionAssignment<C> where C: PackageContainer {
     ///
     /// This consists of the merged constraints which need to be satisfied on
     /// each package as a result of the versions selected in the assignment.
+    ///
+    /// The resulting constraint set is guaranteed to be non-empty for each
+    /// mapping, assuming the invariants on the set are followed.
     //
     // FIXME: We need to cache this.
     var constraints: [Identifier: VersionSetSpecifier] {
@@ -266,6 +273,29 @@ struct VersionAssignment<C> where C: PackageContainer {
                 return true
             }
         }
+    }
+
+    /// Check if the assignment is valid and complete.
+    func checkIfValidAndComplete() -> Bool {
+        // Validity should hold trivially, because it is an invariant of the collection.
+        for assignment in assignments.values {
+            if !isValid(binding: assignment.binding, for: assignment.container) {
+                return false
+            }
+        }
+
+        // Check completeness, by simply looking at all the entries in the induced constraints.
+        for key in self.constraints.keys {
+            // Verify we have a non-excluded entry for this key.
+            switch assignments[key]?.binding {
+            case .version?:
+                continue
+            case .excluded?, nil:
+                return false
+            }
+        }
+
+        return true
     }
 }
 
