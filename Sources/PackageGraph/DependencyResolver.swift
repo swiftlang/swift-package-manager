@@ -509,8 +509,6 @@ public class DependencyResolver<
     /// only kind of constraints we operate on.
     public typealias Constraint = PackageContainerConstraint<Identifier>
 
-    /// The initial constraints.
-    public let constraints: [Constraint]
 
     /// The container provider used to load package containers.
     public let provider: Provider
@@ -518,18 +516,17 @@ public class DependencyResolver<
     /// The resolver's delegate.
     public let delegate: Delegate
 
-    public init(
-        constraints: [Constraint],
-        provider: Provider,
-        delegate: Delegate)
-    {
-        self.constraints = constraints
+    public init(_ provider: Provider, _ delegate: Delegate) {
         self.provider = provider
         self.delegate = delegate
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func resolve() throws -> [(container: Identifier, version: Version)] {
+    ///
+    /// - Parameters:
+    ///   - constraints: The contraints to solve.
+    /// - Returns: A satisfying assignment of containers and versions.
+    public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, version: Version)] {
         // For now, we just load the transitive closure of the dependencies at
         // the latest version, and ignore the version requirements.
 

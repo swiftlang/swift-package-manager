@@ -97,11 +97,9 @@ class DependencyResolverTests: XCTestCase {
                         v1: [], v2: []])])
 
         let delegate = MockResolverDelegate()
-        let resolver = DependencyResolver(
-            constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)],
-            provider: provider,
-            delegate: delegate)
-        let packages = try resolver.resolve()
+        let resolver = DependencyResolver(provider, delegate)
+        let packages = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: v1Range)])
         XCTAssertEqual(packages.map{ $0.container }.sorted(), ["A", "B", "C"])
         XCTAssertEqual(delegate.messages, [
                 "added container: A",
