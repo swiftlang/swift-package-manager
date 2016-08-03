@@ -72,12 +72,21 @@ private class MockResolverDelegate: DependencyResolverDelegate {
     }
 }
 
+// Some handy ranges.
+
+private let v1: Version = "1.0.0"
+private let v2: Version = "2.0.0"
+private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
+private let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+private let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
+private let v1_0Range: VersionSetSpecifier = .range("1.0.0" ..< "1.1.0")
+private let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
+private let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
+private let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
+
 class DependencyResolverTests: XCTestCase {
     func testBasics() throws {
-        let v1: Version = "1.0.0"
-        let v2: Version = "2.0.0"
-        let v1Range: VersionSetSpecifier = .range(v1..<v2)
-
         // Check that a trivial example resolves the closure.
         let provider = MockPackagesProvider(containers: [
                 MockPackageContainer(name: "A", dependenciesByVersion: [
@@ -101,14 +110,6 @@ class DependencyResolverTests: XCTestCase {
     }
 
     func testVersionSetSpecifier() {
-        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
-        let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
-        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
-        let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
-        let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
-        let v1_1_0Range: VersionSetSpecifier = .range("1.1.0" ..< "1.1.1")
-        let v2_0_0Range: VersionSetSpecifier = .range("2.0.0" ..< "2.0.1")
-
         // Check `contains`.
         XCTAssert(v1Range.contains("1.1.0"))
         XCTAssert(!v1Range.contains("2.0.0"))
@@ -125,17 +126,31 @@ class DependencyResolverTests: XCTestCase {
         XCTAssert(VersionSetSpecifier.any.intersection(.any) == .any)
     }
 
-    func testVersionAssignment() {
-        let v1: Version = "1.0.0"
-        let v2: Version = "2.0.0"
-        let v1Range: VersionSetSpecifier = .range(v1 ..< v2)
-        let v1_1Range: VersionSetSpecifier = .range(v1 ..< "1.1.0")
+    func testContainerConstraintSet() {
+        typealias ConstraintSet = PackageContainerConstraintSet<MockPackageContainer>
 
+        var set = ConstraintSet()
+
+        XCTAssertEqual(set.containerIdentifiers.map{ $0 }, [])
+
+        // Check basics.
+        XCTAssertTrue(set.merge(MockPackageConstraint(container: "A", versionRequirement: v1Range)))
+        XCTAssertEqual(set.containerIdentifiers.map{ $0 }, ["A"])
+        XCTAssertEqual(set["A"], v1Range)
+        XCTAssertTrue(set.merge(MockPackageConstraint(container: "B", versionRequirement: v2Range)))
+        XCTAssertEqual(set.containerIdentifiers.sorted(), ["A", "B"])
+
+        // Check merging a constraint which makes the set unsatisfiable.
+        XCTAssertFalse(set.merge(MockPackageConstraint(container: "A", versionRequirement: v2Range)))
+        XCTAssertEqual(set["A"], VersionSetSpecifier.empty)
+    }
+
+    func testVersionAssignment() {
         // Check basics.
         do {
             let a = MockPackageContainer(name: "A", dependenciesByVersion: [
                     v1: [(container: "B", versionRequirement: v1Range)],
-                    v2: [(container: "C", versionRequirement: v1_1Range)],
+                    v2: [(container: "C", versionRequirement: v1_0Range)],
                 ])
             let b = MockPackageContainer(name: "B", dependenciesByVersion: [
                     v1: [(container: "C", versionRequirement: v1Range)]])
@@ -173,7 +188,7 @@ class DependencyResolverTests: XCTestCase {
             // Check bringing back 'A' at a different version, which has only a
             // more restrictive 'C' dependency.
             assignment[a] = .version(v2)
-            XCTAssertEqual(assignment.constraints, ["C": v1_1Range])
+            XCTAssertEqual(assignment.constraints, ["C": v1_0Range])
             XCTAssert(assignment.checkIfValidAndComplete())
         }
     }
@@ -181,6 +196,7 @@ class DependencyResolverTests: XCTestCase {
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
+        ("testContainerConstraintSet", testContainerConstraintSet),
         ("testVersionAssignment", testVersionAssignment),
     ]
 }
@@ -196,4 +212,17 @@ private func ==(_ lhs: [String: VersionSetSpecifier], _ rhs: [String: VersionSet
         }
     }
     return true
+}
+
+private func XCTAssertEqual<C: PackageContainer>(
+    _ constraints: PackageContainerConstraintSet<C>,
+    _ expected: [String: VersionSetSpecifier],
+    file: StaticString = #file, line: UInt = #line)
+where C.Identifier == String
+{
+    var actual = [String: VersionSetSpecifier]()
+    for identifier in constraints.containerIdentifiers {
+        actual[identifier] = constraints[identifier]!
+    }
+    XCTAssertEqual(actual, expected, file: file, line: line)
 }

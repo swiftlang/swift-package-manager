@@ -134,7 +134,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T> where T: PackageContainerIdentifier {
+public struct PackageContainerConstraint<T: PackageContainerIdentifier> {
     public typealias Identifier = T
 
     /// The identifier for the container the constraint is on.
@@ -174,6 +174,54 @@ enum BoundVersion {
     case version(Version)
 }
 
+/// A container for constraints for a set of packages.
+//
+// FIXME: Maybe each package should just return this, instead of a list of
+// `PackageContainerConstraint`s. That won't work if we decide this should
+// eventually map based on the `Container` rather than the `Identifier`, though,
+// so they are separate for now.
+struct PackageContainerConstraintSet<C: PackageContainer> {
+    typealias Container = C
+    typealias Identifier = Container.Identifier
+
+    typealias Index = Dictionary<Identifier, VersionSetSpecifier>.Index
+    typealias Element = Dictionary<Identifier, VersionSetSpecifier>.Element
+
+    /// The set of constraints.
+    private var constraints: [Identifier: VersionSetSpecifier]
+
+    /// Create an empty constraint set.
+    init() {
+        self.constraints = [:]
+    }
+
+    /// The list of containers with entries in the set.
+    var containerIdentifiers: AnySequence<Identifier> {
+        return AnySequence<C.Identifier>(constraints.keys)
+    }
+
+    /// Get the version set associated with the given package `identifier`.
+    subscript(identifier: Identifier) -> VersionSetSpecifier? {
+        return constraints[identifier]
+    }
+
+    /// Merge the given `constraint`.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    mutating func merge(_ constraint: PackageContainerConstraint<Identifier>) -> Bool {
+        let i = constraint.identifier
+        let intersection: VersionSetSpecifier
+        if let existing = constraints[i] {
+            intersection = existing.intersection(constraint.versionRequirement)
+        } else {
+            intersection = constraint.versionRequirement
+        }
+        constraints[i] = intersection
+        return intersection != .empty
+    }
+}
+
 /// A container for version assignments for a set of packages.
 ///
 /// This is intended to be an efficient data structure for accumulating a set of
@@ -186,7 +234,7 @@ enum BoundVersion {
 /// `constraints`, but this invariant is not explicitly enforced.
 //
 // FIXME: Actually make efficient.
-struct VersionAssignmentSet<C> where C: PackageContainer {
+struct VersionAssignmentSet<C: PackageContainer> {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -226,9 +274,9 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
     /// mapping, assuming the invariants on the set are followed.
     //
     // FIXME: We need to cache this.
-    var constraints: [Identifier: VersionSetSpecifier] {
+    var constraints: PackageContainerConstraintSet<Container> {
         // Collect all of the constraints.
-        var result = [Identifier: VersionSetSpecifier]()
+        var result = PackageContainerConstraintSet<Container>()
         for (_, (container: container, binding: binding)) in assignments {
             switch binding {
             case .excluded:
@@ -241,13 +289,8 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
                 // FIXME: We should cache this too, possibly at a layer
                 // different than above (like the entry record).
                 for constraint in container.getDependencies(at: version) {
-                    // Merge in the constraint.
-                    let i = constraint.identifier
-                    if let existing = result[i] {
-                        result[i] = existing.intersection(constraint.versionRequirement)
-                    } else {
-                        result[i] = constraint.versionRequirement
-                    }
+                    let satisfiable = result.merge(constraint)
+                    assert(satisfiable)
                 }
             }
         }
@@ -285,9 +328,9 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
         }
 
         // Check completeness, by simply looking at all the entries in the induced constraints.
-        for key in self.constraints.keys {
+        for identifier in constraints.containerIdentifiers {
             // Verify we have a non-excluded entry for this key.
-            switch assignments[key]?.binding {
+            switch assignments[identifier]?.binding {
             case .version?:
                 continue
             case .excluded?, nil:
