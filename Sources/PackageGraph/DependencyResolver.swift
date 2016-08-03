@@ -205,20 +205,41 @@ struct PackageContainerConstraintSet<C: PackageContainer> {
         return constraints[identifier]
     }
 
+    /// Merge the given version requirement for the container `identifier`.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    private mutating func merge(versionRequirement: VersionSetSpecifier, for identifier: Identifier) -> Bool {
+        let intersection: VersionSetSpecifier
+        if let existing = constraints[identifier] {
+            intersection = existing.intersection(versionRequirement)
+        } else {
+            intersection = versionRequirement
+        }
+        constraints[identifier] = intersection
+        return intersection != .empty
+    }
+
     /// Merge the given `constraint`.
     ///
     /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
     /// when the resulting set is satisfiable, if it was already so.
     mutating func merge(_ constraint: PackageContainerConstraint<Identifier>) -> Bool {
-        let i = constraint.identifier
-        let intersection: VersionSetSpecifier
-        if let existing = constraints[i] {
-            intersection = existing.intersection(constraint.versionRequirement)
-        } else {
-            intersection = constraint.versionRequirement
+        return merge(versionRequirement: constraint.versionRequirement, for: constraint.identifier)
+    }
+
+    /// Merge the given constraint set.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    mutating func merge(_ rhs: PackageContainerConstraintSet<Container>) -> Bool {
+        var satisfiable = true
+        for (key, versionRequirement) in rhs.constraints {
+            if !merge(versionRequirement: versionRequirement, for: key) {
+                satisfiable = false
+            }
         }
-        constraints[i] = intersection
-        return intersection != .empty
+        return satisfiable
     }
 }
 

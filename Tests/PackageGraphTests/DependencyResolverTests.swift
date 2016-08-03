@@ -130,7 +130,6 @@ class DependencyResolverTests: XCTestCase {
         typealias ConstraintSet = PackageContainerConstraintSet<MockPackageContainer>
 
         var set = ConstraintSet()
-
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, [])
 
         // Check basics.
@@ -143,54 +142,63 @@ class DependencyResolverTests: XCTestCase {
         // Check merging a constraint which makes the set unsatisfiable.
         XCTAssertFalse(set.merge(MockPackageConstraint(container: "A", versionRequirement: v2Range)))
         XCTAssertEqual(set["A"], VersionSetSpecifier.empty)
+
+        // Check merging other sets.
+        var set2 = ConstraintSet()
+        _ = set2.merge(MockPackageConstraint(container: "C", versionRequirement: v1Range))
+        XCTAssertTrue(set.merge(set2))
+        XCTAssertEqual(set.containerIdentifiers.map{ $0 }.sorted(), ["A", "B", "C"])
+        var set3 = ConstraintSet()
+        _ = set3.merge(MockPackageConstraint(container: "C", versionRequirement: v2Range))
+        _ = set3.merge(MockPackageConstraint(container: "D", versionRequirement: v1Range))
+        _ = set3.merge(MockPackageConstraint(container: "E", versionRequirement: v1Range))
+        XCTAssertFalse(set.merge(set3)) // "C" requirement is unsatisfiable
+        XCTAssertEqual(set.containerIdentifiers.map{ $0 }.sorted(), ["A", "B", "C", "D", "E"])
     }
 
     func testVersionAssignment() {
-        // Check basics.
-        do {
-            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
-                    v1: [(container: "B", versionRequirement: v1Range)],
-                    v2: [(container: "C", versionRequirement: v1_0Range)],
-                ])
-            let b = MockPackageContainer(name: "B", dependenciesByVersion: [
-                    v1: [(container: "C", versionRequirement: v1Range)]])
-            let c = MockPackageContainer(name: "C", dependenciesByVersion: [
-                    v1: []])
+        let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                v1: [(container: "B", versionRequirement: v1Range)],
+                v2: [(container: "C", versionRequirement: v1_0Range)],
+            ])
+        let b = MockPackageContainer(name: "B", dependenciesByVersion: [
+                v1: [(container: "C", versionRequirement: v1Range)]])
+        let c = MockPackageContainer(name: "C", dependenciesByVersion: [
+                v1: []])
 
-            var assignment = VersionAssignmentSet<MockPackageContainer>()
-            XCTAssertEqual(assignment.constraints, [:])
-            XCTAssert(assignment.isValid(binding: .version(v2), for: b))
-            // An empty assignment is valid.
-            XCTAssert(assignment.checkIfValidAndComplete())
+        var assignment = VersionAssignmentSet<MockPackageContainer>()
+        XCTAssertEqual(assignment.constraints, [:])
+        XCTAssert(assignment.isValid(binding: .version(v2), for: b))
+        // An empty assignment is valid.
+        XCTAssert(assignment.checkIfValidAndComplete())
 
-            // Add an assignment and check the constraints.
-            assignment[a] = .version(v1)
-            XCTAssertEqual(assignment.constraints, ["B": v1Range])
-            XCTAssert(assignment.isValid(binding: .version(v1), for: b))
-            XCTAssert(!assignment.isValid(binding: .version(v2), for: b))
-            // This is invalid (no 'B' assignment).
-            XCTAssert(!assignment.checkIfValidAndComplete())
+        // Add an assignment and check the constraints.
+        assignment[a] = .version(v1)
+        XCTAssertEqual(assignment.constraints, ["B": v1Range])
+        XCTAssert(assignment.isValid(binding: .version(v1), for: b))
+        XCTAssert(!assignment.isValid(binding: .version(v2), for: b))
+        // This is invalid (no 'B' assignment).
+        XCTAssert(!assignment.checkIfValidAndComplete())
 
-            // Check another assignment.
-            assignment[b] = .version(v1)
-            XCTAssertEqual(assignment.constraints, ["B": v1Range, "C": v1Range])
-            XCTAssert(!assignment.checkIfValidAndComplete())
+        // Check another assignment.
+        assignment[b] = .version(v1)
+        XCTAssertEqual(assignment.constraints, ["B": v1Range, "C": v1Range])
+        XCTAssert(!assignment.checkIfValidAndComplete())
 
-            // Check excluding 'A'.
-            assignment[a] = .excluded
-            XCTAssertEqual(assignment.constraints, ["C": v1Range])
-            XCTAssert(!assignment.checkIfValidAndComplete())
+        // Check excluding 'A'.
+        assignment[a] = .excluded
+        XCTAssertEqual(assignment.constraints, ["C": v1Range])
+        XCTAssert(!assignment.checkIfValidAndComplete())
 
-            // Check completing the assignment.
-            assignment[c] = .version(v1)
-            XCTAssert(assignment.checkIfValidAndComplete())
+        // Check completing the assignment.
+        assignment[c] = .version(v1)
+        XCTAssert(assignment.checkIfValidAndComplete())
 
-            // Check bringing back 'A' at a different version, which has only a
-            // more restrictive 'C' dependency.
-            assignment[a] = .version(v2)
-            XCTAssertEqual(assignment.constraints, ["C": v1_0Range])
-            XCTAssert(assignment.checkIfValidAndComplete())
-        }
+        // Check bringing back 'A' at a different version, which has only a more
+        // restrictive 'C' dependency.
+        assignment[a] = .version(v2)
+        XCTAssertEqual(assignment.constraints, ["C": v1_0Range])
+        XCTAssert(assignment.checkIfValidAndComplete())
     }
 
     static var allTests = [
