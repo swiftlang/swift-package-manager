@@ -203,9 +203,6 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
-        # Enable the workaround for SR-1457 until it is fixed.
-        other_args.extend(["-DEnableWorkaroundForSR1457"])
-
         if args.libdispatch_source_dir:
             other_args.extend(["-Xcc", "-fblocks"])
         
