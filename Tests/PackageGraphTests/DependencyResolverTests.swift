@@ -199,6 +199,28 @@ class DependencyResolverTests: XCTestCase {
         assignment[a] = .version(v2)
         XCTAssertEqual(assignment.constraints, ["C": v1_0Range])
         XCTAssert(assignment.checkIfValidAndComplete())
+
+        // Check assignment merging.
+        let d = MockPackageContainer(name: "D", dependenciesByVersion: [
+                v1: [(container: "E", versionRequirement: v1Range)],
+                v2: []])
+        var assignment2 = VersionAssignmentSet<MockPackageContainer>()
+        assignment2[d] = .version(v1)
+        XCTAssertTrue(assignment.merge(assignment2))
+        XCTAssertEqual(assignment.constraints, ["C": v1_0Range, "E": v1Range])
+
+        // Check merger of an assignment with incompatible constraints.
+        let d2 = MockPackageContainer(name: "D2", dependenciesByVersion: [
+                v1: [(container: "E", versionRequirement: v2Range)]])
+        var assignment3 = VersionAssignmentSet<MockPackageContainer>()
+        assignment3[d2] = .version(v1)
+        XCTAssertFalse(assignment.merge(assignment3))
+        XCTAssertEqual(assignment.constraints, ["C": v1_0Range, "E": v1Range])
+
+        // Check merger of an incompatible assignment.
+        var assignment4 = VersionAssignmentSet<MockPackageContainer>()
+        assignment4[d] = .version(v2)
+        XCTAssertFalse(assignment.merge(assignment4))
     }
 
     static var allTests = [

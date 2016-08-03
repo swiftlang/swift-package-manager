@@ -162,7 +162,7 @@ public protocol DependencyResolverDelegate {
 /// A bound version for a package within an assignment.
 //
 // FIXME: This should be nested, but cannot be currently.
-enum BoundVersion {
+enum BoundVersion: Equatable {
     /// The assignment should not include the package.
     ///
     /// This is different from the absence of an assignment for a particular
@@ -172,6 +172,18 @@ enum BoundVersion {
 
     /// The version of the package to include.
     case version(Version)
+}
+func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
+    switch (lhs, rhs) {
+    case (.excluded, .excluded):
+        return true
+    case (.excluded, _):
+        return false
+    case (.version(let lhs), .version(let rhs)):
+        return lhs == rhs
+    case (.version, _):
+        return false
+    }
 }
 
 /// A container for constraints for a set of packages.
@@ -284,6 +296,43 @@ struct VersionAssignmentSet<C: PackageContainer> {
 
             assignments[container.identifier] = (container: container, binding: newBinding)
         }
+    }
+
+    /// Merge in the bindings from the given `assignment`.
+    ///
+    /// - Returns: False if the merge cannot be made (the assignments contain
+    /// incompatible versions).
+    mutating func merge(_ assignment: VersionAssignmentSet<Container>) -> Bool {
+        // In order to protect the assignment set, we first have to test whether
+        // the merged constraint sets are satisfiable.
+        //
+        // FIXME: Move to non-mutating methods with results, in order to have a
+        // nice consistent API with `PackageContainerConstraintSet.merge`.
+        //
+        // FIXME: This is very inefficient; we should decide whether it is right
+        // to handle it here or force the main resolver loop to handle the
+        // discovery of this property.
+        var mergedConstraints = constraints
+        guard mergedConstraints.merge(assignment.constraints) else {
+            return false
+        }
+
+        // The induced constraints are satisfiable, so we *can* union the
+        // assignments without breaking our internal invariant on
+        // satisfiability.
+        for entry in assignment.assignments.values {
+            if let existing = self[entry.container] {
+                if existing != entry.binding {
+                    // NOTE: We are returning here with the data structure
+                    // partially updated, which feels wrong. See FIXME above.
+                    return false
+                }
+            } else {
+                self[entry.container] = entry.binding
+            }
+        }
+
+        return true
     }
 
     /// The combined version constraints induced by the assignment.
