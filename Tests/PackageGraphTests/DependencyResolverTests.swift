@@ -37,7 +37,7 @@ private struct MockPackageContainer: PackageContainer {
     }
 
     var versions: [Version] {
-        return dependenciesByVersion.keys.sorted().reversed()
+        return dependenciesByVersion.keys.sorted()
     }
 
     func getDependencies(at version: Version) -> [MockPackageConstraint] {
@@ -94,7 +94,7 @@ class DependencyResolverTests: XCTestCase {
                 MockPackageContainer(name: "B", dependenciesByVersion: [
                         v1: [(container: "C", versionRequirement: v1Range)]]),
                 MockPackageContainer(name: "C", dependenciesByVersion: [
-                        v1: []])])
+                        v1: [], v2: []])])
 
         let delegate = MockResolverDelegate()
         let resolver = DependencyResolver(
