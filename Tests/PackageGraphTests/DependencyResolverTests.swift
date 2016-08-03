@@ -14,6 +14,8 @@ import PackageGraph
 
 import struct PackageDescription.Version
 
+import TestSupport
+
 // FIXME: We have no @testable way to import generic structures.
 @testable import PackageGraph
 
@@ -72,13 +74,20 @@ private class MockResolverDelegate: DependencyResolverDelegate {
     }
 }
 
+private typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
+
 // Some handy ranges.
+//
+// The convention is that the name matches how specific the version is, so "v1"
+// means "any 1.?.?", and "v1_1" means "any 1.1.?".
 
 private let v1: Version = "1.0.0"
+private let v1_1: Version = "1.1.0"
 private let v2: Version = "2.0.0"
+private let v0_0_0Range: VersionSetSpecifier = .range("0.0.0" ..< "0.0.1")
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
-private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
 private let v1_0Range: VersionSetSpecifier = .range("1.0.0" ..< "1.1.0")
 private let v1_1Range: VersionSetSpecifier = .range("1.1.0" ..< "1.2.0")
@@ -221,12 +230,123 @@ class DependencyResolverTests: XCTestCase {
         XCTAssertFalse(assignment.merge(assignment4))
     }
 
+    /// Check the basic situations for resolving a subtree.
+    func testResolveSubtree() throws {
+        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
+
+        // Check respect for the input constraints on version selection.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [(container: "B", versionRequirement: v1Range)],
+                    v2: [(container: "B", versionRequirement: v1Range)]])
+            let b = MockPackageContainer(name: "B", dependenciesByVersion: [
+                    v1: [], v2: []])
+            let provider = MockPackagesProvider(containers: [a, b])
+            let delegate = MockResolverDelegate()
+            let resolver = MockDependencyResolver(provider, delegate)
+
+            // Check the unconstrained solution.
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ConstraintSet(), excluding: [:]),
+                ["A": v2, "B": v1])
+
+            // Check when constraints prevents a specific version.
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ["A": v1Range]),
+                ["A": v1, "B": v1])
+
+            // Check when constraints prevent resolution.
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ["A": v0_0_0Range]),
+                nil)
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
+                nil)
+        }
+
+        // Check respect for the constraints induced by the initial package.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [],
+                    v2: [(container: "B", versionRequirement: v1Range)]])
+            let provider = MockPackagesProvider(containers: [a])
+            let delegate = MockResolverDelegate()
+            let resolver = MockDependencyResolver(provider, delegate)
+
+            // Check that this throws, because we try to fetch "B".
+            XCTAssertThrows(MockLoadingError.unknownModule) {
+                _ = try resolver.resolveSubtree(a)
+            }
+
+            // Check that this works, because we skip ever trying the version
+            // referencing "C" because the it is unsatisfiable.
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
+                ["A": v1])
+        }
+
+        // Check when a subtree is unsolvable.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [],
+                    v2: [(container: "B", versionRequirement: v1Range)]])
+            let b = MockPackageContainer(name: "B", dependenciesByVersion: [
+                    v1: [(container: "C", versionRequirement: v2Range)]])
+            let provider = MockPackagesProvider(containers: [a, b])
+            let delegate = MockResolverDelegate()
+            let resolver = MockDependencyResolver(provider, delegate)
+
+            // FIXME: This should return a `["A": v1]` assignment.
+            XCTAssertThrows(DependencyResolverError.unimplemented) {
+                _ = try resolver.resolveSubtree(a, subjectTo: ["C": v0_0_0Range])
+            }
+        }
+
+        // Check when a subtree can't be merged.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [],
+                    v2: [
+                        (container: "B", versionRequirement: v1Range),
+                        (container: "C", versionRequirement: v1Range)]])
+            // B will pick `"D" == v1_1`, due to the more limited range.
+            let b = MockPackageContainer(name: "B", dependenciesByVersion: [
+                    v1: [(container: "D", versionRequirement: v1Range)]])
+            // C will pick `"D" == v1_0`, due to the more limited range (but not
+            // due to the top-down constraints, which is the case covered
+            // previously).
+            let c = MockPackageContainer(name: "C", dependenciesByVersion: [
+                    v1: [(container: "D", versionRequirement: v1_0Range)]])
+            let d = MockPackageContainer(name: "D", dependenciesByVersion: [
+                    v1: [], v1_1: []])
+            let provider = MockPackagesProvider(containers: [a, b, c, d])
+            let delegate = MockResolverDelegate()
+            let resolver = MockDependencyResolver(provider, delegate)
+
+            // FIXME: This should return a `["A": v1]` assignment.
+            XCTAssertThrows(DependencyResolverError.unimplemented) {
+                _ = try resolver.resolveSubtree(a)
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
         ("testContainerConstraintSet", testContainerConstraintSet),
         ("testVersionAssignment", testVersionAssignment),
+        ("testResolveSubtree", testResolveSubtree),
     ]
+}
+
+private extension DependencyResolver {
+    func resolveSubtree(
+        _ container: Container,
+        subjectTo allConstraints: [Identifier: VersionSetSpecifier] = [:],
+        excluding exclusions: [Identifier: Set<Version>] = [:]
+    ) throws -> AssignmentSet? {
+        return try resolveSubtree(container, subjectTo: ConstraintSet(allConstraints), excluding: exclusions)
+    }
 }
 
 private func ==(_ lhs: [String: VersionSetSpecifier], _ rhs: [String: VersionSetSpecifier]) -> Bool {
@@ -253,4 +373,29 @@ where C.Identifier == String
         actual[identifier] = constraints[identifier]!
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
+}
+
+private func XCTAssertEqual<C: PackageContainer>(
+    _ assignment: VersionAssignmentSet<C>?,
+    _ expected: [String: Version]?,
+    file: StaticString = #file, line: UInt = #line)
+where C.Identifier == String
+{
+    if let assignment = assignment {
+        guard let expected = expected else {
+            return XCTFail("unexpected satisfying assignment (expected failure): \(assignment)", file: file, line: line)
+        }
+        var actual = [String: Version]()
+        for (container, binding) in assignment {
+            guard case .version(let version) = binding else {
+                return XCTFail("unexpected binding in \(assignment)", file: file, line: line)
+            }
+            actual[container.identifier] = version
+        }
+        XCTAssertEqual(actual, expected, file: file, line: line)
+    } else {
+        if let expected = expected {
+            return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
+        }
+    }
 }
