@@ -12,6 +12,8 @@ import XCTest
 
 import Basic
 
+import TestSupport
+
 private func topologicalSort(_ nodes: [Int], _ successors: [Int: [Int]]) throws -> [Int] {
     return try topologicalSort(nodes, successors: { successors[$0] ?? [] })
 }

@@ -112,6 +112,9 @@ let package = Package(
         // MARK: Additional Test Dependencies
         
         Target(
+            name: "BasicTests",
+            dependencies: ["TestSupport"]),
+        Target(
             name: "BuildTests",
             dependencies: ["Build", "TestSupport"]),
         Target(

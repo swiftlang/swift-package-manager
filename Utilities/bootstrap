@@ -307,7 +307,9 @@ def parse_manifest():
     targets = list(map(convert, pattern.finditer(manifest_data)))
 
     # Remove the targets which should be ignored in stage 1.
-    targets = [target for target in targets if target.name not in g_ignored_targets]
+    targets = [target for target in targets
+               if target.name not in g_ignored_targets and
+                  not target.name.endswith("Tests")]
 
     # substitute strings for Target objects
     for target in targets:
@@ -340,7 +342,7 @@ def parse_manifest():
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
-g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport", "BuildTests", "CommandsTests", "FunctionalTests", "GetTests", "PackageLoadingTests", "SourceControlTests", "UtilityTests"]
+g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport"]
 targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 
