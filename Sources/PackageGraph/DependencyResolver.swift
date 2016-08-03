@@ -192,7 +192,7 @@ func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
 // `PackageContainerConstraint`s. That won't work if we decide this should
 // eventually map based on the `Container` rather than the `Identifier`, though,
 // so they are separate for now.
-struct PackageContainerConstraintSet<C: PackageContainer> {
+struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -244,18 +244,37 @@ struct PackageContainerConstraintSet<C: PackageContainer> {
     ///
     /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
     /// when the resulting set is satisfiable, if it was already so.
-    mutating func merge(_ rhs: PackageContainerConstraintSet<Container>) -> Bool {
+    mutating func merge(_ constraints: PackageContainerConstraintSet<Container>) -> Bool {
         var satisfiable = true
-        for (key, versionRequirement) in rhs.constraints {
+        for (key, versionRequirement) in constraints {
             if !merge(versionRequirement: versionRequirement, for: key) {
                 satisfiable = false
             }
         }
         return satisfiable
     }
+
+    // MARK: Collection Conformance
+
+    var startIndex: Index {
+        return constraints.startIndex
+    }
+
+    var endIndex: Index {
+        return constraints.endIndex
+    }
+
+    func index(after i: Index) -> Index {
+        return constraints.index(after: i)
+    }
+
+    subscript(position: Index) -> Element {
+        return constraints[position]
+    }
 }
 
-/// A container for version assignments for a set of packages.
+/// A container for version assignments for a set of packages, exposed as a
+/// sequence of `Container` to `BoundVersion` bindings.
 ///
 /// This is intended to be an efficient data structure for accumulating a set of
 /// version assignments along with efficient access to the derived information
@@ -267,7 +286,7 @@ struct PackageContainerConstraintSet<C: PackageContainer> {
 /// `constraints`, but this invariant is not explicitly enforced.
 //
 // FIXME: Actually make efficient.
-struct VersionAssignmentSet<C: PackageContainer> {
+struct VersionAssignmentSet<C: PackageContainer>: Sequence {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -320,15 +339,15 @@ struct VersionAssignmentSet<C: PackageContainer> {
         // The induced constraints are satisfiable, so we *can* union the
         // assignments without breaking our internal invariant on
         // satisfiability.
-        for entry in assignment.assignments.values {
-            if let existing = self[entry.container] {
-                if existing != entry.binding {
+        for (container, binding) in assignment {
+            if let existing = self[container] {
+                if existing != binding {
                     // NOTE: We are returning here with the data structure
                     // partially updated, which feels wrong. See FIXME above.
                     return false
                 }
             } else {
-                self[entry.container] = entry.binding
+                self[container] = binding
             }
         }
 
@@ -409,6 +428,24 @@ struct VersionAssignmentSet<C: PackageContainer> {
         }
 
         return true
+    }
+
+    // MARK: Sequence Conformance
+
+    // FIXME: This should really be a collection, but that takes significantly
+    // more work given our current backing collection.
+
+    typealias Iterator = AnyIterator<(Container, BoundVersion)>
+
+    func makeIterator() -> Iterator {
+        var it = assignments.values.makeIterator()
+        return AnyIterator{
+            if let next = it.next() {
+                return (next.container, next.binding)
+            } else {
+                return nil
+            }
+        }
     }
 }
 
