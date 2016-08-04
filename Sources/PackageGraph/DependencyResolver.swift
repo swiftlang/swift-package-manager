@@ -120,6 +120,9 @@ public protocol PackageContainer {
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version last.
+    ///
+    /// This property is expected to be efficient to access, and cached by the
+    /// client if necessary.
     //
     // FIXME: It is possible this protocol could one day be more efficient if it
     // returned versions more lazily, e.g., if we could fetch them iteratively
@@ -129,7 +132,10 @@ public protocol PackageContainer {
 
     /// Fetch the declared dependencies for a particular version.
     ///
-    /// - precondition: `versions.contains(version)`
+    /// This property is expected to be efficient to access, and cached by the
+    /// client if necessary.
+    ///
+    /// - Precondition: `versions.contains(version)`
     func getDependencies(at version: Version) -> [PackageContainerConstraint<Identifier>]
 }
 
