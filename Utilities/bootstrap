@@ -959,6 +959,7 @@ def main():
             cmd.append("--enable-code-coverage")
         
         # Call `swift-package` to generate the Xcode project.
+        note("generating Xcode project: %s" % (' '.join(cmd),))
         result = subprocess.call(cmd)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
