@@ -947,7 +947,18 @@ def main():
                 
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
+        # We will use the `swift-package` binary we just built to generate the
+        # Xcode project.
         cmd = [swift_package_path, "generate-xcodeproj"]
+        
+        # If there is a `llvm-profdata` binary next to `swiftc`, we enable code
+        # coverage in the generated project.
+        llvm_profdata_path = os.path.join(os.path.dirname(args.swiftc_path),
+            "llvm-profdata")
+        if os.path.exists(llvm_profdata_path):
+            cmd.append("--enable-code-coverage")
+        
+        # Call `swift-package` to generate the Xcode project.
         result = subprocess.call(cmd)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
