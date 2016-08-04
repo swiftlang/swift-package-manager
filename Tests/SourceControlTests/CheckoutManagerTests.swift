@@ -125,7 +125,7 @@ class CheckoutManagerTests: XCTestCase {
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numFetches, 1)
 
-            // Manually destroy the manager state, and it still works.
+            // Manually destroy the manager state, and check it still works.
             do {
                 var manager = CheckoutManager(path: path, provider: provider)
                 try! removeFileTree(manager.statePath)
