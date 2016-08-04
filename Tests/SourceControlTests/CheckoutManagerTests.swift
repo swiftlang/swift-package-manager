@@ -15,6 +15,8 @@ import SourceControl
 
 import TestSupport
 
+@testable import class SourceControl.CheckoutManager
+
 private enum DummyError: Swift.Error {
     case invalidRepository
 }
@@ -35,6 +37,9 @@ private class DummyRepositoryProvider: RepositoryProvider {
     var numFetches = 0
     
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+        assert(!localFileSystem.exists(path))
+        try! localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
+
         numFetches += 1
         
         // We only support one dummy URL.
@@ -119,6 +124,19 @@ class CheckoutManagerTests: XCTestCase {
             }
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numFetches, 1)
+
+            // Manually destroy the manager state, and it still works.
+            do {
+                var manager = CheckoutManager(path: path, provider: provider)
+                try! removeFileTree(manager.statePath)
+                manager = CheckoutManager(path: path, provider: provider)
+                let dummyRepo = RepositorySpecifier(url: "dummy")
+                let handle = manager.lookup(repository: dummyRepo)
+                // FIXME: Wait for repo to become available.
+                XCTAssertTrue(handle.isAvailable)
+            }
+            // We should have re-fetched.
+            XCTAssertEqual(provider.numFetches, 2)
         }
     }
 

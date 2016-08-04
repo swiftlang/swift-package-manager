@@ -157,10 +157,16 @@ public class CheckoutManager {
         let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
         repositories[repository.url] = handle
 
+        // Ensure nothing else exists at the subpath.
+        let repositoryPath = path.appending(subpath)
+        if localFileSystem.exists(repositoryPath) {
+            _ = try? removeFileTree(repositoryPath)
+        }
+        
         // FIXME: This should run on a background thread.
         do {
             handle.status = .pending
-            try provider.fetch(repository: repository, to: path.appending(subpath))
+            try provider.fetch(repository: repository, to: repositoryPath)
             handle.status = .available
         } catch {
             // FIXME: Handle failure more sensibly.
@@ -199,7 +205,7 @@ public class CheckoutManager {
     private static var schemaVersion = 1
 
     /// The path at which we persist the manager state.
-    private var statePath: AbsolutePath {
+    var statePath: AbsolutePath {
         return path.appending(component: "manager-state.json")
     }
     
