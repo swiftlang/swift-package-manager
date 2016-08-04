@@ -31,7 +31,10 @@ public class CheckoutManager {
         
         /// The manager this repository is owned by.
         private unowned let manager: CheckoutManager
-        
+
+        /// The repository specifier.
+        fileprivate let repository: RepositorySpecifier
+
         /// The subpath of the repository within the manager.
         ///
         /// This is intentionally hidden from the clients so that the manager is
@@ -42,8 +45,9 @@ public class CheckoutManager {
         fileprivate var status: Status = .uninitialized
 
         /// Create a handle.
-        fileprivate init(manager: CheckoutManager, subpath: RelativePath) {
+        fileprivate init(manager: CheckoutManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
+            self.repository = repository
             self.subpath = subpath
         }
 
@@ -51,11 +55,13 @@ public class CheckoutManager {
         fileprivate init?(manager: CheckoutManager, json data: JSON) {
             guard case let .dictionary(contents) = data,
                   case let .string(subpath)? = contents["subpath"],
+                  case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(statusString)? = contents["status"],
                   let status = Status(rawValue: statusString) else {
                 return nil
             }
             self.manager = manager
+            self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpath)
             self.status = status
         }
@@ -85,11 +91,18 @@ public class CheckoutManager {
             }
         }
 
+        /// Open the given repository.
+        public func open() -> Repository {
+            precondition(status == .available, "open() called in invalid state")
+            return self.manager.open(self)
+        }
+
         // MARK: Persistence
 
         fileprivate func toJSON() -> JSON {
             return .dictionary([
                     "status": .string(status.rawValue),
+                    "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString)
                 ])
         }
@@ -141,7 +154,7 @@ public class CheckoutManager {
         
         // Otherwise, fetch the repository and return a handle.
         let subpath = RelativePath(repository.fileSystemIdentifier)
-        let handle = RepositoryHandle(manager: self, subpath: subpath)
+        let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
         repositories[repository.url] = handle
 
         // FIXME: This should run on a background thread.
@@ -165,6 +178,11 @@ public class CheckoutManager {
         return handle
     }
 
+    /// Open a repository from a handle.
+    private func open(_ handle: RepositoryHandle) -> Repository {
+        return provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    }
+
     // MARK: Persistence
 
     private enum PersistenceError: Swift.Error {
@@ -178,7 +196,7 @@ public class CheckoutManager {
     /// The schema of the state file.
     ///
     /// We currently discard any restored state if we detect a schema change.
-    private static var schemaVersion = 0
+    private static var schemaVersion = 1
 
     /// The path at which we persist the manager state.
     private var statePath: AbsolutePath {

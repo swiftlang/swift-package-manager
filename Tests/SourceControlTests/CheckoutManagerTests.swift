@@ -9,12 +9,26 @@
 */
 
 import XCTest
-import TestSupport
+
 import Basic
 import SourceControl
 
+import TestSupport
+
 private enum DummyError: Swift.Error {
     case invalidRepository
+}
+
+private class DummyRepository: Repository {
+    var tags: [String] = ["1.0.0"]
+
+    func resolveRevision(tag: String) throws -> Revision {
+        fatalError("unexpected API call")
+    }
+
+    func openFileView(revision: Revision) throws -> FileSystem {
+        fatalError("unexpected API call")
+    }
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
@@ -31,7 +45,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        fatalError("unexpected API call")
+        return DummyRepository()
     }
 }
 
@@ -49,6 +63,10 @@ class CheckoutManagerTests: XCTestCase {
             
             // Validate that the repo is available.
             XCTAssertTrue(handle.isAvailable)
+
+            // Open the repository.
+            let repository = handle.open()
+            XCTAssertEqual(repository.tags, ["1.0.0"])
 
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
