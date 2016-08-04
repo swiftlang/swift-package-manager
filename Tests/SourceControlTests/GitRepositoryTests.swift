@@ -20,6 +20,17 @@ import TestSupport
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
+    func testRepositorySpecifier() {
+        let a = RepositorySpecifier(url: "a")
+        let b = RepositorySpecifier(url: "b")
+        let a2 = RepositorySpecifier(url: "a")
+        XCTAssertEqual(a, a)
+        XCTAssertNotEqual(a, b)
+        XCTAssertEqual(a, a2)
+        XCTAssertEqual(Set([a]), Set([a2]))
+    }
+        
+    /// Test the basic provider functions.
     func testProvider() throws {
         mktmpdir { path in
             let testRepoPath = path.appending(component: "test-repo")
@@ -185,6 +196,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     static var allTests = [
+        ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testRawRepository", testRawRepository),
