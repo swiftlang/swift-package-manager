@@ -56,11 +56,21 @@ private struct Resources: ManifestResourceProvider {
 }
 
 class ManifestTests: XCTestCase {
-
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: inputName)
             body(try ManifestLoader(resources: Resources()).load(path: input, baseURL: input.parentDirectory.asString, version: nil))
+        } catch {
+            XCTFail("Unexpected error: \(error)", file: #file, line: line)
+        }
+    }
+
+    private func loadManifest(_ contents: ByteString, line: UInt = #line, body: (Manifest) -> Void) {
+        do {
+            let fs = InMemoryFileSystem()
+            let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+            try fs.writeFileContents(manifestPath, bytes: contents)
+            body(try ManifestLoader(resources: Resources()).load(path: manifestPath, baseURL: AbsolutePath.root.asString, version: nil, fileSystem: fs))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -91,6 +101,16 @@ class ManifestTests: XCTestCase {
                 Target(
                     name: "dep",
                     dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
+        }
+
+        // Check loading a manifest from a file system.
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+        loadManifest(trivialManifest) { manifest in
+            XCTAssertEqual(manifest.package.name, "Trivial")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
         }
     }
 

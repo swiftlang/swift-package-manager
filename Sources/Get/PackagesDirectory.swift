@@ -126,17 +126,18 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
+        let manifestParser = { try self.manifestLoader.load(path: $0, baseURL: $1, version: $2) }
         let basename = url.components(separatedBy: "/").last!
         let dstdir = packagesPath.appending(component: basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
-            return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+            return try RawClone(path: dstdir, manifestParser: manifestParser)
         }
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
         try Git.clone(url, to: dstdir).fetch()
 
-        return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+        return try RawClone(path: dstdir, manifestParser: manifestParser)
     }
 
     func finalize(_ fetchable: Fetchable) throws -> Manifest {

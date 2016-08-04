@@ -50,16 +50,30 @@ public final class ManifestLoader {
         self.resources = resources
     }
 
-    /// Create a manifest by loading from the given path.
+    /// Create a manifest by loading from the given `path`.
     ///
     /// - Parameters:
     ///   - path: The path to the manifest file or directory containing `Package.swift`.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    public func load(path inputPath: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
+    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
+    public func load(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+        // If we were given a file system, load via a temporary file.
+        if let fileSystem = fileSystem {
+            let tmpFile = try TemporaryFile()
+            let contents = try fileSystem.readFileContents(inputPath)
+            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
+            return try load(path: tmpFile.path, baseURL: baseURL, version: version)
+        }
+
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
+        //
+        // This is important when the baseURL is a file system path, so that the
+        // URLs embedded into the manifest are canonical.
+        //
+        // FIXME: We really shouldn't be handling this here and in this fashion.
         var baseURL = baseURL
         if URL.scheme(baseURL) == nil {
             baseURL = try realpath(baseURL)
