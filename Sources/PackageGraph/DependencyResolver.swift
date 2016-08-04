@@ -612,26 +612,9 @@ public class DependencyResolver<
         //
         // FIXME: We must detect recursion here.
         for version in validVersions(container) {
-            // Create local constaint copies we will use to build the solution.
-            var allConstraints = allConstraints
-            // FIXME: We need a persistent set data structure for this to be efficient.
-            let allExclusions = allExclusions
-
-            // Create an assignment for this container.
+            // Create an assignment for this container and version.
             var assignment = AssignmentSet()
             assignment[container] = .version(version)
-
-            // Update the active constraint set to include this container's constraints.
-            //
-            // We want to put all of these constraints in up front so that we
-            // are more likely to get back a viable solution.
-            //
-            // FIXME: We should have a test for this, probably by adding some
-            // kind of statistics on the number of backtracks.
-            guard allConstraints.merge(assignment.constraints) else {
-                // The constraints themselves were unsatisfiable after merging, so the version is invalid.
-                continue
-            }
 
             // Get the constraints for this container version and update the
             // assignment to include each one.
@@ -665,6 +648,19 @@ public class DependencyResolver<
         var assignment = assignment
         var allConstraints = allConstraints
 
+        // Update the active constraint set to include all active constraints.
+        //
+        // We want to put all of these constraints in up front so that we are
+        // more likely to get back a viable solution.
+        //
+        // FIXME: We should have a test for this, probably by adding some kind
+        // of statistics on the number of backtracks.
+        for constraint in constraints {
+            if !allConstraints.merge(constraint) {
+                return nil
+            }
+        }
+
         for constraint in constraints {
             // Get the container.
             //
@@ -672,6 +668,9 @@ public class DependencyResolver<
             // theory one could imagine attempting to find a solution not
             // requiring this container. It isn't clear that is something we
             // would ever want to handle at this level.
+            //
+            // FIXME: We want to ask for all of these containers up-front to
+            // allow for async cloning.
             let container = try getContainer(for: constraint.identifier)
 
             // Solve for an assignment with the current constraints.

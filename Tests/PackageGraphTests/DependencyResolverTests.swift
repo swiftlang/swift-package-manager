@@ -330,12 +330,42 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    /// Check the basic situations for resolve().
+    ///
+    /// This is primarily tested via `resolveSubtree`.
+    func testResolve() throws {
+        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
+
+        // Check respect for the input constraints on version selection.
+        do {
+            let a = MockPackageContainer(name: "A", dependenciesByVersion: [
+                    v1: [], v2: []])
+            let provider = MockPackagesProvider(containers: [a])
+            let delegate = MockResolverDelegate()
+            let resolver = MockDependencyResolver(provider, delegate)
+
+            // Check the constraints are respected.
+            XCTAssertEqual(
+                try resolver.resolve(constraints: [
+                        MockPackageConstraint(container: "A", versionRequirement: v1Range)]),
+                ["A": v1])
+
+            // Check the constraints are respected if unsatisfiable.
+            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+                _ = try resolver.resolve(constraints: [
+                        MockPackageConstraint(container: "A", versionRequirement: v1Range),
+                        MockPackageConstraint(container: "A", versionRequirement: v2Range)])
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
         ("testContainerConstraintSet", testContainerConstraintSet),
         ("testVersionAssignment", testVersionAssignment),
         ("testResolveSubtree", testResolveSubtree),
+        ("testResolve", testResolve),
     ]
 }
 
@@ -371,6 +401,18 @@ where C.Identifier == String
     var actual = [String: VersionSetSpecifier]()
     for identifier in constraints.containerIdentifiers {
         actual[identifier] = constraints[identifier]!
+    }
+    XCTAssertEqual(actual, expected, file: file, line: line)
+}
+
+private func XCTAssertEqual(
+    _ assignment: [(container: String, version: Version)],
+    _ expected: [String: Version],
+    file: StaticString = #file, line: UInt = #line)
+{
+    var actual = [String: Version]()
+    for (identifier, binding) in assignment {
+        actual[identifier] = binding
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
