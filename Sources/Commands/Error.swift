@@ -20,7 +20,7 @@ import enum PackageLoading.ManifestParseError
 
 public enum Error: Swift.Error {
     case noManifestFound
-    case invalidToolchain
+    case invalidToolchain(problem: String)
     case buildYAMLNotFound(String)
     case repositoryHasChanges(String)
 }
@@ -30,8 +30,8 @@ extension Error: FixableError {
         switch self {
         case .noManifestFound:
             return "no \(Manifest.filename) file found"
-        case .invalidToolchain:
-            return "invalid inferred toolchain"
+        case .invalidToolchain(let problem):
+            return "invalid inferred toolchain: \(problem)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         case .repositoryHasChanges(let value):
