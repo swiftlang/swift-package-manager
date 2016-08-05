@@ -21,28 +21,28 @@ import protocol Build.Toolchain
 #endif
 
 struct UserToolchain: Toolchain {
-    let SWIFT_EXEC: String
-    let clang: String
-    let sysroot: String?
+    /// Path of the `swiftc` compiler.
+    let swiftCompiler: AbsolutePath
+    
+    /// Path of the `clang` compiler.
+    let clangCompiler: AbsolutePath
+    
+    /// Path of the default SDK (a.k.a. "sysroot"), if any.
+    let defaultSDK: AbsolutePath?
 
 #if os(macOS)
-    var platformArgsClang: [String] {
-        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", sysroot!]
+    var clangPlatformArgs: [String] {
+        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString]
     }
-
-    var platformArgsSwiftc: [String] {
-        return ["-target", "x86_64-apple-macosx10.10", "-sdk", sysroot!]
+    var swiftPlatformArgs: [String] {
+        return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString]
     }
 #else
-    let platformArgsClang: [String] = []
-    let platformArgsSwiftc: [String] = []
+    let clangPlatformArgs: [String] = []
+    let swiftPlatformArgs: [String] = []
 #endif
 
     init() throws {
-        let swiftCompiler: AbsolutePath
-        let clangCompiler: AbsolutePath
-        let defaultSDK: AbsolutePath?
-        
         // Find the Swift compiler, looking first in the environment.
         if let value = getenv("SWIFT_EXEC"), !value.isEmpty {
             // We have a value, but it could be an absolute or a relative path.
@@ -104,10 +104,5 @@ struct UserToolchain: Toolchain {
       #else
         defaultSDK = nil
       #endif
-        
-        // Finally set the properties (we will refactor these to paths in the next diff).
-        SWIFT_EXEC = swiftCompiler.asString
-        clang = clangCompiler.asString
-        sysroot = defaultSDK?.asString
     }
 }

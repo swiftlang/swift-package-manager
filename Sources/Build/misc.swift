@@ -16,11 +16,20 @@ import func POSIX.getenv
 import func POSIX.popen
 
 public protocol Toolchain {
-    var platformArgsClang: [String] { get }
-    var platformArgsSwiftc: [String] { get }
-    var sysroot: String?  { get }
-    var SWIFT_EXEC: String { get }
-    var clang: String { get }
+    /// Path of the `swiftc` compiler.
+    var swiftCompiler: AbsolutePath { get }
+    
+    /// Platform-specific arguments for Swift compiler.
+    var swiftPlatformArgs: [String] { get }
+    
+    /// Path of the `clang` compiler.
+    var clangCompiler: AbsolutePath { get }
+    
+    /// Platform-specific arguments for Clang compiler.
+    var clangPlatformArgs: [String] { get }
+    
+    /// Path of the default SDK (a.k.a. "sysroot"), if any.
+    var defaultSDK: AbsolutePath? { get }
 }
 
 extension AbsolutePath {

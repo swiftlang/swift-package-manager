@@ -21,11 +21,11 @@ final class DescribeTests: XCTestCase {
     let dummyPackage = Package(manifest: Manifest(path: AbsolutePath("/"), url: "/", package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: AbsolutePath("/"), modules: [], testModules: [], products: [])
     
     struct InvalidToolchain: Toolchain {
-        var platformArgsClang: [String] { fatalError() }
-        var platformArgsSwiftc: [String] { fatalError() }
-        var sysroot: String?  { fatalError() }
-        var SWIFT_EXEC: String { fatalError() }
-        var clang: String { fatalError() }
+        var swiftCompiler: AbsolutePath { fatalError() }
+        var clangCompiler: AbsolutePath { fatalError() }
+        var defaultSDK: AbsolutePath?  { fatalError() }
+        var swiftPlatformArgs: [String] { fatalError() }
+        var clangPlatformArgs: [String] { fatalError() }
     }
 
     func testDescribingNoModulesThrows() {

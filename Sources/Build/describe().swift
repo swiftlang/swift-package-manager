@@ -32,7 +32,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     try makeDirectories(prefix)
     let swiftcArgs = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] } + flags.swiftCompilerFlags + verbosity.ccArgs
 
-    let SWIFT_EXEC = toolchain.SWIFT_EXEC
+    let SWIFT_EXEC = toolchain.swiftCompiler
     let CC = getenv("CC") ?? "clang"
 
     var commands = [Command]()
@@ -41,7 +41,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     for module in graph.modules {
         switch module {
         case let module as SwiftModule:
-            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.swiftPlatformArgs, SWIFT_EXEC: SWIFT_EXEC.asString)
             commands.append(compile)
             targets.append([compile], for: module)
 
@@ -51,7 +51,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
             if module.isTest { continue }
           #endif
             // FIXME: Find a way to eliminate `externalModules` from here.
-            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: flags.cCompilerFlags + toolchain.platformArgsClang)
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: flags.cCompilerFlags + toolchain.clangPlatformArgs)
             commands += compile
             targets.append(compile, for: module)
 
@@ -76,7 +76,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         if product.containsOnlyClangModules {
             command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, CC: CC)
         } else {
-            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgsSwiftc + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.swiftPlatformArgs + rpathArgs, SWIFT_EXEC: SWIFT_EXEC.asString)
         }
 
         commands.append(command)
