@@ -14,7 +14,7 @@ import POSIX
 
 private extension FileSystem {
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
@@ -73,7 +73,7 @@ final class InitPackage {
         try writeTests()
     }
 
-    private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+    private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
         print("Creating \(path.relative(to: rootd).asString)")
         try localFileSystem.writeFileContents(path, body: body)
     }

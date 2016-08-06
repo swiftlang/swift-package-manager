@@ -31,11 +31,11 @@ public enum GraphError: Swift.Error {
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
 public func topologicalSort<T: Hashable>(
-            _ nodes: [T], successors: @noescape (T) -> [T]) throws -> [T] {
+            _ nodes: [T], successors: (T) -> [T]) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,
                _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
-               _ successors: @noescape (T) -> [T]) throws {
+               _ successors: (T) -> [T]) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node).inserted {
             return

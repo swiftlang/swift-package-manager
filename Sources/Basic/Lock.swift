@@ -24,7 +24,7 @@ public struct Lock {
     }
     
     /// Execute the given block while holding the lock.
-    public mutating func withLock<T> (_ body: @noescape () throws -> T) rethrows -> T {
+    public mutating func withLock<T> (_ body: () throws -> T) rethrows -> T {
         _lock.lock()
         defer { _lock.unlock() }
         return try body()

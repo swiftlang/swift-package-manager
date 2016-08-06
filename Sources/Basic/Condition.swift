@@ -40,7 +40,7 @@ public struct Condition {
     }
     
     /// A helper method to execute the given body while condition is locked.
-    public func whileLocked<T>(_ body: @noescape () throws -> T) rethrows -> T {
+    public func whileLocked<T>(_ body: () throws -> T) rethrows -> T {
         _condition.lock()
         defer { _condition.unlock() }
         return try body()
