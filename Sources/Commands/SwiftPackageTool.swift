@@ -16,10 +16,6 @@ import PackageModel
 import Utility
 import Xcodeproj
 
-#if HasCustomVersionString
-import VersionInfo
-#endif
-
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
@@ -168,11 +164,7 @@ public struct SwiftPackageTool: SwiftTool {
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
                 
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)

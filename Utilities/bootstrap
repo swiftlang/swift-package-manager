@@ -354,22 +354,28 @@ def make_xml_string_literal(str):
 
 
 # Write out a header containing version information, and a module map for it.
-def write_bootstrap_version_info(include_path, version_str):
+def write_bootstrap_version_info(include_path, vendor_name, build_identifier):
     # Construct the header and write it out if it's changed.
     output = StringIO()
-    print("static inline const char * DisplayString() {", file=output)
-    print("    return " + make_c_string_literal(version_str) + ";", file=output)
-    print("}", file=output)
-    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"),
-                          output.getvalue())
+    vendor_name_literal = make_c_string_literal(vendor_name)
+    build_identifier_literal = make_c_string_literal(build_identifier)
+    contents = """
+static inline const char* VendorNameString() {
+    return %(vendor_name_literal)s;
+}
+static inline const char* BuildIdentifierString() {
+    return %(build_identifier_literal)s;
+}
+""" % locals()
+    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"), contents)
     
     # Also construct the module map and write it out if it's changed.
-    output = StringIO()
-    print("module VersionInfo [extern_c] {", file=output)
-    print("    header \"VersionInfo.h\"", file=output)
-    print("}", file=output)
-    write_file_if_changed(os.path.join(include_path, "module.map"),
-                          output.getvalue())
+    contents = """\
+module VersionInfo [extern_c] {
+    header \"VersionInfo.h\"
+}
+"""
+    write_file_if_changed(os.path.join(include_path, "module.map"), contents)
 
 
 def create_bootstrap_files(sandbox_path, args):
@@ -521,8 +527,11 @@ def create_bootstrap_files(sandbox_path, args):
                           output.getvalue())
     
     # Write out the version info header and module map file, if appropriate.
-    if args.version_str:
-        write_bootstrap_version_info(inc_dir, args.version_str)
+    if args.vendor_name or args.build_identifier:
+        if not args.vendor_name or not args.build_identifier:
+            error("--build-identifier is required with --vendor-name")
+        write_bootstrap_version_info(inc_dir, args.vendor_name,
+                                     args.build_identifier)
 
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
@@ -690,8 +699,10 @@ def main():
                         help="Build stage 2 for release")
     parser.add_argument("--generate-xcodeproj", action="store_true",
                         help="Also generate an Xcode project for SwiftPM")
-    parser.add_argument("--version-string", dest="version_str",
-                        help="version string to display for --version")
+    parser.add_argument("--vendor-name", dest="vendor_name",
+                        help="vendor name for use in --version")
+    parser.add_argument("--build-identifier", dest="build_identifier",
+                        help="build identifier for use in --version")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -793,7 +804,7 @@ def main():
         build_flags.append("-v")
 
     # If appropriate, add flags for a custom version string:
-    if args.version_str:
+    if args.vendor_name or args.build_identifier:
         incdir = os.path.join(sandbox_path, "inc")
         build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
         build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
