@@ -1,10 +1,10 @@
 # Swift Package Manager Project
 
-> **PLEASE NOTE** The Swift Package Manager is still in early design and development — we are aiming to have it stable and ready for use with Swift 3 but currently all details are subject to change and many important features are yet to be implemented. Additionally, it is important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
+> **PLEASE NOTE** The Swift Package Manager is still in early design and development — we are aiming to have it stable and ready for use with Swift 3 but currently all details are subject to change and many important features are yet to be implemented. Additionally, it is important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
 
 The Swift Package Manager is a tool for managing distribution of source code, aimed at making it easy to share your code and reuse others’ code. The tool directly addresses the challenges of compiling and linking Swift packages, managing dependencies, versioning, and supporting flexible distribution and collaboration models.
 
-We’ve designed the system to make it really easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
+We’ve designed the system to make it easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
 
 ---
 
@@ -52,10 +52,6 @@ The package manager is bundled with the [**Trunk Development** Snapshots availab
 
         export TOOLCHAINS=swift
 
-* Xcode 7.2:
-
-        export PATH=/Library/Toolchains/swift-latest.xctoolchain/usr/bin:$PATH
-
 * Linux:
 
         export PATH=path/to/toolchain/usr/bin:$PATH
@@ -73,7 +69,7 @@ The following indicates you have not installed a snapshot successfully:
 
 ### Managing Swift Environments
 
-The `TOOLCHAINS` environment variable on OS X can be used to control which `swift` is instantiated:
+The `TOOLCHAINS` environment variable on OS X can be used to control which `swift` is executed:
 
 ```sh
 $ xcrun --find swift
@@ -91,13 +87,13 @@ On OS X `/usr/bin/swift` is just a stub that forwards invocations to the active 
 
 To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier` in an `.xctoolchain`’s Info.plist.
 
-This feature requires Xcode 7.3.
+This feature requires Xcode 7.3 or later.
 
 ---
 
 ## Development
 
-The Package Manager is itself a Swift Package and thus can be used to build itself. However we recommend instead one of the three following options:
+The Package Manager project is itself a Swift Package and can be used to build itself. If you are interested in contributing to the package manager, however, we recommend one of the three following options:
 
 1. Using the [Swift project `build-script`](https://github.com/apple/swift/blob/master/README.md):
 
@@ -120,19 +116,19 @@ Note that either of the latter two options may not be compatible with the `maste
 
 ### Choosing a Swift Version
 
-The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift package`. If it is not set, SwiftPM will try to locate it:
+The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift package`. If it is not set, the package manager will try to locate it:
 
-1. In `swift-package`'s parent directory. 
-2. (on OS X) by calling `xcrun --find swiftc`
-3. in PATH
+1. In `swift-package`'s parent directory.
+2. On OS X, by calling `xcrun --find swiftc`.
+3. By searching the PATH.
 
 ---
 
 ## Documentation
 
-For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation/README](Documentation/README.md).
+For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 
-For additional documentation on developing Swift Package Manager, see [Documentation/Internals](Documentation/Internals).
+For additional documentation on developing the Swift Package Manager itself, see [Documentation/Internals](Documentation/Internals).
 
 ---
 
