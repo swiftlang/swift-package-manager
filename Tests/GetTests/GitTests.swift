@@ -12,16 +12,25 @@ import XCTest
 
 import TestSupport
 import Basic
-@testable import Get
-import struct PackageModel.Manifest
+
 import class PackageDescription.Package
 import class Utility.Git
+import struct PackageDescription.Version
+import struct PackageModel.Manifest
+
+@testable import Get
 
 class GitTests: XCTestCase {
     func testHasVersion() {
         mktmpdir { path in
             let gitRepo = makeGitRepo(path, tag: "0.1.0")!
             XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,1,0)])
+        }
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tag: "v0.1.0")!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,1,0)])
         }
     }
 

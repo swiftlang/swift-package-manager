@@ -14,6 +14,18 @@ import func POSIX.getenv
 import libc
 import class Foundation.ProcessInfo
 
+import struct PackageDescription.Version
+
+extension Version {
+    static func vprefix(_ string: String) -> Version? {
+        if string.characters.first == "v" {
+            return Version(string.characters.dropFirst())
+        } else {
+            return nil
+        }
+    }
+}
+
 public class Git {
     public class Repo {
         public let path: AbsolutePath
@@ -41,6 +53,40 @@ public class Git {
             }
         }(self)
 
+        /// The set of known versions and their tags.
+        public lazy var knownVersions: [Version: String] = { repo in
+            // Get the list of tags.
+            let out = (try? Git.runPopen([Git.tool, "-C", repo.path.asString, "tag", "-l"])) ?? ""
+            let tags = out.characters.split(separator: "\n").map{ String($0) }
+
+            // First try the plain init.
+            var knownVersions: [Version: String] = [:]
+            for tag in tags {
+                if let version = Version(tag) {
+                    knownVersions[version] = tag
+                }
+            }
+            // If we didn't find any versions, look for 'v'-prefixed ones.
+            if knownVersions.isEmpty {
+                for tag in tags {
+                    if let version = Version.vprefix(tag) {
+                        knownVersions[version] = tag
+                    }
+                }
+            }
+            return knownVersions
+        }(self)
+
+        /// The set of versions in the repository.
+        public var versions: [Version] {
+            return [Version](knownVersions.keys)
+        }
+
+        /// Check if repo contains a version tag
+        public var hasVersion: Bool {
+            return !versions.isEmpty
+        }
+        
         public var branch: String! {
             return try? Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
