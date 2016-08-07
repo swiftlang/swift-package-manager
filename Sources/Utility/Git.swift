@@ -62,12 +62,10 @@ public class Git {
             // First, check if we need to restrict the tag set to version-specific tags.
             var knownVersions: [Version: String] = [:]
             for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-                for tag in tags {
-                    if tag.hasSuffix(versionSpecificKey) {
-                        let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
-                        if let version = Version(specifier) ?? Version.vprefix(specifier) {
-                            knownVersions[version] = tag
-                        }
+                for tag in tags where tag.hasSuffix(versionSpecificKey) {
+                    let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
+                    if let version = Version(specifier) ?? Version.vprefix(specifier) {
+                        knownVersions[version] = tag
                     }
                 }
 

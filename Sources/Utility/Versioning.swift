@@ -27,9 +27,11 @@ public struct SwiftVersion {
     /// Build information, as an unstructured string.
     public var buildIdentifier: String?
 
-    /// The major version number
+    /// The major component of the version number.
     public var major: Int { return version.major }
+    /// The minor component of the version number.
     public var minor: Int { return version.minor }
+    /// The patch component of the version number.
     public var patch: Int { return version.patch }
     
     /// The version as a readable string.
