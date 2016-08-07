@@ -14,7 +14,6 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(DescribeTests.allTests),
-        testCase(PackageVersionDataTests.allTests),
     ]
 }
 #endif
