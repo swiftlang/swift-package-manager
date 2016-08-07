@@ -68,7 +68,7 @@ public final class PackagesDirectory {
     /// - Throws: Error.InvalidDependencyGraph
     public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
-        let manifest = try manifestLoader.load(path: rootPath, baseURL: rootPath.asString, version: nil)
+        let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
         if ignoreDependencies {
             return (manifest, [])
         }
@@ -114,7 +114,7 @@ extension PackagesDirectory: Fetcher {
             return nil
         }
 
-        return try manifestLoader.load(path: repo.path, baseURL: origin, version: version)
+        return try manifestLoader.load(packagePath: repo.path, baseURL: origin, version: version)
     }
     
     func find(url: String) throws -> Fetchable? {
@@ -126,7 +126,7 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
-        let manifestParser = { try self.manifestLoader.load(path: $0, baseURL: $1, version: $2) }
+        let manifestParser = { try self.manifestLoader.load(packagePath: $0, baseURL: $1, version: $2) }
         let basename = url.components(separatedBy: "/").last!
         let dstdir = packagesPath.appending(component: basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {

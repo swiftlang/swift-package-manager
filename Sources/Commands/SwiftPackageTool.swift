@@ -224,7 +224,7 @@ public struct SwiftPackageTool: SwiftTool {
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root
-                let manifest = try packageGraphLoader.manifestLoader.load(path: root, baseURL: root.asString, version: nil)
+                let manifest = try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
                 let package = manifest.package
                 let json = try jsonString(package: package)
                 print(json)
