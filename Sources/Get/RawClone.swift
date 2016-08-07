@@ -65,10 +65,9 @@ class RawClone: Fetchable {
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
     func setCurrentVersion(_ ver: Version) throws {
-        let packageVersionsArePrefixed = repo.versionsArePrefixed
-        let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", v])
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", v])
+        let tag = repo.knownVersions[ver]!
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", tag])
 
         print("Resolved version:", ver)
 

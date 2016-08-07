@@ -102,15 +102,6 @@ public class Git {
             return !(changes?.isEmpty ?? true)
         }
 
-        /**
-         - Returns: true if the package versions in this repository
-         are all prefixed with "v", otherwise false. If there are
-         no versions, returns false.
-         */
-        public var versionsArePrefixed: Bool {
-            return (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"]))?.hasPrefix("v") ?? false
-        }
-
         public func fetch() throws {
 #if os(Linux)
             try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
