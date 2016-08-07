@@ -136,7 +136,12 @@ public protocol PackageContainer {
     /// client if necessary.
     ///
     /// - Precondition: `versions.contains(version)`
-    func getDependencies(at version: Version) -> [PackageContainerConstraint<Identifier>]
+    /// - Throws: If the version could not be resolved; this will abort
+    ///   dependency resolution completely.
+    //
+    // FIXME: We should perhaps define some particularly useful error codes
+    // here, so the resolver can handle errors more meaningfully.
+    func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.
@@ -398,7 +403,10 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
                 //
                 // FIXME: We should cache this too, possibly at a layer
                 // different than above (like the entry record).
-                for constraint in container.getDependencies(at: version) {
+                //
+                // FIXME: Error handling, except that we probably shouldn't have
+                // needed to refetch the dependencies at this point.
+                for constraint in try! container.getDependencies(at: version) {
                     let satisfiable = result.merge(constraint)
                     assert(satisfiable)
                 }
@@ -619,7 +627,7 @@ public class DependencyResolver<
             // Get the constraints for this container version and update the
             // assignment to include each one.
             if let result = try merge(
-                     constraints: container.getDependencies(at: version),
+                     constraints: try container.getDependencies(at: version),
                      into: assignment, subjectTo: allConstraints, excluding: allExclusions) {
                 // We found a complete valid assignment.
                 assert(result.checkIfValidAndComplete())
