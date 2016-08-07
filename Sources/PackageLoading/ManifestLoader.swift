@@ -58,6 +58,14 @@ public final class ManifestLoader {
     ///   - version: The version the manifest is from, if known.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
     public func load(packagePath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+        // As per our versioning support, determine the appropriate manifest version to load.
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys { 
+            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            if (fileSystem ?? localFileSystem).exists(versionSpecificPath) {
+                return try loadFile(path: versionSpecificPath, baseURL: baseURL, version: version, fileSystem: fileSystem)
+            }
+        }
+        
         return try loadFile(path: packagePath.appending(component: Manifest.filename), baseURL: baseURL, version: version, fileSystem: fileSystem)
     }
 
