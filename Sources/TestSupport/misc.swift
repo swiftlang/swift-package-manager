@@ -84,6 +84,10 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
 
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain exactly one empty file, and if a tag name is provided, a tag with that name will be created.
 public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
+    initGitRepo(dir, tags: tag.flatMap{ [$0] } ?? [], file: file, line: line)
+}
+
+public func initGitRepo(_ dir: AbsolutePath, tags: [String], file: StaticString = #file, line: UInt = #line) {
     do {
         let file = dir.appending(component: "file.swift")
         try systemQuietly(["touch", file.asString])
@@ -92,7 +96,7 @@ public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticStr
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", dir.asString, "add", "."])
         try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", "msg"])
-        if let tag = tag {
+        for tag in tags {
             try tagGitRepo(dir, tag: tag)
         }
     }
