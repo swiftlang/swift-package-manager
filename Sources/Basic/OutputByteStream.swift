@@ -192,7 +192,7 @@ public class OutputByteStream: TextOutputStream {
     }
 
     /// Write an arbitrary streamable to the buffer.
-    public final func write(_ value: Streamable) {
+    public final func write(_ value: TextOutputStreamable) {
         // Get a mutable reference.
         var stream: OutputByteStream = self
         value.write(to: &stream)
@@ -260,7 +260,7 @@ precedencegroup StreamingPrecedence {
 //
 // NOTE: It would be nice to use a protocol here and the adopt it by all the
 // things we can efficiently stream out. However, that doesn't work because we
-// ultimately need to provide a manual overload sometimes, e.g., Streamable, but
+// ultimately need to provide a manual overload sometimes, e.g., TextOutputStreamable, but
 // that will then cause ambiguous lookup versus the implementation just using
 // the defined protocol.
 
@@ -318,7 +318,7 @@ public func <<<(stream: OutputByteStream, value: ByteStreamable) -> OutputByteSt
 }
 
 @discardableResult
-public func <<<(stream: OutputByteStream, value: Streamable) -> OutputByteStream {
+public func <<<(stream: OutputByteStream, value: TextOutputStreamable) -> OutputByteStream {
     stream.write(value)
     return stream
 }
