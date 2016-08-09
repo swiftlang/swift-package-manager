@@ -222,16 +222,33 @@ public struct PackageBuilder {
     // MARK: Utility Predicates
     
     private func isValidSource(_ path: AbsolutePath) -> Bool {
-        return isValidSource(path, validExtensions: SupportedLanguageExtension.validExtensions)
-    }
-    
-    private func isValidSource(_ path: AbsolutePath, validExtensions: Set<String>) -> Bool {
-        if path.basename.hasPrefix(".") { return false }
-        if path == manifest.path { return false }
-        if excludedPaths.contains(path) { return false }
+        // Ignore files which don't match the expected extensions.
+        guard let ext = path.extension, SupportedLanguageExtension.validExtensions.contains(ext) else {
+            return false
+        }
+        
+        // Ignore dotfiles.
+        let basename = path.basename
+        if basename.hasPrefix(".") { return false }
+        
+        // Ignore symlinks to non-files.
         if !fileSystem.isFile(path) { return false }
-        guard let ext = path.extension else { return false }
-        return validExtensions.contains(ext)
+        
+        // Ignore excluded files.
+        if excludedPaths.contains(path) { return false }
+
+        // Ignore manifest files.
+        if path.parentDirectory == packagePath {
+            if basename == Manifest.filename { return false }
+
+            // Ignore version-specific manifest files.
+            if basename.hasPrefix(Manifest.basename + "@") && basename.hasSuffix(".swift") {
+                return false
+            }
+        }
+
+        // Otherwise, we have a valid source file.
+        return true
     }
     
     private func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
@@ -414,7 +431,7 @@ public struct PackageBuilder {
         }
     }
     
-    /// Private function that constructs a single Module object for the moduel at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
+    /// Private function that constructs a single Module object for the module at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
     private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
         
         // Validate the module name.  This function will throw an error if it detects a problem.
@@ -424,9 +441,11 @@ public struct PackageBuilder {
         let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
         
         // Select any source files for the C-based languages and for Swift.
-        let cSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.cFamilyExtensions) }
-        let swiftSources = walked.filter{ isValidSource($0, validExtensions: SupportedLanguageExtension.swiftExtensions) }
-        
+        let sources = walked.filter(isValidSource)
+        let cSources = sources.filter{ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) }
+        let swiftSources = sources.filter{ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) }
+        assert(sources.count == cSources.count + swiftSources.count)
+
         // Create and return the right kind of module depending on what kind of sources we found.
         if cSources.isEmpty {
             // No C sources, so we expect to have Swift sources, and we create a Swift module.

@@ -59,14 +59,32 @@ public class Git {
             let out = (try? Git.runPopen([Git.tool, "-C", repo.path.asString, "tag", "-l"])) ?? ""
             let tags = out.characters.split(separator: "\n").map{ String($0) }
 
-            // First try the plain init.
+            // First, check if we need to restrict the tag set to version-specific tags.
             var knownVersions: [Version: String] = [:]
+            for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+                for tag in tags where tag.hasSuffix(versionSpecificKey) {
+                    let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
+                    if let version = Version(specifier) ?? Version.vprefix(specifier) {
+                        knownVersions[version] = tag
+                    }
+                }
+
+                // If we found tags at this version-specific key, we are done.
+                if !knownVersions.isEmpty {
+                    return knownVersions
+                }
+            }
+            
+            // Otherwise, look for normal tags.
             for tag in tags {
                 if let version = Version(tag) {
                     knownVersions[version] = tag
                 }
             }
+
             // If we didn't find any versions, look for 'v'-prefixed ones.
+            //
+            // FIXME: We should match both styles simultaneously.
             if knownVersions.isEmpty {
                 for tag in tags {
                     if let version = Version.vprefix(tag) {

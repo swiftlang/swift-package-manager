@@ -84,6 +84,10 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
 
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain exactly one empty file, and if a tag name is provided, a tag with that name will be created.
 public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
+    initGitRepo(dir, tags: tag.flatMap{ [$0] } ?? [], file: file, line: line)
+}
+
+public func initGitRepo(_ dir: AbsolutePath, tags: [String], file: StaticString = #file, line: UInt = #line) {
     do {
         let file = dir.appending(component: "file.swift")
         try systemQuietly(["touch", file.asString])
@@ -92,7 +96,7 @@ public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticStr
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", dir.asString, "add", "."])
         try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", "msg"])
-        if let tag = tag {
+        for tag in tags {
             try tagGitRepo(dir, tag: tag)
         }
     }
@@ -103,6 +107,18 @@ public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticStr
 
 public func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
     try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
+}
+
+public func removeTagGitRepo(_ dir: AbsolutePath, tag: String) throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "tag", "-d", tag])
+}
+
+public func addGitRepo(_ dir: AbsolutePath, file path: RelativePath) throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "add", path.asString])
+}
+
+public func commitGitRepo(_ dir: AbsolutePath, message: String = "Test commit") throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", message])
 }
 
 public enum Configuration {
@@ -154,3 +170,16 @@ public func systemQuietly(_ args: [String]) throws {
 public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }
+
+public extension FileSystem {
+    /// Write to a file from a stream producer.
+    //
+    // FIXME: This is copy-paste from Commands/init.swift, maybe it is reasonable to lift it to Basic?
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+        let contents = BufferedOutputByteStream()
+        body(contents)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
+    }
+}
+

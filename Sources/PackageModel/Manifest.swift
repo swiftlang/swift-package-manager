@@ -20,7 +20,10 @@ import PackageDescription
 */
 public struct Manifest {
     /// The standard filename for the manifest.
-    public static var filename = "Package.swift"
+    public static var filename = basename + ".swift"
+
+    /// The standard basename for the manifest.
+    public static var basename = "Package"
 
     /// The path of the manifest file.
     //

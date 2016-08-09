@@ -132,9 +132,48 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    /// Check that we load the manifest appropriate for the current version, if
+    /// version specific customization is used.
+    func testVersionSpecificLoading() throws {
+        let bogusManifest: ByteString = "THIS WILL NOT PARSE"
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+
+        // Check at each possible spelling.
+        let currentVersion = Versioning.currentVersion
+        let possibleSuffixes = [
+            "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
+            "\(currentVersion.major).\(currentVersion.minor)",
+            "\(currentVersion.major)"
+        ]
+        for (i, key) in possibleSuffixes.enumerated() {
+            let root = AbsolutePath.root
+            // Create a temporary FS with the version we want to test, and everything else as bogus.
+            let fs = InMemoryFileSystem()
+            // Write the good manifests.
+            try fs.writeFileContents(
+                root.appending(component: Manifest.basename + "@swift-\(key).swift"),
+                bytes: trivialManifest)
+            // Write the bad manifests.
+            let badManifests = [Manifest.filename] + possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
+                Manifest.basename + "@swift-\($0).swift"
+            }
+            try badManifests.forEach {
+                try fs.writeFileContents(
+                    root.appending(component: $0),
+                    bytes: bogusManifest)
+            }
+            // Check we can load the repository.
+            let manifest = try ManifestLoader(resources: Resources()).load(packagePath: root, baseURL: root.asString, version: nil, fileSystem: fs)
+            XCTAssertEqual(manifest.name, "Trivial")
+        }
+    }
+    
     static var allTests = [
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
-        ("testInvalidTargetName", testInvalidTargetName)
+        ("testInvalidTargetName", testInvalidTargetName),
+        ("testVersionSpecificLoading", testVersionSpecificLoading),
     ]
 }

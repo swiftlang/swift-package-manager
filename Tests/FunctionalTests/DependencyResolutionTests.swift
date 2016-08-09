@@ -9,11 +9,14 @@
 */
 
 import XCTest
-import TestSupport
+
 import Basic
+
 import func POSIX.popen
 
-class DependencyResolutionTestCase: XCTestCase {
+import TestSupport
+
+class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)

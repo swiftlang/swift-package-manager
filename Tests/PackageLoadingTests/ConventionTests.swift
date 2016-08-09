@@ -673,6 +673,23 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testVersionSpecificManifests() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles(
+            "/Package.swift",
+            "/Package@swift-999.swift",
+            "/Sources/Package.swift",
+            "/Sources/Package@swift-1.swift")
+
+        let name = "Foo"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "Package.swift", "Package@swift-1.swift")
+            }
+        }
+    }
+
     // MARK:- Invalid Layouts Tests
 
     func testMultipleRoots() throws {
@@ -845,6 +862,7 @@ class ConventionTests: XCTestCase {
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
+        ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
     ]
 }

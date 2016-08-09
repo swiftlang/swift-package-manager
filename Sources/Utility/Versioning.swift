@@ -27,9 +27,16 @@ public struct SwiftVersion {
     /// Build information, as an unstructured string.
     public var buildIdentifier: String?
 
+    /// The major component of the version number.
+    public var major: Int { return version.major }
+    /// The minor component of the version number.
+    public var minor: Int { return version.minor }
+    /// The patch component of the version number.
+    public var patch: Int { return version.patch }
+    
     /// The version as a readable string.
     public var displayString: String {
-        var result = "\(version.major).\(version.minor).\(version.patch)"
+        var result = "\(major).\(minor).\(patch)"
         if isDevelopment {
             result += "-dev"
         }
@@ -47,6 +54,18 @@ public struct SwiftVersion {
 #endif
         return vendorPrefix + "Swift Package Manager - Swift " + displayString
     }
+
+    /// The list of version specific identifiers to search when attempting to
+    /// load version specific package or version information, in order of
+    /// preference.
+    public var versionSpecificKeys: [String] {
+        return [
+            "@swift-\(major).\(minor).\(patch)",
+            "@swift-\(major).\(minor)",
+            "@swift-\(major)"
+        ]
+    }
+
 }
 
 private func getBuildIdentifier() -> String? {
@@ -64,4 +83,8 @@ public struct Versioning {
         version: (3, 0, 0),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier())
+
+    /// The list of version specific "keys" to search when attempting to load
+    /// version specific package or version information, in order of preference.
+    public static let currentVersionSpecificKeys = currentVersion.versionSpecificKeys
 }

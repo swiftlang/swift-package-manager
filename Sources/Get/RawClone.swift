@@ -32,6 +32,9 @@ class RawClone: Fetchable {
         if branch.hasPrefix("v") {
             branch = String(branch.characters.dropFirst())
         }
+        if branch.contains("@") {
+            branch = branch.components(separatedBy: "@").first!
+        }
         return Version(branch)
     }
     
