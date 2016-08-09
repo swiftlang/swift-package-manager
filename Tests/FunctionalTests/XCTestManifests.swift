@@ -14,11 +14,12 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ClangModulesTestCase.allTests),
-        testCase(DependencyResolutionTestCase.allTests),
+        testCase(DependencyResolutionTests.allTests),
         testCase(MiscellaneousTestCase.allTests),
         testCase(ModuleMapsTestCase.allTests),
         testCase(SwiftPMXCTestHelperTests.allTests),
-        testCase(ValidLayoutsTestCase.allTests),
+        testCase(ValidLayoutsTests.allTests),
+        testCase(VersionSpecificTests.allTests),
     ]
 }
 #endif

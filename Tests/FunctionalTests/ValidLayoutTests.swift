@@ -17,7 +17,7 @@ import Utility
 import func POSIX.rename
 import func POSIX.popen
 
-class ValidLayoutsTestCase: XCTestCase {
+class ValidLayoutsTests: XCTestCase {
 
     func testSingleModuleLibrary() {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
@@ -113,7 +113,7 @@ class ValidLayoutsTestCase: XCTestCase {
 
 // MARK: Utility
 
-extension ValidLayoutsTestCase {
+extension ValidLayoutsTests {
     func runLayoutFixture(name: String, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
         let name = "ValidLayouts/\(name)"
 

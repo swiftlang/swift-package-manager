@@ -109,6 +109,18 @@ public func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
     try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
 }
 
+public func removeTagGitRepo(_ dir: AbsolutePath, tag: String) throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "tag", "-d", tag])
+}
+
+public func addGitRepo(_ dir: AbsolutePath, file path: RelativePath) throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "add", path.asString])
+}
+
+public func commitGitRepo(_ dir: AbsolutePath, message: String = "Test commit") throws {
+    try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", message])
+}
+
 public enum Configuration {
     case Debug
     case Release
@@ -158,3 +170,16 @@ public func systemQuietly(_ args: [String]) throws {
 public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }
+
+public extension FileSystem {
+    /// Write to a file from a stream producer.
+    //
+    // FIXME: This is copy-paste from Commands/init.swift, maybe it is reasonable to lift it to Basic?
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+        let contents = BufferedOutputByteStream()
+        body(contents)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
+    }
+}
+
