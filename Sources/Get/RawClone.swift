@@ -103,7 +103,9 @@ class RawClone: Fetchable {
     }
 
     var availableVersions: [Version] {
-        return repo.versions
+        let versions = repo.versions
+        assert(versions == versions.sorted())
+        return versions
     }
 
     var finalName: String {

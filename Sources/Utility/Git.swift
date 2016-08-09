@@ -77,10 +77,10 @@ public class Git {
             return knownVersions
         }(self)
 
-        /// The set of versions in the repository.
-        public var versions: [Version] {
-            return [Version](knownVersions.keys)
-        }
+        /// The set of versions in the repository, in order.
+        public lazy var versions: [Version] = { repo in
+            return [Version](repo.knownVersions.keys).sorted()
+        }(self)
 
         /// Check if repo contains a version tag
         public var hasVersion: Bool {

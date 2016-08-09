@@ -38,8 +38,15 @@ class DependencyResolutionTestCase: XCTestCase {
         }
     }
 
+    /// Check resolution of a trivial package with one dependency.
     func testExternalSimple() {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
+        // This will tag 'Foo' with 1.0.0, to start.
+        fixture(name: "DependencyResolution/External/Simple", tags: ["1.0.0"]) { prefix in
+            // Add several other tags to check version selection.
+            for tag in ["1.1.0", "1.2.0", "1.2.3"] {
+                try tagGitRepo(prefix.appending(components: "Foo"), tag: tag)
+            }
+
             XCTAssertBuilds(prefix.appending(component: "Bar"))
             XCTAssertFileExists(prefix.appending(components: "Bar", ".build", "debug", "Bar"))
             XCTAssertDirectoryExists(prefix.appending(components: "Bar", "Packages", "Foo-1.2.3"))
