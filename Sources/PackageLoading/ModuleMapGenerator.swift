@@ -16,27 +16,28 @@ public let moduleMapFilename = "module.modulemap"
 
 /// A protocol for modules which might have a modulemap.
 protocol ModuleMapProtocol {
-
     var moduleMapPath: AbsolutePath { get }
 
     var moduleMapDirectory: AbsolutePath { get }
-}
-
-extension ModuleMapProtocol {
-    public var moduleMapPath: AbsolutePath {
-        return moduleMapDirectory.appending(component: moduleMapFilename)
-    }
 }
 
 extension CModule: ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath {
         return path
     }
+
+    public var moduleMapPath: AbsolutePath {
+        return moduleMapDirectory.appending(component: moduleMapFilename)
+    }
 }
 
 extension ClangModule: ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath {
         return includeDir
+    }
+
+    public var moduleMapPath: AbsolutePath {
+        return moduleMapDirectory.appending(component: moduleMapFilename)
     }
 }
 
