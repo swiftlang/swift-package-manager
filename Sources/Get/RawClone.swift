@@ -32,6 +32,9 @@ class RawClone: Fetchable {
         if branch.hasPrefix("v") {
             branch = String(branch.characters.dropFirst())
         }
+        if branch.contains("@") {
+            branch = branch.components(separatedBy: "@").first!
+        }
         return Version(branch)
     }
     
@@ -65,10 +68,9 @@ class RawClone: Fetchable {
 
     /// contract, you cannot call this before you have attempted to `constrain` this clone
     func setCurrentVersion(_ ver: Version) throws {
-        let packageVersionsArePrefixed = repo.versionsArePrefixed
-        let v = (packageVersionsArePrefixed ? "v" : "") + ver.description
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", v])
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", v])
+        let tag = repo.knownVersions[ver]!
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "branch", "-m", tag])
 
         print("Resolved version:", ver)
 
@@ -104,7 +106,9 @@ class RawClone: Fetchable {
     }
 
     var availableVersions: [Version] {
-        return repo.versions
+        let versions = repo.versions
+        assert(versions == versions.sorted())
+        return versions
     }
 
     var finalName: String {

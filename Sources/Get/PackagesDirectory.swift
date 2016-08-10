@@ -68,7 +68,7 @@ public final class PackagesDirectory {
     /// - Throws: Error.InvalidDependencyGraph
     public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
-        let manifest = try manifestLoader.load(path: rootPath, baseURL: rootPath.asString, version: nil)
+        let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
         if ignoreDependencies {
             return (manifest, [])
         }
@@ -114,7 +114,7 @@ extension PackagesDirectory: Fetcher {
             return nil
         }
 
-        return try manifestLoader.load(path: repo.path, baseURL: origin, version: version)
+        return try manifestLoader.load(packagePath: repo.path, baseURL: origin, version: version)
     }
     
     func find(url: String) throws -> Fetchable? {
@@ -126,17 +126,18 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
+        let manifestParser = { try self.manifestLoader.load(packagePath: $0, baseURL: $1, version: $2) }
         let basename = url.components(separatedBy: "/").last!
         let dstdir = packagesPath.appending(component: basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
-            return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+            return try RawClone(path: dstdir, manifestParser: manifestParser)
         }
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
         try Git.clone(url, to: dstdir).fetch()
 
-        return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+        return try RawClone(path: dstdir, manifestParser: manifestParser)
     }
 
     func finalize(_ fetchable: Fetchable) throws -> Manifest {

@@ -14,10 +14,6 @@ import Basic
 import Build
 import Utility
 
-#if HasCustomVersionString
-import VersionInfo
-#endif
-
 import func POSIX.chdir
 import func POSIX.exit
 
@@ -158,11 +154,7 @@ public struct SwiftTestTool: SwiftTool {
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
         
             case .listTests:
                 let testPath = try buildTestsIfNeeded(opts)

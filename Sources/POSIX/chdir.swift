@@ -22,7 +22,7 @@ public func chdir(_ path: String) throws {
     }
 
     guard libc.chdir(path) == 0 else {
-        throw SystemError.chdir(errno)
+        throw SystemError.chdir(errno, path)
     }
 }
 

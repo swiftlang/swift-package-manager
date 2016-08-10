@@ -82,7 +82,45 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
         }
     }
-    
+
+    func testInitEmpty() throws {
+        mktmpdir { tmpPath in
+            var fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            _ = try execute(["-C", path.asString, "init", "--type", "empty"])
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
+        }
+    }
+
+    func testInitExecutable() throws {
+        mktmpdir { tmpPath in
+            var fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            _ = try execute(["-C", path.asString, "init", "--type", "executable"])
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
+        }
+    }
+
+    func testInitLibrary() throws {
+        mktmpdir { tmpPath in
+            var fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            _ = try execute(["-C", path.asString, "init"])
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["Foo.swift"])
+            XCTAssertEqual(
+                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                ["FooTests", "LinuxMain.swift"])
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
@@ -90,5 +128,8 @@ final class PackageToolTests: XCTestCase {
         ("testUpdate", testUpdate),
         ("testDumpPackage", testDumpPackage),
         ("testShowDependencies", testShowDependencies),
+        ("testInitEmpty", testInitEmpty),
+        ("testInitExecutable", testInitExecutable),
+        ("testInitLibrary", testInitLibrary),
     ]
 }

@@ -16,10 +16,6 @@ import PackageModel
 import Utility
 import Xcodeproj
 
-#if HasCustomVersionString
-import VersionInfo
-#endif
-
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
@@ -168,11 +164,7 @@ public struct SwiftPackageTool: SwiftTool {
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
                 
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
@@ -232,7 +224,7 @@ public struct SwiftPackageTool: SwiftTool {
                 
             case .dumpPackage:
                 let root = opts.inputPath ?? opts.path.root
-                let manifest = try packageGraphLoader.manifestLoader.load(path: root, baseURL: root.asString, version: nil)
+                let manifest = try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
                 let package = manifest.package
                 let json = try jsonString(package: package)
                 print(json)
@@ -251,12 +243,12 @@ public struct SwiftPackageTool: SwiftTool {
         print("")
         print("COMMANDS:")
         print("  init [--type <type>]                   Initialize a new package")
-        print("                                         (type: library|executable|system-module)")
+        print("      (type: empty|library|executable|system-module)")
         print("  fetch                                  Fetch package dependencies")
         print("  update                                 Update package dependencies")
         print("  generate-xcodeproj [--output <path>]   Generates an Xcode project")
         print("  show-dependencies [--format <format>]  Print the resolved dependency graph")
-        print("                                         (format: text|dot|json)")
+        print("      (format: text|dot|json)")
         print("  dump-package [--input <path>]          Print parsed Package.swift as JSON")
         print("")
         print("OPTIONS:")

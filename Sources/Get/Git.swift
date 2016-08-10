@@ -46,21 +46,3 @@ extension Git {
         return Repo(path: dstdir)!  //TODO no bangs
     }
 }
-
-extension Git.Repo {
-    var versions: [Version] {
-        let out = (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])) ?? ""
-        let tags = out.characters.split(separator: "\n")
-        let versions = tags.flatMap(Version.init).sorted()
-        if !versions.isEmpty {
-            return versions
-        } else {
-            return tags.flatMap(Version.vprefix).sorted()
-        }
-    }
-
-    /// Check if repo contains a version tag
-    var hasVersion: Bool {
-        return !versions.isEmpty
-    }
-}

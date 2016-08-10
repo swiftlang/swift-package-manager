@@ -17,7 +17,7 @@ import Utility
 import func POSIX.rename
 import func POSIX.popen
 
-class ValidLayoutsTestCase: XCTestCase {
+class ValidLayoutsTests: XCTestCase {
 
     func testSingleModuleLibrary() {
         runLayoutFixture(name: "SingleModule/Library") { prefix in
@@ -113,8 +113,8 @@ class ValidLayoutsTestCase: XCTestCase {
 
 // MARK: Utility
 
-extension ValidLayoutsTestCase {
-    func runLayoutFixture(name: String, line: UInt = #line, body: @noescape(AbsolutePath) throws -> Void) {
+extension ValidLayoutsTests {
+    func runLayoutFixture(name: String, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
         let name = "ValidLayouts/\(name)"
 
         // 1. Rooted layout

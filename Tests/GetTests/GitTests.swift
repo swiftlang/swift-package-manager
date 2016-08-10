@@ -10,18 +10,52 @@
 
 import XCTest
 
-import TestSupport
 import Basic
-@testable import Get
-import struct PackageModel.Manifest
+import Utility
+
+import TestSupport
+
 import class PackageDescription.Package
-import class Utility.Git
+import struct PackageDescription.Version
+import struct PackageModel.Manifest
+
+@testable import Get
 
 class GitTests: XCTestCase {
     func testHasVersion() {
         mktmpdir { path in
             let gitRepo = makeGitRepo(path, tag: "0.1.0")!
             XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,1,0)])
+        }
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tag: "v0.1.0")!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,1,0)])
+        }
+    }
+
+    func testVersionSpecificTags() {
+        let current = Versioning.currentVersion
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tags: ["0.1.0", "0.2.0@swift-\(current.major)", "0.3.0@swift-\(current.major).\(current.minor)", "0.4.0@swift-\(current.major).\(current.minor).\(current.patch)"])!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,4,0)])
+        }
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tags: ["0.1.0", "0.2.0@swift-\(current.major)", "0.3.0@swift-\(current.major).\(current.minor)"])!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,3,0)])
+        }
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tags: ["0.1.0", "0.2.0@swift-\(current.major)"])!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,2,0)])
+        }
+        mktmpdir { path in
+            let gitRepo = makeGitRepo(path, tags: ["0.1.0", "v0.2.0@swift-\(current.major)"])!
+            XCTAssertTrue(gitRepo.hasVersion)
+            XCTAssertEqual(gitRepo.versions, [Version(0,2,0)])
         }
     }
 
@@ -42,6 +76,7 @@ class GitTests: XCTestCase {
 
     static var allTests = [
         ("testHasVersion", testHasVersion),
+        ("testVersionSpecificTags", testVersionSpecificTags),
         ("testHasNoVersion", testHasNoVersion),
         ("testCloneShouldNotCrashWihoutTags", testCloneShouldNotCrashWihoutTags),
         ("testCloneShouldCrashWihoutTags", testCloneShouldCrashWihoutTags),
@@ -51,7 +86,11 @@ class GitTests: XCTestCase {
 //MARK: - Helpers
 
 func makeGitRepo(_ dstdir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
-    initGitRepo(dstdir, tag: tag)
+    return makeGitRepo(dstdir, tags: tag.flatMap{ [$0] } ?? [], file: file, line: line)
+}
+
+func makeGitRepo(_ dstdir: AbsolutePath, tags: [String], file: StaticString = #file, line: UInt = #line) -> Git.Repo? {
+    initGitRepo(dstdir, tags: tags)
     return Git.Repo(path: dstdir)
 }
 

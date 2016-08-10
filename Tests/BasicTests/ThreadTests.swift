@@ -51,19 +51,21 @@ class ThreadTests: XCTestCase {
     }
 
     func testNotDeinitBeforeExecutingTask() {
-        let finishedCondition = NSCondition()
+        let finishedCondition = Condition()
         var finished = false
 
         Thread {
-            finished = true
-            finishedCondition.signal()
+            finishedCondition.whileLocked{
+                finished = true
+                finishedCondition.signal()
+            }
         }.start()
 
-        finishedCondition.lock()
-        while !finished {
-            finishedCondition.wait()
+        finishedCondition.whileLocked{
+            while !finished {
+                finishedCondition.wait()
+            }
         }
-        finishedCondition.unlock()
 
         XCTAssertTrue(finished)
     }

@@ -15,10 +15,6 @@ import PackageLoading
 import PackageModel
 import Utility
 
-#if HasCustomVersionString
-import VersionInfo
-#endif
-
 import enum Build.Configuration
 import enum Utility.ColorWrap
 import protocol Build.Toolchain
@@ -135,11 +131,7 @@ public struct SwiftBuildTool: SwiftTool {
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
                 
             case .build(let conf, let toolchain):
                 let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)

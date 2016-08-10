@@ -9,18 +9,37 @@
 */
 
 import XCTest
-import TestSupport
+
 import Basic
 import SourceControl
 
+import TestSupport
+
+@testable import class SourceControl.CheckoutManager
+
 private enum DummyError: Swift.Error {
     case invalidRepository
+}
+
+private class DummyRepository: Repository {
+    var tags: [String] = ["1.0.0"]
+
+    func resolveRevision(tag: String) throws -> Revision {
+        fatalError("unexpected API call")
+    }
+
+    func openFileView(revision: Revision) throws -> FileSystem {
+        fatalError("unexpected API call")
+    }
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
     var numFetches = 0
     
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+        assert(!localFileSystem.exists(path))
+        try! localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
+
         numFetches += 1
         
         // We only support one dummy URL.
@@ -31,7 +50,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        fatalError("unexpected API call")
+        return DummyRepository()
     }
 }
 
@@ -49,6 +68,10 @@ class CheckoutManagerTests: XCTestCase {
             
             // Validate that the repo is available.
             XCTAssertTrue(handle.isAvailable)
+
+            // Open the repository.
+            let repository = handle.open()
+            XCTAssertEqual(repository.tags, ["1.0.0"])
 
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
@@ -101,6 +124,19 @@ class CheckoutManagerTests: XCTestCase {
             }
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numFetches, 1)
+
+            // Manually destroy the manager state, and check it still works.
+            do {
+                var manager = CheckoutManager(path: path, provider: provider)
+                try! removeFileTree(manager.statePath)
+                manager = CheckoutManager(path: path, provider: provider)
+                let dummyRepo = RepositorySpecifier(url: "dummy")
+                let handle = manager.lookup(repository: dummyRepo)
+                // FIXME: Wait for repo to become available.
+                XCTAssertTrue(handle.isAvailable)
+            }
+            // We should have re-fetched.
+            XCTAssertEqual(provider.numFetches, 2)
         }
     }
 

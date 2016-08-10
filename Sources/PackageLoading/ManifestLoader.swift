@@ -50,16 +50,52 @@ public final class ManifestLoader {
         self.resources = resources
     }
 
-    /// Create a manifest by loading from the given path.
+    /// Load the manifest for the package at `path`.
     ///
     /// - Parameters:
-    ///   - path: The path to the manifest file or directory containing `Package.swift`.
+    ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    public func load(path inputPath: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
+    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
+    public func load(packagePath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+        // As per our versioning support, determine the appropriate manifest version to load.
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys { 
+            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            if (fileSystem ?? localFileSystem).exists(versionSpecificPath) {
+                return try loadFile(path: versionSpecificPath, baseURL: baseURL, version: version, fileSystem: fileSystem)
+            }
+        }
+        
+        return try loadFile(path: packagePath.appending(component: Manifest.filename), baseURL: baseURL, version: version, fileSystem: fileSystem)
+    }
+
+    /// Create a manifest by loading a specific manifest file from the given `path`.
+    ///
+    /// - Parameters:
+    ///   - path: The path to the manifest file (or a package root).
+    ///   - baseURL: The URL the manifest was loaded from.
+    ///   - version: The version the manifest is from, if known.
+    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
+    //
+    // FIXME: We should stop exposing this publicly, from a public perspective
+    // we should only ever load complete repositories.
+    public func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+        // If we were given a file system, load via a temporary file.
+        if let fileSystem = fileSystem {
+            let tmpFile = try TemporaryFile()
+            let contents = try fileSystem.readFileContents(inputPath)
+            try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
+            return try loadFile(path: tmpFile.path, baseURL: baseURL, version: version)
+        }
+
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
         // Canonicalize the URL.
+        //
+        // This is important when the baseURL is a file system path, so that the
+        // URLs embedded into the manifest are canonical.
+        //
+        // FIXME: We really shouldn't be handling this here and in this fashion.
         var baseURL = baseURL
         if URL.scheme(baseURL) == nil {
             baseURL = try realpath(baseURL)

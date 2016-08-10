@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func XCTest.XCTFail
+import XCTest
 
 import Basic
 import POSIX
@@ -67,3 +67,15 @@ public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file
         XCTFail("path exists but should not: \(path.asString)", file: file, line: line)
     }
 }
+
+public func XCTAssertThrows<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
+    do {
+        try body()
+        XCTFail("body completed successfully", file: file, line: line)
+    } catch let error as T {
+        XCTAssertEqual(error, expectedError, file: file, line: line)
+    } catch {
+        XCTFail("unexpected error thrown", file: file, line: line)
+    }
+}
+

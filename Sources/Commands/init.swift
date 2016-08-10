@@ -14,7 +14,7 @@ import POSIX
 
 private extension FileSystem {
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
@@ -73,7 +73,7 @@ final class InitPackage {
         try writeTests()
     }
 
-    private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+    private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
         print("Creating \(path.relative(to: rootd).asString)")
         try localFileSystem.writeFileContents(path, body: body)
     }
@@ -117,7 +117,11 @@ final class InitPackage {
         }
         print("Creating \(sources.relative(to: rootd).asString)/")
         try makeDirectories(sources)
-    
+
+        if mode == .empty {
+            return
+        }
+
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
 
@@ -129,8 +133,8 @@ final class InitPackage {
                 stream <<< "}\n"
             case .executable:
                 stream <<< "print(\"Hello, world!\")\n"
-            case .systemModule:
-                break
+            case .systemModule, .empty:
+                fatalError("invalid")
             }
         }
     }
@@ -210,10 +214,12 @@ final class InitPackage {
 
 /// Represents a package type for the purposes of initialization.
 enum InitMode: CustomStringConvertible {
-    case library, executable, systemModule
+    case empty, library, executable, systemModule
 
     init(_ rawValue: String) throws {
         switch rawValue.lowercased() {
+        case "empty":
+            self = .empty
         case "library":
             self = .library
         case "executable":
@@ -227,6 +233,7 @@ enum InitMode: CustomStringConvertible {
 
     var description: String {
         switch self {
+            case .empty: return "empty"
             case .library: return "library"
             case .executable: return "executable"
             case .systemModule: return "system-module"

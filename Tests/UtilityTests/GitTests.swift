@@ -10,9 +10,13 @@
 
 import XCTest
 
-import TestSupport
 import Basic
+
+import struct PackageDescription.Version
+
 @testable import Utility
+
+import TestSupport
 
 class GitMoc: Git {
     static var mocVersion: String = "git version 2.5.4 (Apple Git-61)"
@@ -78,6 +82,16 @@ class GitUtilityTests: XCTestCase {
         }
     }
 
+    func testVersionOrdering() throws {
+        mktmpdir { dir in
+            let versionTags = (0..<10).map{ "\($0).0.0" }
+            initGitRepo(dir)
+            try versionTags.forEach{ try tagGitRepo(dir, tag: $0) }
+            let repo = Git.Repo(path: dir)!
+            XCTAssertEqual(repo.versions, versionTags.map{ Version($0)! })
+        }
+    }
+
 //MARK: - Helpers
     
     func checkSha(_ sha: String) {
@@ -100,5 +114,6 @@ class GitUtilityTests: XCTestCase {
         ("testVersionSha", testVersionSha),
         ("testHeadAndVersionSha", testHeadAndVersionSha),
         ("testHasLocalChanges", testHasLocalChanges),
+        ("testVersionOrdering", testVersionOrdering),
     ]
 }

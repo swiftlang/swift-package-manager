@@ -10,26 +10,26 @@
 
 import XCTest
 
-import TestSupport
 import Basic
 import SourceControl
 import Utility
 
+import TestSupport
+
 @testable import class SourceControl.GitRepository
 
-// FIXME: Move to Utilities.
-func XCTAssertThrows<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
-    do {
-        try body()
-        XCTFail("body completed successfully", file: file, line: line)
-    } catch let error as T {
-        XCTAssertEqual(error, expectedError, file: file, line: line)
-    } catch {
-        XCTFail("unexpected error thrown", file: file, line: line)
-    }
-}
-
 class GitRepositoryTests: XCTestCase {
+    /// Test the basic provider functions.
+    func testRepositorySpecifier() {
+        let a = RepositorySpecifier(url: "a")
+        let b = RepositorySpecifier(url: "b")
+        let a2 = RepositorySpecifier(url: "a")
+        XCTAssertEqual(a, a)
+        XCTAssertNotEqual(a, b)
+        XCTAssertEqual(a, a2)
+        XCTAssertEqual(Set([a]), Set([a2]))
+    }
+        
     /// Test the basic provider functions.
     func testProvider() throws {
         mktmpdir { path in
@@ -196,6 +196,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     static var allTests = [
+        ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testRawRepository", testRawRepository),

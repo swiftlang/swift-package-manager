@@ -8,12 +8,4 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
-    return [
-        testCase(DescribeTests.allTests),
-    ]
-}
-#endif
+public typealias TextOutputStreamable = Streamable

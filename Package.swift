@@ -43,7 +43,8 @@ let package = Package(
         Target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
-            dependencies: ["POSIX", "Basic"]),
+            dependencies: ["POSIX", "Basic", "PackageDescription"]),
+            // FIXME: We should be kill the PackageDescription dependency above.
         Target(
             /** Source control operations */
             name: "SourceControl",
@@ -111,6 +112,9 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
         
+        Target(
+            name: "BasicTests",
+            dependencies: ["TestSupport"]),
         Target(
             name: "BuildTests",
             dependencies: ["Build", "TestSupport"]),

@@ -673,6 +673,23 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testVersionSpecificManifests() throws {
+        var fs = InMemoryFileSystem()
+        try fs.createEmptyFiles(
+            "/Package.swift",
+            "/Package@swift-999.swift",
+            "/Sources/Package.swift",
+            "/Sources/Package@swift-1.swift")
+
+        let name = "Foo"
+        PackageBuilderTester(name, in: fs) { result in
+            result.checkModule(name) { moduleResult in
+                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources", paths: "Package.swift", "Package@swift-1.swift")
+            }
+        }
+    }
+
     // MARK:- Invalid Layouts Tests
 
     func testMultipleRoots() throws {
@@ -845,6 +862,7 @@ class ConventionTests: XCTestCase {
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
+        ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
     ]
 }
@@ -924,13 +942,13 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
        let package = Package(name: name)
        self.init(package, path: path, in: fs, products: products, file: file, line: line, body)
     }
 
     @discardableResult
-    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: @noescape (PackageBuilderTester) -> Void) {
+    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
         do {
             let warningStream = BufferedOutputByteStream()
             let loadedPackage = try loadPackage(package, path: path, in: fs, products: products, warningStream: warningStream)
@@ -966,7 +984,7 @@ final class PackageBuilderTester {
         }
     }
 
-    func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: (@noescape (ModuleResult) -> Void)? = nil) {
+    func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: ((ModuleResult) -> Void)? = nil) {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
@@ -977,7 +995,7 @@ final class PackageBuilderTester {
         body?(ModuleResult(module))
     }
 
-    func checkProduct(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: (@noescape (ProductResult) -> Void)? = nil) {
+    func checkProduct(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: ((ProductResult) -> Void)? = nil) {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }

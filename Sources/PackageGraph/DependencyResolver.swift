@@ -10,6 +10,16 @@
 
 import struct PackageDescription.Version
 
+public enum DependencyResolverError: Error {
+    /// The resolver was unable to find a solution to the input constraints.
+    case unsatisfiable
+
+    /// The resolver hit unimplemented functionality (used temporarily for test case coverage).
+    //
+    // FIXME: Eliminate this.
+    case unimplemented
+}
+
 /// An abstract definition for a set of versions.
 public enum VersionSetSpecifier: Equatable {
     /// The universal set.
@@ -110,6 +120,9 @@ public protocol PackageContainer {
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version last.
+    ///
+    /// This property is expected to be efficient to access, and cached by the
+    /// client if necessary.
     //
     // FIXME: It is possible this protocol could one day be more efficient if it
     // returned versions more lazily, e.g., if we could fetch them iteratively
@@ -119,8 +132,16 @@ public protocol PackageContainer {
 
     /// Fetch the declared dependencies for a particular version.
     ///
-    /// - precondition: `versions.contains(version)`
-    func getDependencies(at version: Version) -> [PackageContainerConstraint<Identifier>]
+    /// This property is expected to be efficient to access, and cached by the
+    /// client if necessary.
+    ///
+    /// - Precondition: `versions.contains(version)`
+    /// - Throws: If the version could not be resolved; this will abort
+    ///   dependency resolution completely.
+    //
+    // FIXME: We should perhaps define some particularly useful error codes
+    // here, so the resolver can handle errors more meaningfully.
+    func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.
@@ -134,7 +155,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T> where T: PackageContainerIdentifier {
+public struct PackageContainerConstraint<T: PackageContainerIdentifier> {
     public typealias Identifier = T
 
     /// The identifier for the container the constraint is on.
@@ -162,7 +183,7 @@ public protocol DependencyResolverDelegate {
 /// A bound version for a package within an assignment.
 //
 // FIXME: This should be nested, but cannot be currently.
-enum BoundVersion {
+enum BoundVersion: Equatable {
     /// The assignment should not include the package.
     ///
     /// This is different from the absence of an assignment for a particular
@@ -173,8 +194,113 @@ enum BoundVersion {
     /// The version of the package to include.
     case version(Version)
 }
+func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
+    switch (lhs, rhs) {
+    case (.excluded, .excluded):
+        return true
+    case (.excluded, _):
+        return false
+    case (.version(let lhs), .version(let rhs)):
+        return lhs == rhs
+    case (.version, _):
+        return false
+    }
+}
 
-/// A container for version assignments for a set of packages.
+/// A container for constraints for a set of packages.
+//
+// FIXME: Maybe each package should just return this, instead of a list of
+// `PackageContainerConstraint`s. That won't work if we decide this should
+// eventually map based on the `Container` rather than the `Identifier`, though,
+// so they are separate for now.
+struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
+    typealias Container = C
+    typealias Identifier = Container.Identifier
+
+    typealias Index = Dictionary<Identifier, VersionSetSpecifier>.Index
+    typealias Element = Dictionary<Identifier, VersionSetSpecifier>.Element
+
+    /// The set of constraints.
+    private var constraints: [Identifier: VersionSetSpecifier]
+
+    /// Create an empty constraint set.
+    init() {
+        self.constraints = [:]
+    }
+
+    /// Create an constraint set from known values.
+    init(_ constraints: [Identifier: VersionSetSpecifier]) {
+        self.constraints = constraints
+    }
+
+    /// The list of containers with entries in the set.
+    var containerIdentifiers: AnySequence<Identifier> {
+        return AnySequence<C.Identifier>(constraints.keys)
+    }
+
+    /// Get the version set associated with the given package `identifier`.
+    subscript(identifier: Identifier) -> VersionSetSpecifier? {
+        return constraints[identifier]
+    }
+
+    /// Merge the given version requirement for the container `identifier`.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    private mutating func merge(versionRequirement: VersionSetSpecifier, for identifier: Identifier) -> Bool {
+        let intersection: VersionSetSpecifier
+        if let existing = constraints[identifier] {
+            intersection = existing.intersection(versionRequirement)
+        } else {
+            intersection = versionRequirement
+        }
+        constraints[identifier] = intersection
+        return intersection != .empty
+    }
+
+    /// Merge the given `constraint`.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    mutating func merge(_ constraint: PackageContainerConstraint<Identifier>) -> Bool {
+        return merge(versionRequirement: constraint.versionRequirement, for: constraint.identifier)
+    }
+
+    /// Merge the given constraint set.
+    ///
+    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
+    /// when the resulting set is satisfiable, if it was already so.
+    mutating func merge(_ constraints: PackageContainerConstraintSet<Container>) -> Bool {
+        var satisfiable = true
+        for (key, versionRequirement) in constraints {
+            if !merge(versionRequirement: versionRequirement, for: key) {
+                satisfiable = false
+            }
+        }
+        return satisfiable
+    }
+
+    // MARK: Collection Conformance
+
+    var startIndex: Index {
+        return constraints.startIndex
+    }
+
+    var endIndex: Index {
+        return constraints.endIndex
+    }
+
+    func index(after i: Index) -> Index {
+        return constraints.index(after: i)
+    }
+
+    subscript(position: Index) -> Element {
+        return constraints[position]
+    }
+}
+
+/// A container for version assignments for a set of packages, exposed as a
+/// sequence of `Container` to `BoundVersion` bindings.
 ///
 /// This is intended to be an efficient data structure for accumulating a set of
 /// version assignments along with efficient access to the derived information
@@ -186,7 +312,7 @@ enum BoundVersion {
 /// `constraints`, but this invariant is not explicitly enforced.
 //
 // FIXME: Actually make efficient.
-struct VersionAssignmentSet<C> where C: PackageContainer {
+struct VersionAssignmentSet<C: PackageContainer>: Sequence {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -217,6 +343,43 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
         }
     }
 
+    /// Merge in the bindings from the given `assignment`.
+    ///
+    /// - Returns: False if the merge cannot be made (the assignments contain
+    /// incompatible versions).
+    mutating func merge(_ assignment: VersionAssignmentSet<Container>) -> Bool {
+        // In order to protect the assignment set, we first have to test whether
+        // the merged constraint sets are satisfiable.
+        //
+        // FIXME: Move to non-mutating methods with results, in order to have a
+        // nice consistent API with `PackageContainerConstraintSet.merge`.
+        //
+        // FIXME: This is very inefficient; we should decide whether it is right
+        // to handle it here or force the main resolver loop to handle the
+        // discovery of this property.
+        var mergedConstraints = constraints
+        guard mergedConstraints.merge(assignment.constraints) else {
+            return false
+        }
+
+        // The induced constraints are satisfiable, so we *can* union the
+        // assignments without breaking our internal invariant on
+        // satisfiability.
+        for (container, binding) in assignment {
+            if let existing = self[container] {
+                if existing != binding {
+                    // NOTE: We are returning here with the data structure
+                    // partially updated, which feels wrong. See FIXME above.
+                    return false
+                }
+            } else {
+                self[container] = binding
+            }
+        }
+
+        return true
+    }
+
     /// The combined version constraints induced by the assignment.
     ///
     /// This consists of the merged constraints which need to be satisfied on
@@ -226,9 +389,9 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
     /// mapping, assuming the invariants on the set are followed.
     //
     // FIXME: We need to cache this.
-    var constraints: [Identifier: VersionSetSpecifier] {
+    var constraints: PackageContainerConstraintSet<Container> {
         // Collect all of the constraints.
-        var result = [Identifier: VersionSetSpecifier]()
+        var result = PackageContainerConstraintSet<Container>()
         for (_, (container: container, binding: binding)) in assignments {
             switch binding {
             case .excluded:
@@ -240,14 +403,12 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
                 //
                 // FIXME: We should cache this too, possibly at a layer
                 // different than above (like the entry record).
-                for constraint in container.getDependencies(at: version) {
-                    // Merge in the constraint.
-                    let i = constraint.identifier
-                    if let existing = result[i] {
-                        result[i] = existing.intersection(constraint.versionRequirement)
-                    } else {
-                        result[i] = constraint.versionRequirement
-                    }
+                //
+                // FIXME: Error handling, except that we probably shouldn't have
+                // needed to refetch the dependencies at this point.
+                for constraint in try! container.getDependencies(at: version) {
+                    let satisfiable = result.merge(constraint)
+                    assert(satisfiable)
                 }
             }
         }
@@ -285,9 +446,9 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
         }
 
         // Check completeness, by simply looking at all the entries in the induced constraints.
-        for key in self.constraints.keys {
+        for identifier in constraints.containerIdentifiers {
             // Verify we have a non-excluded entry for this key.
-            switch assignments[key]?.binding {
+            switch assignments[identifier]?.binding {
             case .version?:
                 continue
             case .excluded?, nil:
@@ -296,6 +457,24 @@ struct VersionAssignmentSet<C> where C: PackageContainer {
         }
 
         return true
+    }
+
+    // MARK: Sequence Conformance
+
+    // FIXME: This should really be a collection, but that takes significantly
+    // more work given our current backing collection.
+
+    typealias Iterator = AnyIterator<(Container, BoundVersion)>
+
+    func makeIterator() -> Iterator {
+        var it = assignments.values.makeIterator()
+        return AnyIterator{
+            if let next = it.next() {
+                return (next.container, next.binding)
+            } else {
+                return nil
+            }
+        }
     }
 }
 
@@ -359,8 +538,11 @@ public class DependencyResolver<
     /// only kind of constraints we operate on.
     public typealias Constraint = PackageContainerConstraint<Identifier>
 
-    /// The initial constraints.
-    public let constraints: [Constraint]
+    /// The type of constraint set  the resolver operates on.
+    typealias ConstraintSet = PackageContainerConstraintSet<Container>
+
+    /// The type of assignment the resolver operates on.
+    typealias AssignmentSet = VersionAssignmentSet<Container>
 
     /// The container provider used to load package containers.
     public let provider: Provider
@@ -368,48 +550,170 @@ public class DependencyResolver<
     /// The resolver's delegate.
     public let delegate: Delegate
 
-    public init(
-        constraints: [Constraint],
-        provider: Provider,
-        delegate: Delegate)
-    {
-        self.constraints = constraints
+    public init(_ provider: Provider, _ delegate: Delegate) {
         self.provider = provider
         self.delegate = delegate
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func resolve() throws -> [(container: Identifier, version: Version)] {
-        // For now, we just load the transitive closure of the dependencies at
-        // the latest version, and ignore the version requirements.
+    ///
+    /// - Parameters:
+    ///   - constraints: The contraints to solve.
+    /// - Returns: A satisfying assignment of containers and versions.
+    /// - Throws: DependencyResolverError, or errors from the underlying package provider.
+    public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, version: Version)] {
+        // Create an assignment for the input constraints.
+        guard let assignment = try merge(
+                constraints: constraints, into: AssignmentSet(),
+                subjectTo: ConstraintSet(), excluding: [:]) else {
+            throw DependencyResolverError.unsatisfiable
+        }
 
-        func visit(_ identifier: Identifier) throws {
-            // If we already have this identifier, skip it.
-            if containers.keys.contains(identifier) {
-                return
+        return assignment.map { (container, binding) in
+            guard case .version(let version) = binding else {
+                fatalError("unexpected exclude binding")
             }
+            return (container: container.identifier, version: version)
+        }
+    }
 
-            // Otherwise, load the container and visit its dependencies.
-            let container = try getContainer(for: identifier)
-
-            // Visit the dependencies at the latest version.
-            //
-            // FIXME: What if this dependency has no versions? We should
-            // consider it unavailable.
-            let latestVersion = container.versions.last!
-            let constraints = container.getDependencies(at: latestVersion)
-
-            for constraint in constraints {
-                try visit(constraint.identifier)
+    /// Resolve an individual container dependency tree.
+    ///
+    /// This is the primary method in our bottom-up algorithm for resolving
+    /// dependencies. The inputs define an active set of constraints and set of
+    /// versions to exclude (conceptually the latter could be merged with the
+    /// former, but it is convenient to separate them in our
+    /// implementation). The result is an assignment for this container's
+    /// subtree.
+    ///
+    /// - Parameters:
+    ///   - container: The container to resolve.
+    ///   - constraints: The external constraints which must be honored by the solution.
+    ///   - exclusions: The list of individually excluded package versions.
+    /// - Returns: A sequence of feasible solutions, starting with the most preferable.
+    /// - Throws: Only rethrows errors from the container provider.
+    //
+    // FIXME: This needs to a way to return information on the failure, or we
+    // will need to have it call the delegate directly.
+    //
+    // FIXME: @testable private
+    func resolveSubtree(
+        _ container: Container,
+        subjectTo allConstraints: ConstraintSet,
+        excluding allExclusions: [Identifier: Set<Version>]
+    ) throws -> AssignmentSet? {
+        func validVersions(_ container: Container) -> AnyIterator<Version> {
+            let constraints = allConstraints[container.identifier] ?? .any
+            let exclusions = allExclusions[container.identifier] ?? Set()
+            var it = container.versions.reversed().makeIterator()
+            return AnyIterator { () -> Version? in
+                    while let version = it.next() {
+                        if constraints.contains(version) && !exclusions.contains(version) {
+                            return version
+                    }
+                }
+                return nil
             }
         }
+
+        // Attempt to select each valid version in order.
+        //
+        // FIXME: We must detect recursion here.
+        for version in validVersions(container) {
+            // Create an assignment for this container and version.
+            var assignment = AssignmentSet()
+            assignment[container] = .version(version)
+
+            // Get the constraints for this container version and update the
+            // assignment to include each one.
+            if let result = try merge(
+                     constraints: try container.getDependencies(at: version),
+                     into: assignment, subjectTo: allConstraints, excluding: allExclusions) {
+                // We found a complete valid assignment.
+                assert(result.checkIfValidAndComplete())
+                return result
+            }
+        }
+
+        // We were unable to find a valid solution.
+        return nil
+    }
+
+    /// Solve the `constraints` and merge the results into the `assignment`.
+    ///
+    /// - Parameters:
+    ///   - constraints: The input list of constraints to solve.
+    ///   - assignment: The assignment to merge the result into.
+    ///   - allConstraints: An additional set of constraints on the viable solutions.
+    ///   - allExclusions: A set of package assignments to exclude from consideration.
+    /// - Returns: A satisfying assignment, if solvable.
+    private func merge(
+        constraints: [Constraint],
+        into assignment: AssignmentSet,
+        subjectTo allConstraints: ConstraintSet,
+        excluding allExclusions: [Identifier: Set<Version>]
+    ) throws -> AssignmentSet? {
+        var assignment = assignment
+        var allConstraints = allConstraints
+
+        // Update the active constraint set to include all active constraints.
+        //
+        // We want to put all of these constraints in up front so that we are
+        // more likely to get back a viable solution.
+        //
+        // FIXME: We should have a test for this, probably by adding some kind
+        // of statistics on the number of backtracks.
         for constraint in constraints {
-            try visit(constraint.identifier)
+            if !allConstraints.merge(constraint) {
+                return nil
+            }
         }
 
-        return containers.map { (identifier, container) in
-            return (container: identifier, version: container.versions.last!)
+        for constraint in constraints {
+            // Get the container.
+            //
+            // Failures here will immediately abort the solution, although in
+            // theory one could imagine attempting to find a solution not
+            // requiring this container. It isn't clear that is something we
+            // would ever want to handle at this level.
+            //
+            // FIXME: We want to ask for all of these containers up-front to
+            // allow for async cloning.
+            let container = try getContainer(for: constraint.identifier)
+
+            // Solve for an assignment with the current constraints.
+            guard let subtreeAssignment = try resolveSubtree(
+                    container, subjectTo: allConstraints, excluding: allExclusions) else {
+                // If we couldn't find an assignment, we need to backtrack in some way.
+                throw DependencyResolverError.unimplemented
+            }
+
+            // We found a valid assignment, attempt to merge it with the current solution.
+            //
+            // FIXME: It is rather important, subtle, and confusing that this
+            // `merge` doesn't mutate the assignment but the one on the
+            // constraint set does. We should probably make them consistent.
+            guard assignment.merge(subtreeAssignment) else {
+                // The assignment couldn't be merged with the current
+                // assignment, or the constraint sets couldn't be merged.
+                //
+                // This happens when (a) the subtree has a package overlapping
+                // with a previous subtree assignment, and (b) the subtrees
+                // needed to resolve different versions due to constraints not
+                // present in the top-down constraint set.
+                throw DependencyResolverError.unimplemented
+            }
+
+            // Merge the working constraint set.
+            //
+            // This should always be feasible, because all prior constraints
+            // were part of the input constraint request (see comment around
+            // initial `merge` outside the loop).
+            let mergable = allConstraints.merge(subtreeAssignment.constraints)
+            precondition(mergable)
         }
+
+        return assignment
     }
 
     // MARK: Container Management

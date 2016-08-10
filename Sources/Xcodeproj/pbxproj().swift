@@ -92,20 +92,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         let sourceFileRefs = fileRefs(forModuleSources: module, srcroot: srcroot)
         
         // Make an array of all the source file reference ids to add to the main group.
-        var sourceRefIds = sourceFileRefs.map{ $0.refId }
-
-        ////// Info.plist file reference if this a framework target
-        if module.isLibrary {
-            let infoPlistFileRef = fileRef(ofInfoPlistFor: module, srcroot: xcodeprojPath)
-            print("        \(infoPlistFileRef.refId) = {")
-            print("            isa = PBXFileReference;")
-            print("            lastKnownFileType = text.plist.xml;")
-            print("            path = '\(infoPlistFileRef.path.relative(to: projectRoot).asString)';")
-            print("            sourceTree = SOURCE_ROOT;")
-            print("        };")
-            sourceRefIds.append(infoPlistFileRef.refId)
-        }
-
+        let sourceRefIds = sourceFileRefs.map{ $0.refId }
 
         // the “Project Navigator” group for this module
         print("        \(module.groupReference) = {")

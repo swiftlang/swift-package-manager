@@ -14,6 +14,18 @@ import func POSIX.getenv
 import libc
 import class Foundation.ProcessInfo
 
+import struct PackageDescription.Version
+
+extension Version {
+    static func vprefix(_ string: String) -> Version? {
+        if string.characters.first == "v" {
+            return Version(string.characters.dropFirst())
+        } else {
+            return nil
+        }
+    }
+}
+
 public class Git {
     public class Repo {
         public let path: AbsolutePath
@@ -41,6 +53,58 @@ public class Git {
             }
         }(self)
 
+        /// The set of known versions and their tags.
+        public lazy var knownVersions: [Version: String] = { repo in
+            // Get the list of tags.
+            let out = (try? Git.runPopen([Git.tool, "-C", repo.path.asString, "tag", "-l"])) ?? ""
+            let tags = out.characters.split(separator: "\n").map{ String($0) }
+
+            // First, check if we need to restrict the tag set to version-specific tags.
+            var knownVersions: [Version: String] = [:]
+            for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+                for tag in tags where tag.hasSuffix(versionSpecificKey) {
+                    let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
+                    if let version = Version(specifier) ?? Version.vprefix(specifier) {
+                        knownVersions[version] = tag
+                    }
+                }
+
+                // If we found tags at this version-specific key, we are done.
+                if !knownVersions.isEmpty {
+                    return knownVersions
+                }
+            }
+            
+            // Otherwise, look for normal tags.
+            for tag in tags {
+                if let version = Version(tag) {
+                    knownVersions[version] = tag
+                }
+            }
+
+            // If we didn't find any versions, look for 'v'-prefixed ones.
+            //
+            // FIXME: We should match both styles simultaneously.
+            if knownVersions.isEmpty {
+                for tag in tags {
+                    if let version = Version.vprefix(tag) {
+                        knownVersions[version] = tag
+                    }
+                }
+            }
+            return knownVersions
+        }(self)
+
+        /// The set of versions in the repository, in order.
+        public lazy var versions: [Version] = { repo in
+            return [Version](repo.knownVersions.keys).sorted()
+        }(self)
+
+        /// Check if repo contains a version tag
+        public var hasVersion: Bool {
+            return !versions.isEmpty
+        }
+        
         public var branch: String! {
             return try? Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
@@ -54,15 +118,6 @@ public class Git {
         public var hasLocalChanges: Bool {
             let changes = try? Git.runPopen([Git.tool, "-C", path.asString, "status", "--porcelain"]).chomp()
             return !(changes?.isEmpty ?? true)
-        }
-
-        /**
-         - Returns: true if the package versions in this repository
-         are all prefixed with "v", otherwise false. If there are
-         no versions, returns false.
-         */
-        public var versionsArePrefixed: Bool {
-            return (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"]))?.hasPrefix("v") ?? false
         }
 
         public func fetch() throws {

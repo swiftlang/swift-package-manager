@@ -23,12 +23,4 @@ extension Version {
     static var maxRange: Range<Version> {
         return self.min..<self.max
     }
-
-    static func vprefix(_ string: String.CharacterView) -> Version? {
-        if string.first == "v" {
-            return Version(string.dropFirst())
-        } else {
-            return nil
-        }
-    }
 }

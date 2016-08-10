@@ -56,11 +56,21 @@ private struct Resources: ManifestResourceProvider {
 }
 
 class ManifestTests: XCTestCase {
-
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: inputName)
-            body(try ManifestLoader(resources: Resources()).load(path: input, baseURL: input.parentDirectory.asString, version: nil))
+            body(try ManifestLoader(resources: Resources()).loadFile(path: input, baseURL: input.parentDirectory.asString, version: nil))
+        } catch {
+            XCTFail("Unexpected error: \(error)", file: #file, line: line)
+        }
+    }
+
+    private func loadManifest(_ contents: ByteString, line: UInt = #line, body: (Manifest) -> Void) {
+        do {
+            let fs = InMemoryFileSystem()
+            let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+            try fs.writeFileContents(manifestPath, bytes: contents)
+            body(try ManifestLoader(resources: Resources()).loadFile(path: manifestPath, baseURL: AbsolutePath.root.asString, version: nil, fileSystem: fs))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -92,17 +102,27 @@ class ManifestTests: XCTestCase {
                     name: "dep",
                     dependencies: [.Target(name: "sys"), .Target(name: "libc")])])
         }
+
+        // Check loading a manifest from a file system.
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+        loadManifest(trivialManifest) { manifest in
+            XCTAssertEqual(manifest.package.name, "Trivial")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
+        }
     }
 
     func testNoManifest() {
-        let foo = try? ManifestLoader(resources: Resources()).load(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
+        let foo = try? ManifestLoader(resources: Resources()).loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
         XCTAssertNil(foo)
     }
 
     func testInvalidTargetName() {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try ManifestLoader(resources: Resources()).load(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
+                let manifest = try ManifestLoader(resources: Resources()).loadFile(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
                 _ = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
             } catch ModuleError.modulesNotFound(let moduleNames) {
                 XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))
@@ -112,9 +132,48 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    /// Check that we load the manifest appropriate for the current version, if
+    /// version specific customization is used.
+    func testVersionSpecificLoading() throws {
+        let bogusManifest: ByteString = "THIS WILL NOT PARSE"
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+
+        // Check at each possible spelling.
+        let currentVersion = Versioning.currentVersion
+        let possibleSuffixes = [
+            "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
+            "\(currentVersion.major).\(currentVersion.minor)",
+            "\(currentVersion.major)"
+        ]
+        for (i, key) in possibleSuffixes.enumerated() {
+            let root = AbsolutePath.root
+            // Create a temporary FS with the version we want to test, and everything else as bogus.
+            let fs = InMemoryFileSystem()
+            // Write the good manifests.
+            try fs.writeFileContents(
+                root.appending(component: Manifest.basename + "@swift-\(key).swift"),
+                bytes: trivialManifest)
+            // Write the bad manifests.
+            let badManifests = [Manifest.filename] + possibleSuffixes[i+1 ..< possibleSuffixes.count].map{
+                Manifest.basename + "@swift-\($0).swift"
+            }
+            try badManifests.forEach {
+                try fs.writeFileContents(
+                    root.appending(component: $0),
+                    bytes: bogusManifest)
+            }
+            // Check we can load the repository.
+            let manifest = try ManifestLoader(resources: Resources()).load(packagePath: root, baseURL: root.asString, version: nil, fileSystem: fs)
+            XCTAssertEqual(manifest.name, "Trivial")
+        }
+    }
+    
     static var allTests = [
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
-        ("testInvalidTargetName", testInvalidTargetName)
+        ("testInvalidTargetName", testInvalidTargetName),
+        ("testVersionSpecificLoading", testVersionSpecificLoading),
     ]
 }

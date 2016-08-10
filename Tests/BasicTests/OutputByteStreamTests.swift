@@ -22,7 +22,7 @@ class OutputByteStreamTests: XCTestCase {
         stream.write([UInt8]("wor".utf8))
         stream.write([UInt8]("world".utf8)[3..<5])
         
-        let streamable: Streamable = Character("!")
+        let streamable: TextOutputStreamable = Character("!")
         stream.write(streamable)
 
         
@@ -34,7 +34,7 @@ class OutputByteStreamTests: XCTestCase {
     func testStreamOperator() {
         let stream = BufferedOutputByteStream()
 
-        let streamable: Streamable = Character("!")
+        let streamable: TextOutputStreamable = Character("!")
         stream <<< "Hello" <<< Character(",") <<< Character(" ") <<< [UInt8]("wor".utf8) <<< [UInt8]("world".utf8)[3..<5] <<< streamable
         
         XCTAssertEqual(stream.position, "Hello, world!".utf8.count)
