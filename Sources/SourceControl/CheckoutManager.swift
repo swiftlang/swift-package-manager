@@ -92,9 +92,9 @@ public class CheckoutManager {
         }
 
         /// Open the given repository.
-        public func open() -> Repository {
+        public func open() throws -> Repository {
             precondition(status == .available, "open() called in invalid state")
-            return self.manager.open(self)
+            return try self.manager.open(self)
         }
 
         // MARK: Persistence
@@ -185,8 +185,8 @@ public class CheckoutManager {
     }
 
     /// Open a repository from a handle.
-    private func open(_ handle: RepositoryHandle) -> Repository {
-        return provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    private func open(_ handle: RepositoryHandle) throws -> Repository {
+        return try provider.open(repository: handle.repository, at: path.appending(handle.subpath))
     }
 
     // MARK: Persistence

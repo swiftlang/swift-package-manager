@@ -47,15 +47,18 @@ public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
 /// `CheckoutManager`.
 public protocol RepositoryProvider {
     /// Fetch the complete repository at the given location to `path`.
+    ///
+    /// - Throws: If there is an error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
     /// Open the given repository.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - repository: The specifier for the repository.
     ///   - path: The location of the repository on disk, at which the
-    ///   repository has previously been created via `fetch`.
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository
+    ///     repository has previously been created via `fetch`.
+    /// - Throws: If the repository is unable to be opened.
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
 }
 
 /// Abstract repository operations.

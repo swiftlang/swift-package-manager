@@ -55,7 +55,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
 }
 
 class CheckoutManagerTests: XCTestCase {
-    func testBasics() {
+    func testBasics() throws {
         mktmpdir { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
 
@@ -70,7 +70,7 @@ class CheckoutManagerTests: XCTestCase {
             XCTAssertTrue(handle.isAvailable)
 
             // Open the repository.
-            let repository = handle.open()
+            let repository = try handle.open()
             XCTAssertEqual(repository.tags, ["1.0.0"])
 
             // Get a bad repository.
