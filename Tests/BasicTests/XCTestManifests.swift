@@ -32,6 +32,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(SyncronizedQueueTests.allTests),
         testCase(TOMLTests.allTests),
         testCase(TemporaryFileTests.allTests),
+        testCase(TerminalControllerTests.allTests),
         testCase(ThreadTests.allTests),
         testCase(WalkTests.allTests),
     ]
