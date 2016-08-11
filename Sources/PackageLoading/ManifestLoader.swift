@@ -82,15 +82,20 @@ public final class ManifestLoader {
     public func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
         if let fileSystem = fileSystem {
+            let contents: ByteString
+            do {
+                contents = try fileSystem.readFileContents(inputPath)
+            } catch FileSystemError.noEntry {
+                throw PackageModel.Package.Error.noManifest(inputPath.asString)
+            }
             let tmpFile = try TemporaryFile()
-            let contents = try fileSystem.readFileContents(inputPath)
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
             return try loadFile(path: tmpFile.path, baseURL: baseURL, version: version)
         }
 
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
-        // Canonicalize the URL.
+        // Attempt to canonicalize the URL.
         //
         // This is important when the baseURL is a file system path, so that the
         // URLs embedded into the manifest are canonical.
@@ -98,7 +103,9 @@ public final class ManifestLoader {
         // FIXME: We really shouldn't be handling this here and in this fashion.
         var baseURL = baseURL
         if URL.scheme(baseURL) == nil {
-            baseURL = try realpath(baseURL)
+            if let resolved = try? realpath(baseURL) {
+                baseURL = resolved
+            }
         }
 
         // Compute the actual input file path.

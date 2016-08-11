@@ -34,12 +34,12 @@ class ManifestTests: XCTestCase {
         }
     }
 
-    private func loadManifest(_ contents: ByteString, line: UInt = #line, body: (Manifest) -> Void) {
+    private func loadManifest(_ contents: ByteString, baseURL: String? = nil, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let fs = InMemoryFileSystem()
             let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, bytes: contents)
-            body(try manifestLoader.loadFile(path: manifestPath, baseURL: AbsolutePath.root.asString, version: nil, fileSystem: fs))
+            body(try manifestLoader.loadFile(path: manifestPath, baseURL: baseURL ?? AbsolutePath.root.asString, version: nil, fileSystem: fs))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -84,8 +84,24 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
-        XCTAssertNil(foo)
+        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
+        }
+
+        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil, fileSystem: InMemoryFileSystem())
+        }
+    }
+
+    func testNonexistentBaseURL() {
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+        loadManifest(trivialManifest, baseURL: "/non-existent-path") { manifest in
+            XCTAssertEqual(manifest.package.name, "Trivial")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
+        }
     }
 
     func testInvalidTargetName() {
@@ -142,6 +158,7 @@ class ManifestTests: XCTestCase {
     static var allTests = [
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
+        ("testNonexistentBaseURL", testNonexistentBaseURL),
         ("testInvalidTargetName", testInvalidTargetName),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
     ]
