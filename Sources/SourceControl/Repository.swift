@@ -116,4 +116,8 @@ public struct Revision {
     /// by a user. For example, a Git repository might supply the SHA1 of a
     /// commit, or an SVN repository might supply a string such as 'r123'.
     public let identifier: String
+
+    public init(identifier: String) {
+        self.identifier = identifier
+    }
 }

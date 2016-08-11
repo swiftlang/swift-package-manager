@@ -405,18 +405,6 @@ where C.Identifier == String
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
 
-private func XCTAssertEqual(
-    _ assignment: [(container: String, version: Version)],
-    _ expected: [String: Version],
-    file: StaticString = #file, line: UInt = #line)
-{
-    var actual = [String: Version]()
-    for (identifier, binding) in assignment {
-        actual[identifier] = binding
-    }
-    XCTAssertEqual(actual, expected, file: file, line: line)
-}
-
 private func XCTAssertEqual<C: PackageContainer>(
     _ assignment: VersionAssignmentSet<C>?,
     _ expected: [String: Version]?,
@@ -440,4 +428,16 @@ where C.Identifier == String
             return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
         }
     }
+}
+
+func XCTAssertEqual<I: PackageContainerIdentifier>(
+    _ assignment: [(container: I, version: Version)],
+    _ expected: [I: Version],
+    file: StaticString = #file, line: UInt = #line)
+{
+    var actual = [I: Version]()
+    for (identifier, binding) in assignment {
+        actual[identifier] = binding
+    }
+    XCTAssertEqual(actual, expected, file: file, line: line)
 }

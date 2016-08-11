@@ -44,7 +44,7 @@ let package = Package(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
             dependencies: ["POSIX", "Basic", "PackageDescription"]),
-            // FIXME: We should be kill the PackageDescription dependency above.
+            // FIXME: We should kill the PackageDescription dependency above.
         Target(
             /** Source control operations */
             name: "SourceControl",
@@ -70,7 +70,7 @@ let package = Package(
         Target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["Basic", "Get", "PackageLoading", "PackageModel"]),
+            dependencies: ["Basic", "Get", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
         
         // MARK: Package Manager Functionality
         
@@ -131,6 +131,9 @@ let package = Package(
         Target(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "TestSupport"]),
+        Target(
+            name: "PackageGraphTests",
+            dependencies: ["PackageGraph", "TestSupport"]),
         Target(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),
