@@ -13,6 +13,7 @@ import Foundation.NSBundle
 #endif
 
 import Basic
+import POSIX
 
 import PackageLoading
 
