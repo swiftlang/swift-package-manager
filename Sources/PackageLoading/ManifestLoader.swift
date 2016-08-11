@@ -36,20 +36,8 @@ public protocol ManifestResourceProvider {
     var libraryPath: AbsolutePath { get }
 }
 
-/// Utility class for loading manifest files.
-///
-/// This class is responsible for reading the manifest data and produce a
-/// properly formed `PackageModel.Manifest` object. It currently does so by
-/// interpreting the manifest source using Swift -- that produces a TOML
-/// serialized form of the manifest (as implemented by `PackageDescription`'s
-/// `atexit()` handler) which is then deserialized and loaded.
-public final class ManifestLoader {
-    let resources: ManifestResourceProvider
-
-    public init(resources: ManifestResourceProvider) {
-        self.resources = resources
-    }
-
+/// Protocol for the manifest loader interface.
+public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
     ///
     /// - Parameters:
@@ -57,16 +45,45 @@ public final class ManifestLoader {
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
-    public func load(packagePath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+    func load(packagePath path: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem?) throws -> Manifest
+}
+
+extension ManifestLoaderProtocol {
+    /// Load the manifest for the package at `path`.
+    ///
+    /// - Parameters:
+    ///   - path: The root path of the package.
+    ///   - baseURL: The URL the manifest was loaded from.
+    ///   - version: The version the manifest is from, if known.
+    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
+        return try load(packagePath: path, baseURL: baseURL, version: version, fileSystem: nil)
+    }
+}
+
+/// Utility class for loading manifest files.
+///
+/// This class is responsible for reading the manifest data and produce a
+/// properly formed `PackageModel.Manifest` object. It currently does so by
+/// interpreting the manifest source using Swift -- that produces a TOML
+/// serialized form of the manifest (as implemented by `PackageDescription`'s
+/// `atexit()` handler) which is then deserialized and loaded.
+public final class ManifestLoader: ManifestLoaderProtocol {
+    let resources: ManifestResourceProvider
+
+    public init(resources: ManifestResourceProvider) {
+        self.resources = resources
+    }
+
+    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
         // As per our versioning support, determine the appropriate manifest version to load.
         for versionSpecificKey in Versioning.currentVersionSpecificKeys { 
-            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            let versionSpecificPath = path.appending(component: Manifest.basename + versionSpecificKey + ".swift")
             if (fileSystem ?? localFileSystem).exists(versionSpecificPath) {
                 return try loadFile(path: versionSpecificPath, baseURL: baseURL, version: version, fileSystem: fileSystem)
             }
         }
         
-        return try loadFile(path: packagePath.appending(component: Manifest.filename), baseURL: baseURL, version: version, fileSystem: fileSystem)
+        return try loadFile(path: path.appending(component: Manifest.filename), baseURL: baseURL, version: version, fileSystem: fileSystem)
     }
 
     /// Create a manifest by loading a specific manifest file from the given `path`.
