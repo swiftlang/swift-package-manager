@@ -49,10 +49,6 @@ let package = Package(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["Basic", "Utility"]),
-        Target(
-            /** Test support library */
-            name: "TestSupport",
-            dependencies: ["Basic", "Utility", "POSIX"]),
 
         // MARK: Project Model
         
@@ -111,6 +107,11 @@ let package = Package(
             dependencies: []),
 
         // MARK: Additional Test Dependencies
+
+        Target(
+            /** Test support library */
+            name: "TestSupport",
+            dependencies: ["Basic", "POSIX", "PackageLoading", "Utility"]),
         
         Target(
             name: "BasicTests",
