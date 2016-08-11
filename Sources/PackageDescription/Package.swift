@@ -175,6 +175,27 @@ public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
 
 // MARK: Package Dumping
 
+struct Errors {
+    /// Storage to hold the errors.
+    private var errors = [String]()
+
+    /// Adds error to global error array which will be serialized and dumped in TOML at exit.
+    mutating func add(_ str: String) {
+        // FIXME: This will produce invalid TOML if string contains quotes. Assert it for now
+        // and fix when switching to using JSON instead of TOML.
+        assert(!str.characters.contains("\""), "Error string shouldn't have quotes in it.")
+        errors += ["\"\(str)\""]
+    }
+
+    func toTOML() -> String {
+        var result = ""
+        result += "[errors]\n"
+        result += "errors = [" + errors.joined(separator: ", ") + "]\n"
+        return result
+    }
+}
+
+var errors = Errors()
 private var dumpInfo: (package: Package, fileNo: Int32)? = nil
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     func dump() {
@@ -188,6 +209,7 @@ private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
             fputs(product.toTOML(), fd)
             fputs("\n", fd)
         }
+        fputs(errors.toTOML(), fd)
         fclose(fd)
     }
     dumpInfo = (package, fileNo)

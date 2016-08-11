@@ -11,7 +11,14 @@
 extension Version: ExpressibleByStringLiteral {
 
     public init(stringLiteral value: String) {
-        self.init(value.characters)!
+        if let version = Version(value.characters) {
+            self.init(version)
+        } else {
+            // If version can't be initialized using the string literal, report the error and initialize with a dummy value.
+            // This is done to fail the invoking tool (like swift build) gracefully rather than just crashing.
+            errors.add("Invalid version string: \(value)")
+            self.init(0, 0, 0)
+        }
     }
 
     public init(extendedGraphemeClusterLiteral value: String) {
@@ -24,6 +31,14 @@ extension Version: ExpressibleByStringLiteral {
 }
 
 extension Version {
+
+    init(_ version: Version) {
+        major = version.major
+        minor = version.minor
+        patch = version.patch
+        prereleaseIdentifiers = version.prereleaseIdentifiers
+        buildMetadataIdentifier = version.buildMetadataIdentifier
+    }
 
     public init?(_ versionString: String) {
         self.init(versionString.characters)
