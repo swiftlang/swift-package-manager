@@ -23,9 +23,9 @@ class ConventionTests: XCTestCase {
     // MARK:- Valid Layouts Tests
 
     func testDotFilesAreIgnored() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/.Bar.swift",
-                                "/Foo.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/.Bar.swift",
+            "/Foo.swift")
 
         let name = "DotFilesAreIgnored"
         PackageBuilderTester(name, in: fs) { result in
@@ -37,8 +37,8 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSingleSwiftLibraryModule() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.swift")
 
         let name = "SingleSwiftModule"
         PackageBuilderTester(name, in: fs) { result in
@@ -49,9 +49,9 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift module inside Sources.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo.swift",
-                                "/Sources/Bar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo.swift",
+            "/Sources/Bar.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -61,9 +61,9 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift module inside its own directory.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/lib/Foo.swift",
-                                "/Sources/lib/Bar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/Foo.swift",
+            "/Sources/lib/Bar.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("lib") { moduleResult in
@@ -74,8 +74,8 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSystemModulePackage() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/module.modulemap")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/module.modulemap")
 
         let name = "SystemModulePackage"
         PackageBuilderTester(name, in: fs) { result in
@@ -87,9 +87,9 @@ class ConventionTests: XCTestCase {
     }
 
     func testResolvesSingleClangLibraryModule() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.h",
-                                "/Foo.c")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.h",
+            "/Foo.c")
 
         let name = "SingleClangModule"
         PackageBuilderTester(name, in: fs) { result in
@@ -100,9 +100,9 @@ class ConventionTests: XCTestCase {
         }
 
         // Single clang module inside Sources.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo.h",
-                                "/Sources/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo.h",
+            "/Sources/Foo.c")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -112,9 +112,9 @@ class ConventionTests: XCTestCase {
         }
 
         // Single clang module inside its own directory.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/lib/Foo.h",
-                                "/Sources/lib/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/Foo.h",
+            "/Sources/lib/Foo.c")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("lib") { moduleResult in
@@ -126,9 +126,9 @@ class ConventionTests: XCTestCase {
 
     func testSingleExecutableSwiftModule() throws {
         // Single swift executable module.
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/main.swift",
-                                "/Bar.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/main.swift",
+            "/Bar.swift")
 
         let name = "SingleExecutable"
         PackageBuilderTester(name, in: fs) { result in
@@ -139,8 +139,8 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift executable module inside Sources.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -150,8 +150,8 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift executable module inside its own directory.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/exec/main.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exec/main.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("exec") { moduleResult in
@@ -163,9 +163,9 @@ class ConventionTests: XCTestCase {
 
     func testSingleExecutableClangModule() throws {
         // Single swift executable module.
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/main.c",
-                                "/Bar.c")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/main.c",
+            "/Bar.c")
 
         let name = "SingleExecutable"
         PackageBuilderTester(name, in: fs) { result in
@@ -176,8 +176,8 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift executable module inside Sources.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.cpp")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.cpp")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -187,8 +187,8 @@ class ConventionTests: XCTestCase {
         }
 
         // Single swift executable module inside its own directory.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/c/main.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/c/main.c")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("c") { moduleResult in
@@ -199,10 +199,10 @@ class ConventionTests: XCTestCase {
     }
 
     func testDotSwiftSuffixDirectory() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createDirectory(AbsolutePath("/hello.swift"))
-        try fs.createEmptyFiles("/main.swift",
-                                "/Bar.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/hello.swift/dummy",
+            "/main.swift",
+            "/Bar.swift")
 
         let name = "pkg"
         // FIXME: This fails currently, it is a bug.
@@ -215,10 +215,10 @@ class ConventionTests: XCTestCase {
         }
         #endif
 
-        fs = InMemoryFileSystem()
-        try fs.createDirectory(AbsolutePath("/hello.swift"))
-        try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Sources/Bar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/hello.swift/dummy",
+            "/Sources/main.swift",
+            "/Sources/Bar.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -227,10 +227,10 @@ class ConventionTests: XCTestCase {
             }
         }
 
-        fs = InMemoryFileSystem()
-        try fs.createDirectory(AbsolutePath("/Sources/exe/hello.swift"), recursive: true)
-        try fs.createEmptyFiles("/Sources/exe/main.swift",
-                                "/Sources/exe/Bar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exe/hello.swift/dummy",
+            "/Sources/exe/main.swift",
+            "/Sources/exe/Bar.swift")
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("exe") { moduleResult in
@@ -241,11 +241,11 @@ class ConventionTests: XCTestCase {
     }
 
     func testMultipleSwiftModules() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/A/main.swift",
-                                "/Sources/A/foo.swift",
-                                "/Sources/B/main.swift",
-                                "/Sources/C/Foo.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Sources/A/foo.swift",
+            "/Sources/B/main.swift",
+            "/Sources/C/Foo.swift")
 
         PackageBuilderTester("MultipleModules", in: fs) { result in
             result.checkModule("A") { moduleResult in
@@ -266,14 +266,14 @@ class ConventionTests: XCTestCase {
     }
 
     func testMultipleClangModules() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/A/main.c",
-                                "/Sources/A/foo.h",
-                                "/Sources/A/foo.c",
-                                "/Sources/B/include/foo.h",
-                                "/Sources/B/foo.c",
-                                "/Sources/B/bar.c",
-                                "/Sources/C/main.cpp")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.c",
+            "/Sources/A/foo.h",
+            "/Sources/A/foo.c",
+            "/Sources/B/include/foo.h",
+            "/Sources/B/foo.c",
+            "/Sources/B/bar.c",
+            "/Sources/C/main.cpp")
 
         PackageBuilderTester("MultipleModules", in: fs) { result in
             result.checkModule("A") { moduleResult in
@@ -296,11 +296,11 @@ class ConventionTests: XCTestCase {
     func testTestsLayouts() throws {
         // Single module layout.
         for singleModuleSource in ["/", "/Sources/", "/Sources/Foo/"].lazy.map(AbsolutePath.init) {
-            var fs = InMemoryFileSystem()
-            try fs.createEmptyFiles(singleModuleSource.appending(component: "Foo.swift").asString,
-                                    "/Tests/FooTests/FooTests.swift",
-                                    "/Tests/FooTests/BarTests.swift",
-                                    "/Tests/BarTests/BazTests.swift")
+            let fs = InMemoryFileSystem(emptyFiles:
+                singleModuleSource.appending(component: "Foo.swift").asString,
+                "/Tests/FooTests/FooTests.swift",
+                "/Tests/FooTests/BarTests.swift",
+                "/Tests/BarTests/BazTests.swift")
 
             PackageBuilderTester("Foo", in: fs) { result in
                 result.checkModule("Foo") { moduleResult in
@@ -324,15 +324,15 @@ class ConventionTests: XCTestCase {
             }
         }
 
-       var fs = InMemoryFileSystem()
-       try fs.createEmptyFiles("/Sources/A/main.swift", // Swift exec
-                               "/Sources/B/Foo.swift",  // Swift lib
-                               "/Sources/D/Foo.c",      // Clang lib
-                               "/Sources/E/main.c",     // Clang exec
-                               "/Tests/ATests/Foo.swift",
-                               "/Tests/BTests/Foo.swift",
-                               "/Tests/DTests/Foo.swift",
-                               "/Tests/ETests/Foo.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift", // Swift exec
+            "/Sources/B/Foo.swift",  // Swift lib
+            "/Sources/D/Foo.c",      // Clang lib
+            "/Sources/E/main.c",     // Clang exec
+            "/Tests/ATests/Foo.swift",
+            "/Tests/BTests/Foo.swift",
+            "/Tests/DTests/Foo.swift",
+            "/Tests/ETests/Foo.swift")
 
        PackageBuilderTester("Foo", in: fs) { result in
            result.checkModule("A") { moduleResult in
@@ -390,19 +390,19 @@ class ConventionTests: XCTestCase {
     }
 
     func testMixedSources() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Sources/main.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Sources/main.c")
         PackageBuilderTester("MixedSources", in: fs) { result in
             result.checkDiagnostic("the module at /Sources contains mixed language source files fix: use only a single language within a module")
         }
     }
 
     func testTwoModulesMixedLanguage() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/ModuleA/main.swift",
-                                "/Sources/ModuleB/main.c",
-                                "/Sources/ModuleB/foo.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/ModuleA/main.swift",
+            "/Sources/ModuleB/main.c",
+            "/Sources/ModuleB/foo.c")
 
         PackageBuilderTester("MixedLanguage", in: fs) { result in
             result.checkModule("ModuleA") { moduleResult in
@@ -419,9 +419,9 @@ class ConventionTests: XCTestCase {
     }
 
     func testCInTests() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Tests/MyPackageTests/abc.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Tests/MyPackageTests/abc.c")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkModule("MyPackage") { moduleResult in
@@ -441,15 +441,15 @@ class ConventionTests: XCTestCase {
     }
 
     func testValidSources() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/main.swift",
-                                "/noExtension",
-                                "/Package.swift",
-                                "/.git/anchor",
-                                "/.xcodeproj/anchor",
-                                "/.playground/anchor",
-                                "/Package.swift",
-                                "/Packages/MyPackage/main.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/main.swift",
+            "/noExtension",
+            "/Package.swift",
+            "/.git/anchor",
+            "/.xcodeproj/anchor",
+            "/.playground/anchor",
+            "/Package.swift",
+            "/Packages/MyPackage/main.c")
         let name = "pkg"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
@@ -460,10 +460,10 @@ class ConventionTests: XCTestCase {
     }
 
     func testCustomTargetDependencies() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
-                                "/Sources/Bar/Bar.swift",
-                                "/Sources/Baz/Baz.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.swift",
+            "/Sources/Bar/Bar.swift",
+            "/Sources/Baz/Baz.swift")
 
         // Direct.
         var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
@@ -510,11 +510,11 @@ class ConventionTests: XCTestCase {
     }
 
     func testTestTargetDependencies() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo/source.swift",
-                                "/Sources/Bar/source.swift",
-                                "/Tests/FooTests/source.swift"
-                                )
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/source.swift",
+            "/Sources/Bar/source.swift",
+            "/Tests/FooTests/source.swift"
+        )
 
         let package = PackageDescription.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
@@ -539,16 +539,16 @@ class ConventionTests: XCTestCase {
 
     func testInvalidTestTargets() throws {
         // Test module in Sources/
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/FooTests/source.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/FooTests/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
             result.checkDiagnostic("the module at Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test module has a ‘Tests’ suffix fix: rename the module at ‘Sources/FooTests’ to not have a ‘Tests’ suffix")
         }
 
         // Normal module in Tests/
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Tests/Foo/source.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Tests/Foo/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
             result.checkDiagnostic("the module at Tests/Foo has an invalid name (\'Foo\'): the name of a test module has no ‘Tests’ suffix fix: rename the module at ‘Tests/Foo’ to have a ‘Tests’ suffix")
         }
@@ -556,8 +556,8 @@ class ConventionTests: XCTestCase {
 
     func testManifestTargetDeclErrors() throws {
         // Reference a target which doesn't exist.
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.swift")
         var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
@@ -571,9 +571,9 @@ class ConventionTests: XCTestCase {
 
         // Executable as dependency.
         // FIXME: maybe should support this and condiser it as build order dependency.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/exec/main.swift",
-                                "/Sources/lib/lib.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exec/main.swift",
+            "/Sources/lib/lib.swift")
         package = PackageDescription.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("the target lib cannot have the executable exec as a dependency fix: move the shared logic inside a library, which can be referenced from both the target and the executable")
@@ -581,9 +581,9 @@ class ConventionTests: XCTestCase {
     }
 
     func testProducts() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
-                                "/Sources/Bar/Bar.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.swift",
+            "/Sources/Bar/Bar.swift")
         let products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
 
         PackageBuilderTester("pkg", in: fs, products: products) { result in
@@ -605,9 +605,9 @@ class ConventionTests: XCTestCase {
 
     func testTestsProduct() throws {
         // Make sure product name and test module name are different in single module package.
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo.swift",
-                                "/Tests/FooTests/Bar.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo.swift",
+            "/Tests/FooTests/Bar.swift")
 
         PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkModule("Foo") { moduleResult in
@@ -626,11 +626,11 @@ class ConventionTests: XCTestCase {
         }
 
         // Multi module tests package.
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Foo/Foo.swift",
-                                "/Sources/Bar/Bar.swift",
-                                "/Tests/FooTests/Foo.swift",
-                                "/Tests/BarTests/Bar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.swift",
+            "/Sources/Bar/Bar.swift",
+            "/Tests/FooTests/Foo.swift",
+            "/Tests/BarTests/Bar.swift")
 
         PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkModule("Foo") { moduleResult in
@@ -660,8 +660,8 @@ class ConventionTests: XCTestCase {
     }
 
     func testBadProducts() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.swift")
         var products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
         PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkDiagnostic("the product named libpm references a module that could not be found: Bar fix: reference only valid modules from the product")
@@ -674,8 +674,7 @@ class ConventionTests: XCTestCase {
     }
 
     func testVersionSpecificManifests() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles(
+        let fs = InMemoryFileSystem(emptyFiles:
             "/Package.swift",
             "/Package@swift-999.swift",
             "/Sources/Package.swift",
@@ -693,20 +692,19 @@ class ConventionTests: XCTestCase {
     // MARK:- Invalid Layouts Tests
 
     func testMultipleRoots() throws {
-
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.swift",
-                                "/main.swift",
-                                "/src/FooBarLib/FooBar.swift")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.swift",
+            "/main.swift",
+            "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Foo.swift, /main.swift fix: move the file(s) inside a module")
         }
 
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/BarExec/main.swift",
-                                "/Sources/BarExec/Bar.swift",
-                                "/src/FooBarLib/FooBar.swift")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/BarExec/main.swift",
+            "/Sources/BarExec/Bar.swift",
+            "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /Sources, /src fix: remove the extra source roots, or add them to the source root exclude list")
@@ -720,9 +718,9 @@ class ConventionTests: XCTestCase {
          └── Sources
              └── File2.swift
         */
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/Files2.swift",
-                                "/main.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Files2.swift",
+            "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
@@ -738,9 +736,9 @@ class ConventionTests: XCTestCase {
                  └── File2.swift
         */
         // FIXME: We should allow this by not making modules at root and only inside Sources/.
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Bar/Sources/Files2.swift",
-                                "/main.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Bar/Sources/Files2.swift",
+            "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
@@ -755,9 +753,9 @@ class ConventionTests: XCTestCase {
              └── Bar
                  └── File2.swift
         */
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/main.swift",
-                                "/Sources/Bar/File2.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/main.swift fix: move the file(s) inside a module")
@@ -772,9 +770,9 @@ class ConventionTests: XCTestCase {
              └── Bar
                  └── File2.swift
         */
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/main.swift",
-                                "/Sources/Bar/File2.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/main.swift",
+            "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
@@ -788,14 +786,14 @@ class ConventionTests: XCTestCase {
          └── Foo
              └── Foo.swift  <-- Invalid
         */
-        var fs = InMemoryFileSystem()
         // for the simplest layout it is invalid to have any
         // subdirectories. It is the compromise you make.
         // the reason for this is mostly performance in
         // determineTargets() but also we are saying: this
         // layout is only for *very* simple projects.
-        try fs.createEmptyFiles("/File1.swift",
-                                "/Foo/Foo.swift")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/File1.swift",
+            "/Foo/Foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /File1.swift fix: move the file(s) inside a module")
@@ -812,11 +810,11 @@ class ConventionTests: XCTestCase {
     }
 
     func testExcludes() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Sources/A/main.swift",
-                                "/Sources/A/foo.swift", // File will be excluded.
-                                "/Sources/B/main.swift" // Dir will be excluded.
-                               )
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Sources/A/foo.swift", // File will be excluded.
+            "/Sources/B/main.swift" // Dir will be excluded.
+        )
 
         // Excluding everything.
         var package = PackageDescription.Package(name: "pkg", exclude: ["."])
@@ -865,37 +863,6 @@ class ConventionTests: XCTestCase {
         ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
     ]
-}
-
-// FIXME: These test Utilities can/should be moved to test-specific library when we start supporting them.
-extension FileSystem {
-    /// Create a file on the filesystem while recursively creating the parent directory tree.
-    ///
-    /// - Parameters:
-    ///     - file: Path of the file to create.
-    ///     - contents: Contents of the file. Empty by default.
-    ///
-    /// - Throws: FileSystemError
-    mutating func create(_ file: AbsolutePath, contents: ByteString = ByteString()) throws {
-        // Auto create the tree.
-        try createDirectory(file.parentDirectory, recursive: true)
-        try writeFileContents(file, bytes: contents)
-    }
-
-    /// Create multiple empty files on the filesystem while recursively creating the parent directory tree.
-    ///
-    /// - Parameters:
-    ///     - files: Paths of empty files to create.
-    ///
-    /// - Throws: FileSystemError
-    mutating func createEmptyFiles(_ files: String ...) throws {
-        // Auto create the tree.
-        for filePath in files {
-            let file = AbsolutePath(filePath)
-            try createDirectory(file.parentDirectory, recursive: true)
-            try writeFileContents(file, bytes: ByteString())
-        }
-    }
 }
 
 /// Loads a package using PackageBuilder at the given path.
