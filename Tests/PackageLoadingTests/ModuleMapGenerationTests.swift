@@ -17,9 +17,9 @@ import PackageModel
 class ModuleMapGeneration: XCTestCase {
 
     func testModuleNameHeaderInInclude() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/include/Foo.h",
-                                "/Foo.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/include/Foo.h",
+            "/Foo.c")
 
         var expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
@@ -45,9 +45,9 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testModuleNameDirAndHeaderInInclude() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/include/Foo/Foo.h",
-                                "/Foo.c")
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/include/Foo/Foo.h",
+            "/Foo.c")
 
         var expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
@@ -73,7 +73,6 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testOtherCases() throws {
-        var fs = InMemoryFileSystem()
 
         let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
@@ -82,41 +81,43 @@ class ModuleMapGeneration: XCTestCase {
         expected <<< "    export *\n"
         expected <<< "}\n"
 
+        var fs: InMemoryFileSystem
         func checkExpected() {
             ModuleMapTester("Foo", style: .library, in: fs) { result in
                 result.check(value: expected.bytes)
             }
         }
 
-        try fs.createEmptyFiles("/include/Bar.h",
-                                "/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Bar.h",
+            "/Foo.c")
         checkExpected()
 
-        fs = InMemoryFileSystem()
         // FIXME: Should this be allowed?
-        try fs.createEmptyFiles("/include/Baz/Foo.h",
-                                "/include/Bar/Bar.h",
-                                "/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Baz/Foo.h",
+            "/include/Bar/Bar.h",
+            "/Foo.c")
         checkExpected()
 
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/include/Baz.h",
-                                "/include/Bar.h",
-                                "/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Baz.h",
+            "/include/Bar.h",
+            "/Foo.c")
         checkExpected()
     }
 
     func testWarnings() throws {
-        var fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/Foo.c")
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Foo.c")
         ModuleMapTester("Foo", style: .library, in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics("warning: No include directory found for module \'Foo\'. A library can not be imported without any public headers.")
         }
 
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/include/F-o-o.h",
-                                "/Foo.c")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/F-o-o.h",
+            "/Foo.c")
         let expected = BufferedOutputByteStream()
         expected <<< "module F_o_o {\n"
         expected <<< "    umbrella \"/include\"\n"
@@ -130,8 +131,7 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testUnsupportedLayouts() throws {
-        var fs = InMemoryFileSystem()
-
+        var fs: InMemoryFileSystem
         func checkExpected() {
             ModuleMapTester("Foo", style: .library, in: fs) { result in
                 result.checkNotCreated()
@@ -139,13 +139,14 @@ class ModuleMapGeneration: XCTestCase {
             }
         }
 
-        try fs.createEmptyFiles("/include/Foo/Foo.h",
-                                "/include/Bar/Foo.h")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Foo/Foo.h",
+            "/include/Bar/Foo.h")
         checkExpected()
 
-        fs = InMemoryFileSystem()
-        try fs.createEmptyFiles("/include/Foo.h",
-                                "/include/Bar/Foo.h")
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Foo.h",
+            "/include/Bar/Foo.h")
         checkExpected()
     }
 
