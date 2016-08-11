@@ -44,7 +44,6 @@ extension Package: JSONSerializable {
             dict["pkgConfig"] = .string(pkgConfig)
         }
         dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
-        dict["testDependencies"] = .array(testDependencies.map { $0.toJSON() })
         dict["exclude"] = .array(exclude.map { .string($0) })
         dict["package.targets"] = .array(targets.map { $0.toJSON() })
         if let providers = self.providers {

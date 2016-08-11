@@ -38,18 +38,6 @@ class SerializationTests: XCTestCase {
         XCTAssertEqual(pFromTOML.exclude, exclude)
     }
 
-    func testEmptyTestDependencies() {
-        let p = Package(name: "a", testDependencies: [])
-        XCTAssertEqual(p.testDependencies, [])
-    }
-
-    func testTestDependencies() {
-        let dependencies = [Package.Dependency.Package(url: "../TestingLib", majorVersion: 1)]
-        let p = Package(name: "a", testDependencies: dependencies)
-        let pFromTOML = Package.fromTOML(parseTOML(p.toTOML()))
-        XCTAssertEqual(pFromTOML.testDependencies, dependencies)
-    }
-    
     func testTargetDependencyIsStringConvertible() {
       XCTAssertEqual(Target.Dependency.Target(name: "foo"), "foo")
     }
@@ -57,8 +45,6 @@ class SerializationTests: XCTestCase {
     static var allTests = [
         ("testBasics", testBasics),
         ("testExclude", testExclude),
-        ("testEmptyTestDependencies", testEmptyTestDependencies),
-        ("testTestDependencies", testTestDependencies),
         ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
     ]
 }

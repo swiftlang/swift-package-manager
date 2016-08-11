@@ -106,19 +106,6 @@ let package = Package(
 )
 ```
 
-A package can require dependencies that are only needed during develop, as example for testing purposes. `testDependencies` are only fetched  when you build current package. They are not fetched if a package is specified as a dependency in other package.
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "Hello",
-    testDependencies: [
-        .Package(url: "ssh://git@example.com/Tester.git", versions: Version(1,0,0)..<Version(2,0,0)),
-    ]
-)
-```
-
 ### Customizing Builds
 
 That the manifest is Swift allows for powerful customization, for example:
