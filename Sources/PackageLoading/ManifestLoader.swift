@@ -211,14 +211,6 @@ extension PackageDescription.Package {
             }
         }
 
-        // Parse the test dependencies.
-        var testDependencies: [PackageDescription.Package.Dependency] = []
-        if case .array(let array)? = table.items["testDependencies"] {
-            for item in array.items {
-                testDependencies.append(PackageDescription.Package.Dependency.fromTOML(item, baseURL: baseURL))
-            }
-        }
-
         // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = table.items["exclude"] {
@@ -228,7 +220,7 @@ extension PackageDescription.Package {
             }
         }
         
-        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, testDependencies: testDependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, exclude: exclude)
     }
 }
 

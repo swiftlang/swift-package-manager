@@ -112,45 +112,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testTestDependenciesSimple() {
-    #if false
-        //FIXME disabled pending no more magic
-        fixture(name: "TestDependencies/Simple") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "App"))
-            XCTAssertDirectoryExists(prefix.appending(components: "App", "Packages", "TestingLib-1.2.3"))
-            XCTAssertFileExists(prefix.appending(components: "App", ".build", "debug", "Foo.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: "App", ".build", "debug", "TestingLib.swiftmodule"))
-        }
-    #endif
-    }
-
-    func testTestDependenciesComplex() {
-    #if false
-        //FIXME disabled pending no more magic
-
-        // verifies that testDependencies of dependencies are not fetched or built
-
-        fixture(name: "TestDependencies/Complex") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "App"))
-            
-            let pkgsDir = prefix.appending(components: "App", "Packages")
-            XCTAssertDirectoryExists(pkgsDir.appending(component: "TestingLib-1.2.3"))
-            XCTAssertDirectoryExists(pkgsDir.appending(component: "Foo-1.2.3"))
-
-            let buildDir = prefix.appending(components: "App", ".build", "debug")
-            XCTAssertFileExists(buildDir.appending(component: "App"))
-            XCTAssertFileExists(buildDir.appending(component: "Foo.swiftmodule"))
-            XCTAssertFileExists(buildDir.appending(component: "TestingLib.swiftmodule"))
-
-            XCTAssertNoSuchPath(prefix.appending(component: "PrivateFooLib-1.2.3"))
-            XCTAssertNoSuchPath(prefix.appending(component: "TestingFooLib-1.2.3"))
-            XCTAssertNoSuchPath(buildDir.appending(component: "PrivateFooLib.swiftmodule"))
-            XCTAssertNoSuchPath(buildDir.appending(component: "TestingFooLib.swiftmodule"))
-        }
-#endif
-    }
-
-
     func testPassExactDependenciesToBuildCommand() {
 
         // regression test to ensure that dependencies of other dependencies
@@ -399,8 +360,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testManifestExcludes3", testManifestExcludes3),
         ("testManifestExcludes4", testManifestExcludes4),
         ("testManifestExcludes5", testManifestExcludes5),
-        ("testTestDependenciesSimple", testTestDependenciesSimple),
-        ("testTestDependenciesComplex", testTestDependenciesComplex),
         ("testPassExactDependenciesToBuildCommand", testPassExactDependenciesToBuildCommand),
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
