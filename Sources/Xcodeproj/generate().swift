@@ -12,6 +12,7 @@ import Basic
 import POSIX
 import PackageGraph
 import PackageModel
+import PackageLoading
 import Utility
 
 public struct XcodeprojOptions {
@@ -148,30 +149,7 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
-        if isReservedDirectory($0) { return false }
+        if PackageBuilder.isReservedDirectory(pathComponent: $0.basename) { return false }
         return isDirectory($0)
     }
-}
-
-func isReservedDirectory(_ path: AbsolutePath) -> Bool {
-    return isPackageDirectory(path) ||
-        isSourceDirectory(path) ||
-        isTestDirectory(path)
-}
-
-func isPackageDirectory(_ path: AbsolutePath) -> Bool {
-    return path.basename.lowercased() == "packages" && isDirectory(path)
-}
-
-func isSourceDirectory(_ path: AbsolutePath) -> Bool {
-    switch path.basename.lowercased() {
-    case "sources", "source", "src", "srcs":
-        return isDirectory(path)
-    default:
-        return false
-    }
-}
-
-func isTestDirectory(_ path: AbsolutePath) -> Bool {
-    return path.basename.lowercased() == "tests" && isDirectory(path)
 }
