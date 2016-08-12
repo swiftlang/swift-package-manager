@@ -148,21 +148,23 @@ func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
-        if isReservedDirectory($0.basename) { return false }
+        if isReservedDirectory($0) { return false }
         return isDirectory($0)
     }
 }
 
-func isReservedDirectory(_ directory: String) -> Bool {
-    return isPackageDirectory(directory) || isSourceDirectory(directory) || isTestDirectory(directory)
+func isReservedDirectory(_ path: AbsolutePath) -> Bool {
+    return isPackageDirectory(path) ||
+        isSourceDirectory(path) ||
+        isTestDirectory(path)
 }
 
-func isPackageDirectory(_ directory: String) -> Bool {
-    return directory.lowercased() == "packages"
+func isPackageDirectory(_ path: AbsolutePath) -> Bool {
+    return path.basename.lowercased() == "packages"
 }
 
-func isSourceDirectory(_ directory: String) -> Bool {
-    switch directory.lowercased() {
+func isSourceDirectory(_ path: AbsolutePath) -> Bool {
+    switch path.basename.lowercased() {
     case "sources", "source", "src", "srcs":
         return true
     default:
@@ -170,6 +172,6 @@ func isSourceDirectory(_ directory: String) -> Bool {
     }
 }
 
-func isTestDirectory(_ directory: String) -> Bool {
-    return directory.lowercased() == "tests"
+func isTestDirectory(_ path: AbsolutePath) -> Bool {
+    return path.basename.lowercased() == "tests"
 }
