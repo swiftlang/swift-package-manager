@@ -15,13 +15,13 @@ import Utility
 
 import func POSIX.realpath
 
-private enum ManifestParseError: Swift.Error {
+public enum ManifestParseError: Swift.Error {
     /// The manifest file is empty.
     case emptyManifestFile
     /// The manifest had a string encoding error.
     case invalidEncoding
     /// The manifest contains invalid format.
-    case invalidManifestFormat
+    case invalidManifestFormat([String]?)
 }
 
 /// Resources required for manifest loading.
@@ -139,6 +139,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let toml = try TOMLItem.parse(tomlString)
         let package = PackageDescription.Package.fromTOML(toml, baseURL: baseURL)
         let products = PackageDescription.Product.fromTOML(toml)
+        let errors = parseErrors(toml)
+
+        guard errors.isEmpty else {
+            throw ManifestParseError.invalidManifestFormat(errors)
+        }
 
         return Manifest(path: path, url: baseURL, package: package, products: products, version: version)
     }
@@ -177,7 +182,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             try system(cmd)
         } catch {
             print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
-            throw ManifestParseError.invalidManifestFormat
+            throw ManifestParseError.invalidManifestFormat(nil)
         }
     
         guard let toml = try localFileSystem.readFileContents(file.path).asString else {
@@ -196,6 +201,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 //
 // FIXME: These APIs are `internal` so they can be unit tested, but otherwise
 // could be private.
+
+func parseErrors(_ toml: TOMLItem) -> [String] {
+    guard case .table(let root) = toml else { fatalError("unexpected item") }
+    guard case .table(let errorsTable)? = root.items["errors"] else { fatalError("missing errors table") }
+    guard case .array(let errors)? = errorsTable.items["errors"] else { fatalError("errors wrong type") }
+    return errors.items.map { errorItem in
+        guard case .string(let error) = errorItem else { fatalError("unexpected item") }
+        return error
+    }
+}
 
 extension PackageDescription.Package {
     static func fromTOML(_ item: TOMLItem, baseURL: String? = nil) -> PackageDescription.Package {

@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageDescription
+@testable import PackageDescription
 import Utility
 
 @testable import PackageLoading
@@ -42,9 +42,15 @@ class SerializationTests: XCTestCase {
       XCTAssertEqual(Target.Dependency.Target(name: "foo"), "foo")
     }
 
+    func testInvalidVersionString() {
+        let _ = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", "1.0,0")])
+        XCTAssertEqual(parseErrors(parseTOML(errors.toTOML())), ["Invalid version string: 1.0,0"])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testExclude", testExclude),
-        ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible)
+        ("testTargetDependencyIsStringConvertible", testTargetDependencyIsStringConvertible),
+        ("testInvalidVersionString", testInvalidVersionString),
     ]
 }

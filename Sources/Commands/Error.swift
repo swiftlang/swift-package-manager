@@ -16,6 +16,7 @@ import enum Utility.Stream
 import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
+import enum PackageLoading.ManifestParseError
 
 public enum Error: Swift.Error {
     case noManifestFound
@@ -78,6 +79,12 @@ public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
         if let fix = error.fix {
             print(fix: fix)
         }
+    case ManifestParseError.invalidManifestFormat(let errors):
+        var errorString = "invalid manifest format"
+        if let errors = errors {
+            errorString += "; " + errors.joined(separator: ", ")
+        }
+        print(error: errorString)
     default:
         print(error: error)
     }
