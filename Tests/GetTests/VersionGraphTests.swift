@@ -8,9 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import struct PackageDescription.Version
-@testable import Get
 import XCTest
+
+import Utility
+
+@testable import Get
 
 class VersionGraphTests: XCTestCase {
 

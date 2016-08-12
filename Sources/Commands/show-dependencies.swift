@@ -10,7 +10,6 @@
 
 import Basic
 import PackageModel
-import struct PackageDescription.Version
 
 func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
     let dumper: DependenciesDumper

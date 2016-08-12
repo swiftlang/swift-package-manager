@@ -14,8 +14,6 @@ import func POSIX.getenv
 import libc
 import class Foundation.ProcessInfo
 
-import struct PackageDescription.Version
-
 extension Version {
     static func vprefix(_ string: String) -> Version? {
         if string.characters.first == "v" {

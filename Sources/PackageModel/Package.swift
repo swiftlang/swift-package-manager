@@ -10,7 +10,9 @@
 
 import Basic
 import Utility
-import struct PackageDescription.Version
+
+// Re-export Version from PackageModel, since it is a key part of the model.
+@_exported import struct Utility.Version
 
 /// The basic package representation.
 ///

@@ -12,8 +12,6 @@ import Basic
 import PackageModel
 import Utility
 
-import struct PackageDescription.Version
-
 /// A clone of a repository which is not yet fully loaded.
 ///
 /// Initially we clone into a non-final form because we may need to adjust the

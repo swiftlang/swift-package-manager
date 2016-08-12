@@ -16,9 +16,7 @@ import PackageModel
 import Utility
 
 import enum Build.Configuration
-import enum Utility.ColorWrap
 import protocol Build.Toolchain
-import struct PackageDescription.Version
 
 import func POSIX.chdir
 

@@ -12,7 +12,7 @@ import XCTest
 
 import PackageGraph
 
-import struct PackageDescription.Version
+import struct Utility.Version
 
 import TestSupport
 

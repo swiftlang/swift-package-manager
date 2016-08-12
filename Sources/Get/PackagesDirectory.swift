@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import Utility
 
-import struct PackageDescription.Version
 import func POSIX.rename
 
 /// A container for fetched packages.

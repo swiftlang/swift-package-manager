@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
+import struct Utility.Version
 
 public enum DependencyResolverError: Error {
     /// The resolver was unable to find a solution to the input constraints.
