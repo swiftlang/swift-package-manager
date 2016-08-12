@@ -69,7 +69,6 @@ private class MockRepository: Repository {
         // This isn't actually used, see `MockManifestLoader`.
         return InMemoryFileSystem()
     }
-    
 }
 
 private class MockRepositories: RepositoryProvider {
@@ -101,6 +100,14 @@ private class MockRepositories: RepositoryProvider {
     
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
         return repositories[repository.url]!
+    }
+
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("unexpected API call")
+    }
+
+    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+        fatalError("unexpected API call")
     }
 }
 

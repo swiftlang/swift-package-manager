@@ -97,6 +97,16 @@ public class CheckoutManager {
             return try self.manager.open(self)
         }
 
+        /// Clone into a working copy at on the local file system.
+        ///
+        /// - Parameters:
+        ///   - path: The path at which to create the working copy; it is
+        ///     expected to be non-existent when called.
+        public func cloneCheckout(to path: AbsolutePath) throws {
+            precondition(status == .available, "cloneCheckout() called in invalid state")
+            try self.manager.cloneCheckout(self, to: path)
+        }
+
         // MARK: Persistence
 
         fileprivate func toJSON() -> JSON {
@@ -109,10 +119,10 @@ public class CheckoutManager {
     }
 
     /// The path under which repositories are stored.
-    private let path: AbsolutePath
+    public let path: AbsolutePath
 
     /// The repository provider.
-    private let provider: RepositoryProvider
+    public let provider: RepositoryProvider
 
     /// The map of registered repositories.
     //
@@ -136,8 +146,8 @@ public class CheckoutManager {
         } catch {
             // State restoration errors are ignored, for now.
             //
-            // FIXME: It would be nice to log this, in some verbose mode.
-            print("unable to restore state: \(error)")
+            // FIXME: We need to do something better here.
+            print("warning: unable to restore checkouts state: \(error)")
         }
     }
 
@@ -187,6 +197,11 @@ public class CheckoutManager {
     /// Open a repository from a handle.
     private func open(_ handle: RepositoryHandle) throws -> Repository {
         return try provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    }
+
+    /// Clone a repository from a handle.
+    private func cloneCheckout(_ handle: RepositoryHandle, to path: AbsolutePath) throws {
+        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: path)
     }
 
     // MARK: Persistence
