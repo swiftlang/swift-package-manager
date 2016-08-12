@@ -103,11 +103,13 @@ public final class TemporaryFile {
         if fd == -1 { throw TempFileError(errno: errno) }
 
         self.path = AbsolutePath(String(cString: template))
-        fileHandle = FileHandle(fileDescriptor: fd)
+        fileHandle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 
     /// Remove the temporary file before deallocating.
-    deinit { unlink(path.asString) }
+    deinit {
+        unlink(path.asString)
+    }
 }
 
 extension TemporaryFile: CustomStringConvertible {
