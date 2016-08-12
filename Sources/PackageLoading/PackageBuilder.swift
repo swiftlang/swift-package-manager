@@ -287,12 +287,10 @@ public struct PackageBuilder {
     func sourceRoot() throws -> AbsolutePath {
         let viableRoots = try fileSystem.getDirectoryContents(packagePath).filter { basename in
             let entry = packagePath.appending(component: basename)
-            switch basename.lowercased() {
-            case "sources", "source", "src", "srcs":
+            if PackageBuilder.isSourceDirectory(pathComponent: basename) {
                 return fileSystem.isDirectory(entry) && !excludedPaths.contains(entry)
-            default:
-                return false
             }
+            return false
         }
 
         switch viableRoots.count {
@@ -304,6 +302,33 @@ public struct PackageBuilder {
             // eg. there is a `Sources' AND a `src'
             throw ModuleError.invalidLayout(.multipleSourceRoots(viableRoots.map{ packagePath.appending(component: $0).asString }))
         }
+    }
+
+    /// Returns true if pathComponent indicates a reserved directory.
+    public static func isReservedDirectory(pathComponent: String) -> Bool {
+        return isPackageDirectory(pathComponent: pathComponent) ||
+            isSourceDirectory(pathComponent: pathComponent) ||
+            isTestDirectory(pathComponent: pathComponent)
+    }
+
+    /// Returns true if pathComponent indicates a package directory.
+    public static func isPackageDirectory(pathComponent: String) -> Bool {
+        return pathComponent.lowercased() == "packages"
+    }
+
+    /// Returns true if pathComponent indicates a source directory.
+    public static func isSourceDirectory(pathComponent: String) -> Bool {
+        switch pathComponent.lowercased() {
+        case "sources", "source", "src", "srcs":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Returns true if pathComponent indicates a test directory.
+    public static func isTestDirectory(pathComponent: String) -> Bool {
+        return pathComponent.lowercased() == "tests"
     }
 
     /// Private function that creates and returns a list of non-test Modules defined by a package.

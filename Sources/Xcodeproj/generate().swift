@@ -12,6 +12,7 @@ import Basic
 import POSIX
 import PackageGraph
 import PackageModel
+import PackageLoading
 import Utility
 
 public struct XcodeprojOptions {
@@ -140,23 +141,15 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
 }
 
 /// Finds directories that will be added as blue folder
-/// Excludes hidden directories and Xcode projects and directories that contains source code
+/// Excludes hidden directories, Xcode projects and reserved directories
 func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
     let rootDirectories = try walk(path, recursively: false)
-    let rootDirectoriesToConsider = rootDirectories.filter {
+
+    return rootDirectories.filter {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
+        if PackageBuilder.isReservedDirectory(pathComponent: $0.basename) { return false }
         return isDirectory($0)
     }
-    
-    let filteredDirectories = try rootDirectoriesToConsider.filter {
-        let directoriesWithSources = try walk($0).filter {
-            guard let fileExt = $0.extension else { return false }
-            return SupportedLanguageExtension.validExtensions.contains(fileExt)
-        }
-        return directoriesWithSources.isEmpty
-    }
-
-    return filteredDirectories;
 }
