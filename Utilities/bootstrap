@@ -976,8 +976,8 @@ def main():
             error("xcodeproj generation failed with exit status %d" % (result,))
         else:
             # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
-            # add a an option to the `generate-xcodeproj` subcommand to allow
-            # a user to specify env variable/value pairs to generate into the
+            # add an option to the `generate-xcodeproj` subcommand to allow a
+            # user to specify env variable/value pairs to generate into the
             # scheme, but that seems a bit too arbitrary at this point.
             cmd = ["sed", "-i", "",
                 "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
