@@ -29,6 +29,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case generateXcodeproj
     case initPackage
     case showDependencies
+    case resolve
     case update
     case usage
     case version
@@ -43,6 +44,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .generateXcodeproj
         case "init":
             self = .initPackage
+        case "resolve":
+            self = .resolve
         case "show-dependencies":
             self = .showDependencies
         case "update":
@@ -62,6 +65,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
         case .initPackage: return "initPackage"
+        case .resolve: return "resolve"
         case .showDependencies: return "show-dependencies"
         case .update: return "update"
         case .usage: return "--help"
@@ -129,7 +133,7 @@ private enum PackageToolFlag: Argument {
     }
 }
 
-private class PackageToolOptions: Options {
+class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
     var inputPath: AbsolutePath? = nil
@@ -169,7 +173,15 @@ public struct SwiftPackageTool: SwiftTool {
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
                 try initPackage.writePackageStructure()
-                            
+
+            case .resolve:
+                // NOTE: This command is currently undocumented, and is for
+                // bringup of the new dependency resolution logic. This is *NOT*
+                // the code currently used to resolve dependencies (which runs
+                // off of the infrastructure in the `Get` module).
+                try executeResolve(opts)
+                break
+
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
                 if localFileSystem.exists(opts.path.packages) {
@@ -223,8 +235,7 @@ public struct SwiftPackageTool: SwiftTool {
                 print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
-                let root = opts.inputPath ?? opts.path.root
-                let manifest = try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
+                let manifest = try loadRootManifest(opts)
                 let package = manifest.package
                 let json = try jsonString(package: package)
                 print(json)
@@ -235,6 +246,12 @@ public struct SwiftPackageTool: SwiftTool {
         }
     }
 
+    /// Load the manifest for the root package
+    func loadRootManifest(_ opts: PackageToolOptions) throws -> Manifest {
+        let root = opts.inputPath ?? opts.path.root
+        return try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
+    }
+    
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Perform operations on Swift packages")
