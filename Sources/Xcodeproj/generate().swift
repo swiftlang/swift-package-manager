@@ -160,18 +160,18 @@ func isReservedDirectory(_ path: AbsolutePath) -> Bool {
 }
 
 func isPackageDirectory(_ path: AbsolutePath) -> Bool {
-    return path.basename.lowercased() == "packages"
+    return path.basename.lowercased() == "packages" && isDirectory(path)
 }
 
 func isSourceDirectory(_ path: AbsolutePath) -> Bool {
     switch path.basename.lowercased() {
     case "sources", "source", "src", "srcs":
-        return true
+        return isDirectory(path)
     default:
         return false
     }
 }
 
 func isTestDirectory(_ path: AbsolutePath) -> Bool {
-    return path.basename.lowercased() == "tests"
+    return path.basename.lowercased() == "tests" && isDirectory(path)
 }
