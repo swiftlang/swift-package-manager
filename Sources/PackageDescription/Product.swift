@@ -51,6 +51,8 @@ extension ProductType: CustomStringConvertible {
 }
 
 extension Product: TOMLConvertible {
+
+
     public func toTOML() -> String {
         var s = ""
         s += "name = \"\(name)\"\n"
