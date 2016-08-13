@@ -109,57 +109,6 @@ extension SystemPackageProvider {
     }
 }
 
-// MARK: TOMLConvertible
-
-extension SystemPackageProvider: TOMLConvertible {
-    
-    public func toTOML() -> String {
-        let (name, value) = nameValue
-        var str = ""
-        str += "name = \(name)\n"
-        str += "value = \"\(value)\"\n"
-        return str
-    }
-}
-
-extension Package.Dependency: TOMLConvertible {
-    public func toTOML() -> String {
-        return "[\"\(url)\", \"\(versionRange.lowerBound)\", \"\(versionRange.upperBound)\"],"
-    }
-}
-
-extension Package: TOMLConvertible {
-    public func toTOML() -> String {
-        var result = ""
-        result += "[package]\n"
-        result += "name = \"\(name)\"\n"
-        if let pkgConfig = self.pkgConfig {
-            result += "pkgConfig = \"\(pkgConfig)\"\n"
-        }
-        result += "dependencies = ["
-        for dependency in dependencies {
-            result += dependency.toTOML()
-        }
-        result += "]\n"
-
-        result += "\n" + "exclude = \(exclude)" + "\n"
-
-        for target in targets {
-            result += "[[package.targets]]\n"
-            result += target.toTOML()
-        }
-        
-        if let providers = self.providers {
-            for provider in providers {
-                result += "[[package.providers]]\n"
-                result += provider.toTOML()
-            }
-        }
-        
-        return result
-    }
-}
-
 // MARK: Equatable
 extension Package : Equatable { }
 public func ==(lhs: Package, rhs: Package) -> Bool {
@@ -257,13 +206,6 @@ struct Errors {
 
     func toJSON() -> JSON {
         return .array(errors.map(JSON.string))
-    }
-
-    func toTOML() -> String {
-        var result = ""
-        result += "[errors]\n"
-        result += "errors = [" + errors.joined(separator: ", ") + "]\n"
-        return result
     }
 }
 
