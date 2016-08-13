@@ -30,7 +30,6 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PathTests.allTests),
         testCase(StringConversionTests.allTests),
         testCase(SyncronizedQueueTests.allTests),
-        testCase(TOMLTests.allTests),
         testCase(TemporaryFileTests.allTests),
         testCase(TerminalControllerTests.allTests),
         testCase(ThreadTests.allTests),

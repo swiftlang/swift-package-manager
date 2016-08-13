@@ -16,9 +16,9 @@ import Utility
 
 @testable import PackageLoading
 
-private func parseTOML(_ data: String) -> TOMLItem {
+private func parseJSON(_ data: String) -> Basic.JSON {
     do {
-        return try TOMLItem.parse(data)
+        return try JSON(string: data)
     } catch let err {
         fatalError("unexpected error while parsing: \(err)")
     }
@@ -26,16 +26,16 @@ private func parseTOML(_ data: String) -> TOMLItem {
 
 class SerializationTests: XCTestCase {
     func testBasics() {
-        // Verify that we can round trip a basic package through TOML.
+        // Verify that we can round trip a basic package through JSON.
         let p1 = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", majorVersion: 1)])
-        XCTAssertEqual(p1, Package.fromTOML(parseTOML(p1.toTOML())))
+        XCTAssertEqual(p1, Package.fromJSON(parseJSON(manifestToJSON(p1))))
     }
 
     func testExclude() {
         let exclude = ["Images", "A/B"]
         let p1 = Package(name: "a", exclude: exclude)
-        let pFromTOML = Package.fromTOML(parseTOML(p1.toTOML()))
-        XCTAssertEqual(pFromTOML.exclude, exclude)
+        let pFromJSON = Package.fromJSON(parseJSON(manifestToJSON(p1)))
+        XCTAssertEqual(pFromJSON.exclude, exclude)
     }
 
     func testTargetDependencyIsStringConvertible() {
@@ -43,8 +43,8 @@ class SerializationTests: XCTestCase {
     }
 
     func testInvalidVersionString() {
-        let _ = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", "1.0,0")])
-        XCTAssertEqual(parseErrors(parseTOML(errors.toTOML())), ["Invalid version string: 1.0,0"])
+        let p = Package(name: "a", dependencies: [.Package(url: "https://example.com/example", "1.0,0")])
+        XCTAssertEqual(parseErrors(parseJSON(manifestToJSON(p))), ["Invalid version string: 1.0,0"])
     }
 
     static var allTests = [

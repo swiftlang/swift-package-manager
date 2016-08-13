@@ -29,30 +29,6 @@ public final class Target {
     }
 }
 
-// MARK: TOMLConvertible
-
-extension Target.Dependency: TOMLConvertible {
-    public func toTOML() -> String {
-        switch self {
-        case .Target(let name):
-            return "\"\(name)\","
-        }
-    }
-}
-
-extension Target: TOMLConvertible {
-    public func toTOML() -> String {
-        var result = ""
-        result += "name = \"\(name)\"\n"
-        result += "dependencies = ["
-        for dependency in dependencies {
-            result += dependency.toTOML()
-        }
-        result += "]\n"
-        return result
-    }
-}
-
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency : ExpressibleByStringLiteral {
