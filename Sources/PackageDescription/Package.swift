@@ -217,6 +217,13 @@ func manifestToJSON(_ package: Package) -> String {
     return JSON.dictionary(dict).toString()
 }
 
+// FIXME: This function is public to let other modules get the JSON representation
+// of the package without exposing the enum JSON defined in this module (because that'll
+// leak to clients of PackageDescription i.e every Package.swift file).
+public func jsonString(package: Package) -> String {
+    return package.toJSON().toString()
+}
+
 var errors = Errors()
 private var dumpInfo: (package: Package, fileNo: Int32)? = nil
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
