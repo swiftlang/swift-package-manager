@@ -200,8 +200,8 @@ public class CheckoutManager {
     }
 
     /// Clone a repository from a handle.
-    private func cloneCheckout(_ handle: RepositoryHandle, to path: AbsolutePath) throws {
-        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: path)
+    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath) throws {
+        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath)
     }
 
     // MARK: Persistence
@@ -221,7 +221,7 @@ public class CheckoutManager {
 
     /// The path at which we persist the manager state.
     var statePath: AbsolutePath {
-        return path.appending(component: "manager-state.json")
+        return path.appending(component: "checkouts-state.json")
     }
     
     /// Restore the manager state from disk.

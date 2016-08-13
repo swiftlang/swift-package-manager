@@ -225,8 +225,10 @@ class GitRepositoryTests: XCTestCase {
             let workingCopy = try provider.openCheckout(at: checkoutPath)
             try workingCopy.checkout(tag: "test-tag")
             XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, currentRevision)
+            XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
             try workingCopy.checkout(tag: "initial")
             XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, initialRevision)
+            XCTAssert(!localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
         }
     }
 

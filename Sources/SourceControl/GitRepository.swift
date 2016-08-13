@@ -201,9 +201,9 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// The path of the repository on disk.
-    let path: AbsolutePath
+    public let path: AbsolutePath
 
-    init(path: AbsolutePath) {
+    public init(path: AbsolutePath) {
         self.path = path
     }
 
