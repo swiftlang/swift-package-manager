@@ -27,11 +27,7 @@ extension Git {
         }
 
         do {
-          #if os(Linux)
-            let env = ProcessInfo.processInfo().environment
-          #else
             let env = ProcessInfo.processInfo.environment
-          #endif
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
