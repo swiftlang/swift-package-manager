@@ -13,6 +13,31 @@ public enum GraphError: Swift.Error {
     case unexpectedCycle
 }
 
+/// Compute the transitive closure of an input node set.
+///
+/// NOTE: The relation is *not* assumed to be reflexive; i.e. the result will
+/// not automatically include `nodes` unless present in the relation defined by
+/// `successors`.
+public func transitiveClosure<T: Hashable>(
+    _ nodes: [T], successors: (T) throws -> [T]
+) rethrows -> Set<T> {
+    var result = Set<T>()
+
+    // The queue of items to recursively visit.
+    //
+    // We add items post-collation to avoid unnecessary queue operations.
+    var queue = nodes
+    while let node = queue.popLast() {
+        for succ in try successors(node) {
+            if result.insert(succ).inserted {
+                queue.append(succ)
+            }
+        }
+    }
+
+    return result
+}
+
 /// Perform a topological sort of an graph.
 ///
 /// This function is optimized for use cases where cycles are unexpected, and
@@ -31,18 +56,19 @@ public enum GraphError: Swift.Error {
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
 public func topologicalSort<T: Hashable>(
-            _ nodes: [T], successors: (T) -> [T]) throws -> [T] {
+    _ nodes: [T], successors: (T) throws -> [T]
+) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,
                _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
-               _ successors: (T) -> [T]) throws {
+               _ successors: (T) throws -> [T]) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node).inserted {
             return
         }
 
         // Otherwise, visit each adjacent node.
-        for succ in successors(node) {
+        for succ in try successors(node) {
             guard stack.append(succ) else {
                 // If the successor is already in this current stack, we have found a cycle.
                 //
@@ -58,6 +84,7 @@ public func topologicalSort<T: Hashable>(
         result.append(node)
     }
 
+    // FIXME: This should use a stack not recursion.
     var visited = Set<T>()
     var result = [T]()
     var stack = OrderedSet<T>()
