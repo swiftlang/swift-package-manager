@@ -234,9 +234,8 @@ public struct SwiftPackageTool: SwiftTool {
                 
             case .dumpPackage:
                 let manifest = try loadRootManifest(opts)
-                let package = manifest.package
-                let json = try jsonString(package: package)
-                print(json)
+                // FIXME: It would be nice if this has a pretty print option.
+                print(manifest.jsonString())
             }
         
         } catch {
