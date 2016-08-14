@@ -55,7 +55,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         version: PackageDescription.Version?,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
-        if let result = manifests[Key(url: baseURL, version: version!)] {
+        if let result = manifests[Key(url: baseURL, version: version)] {
             return result
         }
         throw MockManifestLoaderError.unknownRequest

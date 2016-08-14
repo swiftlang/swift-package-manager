@@ -12,12 +12,28 @@ import XCTest
 
 import Basic
 import Commands
+import PackageDescription
+import PackageLoading
+import PackageModel
 import SourceControl
 import Utility
+
+import struct TestSupport.MockManifestLoader
 
 import TestSupport
 
 @testable import class Commands.Workspace
+
+private let sharedManifestLoader = ManifestLoader(resources: Resources())
+
+extension Workspace {
+    convenience init(rootPackage path: AbsolutePath) throws {
+        try self.init(rootPackage: path, manifestLoader: sharedManifestLoader)
+    }
+}
+
+private let v1: Version = "1.0.0"
+private let v2: Version = "2.0.0"
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
@@ -83,7 +99,84 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDependencyManifestLoading() {
+        // We mock up the following dep graph:
+        //
+        // Root
+        // \ A: checked out (@v1)
+        //   \ AA: checked out (@v2)
+        // \ B: missing
+        
+        mktmpdir { path in
+            // Create the test repositories, we don't need them to have actual
+            // contents (the manifests are mocked).
+            var repos: [String: RepositorySpecifier] = [:]
+            for name in ["A", "AA"] {
+                let repoPath = path.appending(component: name)
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath, tag: "initial")
+                repos[name] = RepositorySpecifier(url: repoPath.asString)
+            }
+
+            // Create the mock manifests.
+            let rootManifest = Manifest(
+                path: AbsolutePath("/UNUSED"),
+                url: path.asString,
+                package: PackageDescription.Package(
+                    name: "Root",
+                    dependencies: [
+                        .Package(url: repos["A"]!.url, majorVersion: 1),
+                        .Package(url: "//B", majorVersion: 1)
+                    ]),
+                products: [],
+                version: nil
+            )
+            let aManifest = Manifest(
+                path: AbsolutePath("/UNUSED"),
+                url: repos["A"]!.url,
+                package: PackageDescription.Package(
+                    name: "A",
+                    dependencies: [
+                        .Package(url: repos["AA"]!.url, majorVersion: 2)
+                    ]),
+                products: [],
+                version: v1
+            )
+            let aaManifest = Manifest(
+                path: AbsolutePath("/UNUSED"),
+                url: repos["AA"]!.url,
+                package: PackageDescription.Package(
+                    name: "AA"),
+                products: [],
+                version: v2
+            )
+            let mockManifestLoader = MockManifestLoader(manifests: [
+                    MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
+                    // FIXME: These versions are wrong, we aren't preserving versions currently.
+                    MockManifestLoader.Key(url: repos["A"]!.url, version: nil): aManifest,
+                    MockManifestLoader.Key(url: repos["AA"]!.url, version: nil): aaManifest
+                ])
+                    
+            // Create the workspace.
+            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader)
+
+            // Ensure we have checkouts for A & AA.
+            for name in ["A", "AA"] {
+                let revision = try GitRepository(path: AbsolutePath(repos[name]!.url)).getCurrentRevision()
+                _ = try workspace.clone(repository: repos[name]!, at: revision)
+            }
+
+            // Load the "current" manifests.
+            let manifests = try workspace.loadDependencyManifests()
+            XCTAssertEqual(manifests.root.package, rootManifest.package)
+            XCTAssertEqual(manifests.dependencies.map{ $0.package.name }.sorted(), ["A", "AA"])
+
+            // FIXME: These manifests do not have the right versions in them, and they should.
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testDependencyManifestLoading", testDependencyManifestLoading),
     ]
 }

@@ -9,6 +9,8 @@
 */
 
 import Basic
+import PackageLoading
+import PackageModel
 import SourceControl
 import Utility
 
@@ -80,7 +82,10 @@ public class Workspace {
 
     /// The path for working repository clones (checkouts).
     let checkoutsPath: AbsolutePath
-    
+
+    /// The manifest loader to use.
+    let manifestLoader: ManifestLoaderProtocol
+
     /// The checkout manager.
     private let checkoutManager: CheckoutManager
 
@@ -92,7 +97,7 @@ public class Workspace {
         return AnySequence<ManagedDependency>(dependencyMap.values)
     }
     
-    /// Create a new manager for the package at the given path.
+    /// Create a new workspace for the package at the given path.
     ///
     /// This will automatically load the persisted state for the package, if
     /// present. If the state isn't present then a default state will be
@@ -101,10 +106,17 @@ public class Workspace {
     /// - Parameters:
     ///   - path: The path of the root package.
     ///   - dataPath: The path for the workspace data files, if explicitly provided.
+    ///   - manifestLoader: The manifest loader.
     /// - Throws: If the state was present, but could not be loaded.
-    public init(rootPackage path: AbsolutePath, dataPath: AbsolutePath? = nil) throws {
+    public init(
+        rootPackage path: AbsolutePath,
+        dataPath: AbsolutePath? = nil,
+        manifestLoader: ManifestLoaderProtocol
+    ) throws {
         self.rootPackagePath = path
         self.dataPath = dataPath ?? path.appending(component: ".build")
+        self.manifestLoader = manifestLoader
+
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider())
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
@@ -195,7 +207,42 @@ public class Workspace {
 
         return path
     }
-    
+
+    /// Load the manifests for the current dependency tree.
+    ///
+    /// This will load the manifests for the root package as well as all the
+    /// current dependencies from the working checkouts.
+    ///
+    /// Throws: If the root manifest could not be loaded.
+    func loadDependencyManifests() throws -> (root: Manifest, dependencies: [Manifest]) {
+        // Load the root manifest.
+        let rootManifest = try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
+
+        // Compute the transitive closure of available dependencies.
+        let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
+            return node.item.package.dependencies.flatMap{ dependency in
+                // Check if this dependency is available.
+                guard let managedDependency = dependencyMap[RepositorySpecifier(url: dependency.url)] else {
+                    return nil
+                }
+
+                // If so, load its manifest.
+                //
+                // This should *never* fail, because we should only have ever
+                // got this checkout via loading its manifest successfully.
+                //
+                // FIXME: Nevertheless, we should handle this failure explicitly.
+                //
+                // FIXME: We need to have the correct version to pass here.
+                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: nil)
+
+                return KeyedPair(manifest, key: manifest.url)
+            }
+        }
+
+        return (root: rootManifest, dependencies: dependencies.map{ $0.item })
+    }
+
     // MARK: Persistence
 
     // FIXME: A lot of the persistence mechanism here is copied from
