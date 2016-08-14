@@ -67,7 +67,7 @@ public final class PackagesDirectory {
     /// - Throws: Error.InvalidDependencyGraph
     public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
-        let manifest = try manifestLoader.load(packagePath: rootPath)
+        let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
         if ignoreDependencies {
             return (manifest, [])
         }

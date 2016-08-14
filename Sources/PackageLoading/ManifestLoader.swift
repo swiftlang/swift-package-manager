@@ -55,10 +55,7 @@ extension ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    public func load(packagePath path: AbsolutePath, baseURL: String? = nil, version: Version? = nil) throws -> Manifest {
-        // The default base URL is the package path, if not provided.
-        let baseURL = baseURL ?? path.asString
-
+    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
         return try load(packagePath: path, baseURL: baseURL, version: version, fileSystem: nil)
     }
 }
@@ -77,7 +74,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.resources = resources
     }
 
-    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version? = nil, fileSystem: FileSystem? = nil) throws -> Manifest {
+    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
         // As per our versioning support, determine the appropriate manifest version to load.
         for versionSpecificKey in Versioning.currentVersionSpecificKeys { 
             let versionSpecificPath = path.appending(component: Manifest.basename + versionSpecificKey + ".swift")
@@ -99,7 +96,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     //
     // FIXME: We should stop exposing this publicly, from a public perspective
     // we should only ever load complete repositories.
-    public func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version? = nil, fileSystem: FileSystem? = nil) throws -> Manifest {
+    public func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
         if let fileSystem = fileSystem {
             let contents: ByteString
