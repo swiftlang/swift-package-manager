@@ -19,26 +19,6 @@ import SourceControl
 
 import TestSupport
 
-private struct MockManifestLoader: ManifestLoaderProtocol {
-    fileprivate struct Key: Hashable {
-        let url: String
-        let version: Version
-
-        var hashValue: Int {
-            return url.hashValue ^ version.hashValue
-        }
-    }
-    
-    let manifests: [Key: Manifest]
-    
-    public func load(packagePath path: Basic.AbsolutePath, baseURL: String, version: PackageDescription.Version?, fileSystem: FileSystem?) throws -> PackageModel.Manifest {
-        return manifests[Key(url: baseURL, version: version!)]!
-    }
-}
-private func ==(lhs: MockManifestLoader.Key, rhs: MockManifestLoader.Key) -> Bool {
-    return lhs.url == rhs.url && lhs.version == rhs.version
-}
-
 private class MockRepository: Repository {
     /// The fake URL of the repository.
     let url: String
