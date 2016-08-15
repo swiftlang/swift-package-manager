@@ -708,6 +708,18 @@ def main():
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
 
+    # Absolutize input paths.
+    if args.build_path:
+        args.build_path = os.path.abspath(args.build_path)
+    if args.swiftc_path:
+        args.swiftc_path = os.path.abspath(args.swiftc_path)
+    if args.sbt_path:
+        args.sbt_path = os.path.abspath(args.sbt_path)
+    if args.foundation_path:
+        args.foundation_path = os.path.abspath(args.foundation_path)
+    if args.xctest_path:
+        args.xctest_path = os.path.abspath(args.xctest_path)
+        
     build_actions = set(args.build_actions)
             
     # Validate the build actions.
