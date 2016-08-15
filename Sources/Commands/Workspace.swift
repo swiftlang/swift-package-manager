@@ -35,6 +35,9 @@ public class Workspace {
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
 
+        /// The current version of the dependency, if known.
+        public let currentVersion: Version?
+
         /// The current revision of the dependency.
         ///
         /// This should always be a revision corresponding to the version in the
@@ -44,9 +47,10 @@ public class Workspace {
         /// resolved).
         public let currentRevision: Revision
 
-        fileprivate init(repository: RepositorySpecifier, subpath: RelativePath, currentRevision: Revision) {
+        fileprivate init(repository: RepositorySpecifier, subpath: RelativePath, currentVersion: Version?, currentRevision: Revision) {
             self.repository = repository
             self.subpath = subpath
+            self.currentVersion = currentVersion
             self.currentRevision = currentRevision
         }
             
@@ -57,18 +61,39 @@ public class Workspace {
             guard case let .dictionary(contents) = data,
                   case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(subpathString)? = contents["subpath"],
+                  let currentVersionData = contents["currentVersion"],
                   case let .string(currentRevisionString)? = contents["currentRevision"] else {
+                return nil
+            }
+            let currentVersion: Version?
+            switch currentVersionData {
+            case .null:
+                currentVersion = nil
+            case .string(let string):
+                currentVersion = Version(string)
+                if currentVersion == nil {
+                    return nil
+                }
+            default:
                 return nil
             }
             self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpathString)
+            self.currentVersion = currentVersion
             self.currentRevision = Revision(identifier: currentRevisionString)
         }
 
         fileprivate func toJSON() -> JSON {
+            let currentVersionData: JSON
+            if let currentVersion = self.currentVersion {
+                currentVersionData = .string(String(describing: currentVersion))
+            } else {
+                currentVersionData = .null
+            }
             return .dictionary([
                     "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString),
+                    "currentVersion": currentVersionData,
                     "currentRevision": .string(currentRevision.identifier),
                 ])
         }
@@ -187,12 +212,13 @@ public class Workspace {
     /// - Parameters:
     ///   - repository: The repository to clone.
     ///   - revision: The revision to check out.
+    ///   - version: The dependency version the repository is being checked out at, if known.
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
     //
     // FIXME: We are probably going to need a delegate interface so we have a
     // mechanism for observing the actions.
-    func clone(repository: RepositorySpecifier, at revision: Revision) throws -> AbsolutePath {
+    func clone(repository: RepositorySpecifier, at revision: Revision, for version: Version? = nil) throws -> AbsolutePath {
         // Get the repository.
         let path = try fetch(repository: repository)
 
@@ -202,7 +228,8 @@ public class Workspace {
 
         // Write the state record.
         dependencyMap[repository] = ManagedDependency(
-            repository: repository, subpath: path.relative(to: checkoutsPath), currentRevision: revision)
+                repository: repository, subpath: path.relative(to: checkoutsPath),
+                currentVersion: version, currentRevision: revision)
         try saveState()
 
         return path
@@ -232,9 +259,7 @@ public class Workspace {
                 // got this checkout via loading its manifest successfully.
                 //
                 // FIXME: Nevertheless, we should handle this failure explicitly.
-                //
-                // FIXME: We need to have the correct version to pass here.
-                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: nil)
+                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }

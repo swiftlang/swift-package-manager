@@ -33,7 +33,6 @@ extension Workspace {
 }
 
 private let v1: Version = "1.0.0"
-private let v2: Version = "2.0.0"
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
@@ -104,7 +103,7 @@ final class WorkspaceTests: XCTestCase {
         //
         // Root
         // \ A: checked out (@v1)
-        //   \ AA: checked out (@v2)
+        //   \ AA: checked out (@v1)
         // \ B: missing
         
         mktmpdir { path in
@@ -148,13 +147,12 @@ final class WorkspaceTests: XCTestCase {
                 package: PackageDescription.Package(
                     name: "AA"),
                 products: [],
-                version: v2
+                version: v1
             )
             let mockManifestLoader = MockManifestLoader(manifests: [
                     MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
-                    // FIXME: These versions are wrong, we aren't preserving versions currently.
-                    MockManifestLoader.Key(url: repos["A"]!.url, version: nil): aManifest,
-                    MockManifestLoader.Key(url: repos["AA"]!.url, version: nil): aaManifest
+                    MockManifestLoader.Key(url: repos["A"]!.url, version: v1): aManifest,
+                    MockManifestLoader.Key(url: repos["AA"]!.url, version: v1): aaManifest
                 ])
                     
             // Create the workspace.
@@ -163,15 +161,21 @@ final class WorkspaceTests: XCTestCase {
             // Ensure we have checkouts for A & AA.
             for name in ["A", "AA"] {
                 let revision = try GitRepository(path: AbsolutePath(repos[name]!.url)).getCurrentRevision()
-                _ = try workspace.clone(repository: repos[name]!, at: revision)
+                _ = try workspace.clone(repository: repos[name]!, at: revision, for: v1)
             }
 
             // Load the "current" manifests.
             let manifests = try workspace.loadDependencyManifests()
             XCTAssertEqual(manifests.root.package, rootManifest.package)
-            XCTAssertEqual(manifests.dependencies.map{ $0.package.name }.sorted(), ["A", "AA"])
-
-            // FIXME: These manifests do not have the right versions in them, and they should.
+            var dependencyManifests: [String: Manifest] = [:]
+            for manifest in manifests.dependencies {
+                dependencyManifests[manifest.package.name] = manifest
+            }
+            XCTAssertEqual(dependencyManifests.keys.sorted(), ["A", "AA"])
+            XCTAssertEqual(dependencyManifests["A"]?.package, aManifest.package)
+            XCTAssertEqual(dependencyManifests["A"]?.version, aManifest.version)
+            XCTAssertEqual(dependencyManifests["AA"]?.package, aaManifest.package)
+            XCTAssertEqual(dependencyManifests["AA"]?.version, aaManifest.version)
         }
     }
 
