@@ -70,7 +70,7 @@ let package = Package(
         Target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["Basic", "Get", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
+            dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
         
         // MARK: Package Manager Functionality
         

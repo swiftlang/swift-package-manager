@@ -30,7 +30,7 @@ extension SwiftPackageTool {
 
         // Create the container provider interface.
         let provider = RepositoryPackageContainerProvider(
-            checkoutManager: checkoutManager, manifestLoader: packageGraphLoader.manifestLoader)
+            checkoutManager: checkoutManager, manifestLoader: manifestLoader)
 
         // Create the resolver.
         let delegate = ResolverToolDelegate()

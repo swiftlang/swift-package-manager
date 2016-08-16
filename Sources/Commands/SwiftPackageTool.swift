@@ -242,7 +242,7 @@ public struct SwiftPackageTool: SwiftTool {
     /// Load the manifest for the root package
     func loadRootManifest(_ opts: PackageToolOptions) throws -> Manifest {
         let root = opts.inputPath ?? opts.path.root
-        return try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
+        return try manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
     }
     
     private func usage(_ print: (String) -> Void = { print($0) }) {

@@ -9,7 +9,6 @@
  */
 
 import Basic
-import Get
 import PackageModel
 import PackageLoading
 
@@ -46,21 +45,11 @@ extension PackageGraphError: FixableError {
 
 /// A helper class for loading a package graph.
 public struct PackageGraphLoader {
-    /// The manifest loader.
-    public let manifestLoader: ManifestLoader
-    
     /// Create a package loader.
-    public init(manifestLoader: ManifestLoader) {
-        self.manifestLoader = manifestLoader
-    }
+    public init() { }
 
     /// Load the package graph for the given package path.
-    public func loadPackage(at path: AbsolutePath) throws -> PackageGraph {
-        // Create the packages directory container.
-        let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
-
-        // Fetch and load the manifests.
-        let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()
+    public func load(rootManifest: Manifest, externalManifests: [Manifest]) throws -> PackageGraph {
         let allManifests = externalManifests + [rootManifest]
 
         // Create the packages and convert to modules.
