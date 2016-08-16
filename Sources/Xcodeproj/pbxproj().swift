@@ -119,17 +119,20 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
             // Generate paths as follows:
             // Example:
             //    input: "MyModule/Foo/foo.swift"
-            //   output: ["MyModule",
-            //            "MyModule/Foo"]
+            //   output: ["MyModule/Foo",
+            //            "MyModule"]
             //
-            let paths = [AbsolutePath](sequence(first: AbsolutePath(path.dirname, relativeTo: moduleRoot), next: { path in
-                let parent = AbsolutePath(path.dirname, relativeTo: moduleRoot)
+            let paths = [AbsolutePath](sequence(first: fileRef.path.parentDirectory, next: { path in
+                let parent = path.parentDirectory
                 return parent == moduleRoot ? nil : parent
             }))
 
-            // If this source file is under a nested group, get the group ref id, else get the file ref id.
-            let groupRef = paths.filter{ $0.parentDirectory == moduleRoot }.first.map{ $0.groupReference(srcroot: srcroot) }
-            topLevelRefs.insert(groupRef ?? fileRef.refId)
+            guard let parentGroupPath = paths.last else {
+                fatalError("The source file: \(path.basename) is expected to be in a nested group")
+            }
+
+
+            topLevelRefs.insert(parentGroupPath.groupReference(srcroot: srcroot))
 
             // Calculate children for each group.
             //
