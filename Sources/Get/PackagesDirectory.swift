@@ -61,16 +61,11 @@ public final class PackagesDirectory {
 
     /// Recursively fetch the dependencies for the root package.
     ///
-    /// - Parameters:
-    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
     /// - Returns: The loaded root package and all external packages, with dependencies resolved.
     /// - Throws: Error.InvalidDependencyGraph
-    public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
+    public func loadManifests() throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
         let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
-        if ignoreDependencies {
-            return (manifest, [])
-        }
 
         // Resolve and fetch all package dependencies and their manifests.
         let externalManifests = try recursivelyFetch(manifest.dependencies)

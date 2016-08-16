@@ -55,15 +55,12 @@ public struct PackageGraphLoader {
     }
 
     /// Load the package graph for the given package path.
-    ///
-    /// - Parameters:
-    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
-    public func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
+    public func loadPackage(at path: AbsolutePath) throws -> PackageGraph {
         // Create the packages directory container.
         let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
 
         // Fetch and load the manifests.
-        let (rootManifest, externalManifests) = try packagesDirectory.loadManifests(ignoreDependencies: ignoreDependencies)
+        let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()
         let allManifests = externalManifests + [rootManifest]
 
         // Create the packages and convert to modules.

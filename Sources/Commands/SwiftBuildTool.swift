@@ -59,7 +59,6 @@ private enum BuildToolFlag: Argument {
     case buildTests
     case chdir(AbsolutePath)
     case colorMode(ColorWrap.Mode)
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
@@ -89,8 +88,6 @@ private enum BuildToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         default:
             return nil
         }
@@ -102,7 +99,6 @@ private class BuildToolOptions: Options {
     var flags = BuildFlags()
     var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
@@ -132,7 +128,7 @@ public struct SwiftBuildTool: SwiftTool {
                 print(Versioning.currentVersion.completeDisplayString)
                 
             case .build(let conf, let toolchain):
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root)
                 let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
@@ -198,8 +194,6 @@ public struct SwiftBuildTool: SwiftTool {
                 opts.buildTests = true
             case .colorMode(let mode):
                 opts.colorMode = mode
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
     

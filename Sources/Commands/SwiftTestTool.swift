@@ -84,7 +84,6 @@ private enum TestToolFlag: Argument {
     case buildPath(AbsolutePath)
     case colorMode(ColorWrap.Mode)
     case skipBuild
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
@@ -114,8 +113,6 @@ private enum TestToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         default:
             return nil
         }
@@ -127,7 +124,6 @@ private class TestToolOptions: Options {
     var buildTests: Bool = true
     var colorMode: ColorWrap.Mode = .Auto
     var flags = BuildFlags()
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-test tool namespace
@@ -185,7 +181,7 @@ public struct SwiftTestTool: SwiftTool {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ opts: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+        let graph = try loadPackage(at: opts.path.root)
         if opts.buildTests {
             let yaml = try describe(opts.path.build, configuration, graph, flags: opts.flags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
@@ -259,8 +255,6 @@ public struct SwiftTestTool: SwiftTool {
                 opts.colorMode = mode
             case .skipBuild:
                 opts.buildTests = false
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
 

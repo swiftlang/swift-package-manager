@@ -34,7 +34,7 @@ public extension SwiftTool {
     }
 
     /// Fetch and load the complete package at the given path.
-    func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
-        return try packageGraphLoader.loadPackage(at: path, ignoreDependencies: ignoreDependencies)
+    func loadPackage(at path: AbsolutePath) throws -> PackageGraph {
+        return try packageGraphLoader.loadPackage(at: path)
     }
 }

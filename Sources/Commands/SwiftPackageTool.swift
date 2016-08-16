@@ -84,7 +84,6 @@ private enum PackageToolFlag: Argument {
     case xld(String)
     case xswiftc(String)
     case xcconfigOverrides(AbsolutePath)
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
@@ -115,8 +114,6 @@ private enum PackageToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         case "-Xcc":
             self = try .xcc(forcePop())
         case "-Xlinker":
@@ -139,7 +136,6 @@ class PackageToolOptions: Options {
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
     var xcodeprojOptions = XcodeprojOptions()
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
@@ -205,13 +201,13 @@ public struct SwiftPackageTool: SwiftTool {
                 fallthrough
                 
             case .fetch:
-                _ = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                _ = try loadPackage(at: opts.path.root)
         
             case .showDependencies:
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root)
                 dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
             case .generateXcodeproj:
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root)
 
                 let projectName: String
                 let dstdir: AbsolutePath
@@ -308,8 +304,6 @@ public struct SwiftPackageTool: SwiftTool {
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
                 opts.xcodeprojOptions.xcconfigOverrides = path
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
         if let mode = mode {
