@@ -11,6 +11,7 @@
 import Basic
 import PackageLoading
 import PackageModel
+import PackageGraph
 import SourceControl
 import Utility
 
@@ -20,14 +21,43 @@ public enum WorkspaceOperationError: Swift.Error {
     case unavailableRepository
 }
 
+/// Convenience initializer for Dictionary.
+//
+// FIXME: Lift to Basic?
+extension Dictionary {
+    init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Value) {
+        var result = Dictionary.init()
+        for (key, value) in items {
+            result[key] = value
+        }
+       self = result
+    }
+}
+
+/// The delegate interface used by the workspace to report status information.
+public protocol WorkspaceDelegate: class {
+    /// The workspace is fetching additional repositories in support of
+    /// loading a complete package.
+    func fetchingMissingRepositories(_ urls: Set<String>)
+}
+
 /// A workspace represents the state of a working project directory.
 ///
-/// This class is responsible for managing the persistent working state of a
+/// The workspace is responsible for managing the persistent working state of a
 /// project directory (e.g., the active set of checked out repositories) and for
 /// coordinating the changes to that state.
 ///
+/// This class glues together the basic facilities provided by the dependency
+/// resolution, source control, and package graph loading subsystems into a
+/// cohesive interface for exposing the high-level operations for the package
+/// manager to maintain working package directories.
+///
 /// This class does *not* support concurrent operations.
 public class Workspace {
+    /// An individual managed dependency.
+    ///
+    /// Each dependency will have a checkout containing the sources at a
+    /// particular revision, and may have an associated version.
     public struct ManagedDependency {
         /// The specifier for the dependency.
         public let repository: RepositorySpecifier
@@ -98,7 +128,10 @@ public class Workspace {
                 ])
         }
     }
-    
+
+    /// The delegate interface.
+    public let delegate: WorkspaceDelegate
+
     /// The path of the root package.
     public let rootPackagePath: AbsolutePath
 
@@ -136,8 +169,10 @@ public class Workspace {
     public init(
         rootPackage path: AbsolutePath,
         dataPath: AbsolutePath? = nil,
-        manifestLoader: ManifestLoaderProtocol
+        manifestLoader: ManifestLoaderProtocol,
+        delegate: WorkspaceDelegate
     ) throws {
+        self.delegate = delegate
         self.rootPackagePath = path
         self.dataPath = dataPath ?? path.appending(component: ".build")
         self.manifestLoader = manifestLoader
@@ -268,6 +303,57 @@ public class Workspace {
         return (root: rootManifest, dependencies: dependencies.map{ $0.item })
     }
 
+    /// Fetch and load the complete package at the given path.
+    ///
+    /// This will implicitly cause any dependencies not yet present in the
+    /// working checkouts to be resolved, cloned, and checked out.
+    ///
+    /// When fetching additional dependencies, the existing checkout versions
+    /// will never be re-bound (or even re-fetched) as a result of this
+    /// operation. This implies that the resulting local state may not match
+    /// what would be computed from a fresh clone, but this makes for a more
+    /// consistent command line development experience.
+    ///
+    /// - Returns: The loaded package graph.
+    /// - Throws: Rethrows errors from dependency resolution (if required) and package graph loading.
+    public func loadPackageGraph() throws -> PackageGraph {
+        // First, load the active manifest sets.
+        let (rootManifest, currentExternalManifests) = try loadDependencyManifests()
+
+        // Check for missing checkouts.
+        let manifestsMap = Dictionary<String, Manifest>(
+            items: [(rootManifest.url, rootManifest)] + currentExternalManifests.map{ ($0.url, $0) })
+        let availableURLs = Set<String>(manifestsMap.keys)
+        var requiredURLs = transitiveClosure([rootManifest.url]) { url in
+            guard let manifest = manifestsMap[url] else { return [] }
+            return manifest.package.dependencies.map{ $0.url }
+        }
+        requiredURLs.insert(rootManifest.url)
+
+        // We should never have loaded a manifest we don't need.
+        assert(availableURLs.isSubset(of: requiredURLs))
+
+        // If there are have missing URLs, we need to fetch them now.
+        let missingURLs = requiredURLs.subtracting(availableURLs)
+        let externalManifests = currentExternalManifests
+        if !missingURLs.isEmpty {
+            // Inform the delegate.
+            delegate.fetchingMissingRepositories(missingURLs)
+
+            // Perform dependency resolution using the constraint set induced by the active checkouts.
+            //
+            // FIXME: We are going to need to a way to tell the resolution
+            // algorithm that certain repositories are pinned to the current
+            // checkout. We might be able to do that simply by overriding the
+            // view presented by the repository container provider.
+
+            fatalError("FIXME: Unimplemented.")
+        }
+
+        // We've loaded the complete set of manifests, load the graph.
+        return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
+    }
+    
     // MARK: Persistence
 
     // FIXME: A lot of the persistence mechanism here is copied from

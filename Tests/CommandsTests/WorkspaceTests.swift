@@ -26,9 +26,14 @@ import TestSupport
 
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
+private class TestWorkspaceDelegate: WorkspaceDelegate {
+    func fetchingMissingRepositories(_ urls: Set<String>) {
+    }
+}
+
 extension Workspace {
     convenience init(rootPackage path: AbsolutePath) throws {
-        try self.init(rootPackage: path, manifestLoader: sharedManifestLoader)
+        try self.init(rootPackage: path, manifestLoader: sharedManifestLoader, delegate: TestWorkspaceDelegate())
     }
 }
 
@@ -156,7 +161,7 @@ final class WorkspaceTests: XCTestCase {
                 ])
                     
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader)
+            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: TestWorkspaceDelegate())
 
             // Ensure we have checkouts for A & AA.
             for name in ["A", "AA"] {
@@ -179,8 +184,73 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /// Check the basic ability to load a graph from the workspace
+    func testPackageGraphLoadingBasics() {
+        // We mock up the following dep graph:
+        //
+        // Root
+        // \ A: checked out (@v1)
+        //
+        // FIXME: We need better infrastructure for mocking up the things we
+        // want to test here.
+        
+        mktmpdir { path in
+            // Create the test repositories, we don't need them to have actual
+            // contents (the manifests are mocked).
+            var repos: [String: RepositorySpecifier] = [:]
+            for name in ["A"] {
+                let repoPath = path.appending(component: name)
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath, tag: "initial")
+                repos[name] = RepositorySpecifier(url: repoPath.asString)
+            }
+
+            // Create the mock manifests.
+            let rootManifest = Manifest(
+                path: path.appending(component: Manifest.filename),
+                url: path.asString,
+                package: PackageDescription.Package(
+                    name: "Root",
+                    dependencies: [
+                        .Package(url: repos["A"]!.url, majorVersion: 1),
+                    ]),
+                products: [],
+                version: nil
+            )
+            let aManifest = Manifest(
+                path: AbsolutePath(repos["A"]!.url).appending(component: Manifest.filename),
+                url: repos["A"]!.url,
+                package: PackageDescription.Package(name: "A"),
+                products: [],
+                version: v1
+            )
+            let mockManifestLoader = MockManifestLoader(manifests: [
+                    MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
+                    MockManifestLoader.Key(url: repos["A"]!.url, version: v1): aManifest,
+                ])
+                    
+            // Create the workspace.
+            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: TestWorkspaceDelegate())
+
+            // Ensure we have a checkout for A.
+            for name in ["A"] {
+                let revision = try GitRepository(path: AbsolutePath(repos[name]!.url)).getCurrentRevision()
+                _ = try workspace.clone(repository: repos[name]!, at: revision, for: v1)
+            }
+
+            // Load the package graph.
+            let graph = try workspace.loadPackageGraph()
+
+            // Validate the graph has the correct basic structure.
+            XCTAssertEqual(graph.packages.count, 2)
+            XCTAssertEqual(graph.packages[0].name, "Root")
+            XCTAssertEqual(graph.packages[1].name, "A")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
+        ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
     ]
 }
