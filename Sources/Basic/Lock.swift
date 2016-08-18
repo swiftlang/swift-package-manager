@@ -10,6 +10,11 @@
 
 import Foundation
 
+// FIXME: Temporary compatibility shims.
+#if !os(macOS)
+private typealias NSLock = Foundation.Lock
+#endif
+
 /// A simple lock wrapper.
 public struct Lock {
     private var _lock = NSLock()

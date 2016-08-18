@@ -47,7 +47,11 @@ public class GitRepositoryProvider: RepositoryProvider {
         do {
             // FIXME: We need infrastructure in this subsystem for reporting
             // status information.
+          #if os(Linux)
+            let env = ProcessInfo.processInfo().environment
+          #else
             let env = ProcessInfo.processInfo.environment
+          #endif
             try system(
                 Git.tool, "clone", "--bare", repository.url, path.asString,
                 environment: env, message: "Cloning \(repository.url)")

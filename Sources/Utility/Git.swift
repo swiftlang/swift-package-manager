@@ -121,7 +121,11 @@ public class Git {
         }
 
         public func fetch() throws {
+#if os(Linux)
+            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
+#else
             try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
+#endif
         }
     }
 
