@@ -47,7 +47,7 @@ final public class Thread {
             }
         }
 
-        self.thread = ThreadImpl(theTask)
+        self.thread = ThreadImpl(block: theTask)
     }
 
     /// Starts the thread execution.
