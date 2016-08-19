@@ -10,6 +10,11 @@
 
 import Foundation
 
+// FIXME: Temporary compatibility shims.
+#if !os(macOS)
+private typealias NSCondition = Foundation.Condition
+#endif
+
 /// A simple condition wrapper.
 public struct Condition {
     private let _condition = NSCondition()
