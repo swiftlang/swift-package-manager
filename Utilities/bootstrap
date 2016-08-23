@@ -237,6 +237,8 @@ class Target(object):
         if args.libdispatch_build_dir:
             import_paths.append(os.path.join(args.libdispatch_build_dir,
                                              "src"))
+            import_paths.append(os.path.join(args.libdispatch_build_dir,
+                                             "src", "swift"))
         if args.libdispatch_source_dir:
             import_paths.append(args.libdispatch_source_dir)
         if args.xctest_path:
@@ -844,6 +846,8 @@ def main():
     if args.libdispatch_build_dir:
         build_flags.extend(["-Xswiftc", "-I{}".format(
             os.path.join(args.libdispatch_build_dir, "src"))])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            os.path.join(args.libdispatch_build_dir, "src", "swift"))])
         build_flags.extend(["-Xswiftc", "-I{}".format(
             args.libdispatch_source_dir)])
         build_flags.extend(["-Xcc", "-fblocks"])
