@@ -288,6 +288,9 @@ extension Module  {
         // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
         buildSettings["SWIFT_VERSION"] = "3.0"
         
+        // Defined for regular `swift build` instantiations, so also should be defined here.
+        buildSettings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = "SWIFT_PACKAGE"
+
         return buildSettings
     }
 }
