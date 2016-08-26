@@ -259,7 +259,29 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
             print("\n#include \"\(path.asString)\"")
         }
     }
-    let configs = [projectXCConfig]
+    let debugXCConfig = fileRef(inProjectRoot: RelativePath("\(xcodeprojPath.basename)/Configs/Debug.xcconfig"), srcroot: srcroot)
+    try open(debugXCConfig.path) { print in
+        print("#include \"Project.xcconfig\"")
+        print("COPY_PHASE_STRIP = NO")
+        print("DEBUG_INFORMATION_FORMAT = dwarf")
+        print("ENABLE_NS_ASSERTIONS = YES")
+        print("GCC_OPTIMIZATION_LEVEL = 0")
+        print("ONLY_ACTIVE_ARCH = YES")
+        print("SWIFT_OPTIMIZATION_LEVEL = -Onone")
+    }
+    let releaseXCConfig = fileRef(inProjectRoot: RelativePath("\(xcodeprojPath.basename)/Configs/Release.xcconfig"), srcroot: srcroot)
+    try open(releaseXCConfig.path) { print in
+        print("#include \"Project.xcconfig\"")
+        print("DEBUG_INFORMATION_FORMAT = dwarf-with-dsym")
+        print("GCC_OPTIMIZATION_LEVEL = s")
+        print("SWIFT_OPTIMIZATION_LEVEL = -O")
+        print("COPY_PHASE_STRIP = YES")
+    }
+
+    var configs = [projectXCConfig, debugXCConfig, releaseXCConfig]
+    if let path = options.xcconfigOverrides {
+        configs.append(fileRef(inProjectRoot: path.relative(to: srcroot), srcroot: srcroot))
+    }    
     for configInfo in configs {
         print("        \(configInfo.refId) = {")
         print("            isa = PBXFileReference;")
@@ -331,13 +353,13 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 ////// primary build configurations
     print("        \(rootDebugBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
-    print("            baseConfigurationReference = \(projectXCConfig.0);")
+    print("            baseConfigurationReference = \(debugXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Debug;")
     print("        };")
     print("        \(rootReleaseBuildConfigurationReference) = {")
     print("            isa = XCBuildConfiguration;")
-    print("            baseConfigurationReference = \(projectXCConfig.0);")
+    print("            baseConfigurationReference = \(releaseXCConfig.0);")
     print("            buildSettings = {};")
     print("            name = Release;")
     print("        };")
