@@ -86,6 +86,7 @@ private let v1_1: Version = "1.1.0"
 private let v2: Version = "2.0.0"
 private let v0_0_0Range: VersionSetSpecifier = .range("0.0.0" ..< "0.0.1")
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+private let v1to3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
 private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
@@ -347,6 +348,7 @@ class DependencyResolverTests: XCTestCase {
             // Check the constraints are respected.
             XCTAssertEqual(
                 try resolver.resolve(constraints: [
+                        MockPackageConstraint(container: "A", versionRequirement: v1to3Range),
                         MockPackageConstraint(container: "A", versionRequirement: v1Range)]),
                 ["A": v1])
 

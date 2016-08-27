@@ -558,7 +558,8 @@ public class DependencyResolver<
     /// Execute the resolution algorithm to find a valid assignment of versions.
     ///
     /// - Parameters:
-    ///   - constraints: The contraints to solve.
+    ///   - constraints: The contraints to solve. It is legal to supply multiple
+    ///                  constraints for the same container identifier.
     /// - Returns: A satisfying assignment of containers and versions.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, version: Version)] {
