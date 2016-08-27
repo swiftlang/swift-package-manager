@@ -47,7 +47,7 @@ final public class Thread {
             }
         }
 
-        self.thread = ThreadImpl(theTask)
+        self.thread = ThreadImpl(block: theTask)
     }
 
     /// Starts the thread execution.
@@ -76,7 +76,7 @@ final private class ThreadImpl: Foundation.Thread {
         task()
     }
 
-    init(_ task: @escaping () -> Void) {
+    init(block task: @escaping () -> Void) {
         self.task = task
     }
 }
