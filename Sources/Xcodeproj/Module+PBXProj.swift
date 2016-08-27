@@ -181,7 +181,6 @@ extension Module  {
 
     func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
         var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
-        buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
