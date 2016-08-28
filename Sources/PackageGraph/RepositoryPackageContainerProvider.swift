@@ -117,6 +117,14 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         return "RepositoryPackageContainer(\(identifier.url.debugDescription))"
     }
 
+    public func getTag(for version: Version) -> String? {
+        return knownVersions[version]
+    }
+
+    public func getRevision(for tag: String) throws -> Revision {
+        return try repository.resolveRevision(tag: tag)
+    }
+
     public func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
         // FIXME: Get a caching helper for this.
         return try dependenciesCacheLock.withLock{

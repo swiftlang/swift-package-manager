@@ -141,7 +141,7 @@ final class WorkspaceTests: XCTestCase {
                 package: PackageDescription.Package(
                     name: "A",
                     dependencies: [
-                        .Package(url: repos["AA"]!.url, majorVersion: 2)
+                        .Package(url: repos["AA"]!.url, majorVersion: 1)
                     ]),
                 products: [],
                 version: v1
@@ -184,7 +184,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    /// Check the basic ability to load a graph from the workspace
+    /// Check the basic ability to load a graph from the workspace.
     func testPackageGraphLoadingBasics() {
         // We mock up the following dep graph:
         //
@@ -243,8 +243,100 @@ final class WorkspaceTests: XCTestCase {
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages[0].name, "Root")
-            XCTAssertEqual(graph.packages[1].name, "A")
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+        }
+    }
+
+    /// Check the ability to load a graph which requires cloning new packages.
+    func testPackageGraphLoadingWithCloning() {
+        // We mock up the following dep graph:
+        //
+        // Root
+        // \ A: checked out (@v1)
+        //   \ AA: missing
+        // \ B: missing
+        //
+        // FIXME: We need better infrastructure for mocking up the things we
+        // want to test here.
+        
+        mktmpdir { path in
+            // Create the test repositories, we don't need them to have actual
+            // contents (the manifests are mocked).
+            var repos: [String: RepositorySpecifier] = [:]
+            for name in ["A", "AA", "B"] {
+                let repoPath = path.appending(component: name)
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath, tag: "initial")
+                // FIXME: This sucks, the combination of mocking + real
+                // repositories here is quite unfortunate. We should find a
+                // better solution.
+                try tagGitRepo(repoPath, tag: "v1.0.0")
+                repos[name] = RepositorySpecifier(url: repoPath.asString)
+            }
+
+            // Create the mock manifests.
+            let rootManifest = Manifest(
+                path: path.appending(component: Manifest.filename),
+                url: path.asString,
+                package: PackageDescription.Package(
+                    name: "Root",
+                    dependencies: [
+                        .Package(url: repos["A"]!.url, majorVersion: 1),
+                        .Package(url: repos["B"]!.url, majorVersion: 1),
+                    ]),
+                products: [],
+                version: nil
+            )
+            let aManifest = Manifest(
+                path: AbsolutePath(repos["A"]!.url).appending(component: Manifest.filename),
+                url: repos["A"]!.url,
+                package: PackageDescription.Package(
+                    name: "A",
+                    dependencies: [
+                        .Package(url: repos["AA"]!.url, majorVersion: 1)
+                    ]),
+                products: [],
+                version: v1
+            )
+            let aaManifest = Manifest(
+                path: AbsolutePath(repos["AA"]!.url).appending(component: Manifest.filename),
+                url: repos["AA"]!.url,
+                package: PackageDescription.Package(
+                    name: "AA"),
+                products: [],
+                version: v1
+            )
+            let bManifest = Manifest(
+                path: AbsolutePath(repos["B"]!.url).appending(component: Manifest.filename),
+                url: repos["B"]!.url,
+                package: PackageDescription.Package(name: "B"),
+                products: [],
+                version: v1
+            )
+            let mockManifestLoader = MockManifestLoader(manifests: [
+                    MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
+                    MockManifestLoader.Key(url: repos["A"]!.url, version: v1): aManifest,
+                    MockManifestLoader.Key(url: repos["AA"]!.url, version: v1): aaManifest,
+                    MockManifestLoader.Key(url: repos["B"]!.url, version: v1): bManifest,
+                ])
+                    
+            // Create the workspace.
+            let delegate = TestWorkspaceDelegate()
+            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: delegate)
+
+            // Ensure we have a checkout for A.
+            for name in ["A"] {
+                let revision = try GitRepository(path: AbsolutePath(repos[name]!.url)).getCurrentRevision()
+                _ = try workspace.clone(repository: repos[name]!, at: revision, for: v1)
+            }
+
+            // Load the package graph.
+            let graph = try workspace.loadPackageGraph()
+
+            // Validate the graph has the correct basic structure.
+            XCTAssertEqual(graph.packages.count, 4)
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), [
+                    "A", "AA", "B", "Root"])
         }
     }
 
@@ -252,5 +344,6 @@ final class WorkspaceTests: XCTestCase {
         ("testBasics", testBasics),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
+        ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
     ]
 }

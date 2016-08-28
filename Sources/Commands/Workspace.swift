@@ -41,6 +41,13 @@ public protocol WorkspaceDelegate: class {
     func fetchingMissingRepositories(_ urls: Set<String>)
 }
 
+private class WorkspaceResolverDelegate: DependencyResolverDelegate {
+    typealias Identifier = RepositoryPackageContainer.Identifier
+
+    func added(container identifier: Identifier) {
+    }
+}
+
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -83,7 +90,7 @@ public class Workspace {
             self.currentVersion = currentVersion
             self.currentRevision = currentRevision
         }
-            
+
         // MARK: Persistence
 
         /// Create an instance from JSON data.
@@ -147,6 +154,9 @@ public class Workspace {
     /// The checkout manager.
     private let checkoutManager: CheckoutManager
 
+    /// The package container provider.
+    private let containerProvider: RepositoryPackageContainerProvider
+
     /// The current state of managed dependencies.
     private var dependencyMap: [RepositorySpecifier: ManagedDependency]
 
@@ -154,7 +164,7 @@ public class Workspace {
     public var dependencies: AnySequence<ManagedDependency> {
         return AnySequence<ManagedDependency>(dependencyMap.values)
     }
-    
+
     /// Create a new workspace for the package at the given path.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -180,11 +190,13 @@ public class Workspace {
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider())
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
+        self.containerProvider = RepositoryPackageContainerProvider(
+            checkoutManager: checkoutManager, manifestLoader: manifestLoader)
 
         // Ensure the cache path exists.
         try localFileSystem.createDirectory(repositoriesPath, recursive: true)
         try localFileSystem.createDirectory(checkoutsPath, recursive: true)
-        
+
         // Initialize the default state.
         self.dependencyMap = [:]
 
@@ -238,7 +250,7 @@ public class Workspace {
 
         return path
     }
-    
+
     /// Create a local clone of the given `repository` checked out to `version`.
     ///
     /// If an existing clone is present, the repository will be reset to the
@@ -294,6 +306,8 @@ public class Workspace {
                 // got this checkout via loading its manifest successfully.
                 //
                 // FIXME: Nevertheless, we should handle this failure explicitly.
+                //
+                // FIXME: We should have a cache for this.
                 let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
@@ -333,37 +347,109 @@ public class Workspace {
         // We should never have loaded a manifest we don't need.
         assert(availableURLs.isSubset(of: requiredURLs))
 
-        // If there are have missing URLs, we need to fetch them now.
+        // Check if there are any missing URLs.
         let missingURLs = requiredURLs.subtracting(availableURLs)
-        let externalManifests = currentExternalManifests
-        if !missingURLs.isEmpty {
-            // Inform the delegate.
-            delegate.fetchingMissingRepositories(missingURLs)
+        if missingURLs.isEmpty {
+            // If not, we are done.
+            return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: currentExternalManifests)
+        }
 
-            // Perform dependency resolution using the constraint set induced by the active checkouts.
-            //
-            // FIXME: We are going to need to a way to tell the resolution
-            // algorithm that certain repositories are pinned to the current
-            // checkout. We might be able to do that simply by overriding the
-            // view presented by the repository container provider.
+        // If so, we need to resolve and fetch them. Start by informing the
+        // delegate of what is happening.
+        delegate.fetchingMissingRepositories(missingURLs)
 
-            fatalError("FIXME: Unimplemented.")
+        // Perform dependency resolution using the constraint set induced by the active checkouts.
+        var constraints = [RepositoryPackageConstraint]()
+
+        // First, add the root package constraints.
+        constraints += rootManifest.package.dependencies.map{
+            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+        }
+
+        // Add constraints to pin to *exactly* all the checkouts we have.
+        //
+        // FIXME: We may need a better way to tell the resolution algorithm that
+        // certain repositories are pinned to the current checkout. We might be
+        // able to do that simply by overriding the view presented by the
+        // repository container provider.
+        for externalManifest in currentExternalManifests {
+            let specifier = RepositorySpecifier(url: externalManifest.url)
+            let managedDependency = dependencyMap[specifier]!
+
+            // If we know the manifest is at a particular version, use that.
+            if let version = managedDependency.currentVersion {
+                // FIXME: This is broken, successor isn't correct and should be eliminated.
+                constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .range(version..<version.successor())))
+            } else {
+                // FIXME: Otherwise, we need to be able to constraint precisely to the revision we have.
+                fatalError("FIXME: Unimplemented.")
+            }
+        }
+
+        // Solve for additional checkouts we require.
+        let resolverDelegate = WorkspaceResolverDelegate()
+        let resolver = DependencyResolver(containerProvider, resolverDelegate)
+        let result = try resolver.resolve(constraints: constraints)
+
+        // Create a checkout for each of the resolved versions.
+        //
+        // FIXME: We are not validating that the resulting solution includes
+        // everything we already have... this can't be the case given the way we
+        // currently provide constraints, but if we provided only the root and
+        // then the restrictions (to the current assignment) it would be
+        // possible.
+        //
+        // FIXME: I think this code should probably eventually be factored out
+        // to be shared with the update functionality, they both will end up
+        // reconciling a dependency resolution result with the current workspace
+        // state.
+        var externalManifests = currentExternalManifests
+        for (specifier, version) in result {
+            if let dependency = dependencyMap[specifier] {
+                // FIXME: We should vet the assigned version against the version
+                // we have, and issue suitable diagnostics for cases where an
+                // update is needed, or cases where the range is invalid (see
+                // FIXME above as well).
+                if dependency.currentVersion != version {
+                    fatalError("unexpected dependency resolution result")
+                }
+                continue
+            } else {
+                // FIXME: We need to get the revision here, and we don't have a
+                // way to get it back out of the resolver which is very
+                // annoying. Maybe we should make an SPI on the provider for
+                // this?
+                let container = try containerProvider.getContainer(for: specifier)
+                let tag = container.getTag(for: version)!
+                let revision = try container.getRevision(for: tag)
+
+                // We do not have this dependency, create a working checkout.
+                let path = try clone(repository: specifier, at: revision, for: version)
+
+                // Load the manifest for this repository and add it to the result.
+                //
+                // FIXME: We shouldn't need to reload this.
+                //
+                // FIXME: Share this logic with that in loadDependencyManifests()
+                let manifest = try! manifestLoader.load(packagePath: path, baseURL: specifier.url, version: version)
+                externalManifests.append(manifest)
+            }
         }
 
         // We've loaded the complete set of manifests, load the graph.
         return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
     }
-    
+
     // MARK: Persistence
 
     // FIXME: A lot of the persistence mechanism here is copied from
     // `CheckoutManager`. It would be nice to get actual infrastructure around
     // persistence to handle the boilerplate parts.
-    
+
     private enum PersistenceError: Swift.Error {
         /// The schema does not match the current version.
         case invalidVersion
-        
+
         /// There was a missing or malformed key.
         case unexpectedData
     }
@@ -423,7 +509,7 @@ public class Workspace {
 
         return true
     }
-    
+
     /// Write the manager state to disk.
     private func saveState() throws {
         var data = [String: JSON]()
