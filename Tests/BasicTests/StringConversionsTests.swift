@@ -37,6 +37,13 @@ class StringConversionTests: XCTestCase {
         str = "hello\nA\"B C>D*[$;()^><"
         XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.shellEscaped())
     }
+
+    func testEscapeAscii() {
+        XCTAssertEqual("hello", "hello".escape(ascii: " "))
+        XCTAssertEqual("\\hello", "hello".escape(ascii: "h"))
+        XCTAssertEqual("hi\\ hello", "hi hello".escape(ascii: " "))
+        XCTAssertEqual("hel\\\\ lo", "hel\\ lo".escape(ascii: " "))
+    }
     
     static var allTests = [
         ("testShellEscaped",  testShellEscaped),

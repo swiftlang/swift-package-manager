@@ -170,11 +170,7 @@ extension Module  {
 
         guard !headerPaths.isEmpty else { return nil }
 
-        if headerPaths.count == 1, let first = headerPaths.first {
-            return (headerPathKey, first.asString)
-        }
-
-        let headerPathValue = headerPaths.map{ $0.asString }.joined(separator: " ")
+        let headerPathValue = headerPaths.map{ $0.asString.escape(ascii: " ") }.joined(separator: " ")
         
         return (headerPathKey, headerPathValue)
     }

@@ -73,4 +73,20 @@ public extension String {
     public mutating func shellEscape() {
         self = shellEscaped()
     }
+
+    /// Prepends every acsii scalar in the string with escape character '\', if present.
+    public func escape(ascii: UnicodeScalar) -> String {
+        guard let pos = utf8.index(where: { $0 == UInt8(ascii: ascii) }) else {
+            return self
+        }
+        var newString = String(utf8[utf8.startIndex..<pos])!
+        for char in utf8[pos..<utf8.endIndex] {
+            if char == UInt8(ascii: ascii) {
+                newString += "\\" + String(UnicodeScalar(ascii))
+            } else {
+                newString += String(UnicodeScalar(char))
+            }
+        }
+        return newString
+    }
 }
