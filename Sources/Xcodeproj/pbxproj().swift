@@ -93,10 +93,10 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 
         // Hash of AbsolutePath of a group and reference id's of its children.
         // Children can be either a source file or a nested group
-        var groupsChildren = [AbsolutePath: Set<String>]()
+        var groupsChildren = [AbsolutePath: OrderedSet<String>]()
 
         // reference id's of immediate children of this module group.
-        var topLevelRefs  = Set<String>()
+        var topLevelRefs  = OrderedSet<String>()
 
         // the contents of the “Project Navigator” group for this module
         for fileRef in sourceFileRefs {
@@ -111,7 +111,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 
             // This source file is immediate children of module directory, ie., no nested folders
             if path.dirname == "." {
-                topLevelRefs.insert(fileRef.refId)
+                topLevelRefs.append(fileRef.refId)
                 continue
             }
 
@@ -132,7 +132,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
             }
 
 
-            topLevelRefs.insert(parentGroupPath.groupReference(srcroot: srcroot))
+            topLevelRefs.append(parentGroupPath.groupReference(srcroot: srcroot))
 
             // Calculate children for each group.
             //
@@ -148,8 +148,8 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
             //                  paths[1], will be the child of paths[2], etc.,
             var currentChildren = fileRef.refId
             for path in paths {
-                var children = groupsChildren[path] ?? Set<String>()
-                children.insert(currentChildren)
+                var children = groupsChildren[path] ?? OrderedSet<String>()
+                children.append(currentChildren)
                 groupsChildren[path] = children
 
                 currentChildren = path.groupReference(srcroot: srcroot)
