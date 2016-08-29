@@ -47,7 +47,12 @@ public extension SwiftTool {
             let workspace = try Workspace(rootPackage: path, dataPath: opts.path.build, manifestLoader: manifestLoader, delegate: delegate)
 
             // Fetch and load the package graph.
-            return try workspace.loadPackageGraph()
+            let graph = try workspace.loadPackageGraph()
+
+            // Create the legacy `Packages` subdirectory.
+            try workspace.createPackagesDirectory(graph)
+
+            return graph
         } else {
             // Create the packages directory container.
             let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)

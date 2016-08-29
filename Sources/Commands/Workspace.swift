@@ -440,6 +440,35 @@ public class Workspace {
         return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
     }
 
+    /// Create a `Packages` subdirectory.
+    ///
+    /// For migration purposes, creates a "Packages" subdirectory matching the
+    /// historical behavior of the package manager containing symlinks to the
+    /// checkouts for each repository and version.
+    //
+    // FIXME: Eliminate this behavior.
+    func createPackagesDirectory(_ graph: PackageGraph) throws {
+        let packagesDirPath = rootPackagePath.appending(component: "Packages")
+
+        // Remove any existing packages directory.
+        _ = try? removeFileTree(packagesDirPath)
+        try makeDirectories(packagesDirPath)
+
+        // Create links for each versioned dependency.
+        for package in graph.packages {
+            if package == graph.rootPackage {
+                continue
+            }
+
+            let manifest = package.manifest
+            let dependency = dependencyMap[RepositorySpecifier(url: manifest.url)]!
+            if let version = dependency.currentVersion {
+                let name = "\(manifest.package.name)-\(version)"
+                try createSymlink(packagesDirPath.appending(component: name), pointingAt: manifest.path.parentDirectory, relative: true)
+            }
+        }
+    }
+    
     // MARK: Persistence
 
     // FIXME: A lot of the persistence mechanism here is copied from
