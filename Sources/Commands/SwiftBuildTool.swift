@@ -56,6 +56,7 @@ private enum BuildToolFlag: Argument {
     case xld(String)
     case xswiftc(String)
     case buildPath(AbsolutePath)
+    case enableNewResolver
     case buildTests
     case chdir(AbsolutePath)
     case colorMode(ColorWrap.Mode)
@@ -80,6 +81,8 @@ private enum BuildToolFlag: Argument {
             self = try .xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
         case "--build-tests":
             self = .buildTests
         case "--color":
@@ -128,7 +131,7 @@ public struct SwiftBuildTool: SwiftTool {
                 print(Versioning.currentVersion.completeDisplayString)
                 
             case .build(let conf, let toolchain):
-                let graph = try loadPackage(at: opts.path.root)
+                let graph = try loadPackage(at: opts.path.root, opts)
                 let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
@@ -162,7 +165,7 @@ public struct SwiftBuildTool: SwiftTool {
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>       Change working directory before any other operation")
-        print("  --build-path <path>      Specify build directory [default: ./.build]")
+        print("  --build-path <path>      Specify build/cache directory [default: ./.build]")
         print("  --color <mode>           Specify color mode (auto|always|never) [default: auto]")
         print("  -v, --verbose            Increase verbosity of informational output")
         print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
@@ -190,6 +193,8 @@ public struct SwiftBuildTool: SwiftTool {
                 opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
                 opts.path.build = path
+            case .enableNewResolver:
+                opts.enableNewResolver = true
             case .buildTests:
                 opts.buildTests = true
             case .colorMode(let mode):

@@ -83,6 +83,8 @@ private enum PackageToolFlag: Argument {
     case xcc(String)
     case xld(String)
     case xswiftc(String)
+    case buildPath(AbsolutePath)
+    case enableNewResolver
     case xcconfigOverrides(AbsolutePath)
     case verbose(Int)
 
@@ -120,6 +122,10 @@ private enum PackageToolFlag: Argument {
             self = try .xld(forcePop())
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
+        case "--build-path":
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         default:
@@ -201,13 +207,13 @@ public struct SwiftPackageTool: SwiftTool {
                 fallthrough
                 
             case .fetch:
-                _ = try loadPackage(at: opts.path.root)
+                _ = try loadPackage(at: opts.path.root, opts)
         
             case .showDependencies:
-                let graph = try loadPackage(at: opts.path.root)
+                let graph = try loadPackage(at: opts.path.root, opts)
                 dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
             case .generateXcodeproj:
-                let graph = try loadPackage(at: opts.path.root)
+                let graph = try loadPackage(at: opts.path.root, opts)
 
                 let projectName: String
                 let dstdir: AbsolutePath
@@ -263,6 +269,7 @@ public struct SwiftPackageTool: SwiftTool {
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
+        print("  --build-path <path>       Specify build/cache directory [default: ./.build]")
         print("  --color <mode>            Specify color mode (auto|always|never)")
         print("  --enable-code-coverage    Enable code coverage in generated Xcode projects")
         print("  -v, --verbose             Increase verbosity of informational output")
@@ -298,6 +305,10 @@ public struct SwiftPackageTool: SwiftTool {
                 opts.xcodeprojOptions.flags.linkerFlags.append(value)
             case .xswiftc(let value):
                 opts.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
+            case .buildPath(let path):
+                opts.path.build = path
+            case .enableNewResolver:
+                opts.enableNewResolver = true
             case .verbose(let amount):
                 opts.verbosity += amount
             case .colorMode(let mode):

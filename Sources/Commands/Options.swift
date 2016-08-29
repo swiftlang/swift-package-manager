@@ -17,6 +17,7 @@ import Utility
 public class Options {
     public var chdir: AbsolutePath?
     public var path = Path()
+    public var enableNewResolver = false
 
     public class Path {
         public lazy var root = getroot()
