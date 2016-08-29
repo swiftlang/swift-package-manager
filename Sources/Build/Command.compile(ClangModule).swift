@@ -114,7 +114,7 @@ struct ClangModuleBuildMetadata {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: AbsolutePath, CC: String, otherArgs: [String]) throws -> [Command] {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], compilerExec: AbsolutePath) throws -> [Command] {
 
         let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
@@ -138,7 +138,7 @@ extension Command {
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename.asString)",
                                   inputs: buildMeta.inputs + [path.source.asString],
                                   outputs: [path.object.asString],
-                                  args: [CC] + args,
+                                  args: [compilerExec.asString] + args,
                                   deps: path.deps.asString)
 
             let command = Command(node: path.object.asString, tool: clang)
