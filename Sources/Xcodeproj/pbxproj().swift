@@ -87,32 +87,93 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
     for module in modules {
         // Base directory for source files belonging to the module.
         let moduleRoot = module.sources.root
-        
+
         // Contruct an array of (refId, path, bflId) tuples for all the source files in the model.  The reference id is for the PBXFileReference in the group hierarchy, and the build file id is for the PBXBuildFile in the CompileSources build phase.
         let sourceFileRefs = fileRefs(forModuleSources: module, srcroot: srcroot)
-        
-        // Make an array of all the source file reference ids to add to the main group.
-        let sourceRefIds = sourceFileRefs.map{ $0.refId }
 
-        // the “Project Navigator” group for this module
-        print("        \(module.groupReference) = {")
-        print("            isa = PBXGroup;")
-        print("            name = '\(module.name)';")
-        print("            path = '\(moduleRoot.relative(to: projectRoot).asString)';")
-        print("            sourceTree = '<group>';")
-        print("            children = (" + sourceRefIds.joined(separator: ", ") + ");")
-        print("        };")
+        // Hash of AbsolutePath of a group and reference id's of its children.
+        // Children can be either a source file or a nested group
+        var groupsChildren = [AbsolutePath: Set<String>]()
+
+        // reference id's of immediate children of this module group.
+        var topLevelRefs  = Set<String>()
 
         // the contents of the “Project Navigator” group for this module
         for fileRef in sourceFileRefs {
             let path = fileRef.path.relative(to: moduleRoot)
             print("        \(fileRef.refId) = {")
+            print("            name = \(fileRef.path.basename);")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = \(module.fileType(forSource: path));")
-            print("            path = '\(fileRef.path.relative(to: moduleRoot).asString)';")
+            print("            path = '\(fileRef.path.relative(to: srcroot).asString)';")
             print("            sourceTree = '<group>';")
             print("        };")
+
+            // This source file is immediate children of module directory, ie., no nested folders
+            if path.dirname == "." {
+                topLevelRefs.insert(fileRef.refId)
+                continue
+            }
+
+
+            // Generate paths as follows:
+            // Example:
+            //    input: "MyModule/Foo/foo.swift"
+            //   output: ["MyModule/Foo",
+            //            "MyModule"]
+            //
+            let paths = [AbsolutePath](sequence(first: fileRef.path.parentDirectory, next: { path in
+                let parent = path.parentDirectory
+                return parent == moduleRoot ? nil : parent
+            }))
+
+            guard let parentGroupPath = paths.last else {
+                fatalError("The source file: \(path.basename) is expected to be in a nested group")
+            }
+
+
+            topLevelRefs.insert(parentGroupPath.groupReference(srcroot: srcroot))
+
+            // Calculate children for each group.
+            //
+            // `paths` contains breadcrumbs paths as seen from the file.
+            //
+            // Ex:
+            //   for source file: "MyModule/Foo/Bar/baz.swift"
+            //   `paths` will contain: ["MyModule/Foo/Bar", "MyModule/Foo", "MyModule"]
+            //                               paths[0]           path[1]       path[2]
+            //
+            //   So, the file, baz.swift, will be the child of paths[0],
+            //                  paths[0], will be the child of paths[1],
+            //                  paths[1], will be the child of paths[2], etc.,
+            var currentChildren = fileRef.refId
+            for path in paths {
+                var children = groupsChildren[path] ?? Set<String>()
+                children.insert(currentChildren)
+                groupsChildren[path] = children
+
+                currentChildren = path.groupReference(srcroot: srcroot)
+            }
         }
+
+        // Create nested groups under this module.
+        for (path, children) in groupsChildren {
+            print("        \(path.groupReference(srcroot: srcroot)) = {")
+            print("            isa = PBXGroup;")
+            print("            name = '\(path.basename)';")
+            print("            sourceTree = '<group>';")
+            print("            children = (" + children.joined(separator: ", ") + ");")
+            print("        };")
+        }
+
+        // the “Project Navigator” group for this module
+        print("        \(module.groupReference) = {")
+        print("            isa = PBXGroup;")
+        print("            name = '\(module.name)';")
+        print("            sourceTree = '<group>';")
+        print("            children = (" + topLevelRefs.joined(separator: ", ") + ");")
+        print("        };")
+
 
         // the target reference for this module’s product
         print("        \(module.targetReference) = {")
@@ -373,6 +434,12 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
 
 ////// done!
     print("}")
+}
+
+extension AbsolutePath {
+    func groupReference(srcroot base: AbsolutePath) -> String {
+        return "__Group_" + relative(to: base).asString
+    }
 }
 
 extension Module {
