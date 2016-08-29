@@ -208,15 +208,11 @@ public struct PackageBuilder {
     ///   - includingTestModules: Whether the package's test modules should be loaded.
     public func construct(includingTestModules: Bool) throws -> Package {
         let modules = try constructModules()
-        let testModules: [Module]
-        if includingTestModules {
-            testModules = try constructTestModules(modules: modules)
-        } else {
-            testModules = []
-        }
+        let testModules = try constructTestModules(modules: modules)
         try fillDependencies(modules: modules + testModules)
-        let products = try constructProducts(modules, testModules: testModules)
-        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: testModules, products: products)
+        // FIXME: Lift includingTestModules into a higher module.
+        let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
+        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products)
     }
 
     // MARK: Utility Predicates
