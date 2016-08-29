@@ -102,7 +102,7 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         for fileRef in sourceFileRefs {
             let path = fileRef.path.relative(to: moduleRoot)
             print("        \(fileRef.refId) = {")
-            print("            name = \(fileRef.path.basename);")
+            print("            name = '\(fileRef.path.basename)';")
             print("            isa = PBXFileReference;")
             print("            lastKnownFileType = \(module.fileType(forSource: path));")
             print("            path = '\(fileRef.path.relative(to: srcroot).asString)';")
