@@ -61,7 +61,7 @@ public struct PkgConfig {
     /// - throws: PkgConfigError
     public init(name: String, fileSystem: FileSystem = localFileSystem) throws {
         self.name = name
-        self.pcFile = try PkgConfig.locatePCFile(name: name, fileSystem: fileSystem)
+        self.pcFile = try PkgConfig.locatePCFile(name: name, customSearchPaths: PkgConfig.envSearchPaths, fileSystem: fileSystem)
 
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
@@ -90,11 +90,11 @@ public struct PkgConfig {
         return []
     }
     
-    static func locatePCFile(name: String, fileSystem: FileSystem) throws -> AbsolutePath {
+    static func locatePCFile(name: String, customSearchPaths: [AbsolutePath], fileSystem: FileSystem) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
+        for path in OrderedSet(customSearchPaths + pkgConfigSearchPaths + searchPaths) {
             let pcFile = path.appending(component: name + ".pc")
             if fileSystem.isFile(pcFile) {
                 return pcFile
