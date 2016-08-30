@@ -155,7 +155,7 @@ extension Module  {
         }
     }
 
-    var headerSearchPaths: (key: String, value: String)? {
+    var headerSearchPaths: (key: String, value: Any)? {
         let headerPathKey = "HEADER_SEARCH_PATHS"
         var headerPaths = dependencies.flatMap { module -> AbsolutePath? in
             switch module {
@@ -174,14 +174,8 @@ extension Module  {
         }
 
         guard !headerPaths.isEmpty else { return nil }
-
-        if headerPaths.count == 1, let first = headerPaths.first {
-            return (headerPathKey, first.asString)
-        }
-
-        let headerPathValue = headerPaths.map{ $0.asString }.joined(separator: " ")
         
-        return (headerPathKey, headerPathValue)
+        return (headerPathKey, headerPaths.map { $0.asString } )
     }
 
     func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
@@ -189,8 +183,7 @@ extension Module  {
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        // FIXME: Need to honor actual quoting rules here.
-        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
+        return toPlist(buildSettings).serialize()
     }
 
     func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
@@ -198,12 +191,31 @@ extension Module  {
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        // FIXME: Need to honor actual quoting rules here.
-        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
+        return toPlist(buildSettings).serialize()
     }
 
-    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: String] {
-        var buildSettings = [String: String]()
+    /// Converts build settings dictionary to a Plist object.
+    ///
+    /// Adds string values in dictionaries as is and array values are quoted and then converted
+    /// to a string joined by whitespace.
+    private func toPlist(_ buildSettings: [String: Any]) -> Plist {
+        var buildSettingsPlist = [String: Plist]()
+        for (k, v) in buildSettings {
+            switch v {
+            case let value as String:
+                buildSettingsPlist[k] = .string(value)
+            case let value as [String]:
+                let escaped = value.map { "\"" + Plist.escape(string: $0) + "\"" }.joined(separator: " ")
+                buildSettingsPlist[k] = .string(escaped)
+            default:
+                fatalError("build setting dictionary should only contain String or [String]")
+            }
+        }
+        return .dictionary(buildSettingsPlist)
+    }
+
+    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: Any] {
+        var buildSettings = [String: Any]()
         let plistPath = xcodeProjectPath.appending(component: infoPlistFileName)
 
         if isTest {
@@ -220,7 +232,7 @@ extension Module  {
             //
             // This means the built binaries are not suitable for distribution,
             // among other things.
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
 
@@ -259,13 +271,13 @@ extension Module  {
                 // example would be `@executable_path/../lib` but there are
                 // other problems to solve first, e.g. how to deal with the
                 // Swift standard library paths).
-                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"]! + " @executable_path"
+                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"] as! [String] + ["@executable_path"]
             }
         }
 
         if let pkgArgs = try? self.pkgConfigArgs() {
-            buildSettings["OTHER_LDFLAGS"] = (["$(inherited)"] + pkgArgs.libs).joined(separator: " ")
-            buildSettings["OTHER_SWIFT_FLAGS"] = (["$(inherited)"] + pkgArgs.cFlags).joined(separator: " ")
+            buildSettings["OTHER_LDFLAGS"] = ["$(inherited)"] + pkgArgs.libs
+            buildSettings["OTHER_SWIFT_FLAGS"] = ["$(inherited)"] + pkgArgs.cFlags
         }
 
         // Add framework search path to build settings.
