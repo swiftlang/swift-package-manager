@@ -113,7 +113,7 @@ That the manifest is Swift allows for powerful customization, for example:
 ```swift
 import PackageDescription
 
-var package = Package()
+var package = Package(name: "Example")
 
 #if os(Linux)
 let target = Target(name: "LinuxSources/foo")
