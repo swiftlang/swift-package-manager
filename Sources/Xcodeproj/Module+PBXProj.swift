@@ -157,7 +157,7 @@ extension Module  {
 
     var headerSearchPaths: (key: String, value: String)? {
         let headerPathKey = "HEADER_SEARCH_PATHS"
-        let headerPaths = dependencies.flatMap { module -> AbsolutePath? in
+        var headerPaths = dependencies.flatMap { module -> AbsolutePath? in
             switch module {
             case let cModule as CModule:
                 return cModule.path
@@ -166,6 +166,11 @@ extension Module  {
             default:
                 return nil
             }
+        }
+
+        // For ClangModules add implicit search path to its own include directory.
+        if case let clangModule as ClangModule = self {
+            headerPaths.append(clangModule.includeDir)
         }
 
         guard !headerPaths.isEmpty else { return nil }
