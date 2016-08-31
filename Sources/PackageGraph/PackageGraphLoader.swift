@@ -49,7 +49,7 @@ public struct PackageGraphLoader {
     public init() { }
 
     /// Load the package graph for the given package path.
-    public func load(rootManifest: Manifest, externalManifests: [Manifest]) throws -> PackageGraph {
+    public func load(rootManifest: Manifest, externalManifests: [Manifest], fileSystem: FileSystem = localFileSystem) throws -> PackageGraph {
         let allManifests = externalManifests + [rootManifest]
 
         // Create the packages and convert to modules.
@@ -68,7 +68,7 @@ public struct PackageGraphLoader {
             // FIXME: We should always load the tests, but just change which
             // tests we build based on higher-level logic. This would make it
             // easier to allow testing of external package tests.
-            let builder = PackageBuilder(manifest: manifest, path: packagePath)
+            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem)
             let package = try builder.construct(includingTestModules: isRootPackage)
             packages.append(package)
             
