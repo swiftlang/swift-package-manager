@@ -10,6 +10,7 @@
 
 import Basic
 import PackageModel
+import struct PackageLoading.ModuleMapGenerator
 import Utility
 import POSIX
 
@@ -24,7 +25,7 @@ private extension ClangModule {
             //transitive closure of the target being built allowing the use of `#include <...>`
 
             includeFlag = externalModules.contains(dep) ? "-I" : "-iquote"
-            args += [includeFlag, dep.path.asString]
+            args += [includeFlag, dep.includeDir.asString]
         }
         return args
     }
@@ -64,6 +65,8 @@ struct ClangModuleBuildMetadata {
                 return product.targetName
             case let module as CModule:
                 return module.targetName
+            case let module as SwiftModule:
+                return module.targetName
             default:
                 fatalError("ClangModule \(self.module) can't have \(module) as a dependency.")
             }
@@ -102,7 +105,7 @@ struct ClangModuleBuildMetadata {
     static func basicArgs() throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        args += ["-F", try platformFrameworksPath()]
+        args += ["-F", try platformFrameworksPath().asString]
       #else
         args += ["-fPIC"]
       #endif
@@ -111,12 +114,13 @@ struct ClangModuleBuildMetadata {
 }
 
 extension Command {
-    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: AbsolutePath, CC: String, otherArgs: [String]) throws -> [Command] {
+    static func compile(clangModule module: ClangModule, externalModules: Set<Module>, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], compilerExec: AbsolutePath) throws -> [Command] {
 
         let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: otherArgs)
         
         if module.type == .library {
-            try module.generateModuleMap(inDir: buildMeta.buildDirectory)
+            var moduleMapGenerator = ModuleMapGenerator(for: module)
+            try moduleMapGenerator.generateModuleMap(inDir: buildMeta.buildDirectory)
         }
         
         ///------------------------------ Compile -----------------------------------------
@@ -129,12 +133,12 @@ extension Command {
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
             // Add include directory in include search paths.
-            args += ["-I", module.path.asString]
+            args += ["-I", module.includeDir.asString]
 
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename.asString)",
                                   inputs: buildMeta.inputs + [path.source.asString],
                                   outputs: [path.object.asString],
-                                  args: [CC] + args,
+                                  args: [compilerExec.asString] + args,
                                   deps: path.deps.asString)
 
             let command = Command(node: path.object.asString, tool: clang)

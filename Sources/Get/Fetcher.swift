@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
+import Utility
 
 /**
  Testable protocol to recursively fetch versioned resources.

@@ -13,11 +13,20 @@ import Basic
 @_exported import enum PackageDescription.ProductType
 
 public class Product {
+    /// The name of the product.
     public let name: String
+
+    /// The type of product to create.
     public let type: ProductType
+    
+    /// The list of modules to combine to form the product.
+    ///
+    /// This is never empty, and is only the modules which are required to be in
+    /// the product, but not necessarily their transitive dependencies.
     public let modules: [Module]
 
     public init(name: String, type: ProductType, modules: [Module]) {
+        precondition(!modules.isEmpty)
         self.name = name
         self.type = type
         self.modules = modules
@@ -59,5 +68,23 @@ extension Product: CustomStringConvertible {
         default:
             return base
         }
+    }
+}
+
+extension ProductType: Equatable {}
+public func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+    switch (lhs, rhs) {
+    case (.Executable, .Executable):
+        return true
+    case (.Executable, _):
+        return false
+    case (.Test, .Test):
+        return true
+    case (.Test, _):
+        return false
+    case (.Library(let lhsType), .Library(let rhsType)):
+        return lhsType == rhsType
+    case (.Library(_), _):
+        return false
     }
 }

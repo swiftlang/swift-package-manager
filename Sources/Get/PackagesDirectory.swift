@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import Utility
 
-import struct PackageDescription.Version
 import func POSIX.rename
 
 /// A container for fetched packages.
@@ -43,7 +42,7 @@ public final class PackagesDirectory {
 
     /// The path to the packages.
     var packagesPath: AbsolutePath {
-        return rootPath.appending("Packages")
+        return rootPath.appending(component: "Packages")
     }
     
     /// The set of all repositories available within the `Packages` directory, by origin.
@@ -62,16 +61,11 @@ public final class PackagesDirectory {
 
     /// Recursively fetch the dependencies for the root package.
     ///
-    /// - Parameters:
-    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
     /// - Returns: The loaded root package and all external packages, with dependencies resolved.
     /// - Throws: Error.InvalidDependencyGraph
-    public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
+    public func loadManifests() throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
-        let manifest = try manifestLoader.load(path: rootPath, baseURL: rootPath.asString, version: nil)
-        if ignoreDependencies {
-            return (manifest, [])
-        }
+        let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
 
         // Resolve and fetch all package dependencies and their manifests.
         let externalManifests = try recursivelyFetch(manifest.dependencies)
@@ -114,7 +108,7 @@ extension PackagesDirectory: Fetcher {
             return nil
         }
 
-        return try manifestLoader.load(path: repo.path, baseURL: origin, version: version)
+        return try manifestLoader.load(packagePath: repo.path, baseURL: origin, version: version)
     }
     
     func find(url: String) throws -> Fetchable? {
@@ -126,23 +120,25 @@ extension PackagesDirectory: Fetcher {
 
     func fetch(url: String) throws -> Fetchable {
         // Clone into a staging location, we will rename it once all versions are selected.
-        let dstdir = packagesPath.appending(component: url.basename)
+        let manifestParser = { try self.manifestLoader.load(packagePath: $0, baseURL: $1, version: $2) }
+        let basename = url.components(separatedBy: "/").last!
+        let dstdir = packagesPath.appending(component: basename)
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
-            return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+            return try RawClone(path: dstdir, manifestParser: manifestParser)
         }
 
         // fetch as well, clone does not fetch all tags, only tags on the master branch
         try Git.clone(url, to: dstdir).fetch()
 
-        return try RawClone(path: dstdir, manifestParser: manifestLoader.load)
+        return try RawClone(path: dstdir, manifestParser: manifestParser)
     }
 
     func finalize(_ fetchable: Fetchable) throws -> Manifest {
         switch fetchable {
         case let clone as RawClone:
             let prefix = self.packagesPath.appending(component: clone.finalName)
-            try Utility.makeDirectories(packagesPath.parentDirectory.asString)
+            try makeDirectories(packagesPath.parentDirectory)
             try rename(old: clone.path.asString, new: prefix.asString)
             //TODO don't reparse the manifest!
             let repo = Git.Repo(path: prefix)!

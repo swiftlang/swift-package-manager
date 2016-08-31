@@ -20,15 +20,15 @@ final public class Thread {
     private var thread: ThreadImpl!
 
     /// Condition variable to support blocking other threads using join when this thread has not finished executing.
-    private var finishedCondition: NSCondition
+    private var finishedCondition: Condition
 
     /// A boolean variable to track if this thread has finished executing its task.
     private var finished: Bool
 
     /// Creates an instance of thread class with closure to be executed when start() is called.
-    public init(task: () -> Void) {
+    public init(task: @escaping () -> Void) {
         finished = false
-        finishedCondition = NSCondition()
+        finishedCondition = Condition()
 
         // Wrap the task with condition notifying any other threads blocked due to this thread.
         // Capture self weakly to avoid reference cycle. In case Thread is deinited before the task
@@ -47,7 +47,7 @@ final public class Thread {
             }
         }
 
-        self.thread = ThreadImpl(theTask)
+        self.thread = ThreadImpl(block: theTask)
     }
 
     /// Starts the thread execution.
@@ -76,7 +76,7 @@ final private class ThreadImpl: Foundation.Thread {
         task()
     }
 
-    init(_ task: () -> Void) {
+    init(block task: @escaping () -> Void) {
         self.task = task
     }
 }

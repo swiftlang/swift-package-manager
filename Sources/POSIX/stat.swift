@@ -10,14 +10,43 @@
 
 import libc
 
-/// Get file status.
-//
-// FIXME: We should probably return our own wrapper type to insulate clients
-// from platform dependencies.
+/// Extensions to the libc `stat` structure to interpret the contents in more readable ways.
+extension libc.stat {
+
+     /// File system entity kind.
+     public enum Kind {
+         case file, directory, symlink, fifo, blockdev, chardev, socket, unknown
+
+         fileprivate init(mode: mode_t) {
+             switch mode {
+                 case S_IFREG:  self = .file
+                 case S_IFDIR:  self = .directory
+                 case S_IFLNK:  self = .symlink
+                 case S_IFBLK:  self = .blockdev
+                 case S_IFCHR:  self = .chardev
+                 case S_IFSOCK: self = .socket
+             default:
+                 self = .unknown
+             }
+         }
+     }
+
+     /// Kind of file system entity.
+     public var kind: Kind {
+         return Kind(mode: st_mode & S_IFMT)
+     }
+ }
+
 public func stat(_ path: String) throws -> libc.stat {
-    var buf = libc.stat()
-    guard libc.stat(path, &buf) == 0 else {
-        throw SystemError.dirfd(errno, path)
-    }
-    return buf
+    var sbuf = libc.stat()
+    let rv = stat(path, &sbuf)
+    guard rv == 0 else { throw SystemError.stat(errno, path) }
+    return sbuf
+}
+
+public func lstat(_ path: String) throws -> libc.stat {
+    var sbuf = libc.stat()
+    let rv = lstat(path, &sbuf)
+    guard rv == 0 else { throw SystemError.stat(errno, path) }
+    return sbuf
 }

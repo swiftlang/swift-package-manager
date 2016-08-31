@@ -41,7 +41,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     }
     
     /// Create a byte string from an byte buffer.
-    public init<S : Sequence where S.Iterator.Element == UInt8>(_ contents: S) {
+    public init<S : Sequence> (_ contents: S) where S.Iterator.Element == UInt8 {
         _bytes = [UInt8](contents)
     }
     

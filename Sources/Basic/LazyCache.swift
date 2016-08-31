@@ -37,7 +37,7 @@ public struct LazyCache<Class, T> {
     var cachedValue: T? = nil
     
     /// Create a lazy cache from a method value.
-    public init(_ body: (Class) -> () -> T) {
+    public init(_ body: @escaping (Class) -> () -> T) {
         self.body = body
     }
 

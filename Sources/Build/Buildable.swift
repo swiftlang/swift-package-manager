@@ -10,7 +10,7 @@
 
 import Basic
 import PackageModel
-import struct Utility.Path
+import var PackageLoading.moduleMapFilename
 
 protocol Buildable {
     var targetName: String { get }
@@ -18,25 +18,25 @@ protocol Buildable {
 }
 
 extension Module: Buildable {
-    func XccFlags(_ prefix: AbsolutePath) -> [String] {
+    func XccFlags(_ buildDir: AbsolutePath) -> [String] {
         return recursiveDependencies.flatMap { module -> [String] in
             if let module = module as? ClangModule {
-                ///For ClangModule we check if there is a user provided module map
-                ///otherwise we return with path of generated one.
-                ///We will fail before this is ever called if there is no module map.
-                ///FIXME: The user provided modulemap should be copied to build dir
-                ///but that requires copying the complete include dir because it'll
-                ///mostly likely contain relative paths.
-                ///FIXME: This is already computed when trying to generate modulemap
-                ///in ClangModule's `generateModuleMap(inDir wd: String)`
-                ///there shouldn't be need to redo this but is difficult in 
-                ///current architecture
-                if module.moduleMapPath.asString.isFile {
+                // For ClangModule we check if there is a user provided module
+                // map; otherwise we return with path of generated one.  We will
+                // have failed before we ever get here if there's no module map.
+                // FIXME: The user-provided module map should be copied to build
+                // dir but that would require copying the complete include dir
+                // because it will mostly likely contain relative paths.
+                // FIXME: This is already computed when trying to generate a
+                // module map in ClangModule's `generateModuleMap()` function.
+                // There shouldn't be need to redo this but it is difficult in
+                // current architecture.
+                if isFile(module.moduleMapPath) {
                     return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
                 }
 
-                let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
-                let genModuleMap = buildMeta.buildDirectory.appending(component: CModule.moduleMapFilename)
+                let buildMeta = ClangModuleBuildMetadata(module: module, prefix: buildDir, otherArgs: [])
+                let genModuleMap = buildMeta.buildDirectory.appending(component: moduleMapFilename)
                 return ["-Xcc", "-fmodule-map-file=\(genModuleMap.asString)"]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]

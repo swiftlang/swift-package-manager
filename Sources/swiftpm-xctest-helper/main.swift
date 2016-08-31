@@ -22,11 +22,11 @@ import func Darwin.C.exit
 /// loading the bundle and then iterating the default Test Suite.
 func run() throws {
 
-    guard Process.arguments.count == 3 else {
+    guard CommandLine.arguments.count == 3 else {
         throw Error.invalidUsage
     }
-    let bundlePath = Process.arguments[1].normalizedPath()
-    let outputFile = Process.arguments[2].normalizedPath()
+    let bundlePath = CommandLine.arguments[1].normalizedPath()
+    let outputFile = CommandLine.arguments[2].normalizedPath()
 
     // Note that the bundle might write to stdout while it is being loaded, but we don't try to handle that here.
     // Instead the client should decide what to do with any extra output from this tool.
@@ -49,7 +49,7 @@ func run() throws {
             // otherwise use the name property (which only gives subclass name).
             let name: String
             if let firstTest = testCaseSuite.tests.first {
-                name = String(reflecting: firstTest.dynamicType)
+                name = String(reflecting: type(of: firstTest))
             } else {
                 name = testCaseSuite.name ?? "nil"
             }
@@ -59,7 +59,7 @@ func run() throws {
                 guard case let test as XCTestCase = test else { return nil }
                 // Split the test description into an array. Description formats:
                 // `-[ClassName MethodName]`, `-[ClassName MethodNameAndReturnError:]`
-                var methodName = test.description.characters.split(isSeparator: splitSet.contains).map(String.init)[2]
+                var methodName = test.description.characters.split(whereSeparator: splitSet.contains).map(String.init)[2]
                 // Unmangle names for Swift test cases which throw.
                 if methodName.hasSuffix("AndReturnError") {
                     methodName = methodName[methodName.startIndex..<methodName.index(methodName.endIndex, offsetBy: -14)]
@@ -69,7 +69,8 @@ func run() throws {
 
             return ["name": name as NSString, "tests": tests as NSArray]
         }
-        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString, "tests": testSuite])
+        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString,
+                          "tests": testSuite as NSArray])
     }
 
     // Create output file.
@@ -79,7 +80,7 @@ func run() throws {
         throw Error.couldNotOpenOutputFile(outputFile)
     }
     // Create output dictionary.
-    let output = ["name": "All Tests", "tests": testCases as NSArray] as NSDictionary
+    let output = ["name" as NSString: "All Tests" as NSString, "tests" as NSString: testCases as NSArray] as NSDictionary
     // Convert output dictionary to JSON and write to output file.
     let outputData = try JSONSerialization.data(withJSONObject: output, options: .prettyPrinted)
     file.write(outputData)
@@ -95,11 +96,7 @@ extension String {
     func normalizedPath() -> String {
         var path = self
         if !(path as NSString).isAbsolutePath {
-          #if os(Linux)
-            path = FileManager.default().currentDirectoryPath + "/" + path
-          #else
             path = FileManager.default.currentDirectoryPath + "/" + path
-          #endif
         }
         return (path as NSString).standardizingPath
     }

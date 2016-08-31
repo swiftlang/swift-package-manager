@@ -11,7 +11,7 @@
 public enum Configuration {
     case debug, release
 
-    var dirname: String {
+    public var dirname: String {
         switch self {
             case .debug: return "debug"
             case .release: return "release"

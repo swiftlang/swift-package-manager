@@ -10,30 +10,32 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import XCTest
 
-import BasicTestSuite
-import BuildTestSuite
-import CommandsTestSuite
-import FunctionalTestSuite
-import GetTestSuite
-import POSIXTestSuite
-import PackageDescriptionTestSuite
-import PackageGraphTestSuite
-import PackageLoadingTestSuite
-import PackageModelTestSuite
-import SourceControlTestSuite
-import UtilityTestSuite
+import BasicTests
+import BuildTests
+import CommandsTests
+import FunctionalTests
+import GetTests
+import POSIXTests
+import PackageDescriptionTests
+import PackageGraphTests
+import PackageLoadingTests
+import PackageModelTests
+import SourceControlTests
+import UtilityTests
+import XcodeprojTests
 
 var tests = [XCTestCaseEntry]()
-tests += BasicTestSuite.allTests()
-tests += BuildTestSuite.allTests()
-tests += CommandsTestSuite.allTests()
-tests += FunctionalTestSuite.allTests()
-tests += GetTestSuite.allTests()
-tests += POSIXTestSuite.allTests()
-tests += PackageDescriptionTestSuite.allTests()
-tests += PackageGraphTestSuite.allTests()
-tests += PackageLoadingTestSuite.allTests()
-tests += PackageModelTestSuite.allTests()
-tests += SourceControlTestSuite.allTests()
-tests += UtilityTestSuite.allTests()
+tests += BasicTests.allTests()
+tests += BuildTests.allTests()
+tests += CommandsTests.allTests()
+tests += FunctionalTests.allTests()
+tests += GetTests.allTests()
+tests += POSIXTests.allTests()
+tests += PackageDescriptionTests.allTests()
+tests += PackageGraphTests.allTests()
+tests += PackageLoadingTests.allTests()
+tests += PackageModelTests.allTests()
+tests += SourceControlTests.allTests()
+tests += UtilityTests.allTests()
+tests += XcodeprojTests.allTests()
 XCTMain(tests)

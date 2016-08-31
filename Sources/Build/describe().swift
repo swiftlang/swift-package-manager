@@ -23,18 +23,14 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         throw Error.noModules
     }
 
-    if graph.modules.count == 1, let module = graph.modules.first as? CModule, !(module is ClangModule) {
+    if graph.modules.count == 1, let module = graph.modules.first as? CModule {
         throw Error.onlyCModule(name: module.name)
     }
 
-    let Xcc = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
     let Xld = flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
     let prefix = prefix.appending(component: conf.dirname)
-    try Utility.makeDirectories(prefix.asString)
-    let swiftcArgs = flags.cCompilerFlags + flags.swiftCompilerFlags + verbosity.ccArgs
-
-    let SWIFT_EXEC = toolchain.SWIFT_EXEC
-    let CC = getenv("CC") ?? "clang"
+    try makeDirectories(prefix)
+    let swiftcArgs = flags.cCompilerFlags.flatMap{ ["-Xcc", $0] } + flags.swiftCompilerFlags + verbosity.ccArgs
 
     var commands = [Command]()
     var targets = Targets()
@@ -42,7 +38,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     for module in graph.modules {
         switch module {
         case let module as SwiftModule:
-            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.platformArgsSwiftc, SWIFT_EXEC: SWIFT_EXEC)
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.swiftPlatformArgs, compilerExec: toolchain.swiftCompiler)
             commands.append(compile)
             targets.append([compile], for: module)
 
@@ -52,7 +48,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
             if module.isTest { continue }
           #endif
             // FIXME: Find a way to eliminate `externalModules` from here.
-            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, CC: CC, otherArgs: Xcc + toolchain.platformArgsClang)
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, otherArgs: flags.cCompilerFlags + toolchain.clangPlatformArgs, compilerExec: toolchain.clangCompiler)
             commands += compile
             targets.append(compile, for: module)
 
@@ -75,9 +71,9 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
 #endif
         let command: Command
         if product.containsOnlyClangModules {
-            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, CC: CC)
+            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, linkerExec: toolchain.clangCompiler)
         } else {
-            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.platformArgsSwiftc + rpathArgs, SWIFT_EXEC: SWIFT_EXEC)
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.swiftPlatformArgs + rpathArgs, linkerExec: toolchain.swiftCompiler)
         }
 
         commands.append(command)
@@ -103,7 +99,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
 }
 
 private func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws -> AbsolutePath {
-    let stream = OutputByteStream()
+    let stream = BufferedOutputByteStream()
     write(stream)
     try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     return path

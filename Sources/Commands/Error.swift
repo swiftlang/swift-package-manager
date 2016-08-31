@@ -16,10 +16,11 @@ import enum Utility.Stream
 import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
+import enum PackageLoading.ManifestParseError
 
 public enum Error: Swift.Error {
     case noManifestFound
-    case invalidToolchain
+    case invalidToolchain(problem: String)
     case buildYAMLNotFound(String)
     case repositoryHasChanges(String)
 }
@@ -29,8 +30,8 @@ extension Error: FixableError {
         switch self {
         case .noManifestFound:
             return "no \(Manifest.filename) file found"
-        case .invalidToolchain:
-            return "invalid inferred toolchain"
+        case .invalidToolchain(let problem):
+            return "invalid inferred toolchain: \(problem)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         case .repositoryHasChanges(let value):
@@ -50,7 +51,7 @@ extension Error: FixableError {
     }
 }
 
-@noreturn public func handle(error: Any, usage: ((String) -> Void) -> Void) {
+public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
 
     switch error {
     case OptionParserError.multipleModesSpecified(let modes):
@@ -70,7 +71,7 @@ extension Error: FixableError {
     case is OptionParserError:
         print(error: error)
         if isTTY(.stdErr) {
-            let argv0 = Process.arguments.first ?? "swift package"
+            let argv0 = CommandLine.arguments.first ?? "swift package"
             print("enter `\(argv0) --help' for usage information", to: &stderr)
         }
     case let error as FixableError:
@@ -78,6 +79,12 @@ extension Error: FixableError {
         if let fix = error.fix {
             print(fix: fix)
         }
+    case ManifestParseError.invalidManifestFormat(let errors):
+        var errorString = "invalid manifest format"
+        if let errors = errors {
+            errorString += "; " + errors.joined(separator: ", ")
+        }
+        print(error: errorString)
     default:
         print(error: error)
     }
@@ -89,7 +96,7 @@ private func print(error: Any) {
     if ColorWrap.isAllowed(for: .stdErr) {
         print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
     } else {
-        let cmd = Process.arguments.first?.basename ?? "SwiftPM"
+        let cmd = AbsolutePath(CommandLine.arguments.first!, relativeTo:currentWorkingDirectory).basename
         print("\(cmd): error:", error, to: &stderr)
     }
 }

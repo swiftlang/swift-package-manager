@@ -31,7 +31,10 @@ public class CheckoutManager {
         
         /// The manager this repository is owned by.
         private unowned let manager: CheckoutManager
-        
+
+        /// The repository specifier.
+        fileprivate let repository: RepositorySpecifier
+
         /// The subpath of the repository within the manager.
         ///
         /// This is intentionally hidden from the clients so that the manager is
@@ -42,8 +45,9 @@ public class CheckoutManager {
         fileprivate var status: Status = .uninitialized
 
         /// Create a handle.
-        fileprivate init(manager: CheckoutManager, subpath: RelativePath) {
+        fileprivate init(manager: CheckoutManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
+            self.repository = repository
             self.subpath = subpath
         }
 
@@ -51,11 +55,13 @@ public class CheckoutManager {
         fileprivate init?(manager: CheckoutManager, json data: JSON) {
             guard case let .dictionary(contents) = data,
                   case let .string(subpath)? = contents["subpath"],
+                  case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(statusString)? = contents["status"],
                   let status = Status(rawValue: statusString) else {
                 return nil
             }
             self.manager = manager
+            self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpath)
             self.status = status
         }
@@ -85,21 +91,38 @@ public class CheckoutManager {
             }
         }
 
+        /// Open the given repository.
+        public func open() throws -> Repository {
+            precondition(status == .available, "open() called in invalid state")
+            return try self.manager.open(self)
+        }
+
+        /// Clone into a working copy at on the local file system.
+        ///
+        /// - Parameters:
+        ///   - path: The path at which to create the working copy; it is
+        ///     expected to be non-existent when called.
+        public func cloneCheckout(to path: AbsolutePath) throws {
+            precondition(status == .available, "cloneCheckout() called in invalid state")
+            try self.manager.cloneCheckout(self, to: path)
+        }
+
         // MARK: Persistence
 
         fileprivate func toJSON() -> JSON {
             return .dictionary([
                     "status": .string(status.rawValue),
+                    "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString)
                 ])
         }
     }
 
     /// The path under which repositories are stored.
-    private let path: AbsolutePath
+    public let path: AbsolutePath
 
     /// The repository provider.
-    private let provider: RepositoryProvider
+    public let provider: RepositoryProvider
 
     /// The map of registered repositories.
     //
@@ -123,8 +146,8 @@ public class CheckoutManager {
         } catch {
             // State restoration errors are ignored, for now.
             //
-            // FIXME: It would be nice to log this, in some verbose mode.
-            print("unable to restore state: \(error)")
+            // FIXME: We need to do something better here.
+            print("warning: unable to restore checkouts state: \(error)")
         }
     }
 
@@ -141,13 +164,19 @@ public class CheckoutManager {
         
         // Otherwise, fetch the repository and return a handle.
         let subpath = RelativePath(repository.fileSystemIdentifier)
-        let handle = RepositoryHandle(manager: self, subpath: subpath)
+        let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
         repositories[repository.url] = handle
 
+        // Ensure nothing else exists at the subpath.
+        let repositoryPath = path.appending(subpath)
+        if localFileSystem.exists(repositoryPath) {
+            _ = try? removeFileTree(repositoryPath)
+        }
+        
         // FIXME: This should run on a background thread.
         do {
             handle.status = .pending
-            try provider.fetch(repository: repository, to: path.appending(subpath))
+            try provider.fetch(repository: repository, to: repositoryPath)
             handle.status = .available
         } catch {
             // FIXME: Handle failure more sensibly.
@@ -165,6 +194,16 @@ public class CheckoutManager {
         return handle
     }
 
+    /// Open a repository from a handle.
+    private func open(_ handle: RepositoryHandle) throws -> Repository {
+        return try provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    }
+
+    /// Clone a repository from a handle.
+    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath) throws {
+        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath)
+    }
+
     // MARK: Persistence
 
     private enum PersistenceError: Swift.Error {
@@ -178,11 +217,11 @@ public class CheckoutManager {
     /// The schema of the state file.
     ///
     /// We currently discard any restored state if we detect a schema change.
-    private static var schemaVersion = 0
+    private static var schemaVersion = 1
 
     /// The path at which we persist the manager state.
-    private var statePath: AbsolutePath {
-        return path.appending("manager-state.json")
+    var statePath: AbsolutePath {
+        return path.appending(component: "checkouts-state.json")
     }
     
     /// Restore the manager state from disk.
@@ -201,7 +240,7 @@ public class CheckoutManager {
         // Load the state.
         //
         // FIXME: Build out improved file reading support.
-        try fopen(statePath.asString) { handle in
+        try fopen(statePath) { handle in
             let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
 
             // Load the state from JSON.
@@ -256,6 +295,6 @@ public class CheckoutManager {
 
 extension CheckoutManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
-        return "<\(self.dynamicType) subpath:\(subpath.asString)>"
+        return "<\(type(of: self)) subpath:\(subpath.asString)>"
     }
 }

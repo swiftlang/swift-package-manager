@@ -8,35 +8,33 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
-import struct PackageDescription.Version
-import func POSIX.realpath
-import func POSIX.getenv
-import enum POSIX.Error
 import class Foundation.ProcessInfo
+
+import Basic
 import Utility
+
+import func POSIX.realpath
+import enum POSIX.Error
 
 extension Git {
     class func clone(_ url: String, to dstdir: AbsolutePath) throws -> Repo {
-        // canonicalize URL
+        // Canonicalize URL.
+        //
+        // FIXME: This is redundant with the same code in the manifest loader.
         var url = url
         if URL.scheme(url) == nil {
             url = try realpath(url)
         }
 
         do {
-          #if os(Linux)
-            let env = ProcessInfo.processInfo().environment
-          #else
             let env = ProcessInfo.processInfo.environment
-          #endif
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
                 url, dstdir.asString, environment: env, message: "Cloning \(url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
-            if Git.majorVersionNumber < 2 {
+            if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
                 throw Utility.Error.obsoleteGitVersion
             } else {
                 throw Error.gitCloneFailure(url, dstdir.asString)
@@ -44,23 +42,5 @@ extension Git {
         }
 
         return Repo(path: dstdir)!  //TODO no bangs
-    }
-}
-
-extension Git.Repo {
-    var versions: [Version] {
-        let out = (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])) ?? ""
-        let tags = out.characters.split(separator: "\n")
-        let versions = tags.flatMap(Version.init).sorted()
-        if !versions.isEmpty {
-            return versions
-        } else {
-            return tags.flatMap(Version.vprefix).sorted()
-        }
-    }
-
-    /// Check if repo contains a version tag
-    var hasVersion: Bool {
-        return !versions.isEmpty
     }
 }

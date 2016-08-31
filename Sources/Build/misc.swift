@@ -16,16 +16,25 @@ import func POSIX.getenv
 import func POSIX.popen
 
 public protocol Toolchain {
-    var platformArgsClang: [String] { get }
-    var platformArgsSwiftc: [String] { get }
-    var sysroot: String?  { get }
-    var SWIFT_EXEC: String { get }
-    var clang: String { get }
+    /// Path of the `swiftc` compiler.
+    var swiftCompiler: AbsolutePath { get }
+    
+    /// Platform-specific arguments for Swift compiler.
+    var swiftPlatformArgs: [String] { get }
+    
+    /// Path of the `clang` compiler.
+    var clangCompiler: AbsolutePath { get }
+    
+    /// Platform-specific arguments for Clang compiler.
+    var clangPlatformArgs: [String] { get }
+    
+    /// Path of the default SDK (a.k.a. "sysroot"), if any.
+    var defaultSDK: AbsolutePath? { get }
 }
 
-extension String {
+extension AbsolutePath {
     var isCpp: Bool {
-        guard let ext = self.fileExt else {
+        guard let ext = self.extension else {
             return false
         }
         return SupportedLanguageExtension.cppExtensions.contains(ext)
@@ -58,7 +67,7 @@ extension ClangModule {
     }
 
     var containsCppFiles: Bool {
-        return sources.paths.contains { $0.asString.isCpp }
+        return sources.paths.contains { $0.isCpp }
     }
 }
 
@@ -145,7 +154,7 @@ protocol ClangModuleCachable {
 
 extension ClangModuleCachable {
     func moduleCacheDir(prefix: AbsolutePath) -> AbsolutePath {
-        return prefix.appending("ModuleCache")
+        return prefix.appending(component: "ModuleCache")
     }
 }
 

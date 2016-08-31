@@ -12,12 +12,10 @@ import Basic
 import PackageModel
 import POSIX
 
-import func Utility.makeDirectories
-
 private extension FileSystem {
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
-        let contents = OutputByteStream()
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+        let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
         try writeFileContents(path, bytes: contents.bytes)
@@ -39,7 +37,7 @@ extension InitError: CustomStringConvertible {
 
 /// Create an initial template package.
 final class InitPackage {
-    let rootd = AbsolutePath(POSIX.getcwd())
+    let rootd = currentWorkingDirectory
 
     /// The mode in use.
     let mode: InitMode
@@ -57,9 +55,10 @@ final class InitPackage {
     
     init(mode: InitMode) throws {
         self.mode = mode
-        pkgname = rootd.basename
-        // Also validates that the name is valid.
-        moduleName = try c99name(name: rootd.basename)
+        let dirname = rootd.basename
+        assert(!dirname.isEmpty)  // a base name is never empty
+        self.pkgname = dirname
+        self.moduleName = dirname.mangledToC99ExtendedIdentifier()
     }
     
     func writePackageStructure() throws {
@@ -74,14 +73,14 @@ final class InitPackage {
         try writeTests()
     }
 
-    private func writePackageFile(_ path: AbsolutePath, body: @noescape (OutputByteStream) -> ()) throws {
+    private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
         print("Creating \(path.relative(to: rootd).asString)")
         try localFileSystem.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {
         let manifest = rootd.appending(component: Manifest.filename)
-        guard manifest.asString.exists == false else {
+        guard exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -95,8 +94,8 @@ final class InitPackage {
     }
     
     private func writeGitIgnore() throws {
-        let gitignore = rootd.appending(".gitignore")
-        guard gitignore.asString.exists == false else {
+        let gitignore = rootd.appending(component: ".gitignore")
+        guard exists(gitignore) == false else {
             return
         } 
     
@@ -112,13 +111,17 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let sources = rootd.appending("Sources")
-        guard sources.asString.exists == false else {
+        let sources = rootd.appending(component: "Sources")
+        guard exists(sources) == false else {
             return
         }
-        print("Creating Sources/")
-        try Utility.makeDirectories(sources.asString)
-    
+        print("Creating \(sources.relative(to: rootd).asString)/")
+        try makeDirectories(sources)
+
+        if mode == .empty {
+            return
+        }
+
         let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
 
@@ -130,8 +133,8 @@ final class InitPackage {
                 stream <<< "}\n"
             case .executable:
                 stream <<< "print(\"Hello, world!\")\n"
-            case .systemModule:
-                break
+            case .systemModule, .empty:
+                fatalError("invalid")
             }
         }
     }
@@ -140,8 +143,8 @@ final class InitPackage {
         if mode != .systemModule {
             return
         }
-        let modulemap = rootd.appending("module.modulemap")
-        guard modulemap.asString.exists == false else {
+        let modulemap = rootd.appending(component: "module.modulemap")
+        guard exists(modulemap) == false else {
             return
         }
         
@@ -158,12 +161,12 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let tests = rootd.appending("Tests")
-        guard tests.asString.exists == false else {
+        let tests = rootd.appending(component: "Tests")
+        guard exists(tests) == false else {
             return
         }
-        print("Creating Tests/")
-        try Utility.makeDirectories(tests.asString)
+        print("Creating \(tests.relative(to: rootd).asString)/")
+        try makeDirectories(tests)
 
         // Only libraries are testable for now.
         if mode == .library {
@@ -173,9 +176,9 @@ final class InitPackage {
     }
     
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
-        try writePackageFile(testsPath.appending("LinuxMain.swift")) { stream in
+        try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< "import XCTest\n"
-            stream <<< "@testable import \(moduleName)TestSuite\n\n"
+            stream <<< "@testable import \(moduleName)Tests\n\n"
             stream <<< "XCTMain([\n"
             stream <<< "     testCase(\(typeName)Tests.allTests),\n"
             stream <<< "])\n"
@@ -183,9 +186,9 @@ final class InitPackage {
     }
     
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = testsPath.appending(RelativePath(pkgname))
-        print("Creating Tests/\(pkgname)/")
-        try Utility.makeDirectories(testModule.asString)
+        let testModule = testsPath.appending(RelativePath(pkgname + Module.testModuleNameSuffix))
+        print("Creating \(testModule.relative(to: rootd).asString)/")
+        try makeDirectories(testModule)
         
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
             stream <<< "import XCTest\n"
@@ -211,10 +214,12 @@ final class InitPackage {
 
 /// Represents a package type for the purposes of initialization.
 enum InitMode: CustomStringConvertible {
-    case library, executable, systemModule
+    case empty, library, executable, systemModule
 
     init(_ rawValue: String) throws {
         switch rawValue.lowercased() {
+        case "empty":
+            self = .empty
         case "library":
             self = .library
         case "executable":
@@ -228,6 +233,7 @@ enum InitMode: CustomStringConvertible {
 
     var description: String {
         switch self {
+            case .empty: return "empty"
             case .library: return "library"
             case .executable: return "executable"
             case .systemModule: return "system-module"

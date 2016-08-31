@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import libc
+
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
 private func hexdigit(_ value: UInt8) -> UInt8 {
     return value < 10 ? (0x30 + value) : (0x41 + value - 10)
@@ -40,79 +42,157 @@ public protocol ByteStreamable {
 ///
 /// would write each item in the list to the stream, separating them with a
 /// space.
-public class OutputByteStream: OutputStream {
+public class OutputByteStream: TextOutputStream {
     /// The data buffer.
+    /// Note: Minimum Buffer size should be one.
     private var buffer: [UInt8]
-    
-    public init() {
+
+    /// Default buffer size of the data buffer.
+    private static let bufferSize = 1024
+
+    init() {
         self.buffer = []
+        self.buffer.reserveCapacity(OutputByteStream.bufferSize)
     }
 
     // MARK: Data Access API
 
     /// The current offset within the output stream.
-    public var position: Int {
+    public final var position: Int {
         return buffer.count
     }
 
-    /// The contents of the output stream.
-    ///
-    /// This method implicitly flushes the stream.
-    public var bytes: ByteString {
-        flush()
-        return ByteString(self.buffer)
+    /// Currently available buffer size.
+    private var availableBufferSize: Int {
+        return buffer.capacity - buffer.count
     }
-    
+
+     /// Clears the buffer maintaining current capacity.
+    private func clearBuffer() {
+        buffer.removeAll(keepingCapacity: true)
+    }
+
     // MARK: Data Output API
 
-    public func flush() {
+    public final func flush() {
+        writeImpl(buffer)
+        clearBuffer()
+        flushImpl()
+    }
+
+    func flushImpl() {
         // Do nothing.
     }
 
+    func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+        fatalError("Subclasses must implement this")
+    }
+
     /// Write an individual byte to the buffer.
-    public func write(_ byte: UInt8) {
+    public final func write(_ byte: UInt8) {
+        // If buffer is full, write and clear it.
+        if availableBufferSize == 0 {
+            writeImpl(buffer)
+            clearBuffer()
+        }
+
+        // This will need to change change if we ever have unbuffered stream.
+        precondition(availableBufferSize > 0)
         buffer.append(byte)
     }
-    
-    /// Write a sequence of bytes to the buffer.
-    public func write(_ bytes: [UInt8]) {
+
+    /// Write a collection of bytes to the buffer.
+    public final func write<C: Collection>(collection bytes: C) where
+        C.IndexDistance == Int,
+        C.Iterator.Element == UInt8,
+        C.SubSequence: Collection,
+        C.SubSequence.Iterator.Element == UInt8
+    {
+        // This is based on LLVM's raw_ostream.
+        let availableBufferSize = self.availableBufferSize
+
+        // If we have to insert more than the available space in buffer.
+        if bytes.count > availableBufferSize {
+            // If buffer is empty, start writing and keep the last chunk in buffer.
+            if buffer.isEmpty {
+                let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
+                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: bytesToWrite)
+                writeImpl(bytes.prefix(upTo: writeUptoIndex))
+
+                // If remaining bytes is more than buffer size write everything.
+                let bytesRemaining = bytes.count - bytesToWrite
+                if bytesRemaining > availableBufferSize {
+                    writeImpl(bytes.suffix(from: writeUptoIndex))
+                    return
+                }
+                // Otherwise keep remaining in buffer.
+                buffer += bytes.suffix(from: writeUptoIndex)
+                return
+            }
+
+            let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
+            // Append whatever we can accomodate.
+            buffer += bytes.prefix(upTo: writeUptoIndex)
+
+            writeImpl(buffer)
+            clearBuffer()
+
+            // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
+            //write(collection: bytes.suffix(from: writeUptoIndex))
+            writeImpl(bytes.suffix(from: writeUptoIndex))
+            return
+        }
         buffer += bytes
+    }
+
+    /// Write the contents of a UnsafeBufferPointer<UInt8>.
+    final func write(_ ptr: UnsafeBufferPointer<UInt8>) {
+        write(collection: ptr)
     }
     
     /// Write a sequence of bytes to the buffer.
-    public func write(_ bytes: ArraySlice<UInt8>) {
-        buffer += bytes
+    public final func write(_ bytes: ArraySlice<UInt8>) {
+        write(collection: bytes)
+    }
+
+    /// Write a sequence of bytes to the buffer.
+    public final func write(_ bytes: [UInt8]) {
+        write(collection: bytes)
     }
     
     /// Write a sequence of bytes to the buffer.
-    public func write<S: Sequence where S.Iterator.Element == UInt8>(_ sequence: S) {
-        buffer += sequence
+    public final func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
+        // Iterate the sequence and append byte by byte since sequence's append
+        // is not performant anyway.
+        for byte in sequence {
+            write(byte)
+        }
     }
 
     /// Write a string to the buffer (as UTF8).
-    public func write(_ string: String) {
+    public final func write(_ string: String) {
         // Fast path for contiguous strings. For some reason Swift itself
         // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
         let stringPtrStart = string._contiguousUTF8
         if stringPtrStart != nil {
-            buffer += UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count)
+            write(UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count))
         } else {
-            buffer += string.utf8
+            write(sequence: string.utf8)
         }
     }
 
     /// Write a character to the buffer (as UTF8).
-    public func write(_ character: Character) {
-        buffer += String(character).utf8
+    public final func write(_ character: Character) {
+        write(String(character))
     }
 
     /// Write an arbitrary byte streamable to the buffer.
-    public func write(_ value: ByteStreamable) {
+    public final func write(_ value: ByteStreamable) {
         value.write(to: self)
     }
 
     /// Write an arbitrary streamable to the buffer.
-    public func write(_ value: Streamable) {
+    public final func write(_ value: TextOutputStreamable) {
         // Get a mutable reference.
         var stream: OutputByteStream = self
         value.write(to: &stream)
@@ -124,47 +204,46 @@ public class OutputByteStream: OutputStream {
     /// NOTE: This writes the literal data applying JSON string escaping, but
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
-    public func writeJSONEscaped(_ string: String) {
-        // See RFC7159 for reference.
+    public final func writeJSONEscaped(_ string: String) {
+        // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
         for character in string.utf8 {
+            // Handle string escapes; we use constants here to directly match the RFC.
             switch character {
                 // Literal characters.
-                //
-                // FIXME: Workaround: <rdar://problem/22546289> Unexpected crash with range to max value for type
-            case 0x20...0x21, 0x23...0x5B, 0x5D...0xFE, 0xFF:
-                buffer.append(character)
+            case 0x20...0x21, 0x23...0x5B, 0x5D...0xFF:
+                write(character)
             
                 // Single-character escaped characters.
             case 0x22: // '"'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x22) // '"'
+                write(0x5C) // '\'
+                write(0x22) // '"'
             case 0x5C: // '\\'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x5C) // '\'
+                write(0x5C) // '\'
+                write(0x5C) // '\'
             case 0x08: // '\b'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x62) // 'b'
+                write(0x5C) // '\'
+                write(0x62) // 'b'
             case 0x0C: // '\f'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x66) // 'b'
+                write(0x5C) // '\'
+                write(0x66) // 'b'
             case 0x0A: // '\n'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x6E) // 'n'
+                write(0x5C) // '\'
+                write(0x6E) // 'n'
             case 0x0D: // '\r'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x72) // 'r'
+                write(0x5C) // '\'
+                write(0x72) // 'r'
             case 0x09: // '\t'
-                buffer.append(0x5C) // '\'
-                buffer.append(0x74) // 't'
+                write(0x5C) // '\'
+                write(0x74) // 't'
 
                 // Multi-character escaped characters.
             default:
-                buffer.append(0x5C) // '\'
-                buffer.append(0x75) // 'u'
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(0))
-                buffer.append(hexdigit(character >> 4))
-                buffer.append(hexdigit(character & 0xF))
+                write(0x5C) // '\'
+                write(0x75) // 'u'
+                write(hexdigit(0))
+                write(hexdigit(0))
+                write(hexdigit(character >> 4))
+                write(hexdigit(character & 0xF))
             }
         }
     }
@@ -172,13 +251,16 @@ public class OutputByteStream: OutputStream {
     
 /// Define an output stream operator. We need it to be left associative, so we
 /// use `<<<`.
-infix operator <<< { associativity left }
+infix operator <<< : StreamingPrecedence
+precedencegroup StreamingPrecedence {
+  associativity: left
+}
 
 // MARK: Output Operator Implementations
 //
 // NOTE: It would be nice to use a protocol here and the adopt it by all the
 // things we can efficiently stream out. However, that doesn't work because we
-// ultimately need to provide a manual overload sometimes, e.g., Streamable, but
+// ultimately need to provide a manual overload sometimes, e.g., TextOutputStreamable, but
 // that will then cause ambiguous lookup versus the implementation just using
 // the defined protocol.
 
@@ -201,8 +283,19 @@ public func <<<(stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByt
 }
 
 @discardableResult
-public func <<<<S: Sequence where S.Iterator.Element == UInt8>(stream: OutputByteStream, value: S) -> OutputByteStream {
-    stream.write(value)
+public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
+    C.Iterator.Element == UInt8,
+    C.IndexDistance == Int,
+    C.SubSequence: Collection,
+    C.SubSequence.Iterator.Element == UInt8
+{
+    stream.write(collection: value)
+    return stream
+}
+
+@discardableResult
+public func <<< <S: Sequence>(stream: OutputByteStream, value: S) -> OutputByteStream where S.Iterator.Element == UInt8 {
+    stream.write(sequence: value)
     return stream
 }
 
@@ -225,7 +318,7 @@ public func <<<(stream: OutputByteStream, value: ByteStreamable) -> OutputByteSt
 }
 
 @discardableResult
-public func <<<(stream: OutputByteStream, value: Streamable) -> OutputByteStream {
+public func <<<(stream: OutputByteStream, value: TextOutputStreamable) -> OutputByteStream {
     stream.write(value)
     return stream
 }
@@ -391,7 +484,7 @@ public struct Format {
     /// Write the input list (after applying a transform to each item) encoded as a JSON object.
     //
     // FIXME: We might be able to make this more generic through the use of a "JSONEncodable" protocol.
-    static public func asJSON<T>(_ items: [T], transform: (T) -> String) -> ByteStreamable {
+    static public func asJSON<T>(_ items: [T], transform: @escaping (T) -> String) -> ByteStreamable {
         return JSONEscapedTransformedStringListStreamable(items: items, transform: transform)
     }
 
@@ -401,7 +494,135 @@ public struct Format {
     }
 
     /// Write the input list to the stream (after applying a transform to each item) with the given separator between items.
-    static public func asSeparatedList<T>(_ items: [T], transform: (T) -> ByteStreamable, separator: String) -> ByteStreamable {
+    static public func asSeparatedList<T>(_ items: [T], transform: @escaping (T) -> ByteStreamable, separator: String) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
     }
 }
+
+/// Inmemory implementation of OutputByteStream.
+public final class BufferedOutputByteStream: OutputByteStream {
+
+    /// Contents of the stream.
+    // FIXME: For inmemory implementation we should be share this buffer with OutputByteStream.
+    // One way to do this is by allowing OuputByteStream to install external buffers.
+    private var contents = [UInt8]()
+
+    override public init() {
+        super.init()
+    }
+
+    /// The contents of the output stream.
+    ///
+    /// Note: This implicitly flushes the stream.
+    public var bytes: ByteString {
+        flush()
+        return ByteString(contents)
+    }
+
+    override final func flushImpl() {
+        // Do nothing.
+    }
+
+    override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+        contents += bytes
+    }
+}
+
+/// Represents a stream which is backed to a file. Not for instantiating.
+public class FileOutputByteStream: OutputByteStream {
+
+    /// Closes the file flushing any buffered data.
+    public final func close() throws {
+        flush()
+        try closeImpl()
+    }
+
+    func closeImpl() throws {
+        fatalError("closeImpl() should be implemented by a subclass")
+    }
+}
+
+/// Implements file output stream for local file system.
+public final class LocalFileOutputByteStream: FileOutputByteStream {
+
+    /// The pointer to the file.
+    let fp: UnsafeMutablePointer<FILE>
+
+    /// True if there were any IO error during writing.
+    private var error: Bool = false
+
+    /// Closes the file on deinit if true.
+    private var closeOnDeinit: Bool
+
+    /// Instantiate using the file pointer.
+    init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true) throws {
+        self.fp = filePointer
+        self.closeOnDeinit = closeOnDeinit
+        super.init()
+    }
+
+    /// Opens the file for writing at the provided path.
+    ///
+    /// - Parameters:
+    ///     - path: Path to the file this stream should operate on.
+    ///     - closeOnDeinit: If true closes the file on deinit. clients can use close() if they
+    ///                      want to close themselves or catch errors encountered during writing
+    ///                      to the file. Default value is true.
+    ///
+    /// - Throws: FileSystemError
+    public init(_ path: AbsolutePath, closeOnDeinit: Bool = true) throws {
+        guard let fp = fopen(path.asString, "wb") else {
+            throw FileSystemError(errno: errno)
+        }
+        self.fp = fp
+        self.closeOnDeinit = closeOnDeinit
+        super.init()
+    }
+
+    deinit {
+        if closeOnDeinit {
+            fclose(fp)
+        }
+    }
+
+    func errorDetected() {
+        error = true
+    }
+
+    override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
+        // FIXME: This will be copying bytes but we don't have option currently.
+        var contents = [UInt8](bytes)
+        while true {
+            let n = fwrite(&contents, 1, contents.count, fp)
+            if n < 0 {
+                if errno == EINTR { continue }
+                errorDetected()
+            } else if n != contents.count {
+                errorDetected()
+            }
+            break
+        }
+    }
+
+    override final func flushImpl() {
+        fflush(fp)
+    }
+
+    override final func closeImpl() throws {
+        defer {
+            fclose(fp)
+            // If clients called close we shouldn't call fclose again in deinit.
+            closeOnDeinit = false
+        }
+        // Throw if errors were found during writing.
+        if error {
+            throw FileSystemError.ioError
+        }
+    }
+}
+
+/// Public stdout stream instance.
+public var stdoutStream: FileOutputByteStream = try! LocalFileOutputByteStream(filePointer: libc.stdout, closeOnDeinit: false)
+
+/// Public stderr stream instance.
+public var stderrStream: FileOutputByteStream = try! LocalFileOutputByteStream(filePointer: libc.stderr, closeOnDeinit: false)

@@ -30,7 +30,7 @@ extension dirent {
     /// This returns nil if the name is not valid UTF8.
     public var name: String? {
         var name = self.d_name
-        return withUnsafePointer(&name) { (ptr) -> String? in
+        return withUnsafePointer(to: &name) { (ptr) -> String? in
             // FIXME: This is wasteful, but String doesn't have a public API
             // that let's us avoid the copy.
             var nameBytes = [CChar](UnsafeBufferPointer(start: unsafeBitCast(ptr, to: UnsafePointer<CChar>.self), count: Int(self.d_namlen)))

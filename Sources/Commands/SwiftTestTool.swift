@@ -11,14 +11,16 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import class Foundation.ProcessInfo
 
 import Basic
+import Build
 import Utility
 
 import func POSIX.chdir
 import func POSIX.exit
 
 private enum TestError: Swift.Error {
-    case testsExecutableNotFound
     case invalidListTestJSONData
+    case multipleTestProducts
+    case testsExecutableNotFound
 }
 
 extension TestError: CustomStringConvertible {
@@ -28,6 +30,8 @@ extension TestError: CustomStringConvertible {
             return "no tests found to execute, create a module in your `Tests' directory"
         case .invalidListTestJSONData:
             return "Invalid list test JSON structure."
+        case .multipleTestProducts:
+            return "cannot test packages with multiple test products defined"
         }
     }
 }
@@ -38,7 +42,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case listTests
     case run(String?)
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--help", "-h":
             self = .usage
@@ -71,21 +75,47 @@ private func ==(lhs: Mode, rhs: Mode) -> Bool {
     return lhs.description == rhs.description
 }
 
+// FIXME: Merge this with the `swift-build` arguments.
 private enum TestToolFlag: Argument {
+    case xcc(String)
+    case xld(String)
+    case xswiftc(String)
     case chdir(AbsolutePath)
-    case skipBuild
     case buildPath(AbsolutePath)
+    case enableNewResolver
+    case colorMode(ColorWrap.Mode)
+    case skipBuild
+    case verbose(Int)
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
+        func forcePop() throws -> String {
+            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
+            return value
+        }
+        
         switch argument {
-        case "--chdir", "-C":
-            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .chdir(AbsolutePath(path.abspath))
+        case Flag.chdir, Flag.C:
+            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--verbose", "-v":
+            self = .verbose(1)
         case "--skip-build":
             self = .skipBuild
+        case "-Xcc":
+            self = try .xcc(forcePop())
+        case "-Xlinker":
+            self = try .xld(forcePop())
+        case "-Xswiftc":
+            self = try .xswiftc(forcePop())
         case "--build-path":
-            guard let path = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .buildPath(AbsolutePath(path.abspath))
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
+        case "--color":
+            let rawValue = try forcePop()
+            guard let mode = ColorWrap.Mode(rawValue) else  {
+                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
+            }
+            self = .colorMode(mode)
         default:
             return nil
         }
@@ -93,7 +123,10 @@ private enum TestToolFlag: Argument {
 }
 
 private class TestToolOptions: Options {
+    var verbosity: Int = 0
     var buildTests: Bool = true
+    var colorMode: ColorWrap.Mode = .Auto
+    var flags = BuildFlags()
 }
 
 /// swift-test tool namespace
@@ -108,23 +141,22 @@ public struct SwiftTestTool: SwiftTool {
         do {
             let (mode, opts) = try parseOptions(commandLineArguments: args)
         
+            verbosity = Verbosity(rawValue: opts.verbosity)
+            colorMode = opts.colorMode
+
             if let dir = opts.chdir {
                 try chdir(dir.asString)
             }
-        
+
             switch mode {
             case .usage:
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
         
             case .listTests:
-                let testPath = try determineTestPath(opts: opts)
+                let testPath = try buildTestsIfNeeded(opts)
                 let testSuites = try getTestSuites(path: testPath)
                 // Print the tests.
                 for testSuite in testSuites {
@@ -136,9 +168,7 @@ public struct SwiftTestTool: SwiftTool {
                 }
 
             case .run(let specifier):
-                try buildTestsIfNeeded(opts)
-                let testPath = try determineTestPath(opts: opts)
-
+                let testPath = try buildTestsIfNeeded(opts)
                 let success = test(path: testPath, xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
@@ -150,56 +180,39 @@ public struct SwiftTestTool: SwiftTool {
         }
     }
 
-    private let configuration = "debug"  //FIXME should swift-test support configuration option?
-
     /// Builds the "test" target if enabled in options.
-    private func buildTestsIfNeeded(_ opts: TestToolOptions) throws {
-        let yamlPath = opts.path.build.appending(RelativePath("\(configuration).yaml"))
+    ///
+    /// - Returns: The path to the test binary.
+    private func buildTestsIfNeeded(_ opts: TestToolOptions) throws -> AbsolutePath {
+        let graph = try loadPackage(at: opts.path.root, opts)
         if opts.buildTests {
-            try build(yamlPath: yamlPath, target: "test")
+            let yaml = try describe(opts.path.build, configuration, graph, flags: opts.flags, toolchain: UserToolchain())
+            try build(yamlPath: yaml, target: "test")
         }
-    }
-
-    /// Locates the XCTest bundle on OSX and XCTest executable on Linux.
-    /// First check if <build_path>/debug/<PackageName>Tests.xctest is present, otherwise
-    /// walk the build folder and look for folder/file ending with `.xctest`.
-    ///
-    /// - Parameters:
-    ///     - opts: Options object created by parsing the commandline arguments.
-    ///
-    /// - Throws: TestError
-    ///
-    /// - Returns: Path to XCTest bundle (OSX) or executable (Linux).
-    private func determineTestPath(opts: Options) throws -> AbsolutePath {
-
-        //FIXME better, ideally without parsing manifest since
-        // that makes us depend on the whole Manifest system
-
-        let packageName = opts.path.root.basename  //FIXME probably not true
-        let maybePath = opts.path.build.appending(RelativePath(configuration)).appending(RelativePath("\(packageName)Tests.xctest"))
-
-        let possibleTestPath: AbsolutePath
-
-        if maybePath.asString.exists {
-            possibleTestPath = maybePath
-        } else {
-            let possiblePaths = walk(opts.path.build).filter {
-                $0.basename != "Package.xctest" &&   // this was our hardcoded name, may still exist if no clean
-                $0.suffix == ".xctest"
+                
+        // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
+        //
+        // FIXME: We should also check if the package has any test
+        // modules, which isn't trivial (yet).
+        let testProducts = graph.products.filter{
+            if case .Test = $0.type {
+                return true
+            } else {
+                return false
             }
-
-            guard let path = possiblePaths.first else {
-                throw TestError.testsExecutableNotFound
-            }
-
-            possibleTestPath = path
         }
-
-        guard isValidTestPath(possibleTestPath) else {
+        if testProducts.count == 0 {
             throw TestError.testsExecutableNotFound
+        } else if testProducts.count > 1 {
+            throw TestError.multipleTestProducts
+        } else {
+            return opts.path.build.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
         }
-        return possibleTestPath
     }
+
+    // FIXME: We need to support testing in other build configurations, but need
+    // to solve the testability problem first.
+    private let configuration = Build.Configuration.debug
 
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
@@ -212,8 +225,13 @@ public struct SwiftTestTool: SwiftTool {
         print("  -s, --specifier <test-module>.<test-case>/<test>  Run a specific test method")
         print("  -l, --list-tests                                  Lists test methods in specifier format")
         print("  -C, --chdir <path>     Change working directory before any other operation")
-        print("  --build-path <path>    Specify build directory")
+        print("  --build-path <path>    Specify build/cache directory [default: ./.build]")
+        print("  --color <mode>         Specify color mode (auto|always|never) [default: auto]")
+        print("  -v, --verbose          Increase verbosity of informational output")
         print("  --skip-build           Skip building the test target")
+        print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
+        print("  -Xlinker <flag>          Pass flag through to all linker invocations")
+        print("  -Xswiftc <flag>          Pass flag through to all Swift compiler invocations")
         print("")
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
@@ -226,10 +244,22 @@ public struct SwiftTestTool: SwiftTool {
             switch flag {
             case .chdir(let path):
                 opts.chdir = path
-            case .skipBuild:
-                opts.buildTests = false
+            case .verbose(let amount):
+                opts.verbosity += amount
+            case .xcc(let value):
+                opts.flags.cCompilerFlags.append(value)
+            case .xld(let value):
+                opts.flags.linkerFlags.append(value)
+            case .xswiftc(let value):
+                opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let buildPath):
                 opts.path.build = buildPath
+            case .enableNewResolver:
+                opts.enableNewResolver = true
+            case .colorMode(let mode):
+                opts.colorMode = mode
+            case .skipBuild:
+                opts.buildTests = false
             }
         }
 
@@ -244,8 +274,6 @@ public struct SwiftTestTool: SwiftTool {
     ///
     /// - Returns: True if execution exited with return code 0.
     private func test(path: AbsolutePath, xctestArg: String? = nil) -> Bool {
-        precondition(isValidTestPath(path))
-
         var args: [String] = []
       #if os(macOS)
         args = ["xcrun", "xctest"]
@@ -262,11 +290,7 @@ public struct SwiftTestTool: SwiftTool {
 
         // Execute the XCTest with inherited environment as it is convenient to pass senstive
         // information like username, password etc to test cases via enviornment variables.
-      #if os(Linux)
-        let result: Void? = try? system(args, environment: ProcessInfo.processInfo().environment)
-      #else
         let result: Void? = try? system(args, environment: ProcessInfo.processInfo.environment)
-      #endif
         return result != nil
     }
 
@@ -276,16 +300,16 @@ public struct SwiftTestTool: SwiftTool {
     /// - Returns: Path to XCTestHelper tool.
     private func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(Process.arguments.first!.abspath).parentDirectory
+        let binDirectory = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
-        let maybePath = binDirectory.appending("../libexec/swift/pm/").appending(RelativePath(xctestHelperBin))
-        if maybePath.asString.isFile {
+        let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
+        if isFile(maybePath) {
             return maybePath
         }
         // This will be true during swiftpm developement.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
-        let path = binDirectory.appending(RelativePath(xctestHelperBin))
-        if path.asString.isFile {
+        let path = binDirectory.appending(component: xctestHelperBin)
+        if isFile(path) {
             return path 
         }
         fatalError("XCTestHelper binary not found.") 
@@ -302,16 +326,13 @@ public struct SwiftTestTool: SwiftTool {
     ///
     /// - Returns: Array of TestSuite
     private func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
-        // Make sure tests are present.
-        guard isValidTestPath(path) else { throw TestError.testsExecutableNotFound }
-
         // Run the correct tool.
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath()])
+        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath().asString])
         // Read the temporary file's content.
-        let data = try fopen(tempFile.path.asString).readFileContents()
+        let data = try fopen(tempFile.path).readFileContents()
       #else
         let args = [path.asString, "--dump-tests-json"]
         let data = try popen(args)
@@ -319,14 +340,6 @@ public struct SwiftTestTool: SwiftTool {
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
     }
-}
-
-private func isValidTestPath(_ path: AbsolutePath) -> Bool {
-  #if os(macOS)
-    return path.asString.isDirectory  // ${foo}.xctest is dir on OSX
-  #else
-    return path.asString.isFile       // otherwise ${foo}.xctest is executable file
-  #endif
 }
 
 /// A struct to hold the XCTestSuite data.

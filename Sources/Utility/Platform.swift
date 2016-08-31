@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import func POSIX.popen
 
 public enum Platform {
@@ -26,7 +27,7 @@ public enum Platform {
         case "darwin":
             return .darwin
         case "linux":
-            if "/etc/debian_version".isFile {
+            if isFile(AbsolutePath("/etc/debian_version")) {
                 return .linux(.debian)
             }
         default:
@@ -36,7 +37,7 @@ public enum Platform {
     }
 }
 
-public func platformFrameworksPath() throws -> String {
+public func platformFrameworksPath() throws -> AbsolutePath {
     // Lazily compute the platform the first time it is needed.
     struct Static {
         static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
@@ -44,5 +45,5 @@ public func platformFrameworksPath() throws -> String {
     guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
         throw Error.invalidPlatformPath
     }
-    return Path.join(chuzzled, "Developer/Library/Frameworks")
+    return AbsolutePath(chuzzled).appending(components: "Developer", "Library", "Frameworks")
 }

@@ -9,7 +9,7 @@
 */
 
 public enum SystemError: Swift.Error {
-    case chdir(Int32)
+    case chdir(Int32, String)
     case close(Int32)
     case dirfd(Int32, String)
     case fgetc(Int32)
@@ -17,7 +17,6 @@ public enum SystemError: Swift.Error {
     case getcwd(Int32)
     case mkdir(Int32, String)
     case mkdtemp(Int32)
-    case opendir(Int32, String)
     case pipe(Int32)
     case popen(Int32, String)
     case posix_spawn(Int32, [String])
@@ -46,8 +45,8 @@ extension SystemError: CustomStringConvertible {
         }
 
         switch self {
-        case .chdir(let errno):
-            return "chdir error: \(strerror(errno))"
+        case .chdir(let errno, let path):
+            return "chdir error: \(strerror(errno)): \(path)"
         case .close(let errno):
             return "close error: \(strerror(errno))"
         case .dirfd(let errno, _):
@@ -62,8 +61,6 @@ extension SystemError: CustomStringConvertible {
             return "mkdir error: \(strerror(errno)): \(path)"
         case .mkdtemp(let errno):
             return "mkdtemp error: \(strerror(errno))"
-        case .opendir(let errno, _):
-            return "opendir error: \(strerror(errno))"
         case .pipe(let errno):
             return "pipe error: \(strerror(errno))"
         case .posix_spawn(let errno, let args):

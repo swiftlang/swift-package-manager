@@ -203,9 +203,6 @@ class Target(object):
         compile_swift_node = '<compile-swift-%s>' % (self.name,)
         link_input_nodes.append(compile_swift_node)
 
-        # Enable the workaround for SR-1457 until it is fixed.
-        other_args.extend(["-DEnableWorkaroundForSR1457"])
-
         if args.libdispatch_source_dir:
             other_args.extend(["-Xcc", "-fblocks"])
         
@@ -240,6 +237,8 @@ class Target(object):
         if args.libdispatch_build_dir:
             import_paths.append(os.path.join(args.libdispatch_build_dir,
                                              "src"))
+            import_paths.append(os.path.join(args.libdispatch_build_dir,
+                                             "src", "swift"))
         if args.libdispatch_source_dir:
             import_paths.append(args.libdispatch_source_dir)
         if args.xctest_path:
@@ -306,6 +305,11 @@ def parse_manifest():
         return Target(name, deps)
     targets = list(map(convert, pattern.finditer(manifest_data)))
 
+    # Remove the targets which should be ignored in stage 1.
+    targets = [target for target in targets
+               if target.name not in g_ignored_targets and
+                  not target.name.endswith("Tests")]
+
     # substitute strings for Target objects
     for target in targets:
         def convert(targetName):
@@ -337,6 +341,7 @@ def parse_manifest():
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
+g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport"]
 targets = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
 
@@ -351,22 +356,28 @@ def make_xml_string_literal(str):
 
 
 # Write out a header containing version information, and a module map for it.
-def write_bootstrap_version_info(include_path, version_str):
+def write_bootstrap_version_info(include_path, vendor_name, build_identifier):
     # Construct the header and write it out if it's changed.
     output = StringIO()
-    print("static inline const char * DisplayString() {", file=output)
-    print("    return " + make_c_string_literal(version_str) + ";", file=output)
-    print("}", file=output)
-    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"),
-                          output.getvalue())
+    vendor_name_literal = make_c_string_literal(vendor_name)
+    build_identifier_literal = make_c_string_literal(build_identifier)
+    contents = """
+static inline const char* VendorNameString() {
+    return %(vendor_name_literal)s;
+}
+static inline const char* BuildIdentifierString() {
+    return %(build_identifier_literal)s;
+}
+""" % locals()
+    write_file_if_changed(os.path.join(include_path, "VersionInfo.h"), contents)
     
     # Also construct the module map and write it out if it's changed.
-    output = StringIO()
-    print("module VersionInfo [extern_c] {", file=output)
-    print("    header \"VersionInfo.h\"", file=output)
-    print("}", file=output)
-    write_file_if_changed(os.path.join(include_path, "module.map"),
-                          output.getvalue())
+    contents = """\
+module VersionInfo [extern_c] {
+    header \"VersionInfo.h\"
+}
+"""
+    write_file_if_changed(os.path.join(include_path, "module.map"), contents)
 
 
 def create_bootstrap_files(sandbox_path, args):
@@ -518,8 +529,11 @@ def create_bootstrap_files(sandbox_path, args):
                           output.getvalue())
     
     # Write out the version info header and module map file, if appropriate.
-    if args.version_str:
-        write_bootstrap_version_info(inc_dir, args.version_str)
+    if args.vendor_name or args.build_identifier:
+        if not args.vendor_name or not args.build_identifier:
+            error("--build-identifier is required with --vendor-name")
+        write_bootstrap_version_info(inc_dir, args.vendor_name,
+                                     args.build_identifier)
 
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
@@ -687,13 +701,27 @@ def main():
                         help="Build stage 2 for release")
     parser.add_argument("--generate-xcodeproj", action="store_true",
                         help="Also generate an Xcode project for SwiftPM")
-    parser.add_argument("--version-string", dest="version_str",
-                        help="version string to display for --version")
+    parser.add_argument("--vendor-name", dest="vendor_name",
+                        help="vendor name for use in --version")
+    parser.add_argument("--build-identifier", dest="build_identifier",
+                        help="build identifier for use in --version")
     args = parser.parse_args()
 
     if not args.swiftc_path:
         args.swiftc_path = get_swiftc_path()
 
+    # Absolutize input paths.
+    if args.build_path:
+        args.build_path = os.path.abspath(args.build_path)
+    if args.swiftc_path:
+        args.swiftc_path = os.path.abspath(args.swiftc_path)
+    if args.sbt_path:
+        args.sbt_path = os.path.abspath(args.sbt_path)
+    if args.foundation_path:
+        args.foundation_path = os.path.abspath(args.foundation_path)
+    if args.xctest_path:
+        args.xctest_path = os.path.abspath(args.xctest_path)
+        
     build_actions = set(args.build_actions)
             
     # Validate the build actions.
@@ -775,53 +803,60 @@ def main():
     make_fake_toolchain()
 
     # Build the package manager with itself.
-               
-    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
-    if args.sysroot:
-        env_cmd.append("SYSROOT=" + args.sysroot)
 
-    cmd = [bootstrapped_product]
+    # Compute the build flags, needed for swift-build and swift-test.
+    build_flags = []
+    
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
     if platform.system() == 'Linux':
         embed_rpath = "$ORIGIN/../lib/swift/linux"
     else:
         embed_rpath = "@executable_path/../lib/swift/macosx"
-    cmd.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
+    build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
     if args.verbose:
-        cmd.append("-v")
+        build_flags.append("-v")
 
     # If appropriate, add flags for a custom version string:
-    if args.version_str:
+    if args.vendor_name or args.build_identifier:
         incdir = os.path.join(sandbox_path, "inc")
-        cmd.extend(["-Xswiftc", "-I{}".format(incdir)])
-        cmd.extend(["-Xswiftc", "-DHasCustomVersionString"])
+        build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
+        build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
     
     if args.foundation_path:
         core_foundation_path = os.path.join(
             args.foundation_path, "usr", "lib", "swift")
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
-        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
+        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.foundation_path])
         # Add an RPATH, so that the tests can be run directly.
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.foundation_path])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
-        cmd.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker",
+                            args.foundation_path])
+        build_flags.extend(["-Xswiftc", "-I{}".format(args.foundation_path)])
+        build_flags.extend(["-Xswiftc", "-I{}".format(core_foundation_path)])
 
     if args.xctest_path:
         # Tell the linker where to look for XCTest, but autolinking
         # knows to pass -lXCTest.
-        cmd.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
+        build_flags.extend(["-Xlinker", "-L", "-Xlinker", args.xctest_path])
         # Add an RPATH, so that the tests can be run directly.
-        cmd.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
+        build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", args.xctest_path])
+        build_flags.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
 
     if args.libdispatch_build_dir:
-        cmd.extend(["-Xswiftc", "-I{}".format(os.path.join(args.libdispatch_build_dir,
-                                             "src"))])
-        cmd.extend(["-Xswiftc", "-I{}".format(args.libdispatch_source_dir)])
-        cmd.extend(["-Xcc", "-fblocks"])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            os.path.join(args.libdispatch_build_dir, "src"))])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            os.path.join(args.libdispatch_build_dir, "src", "swift"))])
+        build_flags.extend(["-Xswiftc", "-I{}".format(
+            args.libdispatch_source_dir)])
+        build_flags.extend(["-Xcc", "-fblocks"])
+    
+    env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
+                      "SWIFT_BUILD_PATH=" + build_path]
+    if args.sysroot:
+        env_cmd.append("SYSROOT=" + args.sysroot)
+    cmd = env_cmd + [bootstrapped_product] + build_flags
 
     if args.release:
         cmd.extend(["--configuration", "release"])
@@ -831,8 +866,6 @@ def main():
     # FIXME: Resolve how we are going to deal with @testable and release builds.
     if not args.release:
         cmd.extend(["--build-tests"])
-
-    cmd = env_cmd + cmd
 
     note("building self-hosted 'swift-build': %s" % (
         ' '.join(cmd),))
@@ -848,14 +881,13 @@ def main():
     swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
     swift_test_path = os.path.join(build_path, conf, "swift-test")
-    swiftpm_xctest_helper_path = os.path.join(build_path, conf, "swiftpm-xctest-helper")
+    swiftpm_xctest_helper_path = os.path.join(
+        build_path, conf, "swiftpm-xctest-helper")
 
     # If testing, run each of the test bundles.
     if "test" in build_actions:
         # Construct the test environment.
-        env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                          "SWIFT_BUILD_PATH=" + build_path]
-        cmd = env_cmd + [swift_test_path]
+        cmd = env_cmd + [swift_test_path] + build_flags
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))
@@ -942,34 +974,57 @@ def main():
                 
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
+        # We will use the `swift-package` binary we just built to generate the
+        # Xcode project.
         cmd = [swift_package_path, "generate-xcodeproj"]
+        
+        # If there is a `llvm-profdata` binary next to `swiftc`, we enable code
+        # coverage in the generated project.
+        llvm_profdata_path = os.path.join(os.path.dirname(args.swiftc_path),
+            "llvm-profdata")
+        if os.path.exists(llvm_profdata_path):
+            cmd.append("--enable-code-coverage")
+
+        # If a TOOLCHAINS value is active, embed it in the project.
+        toolchains = os.getenv("TOOLCHAINS")
+        if toolchains is not None:
+            xcconfig_path = os.path.join("SwiftPM.xcodeproj/overrides.xcconfig")
+            cmd += ["--xcconfig-overrides", xcconfig_path]
+            
+        # Call `swift-package` to generate the Xcode project.
+        note("generating Xcode project: %s" % (' '.join(cmd),))
         result = subprocess.call(cmd)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
-        else:
-            # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
-            # add a an option to the `generate-xcodeproj` subcommand to allow
-            # a user to specify env variable/value pairs to generate into the
-            # scheme, but that seems a bit too arbitrary at this point.
-            cmd = ["sed", "-i", "",
-                "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
-                        "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
-                "-e", "s|</TestAction>|"
-                        "<EnvironmentVariables>"
-                          "<EnvironmentVariable"
-                            " key=" + make_xml_string_literal("SWIFT_EXEC") +
-                            " value=" + make_xml_string_literal(args.swiftc_path) +
-                            " isEnabled=\"YES\">"
-                          "</EnvironmentVariable>"
-                        "</EnvironmentVariables>&|",
-                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-            subprocess.call(cmd)
-            # sed(1) doesn't tell us if it can't do the subsitution, so we check
-            cmd = ["fgrep", "-q", "SWIFT_EXEC",
-                "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-            result = subprocess.call(cmd)
-            if result != 0:
-                error("xcscheme modification failed; couldn't set SWIFT_EXEC")
+
+        # Generate the .xcconfig file.
+        if toolchains is not None:
+            with open(xcconfig_path, "w") as f:
+                print("TOOLCHAINS = %s" % (toolchains,), file=f)
+                
+        # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
+        # add an option to the `generate-xcodeproj` subcommand to allow a
+        # user to specify env variable/value pairs to generate into the
+        # scheme, but that seems a bit too arbitrary at this point.
+        cmd = ["sed", "-i", "",
+            "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
+                    "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
+            "-e", "s|</TestAction>|"
+                    "<EnvironmentVariables>"
+                      "<EnvironmentVariable"
+                        " key=" + make_xml_string_literal("SWIFT_EXEC") +
+                        " value=" + make_xml_string_literal(args.swiftc_path) +
+                        " isEnabled=\"YES\">"
+                      "</EnvironmentVariable>"
+                    "</EnvironmentVariables>&|",
+            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+        subprocess.call(cmd)
+        # sed(1) doesn't tell us if it can't do the subsitution, so we check
+        cmd = ["fgrep", "-q", "SWIFT_EXEC",
+            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("xcscheme modification failed; couldn't set SWIFT_EXEC")
 
 if __name__ == '__main__':
     main()

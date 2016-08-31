@@ -10,7 +10,9 @@
 
 import Basic
 import Utility
-import struct PackageDescription.Version
+
+// Re-export Version from PackageModel, since it is a key part of the model.
+@_exported import struct Utility.Version
 
 /// The basic package representation.
 ///
@@ -43,9 +45,14 @@ import struct PackageDescription.Version
 public final class Package {
     /// The manifest describing the package.
     public let manifest: Manifest
+    
+    /// The local path of the package.
+    public let path: AbsolutePath
 
     /// The name of the package.
-    public let name: String
+    public var name: String {
+        return manifest.package.name
+    }        
     
     /// The URL the package was loaded from.
     //
@@ -55,11 +62,6 @@ public final class Package {
     public var url: String {
         return manifest.url
     }
-    
-    /// The local path of the package.
-    public var path: AbsolutePath {
-        return manifest.path.parentDirectory
-    }
 
     /// The version this package was loaded from, if known.
     //
@@ -68,17 +70,31 @@ public final class Package {
         return manifest.version
     }
 
+    /// The modules contained in the package.
+    public let modules: [Module]
+
+    /// The test modules contained in the package.
+    //
+    // FIXME: Should these just be merged with the regular modules?
+    public let testModules: [Module]
+
+    /// The products produced by the package.
+    public let products: [Product]
+
     /// The resolved dependencies of the package.
     ///
     /// This value is only available once package loading is complete.
     public var dependencies: [Package] = []
 
-    public init(manifest: Manifest) {
+    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product]) {
         self.manifest = manifest
-        self.name = manifest.package.name
+        self.path = path
+        self.modules = modules
+        self.testModules = testModules
+        self.products = products
     }
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
         case noManifest(String)
         case noOrigin(String)
     }
@@ -96,4 +112,17 @@ extension Package: Hashable, Equatable {
 
 public func ==(lhs: Package, rhs: Package) -> Bool {
     return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+}
+
+public func ==(lhs: Package.Error, rhs: Package.Error) -> Bool {
+    switch (lhs, rhs) {
+    case let (.noManifest(lhs), .noManifest(rhs)):
+        return lhs == rhs
+    case (.noManifest, _):
+        return false
+    case let (.noOrigin(lhs), .noOrigin(rhs)):
+        return lhs == rhs
+    case (.noOrigin, _):
+        return false
+    }
 }

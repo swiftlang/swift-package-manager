@@ -16,21 +16,21 @@ import Utility
 //FIXME messy :/
 
 extension Command {
-    static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+    static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], linkerExec: AbsolutePath) throws -> Command {
 
         // Get the unique set of all input modules.
         //
         // FIXME: This needs to handle C language targets.
         let buildables = OrderedSet(product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }).contents
         
-        var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: SWIFT_EXEC, conf: conf).objects }
+        var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: linkerExec.asString, conf: conf).objects }
 
         let outpath = prefix.appending(product.outname)
 
         var args: [String]
         switch product.type {
         case .Library(.Dynamic), .Executable, .Test:
-            args = [SWIFT_EXEC] + otherArgs
+            args = [linkerExec.asString] + otherArgs
 
             if conf == .debug {
                 args += ["-g"]
@@ -39,7 +39,7 @@ extension Command {
             args += ["-o", outpath.asString]
 
           #if os(macOS)
-            args += ["-F", try platformFrameworksPath()]
+            args += ["-F", try platformFrameworksPath().asString]
           #endif
 
         case .Library(.Static):
@@ -57,7 +57,7 @@ extension Command {
             objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
           #if os(macOS)
             args += ["-Xlinker", "-bundle"]
-            args += ["-F", try platformFrameworksPath()]
+            args += ["-F", try platformFrameworksPath().asString]
 
             // TODO should be llbuild rules∫
             if conf == .debug {
@@ -98,7 +98,7 @@ extension Command {
         }
 
         let shell = ShellTool(
-            description: "Linking \(outpath.asString.prettyPath)",
+            description: "Linking \(outpath.prettyPath)",
             inputs: objects.map{ $0.asString },
             outputs: [product.targetName, outpath.asString],
             args: args)

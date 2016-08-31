@@ -26,7 +26,7 @@ public enum FileSystemError: Swift.Error {
     /// not be decoded correctly.
     case invalidEncoding
     
-    /// IO Errork encoding
+    /// IO Error encoding
     ///
     /// This is used when an operation cannot be completed due to an otherwise
     /// unspecified IO error.
@@ -55,12 +55,18 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX ENOTDIR error code.
     case notDirectory
+    
+    /// Unsupported operation
+    ///
+    /// This is used when an operation is not supported by the concrete file
+    /// system implementation.
+    case unsupported
 
     /// An unspecific operating system error.
     case unknownOSError
 }
 
-private extension FileSystemError {
+extension FileSystemError {
     init(errno: Int32) {
         switch errno {
         case libc.EACCES:
@@ -93,6 +99,12 @@ public protocol FileSystem {
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool
     
+    /// Check whether the given path is accessible and a file.
+    func isFile(_ path: AbsolutePath) -> Bool
+
+    /// Check whether the given path is accessible and is a symbolic link.
+    func isSymlink(_ path: AbsolutePath) -> Bool
+
     /// Get the contents of the given directory, in an undefined order.
     //
     // FIXME: Actual file system interfaces will allow more efficient access to
@@ -132,16 +144,19 @@ public extension FileSystem {
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
     func exists(_ path: AbsolutePath) -> Bool {
-        return (try? stat(path.asString)) != nil
+        return Basic.exists(path)
     }
     
     func isDirectory(_ path: AbsolutePath) -> Bool {
-        guard let status = try? stat(path.asString) else {
-            return false
-        }
-        // FIXME: We should probably have wrappers or something for this, so it
-        // all comes from the POSIX module.
-        return (status.st_mode & libc.S_IFDIR) != 0
+        return Basic.isDirectory(path)
+    }
+
+    func isFile(_ path: AbsolutePath) -> Bool {
+        return Basic.isFile(path)
+    }
+
+    func isSymlink(_ path: AbsolutePath) -> Bool {
+        return Basic.isSymlink(path)
     }
     
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -219,7 +234,7 @@ private class LocalFileSystem: FileSystem {
         defer { fclose(fp) }
 
         // Read the data one block at a time.
-        let data = OutputByteStream()
+        let data = BufferedOutputByteStream()
         var tmpBuffer = [UInt8](repeating: 0, count: 1 << 12)
         while true {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
@@ -294,7 +309,7 @@ public class InMemoryFileSystem: FileSystem {
         root = Node(.directory(DirectoryContents()))
     }
 
-    /// Get the node corresponding to get given path.
+    /// Get the node corresponding to the given path.
     private func getNode(_ path: AbsolutePath) throws -> Node? {
         func getNodeInternal(_ path: AbsolutePath) throws -> Node? {
             // If this is the root node, return it.
@@ -340,6 +355,23 @@ public class InMemoryFileSystem: FileSystem {
             return false
         }
     }
+
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        do {
+            if case .file? = try getNode(path)?.contents {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    public func isSymlink(_ path: AbsolutePath) -> Bool {
+        // FIXME: Always return false until in memory implementation
+        // gets symbolic link semantics.
+        return false
+    }
     
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
@@ -354,6 +386,10 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
+        // Ignore if client passes root.
+        guard !path.isRoot else {
+            return
+        }
         // Get the parent directory node.
         let parentPath = path.parentDirectory
         guard let parent = try getNode(parentPath) else {
@@ -485,6 +521,14 @@ public struct RerootedFileSystemView: FileSystem {
         return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
     }
     
+    public func isFile(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isFile(formUnderlyingPath(path))
+    }
+
+    public func isSymlink(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try underlyingFileSystem.getDirectoryContents(formUnderlyingPath(path))
     }

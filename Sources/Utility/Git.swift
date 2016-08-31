@@ -14,14 +14,61 @@ import func POSIX.getenv
 import libc
 import class Foundation.ProcessInfo
 
+extension Version {
+    static func vprefix(_ string: String) -> Version? {
+        if string.characters.first == "v" {
+            return Version(string.characters.dropFirst())
+        } else {
+            return nil
+        }
+    }
+}
+
 public class Git {
+    /// Compute the version -> tag mapping from a list of input `tags`.
+    public static func convertTagsToVersionMap(_ tags: [String]) -> [Version: String] {
+        // First, check if we need to restrict the tag set to version-specific tags.
+        var knownVersions: [Version: String] = [:]
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+            for tag in tags where tag.hasSuffix(versionSpecificKey) {
+                let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
+                if let version = Version(specifier) ?? Version.vprefix(specifier) {
+                    knownVersions[version] = tag
+                }
+            }
+
+            // If we found tags at this version-specific key, we are done.
+            if !knownVersions.isEmpty {
+                return knownVersions
+            }
+        }
+            
+        // Otherwise, look for normal tags.
+        for tag in tags {
+            if let version = Version(tag) {
+                knownVersions[version] = tag
+            }
+        }
+
+        // If we didn't find any versions, look for 'v'-prefixed ones.
+        //
+        // FIXME: We should match both styles simultaneously.
+        if knownVersions.isEmpty {
+            for tag in tags {
+                if let version = Version.vprefix(tag) {
+                    knownVersions[version] = tag
+                }
+            }
+        }
+        return knownVersions
+    }
+    
     public class Repo {
         public let path: AbsolutePath
 
         public init?(path: AbsolutePath) {
-            guard let realroot = try? AbsolutePath(realpath(path.asString)) else { return nil }
-            self.path = realroot
-            guard path.appending(".git").asString.isDirectory else { return nil }
+            self.path = resolveSymlinks(path)
+            guard isDirectory(path.appending(component: ".git")) else { return nil }
         }
 
         public lazy var origin: String? = { repo in
@@ -42,6 +89,25 @@ public class Git {
             }
         }(self)
 
+        /// The set of known versions and their tags.
+        public lazy var knownVersions: [Version: String] = { repo in
+            // Get the list of tags.
+            let out = (try? Git.runPopen([Git.tool, "-C", repo.path.asString, "tag", "-l"])) ?? ""
+            let tags = out.characters.split(separator: "\n").map{ String($0) }
+
+            return Git.convertTagsToVersionMap(tags)
+        }(self)
+
+        /// The set of versions in the repository, in order.
+        public lazy var versions: [Version] = { repo in
+            return [Version](repo.knownVersions.keys).sorted()
+        }(self)
+
+        /// Check if repo contains a version tag
+        public var hasVersion: Bool {
+            return !versions.isEmpty
+        }
+        
         public var branch: String! {
             return try? Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
         }
@@ -57,25 +123,8 @@ public class Git {
             return !(changes?.isEmpty ?? true)
         }
 
-        /**
-         - Returns: true if the package versions in this repository
-         are all prefixed with "v", otherwise false. If there are
-         no versions, returns false.
-         */
-        public var versionsArePrefixed: Bool {
-            return (try? Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"]))?.hasPrefix("v") ?? false
-        }
-
         public func fetch() throws {
-            do {
-              #if os(Linux)
-                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo().environment, message: nil)
-              #else
-                try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
-              #endif
-            } catch let errror {
-                try Git.checkGitVersion(errror)
-            }
+            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
         }
     }
 
@@ -100,36 +149,17 @@ public class Git {
         return Int(String(first))
     }
 
-    @noreturn public class func checkGitVersion(_ error: Swift.Error) throws {
-        // Git 2.0 or higher is required
-        if Git.majorVersionNumber < 2 {
-            // FIXME: This does not belong here.
-            print("error: ", Error.obsoleteGitVersion)
-            exit(1)
-        } else {
-            throw error
-        }
-    }
-
     /// Execute a git command while suppressing output.
     //
     // FIXME: Move clients of this to using real structured APIs.
     public class func runCommandQuietly(_ arguments: [String]) throws {
-        do {
-            try system(arguments)
-        } catch let error  {
-            try checkGitVersion(error)
-        }
+        try system(arguments)
     }
 
     /// Execute a git command and capture the output.
     //
     // FIXME: Move clients of this to using real structured APIs.
     public class func runPopen(_ arguments: [String]) throws -> String {
-        do {
-            return try popen(arguments)
-        } catch let error  {
-            try checkGitVersion(error)
-        }
+        return try popen(arguments)
     }
 }

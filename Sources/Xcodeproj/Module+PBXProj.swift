@@ -27,8 +27,6 @@ import Basic
 import PackageModel
 import PackageLoading
 
-import struct Utility.Path
-
 let rootObjectReference =                           "__RootObject_"
 let rootBuildConfigurationListReference =           "___RootConfs_"
 let rootDebugBuildConfigurationReference =          "_______Debug_"
@@ -159,7 +157,16 @@ extension Module  {
 
     var headerSearchPaths: (key: String, value: String)? {
         let headerPathKey = "HEADER_SEARCH_PATHS"
-        let headerPaths = dependencies.filter{$0 is CModule}.map{($0 as! CModule).path}
+        let headerPaths = dependencies.flatMap { module -> AbsolutePath? in
+            switch module {
+            case let cModule as CModule:
+                return cModule.path
+            case let clangModule as ClangModule:
+                return clangModule.includeDir
+            default:
+                return nil
+            }
+        }
 
         guard !headerPaths.isEmpty else { return nil }
 
@@ -174,7 +181,6 @@ extension Module  {
 
     func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
         var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
-        buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
@@ -258,20 +264,21 @@ extension Module  {
         }
 
         // Add framework search path to build settings.
-        buildSettings["FRAMEWORK_SEARCH_PATHS"] = Path.join("$(PLATFORM_DIR)", "Developer/Library/Frameworks")
+        buildSettings["FRAMEWORK_SEARCH_PATHS"] = "$(PLATFORM_DIR)/Developer/Library/Frameworks"
 
         // Generate modulemap for a ClangModule if not provided by user and add to build settings.
         if case let clangModule as ClangModule = self, clangModule.type == .library {
             buildSettings["DEFINES_MODULE"] = "YES"
             let moduleMapPath: AbsolutePath
             // If user provided the modulemap no need to generate.
-            if clangModule.moduleMapPath.asString.isFile {
+            if isFile(clangModule.moduleMapPath) {
                 moduleMapPath = clangModule.moduleMapPath
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeProjectPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
-                try clangModule.generateModuleMap(inDir: path, modulemapStyle: .framework)
-                moduleMapPath = path.appending(component: CModule.moduleMapFilename)
+                var moduleMapGenerator = ModuleMapGenerator(for: clangModule)
+                try moduleMapGenerator.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                moduleMapPath = path.appending(component: moduleMapFilename)
             }
 
             buildSettings["MODULEMAP_FILE"] = moduleMapPath.relative(to: xcodeProjectPath.parentDirectory).asString
@@ -280,6 +287,9 @@ extension Module  {
         // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
         buildSettings["SWIFT_VERSION"] = "3.0"
         
+        // Defined for regular `swift build` instantiations, so also should be defined here.
+        buildSettings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = "SWIFT_PACKAGE"
+
         return buildSettings
     }
 }

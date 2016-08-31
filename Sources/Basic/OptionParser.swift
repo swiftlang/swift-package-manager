@@ -47,10 +47,10 @@ public protocol Argument {
      associated value we will throw. If the argument was
      passed `--foo=bar` and you don’t `pop` we also `throw`
     */
-    init?(argument: String, pop: () -> String?) throws
+    init?(argument: String, pop: @escaping () -> String?) throws
 }
 
-public func parseOptions<Mode, Flag where Mode: Argument, Mode: Equatable, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) {
+public func parseOptions<Mode: Argument, Flag: Argument>(arguments: [String]) throws -> (Mode?, [Flag]) where Mode: Equatable {
 
     var mode: Mode!
     var it = arguments.makeIterator()

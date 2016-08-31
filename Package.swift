@@ -43,7 +43,8 @@ let package = Package(
         Target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
-            dependencies: ["POSIX", "Basic"]),
+            dependencies: ["POSIX", "Basic", "PackageDescription"]),
+            // FIXME: We should kill the PackageDescription dependency above.
         Target(
             /** Source control operations */
             name: "SourceControl",
@@ -69,7 +70,7 @@ let package = Package(
         Target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["Basic", "Get", "PackageLoading", "PackageModel"]),
+            dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
         
         // MARK: Package Manager Functionality
         
@@ -83,10 +84,11 @@ let package = Package(
             dependencies: ["Basic", "PackageGraph"]),
 
         // MARK: Commands
+        
         Target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "Get", "PackageGraph", "Xcodeproj"]),
+            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -101,7 +103,43 @@ let package = Package(
             dependencies: ["Commands"]),
         Target(
             /** Shim tool to find test names on OS X */
-            name: "swiftpm-xctest-helper"),
+            name: "swiftpm-xctest-helper",
+            dependencies: []),
+
+        // MARK: Additional Test Dependencies
+
+        Target(
+            /** Test support library */
+            name: "TestSupport",
+            dependencies: ["Basic", "POSIX", "PackageLoading", "Utility"]),
+        
+        Target(
+            name: "BasicTests",
+            dependencies: ["TestSupport"]),
+        Target(
+            name: "BuildTests",
+            dependencies: ["Build", "TestSupport"]),
+        Target(
+            name: "CommandsTests",
+            dependencies: ["Commands", "TestSupport"]),
+        Target(
+            name: "FunctionalTests",
+            dependencies: ["Basic", "Utility", "PackageModel", "TestSupport"]),
+        Target(
+            name: "GetTests",
+            dependencies: ["Get", "TestSupport"]),
+        Target(
+            name: "PackageLoadingTests",
+            dependencies: ["PackageLoading", "TestSupport"]),
+        Target(
+            name: "PackageGraphTests",
+            dependencies: ["PackageGraph", "TestSupport"]),
+        Target(
+            name: "SourceControlTests",
+            dependencies: ["SourceControl", "TestSupport"]),
+        Target(
+            name: "UtilityTests",
+            dependencies: ["Utility", "TestSupport"]),
     ])
 
 

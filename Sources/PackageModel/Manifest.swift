@@ -20,7 +20,10 @@ import PackageDescription
 */
 public struct Manifest {
     /// The standard filename for the manifest.
-    public static var filename = "Package.swift"
+    public static var filename = basename + ".swift"
+
+    /// The standard basename for the manifest.
+    public static var basename = "Package"
 
     /// The path of the manifest file.
     //
@@ -43,11 +46,25 @@ public struct Manifest {
     /// The version this package was loaded from, if known.
     public let version: Version?
 
+    /// The name of the package.
+    public var name: String {
+        return package.name
+    }
+
     public init(path: AbsolutePath, url: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
         self.path = path
         self.url = url
         self.package = package
         self.products = products
         self.version = version
+    }
+}
+
+extension Manifest {
+    /// Returns JSON representation of this manifest.
+    // Note: Right now we just return the JSON representation of the package,
+    // but this can be expanded to include the details about manifest too.
+    public func jsonString() -> String {
+        return PackageDescription.jsonString(package: package)
     }
 }

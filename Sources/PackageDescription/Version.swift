@@ -41,6 +41,25 @@ public func ==(v1: Version, v2: Version) -> Bool {
     return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
 }
 
+// MARK: Hashable
+
+extension Version: Hashable {
+    public var hashValue: Int {
+        // FIXME: We need Swift hashing utilities; this is based on CityHash
+        // inspired code inside the Swift stdlib.
+        let mul: UInt64 = 0x9ddfea08eb382d69
+        var result: UInt64 = 0
+        result = (result &* mul) ^ UInt64(major.hashValue)
+        result = (result &* mul) ^ UInt64(minor.hashValue)
+        result = (result &* mul) ^ UInt64(patch.hashValue)
+        result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64($1.hashValue) })
+        if let build = buildMetadataIdentifier {
+            result = (result &* mul) ^ UInt64(build.hashValue)
+        }
+        return Int(truncatingBitPattern: result)
+    }
+}
+
 // MARK: Comparable
 
 extension Version: Comparable {}

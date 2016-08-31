@@ -14,16 +14,9 @@ import Get
 import PackageLoading
 import PackageModel
 import Utility
-import Xcodeproj
-
-#if HasCustomVersionString
-import VersionInfo
-#endif
 
 import enum Build.Configuration
-import enum Utility.ColorWrap
 import protocol Build.Toolchain
-import struct PackageDescription.Version
 
 import func POSIX.chdir
 
@@ -33,7 +26,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case version
 
-    init?(argument: String, pop: () -> String?) throws {
+    init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())
@@ -63,14 +56,13 @@ private enum BuildToolFlag: Argument {
     case xld(String)
     case xswiftc(String)
     case buildPath(AbsolutePath)
+    case enableNewResolver
     case buildTests
     case chdir(AbsolutePath)
     case colorMode(ColorWrap.Mode)
-    case ignoreDependencies
     case verbose(Int)
 
-    init?(argument: String, pop: () -> String?) throws {
-
+    init?(argument: String, pop: @escaping () -> String?) throws {
         func forcePop() throws -> String {
             guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
             return value
@@ -78,7 +70,7 @@ private enum BuildToolFlag: Argument {
         
         switch argument {
         case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop().abspath))
+            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         case "--verbose", "-v":
             self = .verbose(1)
         case "-Xcc":
@@ -88,7 +80,9 @@ private enum BuildToolFlag: Argument {
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
         case "--build-path":
-            self = try .buildPath(AbsolutePath(forcePop().abspath))
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
         case "--build-tests":
             self = .buildTests
         case "--color":
@@ -97,8 +91,6 @@ private enum BuildToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         default:
             return nil
         }
@@ -110,7 +102,6 @@ private class BuildToolOptions: Options {
     var flags = BuildFlags()
     var buildTests: Bool = false
     var colorMode: ColorWrap.Mode = .Auto
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
@@ -137,27 +128,23 @@ public struct SwiftBuildTool: SwiftTool {
                 usage()
         
             case .version:
-                #if HasCustomVersionString
-                    print(String(cString: VersionInfo.DisplayString()))
-                #else
-                    print("Swift Package Manager – Swift 3.0")
-                #endif
+                print(Versioning.currentVersion.completeDisplayString)
                 
             case .build(let conf, let toolchain):
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root, opts)
                 let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
                 try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
         
             case .clean(.dist):
-                if opts.path.packages.asString.exists {
-                    try Utility.removeFileTree(opts.path.packages.asString)
+                if exists(opts.path.packages) {
+                    try removeFileTree(opts.path.packages)
                 }
                 fallthrough
         
             case .clean(.build):
                 // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-                if opts.path.build.asString.exists {
-                    try Utility.removeFileTree(opts.path.build.asString)
+                if exists(opts.path.build) {
+                    try removeFileTree(opts.path.build)
                 }
             }
         
@@ -173,13 +160,13 @@ public struct SwiftBuildTool: SwiftTool {
         print("USAGE: swift build [mode] [options]")
         print("")
         print("MODES:")
-        print("  -c, --configuration <value>   Build with configuration (debug|release)")
-        print("  --clean <mode>                Delete artifacts (build|dist)")
+        print("  -c, --configuration <value>   Build with configuration (debug|release) [default: debug]")
+        print("  --clean [<mode>]              Delete artifacts (build|dist) [default: build]")
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>       Change working directory before any other operation")
-        print("  --build-path <path>      Specify build directory")
-        print("  --color <mode>           Specify color mode (auto|always|never)")
+        print("  --build-path <path>      Specify build/cache directory [default: ./.build]")
+        print("  --color <mode>           Specify color mode (auto|always|never) [default: auto]")
         print("  -v, --verbose            Increase verbosity of informational output")
         print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
         print("  -Xlinker <flag>          Pass flag through to all linker invocations")
@@ -206,12 +193,12 @@ public struct SwiftBuildTool: SwiftTool {
                 opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
                 opts.path.build = path
+            case .enableNewResolver:
+                opts.enableNewResolver = true
             case .buildTests:
                 opts.buildTests = true
             case .colorMode(let mode):
                 opts.colorMode = mode
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
     
@@ -220,7 +207,7 @@ public struct SwiftBuildTool: SwiftTool {
 }
 
 extension Build.Configuration {
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case "debug"?:
             self = .debug
@@ -237,7 +224,7 @@ extension Build.Configuration {
 enum CleanMode: CustomStringConvertible {
     case build, dist
 
-    private init(_ rawValue: String?) throws {
+    fileprivate init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
             self = .build

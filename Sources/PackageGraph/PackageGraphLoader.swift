@@ -9,7 +9,6 @@
  */
 
 import Basic
-import Get
 import PackageModel
 import PackageLoading
 
@@ -17,7 +16,11 @@ import PackageLoading
 import func POSIX.exit
 
 enum PackageGraphError: Swift.Error {
+    /// Indicates two modules with the same name.
     case duplicateModule(String)
+
+    /// Indicates a non-root package with no modules.
+    case noModules(Package)
 }
 
 extension PackageGraphError: FixableError {
@@ -25,6 +28,8 @@ extension PackageGraphError: FixableError {
         switch self {
         case .duplicateModule(let name):
             return "multiple modules with the name \(name) found"
+        case .noModules(let package):
+            return "the package \(package) contains no modules"
         }
     }
 
@@ -32,64 +37,57 @@ extension PackageGraphError: FixableError {
         switch self {
         case .duplicateModule(_):
             return "modules should have a unique name across dependencies"
+        case .noModules(_):
+            return "create at least one module"
         }
     }
 }
 
 /// A helper class for loading a package graph.
 public struct PackageGraphLoader {
-    /// The manifest loader.
-    public let manifestLoader: ManifestLoader
-    
     /// Create a package loader.
-    public init(manifestLoader: ManifestLoader) {
-        self.manifestLoader = manifestLoader
-    }
+    public init() { }
 
     /// Load the package graph for the given package path.
-    ///
-    /// - Parameters:
-    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
-    public func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
-        // Create the packages directory container.
-        let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
-
-        // Fetch and load the manifests.
-        let (rootManifest, externalManifests) = try packagesDirectory.loadManifests(ignoreDependencies: ignoreDependencies)
+    public func load(rootManifest: Manifest, externalManifests: [Manifest]) throws -> PackageGraph {
         let allManifests = externalManifests + [rootManifest]
 
         // Create the packages and convert to modules.
-        //
-        // FIXME: This needs to be torn about, the module conversion should be
-        // done on an individual package basis.
         var packages: [Package] = []
-        var products: [Product] = []
         var map: [Package: [Module]] = [:]
         for (i, manifest) in allManifests.enumerated() {
-            let package = Package(manifest: manifest)
             let isRootPackage = (i + 1) == allManifests.count
-            packages.append(package)
 
-            var modules: [Module]
-            do {
-                modules = try package.modules()
-            } catch ModuleError.noModules(let pkg) where isRootPackage {
-                // Ignore and print warning if root package doesn't contain any sources.
-                print("warning: root package '\(pkg)' does not contain any sources")
-                if allManifests.count == 1 { exit(0) } //Exit now if there is no more packages 
-                modules = []
+            // Derive the path to the package.
+            //
+            // FIXME: Lift this out of the manifest.
+            let packagePath = manifest.path.parentDirectory
+
+            // Create a package from the manifest and sources.
+            //
+            // FIXME: We should always load the tests, but just change which
+            // tests we build based on higher-level logic. This would make it
+            // easier to allow testing of external package tests.
+            let builder = PackageBuilder(manifest: manifest, path: packagePath)
+            let package = try builder.construct(includingTestModules: isRootPackage)
+            packages.append(package)
+            
+            map[package] = package.modules + package.testModules
+
+            // Diagnose empty non-root packages, which are something we allow as a special case.
+            if package.modules.isEmpty {
+                if isRootPackage {
+                    // Ignore and print warning if root package doesn't contain any sources.
+                    print("warning: root package '\(package)' does not contain any sources")
+                    
+                    // Exit now if there are no more packages.
+                    //
+                    // FIXME: This does not belong here.
+                    if allManifests.count == 1 { exit(0) }
+                } else {
+                    throw PackageGraphError.noModules(package)
+                }
             }
-    
-            // TODO: Allow testing of external package tests.
-            var testModules: [Module]
-            if isRootPackage {
-                testModules = try package.testModules(modules: modules)
-            } else {
-                testModules = []
-            }
-    
-            products += try package.products(modules, testModules: testModules)
-            map[package] = modules + testModules
         }
 
         // Load all of the package dependencies.
@@ -101,7 +99,7 @@ public struct PackageGraphLoader {
         }
     
         // Connect up cross-package module dependencies.
-        fillModuleGraph(packages, modulesForPackage: { map[$0]! })
+        fillModuleGraph(packages)
     
         let rootPackage = packages.last!
         let externalPackages = packages.dropLast(1)
@@ -109,7 +107,7 @@ public struct PackageGraphLoader {
         let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
-        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules), products: products)
+        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules))
     }
 }
 
@@ -118,16 +116,18 @@ public struct PackageGraphLoader {
 /// This function will add cross-package dependencies between a module and all
 /// of the modules produced by any package in the transitive closure of its
 /// containing package's dependencies.
-private func fillModuleGraph(_ packages: [Package], modulesForPackage: (Package) -> [Module]) {
+private func fillModuleGraph(_ packages: [Package]) {
     for package in packages {
-        let packageModules = modulesForPackage(package)
+        let packageModules = package.modules + package.testModules
         let dependencies = try! topologicalSort(package.dependencies, successors: { $0.dependencies })
         for dep in dependencies {
-            let depModules = modulesForPackage(dep).filter{
+            let depModules = dep.modules.filter {
                 guard !$0.isTest else { return false }
 
                 switch $0 {
                 case let module as SwiftModule where module.type == .library:
+                    return true
+                case let module as ClangModule where module.type == .library:
                     return true
                 case is CModule:
                     return true
