@@ -554,6 +554,16 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testLooseSourceFileInTestsDir() throws {
+        // Loose source file in Tests/
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Tests/source.swift")
+        PackageBuilderTester("LooseSourceFileInTestsDir", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Tests/source.swift fix: move the file(s) inside a module")
+        }
+    }
+    
     func testManifestTargetDeclErrors() throws {
         // Reference a target which doesn't exist.
         var fs = InMemoryFileSystem(emptyFiles:
@@ -857,6 +867,7 @@ class ConventionTests: XCTestCase {
         ("testCustomTargetDependencies", testCustomTargetDependencies),
         ("testTestTargetDependencies", testTestTargetDependencies),
         ("testInvalidTestTargets", testInvalidTestTargets),
+        ("testLooseSourceFileInTestsDir", testLooseSourceFileInTestsDir),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),

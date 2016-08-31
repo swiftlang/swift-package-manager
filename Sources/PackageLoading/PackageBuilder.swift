@@ -558,8 +558,19 @@ public struct PackageBuilder {
             return []
         }
 
+        // Get the contents of the Tests directory.
+        let testsDirContents = try directoryContents(testsPath)
+        
+        // Check that the Tests directory doesn't contain any loose source files.
+        // FIXME: Right now we just check for source files.  We need to decide whether we should check for other kinds of files too.
+        // FIXME: We should factor out the checking for the `LinuxMain.swift` source file.  So ugly...
+        let looseSourceFiles = testsDirContents.filter(isValidSource).filter({ $0.basename.lowercased() != "linuxmain.swift" })
+        guard looseSourceFiles.isEmpty else {
+            throw ModuleError.invalidLayout(.unexpectedSourceFiles(looseSourceFiles.map{ $0.asString }))
+        }
+        
         // Create the test modules
-        return try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
+        return try testsDirContents.filter(shouldConsiderDirectory).flatMap { dir in
             return [try createModule(dir, name: dir.basename, isTest: true)]
         }
     }
