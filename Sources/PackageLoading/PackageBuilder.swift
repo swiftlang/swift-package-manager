@@ -26,7 +26,7 @@ public enum ModuleError: Swift.Error {
         /// Describes a way in which a package layout is invalid.
         public enum InvalidLayoutType {
             case multipleSourceRoots([String])
-            case invalidLayout([String])
+            case unexpectedSourceFiles([String])
         }
     
     /// A module was marked as being dependent on an executable.
@@ -62,7 +62,7 @@ extension ModuleError.InvalidLayoutType: FixableError {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
-        case .invalidLayout(let paths):
+        case .unexpectedSourceFiles(let paths):
             return "unexpected source file(s) found: " + paths.sorted().joined(separator: ", ")
         }
     }
@@ -71,7 +71,7 @@ extension ModuleError.InvalidLayoutType: FixableError {
         switch self {
         case .multipleSourceRoots(_):
             return "remove the extra source roots, or add them to the source root exclude list"
-        case .invalidLayout(_):
+        case .unexpectedSourceFiles(_):
             return "move the file(s) inside a module"
         }
     }
@@ -354,7 +354,7 @@ public struct PackageBuilder {
         if srcDir != packagePath {
             let invalidRootFiles = try directoryContents(packagePath).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
-                throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
+                throw ModuleError.invalidLayout(.unexpectedSourceFiles(invalidRootFiles.map{ $0.asString }))
             }
         }
         
@@ -365,7 +365,7 @@ public struct PackageBuilder {
         if potentialModulePaths.count == 1 && potentialModulePaths[0] != srcDir {
             let invalidModuleFiles = try directoryContents(srcDir).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
-                throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
+                throw ModuleError.invalidLayout(.unexpectedSourceFiles(invalidModuleFiles.map{ $0.asString }))
             }
         }
         
