@@ -31,6 +31,9 @@ public enum ModuleError: Swift.Error {
     
     /// A module was marked as being dependent on an executable.
     case executableAsDependency(module: String, dependency: String)
+
+    /// The manifest has invalid configuration wrt type of the module.
+    case invalidManifestConfig(String, String)
 }
 
 extension ModuleError: FixableError {
@@ -42,6 +45,8 @@ extension ModuleError: FixableError {
             return "the package has an unsupported layout, \(type.error)"
         case .executableAsDependency(let module, let dependency):
             return "the target \(module) cannot have the executable \(dependency) as a dependency"
+        case .invalidManifestConfig(let package, let message):
+            return "invalid configuration in '\(package)': \(message)"
         }
     }
 
@@ -53,6 +58,8 @@ extension ModuleError: FixableError {
             return type.fix
         case .executableAsDependency(_):
             return "move the shared logic inside a library, which can be referenced from both the target and the executable"
+        case .invalidManifestConfig(_):
+            return nil
         }
     }
 }
@@ -336,6 +343,15 @@ public struct PackageBuilder {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+        }
+
+        // At this point the module can't be a system module, make sure manifest doesn't contain
+        // system module specific configuration.
+        guard manifest.package.pkgConfig == nil else {
+            throw ModuleError.invalidManifestConfig(manifest.name, "pkgConfig should only be used with a System Module Package")
+        }
+        guard manifest.package.providers == nil else {
+            throw ModuleError.invalidManifestConfig(manifest.name, "providers should only be used with a System Module Package")
         }
 
         // If everything is excluded, just return an empty array.
