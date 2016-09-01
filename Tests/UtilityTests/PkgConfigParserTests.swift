@@ -63,9 +63,18 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
     
+    /// Test custom search path get higher priority for locating pc files.
+    func testCustomPcFileSearchPath() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/usr/lib/pkgconfig/foo.pc",
+            "/custom/foo.pc")
+        XCTAssertEqual("/custom/foo.pc", try PkgConfig.locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs).asString)
+        XCTAssertEqual("/usr/lib/pkgconfig/foo.pc", try PkgConfig.locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs).asString)
+    }
+
     private func loadPCFile(_ inputName: String, body: (PkgConfigParser?) -> Void) {
         let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
-        var parser: PkgConfigParser? = PkgConfigParser(pcFile: input)
+        var parser: PkgConfigParser? = PkgConfigParser(pcFile: input, fileSystem: localFileSystem)
         do {
             try parser?.parse()
         } catch {
@@ -80,5 +89,6 @@ final class PkgConfigParserTests: XCTestCase {
         ("testVariableinDependency", testVariableinDependency),
         ("testUnresolvablePCFile", testUnresolvablePCFile),
         ("testEscapedSpaces", testEscapedSpaces),
+        ("testCustomPcFileSearchPath", testCustomPcFileSearchPath),
     ]
 }
