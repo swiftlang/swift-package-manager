@@ -122,6 +122,16 @@ class ClangModulesTestCase: XCTestCase {
         }
     }
 
+    func testCanUseBlocksInClangTargets() {
+        fixture(name: "ClangModules/CBlocks") { prefix in
+            XCTAssertBuilds(prefix)
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "swiftexec"))
+            let output = try popen([debugPath.appending(component: "swiftexec").asString])
+            XCTAssertEqual(output, "11\n2\n")
+        }
+    }
+
     static var allTests = [
         ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
         ("testSingleModuleCLibraryInSources", testSingleModuleCLibraryInSources),
@@ -133,5 +143,6 @@ class ClangModulesTestCase: XCTestCase {
         ("testCExecutable", testCExecutable),
         ("testModuleMapGenerationCases", testModuleMapGenerationCases),
         ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+        ("testCanUseBlocksInClangTargets", testCanUseBlocksInClangTargets),
     ]
 }
