@@ -840,6 +840,26 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testInvalidManifestConfigForNonSystemModules() {
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift"
+        )
+        var package = PackageDescription.Package(name: "pkg", pkgConfig: "foo")
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("invalid configuration in 'pkg': pkgConfig should only be used with a System Module Package")
+        }
+
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/main.c"
+        )
+        package = PackageDescription.Package(name: "pkg", providers: [.Brew("foo")])
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")
+        }
+    }
+
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
@@ -873,6 +893,7 @@ class ConventionTests: XCTestCase {
         ("testBadProducts", testBadProducts),
         ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
+        ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
     ]
 }
 
