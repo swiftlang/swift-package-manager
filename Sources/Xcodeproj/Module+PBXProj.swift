@@ -301,7 +301,7 @@ extension Module  {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeProjectPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
                 var moduleMapGenerator = ModuleMapGenerator(for: clangModule)
-                try moduleMapGenerator.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                try moduleMapGenerator.generateModuleMap(inDir: path)
                 moduleMapPath = path.appending(component: moduleMapFilename)
             }
 
