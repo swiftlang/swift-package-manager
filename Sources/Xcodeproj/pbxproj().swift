@@ -179,7 +179,14 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         print("        \(module.targetReference) = {")
         print("            isa = PBXNativeTarget;")
         print("            buildConfigurationList = \(module.configurationListReference);")
-        print("            buildPhases = (\(module.compilePhaseReference), \(module.linkPhaseReference));")
+
+        print("            buildPhases = (")
+        // Add a shell script phase for clang module libraries for SR-2465.
+        if module.isClangModuleLibrary {
+            print("\(module.shellScriptPhaseReference), ")
+        }
+        print("\(module.compilePhaseReference), \(module.linkPhaseReference));")
+
         print("            buildRules = ();")
         print("            dependencies = (\(module.nativeTargetDependencies));")
         print("            name = '\(module.name)';")
@@ -195,6 +202,16 @@ public func pbxproj(srcroot: AbsolutePath, projectRoot: AbsolutePath, xcodeprojP
         print("            path = '\(module.productPath.asString)';")
         print("            sourceTree = BUILT_PRODUCTS_DIR;")
         print("        };")
+
+        // shell script build phase.
+        if module.isClangModuleLibrary {
+            print("        \(module.shellScriptPhaseReference) = {")
+            print("            isa = PBXShellScriptBuildPhase;")
+            print("            shellPath = /bin/sh;")
+            print("            shellScript = \"mkdir -p \\\"$PROJECT_TEMP_DIR/SymlinkLibs\\\"\nln -sf \\\"$BUILT_PRODUCTS_DIR/$EXECUTABLE_PATH\\\" \\\"$PROJECT_TEMP_DIR/SymlinkLibs/lib$EXECUTABLE_NAME.dylib\\\"\";")
+            print("            runOnlyForDeploymentPostprocessing = 0;")
+            print("        };")
+        }
 
         // sources build phase
         print("        \(module.compilePhaseReference) = {")
@@ -474,6 +491,14 @@ private extension SupportedLanguageExtension {
 }
 
 private extension Module {
+
+    var isClangModuleLibrary: Bool {
+        if case let clangModule as ClangModule = self, clangModule.type == .library {
+            return true
+        }
+        return false
+    }
+
     func fileType(forSource source: RelativePath) -> String {
         switch self {
         case is SwiftModule:

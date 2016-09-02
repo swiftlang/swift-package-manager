@@ -52,6 +52,7 @@ extension Module {
     var releaseConfigurationReference: String { return "_ReleaseConf_\(c99name)" }
     var compilePhaseReference: String         { return "CompilePhase_\(c99name)" }
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
+    var shellScriptPhaseReference: String     { return "_ScriptPhase_\(c99name)" }
 }
 
 func fileRef(forLinkPhaseChild module: Module, from: Module) -> String {
@@ -217,6 +218,12 @@ extension Module  {
     private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: Any] {
         var buildSettings = [String: Any]()
         let plistPath = xcodeProjectPath.appending(component: infoPlistFileName)
+
+        // Add default library search path to the directory where symlinks to framework
+        // binaries will be put with name `lib<library-name>.dylib` so that autolinking
+        // can proceed without providing another modulemap for Xcode projects.
+        // See: https://bugs.swift.org/browse/SR-2465
+        buildSettings["LIBRARY_SEARCH_PATHS"] = ["$(PROJECT_TEMP_DIR)/SymlinkLibs/"]
 
         if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
