@@ -208,6 +208,10 @@ func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
 }
 
 /// A container for constraints for a set of packages.
+///
+/// This data structure is only designed to represent satisfiable constraint
+/// sets, it cannot represent sets including containers which have an empty
+/// constraint.
 //
 // FIXME: Maybe each package should just return this, instead of a list of
 // `PackageContainerConstraint`s. That won't work if we decide this should
@@ -229,7 +233,10 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     }
 
     /// Create an constraint set from known values.
+    ///
+    /// The initial constraints should never be unsatisfiable.
     init(_ constraints: [Identifier: VersionSetSpecifier]) {
+        assert(constraints.values.filter({ $0 == .empty }).isEmpty)
         self.constraints = constraints
     }
 
@@ -243,41 +250,45 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         return constraints[identifier] ?? .any
     }
 
-    /// Merge the given version requirement for the container `identifier`.
+    /// Create a constraint set by merging the `versionRequirement` for container `identifier`.
     ///
-    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
-    /// when the resulting set is satisfiable, if it was already so.
-    private mutating func merge(versionRequirement: VersionSetSpecifier, for identifier: Identifier) -> Bool {
-        let intersection: VersionSetSpecifier
-        if let existing = constraints[identifier] {
-            intersection = existing.intersection(versionRequirement)
-        } else {
-            intersection = versionRequirement
+    /// - Returns: The new set, or nil the resulting set is unsatisfiable.
+    private func merging(
+        versionRequirement: VersionSetSpecifier, for identifier: Identifier
+    ) -> PackageContainerConstraintSet<C>?
+    {
+        let intersection = self[identifier].intersection(versionRequirement)
+        if intersection == .empty {
+            return nil
         }
-        constraints[identifier] = intersection
-        return intersection != .empty
+        var result = self
+        result.constraints[identifier] = intersection
+        return result
     }
 
-    /// Merge the given `constraint`.
+    /// Create a constraint set by merging `constraint`.
+    ///
+    /// - Returns: The new set, or nil the resulting set is unsatisfiable.
+    func merging(_ constraint: PackageContainerConstraint<Identifier>) -> PackageContainerConstraintSet<C>? {
+        return merging(versionRequirement: constraint.versionRequirement, for: constraint.identifier)
+    }
+
+    /// Create a new constraint set by merging the given constraint set.
     ///
     /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
     /// when the resulting set is satisfiable, if it was already so.
-    mutating func merge(_ constraint: PackageContainerConstraint<Identifier>) -> Bool {
-        return merge(versionRequirement: constraint.versionRequirement, for: constraint.identifier)
-    }
-
-    /// Merge the given constraint set.
-    ///
-    /// - Returns: False if the merger has made the set unsatisfiable; i.e. true
-    /// when the resulting set is satisfiable, if it was already so.
-    mutating func merge(_ constraints: PackageContainerConstraintSet<Container>) -> Bool {
-        var satisfiable = true
+    func merging(
+        _ constraints: PackageContainerConstraintSet<Container>
+    ) -> PackageContainerConstraintSet<C>?
+    {
+        var result = self
         for (key, versionRequirement) in constraints {
-            if !merge(versionRequirement: versionRequirement, for: key) {
-                satisfiable = false
+            guard let merged = result.merging(versionRequirement: versionRequirement, for: key) else {
+                return nil
             }
+            result = merged
         }
-        return satisfiable
+        return result
     }
 
     // MARK: Collection Conformance
@@ -343,41 +354,36 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
         }
     }
 
-    /// Merge in the bindings from the given `assignment`.
+    /// Create a new assignment set by merging in the bindings from `assignment`.
     ///
-    /// - Returns: False if the merge cannot be made (the assignments contain
-    /// incompatible versions).
-    mutating func merge(_ assignment: VersionAssignmentSet<Container>) -> Bool {
+    /// - Returns: The new assignment, or nil if the merge cannot be made (the
+    /// assignments contain incompatible versions).
+    func merging(_ assignment: VersionAssignmentSet<Container>) -> VersionAssignmentSet<Container>? {
         // In order to protect the assignment set, we first have to test whether
         // the merged constraint sets are satisfiable.
-        //
-        // FIXME: Move to non-mutating methods with results, in order to have a
-        // nice consistent API with `PackageContainerConstraintSet.merge`.
         //
         // FIXME: This is very inefficient; we should decide whether it is right
         // to handle it here or force the main resolver loop to handle the
         // discovery of this property.
-        var mergedConstraints = constraints
-        guard mergedConstraints.merge(assignment.constraints) else {
-            return false
+        guard let _ = constraints.merging(assignment.constraints) else {
+            return nil
         }
 
         // The induced constraints are satisfiable, so we *can* union the
         // assignments without breaking our internal invariant on
         // satisfiability.
+        var result = self
         for (container, binding) in assignment {
-            if let existing = self[container] {
+            if let existing = result[container] {
                 if existing != binding {
-                    // NOTE: We are returning here with the data structure
-                    // partially updated, which feels wrong. See FIXME above.
-                    return false
+                    return nil
                 }
             } else {
-                self[container] = binding
+                result[container] = binding
             }
         }
 
-        return true
+        return result
     }
 
     /// The combined version constraints induced by the assignment.
@@ -407,8 +413,10 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
                 // FIXME: Error handling, except that we probably shouldn't have
                 // needed to refetch the dependencies at this point.
                 for constraint in try! container.getDependencies(at: version) {
-                    let satisfiable = result.merge(constraint)
-                    assert(satisfiable)
+                    guard let merged = result.merging(constraint) else {
+                        preconditionFailure("unsatisfiable constraint set")
+                    }
+                    result = merged
                 }
             }
         }
@@ -661,9 +669,10 @@ public class DependencyResolver<
         // FIXME: We should have a test for this, probably by adding some kind
         // of statistics on the number of backtracks.
         for constraint in constraints {
-            if !allConstraints.merge(constraint) {
+            guard let merged = allConstraints.merging(constraint) else {
                 return nil
             }
+            allConstraints = merged
         }
 
         for constraint in constraints {
@@ -685,12 +694,9 @@ public class DependencyResolver<
                 throw DependencyResolverError.unimplemented
             }
 
-            // We found a valid assignment, attempt to merge it with the current solution.
-            //
-            // FIXME: It is rather important, subtle, and confusing that this
-            // `merge` doesn't mutate the assignment but the one on the
-            // constraint set does. We should probably make them consistent.
-            guard assignment.merge(subtreeAssignment) else {
+            // We found a valid subtree assignment, attempt to merge it with the
+            // current solution.
+            guard let newAssignment = assignment.merging(subtreeAssignment) else {
                 // The assignment couldn't be merged with the current
                 // assignment, or the constraint sets couldn't be merged.
                 //
@@ -701,13 +707,16 @@ public class DependencyResolver<
                 throw DependencyResolverError.unimplemented
             }
 
-            // Merge the working constraint set.
+            // Update the working assignment and constraint set.
             //
             // This should always be feasible, because all prior constraints
             // were part of the input constraint request (see comment around
             // initial `merge` outside the loop).
-            let mergable = allConstraints.merge(subtreeAssignment.constraints)
-            precondition(mergable)
+            assignment = newAssignment
+            guard let merged = allConstraints.merging(subtreeAssignment.constraints) else {
+                preconditionFailure("unsatisfiable constraints while merging subtree")
+            }
+            allConstraints = merged
         }
 
         return assignment
