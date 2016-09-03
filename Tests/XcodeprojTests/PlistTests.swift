@@ -15,6 +15,10 @@ class PlistTests: XCTestCase {
     func testBasics() {
         XCTAssertEqual("\"hello \\\" world\"", Plist.string("hello \" world").serialize())
         XCTAssertEqual("(\"hello world\", \"cool\")", Plist.array([.string("hello world"), .string("cool")]).serialize())
-        XCTAssertEqual("{ user = \"cool\" ;  polo = (\"hello \\\" world\", \"cool\") ; };", Plist.dictionary(["user": .string("cool"), "polo": Plist.array([.string("hello \" world"), .string("cool")])]).serialize())
+        XCTAssertEqual("{ polo = (\"hello \\\" world\", \"cool\") ;  user = \"cool\" ; };", Plist.dictionary(["user": .string("cool"), "polo": Plist.array([.string("hello \" world"), .string("cool")])]).serialize())
     }
+
+    static var allTests = [
+        ("testBasics", testBasics),
+    ]
 }
