@@ -402,7 +402,7 @@ where C.Identifier == String
 {
     var actual = [String: VersionSetSpecifier]()
     for identifier in constraints.containerIdentifiers {
-        actual[identifier] = constraints[identifier]!
+        actual[identifier] = constraints[identifier]
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
 }

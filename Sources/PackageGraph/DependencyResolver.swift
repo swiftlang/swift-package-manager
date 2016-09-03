@@ -238,9 +238,9 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         return AnySequence<C.Identifier>(constraints.keys)
     }
 
-    /// Get the version set associated with the given package `identifier`.
-    subscript(identifier: Identifier) -> VersionSetSpecifier? {
-        return constraints[identifier]
+    /// Get the version set specifier associated with the given package `identifier`.
+    subscript(identifier: Identifier) -> VersionSetSpecifier {
+        return constraints[identifier] ?? .any
     }
 
     /// Merge the given version requirement for the container `identifier`.
@@ -424,15 +424,11 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
             // A package can be excluded if there are no constraints on the
             // package (it has not been requested by any other package in the
             // assignment).
-            return constraints[container.identifier] == nil
+            return constraints[container.identifier] == .any
 
         case .version(let version):
-            // A version is valid if it is contained in the constraints, or there are no constraints.
-            if let versionSet = constraints[container.identifier] {
-                return versionSet.contains(version)
-            } else {
-                return true
-            }
+            // A version is valid if it is contained in the constraints.
+            return constraints[container.identifier].contains(version)
         }
     }
 
@@ -604,7 +600,7 @@ public class DependencyResolver<
         excluding allExclusions: [Identifier: Set<Version>]
     ) throws -> AssignmentSet? {
         func validVersions(_ container: Container) -> AnyIterator<Version> {
-            let constraints = allConstraints[container.identifier] ?? .any
+            let constraints = allConstraints[container.identifier]
             let exclusions = allExclusions[container.identifier] ?? Set()
             var it = container.versions.reversed().makeIterator()
             return AnyIterator { () -> Version? in
