@@ -554,6 +554,16 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testLooseSourceFileInTestsDir() throws {
+        // Loose source file in Tests/
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift",
+            "/Tests/source.swift")
+        PackageBuilderTester("LooseSourceFileInTestsDir", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Tests/source.swift fix: move the file(s) inside a module")
+        }
+    }
+    
     func testManifestTargetDeclErrors() throws {
         // Reference a target which doesn't exist.
         var fs = InMemoryFileSystem(emptyFiles:
@@ -830,6 +840,26 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testInvalidManifestConfigForNonSystemModules() {
+        var fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/main.swift"
+        )
+        var package = PackageDescription.Package(name: "pkg", pkgConfig: "foo")
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("invalid configuration in 'pkg': pkgConfig should only be used with a System Module Package")
+        }
+
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/main.c"
+        )
+        package = PackageDescription.Package(name: "pkg", providers: [.Brew("foo")])
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")
+        }
+    }
+
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
@@ -857,11 +887,13 @@ class ConventionTests: XCTestCase {
         ("testCustomTargetDependencies", testCustomTargetDependencies),
         ("testTestTargetDependencies", testTestTargetDependencies),
         ("testInvalidTestTargets", testInvalidTestTargets),
+        ("testLooseSourceFileInTestsDir", testLooseSourceFileInTestsDir),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
         ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
+        ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
     ]
 }
 
