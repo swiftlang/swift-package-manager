@@ -171,14 +171,7 @@ public class OutputByteStream: TextOutputStream {
 
     /// Write a string to the buffer (as UTF8).
     public final func write(_ string: String) {
-        // Fast path for contiguous strings. For some reason Swift itself
-        // doesn't implement this optimization: <rdar://problem/24100375> Missing fast path for [UInt8] += String.UTF8View
-        let stringPtrStart = string._contiguousUTF8
-        if stringPtrStart != nil {
-            write(UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count))
-        } else {
-            write(sequence: string.utf8)
-        }
+        write(sequence: string.utf8)
     }
 
     /// Write a character to the buffer (as UTF8).
