@@ -52,7 +52,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             let env = ProcessInfo.processInfo.environment
             try system(
                 Git.tool, "clone", "--bare", repository.url, path.asString,
-                environment: env, message: "Cloning \(repository.url)")
+                environment: env, message: nil)
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {

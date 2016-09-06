@@ -35,6 +35,13 @@ private class WorkspaceResolverDelegate: DependencyResolverDelegate {
     }
 }
 
+private class WorkspaceCheckoutManagerDelegate: CheckoutManagerDelegate {
+
+    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+        print("Fetch \(handle.repository.url)")
+    }
+}
+
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -175,7 +182,7 @@ public class Workspace {
         self.manifestLoader = manifestLoader
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
-        self.checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider())
+        self.checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceCheckoutManagerDelegate())
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             checkoutManager: checkoutManager, manifestLoader: manifestLoader)
