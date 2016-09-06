@@ -20,6 +20,9 @@ import Utility
 public enum WorkspaceOperationError: Swift.Error {
     /// The requested repository could not be accessed.
     case unavailableRepository
+
+    /// The manifest failed to load unexpectedly.
+    case unexpectedManifestLoadingError(String)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -281,22 +284,15 @@ public class Workspace {
         let rootManifest = try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
 
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
-            return node.item.package.dependencies.flatMap{ dependency in
+        let dependencies = try transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
+            return try node.item.package.dependencies.flatMap{ dependency in
                 // Check if this dependency is available.
                 guard let managedDependency = dependencyMap[RepositorySpecifier(url: dependency.url)] else {
                     return nil
                 }
 
                 // If so, load its manifest.
-                //
-                // This should *never* fail, because we should only have ever
-                // got this checkout via loading its manifest successfully.
-                //
-                // FIXME: Nevertheless, we should handle this failure explicitly.
-                //
-                // FIXME: We should have a cache for this.
-                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
+                let manifest: Manifest = try loadManifest(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }
@@ -415,11 +411,7 @@ public class Workspace {
                 let path = try clone(repository: specifier, at: revision, for: version)
 
                 // Load the manifest for this repository and add it to the result.
-                //
-                // FIXME: We shouldn't need to reload this.
-                //
-                // FIXME: Share this logic with that in loadDependencyManifests()
-                let manifest = try! manifestLoader.load(packagePath: path, baseURL: specifier.url, version: version)
+                let manifest = try loadManifest(packagePath: path, baseURL: specifier.url, version: version)
                 externalManifests.append(manifest)
             }
         }
@@ -454,6 +446,17 @@ public class Workspace {
                 let name = "\(manifest.package.name)-\(version)"
                 try createSymlink(packagesDirPath.appending(component: name), pointingAt: manifest.path.parentDirectory, relative: true)
             }
+        }
+    }
+
+    /// Load a manifest which is guaranteed to load because it has been loaded successfully previously.
+    /// A failure here indicates the manifest was changed somehow outside of SwiftPM.
+    // FIXME: Eventually get these manifests from a persistence cache.
+    func loadManifest(packagePath path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
+        do {
+            return try manifestLoader.load(packagePath: path, baseURL: baseURL, version: version)
+        } catch {
+            throw WorkspaceOperationError.unexpectedManifestLoadingError("Manifest at \(path.asString) unexpectedly failed to load. Try a clean build.")
         }
     }
     

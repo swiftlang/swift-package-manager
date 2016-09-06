@@ -181,6 +181,20 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(dependencyManifests["A"]?.version, aManifest.version)
             XCTAssertEqual(dependencyManifests["AA"]?.package, aaManifest.package)
             XCTAssertEqual(dependencyManifests["AA"]?.version, aaManifest.version)
+
+            do {
+                // Modify the manifest loader and remove one of the manifests.
+                let mockManifestLoader = MockManifestLoader(manifests: [
+                        MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
+                        MockManifestLoader.Key(url: repos["AA"]!.url, version: v1): aaManifest
+                    ])
+                let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: TestWorkspaceDelegate())
+                let manifests = try workspace.loadDependencyManifests()
+                XCTFail("Unexpected success \(manifests)")
+            } catch WorkspaceOperationError.unexpectedManifestLoadingError(_) {
+            } catch {
+                XCTFail("Unexpected error \(error)")
+            }
         }
     }
 
