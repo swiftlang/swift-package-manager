@@ -226,9 +226,13 @@ public class Workspace {
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
     private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
-        // If we already have it, we are done.
+        // If we already have it, fetch to update the repo from its remote.
         if let dependency = dependencyMap[repository] {
-            return checkoutsPath.appending(dependency.subpath)
+            let path = checkoutsPath.appending(dependency.subpath)
+            // Fetch the checkout in case there are updates available.
+            let workingRepo = try checkoutManager.provider.openCheckout(at: path)
+            try workingRepo.fetch()
+            return path
         }
 
         // If not, we need to get the repository from the checkouts.
@@ -295,6 +299,98 @@ public class Workspace {
         return path
     }
 
+    // FIXME: Eliminate this helper method which gets revision by loading container again.
+    func clone(specifier: RepositorySpecifier, version: Version) throws -> AbsolutePath {
+        // FIXME: We need to get the revision here, and we don't have a
+        // way to get it back out of the resolver which is very
+        // annoying. Maybe we should make an SPI on the provider for
+        // this?
+        let container = try containerProvider.getContainer(for: specifier)
+        guard let tag = container.getTag(for: version) else {
+            fatalError("Resolved version: \(version) not found for \(specifier).")
+        }
+        let revision = try container.getRevision(for: tag)
+        return try self.clone(repository: specifier, at: revision, for: version)
+    }
+
+    /// This enum represents state of an external package.
+    enum PackageStateChange {
+        /// A new package added.
+        case added(Version)
+
+        /// The package is removed.
+        case removed
+
+        /// The package is unchanged.
+        case unchanged(Version)
+
+        /// The package is updated to a new version.
+        case updated(old: Version, new: Version)
+    }
+
+    /// Updates the current dependencies.
+    public func updateDependencies() throws {
+        let rootManifest = try loadRootManifest()
+        // Only create constraints based on root manifest for the update resolution.
+        let updateConstraints = computeRootPackageConstraints(rootManifest)
+        // Resolve the dependencies.
+        let updateResults = try resolveDependencies(constraints: updateConstraints)
+        // Get the update package states from resolved results.
+        let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults.map { ($0 as RepositorySpecifier, $1 as Version) })
+        // Update or clone new packages.
+        for (specifier, state) in packageStateChanges {
+            switch state {
+            case .added(let version):
+                _ = try clone(specifier: specifier, version: version)
+            case .updated(_, let version):
+                _ = try clone(specifier: specifier, version: version)
+            case .removed: break //FIXME: TODO
+            case .unchanged(_): break
+            }
+        }
+    }
+
+    /// Computes states of the packages based on last stored state.
+    private func computePackageStateChanges(resolvedDependencies: [(RepositorySpecifier, Version)]) -> [RepositorySpecifier: PackageStateChange] {
+        var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
+        // Set the states from resolved dependencies results.
+        for (specifier, version) in resolvedDependencies {
+            if let currentDependency = dependencyMap[specifier] {
+                // FIXME: PackageStateChange needs to get richer API for updating packages 
+                // which are pinned to a revision, whenever we have that feature.
+                guard let currentVersion = currentDependency.currentVersion else {
+                    continue
+                }
+                if currentVersion == version {
+                    packageStateChanges[specifier] = .unchanged(version)
+                } else {
+                    packageStateChanges[specifier] = .updated(old: currentVersion, new: version)
+                }
+            } else {
+                packageStateChanges[specifier] = .added(version)
+            }
+        }
+        // Set the state of any old package that might have been removed.
+        for specifier in dependencies.lazy.map({$0.repository}) where packageStateChanges[specifier] == nil{
+            packageStateChanges[specifier] = .removed
+        }
+        return packageStateChanges
+    }
+
+    /// Create package constraints based on the root manifest.
+    private func computeRootPackageConstraints(_ rootManifest: Manifest) -> [RepositoryPackageConstraint] {
+        return rootManifest.package.dependencies.map{
+            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+        }
+    }
+
+    /// Runs the dependency resolver based on constraints provided and returns the results.
+    fileprivate func resolveDependencies(constraints: [RepositoryPackageConstraint]) throws -> [(container: WorkspaceResolverDelegate.Identifier, version: Version)] {
+        let resolverDelegate = WorkspaceResolverDelegate()
+        let resolver = DependencyResolver(containerProvider, resolverDelegate)
+        return try resolver.resolve(constraints: constraints)
+    }
+
     /// Load the manifests for the current dependency tree.
     ///
     /// This will load the manifests for the root package as well as all the
@@ -303,7 +399,7 @@ public class Workspace {
     /// Throws: If the root manifest could not be loaded.
     func loadDependencyManifests() throws -> (root: Manifest, dependencies: [Manifest]) {
         // Load the root manifest.
-        let rootManifest = try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
+        let rootManifest = try loadRootManifest()
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
@@ -371,13 +467,8 @@ public class Workspace {
         // delegate of what is happening.
         delegate.fetchingMissingRepositories(missingURLs)
 
-        // Perform dependency resolution using the constraint set induced by the active checkouts.
-        var constraints = [RepositoryPackageConstraint]()
-
         // First, add the root package constraints.
-        constraints += rootManifest.package.dependencies.map{
-            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
-        }
+        var constraints = computeRootPackageConstraints(rootManifest)
 
         // Add constraints to pin to *exactly* all the checkouts we have.
         //
@@ -399,10 +490,9 @@ public class Workspace {
             }
         }
 
-        // Solve for additional checkouts we require.
-        let resolverDelegate = WorkspaceResolverDelegate()
-        let resolver = DependencyResolver(containerProvider, resolverDelegate)
-        let result = try resolver.resolve(constraints: constraints)
+        // Perform dependency resolution using the constraint set induced by the active checkouts.
+        let result = try resolveDependencies(constraints: constraints)
+        let packageStateChanges = computePackageStateChanges(resolvedDependencies: result.map { ($0 as RepositorySpecifier, $1 as Version) })
 
         // Create a checkout for each of the resolved versions.
         //
@@ -411,41 +501,19 @@ public class Workspace {
         // currently provide constraints, but if we provided only the root and
         // then the restrictions (to the current assignment) it would be
         // possible.
-        //
-        // FIXME: I think this code should probably eventually be factored out
-        // to be shared with the update functionality, they both will end up
-        // reconciling a dependency resolution result with the current workspace
-        // state.
         var externalManifests = currentExternalManifests
-        for (specifier, version) in result {
-            if let dependency = dependencyMap[specifier] {
-                // FIXME: We should vet the assigned version against the version
-                // we have, and issue suitable diagnostics for cases where an
-                // update is needed, or cases where the range is invalid (see
-                // FIXME above as well).
-                if dependency.currentVersion != version {
-                    fatalError("unexpected dependency resolution result")
-                }
-                continue
-            } else {
-                // FIXME: We need to get the revision here, and we don't have a
-                // way to get it back out of the resolver which is very
-                // annoying. Maybe we should make an SPI on the provider for
-                // this?
-                let container = try containerProvider.getContainer(for: specifier)
-                let tag = container.getTag(for: version)!
-                let revision = try container.getRevision(for: tag)
-
-                // We do not have this dependency, create a working checkout.
-                let path = try clone(repository: specifier, at: revision, for: version)
-
-                // Load the manifest for this repository and add it to the result.
-                //
-                // FIXME: We shouldn't need to reload this.
-                //
-                // FIXME: Share this logic with that in loadDependencyManifests()
+        for (specifier, state) in packageStateChanges {
+            switch state {
+            case .added(let version):
+                let path = try clone(specifier: specifier, version: version)
                 let manifest = try! manifestLoader.load(packagePath: path, baseURL: specifier.url, version: version)
                 externalManifests.append(manifest)
+            case .updated(_):
+                // FIXME: Issue suitable diagnostics for cases where an
+                // update is needed, or cases where the range is invalid.
+                fatalError("unexpected dependency resolution result")
+            case .removed: break //FIXME: TODO
+            case .unchanged(_): break
             }
         }
 
@@ -480,6 +548,11 @@ public class Workspace {
                 try createSymlink(packagesDirPath.appending(component: name), pointingAt: manifest.path.parentDirectory, relative: true)
             }
         }
+    }
+
+    /// Loads and returns the root manifest.
+    private func loadRootManifest() throws -> Manifest {
+        return try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
     }
     
     // MARK: Persistence
