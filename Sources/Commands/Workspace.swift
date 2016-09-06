@@ -494,34 +494,30 @@ public class Workspace {
         }
 
         // Load the state.
-        //
-        // FIXME: Build out improved file reading support.
-        try fopen(statePath) { handle in
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
+        let json = try JSON(bytes: try localFileSystem.readFileContents(statePath))
 
-            // Load the state from JSON.
-            guard case let .dictionary(contents) = json,
-                  case let .int(version)? = contents["version"] else {
-                throw PersistenceError.unexpectedData
-            }
-            guard version == Workspace.currentSchemaVersion else {
-                throw PersistenceError.invalidVersion
-            }
-            guard case let .array(dependenciesData)? = contents["dependencies"] else {
-                throw PersistenceError.unexpectedData
-            }
-
-            // Load the repositories.
-            var dependencies = [RepositorySpecifier: ManagedDependency]()
-            for dependencyData in dependenciesData {
-                guard let repo = ManagedDependency(json: dependencyData) else {
-                    throw PersistenceError.unexpectedData
-                }
-                dependencies[repo.repository] = repo
-            }
-
-            self.dependencyMap = dependencies
+        // Load the state from JSON.
+        guard case let .dictionary(contents) = json,
+        case let .int(version)? = contents["version"] else {
+            throw PersistenceError.unexpectedData
         }
+        guard version == Workspace.currentSchemaVersion else {
+            throw PersistenceError.invalidVersion
+        }
+        guard case let .array(dependenciesData)? = contents["dependencies"] else {
+            throw PersistenceError.unexpectedData
+        }
+
+        // Load the repositories.
+        var dependencies = [RepositorySpecifier: ManagedDependency]()
+        for dependencyData in dependenciesData {
+            guard let repo = ManagedDependency(json: dependencyData) else {
+                throw PersistenceError.unexpectedData
+            }
+            dependencies[repo.repository] = repo
+        }
+
+        self.dependencyMap = dependencies
 
         return true
     }
