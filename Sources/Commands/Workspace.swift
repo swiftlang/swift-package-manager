@@ -21,19 +21,6 @@ public enum WorkspaceOperationError: Swift.Error {
     case unavailableRepository
 }
 
-/// Convenience initializer for Dictionary.
-//
-// FIXME: Lift to Basic?
-extension Dictionary {
-    init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Value) {
-        var result = Dictionary.init()
-        for (key, value) in items {
-            result[key] = value
-        }
-       self = result
-    }
-}
-
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
     /// The workspace is fetching additional repositories in support of
