@@ -9,6 +9,7 @@
 */
 
 import Basic
+import func POSIX.rename
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -19,19 +20,9 @@ import Utility
 public enum WorkspaceOperationError: Swift.Error {
     /// The requested repository could not be accessed.
     case unavailableRepository
-}
 
-/// Convenience initializer for Dictionary.
-//
-// FIXME: Lift to Basic?
-extension Dictionary {
-    init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Value) {
-        var result = Dictionary.init()
-        for (key, value) in items {
-            result[key] = value
-        }
-       self = result
-    }
+    /// The manifest failed to load unexpectedly.
+    case unexpectedManifestLoadingError(String)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -293,22 +284,15 @@ public class Workspace {
         let rootManifest = try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
 
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
-            return node.item.package.dependencies.flatMap{ dependency in
+        let dependencies = try transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
+            return try node.item.package.dependencies.flatMap{ dependency in
                 // Check if this dependency is available.
                 guard let managedDependency = dependencyMap[RepositorySpecifier(url: dependency.url)] else {
                     return nil
                 }
 
                 // If so, load its manifest.
-                //
-                // This should *never* fail, because we should only have ever
-                // got this checkout via loading its manifest successfully.
-                //
-                // FIXME: Nevertheless, we should handle this failure explicitly.
-                //
-                // FIXME: We should have a cache for this.
-                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
+                let manifest: Manifest = try loadManifest(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }
@@ -427,11 +411,7 @@ public class Workspace {
                 let path = try clone(repository: specifier, at: revision, for: version)
 
                 // Load the manifest for this repository and add it to the result.
-                //
-                // FIXME: We shouldn't need to reload this.
-                //
-                // FIXME: Share this logic with that in loadDependencyManifests()
-                let manifest = try! manifestLoader.load(packagePath: path, baseURL: specifier.url, version: version)
+                let manifest = try loadManifest(packagePath: path, baseURL: specifier.url, version: version)
                 externalManifests.append(manifest)
             }
         }
@@ -466,6 +446,17 @@ public class Workspace {
                 let name = "\(manifest.package.name)-\(version)"
                 try createSymlink(packagesDirPath.appending(component: name), pointingAt: manifest.path.parentDirectory, relative: true)
             }
+        }
+    }
+
+    /// Load a manifest which is guaranteed to load because it has been loaded successfully previously.
+    /// A failure here indicates the manifest was changed somehow outside of SwiftPM.
+    // FIXME: Eventually get these manifests from a persistence cache.
+    func loadManifest(packagePath path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
+        do {
+            return try manifestLoader.load(packagePath: path, baseURL: baseURL, version: version)
+        } catch {
+            throw WorkspaceOperationError.unexpectedManifestLoadingError("Manifest at \(path.asString) unexpectedly failed to load. Try a clean build.")
         }
     }
     
@@ -507,34 +498,30 @@ public class Workspace {
         }
 
         // Load the state.
-        //
-        // FIXME: Build out improved file reading support.
-        try fopen(statePath) { handle in
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
+        let json = try JSON(bytes: try localFileSystem.readFileContents(statePath))
 
-            // Load the state from JSON.
-            guard case let .dictionary(contents) = json,
-                  case let .int(version)? = contents["version"] else {
-                throw PersistenceError.unexpectedData
-            }
-            guard version == Workspace.currentSchemaVersion else {
-                throw PersistenceError.invalidVersion
-            }
-            guard case let .array(dependenciesData)? = contents["dependencies"] else {
-                throw PersistenceError.unexpectedData
-            }
-
-            // Load the repositories.
-            var dependencies = [RepositorySpecifier: ManagedDependency]()
-            for dependencyData in dependenciesData {
-                guard let repo = ManagedDependency(json: dependencyData) else {
-                    throw PersistenceError.unexpectedData
-                }
-                dependencies[repo.repository] = repo
-            }
-
-            self.dependencyMap = dependencies
+        // Load the state from JSON.
+        guard case let .dictionary(contents) = json,
+        case let .int(version)? = contents["version"] else {
+            throw PersistenceError.unexpectedData
         }
+        guard version == Workspace.currentSchemaVersion else {
+            throw PersistenceError.invalidVersion
+        }
+        guard case let .array(dependenciesData)? = contents["dependencies"] else {
+            throw PersistenceError.unexpectedData
+        }
+
+        // Load the repositories.
+        var dependencies = [RepositorySpecifier: ManagedDependency]()
+        for dependencyData in dependenciesData {
+            guard let repo = ManagedDependency(json: dependencyData) else {
+                throw PersistenceError.unexpectedData
+            }
+            dependencies[repo.repository] = repo
+        }
+
+        self.dependencyMap = dependencies
 
         return true
     }
@@ -545,7 +532,9 @@ public class Workspace {
         data["version"] = .int(Workspace.currentSchemaVersion)
         data["dependencies"] = .array(dependencies.map{ $0.toJSON() })
 
-        // FIXME: This should write atomically.
-        try localFileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        // Write atomically.
+        let tempFile = try TemporaryFile()
+        try localFileSystem.writeFileContents(tempFile.path, bytes: JSON.dictionary(data).toBytes())
+        try rename(old: tempFile.path.asString, new: statePath.asString)
     }
 }
