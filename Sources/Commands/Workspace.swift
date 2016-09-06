@@ -9,6 +9,7 @@
 */
 
 import Basic
+import func POSIX.rename
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -528,7 +529,9 @@ public class Workspace {
         data["version"] = .int(Workspace.currentSchemaVersion)
         data["dependencies"] = .array(dependencies.map{ $0.toJSON() })
 
-        // FIXME: This should write atomically.
-        try localFileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        // Write atomically.
+        let tempFile = try TemporaryFile()
+        try localFileSystem.writeFileContents(tempFile.path, bytes: JSON.dictionary(data).toBytes())
+        try rename(old: tempFile.path.asString, new: statePath.asString)
     }
 }
