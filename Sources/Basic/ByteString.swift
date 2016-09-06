@@ -47,13 +47,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     
     /// Create a byte string from the UTF8 encoding of a string.
     public init(encodingAsUTF8 string: String) {
-        let stringPtrStart = string._contiguousUTF8
-        defer { _fixLifetime(string) }
-        if stringPtrStart != nil {
-            _bytes = [UInt8](UnsafeBufferPointer(start: stringPtrStart, count: string.utf8.count))
-        } else {
-            _bytes = [UInt8](string.utf8)
-        }
+        _bytes = [UInt8](string.utf8)
     }
 
     /// Access the byte string contents as an array.
