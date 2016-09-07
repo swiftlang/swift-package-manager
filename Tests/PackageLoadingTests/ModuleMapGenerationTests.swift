@@ -21,25 +21,14 @@ class ModuleMapGeneration: XCTestCase {
             "/include/Foo.h",
             "/Foo.c")
 
-        var expected = BufferedOutputByteStream()
+        let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
         expected <<< "    umbrella header \"/include/Foo.h\"\n"
         expected <<< "    link \"Foo\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
 
-        ModuleMapTester("Foo", style: .library, in: fs) { result in
-            result.check(value: expected.bytes)
-        }
-
-        expected = BufferedOutputByteStream()
-        expected <<< "framework module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo.h\"\n"
-        expected <<< "    link framework \"Foo\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
-
-        ModuleMapTester("Foo", style: .framework, in: fs) { result in
+        ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
         }
     }
@@ -49,25 +38,14 @@ class ModuleMapGeneration: XCTestCase {
             "/include/Foo/Foo.h",
             "/Foo.c")
 
-        var expected = BufferedOutputByteStream()
+        let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
         expected <<< "    umbrella header \"/include/Foo/Foo.h\"\n"
         expected <<< "    link \"Foo\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
 
-        ModuleMapTester("Foo", style: .library, in: fs) { result in
-            result.check(value: expected.bytes)
-        }
-
-        expected = BufferedOutputByteStream()
-        expected <<< "framework module Foo {\n"
-        expected <<< "    umbrella header \"/include/Foo/Foo.h\"\n"
-        expected <<< "    link framework \"Foo\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
-
-        ModuleMapTester("Foo", style: .framework, in: fs) { result in
+        ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected.bytes)
         }
     }
@@ -83,7 +61,7 @@ class ModuleMapGeneration: XCTestCase {
 
         var fs: InMemoryFileSystem
         func checkExpected() {
-            ModuleMapTester("Foo", style: .library, in: fs) { result in
+            ModuleMapTester("Foo", in: fs) { result in
                 result.check(value: expected.bytes)
             }
         }
@@ -110,7 +88,7 @@ class ModuleMapGeneration: XCTestCase {
     func testWarnings() throws {
         var fs = InMemoryFileSystem(emptyFiles:
             "/Foo.c")
-        ModuleMapTester("Foo", style: .library, in: fs) { result in
+        ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics("warning: No include directory found for module \'Foo\'. A library can not be imported without any public headers.")
         }
@@ -124,7 +102,7 @@ class ModuleMapGeneration: XCTestCase {
         expected <<< "    link \"F_o_o\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
-        ModuleMapTester("F-o-o", style: .library, in: fs) { result in
+        ModuleMapTester("F-o-o", in: fs) { result in
             result.check(value: expected.bytes)
             result.checkDiagnostics("warning: /include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header")
         }
@@ -133,7 +111,7 @@ class ModuleMapGeneration: XCTestCase {
     func testUnsupportedLayouts() throws {
         var fs: InMemoryFileSystem
         func checkExpected() {
-            ModuleMapTester("Foo", style: .library, in: fs) { result in
+            ModuleMapTester("Foo", in: fs) { result in
                 result.checkNotCreated()
                 result.checkDiagnostics("unsupportedIncludeLayoutForModule(\"Foo\")")
             }
@@ -159,13 +137,13 @@ class ModuleMapGeneration: XCTestCase {
     ]
 }
 
-func ModuleMapTester(_ name: String, style: ModuleMapGenerator.ModuleMapStyle, in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
+func ModuleMapTester(_ name: String, in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
     let module = try! ClangModule(name: name, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: module, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
     do {
-        try generator.generateModuleMap(inDir: .root, modulemapStyle: style)
+        try generator.generateModuleMap(inDir: .root)
         // FIXME: Find a better way.
         diagnostics = Set(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
     } catch {
