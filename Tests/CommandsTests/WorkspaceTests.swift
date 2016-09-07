@@ -29,6 +29,18 @@ private let sharedManifestLoader = ManifestLoader(resources: Resources())
 private class TestWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
+
+    func fetching(repository: String) {
+        print("Fetching " + repository)
+    }
+
+    func cloning(repository: String) {
+        print("Cloning: " + repository)
+    }
+
+    func checkingOut(repository: String, at reference: String) {
+        print("Checking out: " + repository + " at " + reference)
+    }
 }
 
 extension Workspace {

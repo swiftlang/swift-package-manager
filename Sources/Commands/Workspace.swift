@@ -26,6 +26,15 @@ public protocol WorkspaceDelegate: class {
     /// The workspace is fetching additional repositories in support of
     /// loading a complete package.
     func fetchingMissingRepositories(_ urls: Set<String>)
+
+    /// The workspace has started fetching this repository.
+    func fetching(repository: String)
+
+    /// The workspace has started cloning this repository.
+    func cloning(repository: String)
+
+    /// The workspace is checking out this repository at a version or revision.
+    func checkingOut(repository: String, at reference: String)
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -36,9 +45,14 @@ private class WorkspaceResolverDelegate: DependencyResolverDelegate {
 }
 
 private class WorkspaceCheckoutManagerDelegate: CheckoutManagerDelegate {
+    unowned let workspaceDelegate: WorkspaceDelegate
+
+    init(workspaceDelegate: WorkspaceDelegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
 
     func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
-        print("Fetch \(handle.repository.url)")
+        workspaceDelegate.fetching(repository: handle.repository.url)
     }
 }
 
@@ -182,7 +196,8 @@ public class Workspace {
         self.manifestLoader = manifestLoader
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
-        self.checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceCheckoutManagerDelegate())
+        self.checkoutManager = CheckoutManager(
+            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceCheckoutManagerDelegate(workspaceDelegate: delegate))
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             checkoutManager: checkoutManager, manifestLoader: manifestLoader)
@@ -240,6 +255,8 @@ public class Workspace {
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
         // Ensure the destination is free.
         _ = try? removeFileTree(path)
+        // Inform the delegate that we're starting cloning.
+        delegate.cloning(repository: handle.repository.url)
         try handle.cloneCheckout(to: path)
 
         return path
@@ -265,6 +282,8 @@ public class Workspace {
 
         // Check out the given revision.
         let workingRepo = try checkoutManager.provider.openCheckout(at: path)
+        // Inform the delegate.
+        delegate.checkingOut(repository: repository.url, at: version?.description ?? revision.identifier)
         try workingRepo.checkout(revision: revision)
 
         // Write the state record.

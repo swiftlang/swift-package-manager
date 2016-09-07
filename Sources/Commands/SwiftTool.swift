@@ -27,6 +27,15 @@ private let sharedManifestLoader = ManifestLoader(resources: ToolDefaults())
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
+    
+    func fetching(repository: String) {
+    }
+
+    func cloning(repository: String) {
+    }
+
+    func checkingOut(repository: String, at reference: String) {
+    }
 }
 
 public extension SwiftTool {
