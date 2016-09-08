@@ -13,6 +13,9 @@
     * [Package Dependency](#package-dependency)
     * [Version](#version)
     * [Customizing Builds](#customizing-builds)
+    * [Build Configurations](#build-configurations)
+        * [Debug](#debug)
+        * [Release](#release)
     * [Depending on Apple Modules](#depending-on-apple-modules)
 * [Resources](Resources.md)
 
@@ -276,6 +279,36 @@ package.targets.append(target)
 ```
 
 With a standard configuration file format like JSON such a feature would result in a dictionary structure with increasing complexity for every such feature.
+
+### Build Configurations
+
+SwiftPM allows two build configurations: Debug (default) and Release.
+
+#### Debug
+
+By default, running `swift build` will build in debug configuration. Alternatively, you can also use `swift build -c debug`. The build artifacts are located in directory called `debug` under build folder.  
+A Swift target is built with following flags in debug mode:  
+
+* `-Onone`: Compile without any optimization.
+* `-g`: Generate debug information.
+* `-enable-testing`: Enable Swift compiler's testability feature.
+
+A C language target is build with following flags in debug mode:
+
+* `-O0`: Compile without any optimization.
+* `-g`: Generate debug information.
+
+#### Release
+
+To build in release mode, type: `swift build -c release`. The build artifacts are located in directory called `release` under build folder.  
+A Swift target is built with following flags in release mode:  
+
+* `-O`: Compile with optimizations.
+* `-whole-module-optimization`: Optimize input files (per module) together instead of individually.
+
+A C language target is build with following flags in release mode:
+
+* `-O2`: Compile with optimizations.
 
 ### Depending on Apple Modules
 
