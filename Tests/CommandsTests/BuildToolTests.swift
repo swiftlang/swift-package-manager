@@ -12,7 +12,7 @@ import XCTest
 
 import TestSupport
 import Basic
-import Commands
+@testable import Commands
 
 final class BuildToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
