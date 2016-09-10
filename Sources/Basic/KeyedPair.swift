@@ -17,7 +17,7 @@
 /// Example:
 ///
 ///     struct Airport {
-///         // The name of the aiport.
+///         // The name of the airport.
 ///         let name: String
 ///         // The names of destination airports for outgoing flights.
 ///         let destinations: [String]
