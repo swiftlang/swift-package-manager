@@ -131,7 +131,7 @@ public class OutputByteStream: TextOutputStream {
             }
 
             let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
-            // Append whatever we can accomodate.
+            // Append whatever we can accommodate.
             buffer += bytes.prefix(upTo: writeUptoIndex)
 
             writeImpl(buffer)
