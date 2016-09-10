@@ -306,7 +306,7 @@ public struct SwiftTestTool: SwiftTool {
         if isFile(maybePath) {
             return maybePath
         }
-        // This will be true during swiftpm developement.
+        // This will be true during swiftpm development.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(component: xctestHelperBin)
         if isFile(path) {
