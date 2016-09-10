@@ -57,7 +57,7 @@ public enum SwiftPMProduct {
     ///
     /// - Parameters:
     ///         - args: The arguments to pass.
-    ///         - env: Enviroment variables to pass. Enviroment will never be inherited.
+    ///         - env: Environment variables to pass. Environment will never be inherited.
     ///         - chdir: Adds argument `--chdir <path>` if not nil.
     ///         - printIfError: Print the output on non-zero exit.
     ///

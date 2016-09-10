@@ -73,7 +73,7 @@ public final class TerminalController {
     ///
     /// - Returns: Current width of terminal if it was determinable.
     public static func terminalWidth() -> Int? {
-        // Try to get from enviornment.
+        // Try to get from environment.
         if let columns = POSIX.getenv("COLUMNS"), let width = Int(columns) {
             return width
         }

@@ -33,7 +33,7 @@ class TemporaryFileTests: XCTestCase {
             stream <<< "baz"
             try fputs(stream.bytes.contents, file.fileHandle)
 
-            // Go to the begining of the file.
+            // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
             let contents = try? file.fileHandle.readFileContents()

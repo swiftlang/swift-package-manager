@@ -15,7 +15,7 @@ import Basic
 class KeyedPairTests: XCTestCase {
     func testBasics() {
         class Airport {
-            // The name of the aiport.
+            // The name of the airport.
             let name: String
             // The destination airports for outgoing flights.
             var destinations: [Airport] = []
