@@ -78,7 +78,7 @@ public final class TemporaryFile {
     /// goes out of scope.
     ///
     /// - Parameters:
-    ///     - dir: If specified the temporary file will be created in this directory otherwise enviornment variables
+    ///     - dir: If specified the temporary file will be created in this directory otherwise environment variables
     ///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.
@@ -170,7 +170,7 @@ public final class TemporaryDirectory {
     /// Creates a temporary directory which is automatically removed when the object of this class goes out of scope.
     ///
     /// - Parameters:
-    ///     - dir: If specified the temporary directory will be created in this directory otherwise enviornment variables
+    ///     - dir: If specified the temporary directory will be created in this directory otherwise environment variables
     ///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.

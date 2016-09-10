@@ -289,7 +289,7 @@ public struct SwiftTestTool: SwiftTool {
       #endif
 
         // Execute the XCTest with inherited environment as it is convenient to pass senstive
-        // information like username, password etc to test cases via enviornment variables.
+        // information like username, password etc to test cases via environment variables.
         let result: Void? = try? system(args, environment: ProcessInfo.processInfo.environment)
         return result != nil
     }
