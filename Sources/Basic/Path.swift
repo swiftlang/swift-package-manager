@@ -334,7 +334,7 @@ public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
 /// Make relative paths CustomStringConvertible.
 extension RelativePath : CustomStringConvertible {
     public var description: String {
-        // FIXME: We should realy be escaping backslashes and quotes here.
+        // FIXME: We should really be escaping backslashes and quotes here.
         return "<RelativePath:\"\(asString)\">"
     }
 }
