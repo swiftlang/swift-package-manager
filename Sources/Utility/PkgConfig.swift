@@ -44,7 +44,7 @@ public struct PkgConfig {
 
     /// The built-in search path list.
     ///
-    /// By default, this is combined with the search paths infered from
+    /// By default, this is combined with the search paths inferred from
     /// `pkg-config` itself.
     private static let searchPaths = [
         AbsolutePath("/usr/local/lib/pkgconfig"),
