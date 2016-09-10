@@ -185,7 +185,7 @@ struct PkgConfigParser {
             return depString.characters[depString.characters.index(depString.characters.startIndex, offsetBy: idx)]
         }
         
-        // This converts the string which can be seperated by comma or spaces
+        // This converts the string which can be separated by comma or spaces
         // into an array of string.
         func tokenize() -> [String] {
             var tokens = [String]()
