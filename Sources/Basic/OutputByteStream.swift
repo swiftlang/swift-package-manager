@@ -171,6 +171,7 @@ public class OutputByteStream: TextOutputStream {
 
     /// Write a string to the buffer (as UTF8).
     public final func write(_ string: String) {
+        // FIXME(performance): Use `string.utf8._copyContents(initializing:)`.
         write(sequence: string.utf8)
     }
 
