@@ -239,6 +239,12 @@ public class GitRepository: Repository, WorkingCheckout {
         return try Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
     }
 
+    public func fetch() throws {
+        try runCommandQuietly([Git.tool, "-C", path.asString, "fetch", "--tags"]) {
+            self.tagsCache = nil
+        }
+    }
+
     public func openFileView(revision: Revision) throws -> FileSystem {
         return try GitFileSystemView(repository: self, revision: revision)
     }
@@ -345,10 +351,11 @@ public class GitRepository: Repository, WorkingCheckout {
         return ByteString(encodingAsUTF8: output)
     }
 
-    /// Runs the command in the serial queue.
-    private func runCommandQuietly(_ command: [String]) throws {
+    /// Runs the command in the serial queue and runs the completion closure if present.
+    private func runCommandQuietly(_ command: [String], completion: (() -> Void)? = nil) throws {
         try queue.sync {
             try Git.runCommandQuietly(command)
+            completion?()
         }
     }
 

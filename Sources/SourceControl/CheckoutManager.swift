@@ -159,6 +159,15 @@ public class CheckoutManager {
     public func lookup(repository: RepositorySpecifier) -> RepositoryHandle {
         // Check to see if the repository has been provided.
         if let handle = repositories[repository.url] {
+            // Fetch and update the repository when it is being looked up.
+            // We need some mechanism to maybe not do this for pinned repos.
+            do {
+                let repo = try handle.open()
+                try repo.fetch()
+            } catch {
+                // FIXME: Better error handling.
+                print("Error while fetching the repo: \(handle)")
+            }
             return handle
         }
         

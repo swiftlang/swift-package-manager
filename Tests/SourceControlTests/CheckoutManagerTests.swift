@@ -23,9 +23,18 @@ private enum DummyError: Swift.Error {
 
 private class DummyRepository: Repository {
     var tags: [String] = ["1.0.0"]
+    unowned let provider: DummyRepositoryProvider
+
+    init(provider: DummyRepositoryProvider) {
+        self.provider = provider
+    }
 
     func resolveRevision(tag: String) throws -> Revision {
         fatalError("unexpected API call")
+    }
+
+    func fetch() throws {
+        provider.numFetches += 1
     }
 
     func openFileView(revision: Revision) throws -> FileSystem {
@@ -34,13 +43,14 @@ private class DummyRepository: Repository {
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
+    var numClones = 0
     var numFetches = 0
     
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
         try! localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
 
-        numFetches += 1
+        numClones += 1
         
         // We only support one dummy URL.
         let basename = repository.url.components(separatedBy: "/").last!
@@ -50,7 +60,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        return DummyRepository()
+        return DummyRepository(provider: self)
     }
 
     func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
@@ -66,14 +76,17 @@ private class DummyRepositoryProvider: RepositoryProvider {
 class CheckoutManagerTests: XCTestCase {
     func testBasics() throws {
         mktmpdir { path in
-            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
+            let provider = DummyRepositoryProvider()
+            let manager = CheckoutManager(path: path, provider: provider)
 
             // Check that we can "fetch" a repository.
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
+            XCTAssertEqual(provider.numFetches, 0)
 
             // We should always get back the same handle once fetched.
             XCTAssert(handle === manager.lookup(repository: dummyRepo))
+            XCTAssertEqual(provider.numFetches, 1)
             
             // Validate that the repo is available.
             XCTAssertTrue(handle.isAvailable)
@@ -90,6 +103,7 @@ class CheckoutManagerTests: XCTestCase {
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
             let badHandle = manager.lookup(repository: badDummyRepo)
+            XCTAssertEqual(provider.numFetches, 1)
 
             // Validate that the repo is unavailable.
             XCTAssertFalse(badHandle.isAvailable)
@@ -126,7 +140,8 @@ class CheckoutManagerTests: XCTestCase {
                 XCTAssertTrue(handle.isAvailable)
             }
             // We should have performed one fetch.
-            XCTAssertEqual(provider.numFetches, 1)
+            XCTAssertEqual(provider.numClones, 1)
+            XCTAssertEqual(provider.numFetches, 0)
 
             // Create a new manager, and fetch.
             do {
@@ -137,6 +152,7 @@ class CheckoutManagerTests: XCTestCase {
                 XCTAssertTrue(handle.isAvailable)
             }
             // We shouldn't have done a new fetch.
+            XCTAssertEqual(provider.numClones, 1)
             XCTAssertEqual(provider.numFetches, 1)
 
             // Manually destroy the manager state, and check it still works.
@@ -150,7 +166,8 @@ class CheckoutManagerTests: XCTestCase {
                 XCTAssertTrue(handle.isAvailable)
             }
             // We should have re-fetched.
-            XCTAssertEqual(provider.numFetches, 2)
+            XCTAssertEqual(provider.numClones, 2)
+            XCTAssertEqual(provider.numFetches, 1)
         }
     }
 
