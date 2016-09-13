@@ -369,9 +369,6 @@ public func pbxproj(xcodeprojPath: AbsolutePath, graph: PackageGraph, extraDirs:
 }
 
 extension Module {
-    var blueprintIdentifier: String {
-        return targetReference
-    }
 
     var buildableName: String {
         return productName
