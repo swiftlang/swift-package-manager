@@ -59,18 +59,18 @@ The package manager supports laying out test sources following a similar convent
 
     example/Tests/FooTests/WidgetTests.swift
 
-defined a `FooTests` test suite. By convention, when there is a sources module `Foo` and a matching tests module `FooTests`, the package manager will establish an implicit dependency between the test suite and the target it assumes it is trying to test.
+defined a `FooTests` test module. By convention, when there is a sources module `Foo` and a matching tests module `FooTests`, the package manager will establish an implicit dependency between the test module and the target it assumes it is trying to test.
 
 On Linux, the `XCTest` testing framework does not support dynamic discovery of tests. Instead, packages which are intended for use on Linux should include an:
 
     example/Tests/LinuxMain.swift
 
-file which imports all of the individual test suites in the package, and then invokes `XCTest.XCTMain` passing it the list of all tests.
+file which imports all of the individual test modules in the package, and then invokes `XCTest.XCTMain` passing it the list of all tests.
 
 ### Other Rules
 
-* `Tests` or any other subdirectory can be excluded via Manifest file. The package manager will add an implicit dependency between the test suite and the target it assumes it is trying to test when the sub directory in `Tests` and package *name* are the same.
-* Subdirectories of a directory named `Sources`, `Source`, `srcs` or `src` become modules.
+* `Tests` or any other subdirectory can be [excluded](#exclude) via Manifest file.
+* Subdirectories of a directory named `Sources`, `Source`, `srcs` or `src` in the root directory become modules.
 * It is acceptable to have no `Sources` directory, in which case the root directory is treated as a single module (place your sources there) or sub directories of the root are considered modules. Use this layout convention for simple projects.
 
 ---
