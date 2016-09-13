@@ -350,6 +350,16 @@ class MiscellaneousTestCase: XCTestCase {
         XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "some_package.swiftmodule"))
     }
 
+    func testSecondBuildIsNullInModulemapGen() throws {
+        // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
+        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+            var output = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            XCTAssertFalse(output.isEmpty)
+            output = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            XCTAssertTrue(output.isEmpty)
+        }
+    }
+
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
@@ -377,6 +387,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testProductWithNoModules", testProductWithNoModules),
         ("testProductWithMissingModules", testProductWithMissingModules),
         ("testSpaces", testSpaces),
+        ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
     ]
 }
