@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Dispatch
 import Utility
 
 import func POSIX.getenv
@@ -100,7 +101,7 @@ enum GitInterfaceError: Swift.Error {
     case malformedResponse(String)
 }
 
-/// A basic `git` repository.
+/// A basic `git` repository. This class is thread safe.
 //
 // FIXME: Currently, this class is serving two goals, it is the Repository
 // interface used by `RepositoryProvider`, but is also a class which can be
@@ -203,14 +204,31 @@ public class GitRepository: Repository, WorkingCheckout {
     /// The path of the repository on disk.
     public let path: AbsolutePath
 
+    /// The (serial) queue to execute git cli on.
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.gitqueue")
+
     public init(path: AbsolutePath) {
         self.path = path
     }
 
     // MARK: Repository Interface
 
-    public var tags: [String] { return tagsCache.getValue(self) }
-    private var tagsCache = LazyCache(getTags)
+    /// Returns the tags present in repository.
+    public var tags: [String] {
+        return queue.sync {
+            // Check if we already have the tags cached.
+            if let tags = tagsCache {
+                return tags
+            }
+            tagsCache = getTags()
+            return tagsCache!
+        }
+    }
+
+    /// Cache for the tags.
+    private var tagsCache: [String]? = nil
+
+    /// Returns the tags present in repository.
     private func getTags() -> [String] {
         // FIXME: Error handling.
         let tagList = try! Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])
@@ -228,19 +246,19 @@ public class GitRepository: Repository, WorkingCheckout {
     // MARK: Working Checkout Interface
 
     public func getCurrentRevision() throws -> Revision {
-        return Revision(identifier: try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp())
+        return Revision(identifier: try runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp())
     }
 
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+        try runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
     }
 
     public func checkout(revision: Revision) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
+        try runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
     }
 
     // MARK: Git Operations
@@ -256,7 +274,7 @@ public class GitRepository: Repository, WorkingCheckout {
         } else {
             specifier = treeish
         }
-        let response = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", specifier]).chomp()
+        let response = try runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", specifier]).chomp()
         if let hash = Hash(response) {
             return hash
         } else {
@@ -275,7 +293,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
-        let treeInfo = try Git.runPopen([Git.tool, "-C", path.asString, "ls-tree", hash.bytes.asString!])
+        let treeInfo = try runPopen([Git.tool, "-C", path.asString, "ls-tree", hash.bytes.asString!])
 
         var contents: [Tree.Entry] = []
         for line in treeInfo.components(separatedBy: "\n") {
@@ -323,8 +341,22 @@ public class GitRepository: Repository, WorkingCheckout {
         // Get the contents using `cat-file`.
         //
         // FIXME: We need to get the raw bytes back, not a String.
-        let output = try Git.runPopen([Git.tool, "-C", path.asString, "cat-file", "-p", hash.bytes.asString!])
+        let output = try runPopen([Git.tool, "-C", path.asString, "cat-file", "-p", hash.bytes.asString!])
         return ByteString(encodingAsUTF8: output)
+    }
+
+    /// Runs the command in the serial queue.
+    private func runCommandQuietly(_ command: [String]) throws {
+        try queue.sync {
+            try Git.runCommandQuietly(command)
+        }
+    }
+
+    /// Executes popen in the serial queue.
+    private func runPopen(_ command: [String]) throws -> String {
+        return try queue.sync {
+            return try Git.runPopen(command)
+        }
     }
 }
 
