@@ -105,8 +105,13 @@ public func pbxproj(xcodeprojPath: AbsolutePath, graph: PackageGraph, extraDirs:
     
     // Add a group for the .xcconfig files.
     if let xcconfigPath = options.xcconfigOverrides {
-        let xcconfigsGroup = project.mainGroup.addGroup(path: "Configs")
-        let xcconfigFileRef = xcconfigsGroup.addFileReference(path: xcconfigPath.relative(to: sourceRootDir).asString)
+        // Create a "Configs" group whose path is the same as the project path.
+        let xcconfigsGroup = project.mainGroup.addGroup(path: "", name: "Configs")
+        // Create a file reference for the .xcconfig file (with a path relative
+        // to the group).
+        let xcconfigFileRef = xcconfigsGroup.addFileReference(path: xcconfigPath.relative(to: sourceRootDir).asString, name: xcconfigPath.basename)
+        // Finally, set the file reference as the base file ref of the project
+        // build settings.
         project.buildSettings.xcconfigFileRef = xcconfigFileRef
     }
     
