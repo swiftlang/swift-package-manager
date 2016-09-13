@@ -230,7 +230,7 @@ public struct SwiftPackageTool: SwiftTool {
                     dstdir = opts.path.root
                     projectName = graph.rootPackage.name
                 }
-                let outpath = try Xcodeproj.generate(dstdir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
+                let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
         
                 print("generated:", outpath.prettyPath)
                 

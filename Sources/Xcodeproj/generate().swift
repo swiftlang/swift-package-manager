@@ -34,37 +34,51 @@ public struct XcodeprojOptions {
     }
 }
 
-/**
- Generates an xcodeproj at the specified path.
- - Returns: the path to the generated project
-*/
-public func generate(dstdir: AbsolutePath, projectName: String, graph: PackageGraph, options: XcodeprojOptions) throws -> AbsolutePath {
+/// Generates an Xcode project and all needed support files.  The .xcodeproj
+/// wrapper directory is created in the path specified by `outputDir`, basing
+/// the file name on the project name `projectName`.  Returns the path of the
+/// generated project.  All ancillary files will be generated inside of the
+/// .xcodeproj wrapper directory.
+public func generate(outputDir: AbsolutePath, projectName: String, graph: PackageGraph, options: XcodeprojOptions) throws -> AbsolutePath {
+    
+    // Note that the output directory might be completely separate from the
+    // path of the root package (which is where the sources live).
+    
     let srcroot = graph.rootPackage.path
-
-    // Filter out the CModule type, which we don't support.
-
+    
+    // Determine the path of the .xcodeproj wrapper directory.
     let xcodeprojName = "\(projectName).xcodeproj"
-    let xcodeprojPath = dstdir.appending(RelativePath(xcodeprojName))
-    let schemesDirectory = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
+    let xcodeprojPath = outputDir.appending(RelativePath(xcodeprojName))
+    
+    // Determine the path of the scheme directory (it's inside the .xcodeproj).
+    let schemesDir = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
+    
+    // Create the .xcodeproj wrapper directory.
     try makeDirectories(xcodeprojPath)
-    try makeDirectories(schemesDirectory)
-    let schemeName = "\(projectName).xcscheme"
-    let directoryReferences = try findDirectoryReferences(path: srcroot)
-
-////// the pbxproj file describes the project and its targets
+    try makeDirectories(schemesDir)
+    
+    // Find the paths of any extra directories that should be added as folder
+    // references in the project.
+    let extraDirs = try findDirectoryReferences(path: srcroot)
+    
+    /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
-        try pbxproj(srcroot: srcroot, projectRoot: dstdir, xcodeprojPath: xcodeprojPath, graph: graph, directoryReferences: directoryReferences, options: options, printer: stream)
+        // FIXME: This could be more efficient by directly writing to a stream
+        // instead of first creating a string.
+        let str = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options)
+        stream(str)
     }
 
 ////// the scheme acts like an aggregate target for all our targets
    /// it has all tests associated so CMD+U works
-    try open(schemesDirectory.appending(RelativePath(schemeName))) { stream in
+    let schemeName = "\(projectName).xcscheme"
+    try open(schemesDir.appending(RelativePath(schemeName))) { stream in
         xcscheme(container: xcodeprojName, graph: graph, enableCodeCoverage: options.enableCodeCoverage, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
    /// before any inferred schemes Xcode may autocreate
-    try open(schemesDirectory.appending(component: "xcschememanagement.plist")) { print in
+    try open(schemesDir.appending(component: "xcschememanagement.plist")) { print in
         print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         print("<plist version=\"1.0\">")
         print("<dict>")
