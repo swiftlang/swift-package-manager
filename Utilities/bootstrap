@@ -500,6 +500,8 @@ def create_bootstrap_files(sandbox_path, args):
                     ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
             if args.foundation_path:
                 link_command.extend(["-L", args.foundation_path])
+            if args.libdispatch_build_dir:
+                link_command.extend(["-L", os.path.join(args.libdispatch_build_dir, "src", ".libs")])
 
         # Write out the link command.
         print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
@@ -844,6 +846,8 @@ def main():
         build_flags.extend(["-Xswiftc", "-I{}".format(args.xctest_path)])
 
     if args.libdispatch_build_dir:
+        build_flags.extend(["-Xlinker", "-L{}".format(
+            os.path.join(args.libdispatch_build_dir, "src", ".libs"))])
         build_flags.extend(["-Xswiftc", "-I{}".format(
             os.path.join(args.libdispatch_build_dir, "src"))])
         build_flags.extend(["-Xswiftc", "-I{}".format(
