@@ -11,6 +11,12 @@
 import Basic
 import Utility
 
+/// Delegate to notify clients about actions being performed by CheckoutManager.
+public protocol CheckoutManagerDelegate: class {
+    /// Called when a repository is about to be fetched.
+    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath)
+}
+
 /// Manages a collection of repository checkouts.
 public class CheckoutManager {
     /// Handle to a managed repository.
@@ -33,7 +39,7 @@ public class CheckoutManager {
         private unowned let manager: CheckoutManager
 
         /// The repository specifier.
-        fileprivate let repository: RepositorySpecifier
+        public let repository: RepositorySpecifier
 
         /// The subpath of the repository within the manager.
         ///
@@ -124,6 +130,9 @@ public class CheckoutManager {
     /// The repository provider.
     public let provider: RepositoryProvider
 
+    /// The delegate interface.
+    private let delegate: CheckoutManagerDelegate
+
     /// The map of registered repositories.
     //
     // FIXME: We should use a more sophisticated map here, which tracks the full
@@ -136,9 +145,10 @@ public class CheckoutManager {
     /// - path: The path under which to store repositories. This should be a
     ///         directory in which the content can be completely managed by this
     ///         instance.
-    public init(path: AbsolutePath, provider: RepositoryProvider) {
+    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: CheckoutManagerDelegate) {
         self.path = path
         self.provider = provider
+        self.delegate = delegate
 
         // Load the state from disk, if possible.
         do {
@@ -176,6 +186,7 @@ public class CheckoutManager {
         // FIXME: This should run on a background thread.
         do {
             handle.status = .pending
+            delegate.fetching(handle: handle, to: repositoryPath)
             try provider.fetch(repository: repository, to: repositoryPath)
             handle.status = .available
         } catch {

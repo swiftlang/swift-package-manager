@@ -91,13 +91,18 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: DependencyResolverDelegate {
+private class MockResolverDelegate: DependencyResolverDelegate, CheckoutManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
     var addedContainers: [Identifier] = []
+    var fetched = [RepositorySpecifier]()
 
     func added(container identifier: Identifier) {
         addedContainers.append(identifier)
+    }
+
+    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+        fetched += [handle.repository]
     }
 }
 
@@ -110,10 +115,10 @@ private struct MockDependencyResolver {
     init(repositories: MockRepository...) {
         self.tmpDir = try! TemporaryDirectory()
         self.repositories = MockRepositories(repositories: repositories)
-        let checkoutManager = CheckoutManager(path: self.tmpDir.path, provider: self.repositories)
+        self.delegate = MockResolverDelegate()
+        let checkoutManager = CheckoutManager(path: self.tmpDir.path, provider: self.repositories, delegate: self.delegate)
         let provider = RepositoryPackageContainerProvider(
             checkoutManager: checkoutManager, manifestLoader: self.repositories.manifestLoader)
-        self.delegate = MockResolverDelegate()
         self.resolver = DependencyResolver(provider, delegate)
     }
 
@@ -175,6 +180,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     repoB.specifier: v2,
                 ])
             XCTAssertEqual(resolver.delegate.addedContainers, [repoA.specifier, repoB.specifier])
+            XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
         }
     }
 

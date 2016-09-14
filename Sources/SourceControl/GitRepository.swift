@@ -52,7 +52,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             let env = ProcessInfo.processInfo.environment
             try system(
                 Git.tool, "clone", "--bare", repository.url, path.asString,
-                environment: env, message: "Cloning \(repository.url)")
+                environment: env, message: nil)
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
@@ -86,8 +86,8 @@ public class GitRepositoryProvider: RepositoryProvider {
         // copy. At that point we may need to expose control over this.
         //
         // FIXME: Need to think about & handle submodules.
-        try Git.runCommandQuietly([
-                Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString])
+        try system(
+                Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString, message: nil)
     }
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
@@ -234,13 +234,15 @@ public class GitRepository: Repository, WorkingCheckout {
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+        try system(
+            Git.tool, "-C", path.asString, "reset", "--hard", tag, message: nil)
     }
 
     public func checkout(revision: Revision) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
+        try system(
+            Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier, message: nil)
     }
 
     // MARK: Git Operations

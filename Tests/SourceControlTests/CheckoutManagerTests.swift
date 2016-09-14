@@ -63,14 +63,25 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 }
 
+private class DummyCheckoutManagerDelegate: CheckoutManagerDelegate {
+    var fetched = [RepositorySpecifier]()
+
+    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+        fetched += [handle.repository]
+    }
+}
+
 class CheckoutManagerTests: XCTestCase {
     func testBasics() throws {
         mktmpdir { path in
-            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
+            let delegate = DummyCheckoutManagerDelegate()
+            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider(), delegate: delegate)
 
             // Check that we can "fetch" a repository.
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
+
+            XCTAssertEqual(delegate.fetched, [dummyRepo])
 
             // We should always get back the same handle once fetched.
             XCTAssert(handle === manager.lookup(repository: dummyRepo))
@@ -87,9 +98,13 @@ class CheckoutManagerTests: XCTestCase {
             try handle.cloneCheckout(to: checkoutPath)
             XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
 
+            XCTAssertEqual(delegate.fetched, [dummyRepo])
+
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
             let badHandle = manager.lookup(repository: badDummyRepo)
+
+            XCTAssertEqual(delegate.fetched, [dummyRepo, badDummyRepo])
 
             // Validate that the repo is unavailable.
             XCTAssertFalse(badHandle.isAvailable)
@@ -99,9 +114,12 @@ class CheckoutManagerTests: XCTestCase {
     /// Check the behavior of the observer of repository status.
     func testObserver() {
         mktmpdir { path in
-            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
+            let delegate = DummyCheckoutManagerDelegate()
+            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider(), delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
+
+            XCTAssertEqual(delegate.fetched, [dummyRepo])
 
             var wasAvailable: Bool? = nil
             handle.addObserver { handle in
@@ -119,9 +137,11 @@ class CheckoutManagerTests: XCTestCase {
 
             // Do the initial fetch.
             do {
-                let manager = CheckoutManager(path: path, provider: provider)
+                let delegate = DummyCheckoutManagerDelegate()
+                let manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
+                XCTAssertEqual(delegate.fetched, [dummyRepo])
                 // FIXME: Wait for repo to become available.
                 XCTAssertTrue(handle.isAvailable)
             }
@@ -130,9 +150,12 @@ class CheckoutManagerTests: XCTestCase {
 
             // Create a new manager, and fetch.
             do {
-                let manager = CheckoutManager(path: path, provider: provider)
+                let delegate = DummyCheckoutManagerDelegate()
+                let manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
+                // This time fetch shouldn't be called.
+                XCTAssertEqual(delegate.fetched, [])
                 // FIXME: Wait for repo to become available.
                 XCTAssertTrue(handle.isAvailable)
             }
@@ -141,11 +164,13 @@ class CheckoutManagerTests: XCTestCase {
 
             // Manually destroy the manager state, and check it still works.
             do {
-                var manager = CheckoutManager(path: path, provider: provider)
+                let delegate = DummyCheckoutManagerDelegate()
+                var manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
                 try! removeFileTree(manager.statePath)
-                manager = CheckoutManager(path: path, provider: provider)
+                manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
+                XCTAssertEqual(delegate.fetched, [dummyRepo])
                 // FIXME: Wait for repo to become available.
                 XCTAssertTrue(handle.isAvailable)
             }
