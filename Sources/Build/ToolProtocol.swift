@@ -104,8 +104,15 @@ struct SwiftcTool: ToolProtocol {
     }
 }
 
+/// A target is a grouping of commands that should be built together for a
+/// particular purpose.
 struct Target {
-    let node: String
+    /// A unique name for the target.  These should be names that have meaning
+    /// to a client wanting to control the build.
+    let name: String
+    
+    /// A list of commands to run when building the target.  A command may be
+    /// in multiple targets, or might not be in any target at all.
     var cmds: [Command]
 }
 
