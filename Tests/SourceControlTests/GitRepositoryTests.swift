@@ -232,47 +232,7 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testFetch() throws {
-        mktmpdir { path in
-            // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
-            try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath, tag: "1.2.3")
-            let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(repo.tags, ["1.2.3"])
-
-            // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
-            let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
-            let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(clonedRepo.tags, ["1.2.3"])
-
-            // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
-            XCTAssertEqual(checkoutRepo.tags, ["1.2.3"])
-
-            // Add a new file to original repo.
-            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
-            try tagGitRepo(testRepoPath, tag: "2.0.0")
-
-            // Update the cloned repo.
-            try clonedRepo.fetch()
-            XCTAssertEqual(clonedRepo.tags.sorted(), ["1.2.3", "2.0.0"])
-
-            // Update the checkout.
-            try checkoutRepo.fetch()
-            XCTAssertEqual(checkoutRepo.tags.sorted(), ["1.2.3", "2.0.0"])
-        }
-    }
-
     static var allTests = [
-        ("testFetch", testFetch),
         ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),

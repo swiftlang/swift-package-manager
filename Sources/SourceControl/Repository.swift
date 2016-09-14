@@ -107,11 +107,6 @@ public protocol Repository {
     /// - Throws: If a error occurs accessing the named tag.
     func resolveRevision(tag: String) throws -> Revision
 
-    /// Fetch and update the repository from its remote.
-    ///
-    /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch() throws
-
     /// Open an immutable file system view for a particular revision.
     ///
     /// This view exposes the contents of the repository at the given revision
@@ -137,11 +132,6 @@ public protocol WorkingCheckout {
 
     /// Get the current revision.
     func getCurrentRevision() throws -> Revision
-
-    /// Fetch and update the repository from its remote.
-    ///
-    /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch() throws
 
     /// Check out the given tag.
     func checkout(tag: String) throws
