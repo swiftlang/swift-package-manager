@@ -23,7 +23,26 @@ import Utility
 /// sources is not necessarily related to this path; the source root directory
 /// is the path of the root package in the package graph, independent of the
 /// directory to which the .xcodeproj is being generated.
-public func pbxproj(xcodeprojPath: AbsolutePath, graph: PackageGraph, extraDirs: [AbsolutePath], options: XcodeprojOptions) throws -> String {
+public func pbxproj(
+        xcodeprojPath: AbsolutePath,
+        graph: PackageGraph,
+        extraDirs: [AbsolutePath],
+        options: XcodeprojOptions,
+        fileSystem: FileSystem = localFileSystem
+    ) throws -> String {
+    let project = try xcodeProject(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, options: options, fileSystem: fileSystem)
+    // Serialize the project model we created to a plist, and return
+    // its string description.
+    return "// !$*UTF8*$!\n" + project.generatePlist().description
+}
+
+func xcodeProject(
+    xcodeprojPath: AbsolutePath,
+    graph: PackageGraph,
+    extraDirs: [AbsolutePath],
+    options: XcodeprojOptions,
+    fileSystem: FileSystem
+    ) throws -> Xcode.Project {
     
     // Create the project.
     let project = Xcode.Project()
@@ -257,12 +276,12 @@ public func pbxproj(xcodeprojPath: AbsolutePath, graph: PackageGraph, extraDirs:
             targetSettings.common.DEFINES_MODULE = "YES"
             let moduleMapPath: AbsolutePath
             // If user provided the modulemap no need to generate.
-            if isFile(clangModule.moduleMapPath) {
+            if fileSystem.isFile(clangModule.moduleMapPath) {
                 moduleMapPath = clangModule.moduleMapPath
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
-                var moduleMapGenerator = ModuleMapGenerator(for: clangModule)
+                var moduleMapGenerator = ModuleMapGenerator(for: clangModule, fileSystem: fileSystem)
                 try moduleMapGenerator.generateModuleMap(inDir: path)
                 moduleMapPath = path.appending(component: moduleMapFilename)
             }
@@ -362,10 +381,8 @@ public func pbxproj(xcodeprojPath: AbsolutePath, graph: PackageGraph, extraDirs:
             let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
         }
     }
-    
-    // Finally, serialize the project model we created to a plist, and return
-    // its string description.
-    return "// !$*UTF8*$!\n" + project.generatePlist().description
+
+    return project
 }
 
 extension Module {
