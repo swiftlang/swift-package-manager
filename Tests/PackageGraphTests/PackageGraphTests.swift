@@ -13,10 +13,7 @@ import XCTest
 import Basic
 import PackageGraph
 import PackageDescription
-import PackageLoading
-import PackageModel
-
-private let v1: Version = "1.0.0"
+import TestSupport
 
 class PackageGraphTests: XCTestCase {
 
@@ -90,24 +87,4 @@ private class PackageGraphResult {
     func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(graph.packages.flatMap {$0.testModules.map {$0.name} }, testModules, file: file, line: line)
     }
-}
-
-private func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Package], root: String, in fs: FileSystem) throws -> PackageGraph {
-    var externalManifests = [Manifest]()
-    var rootManifest: Manifest!
-    for (url, package) in packageMap {
-        let manifest = Manifest(
-            path: AbsolutePath(url).appending(component: Manifest.filename),
-            url: url,
-            package: package,
-            products: [],
-            version: v1
-        )
-        if url == root {
-            rootManifest = manifest
-        } else {
-            externalManifests.append(manifest)
-        }
-    }
-    return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests, fileSystem: fs)
 }
