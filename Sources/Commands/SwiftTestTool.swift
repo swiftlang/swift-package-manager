@@ -131,12 +131,6 @@ public class TestToolOptions: Options {
 public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
 
     override func runImpl() throws {
-        verbosity = Verbosity(rawValue: options.verbosity)
-        colorMode = options.colorMode
-
-        if let dir = options.chdir {
-            try chdir(dir.asString)
-        }
 
         switch mode {
         case .usage:

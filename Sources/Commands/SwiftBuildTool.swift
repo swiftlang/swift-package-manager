@@ -106,13 +106,6 @@ public class BuildToolOptions: Options {
 public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
 
     override func runImpl() throws {
-        verbosity = Verbosity(rawValue: options.verbosity)
-        colorMode = options.colorMode
-
-        if let dir = options.chdir {
-            try chdir(dir.asString)
-        }
-
         switch mode {
         case .usage:
             SwiftBuildTool.usage()

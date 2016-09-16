@@ -12,6 +12,8 @@ import Basic
 import Get
 import PackageLoading
 import PackageGraph
+import func POSIX.chdir
+import Utility
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
@@ -46,6 +48,10 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
         let dynamicSelf = type(of: self)
         do {
             (self.mode, self.options) = try dynamicSelf.parse(commandLineArguments: args)
+            // Honor chdir option is provided.
+            if let dir = options.chdir {
+                try chdir(dir.asString)
+            }
         } catch {
             handle(error: error, usage: dynamicSelf.usage)
         }
@@ -58,6 +64,10 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// Execute the tool.
     public func run() {
         do {
+            // Setup the globals.
+            verbosity = Verbosity(rawValue: options.verbosity)
+            colorMode = options.colorMode
+            // Call the implementation.
             try runImpl()
         } catch {
             handle(error: error, usage: type(of: self).usage)

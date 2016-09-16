@@ -146,13 +146,6 @@ public class PackageToolOptions: Options {
 public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
 
     override func runImpl() throws {
-        verbosity = Verbosity(rawValue: options.verbosity)
-        colorMode = options.colorMode
-
-        if let dir = options.chdir {
-            try chdir(dir.asString)
-        }
-
         switch mode {
         case .usage:
             SwiftPackageTool.usage()
