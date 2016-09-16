@@ -68,7 +68,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
 
     public init() {
         let args = Array(CommandLine.arguments.dropFirst())
-        self.args = Array(CommandLine.arguments.dropFirst())
+        self.args = args
         let dynamicSelf = type(of: self)
         do {
             (self.mode, self.options) = try dynamicSelf.parse(commandLineArguments: args)
