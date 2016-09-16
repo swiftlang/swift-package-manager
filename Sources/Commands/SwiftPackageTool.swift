@@ -139,8 +139,6 @@ public class PackageToolOptions: Options {
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
     var inputPath: AbsolutePath? = nil
     var outputPath: AbsolutePath? = nil
-    var verbosity: Int = 0
-    var colorMode: ColorWrap.Mode = .Auto
     var xcodeprojOptions = XcodeprojOptions()
 }
 

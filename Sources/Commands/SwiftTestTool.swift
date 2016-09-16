@@ -123,9 +123,7 @@ private enum TestToolFlag: Argument {
 }
 
 public class TestToolOptions: Options {
-    var verbosity: Int = 0
     var buildTests: Bool = true
-    var colorMode: ColorWrap.Mode = .Auto
     var flags = BuildFlags()
 }
 

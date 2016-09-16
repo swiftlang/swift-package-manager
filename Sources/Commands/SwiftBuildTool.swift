@@ -98,10 +98,8 @@ private enum BuildToolFlag: Argument {
 }
 
 public class BuildToolOptions: Options {
-    var verbosity: Int = 0
     var flags = BuildFlags()
     var buildTests: Bool = false
-    var colorMode: ColorWrap.Mode = .Auto
 }
 
 /// swift-build tool namespace
