@@ -31,7 +31,7 @@ extension SwiftPackageTool {
         let delegate = ResolverToolDelegate()
 
         // Create the checkout manager.
-        let repositoriesPath = opts.path.build.appending(component: "repositories")
+        let repositoriesPath = buildPath.appending(component: "repositories")
         let checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: delegate)
 
         // Create the container provider interface.

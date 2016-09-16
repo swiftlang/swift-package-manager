@@ -166,10 +166,11 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             break
 
         case .update:
+            let packagesDirectory = try getCheckoutsDirectory()
             // Attempt to ensure that none of the repositories are modified.
-            if localFileSystem.exists(options.path.packages) {
-                for name in try localFileSystem.getDirectoryContents(options.path.packages) {
-                    let item = options.path.packages.appending(RelativePath(name))
+            if localFileSystem.exists(packagesDirectory) {
+                for name in try localFileSystem.getDirectoryContents(packagesDirectory) {
+                    let item = packagesDirectory.appending(RelativePath(name))
 
                     // Only look at repositories.
                     guard exists(item.appending(component: ".git")) else { continue }
@@ -185,18 +186,18 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
                         throw Error.repositoryHasChanges(item.asString)
                     }
                 }
-                try removeFileTree(options.path.packages)
+                try removeFileTree(packagesDirectory)
             }
             fallthrough
 
         case .fetch:
-            _ = try loadPackage(at: options.path.root, options)
+            _ = try loadPackage()
 
         case .showDependencies:
-            let graph = try loadPackage(at: options.path.root, options)
+            let graph = try loadPackage()
             dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
         case .generateXcodeproj:
-            let graph = try loadPackage(at: options.path.root, options)
+            let graph = try loadPackage()
 
             let projectName: String
             let dstdir: AbsolutePath
@@ -210,7 +211,7 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
                 dstdir = outpath
                 projectName = graph.rootPackage.name
             case _:
-                dstdir = options.path.root
+                dstdir = try getPackageRoot()
                 projectName = graph.rootPackage.name
             }
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
@@ -226,7 +227,7 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
 
     /// Load the manifest for the root package
     func loadRootManifest(_ options: PackageToolOptions) throws -> Manifest {
-        let root = options.inputPath ?? options.path.root
+        let root = try options.inputPath ?? getPackageRoot()
         return try manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
     }
     
@@ -285,8 +286,6 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             case .xswiftc(let value):
                 options.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
-                // FIXME: Eliminate this.
-                options.path.build = path
                 options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true

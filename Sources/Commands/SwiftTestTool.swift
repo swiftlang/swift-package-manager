@@ -162,9 +162,9 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackage(at: options.path.root, options)
+        let graph = try loadPackage()
         if options.buildTests {
-            let yaml = try describe(options.path.build, configuration, graph, flags: options.flags, toolchain: UserToolchain())
+            let yaml = try describe(buildPath, configuration, graph, flags: options.flags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
         }
                 
@@ -184,7 +184,7 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
         } else if testProducts.count > 1 {
             throw TestError.multipleTestProducts
         } else {
-            return options.path.build.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
+            return buildPath.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
         }
     }
 
@@ -231,8 +231,6 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
             case .xswiftc(let value):
                 options.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
-                // FIXME: Eliminate this.
-                options.path.build = path
                 options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true

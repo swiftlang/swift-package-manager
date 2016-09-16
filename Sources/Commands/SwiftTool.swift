@@ -30,6 +30,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
+enum SwiftToolError: Swift.Error {
+    case rootManifestFileNotFound
+}
+
 public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// The command line arguments this tool should honor.
     let args: [String]
@@ -45,6 +49,19 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
+
+    /// Helper function to get package root or throw error if it is not found.
+    func getPackageRoot() throws -> AbsolutePath {
+        guard let packageRoot = packageRoot else {
+            throw SwiftToolError.rootManifestFileNotFound
+        }
+        return packageRoot
+    }
+
+    /// Path to directory of the checkouts.
+    func getCheckoutsDirectory() throws -> AbsolutePath {
+        return try getPackageRoot().appending(component: "Packages")
+    }
 
     /// Path to the build directory.
     let buildPath: AbsolutePath
@@ -99,11 +116,11 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     }
 
     /// Fetch and load the complete package at the given path.
-    func loadPackage(at path: AbsolutePath, _ opts: Options) throws -> PackageGraph {
-        if opts.enableNewResolver {
+    func loadPackage() throws -> PackageGraph {
+        if options.enableNewResolver {
             // Get the active workspace.
             let delegate = ToolWorkspaceDelegate()
-            let workspace = try Workspace(rootPackage: path, dataPath: opts.path.build, manifestLoader: manifestLoader, delegate: delegate)
+            let workspace = try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph()
@@ -114,7 +131,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
             return graph
         } else {
             // Create the packages directory container.
-            let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
+            let packagesDirectory = PackagesDirectory(root: try getPackageRoot(), manifestLoader: manifestLoader)
 
             // Fetch and load the manifests.
             let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()

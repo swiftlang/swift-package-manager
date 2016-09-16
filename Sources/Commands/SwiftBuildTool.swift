@@ -119,20 +119,20 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
             checkClangVersion()
             #endif
-            let graph = try loadPackage(at: options.path.root, options)
-            let yaml = try describe(options.path.build, conf, graph, flags: options.flags, toolchain: toolchain)
+            let graph = try loadPackage()
+            let yaml = try describe(buildPath, conf, graph, flags: options.flags, toolchain: toolchain)
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
         case .clean(.dist):
-            if exists(options.path.packages) {
-                try removeFileTree(options.path.packages)
+            if try exists(getCheckoutsDirectory()) {
+                try removeFileTree(getCheckoutsDirectory())
             }
             fallthrough
 
         case .clean(.build):
             // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-            if exists(options.path.build) {
-                try removeFileTree(options.path.build)
+            if exists(buildPath) {
+                try removeFileTree(buildPath)
             }
         }
     }
@@ -176,8 +176,6 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             case .xswiftc(let value):
                 options.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
-                // FIXME: Eliminate this.
-                options.path.build = path
                 options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true
