@@ -105,14 +105,9 @@ private class BuildToolOptions: Options {
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool: SwiftTool {
-    let args: [String]
+public class SwiftBuildTool: SwiftTool {
 
-    public init(args: [String]) {
-        self.args = args
-    }
-
-    public func run() {
+    override func runImpl() {
         do {
             let (mode, opts) = try parse(commandLineArguments: args)
         

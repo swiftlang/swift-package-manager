@@ -13,13 +13,6 @@ import Get
 import PackageLoading
 import PackageGraph
 
-/// A common interface for swift tools
-public protocol SwiftTool {
-    init()
-    init(args: [String])
-    func run()
-}
-
 // FIXME: Find a home for this. Ultimately it might need access to some of the
 // options, and we might just want the SwiftTool type to become a class.
 private let sharedManifestLoader = ManifestLoader(resources: ToolDefaults())
@@ -38,9 +31,22 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
-public extension SwiftTool {
-    init() {
-        self.init(args: Array(CommandLine.arguments.dropFirst()))
+public class SwiftTool {
+    /// The command line arguments this tool should honor.
+    let args: [String]
+
+    public init() {
+        self.args = Array(CommandLine.arguments.dropFirst())
+    }
+
+    /// Execute the tool.
+    public func run() {
+        runImpl()
+    }
+
+    /// Run method implmentation to be overridden by subclasses.
+    func runImpl() {
+        fatalError("Must be implmented by subclasses")
     }
 
     /// The shared package graph loader.

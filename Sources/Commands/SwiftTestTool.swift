@@ -130,14 +130,9 @@ private class TestToolOptions: Options {
 }
 
 /// swift-test tool namespace
-public struct SwiftTestTool: SwiftTool {
-    let args: [String]
+public class SwiftTestTool: SwiftTool {
 
-    public init(args: [String]) {
-        self.args = args
-    }
-    
-    public func run() {
+    override func runImpl() {
         do {
             let (mode, opts) = try parseOptions(commandLineArguments: args)
         
