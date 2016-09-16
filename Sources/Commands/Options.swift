@@ -20,6 +20,7 @@ public class Options {
     public var enableNewResolver = false
     public var colorMode: ColorWrap.Mode = .Auto
     public var verbosity: Int = 0
+    public var buildPath: AbsolutePath?
 
     public class Path {
         public lazy var root = getroot()

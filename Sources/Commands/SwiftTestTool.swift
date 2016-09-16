@@ -230,8 +230,10 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
                 options.flags.linkerFlags.append(value)
             case .xswiftc(let value):
                 options.flags.swiftCompilerFlags.append(value)
-            case .buildPath(let buildPath):
-                options.path.build = buildPath
+            case .buildPath(let path):
+                // FIXME: Eliminate this.
+                options.path.build = path
+                options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true
             case .colorMode(let mode):

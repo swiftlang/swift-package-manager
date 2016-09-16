@@ -285,7 +285,9 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             case .xswiftc(let value):
                 options.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
+                // FIXME: Eliminate this.
                 options.path.build = path
+                options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true
             case .verbose(let amount):

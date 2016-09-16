@@ -12,7 +12,8 @@ import Basic
 import Get
 import PackageLoading
 import PackageGraph
-import func POSIX.chdir
+import PackageModel
+import POSIX
 import Utility
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
@@ -42,6 +43,12 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// The package graph loader.
     let manifestLoader = ManifestLoader(resources: ToolDefaults())
 
+    /// Path to the root package directory, nil if manifest is not found.
+    let packageRoot: AbsolutePath?
+
+    /// Path to the build directory.
+    let buildPath: AbsolutePath
+
     public init() {
         let args = Array(CommandLine.arguments.dropFirst())
         self.args = Array(CommandLine.arguments.dropFirst())
@@ -55,6 +62,13 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
         } catch {
             handle(error: error, usage: dynamicSelf.usage)
         }
+
+        // Create local variables to use while finding build path to avoid capture self before init error.
+        let customBuildPath = options.buildPath
+        let packageRoot = findPackageRoot()
+
+        self.packageRoot = packageRoot
+        self.buildPath = getEnvBuildPath() ?? customBuildPath ?? (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
     }
 
     class func parse(commandLineArguments args: [String]) throws -> (Mode, OptionType) {
@@ -108,4 +122,22 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
             return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
         }
     }
+}
+
+/// Returns path of the nearest directory containing the manifest file w.r.t
+/// current working directory.
+private func findPackageRoot() -> AbsolutePath? {
+    var root = currentWorkingDirectory
+    while !isFile(root.appending(component: Manifest.filename)) {
+        root = root.parentDirectory
+        guard !root.isRoot else {
+            return nil
+        }
+    }
+    return root
+}
+
+private func getEnvBuildPath() -> AbsolutePath? {
+    guard let env = getenv("SWIFT_BUILD_PATH") else { return nil }
+    return AbsolutePath(env, relativeTo: currentWorkingDirectory)
 }

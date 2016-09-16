@@ -176,7 +176,9 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             case .xswiftc(let value):
                 options.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
+                // FIXME: Eliminate this.
                 options.path.build = path
+                options.buildPath = path
             case .enableNewResolver:
                 options.enableNewResolver = true
             case .buildTests:
