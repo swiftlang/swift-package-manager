@@ -57,11 +57,15 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
 
     /// Execute the tool.
     public func run() {
-        runImpl()
+        do {
+            try runImpl()
+        } catch {
+            handle(error: error, usage: type(of: self).usage)
+        }
     }
 
     /// Run method implmentation to be overridden by subclasses.
-    func runImpl() {
+    func runImpl() throws {
         fatalError("Must be implmented by subclasses")
     }
 

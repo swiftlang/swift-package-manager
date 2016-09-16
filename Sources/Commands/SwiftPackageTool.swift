@@ -147,95 +147,89 @@ public class PackageToolOptions: Options {
 /// swift-build tool namespace
 public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
 
-    override func runImpl() {
-        do {
-        
-            verbosity = Verbosity(rawValue: options.verbosity)
-            colorMode = options.colorMode
-        
-            if let dir = options.chdir {
-                try chdir(dir.asString)
-            }
-        
-            switch mode {
-            case .usage:
-                SwiftPackageTool.usage()
-        
-            case .version:
-                print(Versioning.currentVersion.completeDisplayString)
-                
-            case .initPackage:
-                let initPackage = try InitPackage(mode: options.initMode)
-                try initPackage.writePackageStructure()
+    override func runImpl() throws {
+        verbosity = Verbosity(rawValue: options.verbosity)
+        colorMode = options.colorMode
 
-            case .resolve:
-                // NOTE: This command is currently undocumented, and is for
-                // bringup of the new dependency resolution logic. This is *NOT*
-                // the code currently used to resolve dependencies (which runs
-                // off of the infrastructure in the `Get` module).
-                try executeResolve(options)
-                break
+        if let dir = options.chdir {
+            try chdir(dir.asString)
+        }
 
-            case .update:
-                // Attempt to ensure that none of the repositories are modified.
-                if localFileSystem.exists(options.path.packages) {
-                    for name in try localFileSystem.getDirectoryContents(options.path.packages) {
-                        let item = options.path.packages.appending(RelativePath(name))
+        switch mode {
+        case .usage:
+            SwiftPackageTool.usage()
 
-                        // Only look at repositories.
-                        guard exists(item.appending(component: ".git")) else { continue }
+        case .version:
+            print(Versioning.currentVersion.completeDisplayString)
 
-                        // If there is a staged or unstaged diff, don't remove the
-                        // tree. This won't detect new untracked files, but it is
-                        // just a safety measure for now.
-                        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-                        do {
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
-                        } catch {
-                            throw Error.repositoryHasChanges(item.asString)
-                        }
+        case .initPackage:
+            let initPackage = try InitPackage(mode: options.initMode)
+            try initPackage.writePackageStructure()
+
+        case .resolve:
+            // NOTE: This command is currently undocumented, and is for
+            // bringup of the new dependency resolution logic. This is *NOT*
+            // the code currently used to resolve dependencies (which runs
+            // off of the infrastructure in the `Get` module).
+            try executeResolve(options)
+            break
+
+        case .update:
+            // Attempt to ensure that none of the repositories are modified.
+            if localFileSystem.exists(options.path.packages) {
+                for name in try localFileSystem.getDirectoryContents(options.path.packages) {
+                    let item = options.path.packages.appending(RelativePath(name))
+
+                    // Only look at repositories.
+                    guard exists(item.appending(component: ".git")) else { continue }
+
+                    // If there is a staged or unstaged diff, don't remove the
+                    // tree. This won't detect new untracked files, but it is
+                    // just a safety measure for now.
+                    let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
+                    do {
+                        _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
+                        _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
+                    } catch {
+                        throw Error.repositoryHasChanges(item.asString)
                     }
-                    try removeFileTree(options.path.packages)
                 }
-                fallthrough
-                
-            case .fetch:
-                _ = try loadPackage(at: options.path.root, options)
-        
-            case .showDependencies:
-                let graph = try loadPackage(at: options.path.root, options)
-                dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
-            case .generateXcodeproj:
-                let graph = try loadPackage(at: options.path.root, options)
-
-                let projectName: String
-                let dstdir: AbsolutePath
-        
-                switch options.outputPath {
-                case let outpath? where outpath.suffix == ".xcodeproj":
-                    // if user specified path ending with .xcodeproj, use that
-                    projectName = String(outpath.basename.characters.dropLast(10))
-                    dstdir = outpath.parentDirectory
-                case let outpath?:
-                    dstdir = outpath
-                    projectName = graph.rootPackage.name
-                case _:
-                    dstdir = options.path.root
-                    projectName = graph.rootPackage.name
-                }
-                let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
-        
-                print("generated:", outpath.prettyPath)
-                
-            case .dumpPackage:
-                let manifest = try loadRootManifest(options)
-                // FIXME: It would be nice if this has a pretty print option.
-                print(manifest.jsonString())
+                try removeFileTree(options.path.packages)
             }
-        
-        } catch {
-            handle(error: error, usage: SwiftTestTool.usage)
+            fallthrough
+
+        case .fetch:
+            _ = try loadPackage(at: options.path.root, options)
+
+        case .showDependencies:
+            let graph = try loadPackage(at: options.path.root, options)
+            dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
+        case .generateXcodeproj:
+            let graph = try loadPackage(at: options.path.root, options)
+
+            let projectName: String
+            let dstdir: AbsolutePath
+
+            switch options.outputPath {
+            case let outpath? where outpath.suffix == ".xcodeproj":
+                // if user specified path ending with .xcodeproj, use that
+                projectName = String(outpath.basename.characters.dropLast(10))
+                dstdir = outpath.parentDirectory
+            case let outpath?:
+                dstdir = outpath
+                projectName = graph.rootPackage.name
+            case _:
+                dstdir = options.path.root
+                projectName = graph.rootPackage.name
+            }
+            let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
+
+            print("generated:", outpath.prettyPath)
+
+        case .dumpPackage:
+            let manifest = try loadRootManifest(options)
+            // FIXME: It would be nice if this has a pretty print option.
+            print(manifest.jsonString())
         }
     }
 

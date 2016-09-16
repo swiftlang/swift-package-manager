@@ -132,45 +132,37 @@ public class TestToolOptions: Options {
 /// swift-test tool namespace
 public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
 
-    override func runImpl() {
-        do {
-        
-            verbosity = Verbosity(rawValue: options.verbosity)
-            colorMode = options.colorMode
+    override func runImpl() throws {
+        verbosity = Verbosity(rawValue: options.verbosity)
+        colorMode = options.colorMode
 
-            if let dir = options.chdir {
-                try chdir(dir.asString)
-            }
+        if let dir = options.chdir {
+            try chdir(dir.asString)
+        }
 
-            switch mode {
-            case .usage:
-                SwiftTestTool.usage()
-        
-            case .version:
-                print(Versioning.currentVersion.completeDisplayString)
-        
-            case .listTests:
-                let testPath = try buildTestsIfNeeded(options)
-                let testSuites = try getTestSuites(path: testPath)
-                // Print the tests.
-                for testSuite in testSuites {
-                    for testCase in testSuite.tests {
-                        for test in testCase.tests {
-                            print(testCase.name + "/" + test)
-                        }
+        switch mode {
+        case .usage:
+            SwiftTestTool.usage()
+
+        case .version:
+            print(Versioning.currentVersion.completeDisplayString)
+
+        case .listTests:
+            let testPath = try buildTestsIfNeeded(options)
+            let testSuites = try getTestSuites(path: testPath)
+            // Print the tests.
+            for testSuite in testSuites {
+                for testCase in testSuite.tests {
+                    for test in testCase.tests {
+                        print(testCase.name + "/" + test)
                     }
                 }
-
-            case .run(let specifier):
-                let testPath = try buildTestsIfNeeded(options)
-                let success = test(path: testPath, xctestArg: specifier)
-                exit(success ? 0 : 1)
             }
-        } catch Error.buildYAMLNotFound {
-            print("error: you must run `swift build` first", to: &stderr)
-            exit(1)
-        } catch {
-            handle(error: error, usage: SwiftTestTool.usage)
+
+        case .run(let specifier):
+            let testPath = try buildTestsIfNeeded(options)
+            let success = test(path: testPath, xctestArg: specifier)
+            exit(success ? 0 : 1)
         }
     }
 

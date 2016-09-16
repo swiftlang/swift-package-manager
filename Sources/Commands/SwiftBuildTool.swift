@@ -107,48 +107,42 @@ public class BuildToolOptions: Options {
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
 
-    override func runImpl() {
-        do {
+    override func runImpl() throws {
+        verbosity = Verbosity(rawValue: options.verbosity)
+        colorMode = options.colorMode
 
-            verbosity = Verbosity(rawValue: options.verbosity)
-            colorMode = options.colorMode
-        
-            if let dir = options.chdir {
-                try chdir(dir.asString)
+        if let dir = options.chdir {
+            try chdir(dir.asString)
+        }
+
+        switch mode {
+        case .usage:
+            SwiftBuildTool.usage()
+
+        case .version:
+            print(Versioning.currentVersion.completeDisplayString)
+
+        case .build(let conf, let toolchain):
+            #if os(Linux)
+            // Emit warning if clang is older than version 3.6 on Linux.
+            // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
+            checkClangVersion()
+            #endif
+            let graph = try loadPackage(at: options.path.root, options)
+            let yaml = try describe(options.path.build, conf, graph, flags: options.flags, toolchain: toolchain)
+            try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
+
+        case .clean(.dist):
+            if exists(options.path.packages) {
+                try removeFileTree(options.path.packages)
             }
-            
-            switch mode {
-            case .usage:
-                SwiftBuildTool.usage()
-        
-            case .version:
-                print(Versioning.currentVersion.completeDisplayString)
-                
-            case .build(let conf, let toolchain):
-              #if os(Linux)
-                // Emit warning if clang is older than version 3.6 on Linux.
-                // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-                checkClangVersion()
-              #endif
-                let graph = try loadPackage(at: options.path.root, options)
-                let yaml = try describe(options.path.build, conf, graph, flags: options.flags, toolchain: toolchain)
-                try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
-        
-            case .clean(.dist):
-                if exists(options.path.packages) {
-                    try removeFileTree(options.path.packages)
-                }
-                fallthrough
-        
-            case .clean(.build):
-                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-                if exists(options.path.build) {
-                    try removeFileTree(options.path.build)
-                }
+            fallthrough
+
+        case .clean(.build):
+            // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
+            if exists(options.path.build) {
+                try removeFileTree(options.path.build)
             }
-        
-        } catch {
-            handle(error: error, usage: SwiftBuildTool.usage)
         }
     }
 
