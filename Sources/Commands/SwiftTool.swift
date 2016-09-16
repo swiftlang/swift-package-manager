@@ -92,6 +92,13 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
         fatalError("Must be implmented by subclasses")
     }
 
+    /// Returns the currently active workspace.
+    func getActiveWorkspace() throws -> Workspace {
+        // Get the active workspace.
+        let delegate = ToolWorkspaceDelegate()
+        return try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
+    }
+
     /// Execute the tool.
     public func run() {
         do {
@@ -118,9 +125,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// Fetch and load the complete package at the given path.
     func loadPackage() throws -> PackageGraph {
         if options.enableNewResolver {
-            // Get the active workspace.
-            let delegate = ToolWorkspaceDelegate()
-            let workspace = try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
+            let workspace = try getActiveWorkspace()
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph()
