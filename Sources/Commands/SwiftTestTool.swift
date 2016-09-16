@@ -36,13 +36,13 @@ extension TestError: CustomStringConvertible {
     }
 }
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+public enum TestMode: Argument, Equatable, CustomStringConvertible {
     case usage
     case version
     case listTests
     case run(String?)
 
-    init?(argument: String, pop: @escaping () -> String?) throws {
+    public init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--help", "-h":
             self = .usage
@@ -58,7 +58,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
         case .usage:
             return "--help"
@@ -71,7 +71,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     }
 }
 
-private func ==(lhs: Mode, rhs: Mode) -> Bool {
+public func ==(lhs: TestMode, rhs: TestMode) -> Bool {
     return lhs.description == rhs.description
 }
 
@@ -122,7 +122,7 @@ private enum TestToolFlag: Argument {
     }
 }
 
-private class TestToolOptions: Options {
+public class TestToolOptions: Options {
     var verbosity: Int = 0
     var buildTests: Bool = true
     var colorMode: ColorWrap.Mode = .Auto
@@ -130,28 +130,27 @@ private class TestToolOptions: Options {
 }
 
 /// swift-test tool namespace
-public class SwiftTestTool: SwiftTool {
+public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
 
     override func runImpl() {
         do {
-            let (mode, opts) = try parseOptions(commandLineArguments: args)
         
-            verbosity = Verbosity(rawValue: opts.verbosity)
-            colorMode = opts.colorMode
+            verbosity = Verbosity(rawValue: options.verbosity)
+            colorMode = options.colorMode
 
-            if let dir = opts.chdir {
+            if let dir = options.chdir {
                 try chdir(dir.asString)
             }
 
             switch mode {
             case .usage:
-                usage()
+                SwiftTestTool.usage()
         
             case .version:
                 print(Versioning.currentVersion.completeDisplayString)
         
             case .listTests:
-                let testPath = try buildTestsIfNeeded(opts)
+                let testPath = try buildTestsIfNeeded(options)
                 let testSuites = try getTestSuites(path: testPath)
                 // Print the tests.
                 for testSuite in testSuites {
@@ -163,7 +162,7 @@ public class SwiftTestTool: SwiftTool {
                 }
 
             case .run(let specifier):
-                let testPath = try buildTestsIfNeeded(opts)
+                let testPath = try buildTestsIfNeeded(options)
                 let success = test(path: testPath, xctestArg: specifier)
                 exit(success ? 0 : 1)
             }
@@ -171,17 +170,17 @@ public class SwiftTestTool: SwiftTool {
             print("error: you must run `swift build` first", to: &stderr)
             exit(1)
         } catch {
-            handle(error: error, usage: usage)
+            handle(error: error, usage: SwiftTestTool.usage)
         }
     }
 
     /// Builds the "test" target if enabled in options.
     ///
     /// - Returns: The path to the test binary.
-    private func buildTestsIfNeeded(_ opts: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackage(at: opts.path.root, opts)
-        if opts.buildTests {
-            let yaml = try describe(opts.path.build, configuration, graph, flags: opts.flags, toolchain: UserToolchain())
+    private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
+        let graph = try loadPackage(at: options.path.root, options)
+        if options.buildTests {
+            let yaml = try describe(options.path.build, configuration, graph, flags: options.flags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
         }
                 
@@ -201,7 +200,7 @@ public class SwiftTestTool: SwiftTool {
         } else if testProducts.count > 1 {
             throw TestError.multipleTestProducts
         } else {
-            return opts.path.build.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
+            return options.path.build.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
         }
     }
 
@@ -209,7 +208,7 @@ public class SwiftTestTool: SwiftTool {
     // to solve the testability problem first.
     private let configuration = Build.Configuration.debug
 
-    private func usage(_ print: (String) -> Void = { print($0) }) {
+    override class func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Build and run tests")
         print("")
@@ -231,34 +230,34 @@ public class SwiftTestTool: SwiftTool {
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
 
-    private func parseOptions(commandLineArguments args: [String]) throws -> (Mode, TestToolOptions) {
-        let (mode, flags): (Mode?, [TestToolFlag]) = try Basic.parseOptions(arguments: args)
+    override class func parse(commandLineArguments args: [String]) throws -> (TestMode, TestToolOptions) {
+        let (mode, flags): (TestMode?, [TestToolFlag]) = try Basic.parseOptions(arguments: args)
 
-        let opts = TestToolOptions()
+        let options = TestToolOptions()
         for flag in flags {
             switch flag {
             case .chdir(let path):
-                opts.chdir = path
+                options.chdir = path
             case .verbose(let amount):
-                opts.verbosity += amount
+                options.verbosity += amount
             case .xcc(let value):
-                opts.flags.cCompilerFlags.append(value)
+                options.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.flags.linkerFlags.append(value)
+                options.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.flags.swiftCompilerFlags.append(value)
+                options.flags.swiftCompilerFlags.append(value)
             case .buildPath(let buildPath):
-                opts.path.build = buildPath
+                options.path.build = buildPath
             case .enableNewResolver:
-                opts.enableNewResolver = true
+                options.enableNewResolver = true
             case .colorMode(let mode):
-                opts.colorMode = mode
+                options.colorMode = mode
             case .skipBuild:
-                opts.buildTests = false
+                options.buildTests = false
             }
         }
 
-        return (mode ?? .run(nil), opts)
+        return (mode ?? .run(nil), options)
     }
 
     /// Executes the XCTest binary with given arguments.

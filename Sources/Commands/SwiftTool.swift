@@ -27,15 +27,32 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
-public class SwiftTool {
+public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// The command line arguments this tool should honor.
     let args: [String]
+
+    /// The mode in which this tool is currently executing.
+    let mode: Mode
+
+    /// The options of this tool.
+    let options: OptionType
 
     /// The package graph loader.
     let manifestLoader = ManifestLoader(resources: ToolDefaults())
 
     public init() {
+        let args = Array(CommandLine.arguments.dropFirst())
         self.args = Array(CommandLine.arguments.dropFirst())
+        let dynamicSelf = type(of: self)
+        do {
+            (self.mode, self.options) = try dynamicSelf.parse(commandLineArguments: args)
+        } catch {
+            handle(error: error, usage: dynamicSelf.usage)
+        }
+    }
+
+    class func parse(commandLineArguments args: [String]) throws -> (Mode, OptionType) {
+        fatalError("Must be implmented by subclasses")
     }
 
     /// Execute the tool.
@@ -45,6 +62,11 @@ public class SwiftTool {
 
     /// Run method implmentation to be overridden by subclasses.
     func runImpl() {
+        fatalError("Must be implmented by subclasses")
+    }
+
+    /// Method to be called to print the usage text of this tool.
+    class func usage(_ print: (String) -> Void = { print($0) }) {
         fatalError("Must be implmented by subclasses")
     }
 

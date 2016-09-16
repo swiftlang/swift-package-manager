@@ -21,7 +21,7 @@ import protocol Build.Toolchain
 
 import func POSIX.chdir
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     case dumpPackage
     case fetch
     case generateXcodeproj
@@ -32,7 +32,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case usage
     case version
 
-    init?(argument: String, pop: @escaping () -> String?) throws {
+    public init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "dump-package":
             self = .dumpPackage
@@ -57,7 +57,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
         case .dumpPackage: return "dump-package"
         case .fetch: return "fetch"
@@ -134,7 +134,7 @@ private enum PackageToolFlag: Argument {
     }
 }
 
-class PackageToolOptions: Options {
+public class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
     var inputPath: AbsolutePath? = nil
@@ -145,28 +145,27 @@ class PackageToolOptions: Options {
 }
 
 /// swift-build tool namespace
-public class SwiftPackageTool: SwiftTool {
+public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
 
     override func runImpl() {
         do {
-            let (mode, opts) = try parse(commandLineArguments: args)
         
-            verbosity = Verbosity(rawValue: opts.verbosity)
-            colorMode = opts.colorMode
+            verbosity = Verbosity(rawValue: options.verbosity)
+            colorMode = options.colorMode
         
-            if let dir = opts.chdir {
+            if let dir = options.chdir {
                 try chdir(dir.asString)
             }
         
             switch mode {
             case .usage:
-                usage()
+                SwiftPackageTool.usage()
         
             case .version:
                 print(Versioning.currentVersion.completeDisplayString)
                 
             case .initPackage:
-                let initPackage = try InitPackage(mode: opts.initMode)
+                let initPackage = try InitPackage(mode: options.initMode)
                 try initPackage.writePackageStructure()
 
             case .resolve:
@@ -174,14 +173,14 @@ public class SwiftPackageTool: SwiftTool {
                 // bringup of the new dependency resolution logic. This is *NOT*
                 // the code currently used to resolve dependencies (which runs
                 // off of the infrastructure in the `Get` module).
-                try executeResolve(opts)
+                try executeResolve(options)
                 break
 
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
-                if localFileSystem.exists(opts.path.packages) {
-                    for name in try localFileSystem.getDirectoryContents(opts.path.packages) {
-                        let item = opts.path.packages.appending(RelativePath(name))
+                if localFileSystem.exists(options.path.packages) {
+                    for name in try localFileSystem.getDirectoryContents(options.path.packages) {
+                        let item = options.path.packages.appending(RelativePath(name))
 
                         // Only look at repositories.
                         guard exists(item.appending(component: ".git")) else { continue }
@@ -197,23 +196,23 @@ public class SwiftPackageTool: SwiftTool {
                             throw Error.repositoryHasChanges(item.asString)
                         }
                     }
-                    try removeFileTree(opts.path.packages)
+                    try removeFileTree(options.path.packages)
                 }
                 fallthrough
                 
             case .fetch:
-                _ = try loadPackage(at: opts.path.root, opts)
+                _ = try loadPackage(at: options.path.root, options)
         
             case .showDependencies:
-                let graph = try loadPackage(at: opts.path.root, opts)
-                dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
+                let graph = try loadPackage(at: options.path.root, options)
+                dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
             case .generateXcodeproj:
-                let graph = try loadPackage(at: opts.path.root, opts)
+                let graph = try loadPackage(at: options.path.root, options)
 
                 let projectName: String
                 let dstdir: AbsolutePath
         
-                switch opts.outputPath {
+                switch options.outputPath {
                 case let outpath? where outpath.suffix == ".xcodeproj":
                     // if user specified path ending with .xcodeproj, use that
                     projectName = String(outpath.basename.characters.dropLast(10))
@@ -222,31 +221,31 @@ public class SwiftPackageTool: SwiftTool {
                     dstdir = outpath
                     projectName = graph.rootPackage.name
                 case _:
-                    dstdir = opts.path.root
+                    dstdir = options.path.root
                     projectName = graph.rootPackage.name
                 }
-                let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: opts.xcodeprojOptions)
+                let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
         
                 print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
-                let manifest = try loadRootManifest(opts)
+                let manifest = try loadRootManifest(options)
                 // FIXME: It would be nice if this has a pretty print option.
                 print(manifest.jsonString())
             }
         
         } catch {
-            handle(error: error, usage: usage)
+            handle(error: error, usage: SwiftTestTool.usage)
         }
     }
 
     /// Load the manifest for the root package
-    func loadRootManifest(_ opts: PackageToolOptions) throws -> Manifest {
-        let root = opts.inputPath ?? opts.path.root
+    func loadRootManifest(_ options: PackageToolOptions) throws -> Manifest {
+        let root = options.inputPath ?? options.path.root
         return try manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
     }
     
-    private func usage(_ print: (String) -> Void = { print($0) }) {
+    override class func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Perform operations on Swift packages")
         print("")
@@ -276,44 +275,44 @@ public class SwiftPackageTool: SwiftTool {
         print("NOTE: Use `swift build` to build packages, and `swift test` to test packages")
     }
     
-    private func parse(commandLineArguments args: [String]) throws -> (Mode, PackageToolOptions) {
-        let (mode, flags): (Mode?, [PackageToolFlag]) = try Basic.parseOptions(arguments: args)
+    override class func parse(commandLineArguments args: [String]) throws -> (PackageMode, PackageToolOptions) {
+        let (mode, flags): (PackageMode?, [PackageToolFlag]) = try Basic.parseOptions(arguments: args)
     
-        let opts = PackageToolOptions()
+        let options = PackageToolOptions()
         for flag in flags {
             switch flag {
             case .initMode(let value):
-                opts.initMode = try InitMode(value)
+                options.initMode = try InitMode(value)
             case .showDepsMode(let value):
-                opts.showDepsMode = try ShowDependenciesMode(value)
+                options.showDepsMode = try ShowDependenciesMode(value)
             case .inputPath(let path):
-                opts.inputPath = path
+                options.inputPath = path
             case .outputPath(let path):
-                opts.outputPath = path
+                options.outputPath = path
             case .chdir(let path):
-                opts.chdir = path
+                options.chdir = path
             case .enableCodeCoverage:
-                opts.xcodeprojOptions.enableCodeCoverage = true
+                options.xcodeprojOptions.enableCodeCoverage = true
             case .xcc(let value):
-                opts.xcodeprojOptions.flags.cCompilerFlags.append(value)
+                options.xcodeprojOptions.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.xcodeprojOptions.flags.linkerFlags.append(value)
+                options.xcodeprojOptions.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
+                options.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
-                opts.path.build = path
+                options.path.build = path
             case .enableNewResolver:
-                opts.enableNewResolver = true
+                options.enableNewResolver = true
             case .verbose(let amount):
-                opts.verbosity += amount
+                options.verbosity += amount
             case .colorMode(let mode):
-                opts.colorMode = mode
+                options.colorMode = mode
             case .xcconfigOverrides(let path):
-                opts.xcodeprojOptions.xcconfigOverrides = path
+                options.xcodeprojOptions.xcconfigOverrides = path
             }
         }
         if let mode = mode {
-            return (mode, opts)
+            return (mode, options)
         }
         else {
             // FIXME: This needs to produce a properly quoted string, once we have such API.
@@ -322,6 +321,6 @@ public class SwiftPackageTool: SwiftTool {
     }
 }
 
-private func ==(lhs: Mode, rhs: Mode) -> Bool {
+public func ==(lhs: PackageMode, rhs: PackageMode) -> Bool {
     return lhs.description == rhs.description
 }
