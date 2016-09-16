@@ -8,10 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
-/// A TOML representation of an element.
-protocol TOMLConvertible {
-
-    /// Return a TOML representation.
-    func toTOML() -> String
+extension Dictionary {
+    /// Convenience initializer to create dictionary from tuples.
+    public init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Value) {
+        var result = Dictionary()
+        for (key, value) in items {
+            result[key] = value
+        }
+        self = result
+    }
 }

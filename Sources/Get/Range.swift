@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import PackageDescription
+import struct Utility.Version
 
 // FIXME: workaround for inability to constrain the extension to `Bound == Version`.
 protocol _VersionProtocol : Comparable {}

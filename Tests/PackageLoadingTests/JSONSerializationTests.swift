@@ -11,7 +11,7 @@
 import Foundation
 import XCTest
 
-import PackageDescription
+@testable import PackageDescription
 
 @testable import PackageLoading
 
@@ -23,7 +23,7 @@ class JSONSerializationTests: XCTestCase {
 
     func testSimple() {
         let package = Package(name: "Simple")
-        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Simple\", \"package.targets\": [], \"testDependencies\": []}")
+        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Simple\", \"targets\": []}")
     }
     
     func testDependencies() {
@@ -32,8 +32,8 @@ class JSONSerializationTests: XCTestCase {
                 .Package(url: "https://github.com/apple/swift.git", majorVersion: 3),
                 .Package(url: "https://github.com/apple/llvm.git", majorVersion: 2)
         ]
-        let package = Package(name: "WithDeps", pkgConfig: nil, providers: nil, targets: [], dependencies: deps, testDependencies: [], exclude: [])
-        assertEqual(package: package, expected: "{\"dependencies\": [{\"url\": \"https://github.com/apple/swift.git\", \"version\": {\"lowerBound\": \"3.0.0\", \"upperBound\": \"3.9223372036854775807.9223372036854775807\"}}, {\"url\": \"https://github.com/apple/llvm.git\", \"version\": {\"lowerBound\": \"2.0.0\", \"upperBound\": \"2.9223372036854775807.9223372036854775807\"}}], \"exclude\": [], \"name\": \"WithDeps\", \"package.targets\": [], \"testDependencies\": []}")
+        let package = Package(name: "WithDeps", pkgConfig: nil, providers: nil, targets: [], dependencies: deps, exclude: [])
+        assertEqual(package: package, expected: "{\"dependencies\": [{\"url\": \"https://github.com/apple/swift.git\", \"version\": {\"lowerBound\": \"3.0.0\", \"upperBound\": \"3.9223372036854775807.9223372036854775807\"}}, {\"url\": \"https://github.com/apple/llvm.git\", \"version\": {\"lowerBound\": \"2.0.0\", \"upperBound\": \"2.9223372036854775807.9223372036854775807\"}}], \"exclude\": [], \"name\": \"WithDeps\", \"targets\": []}")
     }
 
     func testPkgConfig() {
@@ -42,19 +42,19 @@ class JSONSerializationTests: XCTestCase {
                             .Apt("AptPackage")
                             ]
         let package = Package(name: "PkgPackage", pkgConfig: "PkgPackage-1.0", providers: providers)
-        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"PkgPackage\", \"package.providers\": [{\"Brew\": \"BrewPackage\"}, {\"Apt\": \"AptPackage\"}], \"package.targets\": [], \"pkgConfig\": \"PkgPackage-1.0\", \"testDependencies\": []}")
+        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"PkgPackage\", \"pkgConfig\": \"PkgPackage-1.0\", \"providers\": [{\"name\": \"Brew\", \"value\": \"BrewPackage\"}, {\"name\": \"Apt\", \"value\": \"AptPackage\"}], \"targets\": []}")
     }
 
     func testExclude() {
         let package = Package(name: "Exclude", exclude: ["pikachu", "bulbasaur"])
-        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [\"pikachu\", \"bulbasaur\"], \"name\": \"Exclude\", \"package.targets\": [], \"testDependencies\": []}")
+        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [\"pikachu\", \"bulbasaur\"], \"name\": \"Exclude\", \"targets\": []}")
     }
     
     func testTargets() {
         let t1 = Target(name: "One")
         let t2 = Target(name: "Two", dependencies: [.Target(name: "One")])
         let package = Package(name: "Targets", targets: [t1, t2])
-        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Targets\", \"package.targets\": [{\"dependencies\": [], \"name\": \"One\"}, {\"dependencies\": [\"One\"], \"name\": \"Two\"}], \"testDependencies\": []}")
+        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Targets\", \"targets\": [{\"dependencies\": [], \"name\": \"One\"}, {\"dependencies\": [\"One\"], \"name\": \"Two\"}]}")
     }
 
     static var allTests = [

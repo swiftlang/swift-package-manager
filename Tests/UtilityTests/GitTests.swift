@@ -12,8 +12,6 @@ import XCTest
 
 import Basic
 
-import struct PackageDescription.Version
-
 @testable import Utility
 
 import TestSupport

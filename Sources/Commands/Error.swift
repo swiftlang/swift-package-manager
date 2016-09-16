@@ -16,10 +16,11 @@ import enum Utility.Stream
 import func POSIX.exit
 import func Utility.isTTY
 import var Utility.stderr
+import enum PackageLoading.ManifestParseError
 
 public enum Error: Swift.Error {
     case noManifestFound
-    case invalidToolchain
+    case invalidToolchain(problem: String)
     case buildYAMLNotFound(String)
     case repositoryHasChanges(String)
 }
@@ -29,8 +30,8 @@ extension Error: FixableError {
         switch self {
         case .noManifestFound:
             return "no \(Manifest.filename) file found"
-        case .invalidToolchain:
-            return "invalid inferred toolchain"
+        case .invalidToolchain(let problem):
+            return "invalid inferred toolchain: \(problem)"
         case .buildYAMLNotFound(let value):
             return "no build YAML found: \(value)"
         case .repositoryHasChanges(let value):
@@ -78,6 +79,12 @@ public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
         if let fix = error.fix {
             print(fix: fix)
         }
+    case ManifestParseError.invalidManifestFormat(let errors):
+        var errorString = "invalid manifest format"
+        if let errors = errors {
+            errorString += "; " + errors.joined(separator: ", ")
+        }
+        print(error: errorString)
     default:
         print(error: error)
     }

@@ -17,7 +17,6 @@ import Utility
 import struct PackageModel.Manifest
 import class PackageModel.Package
 
-@testable import struct PackageDescription.Version
 @testable import Get
 
 class GetTests: XCTestCase {

@@ -42,6 +42,8 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need to define if this is only for the initial clone, or
         // also for the update, and if for the update then we need to handle it
         // here.
+
+        // FIXME: Need to think about & handle submodules.
         precondition(!exists(path))
         
         do {
@@ -62,7 +64,33 @@ public class GitRepositoryProvider: RepositoryProvider {
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        // FIXME: Cache this.
+        return GitRepository(path: path)
+    }
+
+    public func cloneCheckout(
+        repository: RepositorySpecifier,
+        at sourcePath: AbsolutePath,
+        to destinationPath: AbsolutePath
+    ) throws {
+        // Clone using a shared object store with the canonical copy.
+        //
+        // We currently expect using shared storage here to be safe because we
+        // only ever expect to attempt to use the working copy to materialize a
+        // revision we selected in response to dependency resolution, and if we
+        // re-resolve such that the objects in this repository changed, we would
+        // only ever expect to get back a revision that remains present in the
+        // object storage.
+        //
+        // NOTE: The above assumption may become violated once we have support
+        // for editable packages, if we are also using this method to get that
+        // copy. At that point we may need to expose control over this.
+        //
+        // FIXME: Need to think about & handle submodules.
+        try Git.runCommandQuietly([
+                Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString])
+    }
+
+    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
 }
@@ -77,12 +105,12 @@ enum GitInterfaceError: Swift.Error {
 // FIXME: Currently, this class is serving two goals, it is the Repository
 // interface used by `RepositoryProvider`, but is also a class which can be
 // instantiated directly against non-RepositoryProvider controlled
-// repositories. This may prove inconvenient what is currently `Repository`
+// repositories. This may prove inconvenient if what is currently `Repository`
 // becomes inconvenient or incompatible with the ideal interface for this
 // class. It is possible we should rename `Repository` to something more
 // abstract, and change the provider to just return an adaptor around this
 // class.
-public class GitRepository: Repository {
+public class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
     struct Hash: Equatable, Hashable {
         // FIXME: We should optimize this representation.
@@ -173,9 +201,9 @@ public class GitRepository: Repository {
     }
 
     /// The path of the repository on disk.
-    let path: AbsolutePath
+    public let path: AbsolutePath
 
-    init(path: AbsolutePath) {
+    public init(path: AbsolutePath) {
         self.path = path
     }
 
@@ -195,6 +223,24 @@ public class GitRepository: Repository {
 
     public func openFileView(revision: Revision) throws -> FileSystem {
         return try GitFileSystemView(repository: self, revision: revision)
+    }
+
+    // MARK: Working Checkout Interface
+
+    public func getCurrentRevision() throws -> Revision {
+        return Revision(identifier: try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp())
+    }
+
+    public func checkout(tag: String) throws {
+        // FIXME: Audit behavior with off-branch tags in remote repositories, we
+        // may need to take a little more care here.
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+    }
+
+    public func checkout(revision: Revision) throws {
+        // FIXME: Audit behavior with off-branch tags in remote repositories, we
+        // may need to take a little more care here.
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
     }
 
     // MARK: Git Operations

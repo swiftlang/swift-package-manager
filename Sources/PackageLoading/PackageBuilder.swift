@@ -26,11 +26,14 @@ public enum ModuleError: Swift.Error {
         /// Describes a way in which a package layout is invalid.
         public enum InvalidLayoutType {
             case multipleSourceRoots([String])
-            case invalidLayout([String])
+            case unexpectedSourceFiles([String])
         }
     
     /// A module was marked as being dependent on an executable.
     case executableAsDependency(module: String, dependency: String)
+
+    /// The manifest has invalid configuration wrt type of the module.
+    case invalidManifestConfig(String, String)
 }
 
 extension ModuleError: FixableError {
@@ -42,6 +45,8 @@ extension ModuleError: FixableError {
             return "the package has an unsupported layout, \(type.error)"
         case .executableAsDependency(let module, let dependency):
             return "the target \(module) cannot have the executable \(dependency) as a dependency"
+        case .invalidManifestConfig(let package, let message):
+            return "invalid configuration in '\(package)': \(message)"
         }
     }
 
@@ -53,6 +58,8 @@ extension ModuleError: FixableError {
             return type.fix
         case .executableAsDependency(_):
             return "move the shared logic inside a library, which can be referenced from both the target and the executable"
+        case .invalidManifestConfig(_):
+            return nil
         }
     }
 }
@@ -62,7 +69,7 @@ extension ModuleError.InvalidLayoutType: FixableError {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
-        case .invalidLayout(let paths):
+        case .unexpectedSourceFiles(let paths):
             return "unexpected source file(s) found: " + paths.sorted().joined(separator: ", ")
         }
     }
@@ -71,7 +78,7 @@ extension ModuleError.InvalidLayoutType: FixableError {
         switch self {
         case .multipleSourceRoots(_):
             return "remove the extra source roots, or add them to the source root exclude list"
-        case .invalidLayout(_):
+        case .unexpectedSourceFiles(_):
             return "move the file(s) inside a module"
         }
     }
@@ -208,15 +215,11 @@ public struct PackageBuilder {
     ///   - includingTestModules: Whether the package's test modules should be loaded.
     public func construct(includingTestModules: Bool) throws -> Package {
         let modules = try constructModules()
-        let testModules: [Module]
-        if includingTestModules {
-            testModules = try constructTestModules(modules: modules)
-        } else {
-            testModules = []
-        }
+        let testModules = try constructTestModules(modules: modules)
         try fillDependencies(modules: modules + testModules)
-        let products = try constructProducts(modules, testModules: testModules)
-        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: testModules, products: products)
+        // FIXME: Lift includingTestModules into a higher module.
+        let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
+        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products)
     }
 
     // MARK: Utility Predicates
@@ -287,12 +290,10 @@ public struct PackageBuilder {
     func sourceRoot() throws -> AbsolutePath {
         let viableRoots = try fileSystem.getDirectoryContents(packagePath).filter { basename in
             let entry = packagePath.appending(component: basename)
-            switch basename.lowercased() {
-            case "sources", "source", "src", "srcs":
+            if PackageBuilder.isSourceDirectory(pathComponent: basename) {
                 return fileSystem.isDirectory(entry) && !excludedPaths.contains(entry)
-            default:
-                return false
             }
+            return false
         }
 
         switch viableRoots.count {
@@ -306,6 +307,33 @@ public struct PackageBuilder {
         }
     }
 
+    /// Returns true if pathComponent indicates a reserved directory.
+    public static func isReservedDirectory(pathComponent: String) -> Bool {
+        return isPackageDirectory(pathComponent: pathComponent) ||
+            isSourceDirectory(pathComponent: pathComponent) ||
+            isTestDirectory(pathComponent: pathComponent)
+    }
+
+    /// Returns true if pathComponent indicates a package directory.
+    public static func isPackageDirectory(pathComponent: String) -> Bool {
+        return pathComponent.lowercased() == "packages"
+    }
+
+    /// Returns true if pathComponent indicates a source directory.
+    public static func isSourceDirectory(pathComponent: String) -> Bool {
+        switch pathComponent.lowercased() {
+        case "sources", "source", "src", "srcs":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Returns true if pathComponent indicates a test directory.
+    public static func isTestDirectory(pathComponent: String) -> Bool {
+        return pathComponent.lowercased() == "tests"
+    }
+
     /// Private function that creates and returns a list of non-test Modules defined by a package.
     private func constructModules() throws -> [Module] {
         
@@ -315,6 +343,15 @@ public struct PackageBuilder {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
             return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+        }
+
+        // At this point the module can't be a system module, make sure manifest doesn't contain
+        // system module specific configuration.
+        guard manifest.package.pkgConfig == nil else {
+            throw ModuleError.invalidManifestConfig(manifest.name, "pkgConfig should only be used with a System Module Package")
+        }
+        guard manifest.package.providers == nil else {
+            throw ModuleError.invalidManifestConfig(manifest.name, "providers should only be used with a System Module Package")
         }
 
         // If everything is excluded, just return an empty array.
@@ -329,7 +366,7 @@ public struct PackageBuilder {
         if srcDir != packagePath {
             let invalidRootFiles = try directoryContents(packagePath).filter(isValidSource)
             guard invalidRootFiles.isEmpty else {
-                throw ModuleError.invalidLayout(.invalidLayout(invalidRootFiles.map{ $0.asString }))
+                throw ModuleError.invalidLayout(.unexpectedSourceFiles(invalidRootFiles.map{ $0.asString }))
             }
         }
         
@@ -340,7 +377,7 @@ public struct PackageBuilder {
         if potentialModulePaths.count == 1 && potentialModulePaths[0] != srcDir {
             let invalidModuleFiles = try directoryContents(srcDir).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
-                throw ModuleError.invalidLayout(.invalidLayout(invalidModuleFiles.map{ $0.asString }))
+                throw ModuleError.invalidLayout(.unexpectedSourceFiles(invalidModuleFiles.map{ $0.asString }))
             }
         }
         
@@ -537,8 +574,19 @@ public struct PackageBuilder {
             return []
         }
 
+        // Get the contents of the Tests directory.
+        let testsDirContents = try directoryContents(testsPath)
+        
+        // Check that the Tests directory doesn't contain any loose source files.
+        // FIXME: Right now we just check for source files.  We need to decide whether we should check for other kinds of files too.
+        // FIXME: We should factor out the checking for the `LinuxMain.swift` source file.  So ugly...
+        let looseSourceFiles = testsDirContents.filter(isValidSource).filter({ $0.basename.lowercased() != "linuxmain.swift" })
+        guard looseSourceFiles.isEmpty else {
+            throw ModuleError.invalidLayout(.unexpectedSourceFiles(looseSourceFiles.map{ $0.asString }))
+        }
+        
         // Create the test modules
-        return try directoryContents(testsPath).filter(shouldConsiderDirectory).flatMap { dir in
+        return try testsDirContents.filter(shouldConsiderDirectory).flatMap { dir in
             return [try createModule(dir, name: dir.basename, isTest: true)]
         }
     }

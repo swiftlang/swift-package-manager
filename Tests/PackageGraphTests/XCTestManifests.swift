@@ -14,6 +14,7 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(DependencyResolverTests.allTests),
+        testCase(RepositoryPackageContainerProviderTests.allTests),
         testCase(PackageGraphTests.allTests),
     ]
 }

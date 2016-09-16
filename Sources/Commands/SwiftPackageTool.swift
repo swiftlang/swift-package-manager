@@ -17,9 +17,7 @@ import Utility
 import Xcodeproj
 
 import enum Build.Configuration
-import enum Utility.ColorWrap
 import protocol Build.Toolchain
-import struct PackageDescription.Version
 
 import func POSIX.chdir
 
@@ -29,6 +27,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
     case generateXcodeproj
     case initPackage
     case showDependencies
+    case resolve
     case update
     case usage
     case version
@@ -43,6 +42,8 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
             self = .generateXcodeproj
         case "init":
             self = .initPackage
+        case "resolve":
+            self = .resolve
         case "show-dependencies":
             self = .showDependencies
         case "update":
@@ -62,6 +63,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
         case .initPackage: return "initPackage"
+        case .resolve: return "resolve"
         case .showDependencies: return "show-dependencies"
         case .update: return "update"
         case .usage: return "--help"
@@ -81,8 +83,9 @@ private enum PackageToolFlag: Argument {
     case xcc(String)
     case xld(String)
     case xswiftc(String)
+    case buildPath(AbsolutePath)
+    case enableNewResolver
     case xcconfigOverrides(AbsolutePath)
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
@@ -113,14 +116,16 @@ private enum PackageToolFlag: Argument {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         case "-Xcc":
             self = try .xcc(forcePop())
         case "-Xlinker":
             self = try .xld(forcePop())
         case "-Xswiftc":
             self = try .xswiftc(forcePop())
+        case "--build-path":
+            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
         default:
@@ -129,7 +134,7 @@ private enum PackageToolFlag: Argument {
     }
 }
 
-private class PackageToolOptions: Options {
+class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
     var inputPath: AbsolutePath? = nil
@@ -137,7 +142,6 @@ private class PackageToolOptions: Options {
     var verbosity: Int = 0
     var colorMode: ColorWrap.Mode = .Auto
     var xcodeprojOptions = XcodeprojOptions()
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-build tool namespace
@@ -169,7 +173,15 @@ public struct SwiftPackageTool: SwiftTool {
             case .initPackage:
                 let initPackage = try InitPackage(mode: opts.initMode)
                 try initPackage.writePackageStructure()
-                            
+
+            case .resolve:
+                // NOTE: This command is currently undocumented, and is for
+                // bringup of the new dependency resolution logic. This is *NOT*
+                // the code currently used to resolve dependencies (which runs
+                // off of the infrastructure in the `Get` module).
+                try executeResolve(opts)
+                break
+
             case .update:
                 // Attempt to ensure that none of the repositories are modified.
                 if localFileSystem.exists(opts.path.packages) {
@@ -195,13 +207,13 @@ public struct SwiftPackageTool: SwiftTool {
                 fallthrough
                 
             case .fetch:
-                _ = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                _ = try loadPackage(at: opts.path.root, opts)
         
             case .showDependencies:
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root, opts)
                 dumpDependenciesOf(rootPackage: graph.rootPackage, mode: opts.showDepsMode)
             case .generateXcodeproj:
-                let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+                let graph = try loadPackage(at: opts.path.root, opts)
 
                 let projectName: String
                 let dstdir: AbsolutePath
@@ -223,11 +235,9 @@ public struct SwiftPackageTool: SwiftTool {
                 print("generated:", outpath.prettyPath)
                 
             case .dumpPackage:
-                let root = opts.inputPath ?? opts.path.root
-                let manifest = try packageGraphLoader.manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
-                let package = manifest.package
-                let json = try jsonString(package: package)
-                print(json)
+                let manifest = try loadRootManifest(opts)
+                // FIXME: It would be nice if this has a pretty print option.
+                print(manifest.jsonString())
             }
         
         } catch {
@@ -235,6 +245,12 @@ public struct SwiftPackageTool: SwiftTool {
         }
     }
 
+    /// Load the manifest for the root package
+    func loadRootManifest(_ opts: PackageToolOptions) throws -> Manifest {
+        let root = opts.inputPath ?? opts.path.root
+        return try manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
+    }
+    
     private func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Perform operations on Swift packages")
@@ -253,6 +269,7 @@ public struct SwiftPackageTool: SwiftTool {
         print("")
         print("OPTIONS:")
         print("  -C, --chdir <path>        Change working directory before any other operation")
+        print("  --build-path <path>       Specify build/cache directory [default: ./.build]")
         print("  --color <mode>            Specify color mode (auto|always|never)")
         print("  --enable-code-coverage    Enable code coverage in generated Xcode projects")
         print("  -v, --verbose             Increase verbosity of informational output")
@@ -288,14 +305,16 @@ public struct SwiftPackageTool: SwiftTool {
                 opts.xcodeprojOptions.flags.linkerFlags.append(value)
             case .xswiftc(let value):
                 opts.xcodeprojOptions.flags.swiftCompilerFlags.append(value)
+            case .buildPath(let path):
+                opts.path.build = path
+            case .enableNewResolver:
+                opts.enableNewResolver = true
             case .verbose(let amount):
                 opts.verbosity += amount
             case .colorMode(let mode):
                 opts.colorMode = mode
             case .xcconfigOverrides(let path):
                 opts.xcodeprojOptions.xcconfigOverrides = path
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
         if let mode = mode {

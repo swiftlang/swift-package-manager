@@ -249,6 +249,7 @@ class VersionTests: XCTestCase {
     static var allTests = [
         ("testEquality", testEquality),
         ("testNegativeValuesBecomeZero", testNegativeValuesBecomeZero),
+        ("testHashable", testHashable),
         ("testComparable", testComparable),
         ("testDescription", testDescription),
         ("testFromString", testFromString),

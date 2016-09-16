@@ -14,7 +14,7 @@ import PackageLoading
 import Utility
 
 extension Command {
-    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], SWIFT_EXEC: String) throws -> Command {
+    static func compile(swiftModule module: SwiftModule, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], compilerExec: AbsolutePath) throws -> Command {
         let otherArgs = otherArgs + module.XccFlags(prefix) + (try module.pkgConfigSwiftcArgs()) + module.moduleCacheArgs(prefix: prefix)
         var args = ["-j\(SwiftcTool.numThreads)", "-D", "SWIFT_PACKAGE"]
 
@@ -29,7 +29,7 @@ extension Command {
         args += ["-F", try platformFrameworksPath().asString]
       #endif
 
-        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: SWIFT_EXEC, conf: conf)
+        let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: compilerExec.asString, conf: conf)
         return Command(node: module.targetName, tool: tool)
     }
 }

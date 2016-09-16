@@ -92,9 +92,19 @@ public class CheckoutManager {
         }
 
         /// Open the given repository.
-        public func open() -> Repository {
+        public func open() throws -> Repository {
             precondition(status == .available, "open() called in invalid state")
-            return self.manager.open(self)
+            return try self.manager.open(self)
+        }
+
+        /// Clone into a working copy at on the local file system.
+        ///
+        /// - Parameters:
+        ///   - path: The path at which to create the working copy; it is
+        ///     expected to be non-existent when called.
+        public func cloneCheckout(to path: AbsolutePath) throws {
+            precondition(status == .available, "cloneCheckout() called in invalid state")
+            try self.manager.cloneCheckout(self, to: path)
         }
 
         // MARK: Persistence
@@ -109,10 +119,10 @@ public class CheckoutManager {
     }
 
     /// The path under which repositories are stored.
-    private let path: AbsolutePath
+    public let path: AbsolutePath
 
     /// The repository provider.
-    private let provider: RepositoryProvider
+    public let provider: RepositoryProvider
 
     /// The map of registered repositories.
     //
@@ -136,8 +146,8 @@ public class CheckoutManager {
         } catch {
             // State restoration errors are ignored, for now.
             //
-            // FIXME: It would be nice to log this, in some verbose mode.
-            print("unable to restore state: \(error)")
+            // FIXME: We need to do something better here.
+            print("warning: unable to restore checkouts state: \(error)")
         }
     }
 
@@ -185,8 +195,13 @@ public class CheckoutManager {
     }
 
     /// Open a repository from a handle.
-    private func open(_ handle: RepositoryHandle) -> Repository {
-        return provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    private func open(_ handle: RepositoryHandle) throws -> Repository {
+        return try provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+    }
+
+    /// Clone a repository from a handle.
+    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath) throws {
+        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath)
     }
 
     // MARK: Persistence
@@ -206,7 +221,7 @@ public class CheckoutManager {
 
     /// The path at which we persist the manager state.
     var statePath: AbsolutePath {
-        return path.appending(component: "manager-state.json")
+        return path.appending(component: "checkouts-state.json")
     }
     
     /// Restore the manager state from disk.
@@ -223,41 +238,37 @@ public class CheckoutManager {
         }
         
         // Load the state.
-        //
-        // FIXME: Build out improved file reading support.
-        try fopen(statePath) { handle in
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: try handle.readFileContents()))
+        let json = try JSON(bytes: try localFileSystem.readFileContents(statePath))
 
-            // Load the state from JSON.
-            guard case let .dictionary(contents) = json,
-                  case let .int(version)? = contents["version"] else {
-                throw PersistenceError.unexpectedData
-            }
-            guard version == CheckoutManager.schemaVersion else {
-                throw PersistenceError.invalidVersion
-            }
-            guard case let .array(repositoriesData)? = contents["repositories"] else {
-                throw PersistenceError.unexpectedData
-            }
-
-            // Load the repositories.
-            var repositories = [String: RepositoryHandle]()
-            for repositoryData in repositoriesData {
-                guard case let .dictionary(contents) = repositoryData,
-                      case let .string(key)? = contents["key"],
-                      case let handleData? = contents["handle"],
-                      case let handle = RepositoryHandle(manager: self, json: handleData) else {
-                    throw PersistenceError.unexpectedData
-                }
-                repositories[key] = handle
-
-                // FIXME: We may need to validate the integrity of this
-                // repository. However, we might want to recover from that on
-                // the common path too, so it might prove unnecessary...
-            }
-
-            self.repositories = repositories
+        // Load the state from JSON.
+        guard case let .dictionary(contents) = json,
+              case let .int(version)? = contents["version"] else {
+            throw PersistenceError.unexpectedData
         }
+        guard version == CheckoutManager.schemaVersion else {
+            throw PersistenceError.invalidVersion
+        }
+        guard case let .array(repositoriesData)? = contents["repositories"] else {
+            throw PersistenceError.unexpectedData
+        }
+
+        // Load the repositories.
+        var repositories = [String: RepositoryHandle]()
+        for repositoryData in repositoriesData {
+            guard case let .dictionary(contents) = repositoryData,
+                  case let .string(key)? = contents["key"],
+                  case let handleData? = contents["handle"],
+                  case let handle = RepositoryHandle(manager: self, json: handleData) else {
+                throw PersistenceError.unexpectedData
+            }
+            repositories[key] = handle
+
+            // FIXME: We may need to validate the integrity of this
+            // repository. However, we might want to recover from that on
+            // the common path too, so it might prove unnecessary...
+        }
+
+        self.repositories = repositories
 
         return true
     }

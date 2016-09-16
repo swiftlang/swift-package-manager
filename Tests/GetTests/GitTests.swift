@@ -16,7 +16,6 @@ import Utility
 import TestSupport
 
 import class PackageDescription.Package
-import struct PackageDescription.Version
 import struct PackageModel.Manifest
 
 @testable import Get

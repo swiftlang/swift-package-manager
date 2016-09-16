@@ -9,6 +9,7 @@
  */
 
 import Basic
+import Get
 import PackageLoading
 import PackageGraph
 
@@ -21,7 +22,12 @@ public protocol SwiftTool {
 
 // FIXME: Find a home for this. Ultimately it might need access to some of the
 // options, and we might just want the SwiftTool type to become a class.
-private let sharedPackageGraphLoader = PackageGraphLoader(manifestLoader: ManifestLoader(resources: ToolDefaults()))
+private let sharedManifestLoader = ManifestLoader(resources: ToolDefaults())
+
+private class ToolWorkspaceDelegate: WorkspaceDelegate {
+    func fetchingMissingRepositories(_ urls: Set<String>) {
+    }
+}
 
 public extension SwiftTool {
     init() {
@@ -29,12 +35,32 @@ public extension SwiftTool {
     }
 
     /// The shared package graph loader.
-    var packageGraphLoader: PackageGraphLoader {
-        return sharedPackageGraphLoader
+    var manifestLoader: ManifestLoader {
+        return sharedManifestLoader
     }
 
     /// Fetch and load the complete package at the given path.
-    func loadPackage(at path: AbsolutePath, ignoreDependencies: Bool) throws -> PackageGraph {
-        return try packageGraphLoader.loadPackage(at: path, ignoreDependencies: ignoreDependencies)
+    func loadPackage(at path: AbsolutePath, _ opts: Options) throws -> PackageGraph {
+        if opts.enableNewResolver {
+            // Get the active workspace.
+            let delegate = ToolWorkspaceDelegate()
+            let workspace = try Workspace(rootPackage: path, dataPath: opts.path.build, manifestLoader: manifestLoader, delegate: delegate)
+
+            // Fetch and load the package graph.
+            let graph = try workspace.loadPackageGraph()
+
+            // Create the legacy `Packages` subdirectory.
+            try workspace.createPackagesDirectory(graph)
+
+            return graph
+        } else {
+            // Create the packages directory container.
+            let packagesDirectory = PackagesDirectory(root: path, manifestLoader: manifestLoader)
+
+            // Fetch and load the manifests.
+            let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()
+        
+            return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
+        }
     }
 }

@@ -13,7 +13,7 @@ We’ve designed the system to make it really easy to share packages on services
   * [About Modules](#about-modules)
     * [Building Swift Modules](#building-swift-modules)
   * [About Products](#about-products)
-  * [About Dependencies](#about#dependencies)
+  * [About Dependencies](#about-dependencies)
     * [Dependency Hell](#dependency-hell)
 * [Usage](Usage.md)
 * [Reference](Reference.md)

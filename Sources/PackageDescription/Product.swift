@@ -50,18 +50,4 @@ extension ProductType: CustomStringConvertible {
     }
 }
 
-extension Product: TOMLConvertible {
-    public func toTOML() -> String {
-        var s = ""
-        s += "name = \"\(name)\"\n"
-        s += "type = \"\(type)\"\n"
-        s += "mods = [\(mods)]\n"
-        return s
-    }
-
-    private var mods: String {
-        return modules.map{ "\"\($0)\"" }.joined(separator: ", ")
-    }
-}
-
 public var products = [Product]()

@@ -63,20 +63,16 @@ public final class Package {
     /// The list of dependencies.
     public var dependencies: [Dependency]
 
-    /// The list of test dependencies. They aren't exposed to a parent Package
-    public var testDependencies: [Dependency]
-
     /// The list of folders to exclude.
     public var exclude: [String]
 
     /// Construct a package.
-    public init(name: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], testDependencies: [Dependency] = [], exclude: [String] = []) {
+    public init(name: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.targets = targets
         self.dependencies = dependencies
-        self.testDependencies = testDependencies
         self.exclude = exclude
 
         // Add custom exit handler to cause package to be dumped at exit, if requested.
@@ -113,63 +109,6 @@ extension SystemPackageProvider {
     }
 }
 
-// MARK: TOMLConvertible
-
-extension SystemPackageProvider: TOMLConvertible {
-    
-    public func toTOML() -> String {
-        let (name, value) = nameValue
-        var str = ""
-        str += "name = \(name)\n"
-        str += "value = \"\(value)\"\n"
-        return str
-    }
-}
-
-extension Package.Dependency: TOMLConvertible {
-    public func toTOML() -> String {
-        return "[\"\(url)\", \"\(versionRange.lowerBound)\", \"\(versionRange.upperBound)\"],"
-    }
-}
-
-extension Package: TOMLConvertible {
-    public func toTOML() -> String {
-        var result = ""
-        result += "[package]\n"
-        result += "name = \"\(name)\"\n"
-        if let pkgConfig = self.pkgConfig {
-            result += "pkgConfig = \"\(pkgConfig)\"\n"
-        }
-        result += "dependencies = ["
-        for dependency in dependencies {
-            result += dependency.toTOML()
-        }
-        result += "]\n"
-
-        result += "testDependencies = ["
-        for dependency in testDependencies {
-            result += dependency.toTOML()
-        }
-        result += "]\n"
-
-        result += "\n" + "exclude = \(exclude)" + "\n"
-
-        for target in targets {
-            result += "[[package.targets]]\n"
-            result += target.toTOML()
-        }
-        
-        if let providers = self.providers {
-            for provider in providers {
-                result += "[[package.providers]]\n"
-                result += provider.toTOML()
-            }
-        }
-        
-        return result
-    }
-}
-
 // MARK: Equatable
 extension Package : Equatable { }
 public func ==(lhs: Package, rhs: Package) -> Bool {
@@ -183,21 +122,116 @@ public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
     return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
 }
 
+// MARK: Package JSON serialization
+
+extension SystemPackageProvider {
+    func toJSON() -> JSON {
+        let (name, value) = nameValue
+        return .dictionary(["name": .string(name),
+            "value": .string(value)
+        ])
+    }
+}
+
+extension Package.Dependency {
+    func toJSON() -> JSON {
+        return .dictionary([
+            "url": .string(url),
+            "version": .dictionary([
+                "lowerBound": .string(versionRange.lowerBound.description),
+                "upperBound": .string(versionRange.upperBound.description)
+            ])
+        ])
+    }
+}
+
+extension Package {
+    func toJSON() -> JSON {
+        var dict: [String: JSON] = [:]
+        dict["name"] = .string(name)
+        if let pkgConfig = self.pkgConfig {
+            dict["pkgConfig"] = .string(pkgConfig)
+        }
+        dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
+        dict["exclude"] = .array(exclude.map { .string($0) })
+        dict["targets"] = .array(targets.map { $0.toJSON() })
+        if let providers = self.providers {
+            dict["providers"] = .array(providers.map { $0.toJSON() })
+        }
+        return .dictionary(dict)
+    }
+}
+
+extension Target {
+    func toJSON() -> JSON {
+        return .dictionary([
+            "name": .string(name),
+            "dependencies": .array(dependencies.map { $0.toJSON() })
+        ])
+    }
+}
+
+extension Target.Dependency {
+    func toJSON() -> JSON {
+        switch self {
+        case .Target(let name):
+            return .string(name)
+        }
+    }
+}
+
+extension Product {
+    func toJSON() -> JSON {
+        var dict: [String: JSON] = [:]
+        dict["name"] = .string(name)
+        dict["type"] = .string(type.description)
+        dict["modules"] = .array(modules.map(JSON.string))
+        return .dictionary(dict)
+    }
+}
+
 // MARK: Package Dumping
 
+struct Errors {
+    /// Storage to hold the errors.
+    private var errors = [String]()
+
+    /// Adds error to global error array which will be serialized and dumped in JSON at exit.
+    mutating func add(_ str: String) {
+        // FIXME: This will produce invalid JSON if string contains quotes. Assert it for now
+        // and fix when we have escaping in JSON.
+        assert(!str.characters.contains("\""), "Error string shouldn't have quotes in it.")
+        errors += [str]
+    }
+
+    func toJSON() -> JSON {
+        return .array(errors.map(JSON.string))
+    }
+}
+
+func manifestToJSON(_ package: Package) -> String {
+    var dict: [String: JSON] = [:]
+    dict["package"] = package.toJSON()
+    dict["products"] = .array(products.map { $0.toJSON() })
+    dict["errors"] = errors.toJSON()
+    return JSON.dictionary(dict).toString()
+}
+
+// FIXME: This function is public to let other modules get the JSON representation
+// of the package without exposing the enum JSON defined in this module (because that'll
+// leak to clients of PackageDescription i.e every Package.swift file).
+public func jsonString(package: Package) -> String {
+    return package.toJSON().toString()
+}
+
+var errors = Errors()
 private var dumpInfo: (package: Package, fileNo: Int32)? = nil
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }
         let fd = fdopen(dumpInfo.fileNo, "w")
         guard fd != nil else { return }
-        fputs(dumpInfo.package.toTOML(), fd)
-        for product in products {
-            fputs("[[products]]", fd)
-            fputs("\n", fd)
-            fputs(product.toTOML(), fd)
-            fputs("\n", fd)
-        }
+        fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)
     }
     dumpInfo = (package, fileNo)

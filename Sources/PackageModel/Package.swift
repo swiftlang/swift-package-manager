@@ -10,7 +10,9 @@
 
 import Basic
 import Utility
-import struct PackageDescription.Version
+
+// Re-export Version from PackageModel, since it is a key part of the model.
+@_exported import struct Utility.Version
 
 /// The basic package representation.
 ///
@@ -92,7 +94,7 @@ public final class Package {
         self.products = products
     }
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
         case noManifest(String)
         case noOrigin(String)
     }
@@ -110,4 +112,17 @@ extension Package: Hashable, Equatable {
 
 public func ==(lhs: Package, rhs: Package) -> Bool {
     return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+}
+
+public func ==(lhs: Package.Error, rhs: Package.Error) -> Bool {
+    switch (lhs, rhs) {
+    case let (.noManifest(lhs), .noManifest(rhs)):
+        return lhs == rhs
+    case (.noManifest, _):
+        return false
+    case let (.noOrigin(lhs), .noOrigin(rhs)):
+        return lhs == rhs
+    case (.noOrigin, _):
+        return false
+    }
 }

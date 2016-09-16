@@ -44,7 +44,7 @@ public struct PkgConfig {
 
     /// The built-in search path list.
     ///
-    /// By default, this is combined with the search paths infered from
+    /// By default, this is combined with the search paths inferred from
     /// `pkg-config` itself.
     private static let searchPaths = [
         AbsolutePath("/usr/local/lib/pkgconfig"),
@@ -55,12 +55,15 @@ public struct PkgConfig {
 
     /// Load the information for the named package.
     ///
+    /// - name: Name of the pkg config file (without file extension).
+    /// - fileSystem: The file system to use, defaults to local file system.
+    ///
     /// - throws: PkgConfigError
-    public init(name: String) throws {
+    public init(name: String, fileSystem: FileSystem = localFileSystem) throws {
         self.name = name
-        self.pcFile = try PkgConfig.locatePCFile(name: name)
+        self.pcFile = try PkgConfig.locatePCFile(name: name, customSearchPaths: PkgConfig.envSearchPaths, fileSystem: fileSystem)
 
-        var parser = PkgConfigParser(pcFile: pcFile)
+        var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
         
         var cFlags = parser.cFlags
@@ -87,13 +90,13 @@ public struct PkgConfig {
         return []
     }
     
-    private static func locatePCFile(name: String) throws -> AbsolutePath {
+    static func locatePCFile(name: String, customSearchPaths: [AbsolutePath], fileSystem: FileSystem) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
-        for path in OrderedSet(pkgConfigSearchPaths + searchPaths + envSearchPaths) {
+        for path in OrderedSet(customSearchPaths + pkgConfigSearchPaths + searchPaths) {
             let pcFile = path.appending(component: name + ".pc")
-            if isFile(pcFile) {
+            if fileSystem.isFile(pcFile) {
                 return pcFile
             }
         }
@@ -108,14 +111,16 @@ public struct PkgConfig {
 // FIXME: This is only internal so it can be unit tested.
 struct PkgConfigParser {
     private let pcFile: AbsolutePath
+    private let fileSystem: FileSystem
     private(set) var variables = [String: String]()
     var dependencies = [String]()
     var cFlags = [String]()
     var libs = [String]()
     
-    init(pcFile: AbsolutePath) {
-        precondition(isFile(pcFile))
+    init(pcFile: AbsolutePath, fileSystem: FileSystem) {
+        precondition(fileSystem.isFile(pcFile))
         self.pcFile = pcFile
+        self.fileSystem = fileSystem
     }
     
     mutating func parse() throws {
@@ -126,8 +131,9 @@ struct PkgConfigParser {
             return line
         }
         
-        let file = try fopen(self.pcFile, mode: .read)
-        for line in try file.readFileContents().components(separatedBy: "\n") {
+        let fileContents = try fileSystem.readFileContents(pcFile)
+        // FIXME: Should we error out instead if content is not UTF8 representable?
+        for line in fileContents.asString?.components(separatedBy: "\n") ?? [] {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.
@@ -179,7 +185,7 @@ struct PkgConfigParser {
             return depString.characters[depString.characters.index(depString.characters.startIndex, offsetBy: idx)]
         }
         
-        // This converts the string which can be seperated by comma or spaces
+        // This converts the string which can be separated by comma or spaces
         // into an array of string.
         func tokenize() -> [String] {
             var tokens = [String]()

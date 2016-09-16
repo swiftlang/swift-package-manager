@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import Utility
 
-import struct PackageDescription.Version
 import func POSIX.rename
 
 /// A container for fetched packages.
@@ -62,16 +61,11 @@ public final class PackagesDirectory {
 
     /// Recursively fetch the dependencies for the root package.
     ///
-    /// - Parameters:
-    ///   - ignoreDependencies: If true, then skip resolution (and loading) of the package dependencies.
     /// - Returns: The loaded root package and all external packages, with dependencies resolved.
     /// - Throws: Error.InvalidDependencyGraph
-    public func loadManifests(ignoreDependencies: Bool = false) throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
+    public func loadManifests() throws -> (rootManifest: Manifest, externalManifests: [Manifest]) {
         // Load the manifest for the root package.
         let manifest = try manifestLoader.load(packagePath: rootPath, baseURL: rootPath.asString, version: nil)
-        if ignoreDependencies {
-            return (manifest, [])
-        }
 
         // Resolve and fetch all package dependencies and their manifests.
         let externalManifests = try recursivelyFetch(manifest.dependencies)
@@ -129,6 +123,19 @@ extension PackagesDirectory: Fetcher {
         let manifestParser = { try self.manifestLoader.load(packagePath: $0, baseURL: $1, version: $2) }
         let basename = url.components(separatedBy: "/").last!
         let dstdir = packagesPath.appending(component: basename)
+        // If it's a local URL, do some preliminary checking.  The reason we don't just give it a try and then do forensics if it fails is to avoid spurious successes (not sure if that can happen.
+        // FIXME: We should also support `file` URLs in addition to "no scheme" URLs to mean a file path.
+        if URL.scheme(url) == nil {
+            // It's a local path -- by the time we get here we currently always have an absolute path (this is spelled out it ManifestLoader's `loadFile(path:,baseURL:,version:,fileSystem:)` method, albeit with a note that it should doesn't belong in that method).
+            let path = AbsolutePath(url)
+            guard localFileSystem.exists(path) else {
+                throw Error.missingLocalFileURL(url)
+            }
+            // FIXME: We should not be baking in the assumption about ".git" at this point.
+            guard localFileSystem.isDirectory(path.appending(component: ".git")) else {
+                throw Error.nonRepoLocalFileURL(url)
+            }
+        }
         if let repo = Git.Repo(path: dstdir), repo.origin == url {
             //TODO need to canonicalize the URL need URL struct
             return try RawClone(path: dstdir, manifestParser: manifestParser)

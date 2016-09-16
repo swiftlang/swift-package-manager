@@ -9,7 +9,13 @@
     * [Source Layouts](#source-layouts)
     * [Other Rules](#other-rules)
   * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
+    * [Package](#package)
+    * [Package Dependency](#package-dependency)
+    * [Version](#version)
     * [Customizing Builds](#customizing-builds)
+    * [Build Configurations](#build-configurations)
+        * [Debug](#debug)
+        * [Release](#release)
     * [Depending on Apple Modules](#depending-on-apple-modules)
 * [Resources](Resources.md)
 
@@ -61,63 +67,201 @@ Where `foo` is an executable and `bar.a` a static library.
 
 ## Package Manifest File Format Reference
 
-Instructions for how to build a package are provided by a manifest file, called `Package.swift`. You can customize this file to declare build targets or dependencies, include or exclude source files, and specify build configurations for the module or individual files.
+Instructions for how to build a package are provided by the `Package.swift` manifest file. `Package.swift` is a Swift file defining a single `Package` object. The Package is configured via the APIs used to form that object.
 
-Here's an example of a `Package.swift` file:
+### Package
+
+```swift
+Package(
+    name: String, 
+    pkgConfig: String? = nil, 
+    providers: [SystemPackageProvider]? = nil, 
+    targets: [Target] = [], 
+    dependencies: [Dependency] = [], 
+    exclude: [String] = []
+)
+```
+
+\- [name](#name): The name of the package.  
+\- [pkgConfig](#pkgconfig): Name of the pkg-config (.pc) file to get the additional flags for system modules.  
+\- [providers](#providers): Defines hints to display for installing system modules.  
+\- [targets](#targets): Additional information on each target.  
+\- [dependencies](#dependencies): Declare dependencies on external packages.  
+\- [exclude](#exclude): Exclude files and directories from package sources.  
+
+### name
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "FooBar"
+)
+```
+
+It is the minimal requirement for a manifest to be valid. When the sources are located directly under `Sources/` directory, there is only one module and the module name is same as the package name.
+
+### targets
+
+Targets property is used when you have more than one module in your package and want to declare a dependency between them.
 
 ```swift
 import PackageDescription
 
 let package = Package(
     name: "Hello",
+    targets: [
+        Target(name: "TestSupport"),
+        Target(name: "Bar", dependencies: ["Foo"]),
+    ]
+)
+```
+
+Here `Foo` and `Bar` are modules present under `Sources/` directory. `Foo` module will be built before `Bar` module and `Bar` can import `Foo` if `Foo` is a library.
+
+Note: It is also possible to declare target dependencies between a test and regular module.
+
+### dependencies
+
+This is the list of packages that the current package depends on. You can specify a URL (or local path) to any valid Swift package.
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "Example",
     dependencies: [
         .Package(url: "ssh://git@example.com/Greeter.git", versions: Version(1,0,0)..<Version(2,0,0)),
+        .Package(url: "../StringExtensions", "1.0.0"),
+        .Package(url: "https://github.com/MyAwesomePackage", majorVersion: 1, minor: 4),
     ]
 )
 ```
 
-A `Package.swift` file is a Swift file that declaratively configures a Package using types defined in the `PackageDescription` module. This manifest declares a dependency on an external package: `Greeter`.
+See [Package Dependency](#package-dependency).
 
-If your package contains multiple targets that depend on each other you will need to specify their interdependencies. Here is an example:
+### exclude
+
+Use this property to exclude files and directories from the package sources.
+
+Every item specifies a relative path from the root of the package.
+
+```swift
+let package = Package(
+    name: "Foo",
+    exclude: ["Sources/Fixtures", "Sources/readme.md", "Tests/FooTests/images"]
+)
+```
+
+This is helpful when you want to place files like resources or fixtures that should not be considered by the convention system
+as possible sources.
+
+### pkgConfig
+
+This property should only be used for System Module Packages. It defines the name of the pkg-config (.pc) file
+that should be searched and read to get the additional flags like include search path, linker search path, system libraries
+to link etc.
 
 ```swift
 import PackageDescription
 
 let package = Package(
-    name: "Example",
-    targets: [
-        Target(
-            name: "top",
-            dependencies: [.Target(name: "bottom")]),
-        Target(
-            name: "bottom")
-    ]
+    name: "CGtk3",
+    pkgConfig: "gtk+-3.0"
 )
 ```
 
-The targets are named how your subdirectories are named.
+Here `gtk+-3.0.pc` will be searched in standard locations for the current system. Users can provide their own paths for location of pc files
+using the environment variable, `PKG_CONFIG_PATH`, which will be searched before the standard locations.
 
-If you want to exclude some files and folders from Package, you can simple list them in the `exclude`. Every item specifies a relative folder path from the Root folder of the package
+Note: This feature does not require pkg-config to be installed. However, if installed it will used to find additional platform specific pc file
+locations which might be unknown to SwiftPM.
 
-```swift
-let package = Package(
-    name: "Example",
-    exclude: ["tools", "docs", "Sources/libA/images"]
-)
-```
+### providers
 
-A package can require dependencies that are only needed during develop, as example for testing purposes. `testDependencies` are only fetched  when you build current package. They are not fetched if a package is specified as a dependency in other package.
+This property should only be used for system module packages. It can be used to provide _hints_ for other users to install a System Module using
+a system package manager like homebrew, apt-get etc.
+
+Note: SwiftPM will *never* execute the command and only suggest the users to run it.
 
 ```swift
 import PackageDescription
 
 let package = Package(
-    name: "Hello",
-    testDependencies: [
-        .Package(url: "ssh://git@example.com/Tester.git", versions: Version(1,0,0)..<Version(2,0,0)),
+    name: "CGtk3",
+    pkgConfig: "gtk+-3.0",
+    providers: [
+        .Brew("gtk+3"),
+        .Apt("gtk3")
     ]
 )
 ```
+
+In this case if SwiftPM determines that GTK 3 package is not installed, it will output an appropriate hint depending on which platform
+the user is on i.e. macOS, Ubuntu, etc.
+
+### Package Dependency
+
+Package Dependency represents location and Version range of an external dependency.
+
+```swift
+Dependency.Package(url: String, versions: Range<Version>)
+```
+\- url: URL or local path to a Package.  
+\- versions: A range of [Version](#version).
+
+```swift
+Dependency.Package(url: String, versions: ClosedRange<Version>)
+```
+\- url: URL or local path to a Package.  
+\- versions: A closed range of [Version](#version).
+
+```swift
+Dependency.Package(url: String, majorVersion: Int)
+```
+\- url: URL or local path to a Package.  
+\- majorVersion: Major version to consider. Latest available minor Version will be considered.
+
+
+```swift
+Dependency.Package(url: String, majorVersion: Int, minor: Int)
+```
+\- url: URL or local path to a Package.  
+\- majorVersion: Major version to consider.  
+\- minor: Minor version to consider.
+
+```swift
+Dependency.Package(url: String, _ version: Version)
+```
+\- url: URL or local path to a Package.  
+\- version: The specific [Version](#version) to consider.
+  
+### Version
+
+A struct representing [Semantic Versioning](http://semver.org).
+
+```swift
+Version(
+	_ major: Int, 
+	_ minor: Int, 
+	_ patch: Int,
+	prereleaseIdentifiers: [String] = [], 
+	buildMetadataIdentifier: String? = nil
+)
+```
+
+\- major: The major version, incremented when you make incompatible API changes.  
+\- minor: The minor version, incremented when you add functionality in a backwards-compatible manner.  
+\- patch: The patch version, incremented when you make backwards-compatible bug fixes.  
+\- prereleaseIdentifiers: Used to denote a pre-released version for eg: alpha, beta, etc.  
+\- buildMetadataIdentifier: Optional build meta data for eg: timestamp, hash, etc.
+
+Version can be initialized using a string literal in following format:
+
+``` "major.minor.patch[-prereleaseIdentifiers][+buildMetadata]" ```
+
+prereleaseIdentifiers and buildMetadata are optional.  
+Note: prereleaseIdentifiers are separated by dot (.)
 
 ### Customizing Builds
 
@@ -126,7 +270,7 @@ That the manifest is Swift allows for powerful customization, for example:
 ```swift
 import PackageDescription
 
-var package = Package()
+var package = Package(name: "Example")
 
 #if os(Linux)
 let target = Target(name: "LinuxSources/foo")
@@ -135,6 +279,36 @@ package.targets.append(target)
 ```
 
 With a standard configuration file format like JSON such a feature would result in a dictionary structure with increasing complexity for every such feature.
+
+### Build Configurations
+
+SwiftPM allows two build configurations: Debug (default) and Release.
+
+#### Debug
+
+By default, running `swift build` will build in debug configuration. Alternatively, you can also use `swift build -c debug`. The build artifacts are located in directory called `debug` under build folder.  
+A Swift target is built with following flags in debug mode:  
+
+* `-Onone`: Compile without any optimization.
+* `-g`: Generate debug information.
+* `-enable-testing`: Enable Swift compiler's testability feature.
+
+A C language target is build with following flags in debug mode:
+
+* `-O0`: Compile without any optimization.
+* `-g`: Generate debug information.
+
+#### Release
+
+To build in release mode, type: `swift build -c release`. The build artifacts are located in directory called `release` under build folder.  
+A Swift target is built with following flags in release mode:  
+
+* `-O`: Compile with optimizations.
+* `-whole-module-optimization`: Optimize input files (per module) together instead of individually.
+
+A C language target is build with following flags in release mode:
+
+* `-O2`: Compile with optimizations.
 
 ### Depending on Apple Modules
 

@@ -78,7 +78,7 @@ public final class TemporaryFile {
     /// goes out of scope.
     ///
     /// - Parameters:
-    ///     - dir: If specified the temporary file will be created in this directory otherwise enviornment variables
+    ///     - dir: If specified the temporary file will be created in this directory otherwise environment variables
     ///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.
@@ -103,11 +103,13 @@ public final class TemporaryFile {
         if fd == -1 { throw TempFileError(errno: errno) }
 
         self.path = AbsolutePath(String(cString: template))
-        fileHandle = FileHandle(fileDescriptor: fd)
+        fileHandle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
 
     /// Remove the temporary file before deallocating.
-    deinit { unlink(path.asString) }
+    deinit {
+        unlink(path.asString)
+    }
 }
 
 extension TemporaryFile: CustomStringConvertible {
@@ -168,7 +170,7 @@ public final class TemporaryDirectory {
     /// Creates a temporary directory which is automatically removed when the object of this class goes out of scope.
     ///
     /// - Parameters:
-    ///     - dir: If specified the temporary directory will be created in this directory otherwise enviornment variables
+    ///     - dir: If specified the temporary directory will be created in this directory otherwise environment variables
     ///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
     ///            set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.

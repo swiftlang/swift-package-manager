@@ -143,11 +143,11 @@ class GitRepositoryTests: XCTestCase {
             try tagGitRepo(testRepoPath, tag: "test-tag")
 
             // Get the the repository via the provider. the provider.
-            let testCheckoutPath = path.appending(component: "checkout")
+            let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
-            try provider.fetch(repository: repoSpec, to: testCheckoutPath)
-            let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+            let repository = provider.open(repository: repoSpec, at: testClonePath)
 
             // Get and test the file system view.
             let view = try repository.openFileView(revision: repository.resolveRevision(tag: "test-tag"))
@@ -195,11 +195,49 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Test the handling of local checkouts.
+    func testCheckouts() throws {
+        mktmpdir { path in
+            // Create a test repository.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "initial")
+            let initialRevision = Git.Repo(path: testRepoPath)!.sha
+
+            // Add a couple files and a directory.
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            try tagGitRepo(testRepoPath, tag: "test-tag")
+            let currentRevision = Git.Repo(path: testRepoPath)!.sha
+
+            // Fetch the repository using the provider.
+            let testClonePath = path.appending(component: "clone")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+
+            // Clone off a checkout.
+            let checkoutPath = path.appending(component: "checkout")
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
+
+            // Check the working copy.
+            let workingCopy = try provider.openCheckout(at: checkoutPath)
+            try workingCopy.checkout(tag: "test-tag")
+            XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, currentRevision)
+            XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
+            try workingCopy.checkout(tag: "initial")
+            XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, initialRevision)
+            XCTAssert(!localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
+        }
+    }
+
     static var allTests = [
         ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testRawRepository", testRawRepository),
         ("testGitFileView", testGitFileView),
+        ("testCheckouts", testCheckouts),
     ]
 }

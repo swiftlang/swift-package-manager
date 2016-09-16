@@ -14,7 +14,7 @@ import PackageLoading
 import Utility
 
 extension Command {
-    static func linkClangModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], CC: String) throws -> Command {
+    static func linkClangModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], linkerExec: AbsolutePath) throws -> Command {
         precondition(product.containsOnlyClangModules)
 
         let clangModules = product.modules.flatMap { $0 as? ClangModule }
@@ -54,7 +54,7 @@ extension Command {
         let shell = ShellTool(description: "Linking \(product.name)",
                               inputs: objects.map{ $0.asString } + inputs,
                               outputs: [productPath.asString, product.targetName],
-                              args: [CC] + args)
+                              args: [linkerExec.asString] + args)
         
         return Command(node: product.targetName, tool: shell)
     }

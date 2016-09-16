@@ -8,8 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
-
+import struct Utility.Version
 
 extension Version {
     static var max: Version {

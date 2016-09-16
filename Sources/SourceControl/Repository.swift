@@ -47,15 +47,36 @@ public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
 /// `CheckoutManager`.
 public protocol RepositoryProvider {
     /// Fetch the complete repository at the given location to `path`.
+    ///
+    /// - Throws: If there is an error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
     /// Open the given repository.
     ///
-    /// - parameters:
+    /// - Parameters:
     ///   - repository: The specifier for the repository.
     ///   - path: The location of the repository on disk, at which the
-    ///   repository has previously been created via `fetch`.
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository
+    ///     repository has previously been created via `fetch`.
+    /// - Throws: If the repository is unable to be opened.
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
+
+    /// Clone a managed repository into a working copy at on the local file system.
+    ///
+    /// Once complete, the repository can be opened using `openCheckout`.
+    ///
+    /// - Parameters:
+    ///   - sourcePath: The location of the repository on disk, at which the
+    ///     repository has previously been created via `fetch`.
+    ///   - destinationPath: The path at which to create the working copy; it is
+    ///     expected to be non-existent when called.
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
+
+    /// Open a working repository copy.
+    ///
+    /// - Parameters:
+    ///   - path: The location of the repository on disk, at which the
+    ///     repository has previously been created via `cloneCheckout`.
+    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
 }
 
 /// Abstract repository operations.
@@ -78,8 +99,6 @@ public protocol RepositoryProvider {
 /// an inconsistency can be detected.
 public protocol Repository {
     /// Get the list of tags in the repository.
-    //
-    // FIXME: Migrate this to a structured SwiftPM-specific type?
     var tags: [String] { get }
 
     /// Resolve the revision for a specific tag.
@@ -105,12 +124,35 @@ public protocol Repository {
     func openFileView(revision: Revision) throws -> FileSystem
 }
 
+/// An editable checkout of a repository (i.e. a working copy) on the local file
+/// system.
+public protocol WorkingCheckout {
+    /// Get the list of tags in the repository.
+    var tags: [String] { get }
+
+    /// Get the current revision.
+    func getCurrentRevision() throws -> Revision
+
+    /// Check out the given tag.
+    func checkout(tag: String) throws
+
+    /// Check out the given revision.
+    func checkout(revision: Revision) throws
+}
+
 /// A single repository revision.
-public struct Revision {
+public struct Revision: Equatable {
     /// A precise identifier for a single repository revision, in a repository-specified manner.
     ///
     /// This string is intended to be opaque to the client, but understandable
     /// by a user. For example, a Git repository might supply the SHA1 of a
     /// commit, or an SVN repository might supply a string such as 'r123'.
     public let identifier: String
+
+    public init(identifier: String) {
+        self.identifier = identifier
+    }
+}
+public func ==(lhs: Revision, rhs: Revision) -> Bool {
+    return lhs.identifier == rhs.identifier
 }

@@ -10,7 +10,6 @@
 
 import XCTest
 
-import TestSupport
 import Basic
 import PackageDescription
 import PackageModel
@@ -18,59 +17,29 @@ import PackageModel
 import func POSIX.getenv
 import func POSIX.popen
 
+import TestSupport
+
 @testable import PackageLoading
 @testable import Utility
 
-#if os(macOS)
-private func bundleRoot() -> AbsolutePath {
-    for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return AbsolutePath(bundle.bundlePath).parentDirectory
-    }
-    fatalError()
-}
-#endif
-
-private struct Resources: ManifestResourceProvider {
-#if os(macOS)
-  #if Xcode
-    let swiftCompilerPath: AbsolutePath = {
-        let swiftc: AbsolutePath
-        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = AbsolutePath(base).appending(components: "usr", "bin", "swiftc")
-        } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
-            swiftc = AbsolutePath(override)
-        } else {
-            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
-        }
-        precondition(swiftc != AbsolutePath("/usr/bin/swiftc"))
-        return swiftc
-    }()
-  #else
-    let swiftCompilerPath = bundleRoot().appending(component: "swiftc")
-  #endif
-    let libraryPath = bundleRoot()
-#else
-    let libraryPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
-    let swiftCompilerPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
-#endif
-}
-
 class ManifestTests: XCTestCase {
+    let manifestLoader = ManifestLoader(resources: Resources())
+
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: inputName)
-            body(try ManifestLoader(resources: Resources()).loadFile(path: input, baseURL: input.parentDirectory.asString, version: nil))
+            body(try manifestLoader.loadFile(path: input, baseURL: input.parentDirectory.asString, version: nil))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
     }
 
-    private func loadManifest(_ contents: ByteString, line: UInt = #line, body: (Manifest) -> Void) {
+    private func loadManifest(_ contents: ByteString, baseURL: String? = nil, line: UInt = #line, body: (Manifest) -> Void) {
         do {
             let fs = InMemoryFileSystem()
             let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, bytes: contents)
-            body(try ManifestLoader(resources: Resources()).loadFile(path: manifestPath, baseURL: AbsolutePath.root.asString, version: nil, fileSystem: fs))
+            body(try manifestLoader.loadFile(path: manifestPath, baseURL: baseURL ?? AbsolutePath.root.asString, version: nil, fileSystem: fs))
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -115,14 +84,30 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        let foo = try? ManifestLoader(resources: Resources()).loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
-        XCTAssertNil(foo)
+        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
+        }
+
+        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil, fileSystem: InMemoryFileSystem())
+        }
+    }
+
+    func testNonexistentBaseURL() {
+        let trivialManifest = ByteString(encodingAsUTF8: (
+                "import PackageDescription\n" +
+                "let package = Package(name: \"Trivial\")"))
+        loadManifest(trivialManifest, baseURL: "/non-existent-path") { manifest in
+            XCTAssertEqual(manifest.package.name, "Trivial")
+            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.dependencies, [])
+        }
     }
 
     func testInvalidTargetName() {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
-                let manifest = try ManifestLoader(resources: Resources()).loadFile(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
+                let manifest = try manifestLoader.loadFile(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
                 _ = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
             } catch ModuleError.modulesNotFound(let moduleNames) {
                 XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))
@@ -165,7 +150,7 @@ class ManifestTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try ManifestLoader(resources: Resources()).load(packagePath: root, baseURL: root.asString, version: nil, fileSystem: fs)
+            let manifest = try manifestLoader.load(packagePath: root, baseURL: root.asString, version: nil, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -173,6 +158,7 @@ class ManifestTests: XCTestCase {
     static var allTests = [
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
+        ("testNonexistentBaseURL", testNonexistentBaseURL),
         ("testInvalidTargetName", testInvalidTargetName),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
     ]

@@ -12,7 +12,7 @@ import XCTest
 
 import PackageGraph
 
-import struct PackageDescription.Version
+import struct Utility.Version
 
 import TestSupport
 
@@ -86,6 +86,7 @@ private let v1_1: Version = "1.1.0"
 private let v2: Version = "2.0.0"
 private let v0_0_0Range: VersionSetSpecifier = .range("0.0.0" ..< "0.0.1")
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+private let v1to3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
 private let v1_to_3Range: VersionSetSpecifier = .range("1.0.0" ..< "3.0.0")
 private let v2_to_4Range: VersionSetSpecifier = .range("2.0.0" ..< "4.0.0")
@@ -140,27 +141,25 @@ class DependencyResolverTests: XCTestCase {
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, [])
 
         // Check basics.
-        XCTAssertTrue(set.merge(MockPackageConstraint(container: "A", versionRequirement: v1Range)))
+        set = set.merging(MockPackageConstraint(container: "A", versionRequirement: v1Range))!
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, ["A"])
         XCTAssertEqual(set["A"], v1Range)
-        XCTAssertTrue(set.merge(MockPackageConstraint(container: "B", versionRequirement: v2Range)))
+        set = set.merging(MockPackageConstraint(container: "B", versionRequirement: v2Range))!
         XCTAssertEqual(set.containerIdentifiers.sorted(), ["A", "B"])
 
         // Check merging a constraint which makes the set unsatisfiable.
-        XCTAssertFalse(set.merge(MockPackageConstraint(container: "A", versionRequirement: v2Range)))
-        XCTAssertEqual(set["A"], VersionSetSpecifier.empty)
+        XCTAssert(set.merging(MockPackageConstraint(container: "A", versionRequirement: v2Range)) == nil)
 
         // Check merging other sets.
         var set2 = ConstraintSet()
-        _ = set2.merge(MockPackageConstraint(container: "C", versionRequirement: v1Range))
-        XCTAssertTrue(set.merge(set2))
+        set2 = set2.merging(MockPackageConstraint(container: "C", versionRequirement: v1Range))!
+        set = set.merging(set2)!
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }.sorted(), ["A", "B", "C"])
         var set3 = ConstraintSet()
-        _ = set3.merge(MockPackageConstraint(container: "C", versionRequirement: v2Range))
-        _ = set3.merge(MockPackageConstraint(container: "D", versionRequirement: v1Range))
-        _ = set3.merge(MockPackageConstraint(container: "E", versionRequirement: v1Range))
-        XCTAssertFalse(set.merge(set3)) // "C" requirement is unsatisfiable
-        XCTAssertEqual(set.containerIdentifiers.map{ $0 }.sorted(), ["A", "B", "C", "D", "E"])
+        set3 = set3.merging(MockPackageConstraint(container: "C", versionRequirement: v2Range))!
+        set3 = set3.merging(MockPackageConstraint(container: "D", versionRequirement: v1Range))!
+        set3 = set3.merging(MockPackageConstraint(container: "E", versionRequirement: v1Range))!
+        XCTAssert(set.merging(set3) == nil) // "C" requirement is unsatisfiable
     }
 
     func testVersionAssignment() {
@@ -213,7 +212,11 @@ class DependencyResolverTests: XCTestCase {
                 v2: []])
         var assignment2 = VersionAssignmentSet<MockPackageContainer>()
         assignment2[d] = .version(v1)
-        XCTAssertTrue(assignment.merge(assignment2))
+        if let mergedAssignment = assignment.merging(assignment2) {
+            assignment = mergedAssignment
+        } else {
+            return XCTFail("unexpected failure merging assignment")
+        }
         XCTAssertEqual(assignment.constraints, ["C": v1_0Range, "E": v1Range])
 
         // Check merger of an assignment with incompatible constraints.
@@ -221,13 +224,12 @@ class DependencyResolverTests: XCTestCase {
                 v1: [(container: "E", versionRequirement: v2Range)]])
         var assignment3 = VersionAssignmentSet<MockPackageContainer>()
         assignment3[d2] = .version(v1)
-        XCTAssertFalse(assignment.merge(assignment3))
-        XCTAssertEqual(assignment.constraints, ["C": v1_0Range, "E": v1Range])
+        XCTAssertEqual(assignment.merging(assignment3), nil)
 
         // Check merger of an incompatible assignment.
         var assignment4 = VersionAssignmentSet<MockPackageContainer>()
         assignment4[d] = .version(v2)
-        XCTAssertFalse(assignment.merge(assignment4))
+        XCTAssertEqual(assignment.merging(assignment4), nil)
     }
 
     /// Check the basic situations for resolving a subtree.
@@ -347,6 +349,7 @@ class DependencyResolverTests: XCTestCase {
             // Check the constraints are respected.
             XCTAssertEqual(
                 try resolver.resolve(constraints: [
+                        MockPackageConstraint(container: "A", versionRequirement: v1to3Range),
                         MockPackageConstraint(container: "A", versionRequirement: v1Range)]),
                 ["A": v1])
 
@@ -400,19 +403,7 @@ where C.Identifier == String
 {
     var actual = [String: VersionSetSpecifier]()
     for identifier in constraints.containerIdentifiers {
-        actual[identifier] = constraints[identifier]!
-    }
-    XCTAssertEqual(actual, expected, file: file, line: line)
-}
-
-private func XCTAssertEqual(
-    _ assignment: [(container: String, version: Version)],
-    _ expected: [String: Version],
-    file: StaticString = #file, line: UInt = #line)
-{
-    var actual = [String: Version]()
-    for (identifier, binding) in assignment {
-        actual[identifier] = binding
+        actual[identifier] = constraints[identifier]
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
@@ -440,4 +431,16 @@ where C.Identifier == String
             return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
         }
     }
+}
+
+func XCTAssertEqual<I: PackageContainerIdentifier>(
+    _ assignment: [(container: I, version: Version)],
+    _ expected: [I: Version],
+    file: StaticString = #file, line: UInt = #line)
+{
+    var actual = [I: Version]()
+    for (identifier, binding) in assignment {
+        actual[identifier] = binding
+    }
+    XCTAssertEqual(actual, expected, file: file, line: line)
 }

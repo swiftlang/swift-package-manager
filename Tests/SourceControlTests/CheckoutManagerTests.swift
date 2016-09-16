@@ -52,10 +52,19 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
         return DummyRepository()
     }
+
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try localFileSystem.createDirectory(destinationPath)
+        try localFileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
+    }
+
+    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+        fatalError("unsupported")
+    }
 }
 
 class CheckoutManagerTests: XCTestCase {
-    func testBasics() {
+    func testBasics() throws {
         mktmpdir { path in
             let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider())
 
@@ -70,8 +79,13 @@ class CheckoutManagerTests: XCTestCase {
             XCTAssertTrue(handle.isAvailable)
 
             // Open the repository.
-            let repository = handle.open()
+            let repository = try handle.open()
             XCTAssertEqual(repository.tags, ["1.0.0"])
+
+            // Create a checkout of the repository.
+            let checkoutPath = path.appending(component: "checkout")
+            try handle.cloneCheckout(to: checkoutPath)
+            XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
 
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
@@ -93,7 +107,7 @@ class CheckoutManagerTests: XCTestCase {
             handle.addObserver { handle in
                 wasAvailable = handle.isAvailable
             }
-            
+
             XCTAssertEqual(wasAvailable, true)
         }
     }

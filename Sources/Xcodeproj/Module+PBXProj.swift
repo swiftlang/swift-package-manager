@@ -52,6 +52,7 @@ extension Module {
     var releaseConfigurationReference: String { return "_ReleaseConf_\(c99name)" }
     var compilePhaseReference: String         { return "CompilePhase_\(c99name)" }
     var linkPhaseReference: String            { return "___LinkPhase_\(c99name)" }
+    var shellScriptPhaseReference: String     { return "_ScriptPhase_\(c99name)" }
 }
 
 func fileRef(forLinkPhaseChild module: Module, from: Module) -> String {
@@ -155,9 +156,9 @@ extension Module  {
         }
     }
 
-    var headerSearchPaths: (key: String, value: String)? {
+    var headerSearchPaths: (key: String, value: Any)? {
         let headerPathKey = "HEADER_SEARCH_PATHS"
-        let headerPaths = dependencies.flatMap { module -> AbsolutePath? in
+        var headerPaths = dependencies.flatMap { module -> AbsolutePath? in
             switch module {
             case let cModule as CModule:
                 return cModule.path
@@ -168,25 +169,22 @@ extension Module  {
             }
         }
 
-        guard !headerPaths.isEmpty else { return nil }
-
-        if headerPaths.count == 1, let first = headerPaths.first {
-            return (headerPathKey, first.asString)
+        // For ClangModules add implicit search path to its own include directory.
+        if case let clangModule as ClangModule = self {
+            headerPaths.append(clangModule.includeDir)
         }
 
-        let headerPathValue = headerPaths.map{ $0.asString }.joined(separator: " ")
+        guard !headerPaths.isEmpty else { return nil }
         
-        return (headerPathKey, headerPathValue)
+        return (headerPathKey, headerPaths.map { $0.asString } )
     }
 
     func getDebugBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
         var buildSettings = try getCommonBuildSettings(options, xcodeProjectPath: xcodeProjectPath)
-        buildSettings["SWIFT_OPTIMIZATION_LEVEL"] = "-Onone"
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        // FIXME: Need to honor actual quoting rules here.
-        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
+        return toPlist(buildSettings).serialize()
     }
 
     func getReleaseBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> String {
@@ -194,13 +192,40 @@ extension Module  {
         if let headerSearchPaths = headerSearchPaths {
             buildSettings[headerSearchPaths.key] = headerSearchPaths.value
         }
-        // FIXME: Need to honor actual quoting rules here.
-        return buildSettings.map{ "\($0) = '\($1)';" }.joined(separator: " ")
+        return toPlist(buildSettings).serialize()
     }
 
-    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: String] {
-        var buildSettings = [String: String]()
+    /// Converts build settings dictionary to a Plist object.
+    ///
+    /// Adds string values in dictionaries as is and array values are quoted and then converted
+    /// to a string joined by whitespace.
+    private func toPlist(_ buildSettings: [String: Any]) -> Plist {
+        var buildSettingsPlist = [String: Plist]()
+        for (k, v) in buildSettings {
+            switch v {
+            case let value as String:
+                buildSettingsPlist[k] = .string(value)
+            case let value as [String]:
+                let escaped = value.map { "\"" + Plist.escape(string: $0) + "\"" }.joined(separator: " ")
+                buildSettingsPlist[k] = .string(escaped)
+            default:
+                fatalError("build setting dictionary should only contain String or [String]")
+            }
+        }
+        return .dictionary(buildSettingsPlist)
+    }
+
+    private func getCommonBuildSettings(_ options: XcodeprojOptions, xcodeProjectPath: AbsolutePath) throws -> [String: Any] {
+        var buildSettings = [String: Any]()
         let plistPath = xcodeProjectPath.appending(component: infoPlistFileName)
+
+        // Add default library search path to the directory where symlinks to C target framework
+        // binaries will be put with name `lib<library-name>.dylib` so that autolinking
+        // can proceed without providing another modulemap for Xcode projects.
+        // See: https://bugs.swift.org/browse/SR-2465
+        if recursiveDependencies.first(where: { $0 is ClangModule }) != nil {
+            buildSettings["LIBRARY_SEARCH_PATHS"] = ["$(PROJECT_TEMP_DIR)/SymlinkLibs/"]
+        }
 
         if isTest {
             buildSettings["EMBEDDED_CONTENT_CONTAINS_SWIFT"] = "YES"
@@ -216,7 +241,7 @@ extension Module  {
             //
             // This means the built binaries are not suitable for distribution,
             // among other things.
-            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"
+            buildSettings["LD_RUNPATH_SEARCH_PATHS"] = ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
             if isLibrary {
                 buildSettings["ENABLE_TESTABILITY"] = "YES"
 
@@ -255,13 +280,13 @@ extension Module  {
                 // example would be `@executable_path/../lib` but there are
                 // other problems to solve first, e.g. how to deal with the
                 // Swift standard library paths).
-                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"]! + " @executable_path"
+                buildSettings["LD_RUNPATH_SEARCH_PATHS"] = buildSettings["LD_RUNPATH_SEARCH_PATHS"] as! [String] + ["@executable_path"]
             }
         }
 
         if let pkgArgs = try? self.pkgConfigArgs() {
-            buildSettings["OTHER_LDFLAGS"] = (["$(inherited)"] + pkgArgs.libs).joined(separator: " ")
-            buildSettings["OTHER_SWIFT_FLAGS"] = (["$(inherited)"] + pkgArgs.cFlags).joined(separator: " ")
+            buildSettings["OTHER_LDFLAGS"] = ["$(inherited)"] + pkgArgs.libs
+            buildSettings["OTHER_SWIFT_FLAGS"] = ["$(inherited)"] + pkgArgs.cFlags
         }
 
         // Add framework search path to build settings.
@@ -278,7 +303,7 @@ extension Module  {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeProjectPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
                 var moduleMapGenerator = ModuleMapGenerator(for: clangModule)
-                try moduleMapGenerator.generateModuleMap(inDir: path, modulemapStyle: .framework)
+                try moduleMapGenerator.generateModuleMap(inDir: path)
                 moduleMapPath = path.appending(component: moduleMapFilename)
             }
 
@@ -288,6 +313,9 @@ extension Module  {
         // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
         buildSettings["SWIFT_VERSION"] = "3.0"
         
+        // Defined for regular `swift build` instantiations, so also should be defined here.
+        buildSettings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = "SWIFT_PACKAGE"
+
         return buildSettings
     }
 }

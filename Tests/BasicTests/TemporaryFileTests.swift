@@ -33,7 +33,7 @@ class TemporaryFileTests: XCTestCase {
             stream <<< "baz"
             try fputs(stream.bytes.contents, file.fileHandle)
 
-            // Go to the begining of the file.
+            // Go to the beginning of the file.
             file.fileHandle.seek(toFileOffset: 0)
             // Read the contents.
             let contents = try? file.fileHandle.readFileContents()
@@ -116,10 +116,25 @@ class TemporaryFileTests: XCTestCase {
         XCTAssertFalse(localFileSystem.isDirectory(pathTwo))
     }
 
+    /// Check that the temporary file doesn't leak file descriptors.
+    func testLeaks() throws {
+        // We check this by testing that we get back the same FD after a
+        // sequence of creating and destroying TemporaryFile objects. I don't
+        // believe that this is guaranteed by POSIX, but it is true on all
+        // platforms I know of.
+        let initialFD = try Int(TemporaryFile().fileHandle.fileDescriptor)
+        for _ in 0..<10 {
+            _ = try TemporaryFile().fileHandle
+        }
+        let endFD = try Int(TemporaryFile().fileHandle.fileDescriptor)
+        XCTAssertEqual(initialFD, endFD)
+    }
+    
     static var allTests = [
         ("testBasicReadWrite", testBasicReadWrite),
         ("testCanCreateUniqueTempFiles", testCanCreateUniqueTempFiles),
         ("testBasicTemporaryDirectory", testBasicTemporaryDirectory),
         ("testCanCreateUniqueTempDirectories", testCanCreateUniqueTempDirectories),
+        ("testLeaks", testLeaks),
     ]
 }

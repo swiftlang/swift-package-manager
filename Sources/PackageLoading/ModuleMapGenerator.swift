@@ -68,35 +68,6 @@ public struct ModuleMapGenerator {
         self.warningStream = warningStream
     }
 
-    /// A link-declaration specifies a library or framework
-    /// against which a program should be linked.
-    /// More info: http://clang.llvm.org/docs/Modules.html#link-declaration
-    /// A `library` modulemap style uses `link` flag for link-declaration where
-    /// as a `framework` uses `link framework` flag and a framework module.
-    public enum ModuleMapStyle {
-        case library
-        case framework
-
-        /// Link declaration flag to be used in modulemap.
-        var linkDeclFlag: String {
-            switch self {
-            case .library:
-                return "link"
-            case .framework:
-                return "link framework"
-            }
-        }
-
-        var moduleDeclQualifier: String? {
-            switch self {
-            case .library:
-                return nil
-            case .framework:
-                return "framework"
-            }
-        }
-    }
-
     public enum ModuleMapError: Swift.Error {
         case unsupportedIncludeLayoutForModule(String)
     }
@@ -107,7 +78,7 @@ public struct ModuleMapGenerator {
     // FIXME: We recompute the generated modulemap's path when building swift
     // modules in `XccFlags(prefix: String)` there shouldn't be need to redo
     // this there but is difficult in current architecture.
-    public mutating func generateModuleMap(inDir wd: AbsolutePath, modulemapStyle: ModuleMapStyle = .library) throws {
+    public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
         // Don't generate modulemap for a Test module.
         guard !module.isTest else {
             return
@@ -134,7 +105,7 @@ public struct ModuleMapGenerator {
         let umbrellaHeaderFlat = includeDir.appending(component: module.c99name + ".h")
         if fileSystem.isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name) }
-            try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat), modulemapStyle: modulemapStyle)
+            try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat))
             return
         }
         diagnoseInvalidUmbrellaHeader(includeDir)
@@ -142,12 +113,12 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = includeDir.appending(components: module.c99name, module.c99name + ".h")
         if fileSystem.isFile(umbrellaHeader) {
             guard dirs.count == 1 && files.isEmpty else { throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name) }
-            try createModuleMap(inDir: wd, type: .header(umbrellaHeader), modulemapStyle: modulemapStyle)
+            try createModuleMap(inDir: wd, type: .header(umbrellaHeader))
             return
         }
         diagnoseInvalidUmbrellaHeader(includeDir.appending(component: module.c99name))
 
-        try createModuleMap(inDir: wd, type: .directory(includeDir), modulemapStyle: modulemapStyle)
+        try createModuleMap(inDir: wd, type: .directory(includeDir))
     }
 
     /// Warn user if in case module name and c99name are different and there is a
@@ -166,12 +137,8 @@ public struct ModuleMapGenerator {
         case directory(AbsolutePath)
     }
     
-    private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType, modulemapStyle: ModuleMapStyle) throws {
+    private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType) throws {
         let stream = BufferedOutputByteStream()
-
-        if let qualifier = modulemapStyle.moduleDeclQualifier {
-            stream <<< qualifier <<< " "
-        }
         stream <<< "module \(module.c99name) {\n"
         switch type {
         case .header(let header):
@@ -179,7 +146,7 @@ public struct ModuleMapGenerator {
         case .directory(let path):
             stream <<< "    umbrella \"\(path.asString)\"\n"
         }
-        stream <<< "    \(modulemapStyle.linkDeclFlag) \"\(module.c99name)\"\n"
+        stream <<< "    link \"\(module.c99name)\"\n"
         stream <<< "    export *\n"
         stream <<< "}\n"
 

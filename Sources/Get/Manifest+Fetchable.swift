@@ -9,8 +9,7 @@
 */
 
 import PackageModel
-
-import struct PackageDescription.Version
+import Utility
 
 extension Manifest: Fetchable {
     var children: [(String, Range<Version>)] {

@@ -82,9 +82,9 @@ private enum TestToolFlag: Argument {
     case xswiftc(String)
     case chdir(AbsolutePath)
     case buildPath(AbsolutePath)
+    case enableNewResolver
     case colorMode(ColorWrap.Mode)
     case skipBuild
-    case ignoreDependencies
     case verbose(Int)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
@@ -108,14 +108,14 @@ private enum TestToolFlag: Argument {
             self = try .xswiftc(forcePop())
         case "--build-path":
             self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--enable-new-resolver":
+            self = .enableNewResolver
         case "--color":
             let rawValue = try forcePop()
             guard let mode = ColorWrap.Mode(rawValue) else  {
                 throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
             }
             self = .colorMode(mode)
-        case "--ignore-dependencies":
-            self = .ignoreDependencies
         default:
             return nil
         }
@@ -127,7 +127,6 @@ private class TestToolOptions: Options {
     var buildTests: Bool = true
     var colorMode: ColorWrap.Mode = .Auto
     var flags = BuildFlags()
-    var ignoreDependencies: Bool = false
 }
 
 /// swift-test tool namespace
@@ -185,7 +184,7 @@ public struct SwiftTestTool: SwiftTool {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ opts: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackage(at: opts.path.root, ignoreDependencies: opts.ignoreDependencies)
+        let graph = try loadPackage(at: opts.path.root, opts)
         if opts.buildTests {
             let yaml = try describe(opts.path.build, configuration, graph, flags: opts.flags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
@@ -226,7 +225,7 @@ public struct SwiftTestTool: SwiftTool {
         print("  -s, --specifier <test-module>.<test-case>/<test>  Run a specific test method")
         print("  -l, --list-tests                                  Lists test methods in specifier format")
         print("  -C, --chdir <path>     Change working directory before any other operation")
-        print("  --build-path <path>    Specify build directory")
+        print("  --build-path <path>    Specify build/cache directory [default: ./.build]")
         print("  --color <mode>         Specify color mode (auto|always|never) [default: auto]")
         print("  -v, --verbose          Increase verbosity of informational output")
         print("  --skip-build           Skip building the test target")
@@ -255,12 +254,12 @@ public struct SwiftTestTool: SwiftTool {
                 opts.flags.swiftCompilerFlags.append(value)
             case .buildPath(let buildPath):
                 opts.path.build = buildPath
+            case .enableNewResolver:
+                opts.enableNewResolver = true
             case .colorMode(let mode):
                 opts.colorMode = mode
             case .skipBuild:
                 opts.buildTests = false
-            case .ignoreDependencies:
-                opts.ignoreDependencies = true
             }
         }
 
@@ -290,7 +289,7 @@ public struct SwiftTestTool: SwiftTool {
       #endif
 
         // Execute the XCTest with inherited environment as it is convenient to pass senstive
-        // information like username, password etc to test cases via enviornment variables.
+        // information like username, password etc to test cases via environment variables.
         let result: Void? = try? system(args, environment: ProcessInfo.processInfo.environment)
         return result != nil
     }
@@ -307,7 +306,7 @@ public struct SwiftTestTool: SwiftTool {
         if isFile(maybePath) {
             return maybePath
         }
-        // This will be true during swiftpm developement.
+        // This will be true during swiftpm development.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(component: xctestHelperBin)
         if isFile(path) {

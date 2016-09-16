@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import struct PackageDescription.Version
+import Utility
 
+/// Errors that can result from trying to fetch a package from a repository.
 enum Error: Swift.Error {
 
     typealias ClonePath = String
@@ -21,6 +22,10 @@ enum Error: Swift.Error {
     case updateRequired(ClonePath)
     case unversioned(ClonePath)
     case invalidDependencyGraphMissingTag(package: String, requestedTag: String, existingTags: String)
+    /// A package is referenced using a `file` URL (i.e. a local file system reference), but there is no package at that path.
+    case missingLocalFileURL(URL)
+    /// A package is referenced using a `file` URL (i.e. a local file system reference), but the file system entity at that path isn't a cloned repository (a situation that is not currently supported).
+    case nonRepoLocalFileURL(URL)
 }
 
 extension Error: CustomStringConvertible {
@@ -38,6 +43,10 @@ extension Error: CustomStringConvertible {
             return "No version tag found in (\(package)) package. Add a version tag with \"git tag\" command. Example: \"git tag 0.1.0\""
         case .noManifest(let clonePath, let version):
             return "The package at `\(clonePath)' has no Package.swift for the specific version: \(version)"
+        case .missingLocalFileURL(let url):
+            return "No package at path \(url)"
+        case .nonRepoLocalFileURL(let url):
+            return "Directory at path \(url) is not a Git repository"
         }
     }
 }
