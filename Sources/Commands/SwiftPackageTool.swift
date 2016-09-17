@@ -166,30 +166,34 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             break
 
         case .update:
-            let packagesDirectory = try getCheckoutsDirectory()
-            // Attempt to ensure that none of the repositories are modified.
-            if localFileSystem.exists(packagesDirectory) {
-                for name in try localFileSystem.getDirectoryContents(packagesDirectory) {
-                    let item = packagesDirectory.appending(RelativePath(name))
+            if options.enableNewResolver {
+                let workspace = try getActiveWorkspace()
+                try workspace.updateDependencies()
+            } else {
+                let packagesDirectory = try getCheckoutsDirectory()
+                // Attempt to ensure that none of the repositories are modified.
+                if localFileSystem.exists(packagesDirectory) {
+                    for name in try localFileSystem.getDirectoryContents(packagesDirectory) {
+                        let item = packagesDirectory.appending(RelativePath(name))
 
-                    // Only look at repositories.
-                    guard exists(item.appending(component: ".git")) else { continue }
+                        // Only look at repositories.
+                        guard exists(item.appending(component: ".git")) else { continue }
 
-                    // If there is a staged or unstaged diff, don't remove the
-                    // tree. This won't detect new untracked files, but it is
-                    // just a safety measure for now.
-                    let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-                    do {
-                        _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
-                        _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
-                    } catch {
-                        throw Error.repositoryHasChanges(item.asString)
+                        // If there is a staged or unstaged diff, don't remove the
+                        // tree. This won't detect new untracked files, but it is
+                        // just a safety measure for now.
+                        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
+                        do {
+                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
+                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
+                        } catch {
+                            throw Error.repositoryHasChanges(item.asString)
+                        }
                     }
+                    try removeFileTree(packagesDirectory)
                 }
-                try removeFileTree(packagesDirectory)
+                _ = try loadPackage()
             }
-            fallthrough
-
         case .fetch:
             _ = try loadPackage()
 
