@@ -20,13 +20,13 @@ import protocol Build.Toolchain
 
 import func POSIX.chdir
 
-private enum Mode: Argument, Equatable, CustomStringConvertible {
+public enum BuildToolMode: Argument, Equatable, CustomStringConvertible {
     case build(Configuration, Toolchain)
     case clean(CleanMode)
     case usage
     case version
 
-    init?(argument: String, pop: @escaping () -> String?) throws {
+    public init?(argument: String, pop: @escaping () -> String?) throws {
         switch argument {
         case "--configuration", "--config", "-c":
             self = try .build(Configuration(pop()), UserToolchain())
@@ -41,7 +41,7 @@ private enum Mode: Argument, Equatable, CustomStringConvertible {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
             case .build(let conf, _): return "--configuration \(conf)"
             case .clean(let mode): return "--clean \(mode)"
@@ -97,68 +97,47 @@ private enum BuildToolFlag: Argument {
     }
 }
 
-private class BuildToolOptions: Options {
-    var verbosity: Int = 0
+public class BuildToolOptions: Options {
     var flags = BuildFlags()
     var buildTests: Bool = false
-    var colorMode: ColorWrap.Mode = .Auto
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool: SwiftTool {
-    let args: [String]
+public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
 
-    public init(args: [String]) {
-        self.args = args
-    }
+    override func runImpl() throws {
+        switch mode {
+        case .usage:
+            SwiftBuildTool.usage()
 
-    public func run() {
-        do {
-            let (mode, opts) = try parse(commandLineArguments: args)
-        
-            verbosity = Verbosity(rawValue: opts.verbosity)
-            colorMode = opts.colorMode
-        
-            if let dir = opts.chdir {
-                try chdir(dir.asString)
+        case .version:
+            print(Versioning.currentVersion.completeDisplayString)
+
+        case .build(let conf, let toolchain):
+            #if os(Linux)
+            // Emit warning if clang is older than version 3.6 on Linux.
+            // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
+            checkClangVersion()
+            #endif
+            let graph = try loadPackage()
+            let yaml = try describe(buildPath, conf, graph, flags: options.flags, toolchain: toolchain)
+            try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
+
+        case .clean(.dist):
+            if try exists(getCheckoutsDirectory()) {
+                try removeFileTree(getCheckoutsDirectory())
             }
-            
-            switch mode {
-            case .usage:
-                usage()
-        
-            case .version:
-                print(Versioning.currentVersion.completeDisplayString)
-                
-            case .build(let conf, let toolchain):
-              #if os(Linux)
-                // Emit warning if clang is older than version 3.6 on Linux.
-                // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-                checkClangVersion()
-              #endif
-                let graph = try loadPackage(at: opts.path.root, opts)
-                let yaml = try describe(opts.path.build, conf, graph, flags: opts.flags, toolchain: toolchain)
-                try build(yamlPath: yaml, target: opts.buildTests ? "test" : nil)
-        
-            case .clean(.dist):
-                if exists(opts.path.packages) {
-                    try removeFileTree(opts.path.packages)
-                }
-                fallthrough
-        
-            case .clean(.build):
-                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-                if exists(opts.path.build) {
-                    try removeFileTree(opts.path.build)
-                }
+            fallthrough
+
+        case .clean(.build):
+            // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
+            if exists(buildPath) {
+                try removeFileTree(buildPath)
             }
-        
-        } catch {
-            handle(error: error, usage: usage)
         }
     }
 
-    private func usage(_ print: (String) -> Void = { print($0) }) {
+    override class func usage(_ print: (String) -> Void = { print($0) }) {
         //     .........10.........20.........30.........40.........50.........60.........70..
         print("OVERVIEW: Build sources into binary products")
         print("")
@@ -180,34 +159,34 @@ public struct SwiftBuildTool: SwiftTool {
         print("NOTE: Use `swift package` to perform other functions on packages")
     }
     
-    private func parse(commandLineArguments args: [String]) throws -> (Mode, BuildToolOptions) {
-        let (mode, flags): (Mode?, [BuildToolFlag]) = try Basic.parseOptions(arguments: args)
+    override class func parse(commandLineArguments args: [String]) throws -> (BuildToolMode, BuildToolOptions) {
+        let (mode, flags): (BuildToolMode?, [BuildToolFlag]) = try Basic.parseOptions(arguments: args)
     
-        let opts = BuildToolOptions()
+        let options = BuildToolOptions()
         for flag in flags {
             switch flag {
             case .chdir(let path):
-                opts.chdir = path
+                options.chdir = path
             case .verbose(let amount):
-                opts.verbosity += amount
+                options.verbosity += amount
             case .xcc(let value):
-                opts.flags.cCompilerFlags.append(value)
+                options.flags.cCompilerFlags.append(value)
             case .xld(let value):
-                opts.flags.linkerFlags.append(value)
+                options.flags.linkerFlags.append(value)
             case .xswiftc(let value):
-                opts.flags.swiftCompilerFlags.append(value)
+                options.flags.swiftCompilerFlags.append(value)
             case .buildPath(let path):
-                opts.path.build = path
+                options.buildPath = path
             case .enableNewResolver:
-                opts.enableNewResolver = true
+                options.enableNewResolver = true
             case .buildTests:
-                opts.buildTests = true
+                options.buildTests = true
             case .colorMode(let mode):
-                opts.colorMode = mode
+                options.colorMode = mode
             }
         }
     
-        return try (mode ?? .build(.debug, UserToolchain()), opts)
+        return try (mode ?? .build(.debug, UserToolchain()), options)
     }
 
     private func checkClangVersion() {
@@ -240,10 +219,10 @@ extension Build.Configuration {
     }
 }
 
-enum CleanMode: CustomStringConvertible {
+public enum CleanMode: CustomStringConvertible {
     case build, dist
 
-    fileprivate init(_ rawValue: String?) throws {
+    public init(_ rawValue: String?) throws {
         switch rawValue?.lowercased() {
         case nil, "build"?:
             self = .build
@@ -254,7 +233,7 @@ enum CleanMode: CustomStringConvertible {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
             case .dist: return "distribution"
             case .build: return "build"
@@ -262,6 +241,6 @@ enum CleanMode: CustomStringConvertible {
     }
 }
 
-private func ==(lhs: Mode, rhs: Mode) -> Bool {
+public func ==(lhs: BuildToolMode, rhs: BuildToolMode) -> Bool {
     return lhs.description == rhs.description
 }
