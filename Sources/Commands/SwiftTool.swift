@@ -74,6 +74,8 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
             (self.mode, self.options) = try dynamicSelf.parse(commandLineArguments: args)
             // Honor chdir option is provided.
             if let dir = options.chdir {
+                // FIXME: This should be an API which takes AbsolutePath and maybe
+                // should be moved to file system APIs with currentWorkingDirectory.
                 try chdir(dir.asString)
             }
         } catch {
@@ -149,6 +151,8 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
 private func findPackageRoot() -> AbsolutePath? {
+    // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
+    // finds the lowest path for which the predicate is true.
     var root = currentWorkingDirectory
     while !isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
