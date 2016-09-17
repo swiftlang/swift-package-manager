@@ -94,11 +94,21 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
         fatalError("Must be implmented by subclasses")
     }
 
+    /// Holds the currently active workspace.
+    ///
+    /// It is not initialized in init() because for some of the commands like package init , usage etc,
+    /// workspace is not needed, infact it would be an error to ask for the workspace object
+    /// for package init because the Manifest file should *not* present.
+    private var _workspace: Workspace? = nil
+
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
-        // Get the active workspace.
+        if let workspace = _workspace {
+            return workspace
+        }
         let delegate = ToolWorkspaceDelegate()
-        return try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
+        _workspace = try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
+        return _workspace!
     }
 
     /// Execute the tool.
