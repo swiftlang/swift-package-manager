@@ -21,10 +21,31 @@ import protocol Build.Toolchain
 
 import func POSIX.chdir
 
+private enum PackageToolError: Swift.Error {
+    /// The flag needs to be present to execute some mode.
+    case expectedFlag(PackageToolFlag)
+
+    /// The package doesn't exist in the package graph.
+    case packageNotFound
+}
+
+extension PackageToolError: FixableError {
+    var error: String {
+        switch self {
+        case .expectedFlag(let flag):
+            return "expected flag \(flag.description)"
+        case .packageNotFound:
+            return "the package doesn't exist."
+        }
+    }
+    var fix: String? { return nil }
+}
+
 public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     case dumpPackage
     case fetch
     case generateXcodeproj
+    case getPackagePath
     case initPackage
     case showDependencies
     case resolve
@@ -40,6 +61,8 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
             self = .fetch
         case "generate-xcodeproj":
             self = .generateXcodeproj
+        case "get-package-path":
+            self = .getPackagePath
         case "init":
             self = .initPackage
         case "resolve":
@@ -62,6 +85,7 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
         case .dumpPackage: return "dump-package"
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
+        case .getPackagePath: return "get-package-path"
         case .initPackage: return "initPackage"
         case .resolve: return "resolve"
         case .showDependencies: return "show-dependencies"
@@ -87,6 +111,7 @@ private enum PackageToolFlag: Argument {
     case enableNewResolver
     case xcconfigOverrides(AbsolutePath)
     case verbose(Int)
+    case package(String)
 
     init?(argument: String, pop: @escaping () -> String?) throws {
 
@@ -128,8 +153,20 @@ private enum PackageToolFlag: Argument {
             self = .enableNewResolver
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--package":
+            self = try .package(forcePop())
         default:
             return nil
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .package(_): return "--package"
+        // FIXME: This doesn't cover all flags because right now only the .package
+        // flag needs be shown in a diagnosis. This repetition of magic string is
+        // error prone and is exoect to go away once we have new option parser.
+        default: return String(describing: self)
         }
     }
 }
@@ -140,6 +177,7 @@ public class PackageToolOptions: Options {
     var inputPath: AbsolutePath? = nil
     var outputPath: AbsolutePath? = nil
     var xcodeprojOptions = XcodeprojOptions()
+    var package: String? = nil
 }
 
 /// swift-build tool namespace
@@ -222,6 +260,15 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
 
             print("generated:", outpath.prettyPath)
 
+        case .getPackagePath:
+            guard let packageName = options.package else {
+                throw PackageToolError.expectedFlag(PackageToolFlag.package(""))
+            }
+            let graph = try loadPackage()
+            guard let package = graph.packages.filter({ $0.name == packageName }).first else {
+                throw PackageToolError.packageNotFound
+            }
+            print(package.path.asString)
         case .dumpPackage:
             let manifest = try loadRootManifest(options)
             // FIXME: It would be nice if this has a pretty print option.
@@ -299,6 +346,8 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
                 options.colorMode = mode
             case .xcconfigOverrides(let path):
                 options.xcodeprojOptions.xcconfigOverrides = path
+            case .package(let name):
+                options.package = name
             }
         }
         if let mode = mode {
