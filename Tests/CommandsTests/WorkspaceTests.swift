@@ -431,5 +431,6 @@ final class WorkspaceTests: XCTestCase {
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
+        ("testUpdate", testUpdate),
     ]
 }
