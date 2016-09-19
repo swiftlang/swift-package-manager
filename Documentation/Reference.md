@@ -45,11 +45,11 @@ which would define two modules, `Foo` and `Bar`.
 
 To generate an executable module (instead of a library module) add a `main.swift` file to that module’s subdirectory:
 
-    example/Sources/foo/main.swift
+    example/Sources/Foo/main.swift
 
 and `swift build` will now produce an:
 
-* `example/.build/debug/foo`
+* `example/.build/debug/Foo`
 
 executable output file.
 
