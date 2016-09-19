@@ -306,6 +306,6 @@ In the future, the Swift Package Manager may allow packages to be built and inst
 
 If you have any questions about this document, or would like to share any thoughts about existing features, please contact the mailing list for Swift Package Manager development: <swift build-dev@swift.org>
 
-For information about contributing to Swift or the Swift Package Manager, check out ["Contributing to Swift" on Swift.org (https://swift.org/contributing).
+For information about contributing to Swift or the Swift Package Manager, check out ["Contributing to Swift" on Swift.org](https://swift.org/contributing).
 
 If you want to discuss new or planned features, see the [Swift evolution process](https://swift.org/contributing#participating-in-the-swift-evolution-process).
