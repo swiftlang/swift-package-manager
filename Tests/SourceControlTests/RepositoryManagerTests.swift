@@ -112,6 +112,9 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
 
             XCTAssertEqual(delegate.fetched, [dummyRepo])
+            // Remove the repo.
+            try manager.remove(repository: dummyRepo)
+            XCTAssert(localFileSystem.exists(checkoutPath))
 
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")

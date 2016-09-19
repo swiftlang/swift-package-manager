@@ -146,6 +146,10 @@ public protocol WorkingCheckout {
     /// Query whether the checkout has any commits which are not pushed to its remote.
     func hasUnpushedCommits() throws -> Bool
 
+    /// This check for any modified state of the repository and returns true
+    /// if there are uncommited changes.
+    func hasUncommitedChanges() -> Bool
+
     /// Check out the given tag.
     func checkout(tag: String) throws
 

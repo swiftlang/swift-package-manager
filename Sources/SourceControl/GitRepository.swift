@@ -65,7 +65,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        return GitRepository(path: path)
+        return GitRepository(path: path, isWorkingRepo: false)
     }
 
     public func cloneCheckout(
@@ -207,8 +207,18 @@ public class GitRepository: Repository, WorkingCheckout {
     /// The (serial) queue to execute git cli on.
     private let queue = DispatchQueue(label: "org.swift.swiftpm.gitqueue")
 
-    public init(path: AbsolutePath) {
+    /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
+    let isWorkingRepo: Bool
+
+    public init(path: AbsolutePath, isWorkingRepo: Bool = true) {
         self.path = path
+        self.isWorkingRepo = isWorkingRepo
+        do {
+            let isBareRepo = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository"]).chomp() == "true"
+            assert(isBareRepo != isWorkingRepo)
+        } catch {
+            // Ignore if we couldn't run popen for some reason.
+        }
     }
 
     /// Adds a remote to the git repository.
@@ -276,6 +286,24 @@ public class GitRepository: Repository, WorkingCheckout {
     public func fetch() throws {
         try runCommandQuietly([Git.tool, "-C", path.asString, "fetch", "--tags"]) {
             self.tagsCache = nil
+        }
+    }
+
+    public func hasUncommitedChanges() -> Bool {
+        // Only a work tree can have changes.
+        guard isWorkingRepo else { return false }
+        return queue.sync {
+            // Detect if there is a staged or unstaged diff.
+            // This won't detect new untracked files, but it is
+            // just a safety measure for now.
+            let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
+            do {
+                _ = try Git.runPopen([Git.tool, "-C", path.asString, "diff"] + diffArgs)
+                _ = try Git.runPopen([Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs)
+            } catch {
+                return true
+            }
+            return false
         }
     }
 
