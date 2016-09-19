@@ -18,6 +18,7 @@
         * [Debug](#debug)
         * [Release](#release)
     * [Depending on Apple Modules](#depending-on-apple-modules)
+  * [C language targets](#c-language-targets)
 * [Resources](Resources.md)
 
 ---
@@ -52,6 +53,22 @@ and `swift build` will now produce an:
 * `example/.build/debug/Foo`
 
 executable output file.
+
+The C language modules are laid out in a similar format. A C language library named `Baz` can be created in following format:
+
+    example/Sources/Baz/Baz.c
+    example/Sources/Baz/include/Baz.h
+
+The public headers for this library go in the directory named `include`.
+
+Similarly, an executable C language module named `Baz` would look like this:
+
+    example/Sources/Baz/main.c
+
+Note: It is possible to have C, C++, Objective-C and Objective-C++ sources as part of a C language target. Swift modules can
+import C language targets but not vice versa.
+
+Read more on C language targets [here](#c-language-targets).
 
 ### Test Suite Layouts
 
@@ -341,3 +358,18 @@ A C language target is build with following flags in release mode:
 ### Depending on Apple Modules
 
 At this time there is no explicit support for depending on Foundation, AppKit, etc, though importing these modules should work if they are present in the proper system location. We will add explicit support for system dependencies in the future. Note that at this time the Package Manager has no support for iOS, watchOS, or tvOS platforms.
+
+## C language targets
+
+The C language targets are laid out similar to Swift targets execept that the C langauge libraries should contain a directory named `include` to hold the public headers.  
+To allow a Swift module to import a C language module, add a [target dependency](#targets) in the manifest file. Swift Package Manager will automatically generate a modulemap for each C language library module for these 3 cases:
+
+* If `include/Foo/Foo.h` exists and `Foo` is the only directory under the include directory then `include/Foo/Foo.h` becomes the umbrella header.
+
+* If `include/Foo.h` exists and `include` contains no other subdirectory then `include/Foo.h` becomes the umbrella header.
+
+* Otherwise if the `include` directory only contains header files and no other subdirectory, it becomes the umbrella directory.
+
+In case of complicated `include` layouts, a custom `module.modulemap` can be provided inside `include`. SwiftPM will error out if it can not generate a modulemap w.r.t the above rules.
+
+For executable modules, only one valid C language main file is allowed i.e. it is invalid to have `main.c` and `main.cpp` in the same module.
