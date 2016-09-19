@@ -72,7 +72,7 @@ class VersionSpecificTests: XCTestCase {
             try tagGitRepo(depPath, tag: "1.1.0@swift-\(Versioning.currentVersion.major)")
 
             // The build should work now.
-            try removeFileTree(primaryPath.appending(component: "Packages"))
+            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean=dist"], chdir: primaryPath)
             XCTAssertBuilds(primaryPath)
         }
     }
