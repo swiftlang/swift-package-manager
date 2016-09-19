@@ -18,6 +18,10 @@ import Utility
 import class Foundation.Bundle
 #endif
 
+enum SwiftPMProductError: Swift.Error {
+    case packagePathNotFound
+}
+
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
@@ -83,5 +87,14 @@ public enum SwiftPMProduct {
             }
             throw error
         }
+    }
+
+    public static func packagePath(for package: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+        let args = ["get-package-path", "--package", package]
+        let result = try SwiftPackage.execute(args, chdir: packageRoot, printIfError: true).chomp()
+        if let path = result.characters.split(separator: "\n").map(String.init).last {
+            return AbsolutePath(path)
+        }
+        throw SwiftPMProductError.packagePathNotFound
     }
 }

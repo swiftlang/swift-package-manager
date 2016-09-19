@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import Commands
+import class SourceControl.GitRepository
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
@@ -25,6 +26,14 @@ final class PackageToolTests: XCTestCase {
     
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+    }
+
+    func testGetPackagePath() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+        }
     }
 
     func testFetch() throws {
@@ -131,5 +140,6 @@ final class PackageToolTests: XCTestCase {
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
+        ("testGetPackagePath", testGetPackagePath),
     ]
 }
