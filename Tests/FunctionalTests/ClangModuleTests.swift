@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import PackageModel
+import SourceControl
 import Utility
 
 extension String {
@@ -54,11 +55,13 @@ class ClangModulesTestCase: XCTestCase {
     
     func testExternalSimpleCDep() {
         fixture(name: "DependencyResolution/External/SimpleCDep") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "Bar"))
+            let packageRoot = prefix.appending(component: "Bar")
+            XCTAssertBuilds(packageRoot)
             let debugPath = prefix.appending(components: "Bar", ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "Bar"))
             XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending(components: "Bar", "Packages", "Foo-1.2.3"))
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
     }
     
@@ -74,10 +77,12 @@ class ClangModulesTestCase: XCTestCase {
     
     func testCUsingCDep() {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "Bar"))
+            let packageRoot = prefix.appending(component: "Bar")
+            XCTAssertBuilds(packageRoot)
             let debugPath = prefix.appending(components: "Bar", ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending(components: "Bar", "Packages", "Foo-1.2.3"))
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
     }
     
@@ -94,10 +99,12 @@ class ClangModulesTestCase: XCTestCase {
     func testCUsingCDep2() {
         //The C dependency "Foo" has different layout
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
-            XCTAssertBuilds(prefix.appending(component: "Bar"))
+            let packageRoot = prefix.appending(component: "Bar")
+            XCTAssertBuilds(packageRoot)
             let debugPath = prefix.appending(components: "Bar", ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
-            XCTAssertDirectoryExists(prefix.appending(components: "Bar", "Packages", "Foo-1.2.3"))
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
     }
     

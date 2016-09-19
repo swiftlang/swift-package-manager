@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import Commands
+import SourceControl
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
@@ -30,27 +31,30 @@ final class PackageToolTests: XCTestCase {
     func testFetch() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
-            let packagesPath = packageRoot.appending(component: "Packages")
 
             // Check that `fetch` works.
             _ = try execute(["fetch"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
     }
 
     func testUpdate() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
-            let packagesPath = packageRoot.appending(component: "Packages")
 
             // Perform an initial fetch.
             _ = try execute(["fetch"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.3"])
+            var path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
 
             // Retag the dependency, and update.
             try tagGitRepo(prefix.appending(component: "Foo"), tag: "1.2.4")
             _ = try execute(["update"], chdir: packageRoot)
-            XCTAssertEqual(try localFileSystem.getDirectoryContents(packagesPath), ["Foo-1.2.4"])
+
+            // We shouldn't assume package path will be same after an update so ask again for it.
+            path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3", "1.2.4"])
         }
     }
 

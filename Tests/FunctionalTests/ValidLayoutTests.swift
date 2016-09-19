@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Basic
 import Utility
+import SourceControl
 
 import func POSIX.rename
 import func POSIX.popen
@@ -73,10 +74,19 @@ class ValidLayoutsTests: XCTestCase {
         #endif
         
         fixture(name: "DependencyResolution/External/Complex", tags: tags) { prefix in
-            XCTAssertBuilds(prefix.appending(component: "app"), configurations: [.Debug])
-            XCTAssertDirectoryExists(prefix.appending(RelativePath("app/Packages/DeckOfPlayingCards-1.2.3-beta5")))
-            XCTAssertDirectoryExists(prefix.appending(RelativePath("app/Packages/FisherYates-1.3.4-alpha.beta.gamma1")))
-            XCTAssertDirectoryExists(prefix.appending(RelativePath("app/Packages/PlayingCard-1.2.3+24")))
+            let packageRoot = prefix.appending(component: "app")
+            XCTAssertBuilds(packageRoot, configurations: [.Debug])
+
+            // FIXME: Elminate this.
+            let deckOfPlayingCards = SwiftPMProduct.enableNewResolver ? "deck-of-playing-cards" : "DeckOfPlayingCards"
+            var path = try SwiftPMProduct.packagePath(for: deckOfPlayingCards, packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3-beta5"])
+
+            path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.3.4-alpha.beta.gamma1"])
+
+            path = try SwiftPMProduct.packagePath(for: "PlayingCard", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3+24"])
         }
     }
 
