@@ -27,19 +27,24 @@ import TestSupport
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
 private class TestWorkspaceDelegate: WorkspaceDelegate {
+    var fetched = [String]()
+    var cloned = [String]()
+    /// Map of checkedout repos with key as repository and value as the reference (version or revision).
+    var checkedOut = [String: String]()
+
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
 
     func fetching(repository: String) {
-        print("Fetching " + repository)
+        fetched.append(repository)
     }
 
     func cloning(repository: String) {
-        print("Cloning: " + repository)
+        cloned.append(repository)
     }
 
     func checkingOut(repository: String, at reference: String) {
-        print("Checking out: " + repository + " at " + reference)
+        checkedOut[repository] = reference
     }
 }
 
@@ -336,6 +341,11 @@ final class WorkspaceTests: XCTestCase {
             let delegate = TestWorkspaceDelegate()
             let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: delegate)
 
+            // Ensure delegates haven't been called yet.
+            XCTAssert(delegate.fetched.isEmpty)
+            XCTAssert(delegate.cloned.isEmpty)
+            XCTAssert(delegate.checkedOut.isEmpty)
+
             // Ensure we have a checkout for A.
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(repos[name]!.url)).getCurrentRevision()
@@ -344,6 +354,14 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the package graph.
             let graph = try workspace.loadPackageGraph()
+
+            // Test the delegates.
+            XCTAssertEqual(delegate.fetched.sorted(), repos.values.map{$0.url}.sorted())
+            XCTAssertEqual(delegate.cloned.sorted(), repos.values.map{$0.url}.sorted())
+            XCTAssertEqual(delegate.checkedOut.count, 3)
+            for (_, repo) in repos {
+                XCTAssertEqual(delegate.checkedOut[repo.url], "1.0.0")
+            }
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 4)
@@ -403,11 +421,22 @@ final class WorkspaceTests: XCTestCase {
                     MockManifestLoader.Key(url: repos["A"]!.url, version: "1.0.1"): aaManifest,
                 ])
                     
+            let delegate = TestWorkspaceDelegate()
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace(rootPackage: path, manifestLoader: mockManifestLoader, delegate: delegate)
+
+            // Ensure delegates haven't been called yet.
+            XCTAssert(delegate.fetched.isEmpty)
+            XCTAssert(delegate.cloned.isEmpty)
+            XCTAssert(delegate.checkedOut.isEmpty)
 
             // Load the package graph.
             var graph = try workspace.loadPackageGraph()
+
+            // Test the delegates.
+            XCTAssertEqual(delegate.fetched, [repoPath.asString])
+            XCTAssertEqual(delegate.cloned, [repoPath.asString])
+            XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.0")
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 2)
@@ -420,6 +449,10 @@ final class WorkspaceTests: XCTestCase {
             try tagGitRepo(repoPath, tag: "1.0.1")
 
             try workspace.updateDependencies()
+            // Test the delegates after update.
+            XCTAssertEqual(delegate.fetched, [repoPath.asString])
+            XCTAssertEqual(delegate.cloned, [repoPath.asString])
+            XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
 
             graph = try workspace.loadPackageGraph()
             XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
