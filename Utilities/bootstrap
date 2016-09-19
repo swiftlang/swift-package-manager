@@ -244,7 +244,7 @@ class Target(object):
         if args.xctest_path:
             import_paths.append(args.xctest_path)
         print("    import-paths: %s" % json.dumps(import_paths), file=output)
-        print("    other-args: %s" % json.dumps(' '.join(other_args)),
+        print("    other-args: %s" % json.dumps(other_args),
               file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
         print("    is-library: %s" % json.dumps(
