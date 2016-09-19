@@ -69,9 +69,9 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     public init() {
         let args = Array(CommandLine.arguments.dropFirst())
         self.args = args
-        let dynamicSelf = type(of: self)
+        let dynamicType = type(of: self)
         do {
-            (self.mode, self.options) = try dynamicSelf.parse(commandLineArguments: args)
+            (self.mode, self.options) = try dynamicType.parse(commandLineArguments: args)
             // Honor chdir option is provided.
             if let dir = options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
@@ -79,7 +79,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
                 try chdir(dir.asString)
             }
         } catch {
-            handle(error: error, usage: dynamicSelf.usage)
+            handle(error: error, usage: dynamicType.usage)
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
