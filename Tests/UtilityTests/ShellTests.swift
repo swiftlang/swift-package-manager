@@ -16,7 +16,10 @@ import Utility
 class ShellTests: XCTestCase {
 
     func testPopen() {
+        // FIXME: Disabled due to https://bugs.swift.org/browse/SR-2703
+      #if false
         XCTAssertEqual(try! popen(["echo", "foo"]), "foo\n")
+      #endif
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
