@@ -75,7 +75,57 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         XCTAssertEqual(projectClassName, "PBXProject")
     }
     
+    func testBuildSettingsSerialization() {
+        
+        // Create build settings.
+        var buildSettings = Xcode.BuildSettingsTable.BuildSettings()
+        
+        let productNameValue = "$(TARGET_NAME:c99extidentifier)"
+        buildSettings.PRODUCT_NAME = productNameValue
+        
+        let otherSwiftFlagValues = ["$(inherited)", "-DXcode"]
+        buildSettings.OTHER_SWIFT_FLAGS = otherSwiftFlagValues
+
+        // Serialize it to a property list.
+        let plist = buildSettings.asPropertyList()
+        
+        // Assert things about plist
+        guard case let .dictionary(buildSettingsDict) = plist else {
+            XCTFail("build settings plist must be a dictionary")
+            return
+        }
+        
+        guard
+            let productNamePlist = buildSettingsDict["PRODUCT_NAME"],
+            let otherSwiftFlagsPlist = buildSettingsDict["OTHER_SWIFT_FLAGS"]
+        else {
+            XCTFail("build settings plist must contain PRODUCT_NAME and OTHER_SWIFT_FLAGS")
+            return
+        }
+        
+        guard case let .string(productName) = productNamePlist else {
+            XCTFail("productName plist must be a string")
+            return
+        }
+        XCTAssertEqual(productName, productNameValue)
+
+        guard case let .array(otherSwiftFlagsPlists) = otherSwiftFlagsPlist else {
+            XCTFail("otherSwiftFlags plist must be an array")
+            return
+        }
+        
+        let otherSwiftFlags = otherSwiftFlagsPlists.flatMap { flagPlist -> String? in
+            guard case let .string(flag) = flagPlist else {
+                XCTFail("otherSwiftFlag plist must be string")
+                return nil
+            }
+            return flag
+        }
+        XCTAssertEqual(otherSwiftFlags, otherSwiftFlagValues)
+    }
+    
     static var allTests = [
-        ("testBasicProjectCreation", testBasicProjectSerialization),
+        ("testBasicProjectSerialization", testBasicProjectSerialization),
+        ("testBuildSettingsSerialization", testBuildSettingsSerialization),
     ]
 }
