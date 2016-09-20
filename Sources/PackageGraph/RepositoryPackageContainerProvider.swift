@@ -22,24 +22,24 @@ import struct PackageDescription.Version
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
     public typealias Container = RepositoryPackageContainer
 
-    let checkoutManager: CheckoutManager
+    let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
     
     /// Create a repository-based package provider.
     ///
     /// - Parameters:
-    ///   - checkoutManager: The checkout manager responsible for providing repositories.
+    ///   - repositoryManager: The repository manager responsible for providing repositories.
     ///   - manifestLoader: The manifest loader instance.
-    public init(checkoutManager: CheckoutManager, manifestLoader: ManifestLoaderProtocol) {
-        self.checkoutManager = checkoutManager
+    public init(repositoryManager: RepositoryManager, manifestLoader: ManifestLoaderProtocol) {
+        self.repositoryManager = repositoryManager
         self.manifestLoader = manifestLoader
     }
 
     public func getContainer(for identifier: RepositorySpecifier) throws -> Container {
-        // Resolve the container using the checkout manager.
+        // Resolve the container using the repository manager.
         //
         // FIXME: We need to move this to an async interface, or document the interface as thread safe.
-        let handle = checkoutManager.lookup(repository: identifier)
+        let handle = repositoryManager.lookup(repository: identifier)
 
         // Wait for the repository to be fetched.
         let wasAvailableCondition = Condition()

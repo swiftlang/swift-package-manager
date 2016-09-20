@@ -26,7 +26,7 @@ public struct RepositorySpecifier: Hashable {
     /// unique for each repository.
     public var fileSystemIdentifier: String {
         // FIXME: Need to do something better here. In particular, we should use
-        // a stable hash function since this interacts with the CheckoutManager
+        // a stable hash function since this interacts with the RepositoryManager
         // persistence.
         let basename = url.components(separatedBy: "/").last!
         return basename + "-" + String(url.hashValue)
@@ -44,7 +44,7 @@ public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
 ///
 /// This protocol defines the lower level interface used to to access
 /// repositories. High-level clients should access repositories via a
-/// `CheckoutManager`.
+/// `RepositoryManager`.
 public protocol RepositoryProvider {
     /// Fetch the complete repository at the given location to `path`.
     ///
@@ -82,13 +82,13 @@ public protocol RepositoryProvider {
 /// Abstract repository operations.
 ///
 /// This interface provides access to an abstracted representation of a
-/// repository which is ultimately owned by a `CheckoutManager`. This interface
+/// repository which is ultimately owned by a `RepositoryManager`. This interface
 /// is designed in such a way as to provide the minimal facilities required by
 /// the package manager to gather basic information about a repository, but it
 /// does not aim to provide all of the interfaces one might want for working
 /// with an editable checkout of a repository on disk.
 ///
-/// The goal of this design is to allow the `CheckoutManager` a large degree of
+/// The goal of this design is to allow the `RepositoryManager` a large degree of
 /// flexibility in the storage and maintenance of its underlying repositories.
 ///
 /// This protocol is designed under the assumption that the repository can only

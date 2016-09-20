@@ -12,14 +12,14 @@ import Basic
 import PackageGraph
 import SourceControl
 
-private class ResolverToolDelegate: DependencyResolverDelegate, CheckoutManagerDelegate {
+private class ResolverToolDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
     func added(container identifier: Identifier) {
         print("note: considering repository: \(identifier.url)")
     }
 
-    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
         print("note: fetching \(handle.repository.url) to \(path.asString)")
     }
 }
@@ -30,13 +30,13 @@ extension SwiftPackageTool {
         let manifest = try loadRootManifest(opts)
         let delegate = ResolverToolDelegate()
 
-        // Create the checkout manager.
+        // Create the repository manager.
         let repositoriesPath = buildPath.appending(component: "repositories")
-        let checkoutManager = CheckoutManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: delegate)
+        let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: delegate)
 
         // Create the container provider interface.
         let provider = RepositoryPackageContainerProvider(
-            checkoutManager: checkoutManager, manifestLoader: manifestLoader)
+            repositoryManager: repositoryManager, manifestLoader: manifestLoader)
 
         // Create the resolver.
         let resolver = DependencyResolver(provider, delegate)

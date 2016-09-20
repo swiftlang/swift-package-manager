@@ -95,7 +95,7 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: DependencyResolverDelegate, CheckoutManagerDelegate {
+private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
     var addedContainers: [Identifier] = []
@@ -105,7 +105,7 @@ private class MockResolverDelegate: DependencyResolverDelegate, CheckoutManagerD
         addedContainers.append(identifier)
     }
 
-    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
         fetched += [handle.repository]
     }
 }
@@ -120,9 +120,9 @@ private struct MockDependencyResolver {
         self.tmpDir = try! TemporaryDirectory()
         self.repositories = MockRepositories(repositories: repositories)
         self.delegate = MockResolverDelegate()
-        let checkoutManager = CheckoutManager(path: self.tmpDir.path, provider: self.repositories, delegate: self.delegate)
+        let repositoryManager = RepositoryManager(path: self.tmpDir.path, provider: self.repositories, delegate: self.delegate)
         let provider = RepositoryPackageContainerProvider(
-            checkoutManager: checkoutManager, manifestLoader: self.repositories.manifestLoader)
+            repositoryManager: repositoryManager, manifestLoader: self.repositories.manifestLoader)
         self.resolver = DependencyResolver(provider, delegate)
     }
 
