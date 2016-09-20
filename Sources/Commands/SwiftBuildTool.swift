@@ -124,15 +124,22 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
         case .clean(.dist):
-            if try exists(getCheckoutsDirectory()) {
-                try removeFileTree(getCheckoutsDirectory())
+            if options.enableNewResolver {
+                try getActiveWorkspace().reset()
+            } else {
+                if try exists(getCheckoutsDirectory()) {
+                    try removeFileTree(getCheckoutsDirectory())
+                }
+                fallthrough
             }
-            fallthrough
-
         case .clean(.build):
-            // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-            if exists(buildPath) {
-                try removeFileTree(buildPath)
+            if options.enableNewResolver {
+                try getActiveWorkspace().clean()
+            } else {
+                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
+                if exists(buildPath) {
+                    try removeFileTree(buildPath)
+                }
             }
         }
     }

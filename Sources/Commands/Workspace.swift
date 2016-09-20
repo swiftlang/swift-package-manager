@@ -216,6 +216,33 @@ public class Workspace {
         }
     }
 
+    /// Cleans the build artefacts from workspace data.
+    func clean() throws {
+        // These are the things we don't want to remove while cleaning.
+        let protectedAssets = Set<String>([
+            checkoutManager.path,
+            checkoutsPath,
+            statePath,
+        ].map { path in
+            // Assert that these are present inside data directory.
+            assert(path.parentDirectory == dataPath)
+            return path.basename
+        })
+        // If we have no data yet, we're done.
+        guard localFileSystem.exists(dataPath) else {
+            return
+        }
+        for name in try localFileSystem.getDirectoryContents(dataPath) {
+            guard !protectedAssets.contains(name) else { continue }
+            try removeFileTree(dataPath.appending(RelativePath(name)))
+        }
+    }
+
+    /// Resets the entire workspace by removing the data directory.
+    func reset() throws {
+        try removeFileTree(dataPath)
+    }
+
     // MARK: Low-level Operations
 
     /// Fetch a given `repository` and create a local checkout for it.
