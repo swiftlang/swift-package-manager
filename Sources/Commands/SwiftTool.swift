@@ -27,6 +27,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func checkingOut(repository: String, at reference: String) {
+        // FIXME: This is temporary output similar to old one, we will need to figure
+        // out better reporting text.
+        print("Resolved version: \(reference)")
     }
 }
 
