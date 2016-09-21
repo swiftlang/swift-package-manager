@@ -349,6 +349,17 @@ func xcodeProject(
             // Also add the source file to the compile phase.
             compilePhase.addBuildFile(fileRef: srcFileRef)
         }
+
+        // Add the `include` group for a libary C language target.
+        if case let clangModule as ClangModule = module, clangModule.type == .library, fileSystem.isDirectory(clangModule.includeDir) {
+            let includeDir = clangModule.includeDir
+            _ = makeGroup(for: includeDir)
+            // FIXME: Support C++ headers.
+            for header in try walk(includeDir, fileSystem: fileSystem) where header.extension == "h" {
+                let group = makeGroup(for: header.parentDirectory)
+                group.addFileReference(path: header.basename)
+            }
+        }
     }
     
     // Go through all the module/target pairs again, and add target dependencies
