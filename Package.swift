@@ -140,6 +140,9 @@ let package = Package(
         Target(
             name: "UtilityTests",
             dependencies: ["Utility", "TestSupport"]),
+        Target(
+            name: "XcodeprojTests",
+            dependencies: ["Xcodeproj", "TestSupport"]),
     ])
 
 
