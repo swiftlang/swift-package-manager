@@ -270,25 +270,6 @@ func xcodeProject(
         // Add framework search path to build settings.
         targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(PLATFORM_DIR)/Developer/Library/Frameworks"]
         
-        // Generate a module map for ClangModule (if not provided by user) and
-        // add to the build settings.
-        if case let clangModule as ClangModule = module, clangModule.type == .library {
-            targetSettings.common.DEFINES_MODULE = "YES"
-            let moduleMapPath: AbsolutePath
-            // If user provided the modulemap no need to generate.
-            if fileSystem.isFile(clangModule.moduleMapPath) {
-                moduleMapPath = clangModule.moduleMapPath
-            } else {
-                // Generate and drop the modulemap inside Xcodeproj folder.
-                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
-                var moduleMapGenerator = ModuleMapGenerator(for: clangModule, fileSystem: fileSystem)
-                try moduleMapGenerator.generateModuleMap(inDir: path)
-                moduleMapPath = path.appending(component: moduleMapFilename)
-            }
-            
-            targetSettings.common.MODULEMAP_FILE = moduleMapPath.relative(to: xcodeprojPath.parentDirectory).asString
-        }
-        
         // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
         targetSettings.common.SWIFT_VERSION = "3.0"
         
@@ -353,12 +334,29 @@ func xcodeProject(
         // Add the `include` group for a libary C language target.
         if case let clangModule as ClangModule = module, clangModule.type == .library, fileSystem.isDirectory(clangModule.includeDir) {
             let includeDir = clangModule.includeDir
-            _ = makeGroup(for: includeDir)
+            let includeGroup = makeGroup(for: includeDir)
             // FIXME: Support C++ headers.
             for header in try walk(includeDir, fileSystem: fileSystem) where header.extension == "h" {
                 let group = makeGroup(for: header.parentDirectory)
                 group.addFileReference(path: header.basename)
             }
+
+            // Generate a module map for ClangModule (if not provided by user) and
+            // add to the build settings.
+            targetSettings.common.DEFINES_MODULE = "YES"
+            let moduleMapPath: AbsolutePath
+            // If user provided the modulemap no need to generate.
+            if fileSystem.isFile(clangModule.moduleMapPath) {
+                moduleMapPath = clangModule.moduleMapPath
+            } else {
+                // Generate and drop the modulemap inside Xcodeproj folder.
+                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
+                var moduleMapGenerator = ModuleMapGenerator(for: clangModule, fileSystem: fileSystem)
+                try moduleMapGenerator.generateModuleMap(inDir: path)
+                moduleMapPath = path.appending(component: moduleMapFilename)
+            }
+            includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
+            targetSettings.common.MODULEMAP_FILE = moduleMapPath.relative(to: xcodeprojPath.parentDirectory).asString
         }
     }
     
