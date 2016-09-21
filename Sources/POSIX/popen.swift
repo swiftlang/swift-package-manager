@@ -29,6 +29,13 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
             throw SystemError.pipe(rv)
         }
 
+        // Create a pipe to replace child's stdin
+        var inPipe: [Int32] = [0, 0]
+        rv = libc.pipe(&inPipe)
+        guard rv == 0 else {
+            throw SystemError.pipe(rv)
+        }
+
         // Create the file actions to use for spawning.
 #if os(macOS)
         var fileActions: posix_spawn_file_actions_t? = nil
@@ -37,8 +44,9 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
 #endif
         posix_spawn_file_actions_init(&fileActions)
 
-        // Open /dev/null as stdin.
-        posix_spawn_file_actions_addopen(&fileActions, 0, "/dev/null", O_RDONLY, 0)
+        // Opening /dev/null as stdin is not portable, do it in a more portable way.
+        posix_spawn_file_actions_adddup2(&fileActions, inPipe[1], 0)
+        posix_spawn_file_actions_addclose(&fileActions, inPipe[0])
 
         // Open the write end of the pipe as stdout (and stderr, if desired).
         posix_spawn_file_actions_adddup2(&fileActions, pipe[1], 1)
@@ -55,6 +63,16 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
 
         // Clean up the file actions.
         posix_spawn_file_actions_destroy(&fileActions)
+
+        // Close both ends of the input pipe.
+        rv = close(inPipe[0])
+        guard rv == 0 else {
+            throw SystemError.close(rv)
+        }
+        rv = close(inPipe[1])
+        guard rv == 0 else {
+            throw SystemError.close(rv)
+        }
 
         // Close the write end of the output pipe.
         rv = close(pipe[1])
