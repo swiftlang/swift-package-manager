@@ -20,14 +20,20 @@ class ShellTests: XCTestCase {
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
+        // FIXME: Disabled due to https://bugs.swift.org/browse/SR-2703
+      #if false
         let path = AbsolutePath(#file).parentDirectory.parentDirectory.appending(components: "GetTests", "VersionGraphTests.swift")
         XCTAssertGreaterThan(try! popen(["cat", path.asString]).characters.count, 4096)
+      #endif
     }
 
     func testPopenWithBinaryOutput() {
+        // FIXME: Disabled due to https://bugs.swift.org/browse/SR-2703
+      #if false
         if (try? popen(["cat", "/bin/cat"])) != nil {
             XCTFail("popen succeeded but should have faileds")
         }
+      #endif
     }
 
     static var allTests = [
