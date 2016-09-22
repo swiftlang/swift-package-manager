@@ -43,11 +43,11 @@ final class PseudoTerminal {
         return String(cString: buf)
     }
 
-    func close() {
+    func closeSlave() {
         _ = libc.close(slave)
     }
 
-    deinit {
+    func closeMaster() {
         _ = libc.close(master)
     }
 }
@@ -79,9 +79,10 @@ final class ProgressBarTests: XCTestCase {
         }
         thread.start()
         runProgressBar(bar)
-        pty.close()
+        pty.closeSlave()
         // Make sure to read the complete output before checking it.
         thread.join()
+        pty.closeMaster()
         XCTAssertTrue(output.chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
     }
 
