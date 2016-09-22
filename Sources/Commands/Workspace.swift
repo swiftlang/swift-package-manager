@@ -22,6 +22,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// The repository has uncommited changes.
     case hasUncommitedChanges(repo: AbsolutePath)
+
+    /// The dependency is already in edit mode.
+    case dependencyAlreadyInEditMode
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -79,7 +82,7 @@ public class Workspace {
     ///
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
-    public struct ManagedDependency {
+    public class ManagedDependency {
         /// The specifier for the dependency.
         public let repository: RepositorySpecifier
 
@@ -89,6 +92,16 @@ public class Workspace {
         /// The current version of the dependency, if known.
         public let currentVersion: Version?
 
+        /// The dependency is in editable state i.e. user is expected to modify the sources of the dependency.
+        /// The version of the dependency will not be considered during dependency resolution.
+        var isInEditableState: Bool {
+            return basedOn != nil
+        }
+
+        /// A dependency which in editable state is based on a dependency from which it edited from.
+        /// This information is useful so it can be restored when users unedit a package.
+        let basedOn: ManagedDependency?
+
         /// The current revision of the dependency.
         ///
         /// This should always be a revision corresponding to the version in the
@@ -96,13 +109,28 @@ public class Workspace {
         /// one (e.g., if this data is accessed with a different version of the
         /// package manager, which would cause an alternate version to be
         /// resolved).
-        public let currentRevision: Revision
+        public let currentRevision: Revision?
 
         fileprivate init(repository: RepositorySpecifier, subpath: RelativePath, currentVersion: Version?, currentRevision: Revision) {
             self.repository = repository
             self.subpath = subpath
             self.currentVersion = currentVersion
             self.currentRevision = currentRevision
+            self.basedOn = nil
+        }
+
+        private init(basedOn dependency: ManagedDependency, subpath: RelativePath) {
+            assert(!dependency.isInEditableState)
+            self.basedOn = dependency
+            self.repository = dependency.repository
+            self.subpath = subpath
+            self.currentRevision = nil
+            self.currentVersion = nil
+        }
+
+        /// Create an editable managed dependency based on a dependency which was *not* in edit state.
+        func makingEditable(subpath: RelativePath) -> ManagedDependency {
+            return ManagedDependency(basedOn: self, subpath: subpath)
         }
 
         // MARK: Persistence
@@ -113,40 +141,44 @@ public class Workspace {
                   case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(subpathString)? = contents["subpath"],
                   let currentVersionData = contents["currentVersion"],
-                  case let .string(currentRevisionString)? = contents["currentRevision"] else {
-                return nil
-            }
-            let currentVersion: Version?
-            switch currentVersionData {
-            case .null:
-                currentVersion = nil
-            case .string(let string):
-                currentVersion = Version(string)
-                if currentVersion == nil {
-                    return nil
-                }
-            default:
+                  let basedOnData = contents["basedOn"],
+                  let currentRevisionString = contents["currentRevision"] else {
                 return nil
             }
             self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpathString)
-            self.currentVersion = currentVersion
-            self.currentRevision = Revision(identifier: currentRevisionString)
+            self.currentVersion = ManagedDependency.optionalStringTransformer(currentVersionData, transformer: Version.init)
+            self.currentRevision = ManagedDependency.optionalStringTransformer(currentRevisionString, transformer: Revision.init(identifier:))
+            self.basedOn = ManagedDependency(json: basedOnData) ?? nil
         }
 
         fileprivate func toJSON() -> JSON {
-            let currentVersionData: JSON
-            if let currentVersion = self.currentVersion {
-                currentVersionData = .string(String(describing: currentVersion))
-            } else {
-                currentVersionData = .null
-            }
             return .dictionary([
                     "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString),
-                    "currentVersion": currentVersionData,
-                    "currentRevision": .string(currentRevision.identifier),
+                    "currentVersion": ManagedDependency.optionalJSONTransformer(currentVersion) { .string(String(describing: $0)) },
+                    "currentRevision": ManagedDependency.optionalJSONTransformer(currentRevision) { .string($0.identifier) },
+                    "basedOn": basedOn?.toJSON() ?? .null,
                 ])
+        }
+
+        // FIXME: Move these to JSON.
+        private static func optionalStringTransformer<T>(_ value: JSON, transformer: (String) -> T?) -> T? {
+            switch value {
+            case .null:
+                return nil
+            case .string(let string):
+                return transformer(string)
+            default:
+                return nil
+            }
+        }
+
+        private static func optionalJSONTransformer<T>(_ value: T?, transformer: (T) -> JSON) -> JSON {
+            guard let value = value else {
+                return .null
+            }
+            return transformer(value)
         }
     }
 
@@ -199,6 +231,9 @@ public class Workspace {
     /// The path for working repository clones (checkouts).
     let checkoutsPath: AbsolutePath
 
+    /// The path where packages which are put in edit mode are checked out.
+    let editablesPath: AbsolutePath
+
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -209,7 +244,7 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    private var dependencyMap: [RepositorySpecifier: ManagedDependency]
+    private(set) var dependencyMap: [RepositorySpecifier: ManagedDependency]
 
     /// The known set of dependencies.
     public var dependencies: AnySequence<ManagedDependency> {
@@ -225,17 +260,20 @@ public class Workspace {
     /// - Parameters:
     ///   - path: The path of the root package.
     ///   - dataPath: The path for the workspace data files, if explicitly provided.
+    ///   - editablesPath: The path where editable packages should be placed, if explicitly provided.
     ///   - manifestLoader: The manifest loader.
     /// - Throws: If the state was present, but could not be loaded.
     public init(
         rootPackage path: AbsolutePath,
         dataPath: AbsolutePath? = nil,
+        editablesPath: AbsolutePath? = nil,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate
     ) throws {
         self.delegate = delegate
         self.rootPackagePath = path
         self.dataPath = dataPath ?? path.appending(component: ".build")
+        self.editablesPath = editablesPath ?? path.appending(component: "Packages")
         self.manifestLoader = manifestLoader
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
@@ -284,6 +322,30 @@ public class Workspace {
     /// Resets the entire workspace by removing the data directory.
     func reset() throws {
         try removeFileTree(dataPath)
+    }
+
+    /// Puts a dependency in edit mode creating a checkout in editables directory.
+    func edit(dependency: ManagedDependency, at revision: Revision, packageName: String) throws {
+        // Ensure that the dependency is not already in edit mode.
+        guard !dependency.isInEditableState else {
+            throw WorkspaceOperationError.dependencyAlreadyInEditMode
+        }
+
+        // Compute new path for the dependency.
+        let path = editablesPath.appending(component: packageName)
+
+        let handle = repositoryManager.lookup(repository: dependency.repository)
+        // We should already have the handle if we're editing a dependency.
+        assert(handle.isAvailable)
+
+        try handle.cloneCheckout(to: path, editable: true)
+        let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+        try workingRepo.checkout(revision: revision)
+
+        // Change its stated to edited.
+        dependencyMap[dependency.repository] = dependency.makingEditable(subpath: path.relative(to: editablesPath))
+        // Save the state.
+        try saveState()
     }
 
     // MARK: Low-level Operations
@@ -537,8 +599,11 @@ public class Workspace {
             let specifier = RepositorySpecifier(url: externalManifest.url)
             let managedDependency = dependencyMap[specifier]!
 
-            // If we know the manifest is at a particular version, use that.
-            if let version = managedDependency.currentVersion {
+            if managedDependency.isInEditableState {
+                // FIXME: We need a way to state that we don't want any constaints on this dependency.
+                fatalError("FIXME: Unimplemented.")
+            } else if let version = managedDependency.currentVersion {
+                // If we know the manifest is at a particular version, use that.
                 // FIXME: This is broken, successor isn't correct and should be eliminated.
                 constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .range(version..<version.successor())))
             } else {
