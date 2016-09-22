@@ -69,7 +69,8 @@ public protocol RepositoryProvider {
     ///     repository has previously been created via `fetch`.
     ///   - destinationPath: The path at which to create the working copy; it is
     ///     expected to be non-existent when called.
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
+    ///   - editable: The checkout is expected to be edited by users.
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws
 
     /// Open a working repository copy.
     ///

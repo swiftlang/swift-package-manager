@@ -90,7 +90,7 @@ private class MockRepositories: RepositoryProvider {
         return repositories[repository.url]!
     }
 
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
         fatalError("unexpected API call")
     }
 

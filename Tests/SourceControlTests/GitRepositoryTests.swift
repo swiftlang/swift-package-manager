@@ -219,16 +219,25 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
+            // The remote of this checkout should point to the clone.
+            XCTAssertEqual(try GitRepository(path: checkoutPath).remotes()[0].url, testClonePath.asString)
 
-            // Check the working copy.
-            let workingCopy = try provider.openCheckout(at: checkoutPath)
-            try workingCopy.checkout(tag: "test-tag")
-            XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, currentRevision)
-            XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
-            try workingCopy.checkout(tag: "initial")
-            XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, initialRevision)
-            XCTAssert(!localFileSystem.exists(checkoutPath.appending(component: "test.txt")))
+            let editsPath = path.appending(component: "edit")
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: editsPath, editable: true)
+            // The remote of this checkout should point to the original repo.
+            XCTAssertEqual(try GitRepository(path: editsPath).remotes()[0].url, testRepoPath.asString)
+
+            // Check the working copies.
+            for path in [checkoutPath, editsPath] {
+                let workingCopy = try provider.openCheckout(at: path)
+                try workingCopy.checkout(tag: "test-tag")
+                XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, currentRevision)
+                XCTAssert(localFileSystem.exists(path.appending(component: "test.txt")))
+                try workingCopy.checkout(tag: "initial")
+                XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, initialRevision)
+                XCTAssert(!localFileSystem.exists(path.appending(component: "test.txt")))
+            }
         }
     }
 
@@ -251,7 +260,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
             let checkoutRepo = try provider.openCheckout(at: checkoutPath)
             XCTAssertEqual(checkoutRepo.tags, ["1.2.3"])
 
@@ -278,15 +287,19 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
+            // Create a bare clone it somewhere because we want to later push into the repo.
+            let testBareRepoPath = path.appending(component: "test-repo-bare")
+            try systemQuietly([Git.tool, "clone", "--bare", testRepoPath.asString, testBareRepoPath.asString])
+
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            let repoSpec = RepositorySpecifier(url: testBareRepoPath.asString)
             try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: true)
             let checkoutRepo = try provider.openCheckout(at: checkoutPath)
 
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
@@ -301,7 +314,7 @@ class GitRepositoryTests: XCTestCase {
             // We should have commits which are not pushed.
             XCTAssert(try checkoutRepo.hasUnpushedCommits())
             // Push the changes and check again.
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "push"])
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "push", "origin", "master"])
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
         }
     }

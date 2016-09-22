@@ -108,9 +108,10 @@ public class RepositoryManager {
         /// - Parameters:
         ///   - path: The path at which to create the working copy; it is
         ///     expected to be non-existent when called.
-        public func cloneCheckout(to path: AbsolutePath) throws {
+        ///   - editable: The clone is expected to be edited by user.
+        public func cloneCheckout(to path: AbsolutePath, editable: Bool) throws {
             precondition(status == .available, "cloneCheckout() called in invalid state")
-            try self.manager.cloneCheckout(self, to: path)
+            try self.manager.cloneCheckout(self, to: path, editable: editable)
         }
 
         // MARK: Persistence
@@ -220,8 +221,8 @@ public class RepositoryManager {
     }
 
     /// Clone a repository from a handle.
-    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath) throws {
-        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath)
+    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath, editable: Bool) throws {
+        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath, editable: editable)
     }
 
     /// Removes the repository.

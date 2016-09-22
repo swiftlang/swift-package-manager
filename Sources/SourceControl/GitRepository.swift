@@ -71,24 +71,44 @@ public class GitRepositoryProvider: RepositoryProvider {
     public func cloneCheckout(
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
-        to destinationPath: AbsolutePath
+        to destinationPath: AbsolutePath,
+        editable: Bool
     ) throws {
-        // Clone using a shared object store with the canonical copy.
-        //
-        // We currently expect using shared storage here to be safe because we
-        // only ever expect to attempt to use the working copy to materialize a
-        // revision we selected in response to dependency resolution, and if we
-        // re-resolve such that the objects in this repository changed, we would
-        // only ever expect to get back a revision that remains present in the
-        // object storage.
-        //
-        // NOTE: The above assumption may become violated once we have support
-        // for editable packages, if we are also using this method to get that
-        // copy. At that point we may need to expose control over this.
-        //
-        // FIXME: Need to think about & handle submodules.
-        try system(
-                Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString, message: nil)
+
+        if editable {
+            // For editable clones, i.e. the user is expected to directly work on them, first we create
+            // a clone from our cache of repositories and then we replace the remote to the one originally
+            // present in the bare repository.
+            try system(
+                    Git.tool, "clone", sourcePath.asString, destinationPath.asString, message: nil)
+            // The default name of the remote.
+            let origin = "origin"
+            // Get the remote from original repo.
+            let source = GitRepository(path: sourcePath, isWorkingRepo: false)
+            guard let remote = try source.remotes().first(where: {$0.name == origin}) else {
+                fatalError("Expected \(repository) to have an origin")
+            }
+            // In destination repo remove the remote which will be pointing to the source repo.
+            let clone = GitRepository(path: destinationPath)
+            try clone.remove(remote: origin)
+            // Add the original remote to the new clone.
+            try clone.add(remote: remote.name, url: remote.url)
+            // FIXME: This is unfortunate that we have to fetch to update remote's data.
+            try clone.fetch()
+        } else {
+            // Clone using a shared object store with the canonical copy.
+            //
+            // We currently expect using shared storage here to be safe because we
+            // only ever expect to attempt to use the working copy to materialize a
+            // revision we selected in response to dependency resolution, and if we
+            // re-resolve such that the objects in this repository changed, we would
+            // only ever expect to get back a revision that remains present in the
+            // object storage.
+            //
+            // FIXME: Need to think about & handle submodules.
+            try system(
+                    Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString, message: nil)
+        }
     }
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
