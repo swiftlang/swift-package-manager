@@ -211,40 +211,6 @@ public class GitRepository: Repository, WorkingCheckout {
         self.path = path
     }
 
-    /// Adds a remote to the git repository.
-    ///
-    /// - parameters:
-    ///   - remote: The name of the remote. It shouldn't already be present.
-    ///   - url: The url of the remote.
-    func add(remote: String, url: String) throws {
-        try runCommandQuietly([Git.tool, "-C", path.asString, "remote", "add", remote, url])
-    }
-
-    /// Removes a remote from the git repository.
-    ///
-    /// - parameters:
-    ///   - remote: The name of the remote to be removed. It should already be present.
-    ///   - url: the url of the remote.
-    func remove(remote: String) throws {
-        try runCommandQuietly([Git.tool, "-C", path.asString, "remote", "remove", remote])
-    }
-
-    /// Gets the current list of remotes of the repository.
-    ///
-    /// - Returns: An array of tuple containing name and url of the remote.
-    func remotes() throws -> [(name: String, url: String)] {
-        return try queue.sync {
-            // Get the remote names.
-            let remoteNamesOutput = try Git.runPopen([Git.tool, "-C", path.asString, "remote"]).chomp()
-            let remoteNames = remoteNamesOutput.characters.split(separator: "\n").map(String.init)
-            return try remoteNames.map { name in
-                // For each remote get the url.
-                let url = try Git.runPopen([Git.tool, "-C", path.asString, "remote", "get-url", name]).chomp()
-                return (name, url)
-            }
-        }
-    }
-
     // MARK: Repository Interface
 
     /// Returns the tags present in repository.

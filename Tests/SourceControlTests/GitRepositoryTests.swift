@@ -303,55 +303,12 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testRemotes() {
-        mktmpdir { path in
-            // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
-            try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath)
-            let repo = GitRepository(path: testRepoPath)
-
-            // There should be no remotes currently.
-            XCTAssert(try repo.remotes().isEmpty)
-
-            // Add a remote via git cli.
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "remote", "add", "origin", "../foo"])
-            // Test if it was added.
-            XCTAssertEqual(Dictionary(items: try repo.remotes().map { ($0, $1) }), ["origin": "../foo"])
-
-            // Remove the remote via cli.
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "remote", "remove", "origin"])
-            // Test if it was removed.
-            XCTAssert(try repo.remotes().isEmpty)
-
-            // Add a remote.
-            try repo.add(remote: "origin", url: "../foo")
-            // Check it was added.
-            let remote = Dictionary(items: try repo.remotes().map { ($0, $1) })
-            XCTAssertEqual(remote, ["origin": "../foo"])
-
-            // Add another remote.
-            try repo.add(remote: "origin2", url: "../bar")
-            // Check that there are two remotes now.
-            let remotes = Dictionary(items: try repo.remotes().map { ($0, $1)})
-            XCTAssertEqual(remotes, ["origin": "../foo", "origin2": "../bar"])
-
-            // Remove the remotes.
-            try repo.remove(remote: "origin")
-            try repo.remove(remote: "origin2")
-
-            // All remotes should be removed now.
-            XCTAssert(try repo.remotes().isEmpty)
-        }
-    }
-
     static var allTests = [
         ("testFetch", testFetch),
         ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testRawRepository", testRawRepository),
-        ("testRemotes", testRemotes),
         ("testGitFileView", testGitFileView),
         ("testCheckouts", testCheckouts),
         ("testHasUnpushedCommits", testHasUnpushedCommits),
