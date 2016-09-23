@@ -11,14 +11,14 @@
 import Basic
 import Utility
 
-/// Delegate to notify clients about actions being performed by CheckoutManager.
-public protocol CheckoutManagerDelegate: class {
+/// Delegate to notify clients about actions being performed by RepositoryManager.
+public protocol RepositoryManagerDelegate: class {
     /// Called when a repository is about to be fetched.
-    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath)
+    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath)
 }
 
-/// Manages a collection of repository checkouts.
-public class CheckoutManager {
+/// Manages a collection of bare repositories.
+public class RepositoryManager {
     /// Handle to a managed repository.
     public class RepositoryHandle {
         enum Status: String {
@@ -36,7 +36,7 @@ public class CheckoutManager {
         }
         
         /// The manager this repository is owned by.
-        private unowned let manager: CheckoutManager
+        private unowned let manager: RepositoryManager
 
         /// The repository specifier.
         public let repository: RepositorySpecifier
@@ -51,14 +51,14 @@ public class CheckoutManager {
         fileprivate var status: Status = .uninitialized
 
         /// Create a handle.
-        fileprivate init(manager: CheckoutManager, repository: RepositorySpecifier, subpath: RelativePath) {
+        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
         }
 
         /// Create a handle from JSON data.
-        fileprivate init?(manager: CheckoutManager, json data: JSON) {
+        fileprivate init?(manager: RepositoryManager, json data: JSON) {
             guard case let .dictionary(contents) = data,
                   case let .string(subpath)? = contents["subpath"],
                   case let .string(repositoryURL)? = contents["repositoryURL"],
@@ -131,7 +131,7 @@ public class CheckoutManager {
     public let provider: RepositoryProvider
 
     /// The delegate interface.
-    private let delegate: CheckoutManagerDelegate
+    private let delegate: RepositoryManagerDelegate
 
     /// The map of registered repositories.
     //
@@ -145,7 +145,7 @@ public class CheckoutManager {
     /// - path: The path under which to store repositories. This should be a
     ///         directory in which the content can be completely managed by this
     ///         instance.
-    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: CheckoutManagerDelegate) {
+    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: RepositoryManagerDelegate) {
         self.path = path
         self.provider = provider
         self.delegate = delegate
@@ -265,7 +265,7 @@ public class CheckoutManager {
               case let .int(version)? = contents["version"] else {
             throw PersistenceError.unexpectedData
         }
-        guard version == CheckoutManager.schemaVersion else {
+        guard version == RepositoryManager.schemaVersion else {
             throw PersistenceError.invalidVersion
         }
         guard case let .array(repositoriesData)? = contents["repositories"] else {
@@ -296,7 +296,7 @@ public class CheckoutManager {
     /// Write the manager state to disk.
     private func saveState() throws {
         var data = [String: JSON]()
-        data["version"] = .int(CheckoutManager.schemaVersion)
+        data["version"] = .int(RepositoryManager.schemaVersion)
         // FIXME: Should record information on the provider, in case it changes.
         data["repositories"] = .array(repositories.map{ (key, handle) in
                 .dictionary([
@@ -309,7 +309,7 @@ public class CheckoutManager {
     }
 }
 
-extension CheckoutManager.RepositoryHandle: CustomStringConvertible {
+extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
         return "<\(type(of: self)) subpath:\(subpath.asString)>"
     }

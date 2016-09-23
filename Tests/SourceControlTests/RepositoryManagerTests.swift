@@ -15,7 +15,7 @@ import SourceControl
 
 import TestSupport
 
-@testable import class SourceControl.CheckoutManager
+@testable import class SourceControl.RepositoryManager
 
 private enum DummyError: Swift.Error {
     case invalidRepository
@@ -73,20 +73,20 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 }
 
-private class DummyCheckoutManagerDelegate: CheckoutManagerDelegate {
+private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     var fetched = [RepositorySpecifier]()
 
-    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
         fetched += [handle.repository]
     }
 }
 
-class CheckoutManagerTests: XCTestCase {
+class RepositoryManagerTests: XCTestCase {
     func testBasics() throws {
         mktmpdir { path in
             let provider = DummyRepositoryProvider()
-            let delegate = DummyCheckoutManagerDelegate()
-            let manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
 
             // Check that we can "fetch" a repository.
             let dummyRepo = RepositorySpecifier(url: "dummy")
@@ -128,8 +128,8 @@ class CheckoutManagerTests: XCTestCase {
     /// Check the behavior of the observer of repository status.
     func testObserver() {
         mktmpdir { path in
-            let delegate = DummyCheckoutManagerDelegate()
-            let manager = CheckoutManager(path: path, provider: DummyRepositoryProvider(), delegate: delegate)
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager = RepositoryManager(path: path, provider: DummyRepositoryProvider(), delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let handle = manager.lookup(repository: dummyRepo)
 
@@ -151,8 +151,8 @@ class CheckoutManagerTests: XCTestCase {
 
             // Do the initial fetch.
             do {
-                let delegate = DummyCheckoutManagerDelegate()
-                let manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
+                let delegate = DummyRepositoryManagerDelegate()
+                let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
                 XCTAssertEqual(delegate.fetched, [dummyRepo])
@@ -165,8 +165,8 @@ class CheckoutManagerTests: XCTestCase {
 
             // Create a new manager, and fetch.
             do {
-                let delegate = DummyCheckoutManagerDelegate()
-                let manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
+                let delegate = DummyRepositoryManagerDelegate()
+                let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
                 // This time fetch shouldn't be called.
@@ -180,10 +180,10 @@ class CheckoutManagerTests: XCTestCase {
 
             // Manually destroy the manager state, and check it still works.
             do {
-                let delegate = DummyCheckoutManagerDelegate()
-                var manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
+                let delegate = DummyRepositoryManagerDelegate()
+                var manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 try! removeFileTree(manager.statePath)
-                manager = CheckoutManager(path: path, provider: provider, delegate: delegate)
+                manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 let handle = manager.lookup(repository: dummyRepo)
                 XCTAssertEqual(delegate.fetched, [dummyRepo])

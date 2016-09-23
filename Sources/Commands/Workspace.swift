@@ -44,14 +44,14 @@ private class WorkspaceResolverDelegate: DependencyResolverDelegate {
     }
 }
 
-private class WorkspaceCheckoutManagerDelegate: CheckoutManagerDelegate {
+private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 
     init(workspaceDelegate: WorkspaceDelegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetching(handle: CheckoutManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
         workspaceDelegate.fetching(repository: handle.repository.url)
     }
 }
@@ -159,8 +159,8 @@ public class Workspace {
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
-    /// The checkout manager.
-    private let checkoutManager: CheckoutManager
+    /// The repository manager.
+    private let repositoryManager: RepositoryManager
 
     /// The package container provider.
     private let containerProvider: RepositoryPackageContainerProvider
@@ -196,11 +196,11 @@ public class Workspace {
         self.manifestLoader = manifestLoader
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
-        self.checkoutManager = CheckoutManager(
-            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceCheckoutManagerDelegate(workspaceDelegate: delegate))
+        self.repositoryManager = RepositoryManager(
+            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate))
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
-            checkoutManager: checkoutManager, manifestLoader: manifestLoader)
+            repositoryManager: repositoryManager, manifestLoader: manifestLoader)
 
         // Ensure the cache path exists.
         try localFileSystem.createDirectory(repositoriesPath, recursive: true)
@@ -230,13 +230,13 @@ public class Workspace {
         if let dependency = dependencyMap[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
             // Fetch the checkout in case there are updates available.
-            let workingRepo = try checkoutManager.provider.openCheckout(at: path)
+            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
             try workingRepo.fetch()
             return path
         }
 
         // If not, we need to get the repository from the checkouts.
-        let handle = checkoutManager.lookup(repository: repository)
+        let handle = repositoryManager.lookup(repository: repository)
 
         // Wait for the repository to be fetched.
         let wasAvailableCondition = Condition()
@@ -285,7 +285,7 @@ public class Workspace {
         let path = try fetch(repository: repository)
 
         // Check out the given revision.
-        let workingRepo = try checkoutManager.provider.openCheckout(at: path)
+        let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         // Inform the delegate.
         delegate.checkingOut(repository: repository.url, at: version?.description ?? revision.identifier)
         try workingRepo.checkout(revision: revision)
@@ -558,7 +558,7 @@ public class Workspace {
     // MARK: Persistence
 
     // FIXME: A lot of the persistence mechanism here is copied from
-    // `CheckoutManager`. It would be nice to get actual infrastructure around
+    // `RepositoryManager`. It would be nice to get actual infrastructure around
     // persistence to handle the boilerplate parts.
 
     private enum PersistenceError: Swift.Error {
