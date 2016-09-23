@@ -98,3 +98,48 @@ public func topologicalSort<T: Hashable>(
     
     return result.reversed()
 }
+
+/// Finds the first cycle encountered in a graph.
+///
+/// This method uses DFS to look for a cycle and immediately returns when a
+/// cycle is encounted.
+///
+/// - Parameters:
+///   - nodes: The list of input nodes to sort.
+///   - successors: A closure for fetching the successors of a particular node.
+///
+/// - Returns: nil if a cycle is not found or a tuple with the path to the start of the cycle and the cycle itself.
+public func findCycle<T: Hashable>(
+    _ nodes: [T], successors: (T) throws -> [T]
+) rethrows -> (path: [T], cycle: [T])? {
+    // Ordered set to hold the current traversed path.
+    var path = OrderedSet<T>()
+
+    // Function to visit nodes recursively.
+    // FIXME: Convert to stack.
+    func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
+        // If this node is already in the current path then we have found a cycle.
+        if !path.append(node) {
+            let index = path.index(of: node)!
+            return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
+        }
+
+        for succ in try successors(node) {
+            if let cycle = try visit(succ, successors) {
+                return cycle
+            }
+        }
+        // No cycle found for this node, remove it from the path.
+        let item = path.removeLast()
+        assert(item == node)
+        return nil
+    }
+
+    for node in nodes {
+        if let cycle = try visit(node, successors) {
+            return cycle
+        }
+    }
+    // Couldn't find any cycle in the graph.
+    return nil
+}
