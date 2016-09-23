@@ -11,6 +11,9 @@
 import func XCTest.XCTFail
 
 import Basic
+import PackageGraph
+import PackageDescription
+import PackageModel
 import POSIX
 import Utility
 
@@ -183,3 +186,23 @@ public extension FileSystem {
     }
 }
 
+/// Loads a mock package graph based on package packageMap dictionary provided where key is path to a package.
+public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Package], root: String, in fs: FileSystem) throws -> PackageGraph {
+    var externalManifests = [Manifest]()
+    var rootManifest: Manifest!
+    for (url, package) in packageMap {
+        let manifest = Manifest(
+            path: AbsolutePath(url).appending(component: Manifest.filename),
+            url: url,
+            package: package,
+            products: [],
+            version: "1.0.0"
+        )
+        if url == root {
+            rootManifest = manifest
+        } else {
+            externalManifests.append(manifest)
+        }
+    }
+    return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests, fileSystem: fs)
+}
