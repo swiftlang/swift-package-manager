@@ -37,8 +37,11 @@ public func popen(_ arguments: [String], redirectStandardError: Bool = false, en
 #endif
         posix_spawn_file_actions_init(&fileActions)
 
+        // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
+        let devNull = strdup("/dev/null")
+        defer { free(devNull) }
         // Open /dev/null as stdin.
-        posix_spawn_file_actions_addopen(&fileActions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_addopen(&fileActions, 0, devNull, O_RDONLY, 0)
 
         // Open the write end of the pipe as stdout (and stderr, if desired).
         posix_spawn_file_actions_adddup2(&fileActions, pipe[1], 1)
