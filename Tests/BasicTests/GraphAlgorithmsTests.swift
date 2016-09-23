@@ -28,6 +28,10 @@ private func topologicalSort(_ node: Int, _ successors: [Int: [Int]]) throws -> 
     return try topologicalSort([node], successors)
 }
 
+private func findCycle(_ node: Int, _ successors: [Int: [Int]]) -> (path: [Int], cycle: [Int])? {
+    return findCycle([node], successors: { successors[$0] ?? [] })
+}
+
 class GraphAlgorithmsTests: XCTestCase {
     func testTransitiveClosure() {
         // A trival graph.
@@ -70,8 +74,39 @@ class GraphAlgorithmsTests: XCTestCase {
         XCTAssertThrows(GraphError.unexpectedCycle) { _ = try topologicalSort(1, [1: [2], 2: [1]]) }
     }
 
+    func testCycleDetection() throws {
+        // Single node graph.
+        XCTAssertNotCycle(findCycle(1, [:]))
+        XCTAssertNotCycle(findCycle(1, [1: [2]]))
+        // Trivial cycles.
+        XCTAssertCycle(findCycle(1, [1: [1]]), path: [], cycle: [1])
+        XCTAssertCycle(findCycle(1, [1: [2], 2: [1]]), path: [], cycle: [1, 2])
+        XCTAssertCycle(findCycle(1, [1: [2], 2: [3], 3: [2]]), path: [1], cycle: [2, 3])
+        XCTAssertCycle(findCycle(1, [1: [2], 2: [3], 3: [1]]), path: [], cycle: [1, 2, 3])
+
+        XCTAssertNotCycle(findCycle(1, [1: [2, 3], 2: [3, 4], 3: [4, 5], 4: [5, 8], 5: [7, 8], 7: [8]]))
+        XCTAssertCycle(findCycle(1, [1: [2], 2: [3, 4], 3: [4, 5], 4: [1, 5, 8], 5: [7, 8], 7: [8]]), path: [], cycle: [1, 2, 3, 4])
+
+        XCTAssertNotCycle(findCycle(1, [1: [2, 3], 2: [], 3: [2]]))
+    }
+
     static var allTests = [
+        ("testCycleDetection", testCycleDetection),
         ("testTransitiveClosure", testTransitiveClosure),
         ("testTopologicalSort", testTopologicalSort),
     ]
+}
+
+private func XCTAssertCycle<T: Equatable>(_ cycleResult: (path: [T], cycle: [T])?, path: [T], cycle: [T], file: StaticString = #file, line: UInt = #line) {
+    guard let cycleResult = cycleResult else {
+        return XCTFail("Expected cycle but not found", file: file, line: line)
+    }
+    XCTAssertEqual(cycleResult.path, path, file: file, line: line)
+    XCTAssertEqual(cycleResult.cycle, cycle, file: file, line: line)
+}
+
+private func XCTAssertNotCycle<T>(_ cycleResult: T?, file: StaticString = #file, line: UInt = #line) {
+    if let cycleResult = cycleResult {
+        XCTFail("Unexpected cycle found \(cycleResult)", file: file, line: line)
+    }
 }
