@@ -271,6 +271,38 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testHasUnpushedCommits() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            // Clone it somewhere.
+            let testClonePath = path.appending(component: "clone")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+
+            // Clone off a checkout.
+            let checkoutPath = path.appending(component: "checkout")
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath)
+            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
+
+            XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
+            // Add a new file to checkout.
+            try localFileSystem.writeFileContents(checkoutPath.appending(component: "test.txt"), bytes: "Hi")
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "add", "test.txt"])
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "commit", "-m", "Add some files."])
+
+            // We should have commits which are not pushed.
+            XCTAssert(try checkoutRepo.hasUnpushedCommits())
+            // Push the changes and check again.
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "push"])
+            XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
+        }
+    }
+
     static var allTests = [
         ("testFetch", testFetch),
         ("testRepositorySpecifier", testRepositorySpecifier),
@@ -279,5 +311,6 @@ class GitRepositoryTests: XCTestCase {
         ("testRawRepository", testRawRepository),
         ("testGitFileView", testGitFileView),
         ("testCheckouts", testCheckouts),
+        ("testHasUnpushedCommits", testHasUnpushedCommits),
     ]
 }

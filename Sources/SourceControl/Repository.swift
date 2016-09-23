@@ -143,6 +143,9 @@ public protocol WorkingCheckout {
     /// - Throws: If an error occurs while performing the fetch operation.
     func fetch() throws
 
+    /// Query whether the checkout has any commits which are not pushed to its remote.
+    func hasUnpushedCommits() throws -> Bool
+
     /// Check out the given tag.
     func checkout(tag: String) throws
 
