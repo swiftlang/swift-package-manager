@@ -251,6 +251,11 @@ public class GitRepository: Repository, WorkingCheckout {
 
     // MARK: Working Checkout Interface
 
+    public func hasUnpushedCommits() throws -> Bool {
+        let hasOutput = try runPopen([Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes"]).chomp().isEmpty
+        return !hasOutput
+    }
+
     public func getCurrentRevision() throws -> Revision {
         return Revision(identifier: try runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp())
     }
