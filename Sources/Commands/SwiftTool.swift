@@ -69,8 +69,10 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
-    public init() {
-        let args = Array(CommandLine.arguments.dropFirst())
+    /// Create an instance of this tool.
+    ///
+    /// - parameter args: The command line arguments to be passed to this tool.
+    public init(args: [String]) {
         self.args = args
         let dynamicType = type(of: self)
         do {
