@@ -63,7 +63,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
         return DummyRepository(provider: self)
     }
 
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
         try localFileSystem.createDirectory(destinationPath)
         try localFileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
     }
@@ -108,7 +108,7 @@ class RepositoryManagerTests: XCTestCase {
 
             // Create a checkout of the repository.
             let checkoutPath = path.appending(component: "checkout")
-            try handle.cloneCheckout(to: checkoutPath)
+            try handle.cloneCheckout(to: checkoutPath, editable: false)
             XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
 
             XCTAssertEqual(delegate.fetched, [dummyRepo])

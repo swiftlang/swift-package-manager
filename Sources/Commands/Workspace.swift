@@ -267,7 +267,7 @@ public class Workspace {
         _ = try? removeFileTree(path)
         // Inform the delegate that we're starting cloning.
         delegate.cloning(repository: handle.repository.url)
-        try handle.cloneCheckout(to: path)
+        try handle.cloneCheckout(to: path, editable: false)
 
         return path
     }
