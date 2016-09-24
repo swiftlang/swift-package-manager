@@ -264,7 +264,8 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let execpath = [prefix.appending(components: "app", ".build", "debug", "Dealer").asString]
 
-            XCTAssertBuilds(prefix.appending(component: "app"))
+            let packageRoot = prefix.appending(component: "app")
+            XCTAssertBuilds(packageRoot)
             var output = try popen(execpath)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
 
@@ -272,7 +273,8 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try localFileSystem.writeFileContents(prefix.appending(components: "app", "Packages", "FisherYates-1.2.3", "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
+            let path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
+            try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix.appending(component: "app"))
             output = try popen(execpath)
@@ -288,6 +290,7 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
             let execpath = [prefix.appending(components: "root", ".build", "debug", "dep2").asString]
 
+            let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
             var output = try popen(execpath)
             XCTAssertEqual(output, "Hello\n")
@@ -296,7 +299,8 @@ class MiscellaneousTestCase: XCTestCase {
             // llbuild does not realize the file has changed
             sleep(1)
 
-            try localFileSystem.writeFileContents(prefix.appending(components: "root", "Packages", "dep1-1.2.3", "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
+            let path = try SwiftPMProduct.packagePath(for: "dep1", packageRoot: packageRoot)
+            try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix.appending(component: "root"))
             output = try popen(execpath)

@@ -15,6 +15,7 @@ import Basic
 import func POSIX.popen
 
 import TestSupport
+import SourceControl
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {
@@ -50,9 +51,11 @@ class DependencyResolutionTests: XCTestCase {
                 try tagGitRepo(prefix.appending(components: "Foo"), tag: tag)
             }
 
-            XCTAssertBuilds(prefix.appending(component: "Bar"))
+            let packageRoot = prefix.appending(component: "Bar")
+            XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(prefix.appending(components: "Bar", ".build", "debug", "Bar"))
-            XCTAssertDirectoryExists(prefix.appending(components: "Bar", "Packages", "Foo-1.2.3"))
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssert(GitRepository(path: path).tags.contains("1.2.3"))
         }
     }
 

@@ -18,6 +18,10 @@ import Utility
 import class Foundation.Bundle
 #endif
 
+enum SwiftPMProductError: Swift.Error {
+    case packagePathNotFound
+}
+
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
@@ -65,6 +69,10 @@ public enum SwiftPMProduct {
     public func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
         var out = ""
         var completeArgs = [path.asString]
+        // FIXME: Eliminate this when we switch to the new resolver.
+        if SwiftPMProduct.enableNewResolver && self != .XCTestHelper {
+            completeArgs += ["--enable-new-resolver"]
+        }
         if let chdir = chdir {
             completeArgs += ["--chdir", chdir.asString]
         }
@@ -83,5 +91,25 @@ public enum SwiftPMProduct {
             }
             throw error
         }
+    }
+
+    /// Set this to true to run tests with new resolver.
+    public static var enableNewResolver = false
+
+    public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+        // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
+        // whenever we design that. https://bugs.swift.org/browse/SR-2753
+        let packagesPath: AbsolutePath
+        if enableNewResolver {
+            packagesPath = packageRoot.appending(components: ".build", "checkouts")
+        } else {
+            packagesPath = packageRoot.appending(component: "Packages")
+        }
+        for name in try localFileSystem.getDirectoryContents(packagesPath) {
+            if name.hasPrefix(packageName) {
+                return packagesPath.appending(RelativePath(name))
+            }
+        }
+        throw SwiftPMProductError.packagePathNotFound
     }
 }
