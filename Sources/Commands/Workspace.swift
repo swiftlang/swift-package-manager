@@ -226,7 +226,7 @@ public class Workspace {
     func clean() throws {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
-            checkoutManager.path,
+            repositoryManager.path,
             checkoutsPath,
             statePath,
         ].map { path in
