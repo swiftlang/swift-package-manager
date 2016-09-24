@@ -360,6 +360,22 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testSwiftTestParallel() throws {
+        // Running swift-test fixtures on linux is not yet possible.
+      #if os(macOS)
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            // First try normal serial testing.
+            var output = try SwiftPMProduct.SwiftTest.execute([], chdir: prefix, printIfError: true)
+            XCTAssert(output.contains("Executed 2 tests"))
+            // Run tests in parallel.
+            output = try SwiftPMProduct.SwiftTest.execute(["--parallel"], chdir: prefix, printIfError: true)
+            XCTAssert(output.contains("testExample2"))
+            XCTAssert(output.contains("testExample1"))
+            XCTAssert(output.contains("100%"))
+        }
+      #endif
+    }
+
     static var allTests = [
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
@@ -388,6 +404,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testProductWithMissingModules", testProductWithMissingModules),
         ("testSpaces", testSpaces),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
+        ("testSwiftTestParallel", testSwiftTestParallel),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
     ]
 }
