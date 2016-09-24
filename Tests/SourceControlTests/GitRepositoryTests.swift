@@ -293,6 +293,9 @@ class GitRepositoryTests: XCTestCase {
             // Add a new file to checkout.
             try localFileSystem.writeFileContents(checkoutPath.appending(component: "test.txt"), bytes: "Hi")
             try systemQuietly([Git.tool, "-C", checkoutPath.asString, "add", "test.txt"])
+            // FIXME: Create proper utility for this.
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "config", "user.email", "example@example.com"])
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "config", "user.name", "Example Example"])
             try systemQuietly([Git.tool, "-C", checkoutPath.asString, "commit", "-m", "Add some files."])
 
             // We should have commits which are not pushed.
