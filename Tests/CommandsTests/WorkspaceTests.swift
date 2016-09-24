@@ -31,6 +31,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     var cloned = [String]()
     /// Map of checkedout repos with key as repository and value as the reference (version or revision).
     var checkedOut = [String: String]()
+    var removed = [String]()
 
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
@@ -45,6 +46,10 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
     func checkingOut(repository: String, at reference: String) {
         checkedOut[repository] = reference
+    }
+
+    func removing(repository: String) {
+        removed.append(repository)
     }
 }
 
@@ -375,6 +380,10 @@ final class WorkspaceTests: XCTestCase {
         //
         // Root
         // \ A: checked out (@v1)
+        //   \ AA: checked out (@v1)
+        // Then update to:
+        // Root
+        // \ A: checked out (@v1.0.1)
         //
         // FIXME: We need better infrastructure for mocking up the things we
         // want to test here.
@@ -383,11 +392,13 @@ final class WorkspaceTests: XCTestCase {
             // Create the test repositories, we don't need them to have actual
             // contents (the manifests are mocked).
             var repos: [String: RepositorySpecifier] = [:]
-            let name = "A"
-            let repoPath = path.appending(component: name)
-            try makeDirectories(repoPath)
-            initGitRepo(repoPath, tag: "1.0.0")
-            repos[name] = RepositorySpecifier(url: repoPath.asString)
+            for name in ["A", "AA"] {
+                let repoPath = path.appending(component: name)
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath, tag: "initial")
+                try tagGitRepo(repoPath, tag: "1.0.0")
+                repos[name] = RepositorySpecifier(url: repoPath.asString)
+            }
 
             // Create the mock manifests.
             let rootManifest = Manifest(
@@ -404,11 +415,23 @@ final class WorkspaceTests: XCTestCase {
             let aManifest = Manifest(
                 path: AbsolutePath(repos["A"]!.url).appending(component: Manifest.filename),
                 url: repos["A"]!.url,
-                package: PackageDescription.Package(name: "A"),
+                package: PackageDescription.Package(
+                    name: "A",
+                    dependencies: [
+                        .Package(url: repos["AA"]!.url, majorVersion: 1),
+                    ]
+                ),
                 products: [],
                 version: v1
             )
             let aaManifest = Manifest(
+                path: AbsolutePath(repos["AA"]!.url).appending(component: Manifest.filename),
+                url: repos["AA"]!.url,
+                package: PackageDescription.Package(name: "AA"),
+                products: [],
+                version: v1
+            )
+            let a101Manifest = Manifest(
                 path: AbsolutePath(repos["A"]!.url).appending(component: Manifest.filename),
                 url: repos["A"]!.url,
                 package: PackageDescription.Package(name: "A"),
@@ -418,7 +441,8 @@ final class WorkspaceTests: XCTestCase {
             let mockManifestLoader = MockManifestLoader(manifests: [
                     MockManifestLoader.Key(url: path.asString, version: nil): rootManifest,
                     MockManifestLoader.Key(url: repos["A"]!.url, version: v1): aManifest,
-                    MockManifestLoader.Key(url: repos["A"]!.url, version: "1.0.1"): aaManifest,
+                    MockManifestLoader.Key(url: repos["A"]!.url, version: "1.0.1"): a101Manifest,
+                    MockManifestLoader.Key(url: repos["AA"]!.url, version: v1): aaManifest,
                 ])
                     
             let delegate = TestWorkspaceDelegate()
@@ -429,19 +453,26 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(delegate.fetched.isEmpty)
             XCTAssert(delegate.cloned.isEmpty)
             XCTAssert(delegate.checkedOut.isEmpty)
+            XCTAssert(delegate.removed.isEmpty)
 
             // Load the package graph.
             var graph = try workspace.loadPackageGraph()
 
             // Test the delegates.
-            XCTAssertEqual(delegate.fetched, [repoPath.asString])
-            XCTAssertEqual(delegate.cloned, [repoPath.asString])
-            XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.0")
+            XCTAssert(delegate.fetched.count == 2)
+            XCTAssert(delegate.cloned.count == 2)
+            XCTAssert(delegate.removed.isEmpty)
+            for (_, repoPath) in repos {
+                XCTAssert(delegate.fetched.contains(repoPath.url))
+                XCTAssert(delegate.cloned.contains(repoPath.url))
+                XCTAssertEqual(delegate.checkedOut[repoPath.url], "1.0.0")
+            }
 
             // Validate the graph has the correct basic structure.
-            XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+            XCTAssertEqual(graph.packages.count, 3)
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
 
+            let repoPath = path.appending(component: "A")
             let file = repoPath.appending(component: "update.swift")
             try systemQuietly(["touch", file.asString])
             try systemQuietly([Git.tool, "-C", repoPath.asString, "add", "."])
@@ -450,12 +481,19 @@ final class WorkspaceTests: XCTestCase {
 
             try workspace.updateDependencies()
             // Test the delegates after update.
-            XCTAssertEqual(delegate.fetched, [repoPath.asString])
-            XCTAssertEqual(delegate.cloned, [repoPath.asString])
+            XCTAssert(delegate.fetched.count == 2)
+            XCTAssert(delegate.cloned.count == 2)
+            for (_, repoPath) in repos {
+                XCTAssert(delegate.fetched.contains(repoPath.url))
+                XCTAssert(delegate.cloned.contains(repoPath.url))
+            }
             XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
+            XCTAssertEqual(delegate.removed, [repos["AA"]!.url])
 
             graph = try workspace.loadPackageGraph()
             XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+            XCTAssertEqual(delegate.removed.sorted(), [repos["AA"]!.url])
         }
     }
 

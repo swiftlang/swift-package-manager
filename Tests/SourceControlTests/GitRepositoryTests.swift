@@ -348,6 +348,27 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testUncommitedChanges() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            // Create a file (which we will modify later).
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+
+            let repo = GitRepository(path: testRepoPath)
+            XCTAssertFalse(repo.hasUncommitedChanges())
+
+            // Modify the file in the repo.
+            try localFileSystem.writeFileContents(repo.path.appending(component: "test.txt"), bytes: "Hello")
+            XCTAssert(repo.hasUncommitedChanges())
+        }
+    }
+
     static var allTests = [
         ("testFetch", testFetch),
         ("testRepositorySpecifier", testRepositorySpecifier),
@@ -358,5 +379,6 @@ class GitRepositoryTests: XCTestCase {
         ("testGitFileView", testGitFileView),
         ("testCheckouts", testCheckouts),
         ("testHasUnpushedCommits", testHasUnpushedCommits),
+        ("testUncommitedChanges", testUncommitedChanges),
     ]
 }

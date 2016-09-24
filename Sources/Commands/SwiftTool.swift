@@ -31,6 +31,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         // out better reporting text.
         print("Resolved version: \(reference)")
     }
+
+    func removing(repository: String) {
+    }
 }
 
 enum SwiftToolError: Swift.Error {

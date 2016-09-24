@@ -224,6 +224,18 @@ public class RepositoryManager {
         try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath)
     }
 
+    /// Removes the repository.
+    public func remove(repository: RepositorySpecifier) throws {
+        // If repository isn't present, we're done.
+        guard let handle = repositories[repository.url] else {
+            return
+        }
+        repositories[repository.url] = nil
+        let repositoryPath = path.appending(handle.subpath)
+        try removeFileTree(repositoryPath)
+        try saveState()
+    }
+
     // MARK: Persistence
 
     private enum PersistenceError: Swift.Error {

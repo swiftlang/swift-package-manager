@@ -48,6 +48,10 @@ private class MockRepository: Repository {
         fatalError("Unexpected API call")
     }
 
+    func remove() throws {
+        fatalError("Unexpected API call")
+    }
+
     func openFileView(revision: Revision) throws -> FileSystem {
         assert(versions.index(forKey: Version(revision.identifier)!) != nil)
         // This isn't actually used, see `MockManifestLoader`.

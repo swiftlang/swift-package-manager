@@ -19,6 +19,9 @@ import Utility
 public enum WorkspaceOperationError: Swift.Error {
     /// The requested repository could not be accessed.
     case unavailableRepository
+
+    /// The repository has uncommited changes.
+    case hasUncommitedChanges(repo: AbsolutePath)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -35,6 +38,9 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace is checking out this repository at a version or revision.
     func checkingOut(repository: String, at reference: String)
+
+    /// The workspace is removing this repository because it is no longer needed.
+    func removing(repository: String)
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -344,7 +350,7 @@ public class Workspace {
                 _ = try clone(specifier: specifier, version: version)
             case .updated(_, let version):
                 _ = try clone(specifier: specifier, version: version)
-            case .removed: break //FIXME: TODO
+            case .removed: try remove(specifier: specifier)
             case .unchanged(_): break
             }
         }
@@ -512,13 +518,40 @@ public class Workspace {
                 // FIXME: Issue suitable diagnostics for cases where an
                 // update is needed, or cases where the range is invalid.
                 fatalError("unexpected dependency resolution result")
-            case .removed: break //FIXME: TODO
+            case .removed: try remove(specifier: specifier)
             case .unchanged(_): break
             }
         }
 
         // We've loaded the complete set of manifests, load the graph.
         return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
+    }
+
+    /// Removes the clone and checkout of the provided specifier.
+    func remove(specifier: RepositorySpecifier) throws {
+        guard let dependency = dependencyMap[specifier] else {
+            fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
+        }
+
+        // Inform the delegate.
+        delegate.removing(repository: dependency.repository.url)
+
+        // Remove the repository from dependencies.
+        dependencyMap[dependency.repository] = nil
+
+        // Remove the checkout.
+        let dependencyPath = checkoutsPath.appending(dependency.subpath)
+        let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
+        guard !checkedOutRepo.hasUncommitedChanges() else {
+            throw WorkspaceOperationError.hasUncommitedChanges(repo: dependencyPath)
+        }
+        try removeFileTree(dependencyPath)
+
+        // Remove the clone.
+        try repositoryManager.remove(repository: dependency.repository)
+
+        // Save the state.
+        try saveState()
     }
 
     /// Create a `Packages` subdirectory.
