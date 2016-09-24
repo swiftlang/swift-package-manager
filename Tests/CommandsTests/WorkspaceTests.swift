@@ -497,11 +497,51 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testCleanAndReset() throws {
+        mktmpdir { path in
+            // Create a test repository.
+            let testRepoPath = path.appending(component: "test-repo")
+            let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "initial")
+
+            let workspace = try Workspace(rootPackage: path)
+            let checkoutPath = try workspace.clone(repository: testRepoSpec, at: Revision(identifier: "initial"))
+            XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
+
+            // Drop a build artifact in data directory.
+            let buildArtifact = workspace.dataPath.appending(component: "test.o")
+            try localFileSystem.writeFileContents(buildArtifact, bytes: "Hi")
+
+            // Sanity checks.
+            XCTAssert(localFileSystem.exists(buildArtifact))
+            XCTAssert(localFileSystem.exists(checkoutPath))
+
+            try workspace.clean()
+
+            XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
+            XCTAssert(localFileSystem.exists(workspace.dataPath))
+            // The checkout should be safe.
+            XCTAssert(localFileSystem.exists(checkoutPath))
+            // Build artifact should be removed.
+            XCTAssertFalse(localFileSystem.exists(buildArtifact))
+
+            // Add build artifact again.
+            try localFileSystem.writeFileContents(buildArtifact, bytes: "Hi")
+            XCTAssert(localFileSystem.exists(buildArtifact))
+
+            try workspace.reset()
+            // Everything should go away.
+            XCTAssertFalse(localFileSystem.exists(workspace.dataPath))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
         ("testUpdate", testUpdate),
+        ("testCleanAndReset", testCleanAndReset),
     ]
 }
