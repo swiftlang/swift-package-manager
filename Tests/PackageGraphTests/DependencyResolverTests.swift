@@ -75,6 +75,7 @@ private class MockResolverDelegate: DependencyResolverDelegate {
 }
 
 private typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
+private typealias MockVersionAssignmentSet = VersionAssignmentSet<MockPackageContainer>
 
 // Some handy ranges.
 //
@@ -172,7 +173,7 @@ class DependencyResolverTests: XCTestCase {
         let c = MockPackageContainer(name: "C", dependenciesByVersion: [
                 v1: []])
 
-        var assignment = VersionAssignmentSet<MockPackageContainer>()
+        var assignment = MockVersionAssignmentSet()
         XCTAssertEqual(assignment.constraints, [:])
         XCTAssert(assignment.isValid(binding: .version(v2), for: b))
         // An empty assignment is valid.
@@ -210,7 +211,7 @@ class DependencyResolverTests: XCTestCase {
         let d = MockPackageContainer(name: "D", dependenciesByVersion: [
                 v1: [(container: "E", versionRequirement: v1Range)],
                 v2: []])
-        var assignment2 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment2 = MockVersionAssignmentSet()
         assignment2[d] = .version(v1)
         if let mergedAssignment = assignment.merging(assignment2) {
             assignment = mergedAssignment
@@ -222,12 +223,12 @@ class DependencyResolverTests: XCTestCase {
         // Check merger of an assignment with incompatible constraints.
         let d2 = MockPackageContainer(name: "D2", dependenciesByVersion: [
                 v1: [(container: "E", versionRequirement: v2Range)]])
-        var assignment3 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment3 = MockVersionAssignmentSet()
         assignment3[d2] = .version(v1)
         XCTAssertEqual(assignment.merging(assignment3), nil)
 
         // Check merger of an incompatible assignment.
-        var assignment4 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment4 = MockVersionAssignmentSet()
         assignment4[d] = .version(v2)
         XCTAssertEqual(assignment.merging(assignment4), nil)
     }
@@ -410,14 +411,11 @@ where C.Identifier == String
 
 private func XCTAssertEqual<C: PackageContainer>(
     _ assignment: VersionAssignmentSet<C>?,
-    _ expected: [String: Version]?,
+    _ expected: [String: Version],
     file: StaticString = #file, line: UInt = #line)
 where C.Identifier == String
 {
     if let assignment = assignment {
-        guard let expected = expected else {
-            return XCTFail("unexpected satisfying assignment (expected failure): \(assignment)", file: file, line: line)
-        }
         var actual = [String: Version]()
         for (container, binding) in assignment {
             guard case .version(let version) = binding else {
@@ -427,9 +425,7 @@ where C.Identifier == String
         }
         XCTAssertEqual(actual, expected, file: file, line: line)
     } else {
-        if let expected = expected {
-            return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
-        }
+        return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
     }
 }
 
