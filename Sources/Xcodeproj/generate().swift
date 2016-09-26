@@ -73,7 +73,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
    /// it has all tests associated so CMD+U works
     let schemeName = "\(projectName).xcscheme"
     try open(schemesDir.appending(RelativePath(schemeName))) { stream in
-        xcscheme(container: xcodeprojName, graph: graph, enableCodeCoverage: options.enableCodeCoverage, printer: stream)
+        xcscheme(container: xcodeprojPath.relative(to: srcroot).asString, graph: graph, enableCodeCoverage: options.enableCodeCoverage, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
