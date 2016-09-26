@@ -111,10 +111,10 @@ final class InitPackage {
         if mode == .systemModule {
             return
         }
-        let sources = rootd.appending(component: "Sources")
-        guard exists(sources) == false else {
+        guard try sourceDirectoryExists() == false else {
             return
         }
+        let sources = rootd.appending(component: "Sources")
         print("Creating \(sources.relative(to: rootd).asString)/")
         try makeDirectories(sources)
 
@@ -137,6 +137,18 @@ final class InitPackage {
                 fatalError("invalid")
             }
         }
+    }
+
+    private func sourceDirectoryExists() throws -> Bool {
+        let sourceDir = try localFileSystem.getDirectoryContents(rootd).first { dir in
+            switch dir.lowercased() {
+            case "sources", "source", "src", "srcs":
+                return true
+            default:
+                return false
+            }
+        }
+        return sourceDir != nil
     }
     
     private func writeModuleMap() throws {
