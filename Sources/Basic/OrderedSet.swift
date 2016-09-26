@@ -10,7 +10,7 @@
 
 /// An ordered set is an ordered collection of instances of `Element` in which
 /// uniqueness of the objects is guaranteed.
-public struct OrderedSet<E: Hashable>: Equatable, Collection {
+public struct OrderedSet<E: Hashable>: Equatable, MutableCollection, RandomAccessCollection {
     public typealias Element = E
     public typealias Index = Int
     public typealias Indices = CountableRange<Int>
@@ -77,6 +77,39 @@ public struct OrderedSet<E: Hashable>: Equatable, Collection {
         array.removeAll(keepingCapacity: keepCapacity)
         set.removeAll(keepingCapacity: keepCapacity)
     }
+
+    // MARK:- MutableCollection, RandomAccessCollection conformance
+
+    public var startIndex: Int { return contents.startIndex }
+    public var endIndex: Int { return contents.endIndex }
+
+    public subscript(position: Int) -> Element {
+        get {
+            return array[position]
+        }
+        set(newValue) {
+            let oldValue = array[position]
+            // Remove the old value from set.
+            set.remove(oldValue)
+            // Add the new value.
+            array[position] = newValue
+            set.insert(newValue)
+        }
+    }
+
+    public subscript(bounds: Range<Int>) -> ArraySlice<Element> {
+        get {
+            return array[bounds]
+        }
+        set(newValues) {
+            let oldValues = array[bounds]
+            // Remove the old values from set.
+            oldValues.forEach{ set.remove($0) }
+            // Add the new values.
+            array[bounds] = newValues
+            newValues.forEach{ set.insert($0) }
+        }
+    }
 }
 
 extension OrderedSet: ExpressibleByArrayLiteral {
@@ -86,14 +119,6 @@ extension OrderedSet: ExpressibleByArrayLiteral {
     /// will be included.
     public init(arrayLiteral elements: Element...) {
         self.init(elements)
-    }
-}
-
-extension OrderedSet: RandomAccessCollection {
-    public var startIndex: Int { return contents.startIndex }
-    public var endIndex: Int { return contents.endIndex }
-    public subscript(i: Int) -> Element {
-      return contents[i]
     }
 }
 
