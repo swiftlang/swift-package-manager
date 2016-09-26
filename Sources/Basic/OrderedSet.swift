@@ -112,6 +112,12 @@ public struct OrderedSet<E: Hashable>: Equatable, MutableCollection, RandomAcces
     }
 }
 
+extension OrderedSet: RangeReplaceableCollection {
+    mutating public func replaceSubrange<C>(_ subrange: Range<Int>, with newElements: C) where C : Collection, C.Iterator.Element == Element {
+        self[subrange] = ArraySlice(newElements)
+    }
+}
+
 extension OrderedSet: ExpressibleByArrayLiteral {
     /// Create an instance initialized with `elements`.
     ///

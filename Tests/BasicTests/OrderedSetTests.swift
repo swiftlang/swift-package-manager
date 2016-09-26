@@ -75,6 +75,13 @@ class OrderedSetTests: XCTestCase {
         XCTAssert(set.contains(6))
         XCTAssertFalse(set.contains(2))
         XCTAssert(set.contains(7))
+
+        set.replaceSubrange(0..<2, with: [1, 2])
+        XCTAssertEqual(set.contents, [1, 2, 9])
+        XCTAssertFalse(set.contains(6))
+        XCTAssert(set.contains(1))
+        XCTAssertFalse(set.contains(7))
+        XCTAssert(set.contains(2))
     }
 
     static var allTests = [
