@@ -390,12 +390,12 @@ struct MockPackage {
     let name: String
 
     /// The current available version of the package.
-    let version: Version
+    let version: Version?
 
     /// The dependencies of the package.
     let dependencies: [MockDependency]
 
-    init(_ name: String, version: Version, dependencies: [MockDependency] = []) {
+    init(_ name: String, version: Version?, dependencies: [MockDependency] = []) {
         self.name = name
         self.version = version
         self.dependencies = dependencies
@@ -455,7 +455,7 @@ struct MockManifestGraph {
             // Don't recreate repo if it is already there.
             if !exists(repoPath) {
                 try makeDirectories(repoPath)
-                initGitRepo(repoPath, tag: package.version.description)
+                initGitRepo(repoPath, tag: package.version?.description ?? "initial")
             }
             return (package.name, RepositorySpecifier(url: repoPath.asString))
         })
