@@ -157,6 +157,8 @@ final class WorkspaceTests: XCTestCase {
             // Load the "current" manifests.
             let manifests = try workspace.loadDependencyManifests()
             XCTAssertEqual(manifests.root.package, graph.rootManifest.package)
+            // B should be missing.
+            XCTAssertEqual(manifests.missingURLs(), ["//B"])
             var dependencyManifests: [String: Manifest] = [:]
             for manifest in manifests.dependencies {
                 dependencyManifests[manifest.package.name] = manifest

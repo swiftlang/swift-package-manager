@@ -150,6 +150,38 @@ public class Workspace {
         }
     }
 
+    /// A struct representing all the current manifests (root + external) in a package graph.
+    struct DependencyManifests {
+        /// The root manifest.
+        let root: Manifest
+
+        /// The dependency manifests in the transitive closure of root manifest.
+        let dependencies: [Manifest]
+
+        /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
+        func missingURLs() -> Set<String> {
+            let manifestsMap = Dictionary<String, Manifest>(
+                items: [(root.url, root)] + dependencies.map{ ($0.url, $0) })
+
+            var requiredURLs = transitiveClosure([root.url]) { url in
+                guard let manifest = manifestsMap[url] else { return [] }
+                return manifest.package.dependencies.map{ $0.url }
+            }
+            requiredURLs.insert(root.url)
+
+            let availableURLs = Set<String>(manifestsMap.keys)
+            // We should never have loaded a manifest we don't need.
+            assert(availableURLs.isSubset(of: requiredURLs))
+            // These are the missing URLs.
+            return requiredURLs.subtracting(availableURLs)
+        }
+
+        init(root: Manifest, dependencies: [Manifest]) {
+            self.root = root
+            self.dependencies = dependencies
+        }
+    }
+
     /// The delegate interface.
     public let delegate: WorkspaceDelegate
 
@@ -430,7 +462,7 @@ public class Workspace {
     /// current dependencies from the working checkouts.
     ///
     /// Throws: If the root manifest could not be loaded.
-    func loadDependencyManifests() throws -> (root: Manifest, dependencies: [Manifest]) {
+    func loadDependencyManifests() throws -> DependencyManifests {
         // Load the root manifest.
         let rootManifest = try loadRootManifest()
 
@@ -456,7 +488,7 @@ public class Workspace {
             }
         }
 
-        return (root: rootManifest, dependencies: dependencies.map{ $0.item })
+        return DependencyManifests(root: rootManifest, dependencies: dependencies.map{ $0.item })
     }
 
     /// Fetch and load the complete package at the given path.
@@ -474,26 +506,13 @@ public class Workspace {
     /// - Throws: Rethrows errors from dependency resolution (if required) and package graph loading.
     public func loadPackageGraph() throws -> PackageGraph {
         // First, load the active manifest sets.
-        let (rootManifest, currentExternalManifests) = try loadDependencyManifests()
+        let currentManifests = try loadDependencyManifests()
 
-        // Check for missing checkouts.
-        let manifestsMap = Dictionary<String, Manifest>(
-            items: [(rootManifest.url, rootManifest)] + currentExternalManifests.map{ ($0.url, $0) })
-        let availableURLs = Set<String>(manifestsMap.keys)
-        var requiredURLs = transitiveClosure([rootManifest.url]) { url in
-            guard let manifest = manifestsMap[url] else { return [] }
-            return manifest.package.dependencies.map{ $0.url }
-        }
-        requiredURLs.insert(rootManifest.url)
-
-        // We should never have loaded a manifest we don't need.
-        assert(availableURLs.isSubset(of: requiredURLs))
-
-        // Check if there are any missing URLs.
-        let missingURLs = requiredURLs.subtracting(availableURLs)
+        // Look for any missing URLs.
+        let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: currentExternalManifests)
+            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies)
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
@@ -501,7 +520,7 @@ public class Workspace {
         delegate.fetchingMissingRepositories(missingURLs)
 
         // First, add the root package constraints.
-        var constraints = computeRootPackageConstraints(rootManifest)
+        var constraints = computeRootPackageConstraints(currentManifests.root)
 
         // Add constraints to pin to *exactly* all the checkouts we have.
         //
@@ -509,7 +528,7 @@ public class Workspace {
         // certain repositories are pinned to the current checkout. We might be
         // able to do that simply by overriding the view presented by the
         // repository container provider.
-        for externalManifest in currentExternalManifests {
+        for externalManifest in currentManifests.dependencies {
             let specifier = RepositorySpecifier(url: externalManifest.url)
             let managedDependency = dependencyMap[specifier]!
 
@@ -534,7 +553,7 @@ public class Workspace {
         // currently provide constraints, but if we provided only the root and
         // then the restrictions (to the current assignment) it would be
         // possible.
-        var externalManifests = currentExternalManifests
+        var externalManifests = currentManifests.dependencies
         for (specifier, state) in packageStateChanges {
             switch state {
             case .added(let version):
@@ -551,7 +570,7 @@ public class Workspace {
         }
 
         // We've loaded the complete set of manifests, load the graph.
-        return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
+        return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: externalManifests)
     }
 
     /// Removes the clone and checkout of the provided specifier.
