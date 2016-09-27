@@ -349,6 +349,21 @@ public class GitRepository: Repository, WorkingCheckout {
         try runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
     }
 
+    /// Returns true if a revision exists.
+    public func exists(revision: Revision) -> Bool {
+        do {
+           _ = try runCommandQuietly([Git.tool, "-C", path.asString, "rev-parse", "--verify", revision.identifier])
+        } catch {
+            return false
+        }
+        return true
+    }
+
+    public func checkout(newBranch: String) throws {
+        precondition(isWorkingRepo, "This operation should run in a working repo.")
+        try runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-b", newBranch])
+    }
+
     // MARK: Git Operations
 
     /// Resolve a "treeish" to a concrete hash.
