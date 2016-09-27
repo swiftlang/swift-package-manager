@@ -34,6 +34,9 @@ public enum ModuleError: Swift.Error {
 
     /// The manifest has invalid configuration wrt type of the module.
     case invalidManifestConfig(String, String)
+
+    /// The target dependency declaration has cycle in it.
+    case cycleDetected((path: [Module], cycle: [Module]))
 }
 
 extension ModuleError: FixableError {
@@ -47,6 +50,10 @@ extension ModuleError: FixableError {
             return "the target \(module) cannot have the executable \(dependency) as a dependency"
         case .invalidManifestConfig(let package, let message):
             return "invalid configuration in '\(package)': \(message)"
+        case .cycleDetected(let cycle):
+            return "found cyclic dependency declaration: " +
+                (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
+                " -> " + cycle.cycle[0].name
         }
     }
 
@@ -59,6 +66,8 @@ extension ModuleError: FixableError {
         case .executableAsDependency(_):
             return "move the shared logic inside a library, which can be referenced from both the target and the executable"
         case .invalidManifestConfig(_):
+            return nil
+        case .cycleDetected(_):
             return nil
         }
     }
@@ -451,6 +460,11 @@ public struct PackageBuilder {
             if let baseModule = modulesByName[module.basename] {
                 module.dependencies = [baseModule]
             }
+        }
+
+        // Look for any cycle in the dependencies.
+        if let cycle = findCycle(modules.sorted { $0.name < $1.name }, successors: { $0.dependencies}) {
+            throw ModuleError.cycleDetected(cycle)
         }
     }
     
