@@ -176,6 +176,11 @@ public class Workspace {
             return requiredURLs.subtracting(availableURLs)
         }
 
+        /// Find a manifest given its name.
+        func lookup(_ name: String) -> Manifest? {
+            return dependencies.first(where: { $0.name == name })
+        }
+
         init(root: Manifest, dependencies: [Manifest]) {
             self.root = root
             self.dependencies = dependencies
