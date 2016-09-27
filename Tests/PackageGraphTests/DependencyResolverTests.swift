@@ -10,6 +10,7 @@
 
 import XCTest
 
+import Basic
 import PackageGraph
 
 import struct Utility.Version
@@ -52,13 +53,17 @@ private struct MockPackageContainer: PackageContainer {
 private struct MockPackagesProvider: PackageContainerProvider {
     typealias Container = MockPackageContainer
 
-    let containers: [MockPackageContainer]
+    let containers: [Container]
+    let containersByIdentifier: [Container.Identifier: Container]
+
+    init(containers: [MockPackageContainer]) {
+        self.containers = containers
+        self.containersByIdentifier = Dictionary(items: containers.map{ ($0.identifier, $0) })
+    }
 
     func getContainer(for identifier: Container.Identifier) throws -> Container {
-        for container in containers {
-            if container.name == identifier {
-                return container
-            }
+        if let container = containersByIdentifier[identifier] {
+            return container
         }
         throw MockLoadingError.unknownModule
     }
@@ -75,6 +80,7 @@ private class MockResolverDelegate: DependencyResolverDelegate {
 }
 
 private typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
+private typealias MockVersionAssignmentSet = VersionAssignmentSet<MockPackageContainer>
 
 // Some handy ranges.
 //
@@ -172,7 +178,7 @@ class DependencyResolverTests: XCTestCase {
         let c = MockPackageContainer(name: "C", dependenciesByVersion: [
                 v1: []])
 
-        var assignment = VersionAssignmentSet<MockPackageContainer>()
+        var assignment = MockVersionAssignmentSet()
         XCTAssertEqual(assignment.constraints, [:])
         XCTAssert(assignment.isValid(binding: .version(v2), for: b))
         // An empty assignment is valid.
@@ -210,7 +216,7 @@ class DependencyResolverTests: XCTestCase {
         let d = MockPackageContainer(name: "D", dependenciesByVersion: [
                 v1: [(container: "E", versionRequirement: v1Range)],
                 v2: []])
-        var assignment2 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment2 = MockVersionAssignmentSet()
         assignment2[d] = .version(v1)
         if let mergedAssignment = assignment.merging(assignment2) {
             assignment = mergedAssignment
@@ -222,12 +228,12 @@ class DependencyResolverTests: XCTestCase {
         // Check merger of an assignment with incompatible constraints.
         let d2 = MockPackageContainer(name: "D2", dependenciesByVersion: [
                 v1: [(container: "E", versionRequirement: v2Range)]])
-        var assignment3 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment3 = MockVersionAssignmentSet()
         assignment3[d2] = .version(v1)
         XCTAssertEqual(assignment.merging(assignment3), nil)
 
         // Check merger of an incompatible assignment.
-        var assignment4 = VersionAssignmentSet<MockPackageContainer>()
+        var assignment4 = MockVersionAssignmentSet()
         assignment4[d] = .version(v2)
         XCTAssertEqual(assignment.merging(assignment4), nil)
     }
@@ -362,6 +368,29 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    /// Check completeness on a variety of synthetic graphs.
+    func testCompleteness() throws {
+        typealias ConstraintSet = MockDependencyResolver.ConstraintSet
+
+        // We check correctness by comparing the result to an oracle which implements a trivial brute force solver.
+
+        // Check respect for the input constraints on version selection.
+        do {
+            let provider = MockPackagesProvider(containers: [
+                    MockPackageContainer(name: "A", dependenciesByVersion: [
+                            v1: [], v1_1: []]),
+                    MockPackageContainer(name: "B", dependenciesByVersion: [
+                            v1: [], v1_1: []])
+                ])
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+
+            // Check the maximal solution is picked.
+            try checkResolution(resolver, constraints: [
+                    MockPackageConstraint(container: "A", versionRequirement: v1Range),
+                    MockPackageConstraint(container: "B", versionRequirement: v1Range)])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -369,7 +398,157 @@ class DependencyResolverTests: XCTestCase {
         ("testVersionAssignment", testVersionAssignment),
         ("testResolveSubtree", testResolveSubtree),
         ("testResolve", testResolve),
+        ("testCompleteness", testCompleteness),
     ]
+}
+
+/// Validate the solution made by `resolver` for the given `constraints`.
+///
+/// This checks that the solution is complete, correct, and maximal and that it
+/// does not contain spurious assignments.
+private func checkResolution(_ resolver: MockDependencyResolver, constraints: [MockPackageConstraint]) throws {
+    // Compute the complete set of valid solution by brute force enumeration.
+    func satisfiesConstraints(_ assignment: MockVersionAssignmentSet) -> Bool {
+        for constraint in constraints {
+            // FIXME: This is ambiguous, but currently the presence of a
+            // constraint means the package is required.
+            guard case let .version(version)? = assignment[constraint.identifier] else { return false }
+            if !constraint.versionRequirement.contains(version) {
+                return false
+            }
+        }
+        return true
+    }
+    func isValidSolution(_ assignment: MockVersionAssignmentSet) -> Bool {
+        // A solution is valid if it is consistent and complete, meets the input
+        // constraints, and doesn't contain any unnecessary bindings.
+        guard assignment.checkIfValidAndComplete() && satisfiesConstraints(assignment) else { return false }
+
+        // Check the assignment doesn't contain unnecessary bindings.
+        let requiredContainers = transitiveClosure(constraints.map{ $0.identifier }, successors: { identifier in
+                guard case let .version(version)? = assignment[identifier] else {
+                    fatalError("unexpected assignment")
+                }
+                let container = try! resolver.provider.getContainer(for: identifier)
+                return [identifier] + container.getDependencies(at: version).map{ $0.identifier }
+            })
+        for (container, _) in assignment {
+            if !requiredContainers.contains(container.identifier) {
+                return false
+            }
+        }
+
+        return true
+    }
+    let validSolutions = allPossibleAssignments(for: resolver.provider).filter(isValidSolution)
+
+    // Compute the list of maximal solutions.
+    var maximalSolutions = [MockVersionAssignmentSet]()
+    for solution in validSolutions {
+        // Eliminate any currently maximal solutions this one is greater than.
+        let numPreviousSolutions = maximalSolutions.count
+        maximalSolutions = maximalSolutions.filter{ !solution.isStrictlyGreater(than: $0) }
+
+        // If we eliminated any solution, then this is a new maximal solution.
+        if maximalSolutions.count != numPreviousSolutions {
+            assert(maximalSolutions.first(where: { $0.isStrictlyGreater(than: solution) }) == nil)
+            maximalSolutions.append(solution)
+        } else {
+            // Otherwise, this is still a new maximal solution if it isn't comparable to any other one.
+            if maximalSolutions.first(where: { $0.isStrictlyGreater(than: solution) }) == nil {
+                maximalSolutions.append(solution)
+            }
+        }
+    }
+
+    // FIXME: It is possible there are multiple maximal solutions, we don't yet
+    // define the ordering required to establish what the "correct" answer is
+    // here.
+    if maximalSolutions.count > 1 {
+        return XCTFail("unable to find a unique solution for input test case")
+    }
+
+    // Get the resolver's solution.
+    var solution: MockVersionAssignmentSet?
+    do {
+        solution = try resolver.resolveAssignment(constraints: constraints)
+    } catch DependencyResolverError.unsatisfiable {
+        solution = nil
+    }
+
+    // Check the solution against our oracle.
+    if let solution = solution {
+        if maximalSolutions.count != 1 {
+            return XCTFail("solver unexpectedly found: \(solution) when there are no viable solutions")
+        }
+        if solution != maximalSolutions[0] {
+            return XCTFail("solver result: \(solution.map{ ($0.0.identifier, $0.1) }) does not match expected result: \(maximalSolutions[0].map{ ($0.0.identifier, $0.1) })")
+        }
+    } else {
+        if maximalSolutions.count != 0 {
+            return XCTFail("solver was unable to find the valid solution: \(validSolutions[0])")
+        }
+    }
+}
+
+/// Compute a sequence of all possible assignments.
+private func allPossibleAssignments(for provider: MockPackagesProvider) -> AnySequence<MockVersionAssignmentSet> {
+    func allPossibleAssignments(for containers: AnyIterator<MockPackageContainer>) -> [MockVersionAssignmentSet] {
+        guard let container = containers.next() else {
+            // The empty list only has one assignment.
+            return [MockVersionAssignmentSet()]
+        }
+
+        // The result is all other assignments amended with an assignment of
+        // this container to each possible version, or not included.
+        //
+        // FIXME: It would be nice to be lazy here...
+        let otherAssignments = allPossibleAssignments(for: containers)
+        return otherAssignments + container.versions.reversed().flatMap{ version in
+            return otherAssignments.map{ assignment in
+                var assignment = assignment
+                assignment[container] = .version(version)
+                return assignment
+            }
+        }
+    }
+
+    return AnySequence(allPossibleAssignments(for: AnyIterator(provider.containers.makeIterator())))
+}
+
+extension VersionAssignmentSet {
+    /// Define a partial ordering among assignments.
+    ///
+    /// This checks if an assignment has bindings which are strictly greater (as
+    /// semantic versions) than those of `rhs`. Binding with excluded
+    /// assignments are incomparable when the assignments differ.
+    func isStrictlyGreater(than rhs: VersionAssignmentSet) -> Bool {
+        // This set is strictly greater than `rhs` if every assigned version in
+        // it is greater than or equal to those in `rhs`, and some assignment is
+        // strictly greater.
+        var hasGreaterAssignment = false
+        for (container, rhsBinding) in rhs {
+            guard let lhsBinding = self[container] else { return false }
+
+            switch (lhsBinding, rhsBinding) {
+            case (.excluded, .excluded):
+                // If the container is excluded in both assignments, it is ok.
+                break
+            case (.excluded, _), (_, .excluded):
+                // If the container is excluded in one of the assignments, they are incomparable.
+                return false
+            case let (.version(lhsVersion), .version(rhsVersion)):
+                if lhsVersion < rhsVersion {
+                    return false
+                } else if lhsVersion > rhsVersion {
+                    hasGreaterAssignment = true
+                }
+            default:
+                fatalError("unreachable")
+            }
+        }
+        return hasGreaterAssignment
+    }
 }
 
 private extension DependencyResolver {
@@ -410,14 +589,11 @@ where C.Identifier == String
 
 private func XCTAssertEqual<C: PackageContainer>(
     _ assignment: VersionAssignmentSet<C>?,
-    _ expected: [String: Version]?,
+    _ expected: [String: Version],
     file: StaticString = #file, line: UInt = #line)
 where C.Identifier == String
 {
     if let assignment = assignment {
-        guard let expected = expected else {
-            return XCTFail("unexpected satisfying assignment (expected failure): \(assignment)", file: file, line: line)
-        }
         var actual = [String: Version]()
         for (container, binding) in assignment {
             guard case .version(let version) = binding else {
@@ -427,9 +603,7 @@ where C.Identifier == String
         }
         XCTAssertEqual(actual, expected, file: file, line: line)
     } else {
-        if let expected = expected {
-            return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
-        }
+        return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
     }
 }
 

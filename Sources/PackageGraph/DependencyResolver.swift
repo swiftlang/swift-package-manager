@@ -323,7 +323,7 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
 /// `constraints`, but this invariant is not explicitly enforced.
 //
 // FIXME: Actually make efficient.
-struct VersionAssignmentSet<C: PackageContainer>: Sequence {
+struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     typealias Container = C
     typealias Identifier = Container.Identifier
 
@@ -331,17 +331,24 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
     //
     // FIXME: Does it really make sense to key on the identifier here. Should we
     // require referential equality of containers and use that to simplify?
-    private var assignments: [Identifier: (container: Container, binding: BoundVersion)]
+    fileprivate var assignments: [Identifier: (container: Container, binding: BoundVersion)]
 
     /// Create an empty assignment.
     init() {
         assignments = [:]
     }
 
+    /// The assignment for the given container `identifier.
+    subscript(identifier: Identifier) -> BoundVersion? {
+        get {
+            return assignments[identifier]?.binding
+        }
+    }
+
     /// The assignment for the given `container`.
     subscript(container: Container) -> BoundVersion? {
         get {
-            return assignments[container.identifier]?.binding
+            return self[container.identifier]
         }
         set {
             // We disallow deletion.
@@ -481,6 +488,18 @@ struct VersionAssignmentSet<C: PackageContainer>: Sequence {
         }
     }
 }
+func ==<C: PackageContainer>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
+    if lhs.assignments.count != rhs.assignments.count { return false }
+    for (container, lhsBinding) in lhs {
+        switch rhs[container] {
+        case let rhsBinding? where lhsBinding == rhsBinding:
+            continue
+        default:
+            return false
+        }
+    }
+    return true
+}
 
 /// A general purpose package dependency resolver.
 ///
@@ -567,19 +586,29 @@ public class DependencyResolver<
     /// - Returns: A satisfying assignment of containers and versions.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, version: Version)] {
+        return try resolveAssignment(constraints: constraints).map { (container, binding) in
+            guard case .version(let version) = binding else {
+                fatalError("unexpected exclude binding")
+            }
+            return (container: container.identifier, version: version)
+        }
+    }
+
+    /// Execute the resolution algorithm to find a valid assignment of versions.
+    ///
+    /// - Parameters:
+    ///   - constraints: The contraints to solve. It is legal to supply multiple
+    ///                  constraints for the same container identifier.
+    /// - Returns: A satisfying assignment of containers and versions.
+    /// - Throws: DependencyResolverError, or errors from the underlying package provider.
+    func resolveAssignment(constraints: [Constraint]) throws -> AssignmentSet {
         // Create an assignment for the input constraints.
         guard let assignment = try merge(
                 constraints: constraints, into: AssignmentSet(),
                 subjectTo: ConstraintSet(), excluding: [:]) else {
             throw DependencyResolverError.unsatisfiable
         }
-
-        return assignment.map { (container, binding) in
-            guard case .version(let version) = binding else {
-                fatalError("unexpected exclude binding")
-            }
-            return (container: container.identifier, version: version)
-        }
+        return assignment
     }
 
     /// Resolve an individual container dependency tree.
