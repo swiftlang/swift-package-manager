@@ -203,6 +203,7 @@ class XcodeProjectModelTests: XCTestCase {
         ("testBasicProjectCreation", testBasicProjectCreation),
         ("testTargetCreation",       testTargetCreation),
         ("testBuildPhases",          testBuildPhases),
+        ("testProductReferences",    testProductReferences),
         ("testTargetDependencies",   testTargetDependencies),
         ("testBuildSettings",        testBuildSettings),
     ]
