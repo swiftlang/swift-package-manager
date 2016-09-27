@@ -83,16 +83,11 @@ public class GitRepositoryProvider: RepositoryProvider {
                     Git.tool, "clone", sourcePath.asString, destinationPath.asString, message: nil)
             // The default name of the remote.
             let origin = "origin"
-            // Get the remote from original repo.
-            let source = GitRepository(path: sourcePath, isWorkingRepo: false)
-            guard let remote = try source.remotes().first(where: {$0.name == origin}) else {
-                fatalError("Expected \(repository) to have an origin")
-            }
             // In destination repo remove the remote which will be pointing to the source repo.
             let clone = GitRepository(path: destinationPath)
             try clone.remove(remote: origin)
             // Add the original remote to the new clone.
-            try clone.add(remote: remote.name, url: remote.url)
+            try clone.add(remote: origin, url: repository.url)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             try clone.fetch()
         } else {
