@@ -581,35 +581,6 @@ public class Workspace {
         try saveState()
     }
 
-    /// Create a `Packages` subdirectory.
-    ///
-    /// For migration purposes, creates a "Packages" subdirectory matching the
-    /// historical behavior of the package manager containing symlinks to the
-    /// checkouts for each repository and version.
-    //
-    // FIXME: Eliminate this behavior.
-    func createPackagesDirectory(_ graph: PackageGraph) throws {
-        let packagesDirPath = rootPackagePath.appending(component: "Packages")
-
-        // Remove any existing packages directory.
-        _ = try? removeFileTree(packagesDirPath)
-        try makeDirectories(packagesDirPath)
-
-        // Create links for each versioned dependency.
-        for package in graph.packages {
-            if package == graph.rootPackage {
-                continue
-            }
-
-            let manifest = package.manifest
-            let dependency = dependencyMap[RepositorySpecifier(url: manifest.url)]!
-            if let version = dependency.currentVersion {
-                let name = "\(manifest.package.name)-\(version)"
-                try createSymlink(packagesDirPath.appending(component: name), pointingAt: manifest.path.parentDirectory, relative: true)
-            }
-        }
-    }
-
     /// Loads and returns the root manifest.
     private func loadRootManifest() throws -> Manifest {
         return try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)

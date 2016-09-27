@@ -146,14 +146,8 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     func loadPackage() throws -> PackageGraph {
         if options.enableNewResolver {
             let workspace = try getActiveWorkspace()
-
             // Fetch and load the package graph.
-            let graph = try workspace.loadPackageGraph()
-
-            // Create the legacy `Packages` subdirectory.
-            try workspace.createPackagesDirectory(graph)
-
-            return graph
+            return try workspace.loadPackageGraph()
         } else {
             // Create the packages directory container.
             let packagesDirectory = PackagesDirectory(root: try getPackageRoot(), manifestLoader: manifestLoader)
