@@ -244,7 +244,7 @@ class Target(object):
         if args.xctest_path:
             import_paths.append(args.xctest_path)
         print("    import-paths: %s" % json.dumps(import_paths), file=output)
-        print("    other-args: %s" % json.dumps(' '.join(other_args)),
+        print("    other-args: %s" % json.dumps(other_args),
               file=output)
         print("    temps-path: %s" % json.dumps(target_build_dir), file=output)
         print("    is-library: %s" % json.dumps(
@@ -459,13 +459,15 @@ def create_bootstrap_files(sandbox_path, args):
                 link_input_nodes, predecessor_node)
 
 
+        # llbuild tool to use for this command.
+        tool = "shell"
+
         # Form the command line to link.
         linked_libraries = []
         if target.is_swift and target.is_library:
+            tool = "archive"
             link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
-            link_command = ['rm', '-f', pipes.quote(link_output_path), ';',
-                            'ar', 'cr', pipes.quote(link_output_path)]
-            link_command.append(' '.join(pipes.quote(o) for o in objects))
+            link_command = [] # Archive tool auto infers objects from inputs.
         elif target.is_c and target.is_library:
             # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
             link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
@@ -497,25 +499,25 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-Xlinker", "-l%s" % (lib,)])
             if platform.system() == 'Linux':
                 link_command.extend(
-                    ["-Xlinker", "-rpath=\\$ORIGIN/../lib/swift/linux"])
+                    ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
             if args.foundation_path:
                 link_command.extend(["-L", args.foundation_path])
             if args.libdispatch_build_dir:
                 link_command.extend(["-L", os.path.join(args.libdispatch_build_dir, "src", ".libs")])
 
         # Write out the link command.
-        print("  %s:" % json.dumps(target.linked_virtual_node), file=output)
-        print("    tool: shell", file=output)
         if target.is_library:
-            print("    description: Link %s" % target.name, file=output)
+            description = "Link %s" % target.name
         else:
-            print("    description: Link %s" % link_output_path, file=output)
-        print("    inputs: %s" % json.dumps(
-            link_input_nodes + objects + linked_libraries), file=output)
-        print("    outputs: %s" % json.dumps(
-            [target.linked_virtual_node, link_output_path]), file=output)
-        print("    args: %s" % ' '.join(link_command), file=output)
-        print(file=output)
+            description = "Link %s" % link_output_path
+        writeTool(
+            tool,
+            target.linked_virtual_node,
+            description,
+            link_input_nodes + objects + linked_libraries,
+            [target.linked_virtual_node, link_output_path],
+            link_command,
+            output)
 
         # Write the top-level target group command.
         print("  %s:" % json.dumps(target.virtual_node), file=output)
@@ -536,6 +538,18 @@ def create_bootstrap_files(sandbox_path, args):
             error("--build-identifier is required with --vendor-name")
         write_bootstrap_version_info(inc_dir, args.vendor_name,
                                      args.build_identifier)
+
+# Write out the tool into output buffer.
+# Supported tools: shell and archive. args is ignored for archive tool.
+def writeTool(tool, node, description, inputs, outputs, args, output):
+    print("  %s:" % json.dumps(node), file=output)
+    print("    tool: %s" % tool, file=output)
+    print("    description: %s" % description, file=output)
+    print("    inputs: %s" % json.dumps(inputs), file=output)
+    print("    outputs: %s" % json.dumps(outputs), file=output)
+    if tool == "shell":
+        print("    args: %s" % json.dumps(args), file=output)
+    print(file=output)
 
 
 def process_runtime_libraries(build_path, args, bootstrap=False):
