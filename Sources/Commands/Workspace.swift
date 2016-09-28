@@ -31,6 +31,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// The dependency is not in edit mode.
     case dependencyNotInEditMode
+
+    /// The branch already exists in repository.
+    case branchAlreadyExists
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -331,7 +334,15 @@ public class Workspace {
     }
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
-    func edit(dependency: ManagedDependency, at revision: Revision, packageName: String) throws {
+    ///
+    /// - Parameters:
+    ///     - dependency: The dependency to put in edit mode.
+    ///     - revision:   The revision at which the dependency checked out to.
+    ///     - packageName: The name of the package corresponding to the dependency. This is used for the checkout directory name.
+    ///     - checkoutBranch: If provided, a new branch with this name will be created from the revision provided.
+    ///
+    /// - throws: WorkspaceOperationError
+    func edit(dependency: ManagedDependency, at revision: Revision, packageName: String, checkoutBranch: String? = nil) throws {
         // Ensure that the dependency is not already in edit mode.
         guard !dependency.isInEditableState else {
             throw WorkspaceOperationError.dependencyAlreadyInEditMode
@@ -344,9 +355,21 @@ public class Workspace {
         // We should already have the handle if we're editing a dependency.
         assert(handle.isAvailable)
 
+        // If a branch is provided, make sure it isn't already present in the repository.
+        if let branch = checkoutBranch {
+            let repo = try handle.open()
+            guard !repo.exists(revision: Revision(identifier: branch)) else {
+                throw WorkspaceOperationError.branchAlreadyExists
+            }
+        }
+
         try handle.cloneCheckout(to: path, editable: true)
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         try workingRepo.checkout(revision: revision)
+        // Checkout to the new branch if provided.
+        if let branch = checkoutBranch {
+            try workingRepo.checkout(newBranch: branch)
+        }
 
         // Change its stated to edited.
         dependencyMap[dependency.repository] = dependency.makingEditable(subpath: path.relative(to: editablesPath))
