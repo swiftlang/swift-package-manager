@@ -48,6 +48,10 @@ private class MockRepository: Repository {
         fatalError("Unexpected API call")
     }
 
+    func exists(revision: Revision) -> Bool {
+        fatalError("Unexpected API call")
+    }
+
     func remove() throws {
         fatalError("Unexpected API call")
     }
