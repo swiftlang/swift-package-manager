@@ -607,6 +607,8 @@ public class Workspace {
                     return nil
                 }
 
+                // Select the right base path for the dependency.
+                let packagePathBase = managedDependency.isInEditableState ? editablesPath : checkoutsPath
                 // If so, load its manifest.
                 //
                 // This should *never* fail, because we should only have ever
@@ -615,7 +617,7 @@ public class Workspace {
                 // FIXME: Nevertheless, we should handle this failure explicitly.
                 //
                 // FIXME: We should have a cache for this.
-                let manifest: Manifest = try! manifestLoader.load(packagePath: checkoutsPath.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
+                let manifest: Manifest = try! manifestLoader.load(packagePath: packagePathBase.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }
