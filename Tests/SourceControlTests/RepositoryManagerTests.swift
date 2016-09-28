@@ -33,6 +33,10 @@ private class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
+    func exists(revision: Revision) -> Bool {
+        fatalError("unexpected API call")
+    }
+
     func fetch() throws {
         provider.numFetches += 1
     }

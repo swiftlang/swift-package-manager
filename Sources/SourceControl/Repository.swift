@@ -113,6 +113,9 @@ public protocol Repository {
     /// - Throws: If an error occurs while performing the fetch operation.
     func fetch() throws
 
+    /// Returns true if the given revision exists.
+    func exists(revision: Revision) -> Bool
+
     /// Open an immutable file system view for a particular revision.
     ///
     /// This view exposes the contents of the repository at the given revision
