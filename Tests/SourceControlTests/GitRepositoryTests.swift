@@ -413,6 +413,49 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testCheckoutRevision() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+            let repo = GitRepository(path: testRepoPath)
+
+            func createAndStageTestFile() throws {
+                try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
+                try repo.stage(file: "test.txt")
+            }
+
+            try repo.checkout(revision: Revision(identifier: "master"))
+            // Current branch must be master.
+            XCTAssertEqual(try repo.currentBranch(), "master")
+            // Create a new branch.
+            try repo.checkout(newBranch: "TestBranch")
+            XCTAssertEqual(try repo.currentBranch(), "TestBranch")
+            // Create some random file.
+            try createAndStageTestFile()
+            XCTAssert(repo.hasUncommitedChanges())
+            // Checkout current revision again, the test file should go away.
+            let currentRevision = try repo.getCurrentRevision()
+            try repo.checkout(revision: currentRevision)
+            XCTAssertFalse(repo.hasUncommitedChanges())
+            // We should be on detached head.
+            XCTAssertEqual(try repo.currentBranch(), "HEAD")
+
+            // Try again and checkout to a previous branch.
+            try createAndStageTestFile()
+            XCTAssert(repo.hasUncommitedChanges())
+            try repo.checkout(revision: Revision(identifier: "TestBranch"))
+            XCTAssertFalse(repo.hasUncommitedChanges())
+            XCTAssertEqual(try repo.currentBranch(), "TestBranch")
+
+            do {
+                try repo.checkout(revision: Revision(identifier: "nonExistent"))
+                XCTFail("Unexpected checkout success on non existent branch")
+            } catch {}
+        }
+    }
+
     static var allTests = [
         ("testBranchOperations", testBranchOperations),
         ("testFetch", testFetch),

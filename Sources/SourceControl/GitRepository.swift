@@ -346,7 +346,7 @@ public class GitRepository: Repository, WorkingCheckout {
     public func checkout(revision: Revision) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", revision.identifier])
+        try runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
     }
 
     /// Returns true if a revision exists.
