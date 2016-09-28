@@ -978,18 +978,18 @@ final class PackageBuilderTester {
 
     @discardableResult
     init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
+        let warningStream = BufferedOutputByteStream()
         do {
-            let warningStream = BufferedOutputByteStream()
             let loadedPackage = try loadPackage(package, path: path, in: fs, products: products, warningStream: warningStream)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
-            // FIXME: Find a better way. Maybe Package can keep array of warnings.
-            uncheckedDiagnostics = Set(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
         } catch {
             let errorStr = String(describing: error)
             result = .error(errorStr)
             uncheckedDiagnostics.insert(errorStr)
         }
+        // FIXME: Use diagnostic manager whenever we have that.
+        uncheckedDiagnostics.formUnion(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
         body(self)
         validateDiagnostics(file: file, line: line)
         validateCheckedModules(file: file, line: line)
