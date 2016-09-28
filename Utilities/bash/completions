@@ -16,7 +16,7 @@ _swift()
     fi
 
     # shared options are available in all tools
-    shared_options="-C --chdir --color -v --verbose --version -Xcc -Xlinker -Xswiftc"
+    shared_options="-C --chdir --color -v --verbose -Xcc -Xlinker -Xswiftc"
     case $prev in
         (-C|--chdir)
             _filedir
@@ -69,7 +69,7 @@ _swift_build()
 _swift_package()
 {
     if [[ $COMP_CWORD == 2 ]]; then
-        COMPREPLY=( $(compgen -W "init fetch update generate-xcodeproj show-dependencies dump-package" -- $cur) )
+        COMPREPLY=( $(compgen -W "init fetch update generate-xcodeproj show-dependencies dump-package --version" -- $cur) )
         return
     fi
     local package_options
@@ -118,7 +118,7 @@ _swift_test()
             return
             ;;
     esac
-    COMPREPLY=( $(compgen -W "-s --specifier -l --list-tests --skip-build $shared_options" -- $cur) )
+    COMPREPLY=( $(compgen -W "-s --specifier -l --list-tests --skip-build --version $shared_options" -- $cur) )
 }
 
 _swift_compiler()

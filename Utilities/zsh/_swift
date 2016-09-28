@@ -8,7 +8,6 @@ _swift() {
         '(-C --chdir)'{-C,--chdir}"[Change working directory before any other operation]: :_files"
         "--color[Specify color mode (auto|always|never)]: :{_values "mode" auto always never}"
         '(-v --verbose)'{-v,--verbose}"[Increase verbosity of informational output]"
-        "--version[Print the Swift Package Manager version]"
         "-Xcc[Pass flag through to all C compiler invocations]: : "
         "-Xlinker[Pass flag through to all linker invocations]: : "
         "-Xswiftc[Pass flag through to all Swift compiler invocations]: : "
@@ -67,6 +66,7 @@ _swift_package() {
         'generate-xcodeproj:Generates an Xcode project'
         'show-dependencies:Print the resolved dependency graph'
         'dump-package:Print parsed Package.swift as JSON'
+        '--version:Print the Swift Package Manager version'
     )
     _arguments \
         '(-): :{_describe "commands" commands}' \
@@ -115,6 +115,7 @@ _swift_test() {
         '(-s --specifier)'{-s,--specifier}'[Run a specific test method <test-module>.<test-case>/<test>]: : ' \
         '(-l --list-tests)'{-l,--list-tests}'[Lists test methods in specifier format]' \
         '--skip-build[Skip building the test target]' \
+        "--version[Print the Swift Package Manager version]" \
         $shared_options
 }
 
