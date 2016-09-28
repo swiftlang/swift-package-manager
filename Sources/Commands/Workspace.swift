@@ -23,8 +23,14 @@ public enum WorkspaceOperationError: Swift.Error {
     /// The repository has uncommited changes.
     case hasUncommitedChanges(repo: AbsolutePath)
 
+    /// The repository has unpushed changes.
+    case hasUnpushedChanges(repo: AbsolutePath)
+
     /// The dependency is already in edit mode.
     case dependencyAlreadyInEditMode
+
+    /// The dependency is not in edit mode.
+    case dependencyNotInEditMode
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -344,6 +350,43 @@ public class Workspace {
 
         // Change its stated to edited.
         dependencyMap[dependency.repository] = dependency.makingEditable(subpath: path.relative(to: editablesPath))
+        // Save the state.
+        try saveState()
+    }
+
+    /// Ends the edit mode of a dependency which is in edit mode.
+    ///
+    /// - Parameters:
+    ///     - dependency: The dependency to be unedited.
+    ///     - forceRemove: If true, the dependency will be unedited even if has
+    /// unpushed and uncommited changes. Otherwise will throw respective errors.
+    ///
+    /// - throws: WorkspaceOperationError
+    func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+        // If the dependency isn't in edit mode, we can't unedit it.
+        guard let basedOn = dependency.basedOn else {
+            throw WorkspaceOperationError.dependencyNotInEditMode
+        }
+        // Form the edit working repo path.
+        let path = editablesPath.appending(dependency.subpath)
+        // Check for uncommited and unpushed changes if force removal is off.
+        if !forceRemove {
+            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+            guard !workingRepo.hasUncommitedChanges() else {
+                throw WorkspaceOperationError.hasUncommitedChanges(repo: path)
+            }
+            guard try !workingRepo.hasUnpushedCommits() else {
+                throw WorkspaceOperationError.hasUnpushedChanges(repo: path)
+            }
+        }
+        // Remove the editable checkout from disk.
+        try removeFileTree(path)
+        // If this was the last editable dependency, remove the editables directory too.
+        if try localFileSystem.getDirectoryContents(editablesPath).isEmpty {
+            try removeFileTree(editablesPath)
+        }
+        // Restore the dependency state.
+        dependencyMap[dependency.repository] = basedOn
         // Save the state.
         try saveState()
     }

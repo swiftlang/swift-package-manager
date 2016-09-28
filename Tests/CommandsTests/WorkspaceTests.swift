@@ -415,8 +415,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(editedDependency.basedOn?.currentVersion, dependency.currentVersion)
             XCTAssertEqual(editedDependency.basedOn?.currentRevision, dependency.currentRevision)
 
+            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
             // Get the repo from edits path.
-            let editRepo = GitRepository(path: workspace.editablesPath.appending(editedDependency.subpath))
+            let editRepo = GitRepository(path: editRepoPath)
             // Ensure that the editable checkout's remote points to the original repo path.
             XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
 
@@ -431,6 +432,74 @@ final class WorkspaceTests: XCTestCase {
                 let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
                 XCTAssert(dependency.isInEditableState)
             }
+
+            // We should be able to unedit the dependency.
+            try workspace.unedit(dependency: editedDependency, forceRemove: false)
+            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+            XCTAssertFalse(exists(editRepoPath))
+            XCTAssertFalse(exists(workspace.editablesPath))
+        }
+    }
+
+    func testUneditDependency() throws {
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                ],
+                packages: [
+                    MockPackage("A", version: v1),
+                    MockPackage("A", version: nil), // To load the edited package manifest.
+                ]
+            )
+            // Create the workspace.
+            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            // Load the package graph.
+            let graph = try workspace.loadPackageGraph()
+            // Sanity checks.
+            XCTAssertEqual(graph.packages.count, 2)
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+
+            let manifests = try workspace.loadDependencyManifests()
+            guard let aManifest = manifests.lookup("A") else {
+                return XCTFail("Expected manifest for package A not found")
+            }
+            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+            }
+            let dependency = getDependency(aManifest)
+            // Put the dependency in edit mode.
+            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
+
+            let editedDependency = getDependency(aManifest)
+            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+            // Write something in repo.
+            try localFileSystem.writeFileContents(editRepoPath.appending(component: "test.txt"), bytes: "Hi")
+            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "add", "test.txt"])
+
+            // Try to unedit.
+            do {
+                try workspace.unedit(dependency: editedDependency, forceRemove: false)
+                XCTFail("Unexpected edit success")
+            } catch WorkspaceOperationError.hasUncommitedChanges(let repo) {
+                XCTAssertEqual(repo, editRepoPath)
+            }
+            // Commit and try to unedit.
+            // FIXME: Create proper utility for this.
+            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "config", "user.email", "example@example.com"])
+            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "config", "user.name", "Example Example"])
+            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "commit", "-m", "Add some files."])
+            do {
+                try workspace.unedit(dependency: editedDependency, forceRemove: false)
+                XCTFail("Unexpected edit success")
+            } catch WorkspaceOperationError.hasUnpushedChanges(let repo) {
+                XCTAssertEqual(repo, editRepoPath)
+            }
+            // Force remove.
+            try workspace.unedit(dependency: editedDependency, forceRemove: true)
+            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+            XCTAssertFalse(exists(editRepoPath))
+            XCTAssertFalse(exists(workspace.editablesPath))
         }
     }
 
@@ -441,6 +510,7 @@ final class WorkspaceTests: XCTestCase {
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
         ("testUpdate", testUpdate),
+        ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
     ]
 }
