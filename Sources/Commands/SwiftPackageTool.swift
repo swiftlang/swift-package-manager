@@ -34,6 +34,7 @@ enum PackageToolOperationError: Swift.Error {
 public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     case dumpPackage
     case edit
+    case unedit
     case fetch
     case generateXcodeproj
     case initPackage
@@ -49,6 +50,8 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
             self = .dumpPackage
         case "edit":
             self = .edit
+        case "unedit":
+            self = .unedit
         case "fetch":
             self = .fetch
         case "generate-xcodeproj":
@@ -74,6 +77,7 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
         switch self {
         case .dumpPackage: return "dump-package"
         case .edit: return "edit"
+        case .unedit: return "unedit"
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
         case .initPackage: return "initPackage"
@@ -104,6 +108,7 @@ private enum PackageToolFlag: Argument {
     case packageName(String)
     case editRevision(String)
     case editCheckoutBranch(String)
+    case editForceRemove
 
     init?(argument: String, pop: @escaping () -> String?) throws {
 
@@ -151,6 +156,8 @@ private enum PackageToolFlag: Argument {
             self = try .editRevision(forcePop())
         case "--branch", "-b":
             self = try .editCheckoutBranch(forcePop())
+        case "--force", "-f":
+            self = .editForceRemove
         default:
             return nil
         }
@@ -163,6 +170,7 @@ public class PackageToolOptions: Options {
     var packageName: String? = nil
     var editRevision: String? = nil
     var editCheckoutBranch: String? = nil
+    var editForceRemove = false
     var inputPath: AbsolutePath? = nil
     var outputPath: AbsolutePath? = nil
     var xcodeprojOptions = XcodeprojOptions()
@@ -246,6 +254,24 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             // Put the dependency in edit mode.
             try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editCheckoutBranch)
 
+        case .unedit:
+            guard options.enableNewResolver else {
+                fatalError("This mode requires --enable-new-resolver")
+            }
+            guard let packageName = options.packageName else {
+                throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
+            }
+            let workspace = try getActiveWorkspace()
+            let manifests = try workspace.loadDependencyManifests()
+            // Look for the package's manifest.
+            guard let manifest = manifests.lookup(packageName) else {
+                throw PackageToolOperationError.packageNotFound
+            }
+            guard let editedDependency = workspace.dependencyMap[RepositorySpecifier(url: manifest.url)] else {
+                fatalError("Unexpected failure, dependency for \(manifest.url) not found in workspace.")
+            }
+            try workspace.unedit(dependency: editedDependency, forceRemove: options.editForceRemove)
+
         case .showDependencies:
             let graph = try loadPackage()
             dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
@@ -321,6 +347,13 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
         stream <<< "Note: Either revision or branch name is required."
         return stream.bytes.asString!
     }
+
+    var uneditUsage: String {
+        let stream = BufferedOutputByteStream()
+        stream <<< "Expected package unedit format:\n"
+        stream <<< "swift package unedit --name <packageName> [--force]"
+        return stream.bytes.asString!
+    }
     
     override class func parse(commandLineArguments args: [String]) throws -> (PackageMode, PackageToolOptions) {
         let (mode, flags): (PackageMode?, [PackageToolFlag]) = try Basic.parseOptions(arguments: args)
@@ -362,6 +395,8 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
                 options.editRevision = rev
             case .editCheckoutBranch(let branch):
                 options.editCheckoutBranch = branch
+            case .editForceRemove:
+                options.editForceRemove = true
             }
         }
         if let mode = mode {
