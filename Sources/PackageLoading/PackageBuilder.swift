@@ -403,8 +403,14 @@ public struct PackageBuilder {
             }
         } else {
             // We have at least one directory that looks like a module, so we try to create a module for each one.
-            modules = try potentialModulePaths.map { path in
-                try createModule(path, name: path.basename, isTest: false)
+            modules = try potentialModulePaths.flatMap { path in
+                do {
+                    return try createModule(path, name: path.basename, isTest: false)
+                } catch Module.Error.noSources {
+                    warningStream <<< "warning: module `\(path.basename)` does not contain any sources.\n"
+                    warningStream.flush()
+                    return nil
+                }
             }
         }
 

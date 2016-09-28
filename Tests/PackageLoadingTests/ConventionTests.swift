@@ -845,7 +845,7 @@ class ConventionTests: XCTestCase {
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the module at /Sources/Module does not contain any source files fix: either remove the module folder, or add a source file to the module")
+            result.checkDiagnostic("warning: module `Module` does not contain any sources.")
         }
     }
 
