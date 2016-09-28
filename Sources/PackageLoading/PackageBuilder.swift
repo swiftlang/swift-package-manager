@@ -407,7 +407,7 @@ public struct PackageBuilder {
                 do {
                     return try createModule(path, name: path.basename, isTest: false)
                 } catch Module.Error.noSources {
-                    warningStream <<< "warning: module `\(path.basename)` does not contain any sources.\n"
+                    warningStream <<< "warning: module '\(path.basename)' does not contain any sources.\n"
                     warningStream.flush()
                     return nil
                 }

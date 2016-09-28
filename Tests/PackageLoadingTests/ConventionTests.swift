@@ -618,6 +618,15 @@ class ConventionTests: XCTestCase {
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("the target lib cannot have the executable exec as a dependency fix: move the shared logic inside a library, which can be referenced from both the target and the executable")
         }
+
+        // Reference a target which doesn't have sources.
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/pkg1/Foo.swift",
+            "/Sources/pkg2/readme.txt")
+        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("these referenced modules could not be found: pkg2 fix: reference only valid modules")
+        }
     }
 
     func testProducts() throws {
