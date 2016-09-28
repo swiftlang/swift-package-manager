@@ -110,22 +110,22 @@ class ModuleMapGeneration: XCTestCase {
 
     func testUnsupportedLayouts() throws {
         var fs: InMemoryFileSystem
-        func checkExpected() {
+        func checkExpected(_ str: String, file: StaticString = #file, line: UInt = #line) {
             ModuleMapTester("Foo", in: fs) { result in
                 result.checkNotCreated()
-                result.checkDiagnostics("unsupportedIncludeLayoutForModule(\"Foo\")")
+                result.checkDiagnostics(str, file: file, line: line)
             }
         }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected()
+        checkExpected("could not generate module map for module 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo/Foo.h, but more than 1 directories exist: /include/Bar, /include/Foo fix: reduce these directories to a single directory: /include/Bar, /include/Foo")
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected()
+        checkExpected("could not generate module map for module 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo.h, but the following directories exist: /include/Bar fix: remove these directories: /include/Bar")
     }
 
     static var allTests = [
