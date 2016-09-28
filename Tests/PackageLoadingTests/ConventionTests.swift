@@ -625,6 +625,7 @@ class ConventionTests: XCTestCase {
             "/Sources/pkg2/readme.txt")
         package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
             result.checkDiagnostic("these referenced modules could not be found: pkg2 fix: reference only valid modules")
         }
     }
@@ -854,7 +855,7 @@ class ConventionTests: XCTestCase {
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("warning: module `Module` does not contain any sources.")
+            result.checkDiagnostic("warning: module 'Module' does not contain any sources.")
         }
     }
 
