@@ -181,30 +181,38 @@ extension ModuleMapGenerator.ModuleMapError: FixableError {
     public var error: String {
         switch self {
         case .unsupportedIncludeLayoutForModule(let (name, problem)):
-            let additional: String
-            switch problem {
-            case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
-                additional = "an umbrella header is defined at \(umbrella.asString), but the following directories exist: \(dirs.map { $0.asString }.joined(separator: ", "))"
-            case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
-                additional = "an umbrella header is defined at \(umbrella.asString), but more than 1 directories exist: \(dirs.map { $0.asString }.joined(separator: ", "))"
-            case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
-                additional = "an umbrella header is defined at \(umbrella.asString), but the following files exist: \(files.map { $0.asString }.joined(separator: ", "))"
-            }
-            return "could not generate module map for module \(name), the file layout is not supported: \(additional)"
+            return "could not generate module map for module '\(name)', the file layout is not supported: \(problem.error)"
         }
     }
 
     public var fix: String? {
         switch self {
         case .unsupportedIncludeLayoutForModule(let (_, problem)):
-            switch problem {
-            case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (_, dirs)):
-                return "remove these directories: \(dirs.map { $0.asString }.joined(separator: ", "))"
-            case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (_, dirs)):
-                return "reduce these directories to a single directory: \(dirs.map { $0.asString }.joined(separator: ", "))"
-            case.umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (_, files)):
-                return "remove these files: \(files.map { $0.asString }.joined(separator: ", "))"
-            }
+            return problem.fix
+        }
+    }
+}
+
+extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: FixableError {
+    public var error: String {
+        switch self {
+        case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
+            return "an umbrella header is defined at \(umbrella.asString), but the following directories exist: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+        case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
+            return "an umbrella header is defined at \(umbrella.asString), but more than 1 directories exist: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+        case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
+            return "an umbrella header is defined at \(umbrella.asString), but the following files exist: \(files.map { $0.asString }.sorted().joined(separator: ", "))"
+        }
+    }
+
+    public var fix: String? {
+        switch self {
+        case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (_, dirs)):
+            return "remove these directories: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+        case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (_, dirs)):
+            return "reduce these directories to a single directory: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+        case.umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (_, files)):
+            return "remove these files: \(files.map { $0.asString }.sorted().joined(separator: ", "))"
         }
     }
 }
