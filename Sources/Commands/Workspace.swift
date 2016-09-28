@@ -337,12 +337,12 @@ public class Workspace {
     ///
     /// - Parameters:
     ///     - dependency: The dependency to put in edit mode.
-    ///     - revision:   The revision at which the dependency checked out to.
+    ///     - revision:   If provided, the revision at which the dependency should be checked out to otherwise current revision.
     ///     - packageName: The name of the package corresponding to the dependency. This is used for the checkout directory name.
     ///     - checkoutBranch: If provided, a new branch with this name will be created from the revision provided.
     ///
     /// - throws: WorkspaceOperationError
-    func edit(dependency: ManagedDependency, at revision: Revision, packageName: String, checkoutBranch: String? = nil) throws {
+    func edit(dependency: ManagedDependency, at revision: Revision?, packageName: String, checkoutBranch: String? = nil) throws {
         // Ensure that the dependency is not already in edit mode.
         guard !dependency.isInEditableState else {
             throw WorkspaceOperationError.dependencyAlreadyInEditMode
@@ -365,7 +365,7 @@ public class Workspace {
 
         try handle.cloneCheckout(to: path, editable: true)
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-        try workingRepo.checkout(revision: revision)
+        try workingRepo.checkout(revision: revision ?? dependency.currentRevision!)
         // Checkout to the new branch if provided.
         if let branch = checkoutBranch {
             try workingRepo.checkout(newBranch: branch)
