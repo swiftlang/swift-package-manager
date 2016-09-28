@@ -156,6 +156,14 @@ public protocol WorkingCheckout {
 
     /// Check out the given revision.
     func checkout(revision: Revision) throws
+
+    /// Returns true if the given revision exists.
+    func exists(revision: Revision) -> Bool
+
+    /// Create a new branch and checkout HEAD to it.
+    ///
+    /// Note: It is an error to provide a branch name which already exists.
+    func checkout(newBranch: String) throws
 }
 
 /// A single repository revision.

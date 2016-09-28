@@ -382,7 +382,41 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testBranchOperations() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            let repo = GitRepository(path: testRepoPath)
+            var currentRevision = try repo.getCurrentRevision()
+            // This is the default branch of a new repo.
+            XCTAssert(repo.exists(revision: Revision(identifier: "master")))
+            // Check a non existent revision.
+            XCTAssertFalse(repo.exists(revision: Revision(identifier: "nonExistent")))
+            // Checkout a new branch using command line.
+            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "checkout", "-b", "TestBranch1"])
+            XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch1")))
+            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+
+            func getCurrentBranch() throws -> String {
+                return try popen([Git.tool, "-C", testRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
+            }
+            // Make sure we're on the new branch right now.
+            XCTAssertEqual(try getCurrentBranch(), "TestBranch1")
+
+            // Checkout new branch using our API.
+            currentRevision = try repo.getCurrentRevision()
+            try repo.checkout(newBranch: "TestBranch2")
+            XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch2")))
+            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+            XCTAssertEqual(try getCurrentBranch(), "TestBranch2")
+        }
+    }
+
     static var allTests = [
+        ("testBranchOperations", testBranchOperations),
         ("testFetch", testFetch),
         ("testRepositorySpecifier", testRepositorySpecifier),
         ("testProvider", testProvider),
