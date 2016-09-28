@@ -625,6 +625,16 @@ class ConventionTests: XCTestCase {
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
         }
+
+        // Reference a target which doesn't have sources.
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/pkg1/Foo.swift",
+            "/Sources/pkg2/readme.txt")
+        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
+            result.checkDiagnostic("these referenced modules could not be found: pkg2 fix: reference only valid modules")
+        }
     }
 
     func testProducts() throws {
@@ -848,11 +858,16 @@ class ConventionTests: XCTestCase {
     }
 
     func testNoSourcesInModule() throws {
-        let fs = InMemoryFileSystem()
+        var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
-
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the module at /Sources/Module does not contain any source files fix: either remove the module folder, or add a source file to the module")
+            result.checkDiagnostic("warning: module 'Module' does not contain any sources.")
+        }
+
+        fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/Tests/ModuleTests"), recursive: true)
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("warning: test module 'ModuleTests' does not contain any sources.")
         }
     }
 
