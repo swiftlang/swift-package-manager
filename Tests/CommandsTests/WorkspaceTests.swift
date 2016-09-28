@@ -372,8 +372,71 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testEditDependency() throws {
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                ],
+                packages: [
+                    MockPackage("A", version: v1),
+                    MockPackage("A", version: nil), // To load the edited package manifest.
+                ]
+            )
+            // Create the workspace.
+            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            // Load the package graph.
+            let graph = try workspace.loadPackageGraph()
+            // Sanity checks.
+            XCTAssertEqual(graph.packages.count, 2)
+            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+
+            let manifests = try workspace.loadDependencyManifests()
+            guard let aManifest = manifests.lookup("A") else {
+                return XCTFail("Expected manifest for package A not found")
+            }
+
+            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+            }
+
+            // Get the dependency for package A.
+            let dependency = getDependency(aManifest)
+            // It should not be in edit mode.
+            XCTAssert(!dependency.isInEditableState)
+            // Put the dependency in edit mode at its current revision.
+            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
+
+            let editedDependency = getDependency(aManifest)
+            // It should be in edit mode.
+            XCTAssert(editedDependency.isInEditableState)
+            // Check the based on data.
+            XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
+            XCTAssertEqual(editedDependency.basedOn?.currentVersion, dependency.currentVersion)
+            XCTAssertEqual(editedDependency.basedOn?.currentRevision, dependency.currentRevision)
+
+            // Get the repo from edits path.
+            let editRepo = GitRepository(path: workspace.editablesPath.appending(editedDependency.subpath))
+            // Ensure that the editable checkout's remote points to the original repo path.
+            XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
+
+            do {
+                try workspace.edit(dependency: editedDependency, at: dependency.currentRevision!, packageName: aManifest.name)
+                XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
+            } catch WorkspaceOperationError.dependencyAlreadyInEditMode {}
+
+            do {
+                // Reopen workspace and check if we maintained the state.
+                let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+                let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
+                XCTAssert(dependency.isInEditableState)
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testEditDependency", testEditDependency),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),

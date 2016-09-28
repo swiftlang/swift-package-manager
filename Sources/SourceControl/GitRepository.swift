@@ -257,7 +257,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Gets the current list of remotes of the repository.
     ///
     /// - Returns: An array of tuple containing name and url of the remote.
-    func remotes() throws -> [(name: String, url: String)] {
+    public func remotes() throws -> [(name: String, url: String)] {
         return try queue.sync {
             // Get the remote names.
             let remoteNamesOutput = try Git.runPopen([Git.tool, "-C", path.asString, "remote"]).chomp()
