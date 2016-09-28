@@ -420,6 +420,12 @@ final class WorkspaceTests: XCTestCase {
             let editRepo = GitRepository(path: editRepoPath)
             // Ensure that the editable checkout's remote points to the original repo path.
             XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
+            // Check revision and head.
+            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.currentRevision!)
+            // FIXME: Current checkout behavior seems wrong, it just resets and doesn't leave checkout to a detached head.
+          #if false
+            XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "HEAD")
+          #endif
 
             do {
                 try workspace.edit(dependency: editedDependency, at: dependency.currentRevision!, packageName: aManifest.name)
@@ -438,6 +444,50 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
             XCTAssertFalse(exists(editRepoPath))
             XCTAssertFalse(exists(workspace.editablesPath))
+        }
+    }
+
+    func testEditDependencyOnNewBranch() throws {
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                ],
+                packages: [
+                    MockPackage("A", version: v1),
+                    MockPackage("A", version: nil), // To load the edited package manifest.
+                ]
+            )
+            // Create the workspace.
+            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            // Load the package graph.
+            let graph = try workspace.loadPackageGraph()
+            let manifests = try workspace.loadDependencyManifests()
+            guard let aManifest = manifests.lookup("A") else {
+                return XCTFail("Expected manifest for package A not found")
+            }
+            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+            }
+            // Get the dependency for package A.
+            let dependency = getDependency(aManifest)
+            // Put the dependency in edit mode at its current revision on a new branch.
+            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name, checkoutBranch: "BugFix")
+            let editedDependency = getDependency(aManifest)
+            XCTAssert(editedDependency.isInEditableState)
+
+            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+            let editRepo = GitRepository(path: editRepoPath)
+            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.currentRevision!)
+            XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "BugFix")
+            // Unedit it.
+            try workspace.unedit(dependency: editedDependency, forceRemove: false)
+            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+
+            do {
+                try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name, checkoutBranch: "master")
+                XCTFail("Unexpected edit success")
+            } catch WorkspaceOperationError.branchAlreadyExists {}
         }
     }
 
@@ -506,6 +556,7 @@ final class WorkspaceTests: XCTestCase {
     static var allTests = [
         ("testBasics", testBasics),
         ("testEditDependency", testEditDependency),
+        ("testEditDependencyOnNewBranch", testEditDependencyOnNewBranch),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
