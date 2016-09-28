@@ -125,6 +125,26 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testInitWithSources() throws {
+        mktmpdir { tmpPath in
+            var fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+
+            let src = path.appending(component: "src")
+            try fs.createDirectory(src)
+            let mainFile = src.appending(component: "main.swift")
+            try fs.writeFileContents(mainFile) { stream in
+                stream <<< "let a: Int"
+            }
+
+            _ = try execute(["-C", path.asString, "init", "--type", "empty"])
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path), [".gitignore", "Package.swift", "src", "Tests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "src")), ["main.swift"])
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
@@ -135,5 +155,6 @@ final class PackageToolTests: XCTestCase {
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
+        ("testInitWithSources", testInitWithSources),
     ]
 }
