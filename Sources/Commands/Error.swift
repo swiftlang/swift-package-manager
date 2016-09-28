@@ -85,6 +85,8 @@ public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
             errorString += "; " + errors.joined(separator: ", ")
         }
         print(error: errorString)
+    case PackageToolOperationError.insufficientOptions(let usage):
+        print(usage, to: &stderr)
     default:
         print(error: error)
     }

@@ -13,16 +13,28 @@ import Build
 import Get
 import PackageLoading
 import PackageModel
+import SourceControl
 import Utility
 import Xcodeproj
 
 import enum Build.Configuration
 import protocol Build.Toolchain
-
+import func POSIX.exit
 import func POSIX.chdir
+
+/// Errors encountered duing the package tool operations.
+enum PackageToolOperationError: Swift.Error {
+    /// The provided package name doesn't exist in package graph.
+    case packageNotFound
+
+    /// The current mode does not have all the options it requires.
+    case insufficientOptions(usage: String)
+}
 
 public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     case dumpPackage
+    case edit
+    case unedit
     case fetch
     case generateXcodeproj
     case initPackage
@@ -36,6 +48,10 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
         switch argument {
         case "dump-package":
             self = .dumpPackage
+        case "edit":
+            self = .edit
+        case "unedit":
+            self = .unedit
         case "fetch":
             self = .fetch
         case "generate-xcodeproj":
@@ -60,6 +76,8 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .dumpPackage: return "dump-package"
+        case .edit: return "edit"
+        case .unedit: return "unedit"
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
         case .initPackage: return "initPackage"
@@ -87,6 +105,10 @@ private enum PackageToolFlag: Argument {
     case enableNewResolver
     case xcconfigOverrides(AbsolutePath)
     case verbose(Int)
+    case packageName(String)
+    case editRevision(String)
+    case editCheckoutBranch(String)
+    case editForceRemove
 
     init?(argument: String, pop: @escaping () -> String?) throws {
 
@@ -128,6 +150,14 @@ private enum PackageToolFlag: Argument {
             self = .enableNewResolver
         case "--xcconfig-overrides":
             self = try .xcconfigOverrides(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
+        case "--name":
+            self = try .packageName(forcePop())
+        case "--revision":
+            self = try .editRevision(forcePop())
+        case "--branch", "-b":
+            self = try .editCheckoutBranch(forcePop())
+        case "--force", "-f":
+            self = .editForceRemove
         default:
             return nil
         }
@@ -137,6 +167,10 @@ private enum PackageToolFlag: Argument {
 public class PackageToolOptions: Options {
     var initMode: InitMode = InitMode.library
     var showDepsMode: ShowDependenciesMode = ShowDependenciesMode.text
+    var packageName: String? = nil
+    var editRevision: String? = nil
+    var editCheckoutBranch: String? = nil
+    var editForceRemove = false
     var inputPath: AbsolutePath? = nil
     var outputPath: AbsolutePath? = nil
     var xcodeprojOptions = XcodeprojOptions()
@@ -196,6 +230,47 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             }
         case .fetch:
             _ = try loadPackage()
+
+        case .edit:
+            guard options.enableNewResolver else {
+                fatalError("This mode requires --enable-new-resolver")
+            }
+            // Make sure we have all the options required for editing the package.
+            guard let packageName = options.packageName, (options.editRevision != nil || options.editCheckoutBranch != nil) else {
+                throw PackageToolOperationError.insufficientOptions(usage: editUsage)
+            }
+            // Get the current workspace.
+            let workspace = try getActiveWorkspace()
+            let manifests = try workspace.loadDependencyManifests()
+            // Look for the package's manifest.
+            guard let manifest = manifests.lookup(packageName) else {
+                throw PackageToolOperationError.packageNotFound
+            }
+            guard let dependency = workspace.dependencyMap[RepositorySpecifier(url: manifest.url)] else {
+                fatalError("Unexpected failure, dependency for \(manifest.url) not found in workspace.")
+            }
+            // Create revision object if provided by user.
+            let revision = options.editRevision.flatMap { Revision(identifier: $0) }
+            // Put the dependency in edit mode.
+            try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editCheckoutBranch)
+
+        case .unedit:
+            guard options.enableNewResolver else {
+                fatalError("This mode requires --enable-new-resolver")
+            }
+            guard let packageName = options.packageName else {
+                throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
+            }
+            let workspace = try getActiveWorkspace()
+            let manifests = try workspace.loadDependencyManifests()
+            // Look for the package's manifest.
+            guard let manifest = manifests.lookup(packageName) else {
+                throw PackageToolOperationError.packageNotFound
+            }
+            guard let editedDependency = workspace.dependencyMap[RepositorySpecifier(url: manifest.url)] else {
+                fatalError("Unexpected failure, dependency for \(manifest.url) not found in workspace.")
+            }
+            try workspace.unedit(dependency: editedDependency, forceRemove: options.editForceRemove)
 
         case .showDependencies:
             let graph = try loadPackage()
@@ -264,6 +339,21 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
         print("")
         print("NOTE: Use `swift build` to build packages, and `swift test` to test packages")
     }
+
+    var editUsage: String {
+        let stream = BufferedOutputByteStream()
+        stream <<< "Expected package edit format:\n"
+        stream <<< "swift package edit --name <packageName> (--revision <revision> | --branch <newBranch>)\n"
+        stream <<< "Note: Either revision or branch name is required."
+        return stream.bytes.asString!
+    }
+
+    var uneditUsage: String {
+        let stream = BufferedOutputByteStream()
+        stream <<< "Expected package unedit format:\n"
+        stream <<< "swift package unedit --name <packageName> [--force]"
+        return stream.bytes.asString!
+    }
     
     override class func parse(commandLineArguments args: [String]) throws -> (PackageMode, PackageToolOptions) {
         let (mode, flags): (PackageMode?, [PackageToolFlag]) = try Basic.parseOptions(arguments: args)
@@ -299,6 +389,14 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
                 options.colorMode = mode
             case .xcconfigOverrides(let path):
                 options.xcodeprojOptions.xcconfigOverrides = path
+            case .packageName(let name):
+                options.packageName = name
+            case .editRevision(let rev):
+                options.editRevision = rev
+            case .editCheckoutBranch(let branch):
+                options.editCheckoutBranch = branch
+            case .editForceRemove:
+                options.editForceRemove = true
             }
         }
         if let mode = mode {
