@@ -471,27 +471,28 @@ def create_bootstrap_files(sandbox_path, args):
         elif target.is_c and target.is_library:
             # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
             link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
-            link_command = ['clang', ' '.join(pipes.quote(o) for o in objects), '-shared',
-                            '-o', pipes.quote(link_output_path)]
+            link_command = ['clang']
+            link_command.extend(objects)
+            link_command.extend(['-shared', '-o', link_output_path])
         elif target.is_c and not target.is_library:
             error("Executable C target not supported by bootstrap yet")
         elif target.is_swift and not target.is_library:
             link_output_path = os.path.join(bin_dir, target.name)
 
             link_command = [args.swiftc_path,
-                            '-o', pipes.quote(link_output_path)]
+                            '-o', link_output_path]
             if args.sysroot:
                 link_command.extend(["-sdk", args.sysroot])
             if platform.system() == 'Darwin':
                 link_command.extend(["-target", "x86_64-apple-macosx10.10"])
-            link_command.append(' '.join(pipes.quote(o) for o in objects))
+            link_command.extend(objects)
             for dependency in target.dependencies:
                 dep_target = target_map[dependency]
                 if dep_target.is_swift:
                     dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
                 else:
                     dependency_lib_path = os.path.join(lib_dir, dependency + g_shared_lib_ext)
-                link_command.append(pipes.quote(dependency_lib_path))
+                link_command.append(dependency_lib_path)
                 linked_libraries.append(dependency_lib_path)
             if platform.system() == 'Darwin':
                 link_command.extend(["-Xlinker", "-all_load"])
