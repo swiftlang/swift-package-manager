@@ -14,6 +14,8 @@ import TestSupport
 import Basic
 import Commands
 import SourceControl
+import func POSIX.popen
+import class Utility.Git
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
@@ -125,6 +127,60 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testPackageEditAndUnedit() {
+        fixture(name: "Miscellaneous/PackageEdit") { prefix in
+            let fooPath = prefix.appending(component: "foo")
+            func build() throws {
+                _ = try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            }
+            // Build the package.
+            try build()
+
+            let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
+            // Sanity check.
+            XCTAssertEqual(try popen(exec), "5\n")
+
+            // Put bar in edit mode.
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "--name", "bar", "--branch", "bugfix", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
+
+            // We should see it now in packages directory.
+            let editsPath = fooPath.appending(components: "Packages", "bar")
+            XCTAssert(isDirectory(editsPath))
+
+            // Do a modification in bar and build.
+            try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 8\n")
+            try build()
+            // We should be able to see that modification now.
+            XCTAssertEqual(try popen(exec), "8\n")
+            // The branch of edited package should be the one we provided when putting it in edit mode.
+            XCTAssertEqual(try popen([Git.tool, "-C", editsPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "bugfix")
+
+            // It shouldn't be possible to unedit right now because of uncommited changes.
+            do {
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath)
+                XCTFail("Unexpected unedit success")
+            } catch {}
+
+            try systemQuietly([Git.tool, "-C", editsPath.asString, "config", "user.email", "example@example.com"])
+            try systemQuietly([Git.tool, "-C", editsPath.asString, "config", "user.name", "Example Example"])
+            try systemQuietly([Git.tool, "-C", editsPath.asString, "add", "."])
+            try systemQuietly([Git.tool, "-C", editsPath.asString, "commit", "-m", "Add some files."])
+
+            // It shouldn't be possible to unedit right now because of unpushed changes.
+            do {
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath)
+                XCTFail("Unexpected unedit success")
+            } catch {}
+
+            // Push the changes.
+            try systemQuietly([Git.tool, "-C", editsPath.asString, "push", "origin", "bugfix"])
+
+            // We should be able to unedit now.
+            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
+        }
+    }
+
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
@@ -135,5 +191,6 @@ final class PackageToolTests: XCTestCase {
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
+        ("testPackageEditAndUnedit", testPackageEditAndUnedit),
     ]
 }
