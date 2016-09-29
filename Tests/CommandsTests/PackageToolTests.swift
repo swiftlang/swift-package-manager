@@ -179,6 +179,39 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testPackageReset() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+
+            // Build it.
+            XCTAssertBuilds(packageRoot)
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+            // FIXME: Eliminate this.
+            if !SwiftPMProduct.enableNewResolver {
+                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
+            }
+
+            // Clean, and check for removal of the build directory but not Packages.
+
+            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
+            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
+            // We don't delete the build folder in new resolver.
+            // FIXME: Eliminate this once we switch to new resolver.
+            if !SwiftPMProduct.enableNewResolver {
+                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
+            }
+
+            // Fully clean, and check for removal of both.
+            _ = try execute(["reset"], chdir: packageRoot)
+            XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+            // FIXME: Eliminate this.
+            if !SwiftPMProduct.enableNewResolver {
+                XCTAssert(!isDirectory(packageRoot.appending(component: "Packages")))
+            }
+        }
+    }
 
     static var allTests = [
         ("testUsage", testUsage),
@@ -191,5 +224,6 @@ final class PackageToolTests: XCTestCase {
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
         ("testPackageEditAndUnedit", testPackageEditAndUnedit),
+        ("testPackageReset", testPackageReset),
     ]
 }

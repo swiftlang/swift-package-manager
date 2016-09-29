@@ -79,7 +79,8 @@ final class BuildToolTests: XCTestCase {
             }
 
             // Fully clean, and check for removal of both.
-            _ = try execute(["--clean=dist"], chdir: packageRoot)
+            let output = try execute(["--clean=dist"], chdir: packageRoot)
+            XCTAssert(output.contains("deprecated"))
             XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
             // FIXME: Eliminate this.
             if !SwiftPMProduct.enableNewResolver {
