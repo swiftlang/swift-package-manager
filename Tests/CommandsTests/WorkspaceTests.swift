@@ -73,8 +73,9 @@ final class WorkspaceTests: XCTestCase {
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            let testRepo = GitRepository(path: testRepoPath)
+            try testRepo.stage(file: "test.txt")
+            try testRepo.commit()
             try tagGitRepo(testRepoPath, tag: "test-tag")
             let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
             
@@ -309,10 +310,12 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
 
             let repoPath = AbsolutePath(manifestGraph.repo("A").url)
+
             let file = repoPath.appending(component: "update.swift")
             try systemQuietly(["touch", file.asString])
-            try systemQuietly([Git.tool, "-C", repoPath.asString, "add", "."])
-            try systemQuietly([Git.tool, "-C", repoPath.asString, "commit", "-m", "update"])
+            let testRepo = GitRepository(path: repoPath)
+            try testRepo.stageEverything()
+            try testRepo.commit(message: "update")
             try tagGitRepo(repoPath, tag: "1.0.1")
 
             try workspace.updateDependencies()
@@ -479,7 +482,7 @@ final class WorkspaceTests: XCTestCase {
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
             let editRepo = GitRepository(path: editRepoPath)
             XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.currentRevision!)
-            XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "BugFix")
+            XCTAssertEqual(try editRepo.currentBranch(), "BugFix")
             // Unedit it.
             try workspace.unedit(dependency: editedDependency, forceRemove: false)
             XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
@@ -525,8 +528,8 @@ final class WorkspaceTests: XCTestCase {
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
             // Write something in repo.
             try localFileSystem.writeFileContents(editRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "add", "test.txt"])
-
+            let editRepo = GitRepository(path: editRepoPath)
+            try editRepo.stage(file: "test.txt")
             // Try to unedit.
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
@@ -535,10 +538,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(repo, editRepoPath)
             }
             // Commit and try to unedit.
-            // FIXME: Create proper utility for this.
-            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "config", "user.email", "example@example.com"])
-            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "config", "user.name", "Example Example"])
-            try systemQuietly([Git.tool, "-C", editRepoPath.asString, "commit", "-m", "Add some files."])
+            try editRepo.commit()
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
                 XCTFail("Unexpected edit success")

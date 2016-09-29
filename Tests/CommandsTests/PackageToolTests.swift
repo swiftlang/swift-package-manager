@@ -153,7 +153,8 @@ final class PackageToolTests: XCTestCase {
             // We should be able to see that modification now.
             XCTAssertEqual(try popen(exec), "8\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
-            XCTAssertEqual(try popen([Git.tool, "-C", editsPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "bugfix")
+            let editsRepo = GitRepository(path: editsPath)
+            XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
 
             // It shouldn't be possible to unedit right now because of uncommited changes.
             do {
@@ -161,10 +162,8 @@ final class PackageToolTests: XCTestCase {
                 XCTFail("Unexpected unedit success")
             } catch {}
 
-            try systemQuietly([Git.tool, "-C", editsPath.asString, "config", "user.email", "example@example.com"])
-            try systemQuietly([Git.tool, "-C", editsPath.asString, "config", "user.name", "Example Example"])
-            try systemQuietly([Git.tool, "-C", editsPath.asString, "add", "."])
-            try systemQuietly([Git.tool, "-C", editsPath.asString, "commit", "-m", "Add some files."])
+            try editsRepo.stageEverything()
+            try editsRepo.commit()
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
@@ -173,7 +172,7 @@ final class PackageToolTests: XCTestCase {
             } catch {}
 
             // Push the changes.
-            try systemQuietly([Git.tool, "-C", editsPath.asString, "push", "origin", "bugfix"])
+            try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
             _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
