@@ -124,6 +124,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
         case .clean(.dist):
+            print("warning: This is deprecated and will be removed in Swift 4. Use 'swift package reset' instead.")
             if options.enableNewResolver {
                 try getActiveWorkspace().reset()
             } else {

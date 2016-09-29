@@ -39,6 +39,7 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
     case generateXcodeproj
     case initPackage
     case showDependencies
+    case reset
     case resolve
     case update
     case usage
@@ -58,6 +59,8 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
             self = .generateXcodeproj
         case "init":
             self = .initPackage
+        case "reset":
+            self = .reset
         case "resolve":
             self = .resolve
         case "show-dependencies":
@@ -81,6 +84,7 @@ public enum PackageMode: Argument, Equatable, CustomStringConvertible {
         case .fetch: return "fetch"
         case .generateXcodeproj: return "generate-xcodeproj"
         case .initPackage: return "initPackage"
+        case .reset: return "reset"
         case .resolve: return "resolve"
         case .showDependencies: return "show-dependencies"
         case .update: return "update"
@@ -190,6 +194,20 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
         case .initPackage:
             let initPackage = try InitPackage(mode: options.initMode)
             try initPackage.writePackageStructure()
+
+        case .reset:
+            if options.enableNewResolver {
+                try getActiveWorkspace().reset()
+            } else {
+                // Remove the checkouts directory.
+                if try exists(getCheckoutsDirectory()) {
+                    try removeFileTree(getCheckoutsDirectory())
+                }
+                // Remove the build directory.
+                if exists(buildPath) {
+                    try removeFileTree(buildPath)
+                }
+            }
 
         case .resolve:
             // NOTE: This command is currently undocumented, and is for
