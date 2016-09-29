@@ -138,8 +138,9 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-1.txt"), bytes: test1FileContents)
             try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
             try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test-file-1.txt", "subdir/test-file-2.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            let testRepo = GitRepository(path: testRepoPath)
+            try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt")
+            try testRepo.commit()
             try tagGitRepo(testRepoPath, tag: "test-tag")
 
             // Get the the repository via the provider. the provider.
@@ -206,8 +207,9 @@ class GitRepositoryTests: XCTestCase {
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            let testRepo = GitRepository(path: testRepoPath)
+            try testRepo.stage(file: "test.txt")
+            try testRepo.commit()
             try tagGitRepo(testRepoPath, tag: "test-tag")
             let currentRevision = Git.Repo(path: testRepoPath)!.sha
 
@@ -266,8 +268,9 @@ class GitRepositoryTests: XCTestCase {
 
             // Add a new file to original repo.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
+            let testRepo = GitRepository(path: testRepoPath)
+            try testRepo.stage(file: "test.txt")
+            try testRepo.commit()
             try tagGitRepo(testRepoPath, tag: "2.0.0")
 
             // Update the cloned repo.
@@ -305,16 +308,14 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
             // Add a new file to checkout.
             try localFileSystem.writeFileContents(checkoutPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "add", "test.txt"])
-            // FIXME: Create proper utility for this.
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "config", "user.email", "example@example.com"])
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "config", "user.name", "Example Example"])
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "commit", "-m", "Add some files."])
+            let checkoutTestRepo = GitRepository(path: checkoutPath)
+            try checkoutTestRepo.stage(file: "test.txt")
+            try checkoutTestRepo.commit()
 
             // We should have commits which are not pushed.
             XCTAssert(try checkoutRepo.hasUnpushedCommits())
             // Push the changes and check again.
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "push", "origin", "master"])
+            try checkoutTestRepo.push(remote: "origin", branch: "master")
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
         }
     }
@@ -370,10 +371,10 @@ class GitRepositoryTests: XCTestCase {
 
             // Create a file (which we will modify later).
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "add", "test.txt"])
-            try systemQuietly([Git.tool, "-C", testRepoPath.asString, "commit", "-m", "Add some files."])
-
             let repo = GitRepository(path: testRepoPath)
+            try repo.stage(file: "test.txt")
+            try repo.commit()
+
             XCTAssertFalse(repo.hasUncommitedChanges())
 
             // Modify the file in the repo.
@@ -400,18 +401,15 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch1")))
             XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
 
-            func getCurrentBranch() throws -> String {
-                return try popen([Git.tool, "-C", testRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
-            }
             // Make sure we're on the new branch right now.
-            XCTAssertEqual(try getCurrentBranch(), "TestBranch1")
+            XCTAssertEqual(try repo.currentBranch(), "TestBranch1")
 
             // Checkout new branch using our API.
             currentRevision = try repo.getCurrentRevision()
             try repo.checkout(newBranch: "TestBranch2")
             XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch2")))
             XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
-            XCTAssertEqual(try getCurrentBranch(), "TestBranch2")
+            XCTAssertEqual(try repo.currentBranch(), "TestBranch2")
         }
     }
 
