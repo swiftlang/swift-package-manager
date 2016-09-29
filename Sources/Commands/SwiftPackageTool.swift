@@ -243,11 +243,8 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             let workspace = try getActiveWorkspace()
             let manifests = try workspace.loadDependencyManifests()
             // Look for the package's manifest.
-            guard let manifest = manifests.lookup(packageName) else {
+            guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
-            }
-            guard let dependency = workspace.dependencyMap[RepositorySpecifier(url: manifest.url)] else {
-                fatalError("Unexpected failure, dependency for \(manifest.url) not found in workspace.")
             }
             // Create revision object if provided by user.
             let revision = options.editRevision.flatMap { Revision(identifier: $0) }
@@ -264,11 +261,8 @@ public class SwiftPackageTool: SwiftTool<PackageMode, PackageToolOptions> {
             let workspace = try getActiveWorkspace()
             let manifests = try workspace.loadDependencyManifests()
             // Look for the package's manifest.
-            guard let manifest = manifests.lookup(packageName) else {
+            guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
                 throw PackageToolOperationError.packageNotFound
-            }
-            guard let editedDependency = workspace.dependencyMap[RepositorySpecifier(url: manifest.url)] else {
-                fatalError("Unexpected failure, dependency for \(manifest.url) not found in workspace.")
             }
             try workspace.unedit(dependency: editedDependency, forceRemove: options.editForceRemove)
 
