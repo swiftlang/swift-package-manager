@@ -403,9 +403,11 @@ public class Workspace {
             }
         }
         // Remove the editable checkout from disk.
-        try removeFileTree(path)
+        if localFileSystem.exists(path) {
+            try removeFileTree(path)
+        }
         // If this was the last editable dependency, remove the editables directory too.
-        if try localFileSystem.getDirectoryContents(editablesPath).isEmpty {
+        if localFileSystem.exists(editablesPath), try localFileSystem.getDirectoryContents(editablesPath).isEmpty {
             try removeFileTree(editablesPath)
         }
         // Restore the dependency state.
@@ -599,6 +601,9 @@ public class Workspace {
         // Load the root manifest.
         let rootManifest = try loadRootManifest()
 
+        // Validate that edited dependencies are still present.
+        try validateEditedPackages()
+
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
             return node.item.package.dependencies.flatMap{ dependency in
@@ -624,6 +629,21 @@ public class Workspace {
         }
 
         return DependencyManifests(root: rootManifest, dependencies: dependencies.map{ $0.item })
+    }
+
+    /// Validates that all the edited dependencies are still present in the file system.
+    /// If some edited dependency is removed from the file system, mark it as unedited and
+    /// fallback on the original checkout.
+    private func validateEditedPackages() throws {
+        for dependency in dependencies where dependency.isInEditableState {
+            // If some edited dependency has been removed, mark it as unedited.
+            let dependencyPath = editablesPath.appending(dependency.subpath)
+            if !localFileSystem.exists(dependencyPath) {
+                try unedit(dependency: dependency, forceRemove: true)
+                // FIXME: Use diagnosics engine when we have that.
+                print("warning: \(dependencyPath.asString) was being edited but has been removed, falling back to original checkout.")
+            }
+        }
     }
 
     /// Fetch and load the complete package at the given path.

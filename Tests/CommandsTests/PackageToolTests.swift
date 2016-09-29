@@ -130,26 +130,34 @@ final class PackageToolTests: XCTestCase {
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
-            func build() throws {
-                _ = try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            func build() throws -> String {
+                return try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
             }
             // Build the package.
-            try build()
+            _ = try build()
 
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
             // Sanity check.
             XCTAssertEqual(try popen(exec), "5\n")
 
-            // Put bar in edit mode.
+            // Put bar and baz in edit mode.
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "--name", "bar", "--branch", "bugfix", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "--name", "baz", "--branch", "bugfix", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
             XCTAssert(isDirectory(editsPath))
 
+            let bazEditsPath = fooPath.appending(components: "Packages", "baz")
+            XCTAssert(isDirectory(bazEditsPath))
+            // Removing baz externally should just emit an warning and not a build failure.
+            try removeFileTree(bazEditsPath)
+
             // Do a modification in bar and build.
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 8\n")
-            try build()
+            let buildOutput = try build()
+
+            XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
             // We should be able to see that modification now.
             XCTAssertEqual(try popen(exec), "8\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
