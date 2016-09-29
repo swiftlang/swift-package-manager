@@ -1,0 +1,163 @@
+#compdef swift
+local context state state_descr line
+typeset -A opt_args
+
+_swift() {
+    declare -a shared_options
+    shared_options=(
+        '(-C --chdir)'{-C,--chdir}"[Change working directory before any other operation]: :_files"
+        "--color[Specify color mode (auto|always|never)]: :{_values "mode" auto always never}"
+        '(-v --verbose)'{-v,--verbose}"[Increase verbosity of informational output]"
+        "-Xcc[Pass flag through to all C compiler invocations]: : "
+        "-Xlinker[Pass flag through to all linker invocations]: : "
+        "-Xswiftc[Pass flag through to all Swift compiler invocations]: : "
+    )
+
+    _arguments -C \
+        '(- :)--help[prints the synopsis and a list of the most commonly used commands]: :->arg' \
+        '(-): :->command' \
+        '(-)*:: :->arg' && return
+
+    case $state in
+        (command)
+            local tools
+            tools=(
+                'build:build the package'
+                'package:package management'
+                'test:run tests'
+            )
+            _alternative \
+                'tools:common:{_describe "tool" tools }' \
+                'compiler: :_swift_compiler' && _ret=0
+            ;;
+        (arg)
+            case ${words[1]} in
+                (build)
+                    _swift_build
+                    ;;
+                (package)
+                    _swift_package
+                    ;;
+                (test)
+                    _swift_test
+                    ;;
+                (*)
+                    _swift_compiler
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_swift_build() {
+    _arguments \
+        '(-c --configuration)'{-c,--configuration}'[Build with configuration]:MODES:(debug release)' \
+        '--clean[Delete artifacts (build|dist) (default: build)]:MODES:(build dist)' \
+        $shared_options \
+        '--build-path[Specify build directory]: :_files'
+}
+
+_swift_package() {
+    local -a commands
+    commands=(
+        'init:Initialize a new package'
+        'fetch:Fetch package dependencies'
+        'update:Update package dependencies'
+        'generate-xcodeproj:Generates an Xcode project'
+        'show-dependencies:Print the resolved dependency graph'
+        'dump-package:Print parsed Package.swift as JSON'
+        '--version:Print the Swift Package Manager version'
+    )
+    _arguments \
+        '(-): :{_describe "commands" commands}' \
+        '(-)*:: :->arg'
+
+    case $state in
+        (arg)
+            declare -a package_options
+            package_options=(
+                $shared_options
+                "--enable-code-coverage[Enable code coverage in generated Xcode projects]"
+            )
+
+            case ${words[1]} in
+                (init)
+                    _arguments \
+                        '--type[Type of package to initialize]: :{_values "package types" empty library executable system-module}' \
+                        $package_options
+                    ;;
+                (generate-xcodeproj)
+                    _arguments \
+                        '--output:[Xcode project filename]:_files' \
+                        $package_options
+                    ;;
+                (show-dependencies)
+                    _arguments \
+                        '--format[Dependency graph output format]:FORMATS:{_values "formats" text dot json}' \
+                        $package_options
+                    ;;
+                (dump-package)
+                    _arguments \
+                        '--input:[Package filename to parse]:_files' \
+                        $package_options
+                    ;;
+                (*)
+                    _arguments $package_options
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_swift_test() {
+    _arguments \
+        '(-s --specifier)'{-s,--specifier}'[Run a test case subclass <test-module>.<test-case>]: : ' \
+        '(-s --specifier)'{-s,--specifier}'[Run a specific test method <test-module>.<test-case>/<test>]: : ' \
+        '(-l --list-tests)'{-l,--list-tests}'[Lists test methods in specifier format]' \
+        '--skip-build[Skip building the test target]' \
+        "--version[Print the Swift Package Manager version]" \
+        $shared_options
+}
+
+_swift_compiler() {
+    declare -a build_options
+    build_options=(
+        '-assert-config[Specify the assert_configuration replacement.]: :{_values "" Debug Release Unchecked DisableReplacement}'
+        '-D[Marks a conditional compilation flag as true]: : '
+        '-framework[Specifies a framework which should be linked against]: : '
+        '-F[Add directory to framework search path]: :_files'
+        '-gdwarf-types[Emit full DWARF type info.]'
+        '-gline-tables-only[Emit minimal debug info for backtraces only]'
+        "-gnone[Don't emit debug info]"
+        '-g[Emit debug info. This is the preferred setting for debugging with LLDB.]'
+        '-help[Display available options]'
+        '-index-store-path[Store indexing data to <path>]: :_files'
+        '-I[Add directory to the import search path]: :_files'
+        '-j[Number of commands to execute in parallel]: : '
+        '-L[Add directory to library link search path]: :_files'
+        '-l-[Specifies a library which should be linked against]: : '
+        '-module-cache-path[Specifies the Clang module cache path]: :_files'
+        '-module-link-name[Library to link against when using this module]: : '
+        '-module-name[Name of the module to build]: : '
+        "-nostdimport[Don't search the standard library import path for modules]"
+        '-num-threads[Enable multi-threading and specify number of threads]: : '
+        '-Onone[Compile without any optimization]'
+        '-Ounchecked[Compile with optimizations and remove runtime safety checks]'
+        '-O[Compile with optimizations]'
+        '-sdk[Compile against <sdk>]: : '
+        '-static-stdlib[Statically link the Swift standard library]'
+        '-suppress-warnings[Suppress all warnings]'
+        '-target-cpu[Generate code for a particular CPU variant]: : '
+        '-target[Generate code for the given target]: : '
+        '-use-ld=-[Specifies the linker to be used]'
+        '-version[Print version information and exit]'
+        '-v[Show commands to run and use verbose output]'
+        '-warnings-as-errors[Treat warnings as errors]'
+        '-Xcc[Pass <arg> to the C/C++/Objective-C compiler]: : '
+        '-Xlinker[Specifies an option which should be passed to the linker]: : '
+        '*:inputs:_files'
+    )
+    _arguments $build_options
+}
+
+_swift

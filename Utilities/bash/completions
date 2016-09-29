@@ -1,0 +1,148 @@
+#!/bin/bash
+
+_swift() 
+{
+    declare -a cur prev shared_options
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    COMPREPLY=()
+
+    # completions for tools, and compiler flags (non-tool)
+    if [[ $COMP_CWORD == 1 ]]; then
+        COMPREPLY=( $(compgen -W "build package test" -- $cur) )
+        _swift_compiler
+        return
+    fi
+
+    # shared options are available in all tools
+    shared_options="-C --chdir --color -v --verbose -Xcc -Xlinker -Xswiftc"
+    case $prev in
+        (-C|--chdir)
+            _filedir
+            return
+            ;;
+        (--color)
+            COMPREPLY=( $(compgen -W "auto always never" -- $cur) )
+            return
+            ;;
+        (-Xcc|-Xlinker|-Xswiftc)
+            return
+            ;;
+    esac
+
+    # specify for each tool
+    case ${COMP_WORDS[1]} in
+        (build)
+            _swift_build
+            ;;
+        (package)
+            _swift_package
+            ;;
+        (test)
+            _swift_test
+            ;;
+        (*)
+            _swift_compiler
+            ;;
+    esac
+}
+
+_swift_build()
+{
+    case $prev in
+        (-c|--configuration)
+            COMPREPLY=( $(compgen -W "debug release" -- $cur) )
+            return
+            ;;
+        (--clean)
+            COMPREPLY=( $(compgen -W "build dist" -- $cur) )
+            ;;
+        (--build-path)
+            _filedir
+            return
+            ;;
+    esac
+    COMPREPLY+=( $(compgen -W "-c --configuration --clean --build-path $shared_options" -- $cur) )
+}
+
+_swift_package()
+{
+    if [[ $COMP_CWORD == 2 ]]; then
+        COMPREPLY=( $(compgen -W "init fetch update generate-xcodeproj show-dependencies dump-package --version" -- $cur) )
+        return
+    fi
+    local package_options
+    package_options="--enable-code-coverage $shared_options"
+    case $prev in
+        (--type)
+            COMPREPLY=( $(compgen -W "empty library executable system-module" -- $cur) )
+            return
+            ;;
+        (--output)
+            _filedir
+            return
+            ;;
+        (--format)
+            COMPREPLY=( $(compgen -W "text json dot" -- $cur) )
+            return
+            ;;
+        (--input)
+            _filedir
+            return
+            ;;
+    esac
+    case ${COMP_WORDS[2]} in
+        (init)
+            COMPREPLY=( $(compgen -W "--type $package_options" -- $cur) )
+            ;;
+        (generate-xcodeproj)
+            COMPREPLY=( $(compgen -W "--output $package_options" -- $cur) )
+            ;;
+        (show-dependencies)
+            COMPREPLY=( $(compgen -W "--format $package_options" -- $cur) )
+            ;;
+        (dump-package)
+            COMPREPLY=( $(compgen -W "--input $package_options" -- $cur) )
+            ;;
+        (*)
+            COMPREPLY=( $(compgen -W "$package_options" -- $cur) )
+            ;;
+    esac
+}
+
+_swift_test()
+{
+    case $prev in
+        (-s|--specifier)
+            return
+            ;;
+    esac
+    COMPREPLY=( $(compgen -W "-s --specifier -l --list-tests --skip-build --version $shared_options" -- $cur) )
+}
+
+_swift_compiler()
+{
+    case $prev in
+        (-assert-config)
+            COMPREPLY=( $(compgen -W "Debug Release Unchecked DisableReplacement" -- $cur) )
+            return
+            ;;
+        (-D|-framework|-j|-l|-module-link-name|-module-name|-num-threads|-sdk|-target-cpu|-target|-use-ld)
+            return
+            ;;
+        (-F|-index-store-path|-I|-L|-module-cache-path)
+            _filedir
+            ;;
+    esac
+    local args
+    args="-assert-config -D -framework -F -gdwarf-types -gline-tables-only \
+         -gnone -g -help -index-store-path -I -j -L -l -module-cache-path \
+         -module-link-name -module-name -nostdimport -num-threads -Onone \
+         -Ounchecked -O -sdk -static-stdlib -suppress-warnings -target-cpu \
+         -target -use-ld -version -v -warnings-as-errors -Xcc -Xlinker"
+    COMPREPLY+=( $(compgen -W "$args" -- $cur))
+    _filedir
+}
+
+complete -F _swift swift
