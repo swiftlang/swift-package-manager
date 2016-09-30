@@ -38,7 +38,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     for module in graph.modules {
         switch module {
         case let module as SwiftModule:
-            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: swiftcArgs + toolchain.swiftPlatformArgs, compilerExec: toolchain.swiftCompiler)
+            let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: toolchain.swiftPlatformArgs + swiftcArgs, compilerExec: toolchain.swiftCompiler)
             commands.append(compile)
             targets.append([compile], for: module)
 
@@ -48,7 +48,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
             if module.isTest { continue }
           #endif
             // FIXME: Find a way to eliminate `externalModules` from here.
-            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, otherArgs: flags.cCompilerFlags + toolchain.clangPlatformArgs, compilerExec: toolchain.clangCompiler)
+            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, otherArgs: toolchain.clangPlatformArgs + flags.cCompilerFlags, compilerExec: toolchain.clangCompiler)
             commands += compile
             targets.append(compile, for: module)
 
@@ -62,7 +62,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
 
     for product in graph.products {
         var rpathArgs = [String]()
-        
+
         // On Linux, always embed an RPATH adjacent to the linked binary. Note
         // that the '$ORIGIN' here is literal, it is a reference which is
         // understood by the dynamic linker.
@@ -73,7 +73,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         if product.containsOnlyClangModules {
             command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, linkerExec: toolchain.clangCompiler)
         } else {
-            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + swiftcArgs + toolchain.swiftPlatformArgs + rpathArgs, linkerExec: toolchain.swiftCompiler)
+            command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + toolchain.swiftPlatformArgs + swiftcArgs + rpathArgs, linkerExec: toolchain.swiftCompiler)
         }
 
         commands.append(command)
