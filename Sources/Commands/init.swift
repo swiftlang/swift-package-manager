@@ -180,7 +180,7 @@ final class InitPackage {
             stream <<< "import XCTest\n"
             stream <<< "@testable import \(moduleName)Tests\n\n"
             stream <<< "XCTMain([\n"
-            stream <<< "     testCase(\(typeName)Tests.allTests),\n"
+            stream <<< "    testCase(\(typeName)Tests.allTests),\n"
             stream <<< "])\n"
         }
     }
