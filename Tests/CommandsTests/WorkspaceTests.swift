@@ -160,13 +160,13 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(manifests.root.package, graph.rootManifest.package)
             // B should be missing.
             XCTAssertEqual(manifests.missingURLs(), ["//B"])
-            XCTAssertEqual(manifests.dependencies.map{$0.name}.sorted(), ["A", "AA"])
+            XCTAssertEqual(manifests.dependencies.map{$0.manifest.name}.sorted(), ["A", "AA"])
             let aManifest = graph.manifest("A", version: v1)
-            XCTAssertEqual(manifests.lookup("A")?.package, aManifest.package)
-            XCTAssertEqual(manifests.lookup("A")?.version, aManifest.version)
+            XCTAssertEqual(manifests.lookup(manifest: "A")?.package, aManifest.package)
+            XCTAssertEqual(manifests.lookup(manifest: "A")?.version, aManifest.version)
             let aaManifest = graph.manifest("AA", version: v1)
-            XCTAssertEqual(manifests.lookup("AA")?.package, aaManifest.package)
-            XCTAssertEqual(manifests.lookup("AA")?.version, aaManifest.version)
+            XCTAssertEqual(manifests.lookup(manifest: "AA")?.package, aaManifest.package)
+            XCTAssertEqual(manifests.lookup(manifest: "AA")?.version, aaManifest.version)
         }
     }
 
@@ -395,7 +395,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
 
             let manifests = try workspace.loadDependencyManifests()
-            guard let aManifest = manifests.lookup("A") else {
+            guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
 
@@ -466,7 +466,7 @@ final class WorkspaceTests: XCTestCase {
             // Load the package graph.
             let graph = try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
-            guard let aManifest = manifests.lookup("A") else {
+            guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
@@ -514,7 +514,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
 
             let manifests = try workspace.loadDependencyManifests()
-            guard let aManifest = manifests.lookup("A") else {
+            guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {

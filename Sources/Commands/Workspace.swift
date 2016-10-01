@@ -197,12 +197,12 @@ public class Workspace {
         let root: Manifest
 
         /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [Manifest]
+        let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
 
         /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
         func missingURLs() -> Set<String> {
             let manifestsMap = Dictionary<String, Manifest>(
-                items: [(root.url, root)] + dependencies.map{ ($0.url, $0) })
+                items: [(root.url, root)] + dependencies.map{ ($0.manifest.url, $0.manifest) })
 
             var requiredURLs = transitiveClosure([root.url]) { url in
                 guard let manifest = manifestsMap[url] else { return [] }
@@ -217,12 +217,17 @@ public class Workspace {
             return requiredURLs.subtracting(availableURLs)
         }
 
-        /// Find a manifest given its name.
-        func lookup(_ name: String) -> Manifest? {
-            return dependencies.first(where: { $0.name == name })
+        /// Find a package given its name.
+        func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
+            return dependencies.first(where: { $0.manifest.name == name })
         }
 
-        init(root: Manifest, dependencies: [Manifest]) {
+        /// Find a manifest given its name.
+        func lookup(manifest name: String) -> Manifest? {
+            return lookup(package: name)?.manifest
+        }
+
+        init(root: Manifest, dependencies: [(Manifest, ManagedDependency)]) {
             self.root = root
             self.dependencies = dependencies
         }
@@ -628,7 +633,7 @@ public class Workspace {
             }
         }
 
-        return DependencyManifests(root: rootManifest, dependencies: dependencies.map{ $0.item })
+        return DependencyManifests(root: rootManifest, dependencies: dependencies.map{ ($0.item, dependencyMap[RepositorySpecifier(url: $0.item.url)]!) })
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
@@ -667,7 +672,7 @@ public class Workspace {
         let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies)
+            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies.map{$0.manifest})
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
@@ -683,9 +688,8 @@ public class Workspace {
         // certain repositories are pinned to the current checkout. We might be
         // able to do that simply by overriding the view presented by the
         // repository container provider.
-        for externalManifest in currentManifests.dependencies {
+        for (externalManifest, managedDependency) in currentManifests.dependencies {
             let specifier = RepositorySpecifier(url: externalManifest.url)
-            let managedDependency = dependencyMap[specifier]!
 
             if managedDependency.isInEditableState {
                 // FIXME: We need a way to state that we don't want any constaints on this dependency.
@@ -711,7 +715,7 @@ public class Workspace {
         // currently provide constraints, but if we provided only the root and
         // then the restrictions (to the current assignment) it would be
         // possible.
-        var externalManifests = currentManifests.dependencies
+        var externalManifests = currentManifests.dependencies.map{$0.manifest}
         for (specifier, state) in packageStateChanges {
             switch state {
             case .added(let version):
