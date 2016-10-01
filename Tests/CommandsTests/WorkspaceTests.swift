@@ -522,7 +522,7 @@ final class WorkspaceTests: XCTestCase {
             }
             let dependency = getDependency(aManifest)
             // Put the dependency in edit mode.
-            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
+            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name, checkoutBranch: "bugfix")
 
             let editedDependency = getDependency(aManifest)
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
