@@ -56,6 +56,6 @@ extension Command {
                               outputs: [productPath.asString, product.targetName],
                               args: [linkerExec.asString] + args)
         
-        return Command(node: product.targetName, tool: shell)
+        return Command(name: product.targetName, tool: shell)
     }
 }

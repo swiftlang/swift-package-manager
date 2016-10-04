@@ -141,7 +141,7 @@ extension Command {
                                   args: [compilerExec.asString] + args,
                                   deps: path.deps.asString)
 
-            let command = Command(node: path.object.asString, tool: clang)
+            let command = Command(name: path.object.asString, tool: clang)
 
             compileCommands.append(command)
         }

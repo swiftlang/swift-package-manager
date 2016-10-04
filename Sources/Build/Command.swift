@@ -8,7 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+/// A command represents an atomic unit of build system work.
 struct Command {
-    let node: String
+    /// A unique name for the command.  This need not match any of the outputs
+    /// of the tool, but it does define the stable identifier that is used to
+    /// match up incremental build records.
+    let name: String
+    
+    /// A configured tool instance for the command.
+    /// FIXME: Clean up the names here; tool, command, task, etc.
     let tool: ToolProtocol
 }

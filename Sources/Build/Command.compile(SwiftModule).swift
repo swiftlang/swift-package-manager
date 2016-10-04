@@ -30,6 +30,6 @@ extension Command {
       #endif
 
         let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: args + otherArgs, executable: compilerExec.asString, conf: conf)
-        return Command(node: module.targetName, tool: tool)
+        return Command(name: module.targetName, tool: tool)
     }
 }
