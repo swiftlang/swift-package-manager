@@ -47,7 +47,7 @@ extension Command {
 
         case .Library(.Static):
             let inputs = buildables.map{ $0.targetName } + objects.map{ $0.asString }
-            let outputs = [product.targetName, outpath.asString]
+            let outputs = [outpath.asString]
             return Command(name: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
 
@@ -103,7 +103,7 @@ extension Command {
         let shell = ShellTool(
             description: "Linking \(outpath.prettyPath)",
             inputs: objects.map{ $0.asString },
-            outputs: [product.targetName, outpath.asString],
+            outputs: [outpath.asString],
             args: args)
 
         return Command(name: product.targetName, tool: shell)

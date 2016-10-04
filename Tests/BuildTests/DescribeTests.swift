@@ -60,7 +60,7 @@ final class DescribeTests: XCTestCase {
         let swiftModule = try SwiftModule(name: "SwiftModule", sources: Sources(paths: [], root: .root))
         clangModule.dependencies = [swiftModule]
         let buildMeta = ClangModuleBuildMetadata(module: clangModule, prefix: .root, otherArgs: [])
-        XCTAssertEqual(buildMeta.inputs, ["<SwiftModule.module>"])
+        XCTAssertEqual(buildMeta.inputs, ["/SwiftModule.swiftmodule"])
     }
 
     static var allTests = [

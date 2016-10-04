@@ -86,7 +86,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
         stream <<< "tools: {}\n"
         stream <<< "targets:\n"
         for target in [targets.test, targets.main] {
-            stream <<< "  " <<< Format.asJSON(target.name) <<< ": " <<< Format.asJSON(target.cmds.map{$0.name}) <<< "\n"
+            stream <<< "  " <<< Format.asJSON(target.name) <<< ": " <<< Format.asJSON(target.cmds.flatMap{$0.tool.outputs}) <<< "\n"
         }
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
         stream <<< "commands: \n"

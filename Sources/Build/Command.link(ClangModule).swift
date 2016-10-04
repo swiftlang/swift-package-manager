@@ -53,7 +53,7 @@ extension Command {
         
         let shell = ShellTool(description: "Linking \(product.name)",
                               inputs: objects.map{ $0.asString } + inputs,
-                              outputs: [productPath.asString, product.targetName],
+                              outputs: [productPath.asString],
                               args: [linkerExec.asString] + args)
         
         return Command(name: product.targetName, tool: shell)
