@@ -36,14 +36,26 @@ import func libc.strerror
 
 
 extension SystemError: CustomStringConvertible {
-    public var description: String {
-
+    public var description: {
         func strerror(_ errno: Int32) -> String {
-            let cmsg = libc.strerror(errno)!
-            let msg = String(validatingUTF8: cmsg) ?? "Unknown Error"
-            return "\(msg) (\(errno))"
+            var cap = 64
+            while true {
+                var buf = [Int8](repeating: 0, count: cap)
+                let err = strerror_r(errno, &buf, buf.count)
+                if err == EINVAL {
+                    return "Unknown error \(errno)"
+                }
+                if err == ERANGE {
+                    cap *= 2
+                    continue
+                }
+                if err != 0 {
+                    fatalError("strerror_r error: \(err)")
+                }
+                return String(cString: buf)
+            }
         }
-
+     
         switch self {
         case .chdir(let errno, let path):
             return "chdir error: \(strerror(errno)): \(path)"
