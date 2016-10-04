@@ -52,7 +52,7 @@ extension SystemError: CustomStringConvertible {
                 if err != 0 {
                     fatalError("strerror_r error: \(err)")
                 }
-                return String(cString: buf)
+                return "\(String(cString: buf)) (\(errno))"
             }
         }
      
