@@ -38,7 +38,7 @@ import func libc.strerror_r
 extension SystemError: CustomStringConvertible {
     public var description: String {
         func strerror(_ errno: Int32) -> String {
-            for cap in [64, 128, 512, 1024, 2048, 4096, 8192, 16_384] {
+            for cap in sequence(first: 64, next: { $0 < 16 * 1024 ? $0 * 2 : nil }) {
                 var buf = [Int8](repeating: 0, count: cap)
                 let err = libc.strerror_r(errno, &buf, buf.count)
                 if err == EINVAL {
