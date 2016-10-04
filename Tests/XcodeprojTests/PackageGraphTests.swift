@@ -35,13 +35,17 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", in: fs)
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        var options = XcodeprojOptions()
+        options.xcconfigOverrides = AbsolutePath("/Overrides.xcconfig")
+        
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs)
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Bar")
 
             result.check(references:
                 "Package.swift",
+                "Configs/Overrides.xcconfig",
                 "Sources/Foo/foo.swift",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
@@ -58,33 +62,40 @@ class PackageGraphTests: XCTestCase {
                 "Products/BarTests.xctest"
             )
 
+            XCTAssertNil(project.buildSettings.xcconfigFileRef)
+
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: [])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Bar") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "Bar/Sources/Sea2/include/module.modulemap")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
                 targetResult.check(dependencies: ["Foo", "Bar"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks"])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
         }
     }
