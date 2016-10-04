@@ -36,7 +36,7 @@ import func libc.strerror
 
 
 extension SystemError: CustomStringConvertible {
-    public var description: {
+    public var description: String {
         func strerror(_ errno: Int32) -> String {
             var cap = 64
             while true {
@@ -55,7 +55,7 @@ extension SystemError: CustomStringConvertible {
                 return "\(String(cString: buf)) (\(errno))"
             }
         }
-     
+        
         switch self {
         case .chdir(let errno, let path):
             return "chdir error: \(strerror(errno)): \(path)"
