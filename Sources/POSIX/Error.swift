@@ -32,7 +32,7 @@ public enum SystemError: Swift.Error {
     case waitpid(Int32)
 }
 
-import func libc.strerror
+import func libc.strerror_r
 
 
 extension SystemError: CustomStringConvertible {
@@ -40,7 +40,7 @@ extension SystemError: CustomStringConvertible {
         func strerror(_ errno: Int32) -> String {
             for cap in [64, 128, 512, 1024, 2048, 4096, 8192, 16_384] {
                 var buf = [Int8](repeating: 0, count: cap)
-                let err = strerror_r(errno, &buf, buf.count)
+                let err = libc.strerror_r(errno, &buf, buf.count)
                 if err == EINVAL {
                     return "Unknown error \(errno)"
                 }
