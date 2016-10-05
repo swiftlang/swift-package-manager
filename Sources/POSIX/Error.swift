@@ -38,13 +38,15 @@ import func libc.strerror_r
 extension SystemError: CustomStringConvertible {
     public var description: String {
         func strerror(_ errno: Int32) -> String {
-            for cap in sequence(first: 64, next: { $0 < 16 * 1024 ? $0 * 2 : nil }) {
+            var cap = 64
+            while cap <= 16 * 1024 {
                 var buf = [Int8](repeating: 0, count: cap)
                 let err = libc.strerror_r(errno, &buf, buf.count)
                 if err == EINVAL {
                     return "Unknown error \(errno)"
                 }
                 if err == ERANGE {
+                    cap *= 2
                     continue
                 }
                 if err != 0 {
