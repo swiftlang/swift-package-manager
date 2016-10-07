@@ -68,7 +68,7 @@ class ResultTests: XCTestCase {
             if right {
                 return Result("All OK.")
             }
-            return Result(DummyError.somethingWentWrong)
+            return Result(AnyError(DummyError.somethingWentWrong))
         }
 
         // Success.

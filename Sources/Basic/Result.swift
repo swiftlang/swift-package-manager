@@ -72,10 +72,3 @@ public struct AnyError: Swift.Error, CustomStringConvertible  {
         return String(describing: underlyingError)
     }
 }
-
-extension Result where ErrorType == AnyError {
-    /// Convenience Initialiser for any error types.
-    public init(_ error: Swift.Error) {
-        self = .failure(AnyError(error))
-    }
-}
