@@ -61,22 +61,22 @@ struct SwiftcTool: ToolProtocol {
         // For C family targets Swift needs dynamic libraries to be able to interpolate.
         // We implicitly create dynamic libs for all C targets ie ClangModules, add
         // input to the product and not the module for ClangModules.
-        return module.recursiveDependencies.map{ module in
+        return module.sources.paths.map{ $0.asString } + module.recursiveDependencies.flatMap{ module in
             switch module {
-            case let module as SwiftModule:
-                return module.targetName
             case let module as ClangModule:
                 let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
-                return product.targetName
-            case let module as CModule:
-                return module.targetName
+                return prefix.appending(product.outname).asString
+            case let module as SwiftModule:
+                return prefix.appending(component: module.c99name + ".swiftmodule").asString
+            case is CModule:
+                return nil
             default:
                 fatalError("Unhandled module \(module) for input dependency of module \(self.module).")
             }
         }
     }
 
-    var outputs: [String]                   { return [module.targetName] + objects.map{ $0.asString } }
+    var outputs: [String]                   { return objects.map{ $0.asString } + [moduleOutputPath.asString] }
     var moduleName: String                  { return module.c99name }
     var moduleOutputPath: AbsolutePath      { return prefix.appending(component: module.c99name + ".swiftmodule") }
     var importPaths: [AbsolutePath]         { return [prefix] }
@@ -104,8 +104,15 @@ struct SwiftcTool: ToolProtocol {
     }
 }
 
+/// A target is a grouping of commands that should be built together for a
+/// particular purpose.
 struct Target {
-    let node: String
+    /// A unique name for the target.  These should be names that have meaning
+    /// to a client wanting to control the build.
+    let name: String
+    
+    /// A list of commands to run when building the target.  A command may be
+    /// in multiple targets, or might not be in any target at all.
     var cmds: [Command]
 }
 

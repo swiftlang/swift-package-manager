@@ -61,12 +61,12 @@ struct ClangModuleBuildMetadata {
         return module.recursiveDependencies.flatMap { module in
             switch module {
             case let module as ClangModule:
-                 let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
-                return product.targetName
-            case let module as CModule:
-                return module.targetName
+                let product = Product(name: module.name, type: .Library(.Dynamic), modules: [module])
+                return prefix.appending(product.outname).asString
+            case is CModule:
+                return nil
             case let module as SwiftModule:
-                return module.targetName
+                return prefix.appending(component: module.c99name + ".swiftmodule").asString
             default:
                 fatalError("ClangModule \(self.module) can't have \(module) as a dependency.")
             }
@@ -141,7 +141,7 @@ extension Command {
                                   args: [compilerExec.asString] + args,
                                   deps: path.deps.asString)
 
-            let command = Command(node: path.object.asString, tool: clang)
+            let command = Command(name: path.object.asString, tool: clang)
 
             compileCommands.append(command)
         }
