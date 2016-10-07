@@ -230,6 +230,7 @@ func xcodeProject(
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
         
         targetSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
+        targetSettings.common.SDKROOT = "macosx"
         targetSettings.common.TARGET_NAME = module.name
         
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)

@@ -68,6 +68,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: [])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertEqual(targetResult.target.buildSettings.common.SDKROOT, "macosx")
             }
 
             result.check(target: "Bar") { targetResult in
