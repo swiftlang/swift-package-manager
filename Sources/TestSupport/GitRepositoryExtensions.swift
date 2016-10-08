@@ -40,6 +40,7 @@ public extension GitRepository {
         // FIXME: We don't need to set these everytime but we usually only commit once or twice for a test repo.
         try systemQuietly([Git.tool, "-C", path.asString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", path.asString, "config", "user.name", "Example Example"])
+        try systemQuietly([Git.tool, "-C", path.asString, "config", "commit.gpgsign", "false"])
         try systemQuietly([Git.tool, "-C", path.asString, "commit", "-m", message ?? "Add some files."])
     }
 

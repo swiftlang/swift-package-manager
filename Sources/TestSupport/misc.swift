@@ -28,26 +28,26 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = RelativePath(name)
         let copyName = fixtureSubpath.components.joined(separator: "_")
-        
+
         // Create a temporary directory for the duration of the block.
         let tmpDir = try TemporaryDirectory(prefix: copyName, removeTreeOnDeinit: true)
-            
+
         // Construct the expected path of the fixture.
         // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
         let fixtureDir = AbsolutePath(#file).appending(RelativePath("../../../Fixtures")).appending(fixtureSubpath)
-        
+
         // Check that the fixture is really there.
         guard isDirectory(fixtureDir) else {
             XCTFail("No such fixture: \(fixtureDir.asString)", file: file, line: line)
             return
         }
-        
+
         // The fixture contains either a checkout or just a Git directory.
         if isFile(fixtureDir.appending(component: "Package.swift")) {
             // It's a single package, so copy the whole directory as-is.
             let dstDir = tmpDir.path.appending(component: copyName)
             try systemQuietly("cp", "-R", "-H", fixtureDir.asString, dstDir.asString)
-            
+
             // Invoke the block, passing it the path of the copied fixture.
             try body(dstDir)
         } else {
@@ -62,7 +62,7 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
                     return versions.removeFirst()
                 }
             }
-            
+
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                 let srcDir = fixtureDir.appending(component: fileName)
@@ -72,11 +72,12 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.email", "example@example.com"])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.name", "Example Example"])
+                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "commit.gpgsign", "false"])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "add", "."])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "commit", "-m", "msg"])
                 try systemQuietly([Git.tool, "-C", dstDir.asString, "tag", popVersion()])
             }
-            
+
             // Invoke the block, passing it the path of the copied fixture.
             try body(tmpDir.path)
         }
@@ -97,6 +98,7 @@ public func initGitRepo(_ dir: AbsolutePath, tags: [String], file: StaticString 
         try systemQuietly([Git.tool, "-C", dir.asString, "init"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
+        try systemQuietly([Git.tool, "-C", dir.asString, "config", "commit.gpgsign", "false"])
         try systemQuietly([Git.tool, "-C", dir.asString, "add", "."])
         try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", "msg"])
         for tag in tags {
