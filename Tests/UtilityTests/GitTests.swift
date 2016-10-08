@@ -14,6 +14,7 @@ import Basic
 
 @testable import Utility
 
+import SourceControl
 import TestSupport
 
 class GitMoc: Git {
@@ -37,7 +38,7 @@ class GitUtilityTests: XCTestCase {
         GitMoc.mocVersion = "1.25.4"
         XCTAssertEqual(GitMoc.majorVersionNumber, 1)
     }
-    
+
     func testHeadSha() {
         mktmpdir { dir in
             initGitRepo(dir)
@@ -45,7 +46,7 @@ class GitUtilityTests: XCTestCase {
             checkSha(sha!)
         }
     }
-    
+
     func testVersionSha() {
         mktmpdir { dir in
             initGitRepo(dir, tag: "0.1.0")
@@ -58,7 +59,7 @@ class GitUtilityTests: XCTestCase {
         mktmpdir { dir in
             initGitRepo(dir, tag: "0.1.0")
             try commit(dir, file: RelativePath("file2.swift"))
-            
+
             let headSha = Git.Repo(path: dir)?.sha
             let versionSha = try Git.Repo(path: dir)?.versionSha(tag: "0.1.0")
             checkSha(headSha!)
@@ -84,20 +85,21 @@ class GitUtilityTests: XCTestCase {
         mktmpdir { dir in
             let versionTags = (0..<10).map{ "\($0).0.0" }
             initGitRepo(dir)
-            try versionTags.forEach{ try tagGitRepo(dir, tag: $0) }
+            let testRepo = GitRepository(path: dir)
+            try versionTags.forEach { try testRepo.tag(name: $0) }
             let repo = Git.Repo(path: dir)!
             XCTAssertEqual(repo.versions, versionTags.map{ Version($0)! })
         }
     }
 
 //MARK: - Helpers
-    
+
     func checkSha(_ sha: String) {
         XCTAssertNotNil(sha)
         XCTAssertFalse(sha.isEmpty)
         XCTAssertEqual(sha.characters.count, 40)
     }
-    
+
     func commit(_ dstdir: AbsolutePath, file: RelativePath) throws {
         let filePath = dstdir.appending(file)
         try systemQuietly(["touch", filePath.asString])

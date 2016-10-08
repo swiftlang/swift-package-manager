@@ -44,6 +44,11 @@ public extension GitRepository {
         try systemQuietly([Git.tool, "-C", path.asString, "commit", "-m", message ?? "Add some files."])
     }
 
+    /// Tag the git repo.
+    func tag(name: String) throws {
+        try systemQuietly([Git.tool, "-C", path.asString, "tag", name])
+    }
+
     /// Push the changes to specified remote and branch.
     func push(remote: String, branch: String) throws {
         try systemQuietly([Git.tool, "-C", path.asString, "push", remote, branch])

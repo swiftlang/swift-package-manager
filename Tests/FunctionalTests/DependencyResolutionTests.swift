@@ -47,8 +47,9 @@ class DependencyResolutionTests: XCTestCase {
         // This will tag 'Foo' with 1.0.0, to start.
         fixture(name: "DependencyResolution/External/Simple", tags: ["1.0.0"]) { prefix in
             // Add several other tags to check version selection.
+            let repo = GitRepository(path: prefix.appending(components: "Foo"))
             for tag in ["1.1.0", "1.2.0", "1.2.3"] {
-                try tagGitRepo(prefix.appending(components: "Foo"), tag: tag)
+                try repo.tag(name: tag)
             }
 
             let packageRoot = prefix.appending(component: "Bar")

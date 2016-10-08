@@ -29,7 +29,7 @@ class GitRepositoryTests: XCTestCase {
         XCTAssertEqual(a, a2)
         XCTAssertEqual(Set([a]), Set([a2]))
     }
-        
+
     /// Test the basic provider functions.
     func testProvider() throws {
         mktmpdir { path in
@@ -64,14 +64,14 @@ class GitRepositoryTests: XCTestCase {
     func testGitRepositoryHash() throws {
         let validHash = "0123456789012345678901234567890123456789"
         XCTAssertNotEqual(GitRepository.Hash(validHash), nil)
-        
+
         let invalidHexHash = validHash + "1"
         XCTAssertEqual(GitRepository.Hash(invalidHexHash), nil)
-        
+
         let invalidNonHexHash = "012345678901234567890123456789012345678!"
         XCTAssertEqual(GitRepository.Hash(invalidNonHexHash), nil)
     }
-    
+
     /// Check raw repository facilities.
     ///
     /// In order to be stable, this test uses a static test git repository in
@@ -141,7 +141,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt")
             try testRepo.commit()
-            try tagGitRepo(testRepoPath, tag: "test-tag")
+            try testRepo.tag(name: "test-tag")
 
             // Get the the repository via the provider. the provider.
             let testClonePath = path.appending(component: "clone")
@@ -181,7 +181,7 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertThrows(FileSystemError.notDirectory) {
                 _ = try view.readFileContents(AbsolutePath("/test-file-1.txt/thing"))
             }
-            
+
             // Check read/write into a missing directory.
             XCTAssertThrows(FileSystemError.noEntry) {
                 _ = try view.getDirectoryContents(AbsolutePath("/does-not-exist"))
@@ -210,7 +210,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
-            try tagGitRepo(testRepoPath, tag: "test-tag")
+            try testRepo.tag(name: "test-tag")
             let currentRevision = Git.Repo(path: testRepoPath)!.sha
 
             // Fetch the repository using the provider.
@@ -271,7 +271,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
-            try tagGitRepo(testRepoPath, tag: "2.0.0")
+            try testRepo.tag(name: "2.0.0")
 
             // Update the cloned repo.
             try clonedRepo.fetch()

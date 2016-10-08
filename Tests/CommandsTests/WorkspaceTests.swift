@@ -76,9 +76,9 @@ final class WorkspaceTests: XCTestCase {
             let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
-            try tagGitRepo(testRepoPath, tag: "test-tag")
+            try testRepo.tag(name: "test-tag")
             let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
-            
+
             // Create the initial workspace.
             do {
                 let workspace = try Workspace(rootPackage: path)
@@ -316,7 +316,7 @@ final class WorkspaceTests: XCTestCase {
             let testRepo = GitRepository(path: repoPath)
             try testRepo.stageEverything()
             try testRepo.commit(message: "update")
-            try tagGitRepo(repoPath, tag: "1.0.1")
+            try testRepo.tag(name: "1.0.1")
 
             try workspace.updateDependencies()
             // Test the delegates after update.

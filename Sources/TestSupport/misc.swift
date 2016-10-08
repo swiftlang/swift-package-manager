@@ -11,10 +11,11 @@
 import func XCTest.XCTFail
 
 import Basic
-import PackageGraph
 import PackageDescription
+import PackageGraph
 import PackageModel
 import POSIX
+import SourceControl
 import Utility
 
 #if os(macOS)
@@ -97,31 +98,16 @@ public func initGitRepo(_ dir: AbsolutePath, tags: [String], addFile: Bool = tru
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "commit.gpgsign", "false"])
-        try addGitRepo(dir, file: RelativePath("."))
-        try commitGitRepo(dir, message: "msg")
+        let repo = GitRepository(path: dir)
+        try repo.stageEverything()
+        try repo.commit(message: "msg")
         for tag in tags {
-            try tagGitRepo(dir, tag: tag)
+            try repo.tag(name: tag)
         }
     }
     catch {
         XCTFail("\(error)", file: file, line: line)
     }
-}
-
-public func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
-}
-
-public func removeTagGitRepo(_ dir: AbsolutePath, tag: String) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "tag", "-d", tag])
-}
-
-public func addGitRepo(_ dir: AbsolutePath, file path: RelativePath) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "add", path.asString])
-}
-
-public func commitGitRepo(_ dir: AbsolutePath, message: String = "Test commit") throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", message])
 }
 
 public enum Configuration {
