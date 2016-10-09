@@ -21,7 +21,7 @@ import func POSIX.popen
 class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() {
 
-        // verifies the stdout contains information about 
+        // verifies the stdout contains information about
         // the selected version of the package
 
         fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
@@ -91,21 +91,21 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertNoSuchPath(buildDir.appending(component: "some"))
         }
     }
-    
+
     func testManifestExcludes4() {
-        
+
         // exclude directory is inside Tests folder (Won't build without exclude)
-        
+
         fixture(name: "Miscellaneous/ExcludeDiagnostic4") { prefix in
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix.appending(components: ".build", "debug", "FooPackage.swiftmodule"))
         }
     }
-    
+
     func testManifestExcludes5() {
-        
+
         // exclude directory is Tests folder (Won't build without exclude)
-        
+
         fixture(name: "Miscellaneous/ExcludeDiagnostic5") { prefix in
             XCTAssertBuilds(prefix)
             XCTAssertFileExists(prefix.appending(components: ".build", "debug", "FooPackage.swiftmodule"))
@@ -318,13 +318,13 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.\(Product.dynamicLibraryExtension)"))
         }
     }
-    
+
     func testProductWithNoModules() {
         fixture(name: "Miscellaneous/ProductWithNoModules") { prefix in
             XCTAssertBuildFails(prefix)
         }
     }
-    
+
     func testProductWithMissingModules() {
         fixture(name: "Miscellaneous/ProductWithMissingModules") { prefix in
             XCTAssertBuildFails(prefix)
@@ -387,6 +387,14 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testOverridingSwiftcArguments() throws {
+#if os(macOS)
+        fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
+            try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: ["-target", "x86_64-apple-macosx10.20"], env: [:])
+        }
+#endif
+    }
+
     static var allTests = [
         ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
@@ -418,5 +426,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testSwiftTestParallel", testSwiftTestParallel),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
+        ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
     ]
 }
