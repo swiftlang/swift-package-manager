@@ -21,11 +21,11 @@ final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
         return try SwiftPMProduct.SwiftPackage.execute(args, chdir: chdir, printIfError: true)
     }
-    
+
     func testUsage() throws {
         XCTAssert(try execute(["--help"]).contains("USAGE: swift package"))
     }
-    
+
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
@@ -51,7 +51,8 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
 
             // Retag the dependency, and update.
-            try tagGitRepo(prefix.appending(component: "Foo"), tag: "1.2.4")
+            let repo = GitRepository(path: prefix.appending(component: "Foo"))
+            try repo.tag(name: "1.2.4")
             _ = try execute(["update"], chdir: packageRoot)
 
             // We shouldn't assume package path will be same after an update so ask again for it.

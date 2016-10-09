@@ -11,10 +11,11 @@
 import func XCTest.XCTFail
 
 import Basic
-import PackageGraph
 import PackageDescription
+import PackageGraph
 import PackageModel
 import POSIX
+import SourceControl
 import Utility
 
 #if os(macOS)
@@ -69,13 +70,7 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
                 guard isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
                 try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "init"])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.email", "example@example.com"])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "user.name", "Example Example"])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "config", "commit.gpgsign", "false"])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "add", "."])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "commit", "-m", "msg"])
-                try systemQuietly([Git.tool, "-C", dstDir.asString, "tag", popVersion()])
+                initGitRepo(dstDir, tag: popVersion(), addFile: false)
             }
 
             // Invoke the block, passing it the path of the copied fixture.
@@ -86,44 +81,33 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
     }
 }
 
-/// Test-helper function that creates a new Git repository in a directory.  The new repository will contain exactly one empty file, and if a tag name is provided, a tag with that name will be created.
-public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, file: StaticString = #file, line: UInt = #line) {
-    initGitRepo(dir, tags: tag.flatMap{ [$0] } ?? [], file: file, line: line)
+/// Test-helper function that creates a new Git repository in a directory.  The new repository will contain
+/// exactly one empty file unless `addFile` is `false`, and if a tag name is provided, a tag with that name will be created.
+public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, addFile: Bool = true, file: StaticString = #file, line: UInt = #line) {
+    initGitRepo(dir, tags: tag.flatMap{ [$0] } ?? [], addFile: addFile, file: file, line: line)
 }
 
-public func initGitRepo(_ dir: AbsolutePath, tags: [String], file: StaticString = #file, line: UInt = #line) {
+public func initGitRepo(_ dir: AbsolutePath, tags: [String], addFile: Bool = true, file: StaticString = #file, line: UInt = #line) {
     do {
-        let file = dir.appending(component: "file.swift")
-        try systemQuietly(["touch", file.asString])
+        if addFile {
+            let file = dir.appending(component: "file.swift")
+            try systemQuietly(["touch", file.asString])
+        }
+
         try systemQuietly([Git.tool, "-C", dir.asString, "init"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", dir.asString, "config", "commit.gpgsign", "false"])
-        try systemQuietly([Git.tool, "-C", dir.asString, "add", "."])
-        try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", "msg"])
+        let repo = GitRepository(path: dir)
+        try repo.stageEverything()
+        try repo.commit(message: "msg")
         for tag in tags {
-            try tagGitRepo(dir, tag: tag)
+            try repo.tag(name: tag)
         }
     }
     catch {
         XCTFail("\(error)", file: file, line: line)
     }
-}
-
-public func tagGitRepo(_ dir: AbsolutePath, tag: String) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "tag", tag])
-}
-
-public func removeTagGitRepo(_ dir: AbsolutePath, tag: String) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "tag", "-d", tag])
-}
-
-public func addGitRepo(_ dir: AbsolutePath, file path: RelativePath) throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "add", path.asString])
-}
-
-public func commitGitRepo(_ dir: AbsolutePath, message: String = "Test commit") throws {
-    try systemQuietly([Git.tool, "-C", dir.asString, "commit", "-m", message])
 }
 
 public enum Configuration {

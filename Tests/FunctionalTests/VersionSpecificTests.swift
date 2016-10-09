@@ -11,6 +11,7 @@
 import XCTest
 
 import Basic
+import SourceControl
 import Utility
 
 import TestSupport
@@ -20,21 +21,22 @@ class VersionSpecificTests: XCTestCase {
     func testEndToEndResolution() throws {
         mktmpdir { path in
             var fs = localFileSystem
-        
+
             // Create a repo for the dependency to test against.
             let depPath = path.appending(component: "Dep")
             try fs.createDirectory(depPath)
             initGitRepo(depPath)
-        
+            let repo = GitRepository(path: depPath)
+
             // Create the initial version (works, but empty).
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
                 $0 <<< "let package = Package(name: \"Dep\")\n"
             }
-            try addGitRepo(depPath, file: RelativePath("Package.swift"))
-            try commitGitRepo(depPath, message: "Initial v1.0.0")
-            try tagGitRepo(depPath, tag: "1.0.0")
-        
+            try repo.stage(file: "Package.swift")
+            try repo.commit(message: "Initial v1.0.0")
+            try repo.tag(name: "1.0.0")
+
             // Create the version to test against.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< "NOT_A_VALID_PACKAGE"
@@ -42,10 +44,10 @@ class VersionSpecificTests: XCTestCase {
             try fs.writeFileContents(depPath.appending(component: "foo.swift")) {
                 $0 <<< "public func foo() { print(\"foo\\n\") }\n"
             }
-            try addGitRepo(depPath, file: RelativePath("Package.swift"))
-            try addGitRepo(depPath, file: RelativePath("foo.swift"))
-            try commitGitRepo(depPath, message: "Bogus v1.1.0")
-            try tagGitRepo(depPath, tag: "1.1.0")
+            try repo.stage(file: "Package.swift")
+            try repo.stage(file: "foo.swift")
+            try repo.commit(message: "Bogus v1.1.0")
+            try repo.tag(name: "1.1.0")
 
             // Create the primary repository.
             let primaryPath = path.appending(component: "Primary")
@@ -67,9 +69,9 @@ class VersionSpecificTests: XCTestCase {
                 $0 <<< "import PackageDescription\n"
                 $0 <<< "let package = Package(name: \"Dep\")\n"
             }
-            try addGitRepo(depPath, file: RelativePath("Package.swift"))
-            try commitGitRepo(depPath, message: "OK v1.1.0")
-            try tagGitRepo(depPath, tag: "1.1.0@swift-\(Versioning.currentVersion.major)")
+            try repo.stage(file: "Package.swift")
+            try repo.commit(message: "OK v1.1.0")
+            try repo.tag(name: "1.1.0@swift-\(Versioning.currentVersion.major)")
 
             // The build should work now.
             _ = try SwiftPMProduct.SwiftBuild.execute(["--clean=dist"], chdir: primaryPath)
