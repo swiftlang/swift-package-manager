@@ -65,11 +65,11 @@ func xcodeProject(
     // First of all, set a standard definition of `PROJECT_NAME`.
     projectSettings.common.PRODUCT_NAME = "$(TARGET_NAME)"
     
-    // Set the SUPPORTED_PLATFORMS to all platforms.
-    // FIXME: This doesn't seem correct, but was what the old project generation
-    // code did, so for now we do so too.
-    projectSettings.common.SUPPORTED_PLATFORMS = ["macosx", "iphoneos", "iphonesimulator", "appletvos", "appletvsimulator", "watchos", "watchsimulator"]
-    
+    // Set the platform to macOS.  We do this at the project level so that it
+    // can be overridden by the .xcconfig if needed.
+    projectSettings.common.SDKROOT = "macosx"
+    projectSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
+
     // Set a conservative default deployment target.
     // FIXME: There needs to be some kind of control over this.  But currently
     // it is required to set this in order for SwiftPM to be able to self-host
@@ -229,8 +229,6 @@ func xcodeProject(
         // .xcconfig, if we have one.  This lets it override project settings.
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
         
-        targetSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
-        targetSettings.common.SDKROOT = "macosx"
         targetSettings.common.TARGET_NAME = module.name
         
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
