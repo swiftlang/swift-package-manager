@@ -37,13 +37,13 @@ class ArgumentParserTests: XCTestCase {
 
         let package = parser.add(positional: "package", kind: String.self, usage: "The name of the package")
         let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
-        let branch = parser.add(option: "--branch", kind: String.self, usage: "The branch to checkout")
+        let branch = parser.add(option: "--branch", shortName:"-b", kind: String.self, usage: "The branch to checkout")
         let xld = parser.add(option: "-Xld", kind: Array<String>.self, usage: "The xld arguments")
         let verbosity = parser.add(option: "--verbose", kind: Int.self, usage: "The verbosity level")
         let noFly = parser.add(option: "--no-fly", kind: Bool.self, usage: "If should fly")
         let sampleEnum = parser.add(positional: "enum", kind: SampleEnum.self)
 
-        let args = try parser.parse(["Foo", "--branch", "bugfix", "--verbose", "2", "-Xld", "foo", "-Xld", "bar",  "--no-fly", "Bar"])
+        let args = try parser.parse(["Foo", "-b", "bugfix", "--verbose", "2", "-Xld", "foo", "-Xld", "bar",  "--no-fly", "Bar"])
 
         XCTAssertEqual(args.get(package), "Foo")
         XCTAssert(args.get(revision) == nil)

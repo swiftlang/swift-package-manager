@@ -88,6 +88,10 @@ protocol ArgumentProtocol: Hashable {
     /// Name of the argument which will be parsed by the parser.
     var name: String { get }
 
+    /// Short name of the argument, this is usually used in options arguments
+    /// for a short names for e.g: `--help` -> `-h`.
+    var shortName: String? { get }
+
     /// The usage text associated with this argument. Used to generate complete help string.
     var usage: String? { get }
 }
@@ -118,10 +122,12 @@ public final class OptionArgument<Kind>: ArgumentProtocol {
 
     let name: String
     let usage: String?
+    let shortName: String?
 
-    init(name: String, usage: String?) {
+    init(name: String, shortName: String?, usage: String?) {
         precondition(!isPositional(argument: name))
         self.name = name
+        self.shortName = shortName
         self.usage = usage
     }
 }
@@ -133,6 +139,8 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 
     let name: String
     let usage: String?
+    // Postional arguments don't need short names.
+    var shortName: String? { return nil }
 
     init(name: String, usage: String?) {
         precondition(isPositional(argument: name))
@@ -146,6 +154,7 @@ fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
 
     var name: String
     var usage: String?
+    let shortName: String?
 
     /// The argument kind this holds, used while initializing that argument.
     let kind: ArgumentKind.Type
@@ -156,6 +165,7 @@ fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
     init<T: ArgumentProtocol>(_ arg: T) {
         self.kind = T.ArgumentKindTy.self as! ArgumentKind.Type
         self.name = arg.name
+        self.shortName = arg.shortName
         self.usage = arg.usage
         isArray = false
     }
@@ -164,6 +174,7 @@ fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
     init<T>(_ arg: OptionArgument<[T]>) {
         self.kind = T.self as! ArgumentKind.Type
         self.name = arg.name
+        self.shortName = arg.shortName
         self.usage = arg.usage
         isArray = true
     }
@@ -230,15 +241,15 @@ public final class ArgumentParser: ArgParser {
     }
 
     /// Adds an option to the parser.
-    public func add<T: ArgumentKind>(option: String, kind: T.Type, usage: String? = nil) -> OptionArgument<T> {
-        let arg = OptionArgument<T>(name: option, usage: usage)
+    public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: T.Type, usage: String? = nil) -> OptionArgument<T> {
+        let arg = OptionArgument<T>(name: option, shortName: shortName, usage: usage)
         options.append(AnyCommandLineArgument(arg))
         return arg
     }
 
     /// Adds an array argument type.
-    public func add<T: ArgumentKind>(option: String, kind: [T].Type, usage: String? = nil) -> OptionArgument<[T]> {
-        let arg = OptionArgument<[T]>(name: option, usage: usage)
+    public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: [T].Type, usage: String? = nil) -> OptionArgument<[T]> {
+        let arg = OptionArgument<[T]>(name: option, shortName: shortName, usage: usage)
         options.append(AnyCommandLineArgument(arg))
         return arg
     }
@@ -270,7 +281,14 @@ public final class ArgumentParser: ArgParser {
     public func parse(_ args: [String] = []) throws -> Result {
         var result = Result()
         // Create options map to quickly look up the arguments.
-        let optionsTuple: [(String, AnyCommandLineArgument)] = options.map { ($0.name, $0) }
+        let optionsTuple = options.flatMap { option -> [(String, AnyCommandLineArgument)] in
+            var result = [(option.name, option)]
+            // Add the short names too, if we have them.
+            if let shortName = option.shortName {
+                result += [(shortName, option)]
+            }
+            return result
+        }
         let optionsMap = Dictionary(items: optionsTuple)
         // Create iterators.
         var positionalArgsIterator = positionalArgs.makeIterator()
