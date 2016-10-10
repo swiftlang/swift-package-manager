@@ -27,7 +27,8 @@ class PackageGraphTests: XCTestCase {
           "/Bar/Sources/Sea2/include/Sea2.h",
           "/Bar/Sources/Sea2/include/module.modulemap",
           "/Bar/Sources/Sea2/Sea2.c",
-          "/Bar/Tests/BarTests/barTests.swift"
+          "/Bar/Tests/BarTests/barTests.swift",
+          "/Overrides.xcconfig"
       )
 
         let g = try loadMockPackageGraph([
