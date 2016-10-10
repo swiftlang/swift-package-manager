@@ -33,6 +33,8 @@ public enum SystemError: Swift.Error {
 }
 
 import func libc.strerror_r
+import var libc.EINVAL
+import var libc.ERANGE
 
 
 extension SystemError: CustomStringConvertible {
