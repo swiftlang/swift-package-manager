@@ -15,6 +15,11 @@ import PackageModel
 import PackageLoading
 import Utility
 
+/// Errors encounter during Xcode project generation
+public enum ProjectGenerationError: Swift.Error {
+    /// The given xcconfig override file does not exist
+    case xcconfigOverrideNotFound(path: AbsolutePath)
+}
 
 /// Generates the contents of the `project.pbxproj` for the package graph.  The
 /// project file is generated with the assumption that it will be written to an
@@ -132,6 +137,11 @@ func xcodeProject(
     // Add a group for the overriding .xcconfig file, if we have one.
     let xcconfigOverridesFileRef: Xcode.FileReference?
     if let xcconfigPath = options.xcconfigOverrides {
+        // Verify that the xcconfig override file exists
+        if !fileSystem.exists(xcconfigPath) {
+            throw ProjectGenerationError.xcconfigOverrideNotFound(path: xcconfigPath)
+        }
+
         // Create a "Configs" group whose path is the same as the project path.
         let xcconfigsGroup = project.mainGroup.addGroup(path: "", name: "Configs")
         
