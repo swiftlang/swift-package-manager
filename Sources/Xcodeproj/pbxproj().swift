@@ -74,7 +74,10 @@ func xcodeProject(
     // FIXME: This doesn't seem correct, but was what the old project generation
     // code did, so for now we do so too.
     projectSettings.common.SUPPORTED_PLATFORMS = ["macosx", "iphoneos", "iphonesimulator", "appletvos", "appletvsimulator", "watchos", "watchsimulator"]
-    
+
+    // Set the default `SDKROOT` to the latest macOS SDK.
+    projectSettings.common.SDKROOT = "macosx"
+
     // Set a conservative default deployment target.
     // FIXME: There needs to be some kind of control over this.  But currently
     // it is required to set this in order for SwiftPM to be able to self-host
@@ -238,9 +241,7 @@ func xcodeProject(
         // Set the target's base .xcconfig file to the user-supplied override
         // .xcconfig, if we have one.  This lets it override project settings.
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
-        
-        targetSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
-        targetSettings.common.SDKROOT = "macosx"
+
         targetSettings.common.TARGET_NAME = module.name
         
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
