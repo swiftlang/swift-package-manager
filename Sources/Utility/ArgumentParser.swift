@@ -152,8 +152,8 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
     typealias ArgumentKindTy = Any
 
-    var name: String
-    var usage: String?
+    let name: String
+    let usage: String?
     let shortName: String?
 
     /// The argument kind this holds, used while initializing that argument.
