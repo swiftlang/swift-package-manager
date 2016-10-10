@@ -17,7 +17,7 @@ enum SampleEnum: String {
 }
 
 extension SampleEnum: ArgumentKind {
-    public init(parser: ArgParser) throws {
+    public init(parser: ArgumentParserProtocol) throws {
         let arg = try parser.next()
         guard let obj = SampleEnum(arg: arg) else {
             throw ArgumentParserError.unknown(option: arg)

@@ -31,9 +31,9 @@ public enum ArgumentParserError: Swift.Error {
 /// positional and option arguments in the argument parser.
 public protocol ArgumentKind {
     /// This will be called when the option is encountered while parsing.
-    /// To get the argument after the option call popArg closure which might
-    /// fail if there is no next entry.
-    init(parser: ArgParser) throws
+    ///
+    /// Call methods on the passed parser to manipulate parser as needed.
+    init(parser: ArgumentParserProtocol) throws
 
     /// This will be called for positional arguments with the value discovered.
     init?(arg: String)
@@ -46,7 +46,7 @@ extension String: ArgumentKind {
         self = arg
     }
 
-    public init(parser: ArgParser) throws {
+    public init(parser: ArgumentParserProtocol) throws {
         self = try parser.next()
     }
 }
@@ -56,7 +56,7 @@ extension Int: ArgumentKind {
         self.init(arg)
     }
 
-    public init(parser: ArgParser) throws {
+    public init(parser: ArgumentParserProtocol) throws {
         let arg = try parser.next()
         // Not every string can be converted into an integer.
         guard let intValue = Int(arg) else {
@@ -71,7 +71,7 @@ extension Bool: ArgumentKind {
         self = true
     }
 
-    public init(parser: ArgParser) throws {
+    public init(parser: ArgumentParserProtocol) throws {
         // We don't need to pop here because presence of the option
         // is enough to indicate that the bool value is true.
         self = true
@@ -149,7 +149,10 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
     }
 }
 
-fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
+/// A type-erased argument.
+///
+/// Note: Only used for argument parsing purpose.
+fileprivate final class AnyArgument: ArgumentProtocol {
     typealias ArgumentKindTy = Any
 
     let name: String
@@ -180,18 +183,20 @@ fileprivate final class AnyCommandLineArgument: ArgumentProtocol {
     }
 }
 
-public protocol ArgParser {
+/// Argument parser protocol passed in initializers of ArgumentKind to manipulate
+/// parser as needed by the argument.
+public protocol ArgumentParserProtocol {
     /// Provides next argument, if available.
     func next() throws -> String
 }
 
 /// Argument parser struct reponsible to parse the provided array of arguments and return
 /// the parsed result.
-public final class ArgumentParser: ArgParser {
+public final class ArgumentParser: ArgumentParserProtocol {
     /// A struct representing result of the parsed arguments.
     public struct Result {
         /// Internal representation of arguments mapped to their values.
-        private var results = [AnyCommandLineArgument: Any]()
+        private var results = [AnyArgument: Any]()
 
         /// Adds a result.
         ///
@@ -200,7 +205,7 @@ public final class ArgumentParser: ArgParser {
         ///     - value: The associated value of the argument.
         ///
         /// - throws: ArgumentParserError
-        fileprivate mutating func addResult(for argument: AnyCommandLineArgument, result: ArgumentKind) throws {
+        fileprivate mutating func addResult(for argument: AnyArgument, result: ArgumentKind) throws {
             if argument.isArray {
                 var array = [ArgumentKind]()
                 // Get the previously added results if present.
@@ -219,23 +224,23 @@ public final class ArgumentParser: ArgParser {
         /// Since the options are optional, their result may or may not
         /// be present.
         public func get<T>(_ arg: OptionArgument<T>) -> T? {
-            return results[AnyCommandLineArgument(arg)] as? T
+            return results[AnyArgument(arg)] as? T
         }
 
         /// Array variant for option argument's get(_:).
         public func get<T>(_ arg: OptionArgument<[T]>) -> [T]? {
-            return results[AnyCommandLineArgument(arg)] as? [T]
+            return results[AnyArgument(arg)] as? [T]
         }
 
         /// Get a positional argument's value.
         public func get<T>(_ arg: PositionalArgument<T>) -> T {
-            return results[AnyCommandLineArgument(arg)] as! T
+            return results[AnyArgument(arg)] as! T
         }
     }
 
     /// List of arguments added to this parser.
-    private var options = [AnyCommandLineArgument]()
-    private var positionalArgs = [AnyCommandLineArgument]()
+    private var options = [AnyArgument]()
+    private var positionalArgs = [AnyArgument]()
 
     public init() {
     }
@@ -243,21 +248,21 @@ public final class ArgumentParser: ArgParser {
     /// Adds an option to the parser.
     public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: T.Type, usage: String? = nil) -> OptionArgument<T> {
         let arg = OptionArgument<T>(name: option, shortName: shortName, usage: usage)
-        options.append(AnyCommandLineArgument(arg))
+        options.append(AnyArgument(arg))
         return arg
     }
 
     /// Adds an array argument type.
     public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: [T].Type, usage: String? = nil) -> OptionArgument<[T]> {
         let arg = OptionArgument<[T]>(name: option, shortName: shortName, usage: usage)
-        options.append(AnyCommandLineArgument(arg))
+        options.append(AnyArgument(arg))
         return arg
     }
 
     /// Adds an argument to the parser.
     public func add<T: ArgumentKind>(positional: String, kind: T.Type, usage: String? = nil) -> PositionalArgument<T> {
         let arg = PositionalArgument<T>(name: positional, usage: usage)
-        positionalArgs.append(AnyCommandLineArgument(arg))
+        positionalArgs.append(AnyArgument(arg))
         return arg
     }
     
@@ -281,7 +286,7 @@ public final class ArgumentParser: ArgParser {
     public func parse(_ args: [String] = []) throws -> Result {
         var result = Result()
         // Create options map to quickly look up the arguments.
-        let optionsTuple = options.flatMap { option -> [(String, AnyCommandLineArgument)] in
+        let optionsTuple = options.flatMap { option -> [(String, AnyArgument)] in
             var result = [(option.name, option)]
             // Add the short names too, if we have them.
             if let shortName = option.shortName {
