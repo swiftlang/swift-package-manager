@@ -214,7 +214,7 @@ struct PkgConfigParser {
             if operators.contains(arg) {
                 // We should have a version number next, skip.
                 guard let _ = it.next() else {
-                    throw PkgConfigError.parsingError("Expected version number after \(deps.last) \(arg) in \"\(depString)\" in \(pcFile)")
+                    throw PkgConfigError.parsingError("Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \(pcFile)")
                 }
             } else {
                 // Otherwise it is a dependency.

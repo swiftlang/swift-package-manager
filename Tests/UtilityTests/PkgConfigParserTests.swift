@@ -48,7 +48,7 @@ final class PkgConfigParserTests: XCTestCase {
     func testUnresolvablePCFile() {
         loadPCFile("failure_case.pc") { parser in
             if parser != nil {
-                XCTFail("parsing should have failed: \(parser)")
+                XCTFail("parsing should have failed: \(parser.debugDescription)")
             }
         }
     }
