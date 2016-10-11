@@ -102,9 +102,6 @@ extension Module {
             case hasTestSuffix
         }
         
-        /// The module contains no source code at all.
-        case noSources(String)
-        
         /// The module contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(String)
     }
@@ -115,8 +112,6 @@ extension Module.Error: FixableError {
         switch self {
           case .invalidName(let path, let name, let problem):
             return "the module at \(path) has an invalid name ('\(name)'): \(problem.error)"
-          case .noSources(let path):
-            return "the module at \(path) does not contain any source files"
           case .mixedSources(let path):
             return "the module at \(path) contains mixed language source files"
         }
@@ -126,8 +121,6 @@ extension Module.Error: FixableError {
         switch self {
         case .invalidName(let path, _, let problem):
             return "rename the module at ‘\(path)’\(problem.fix ?? "")"
-        case .noSources(_):
-            return "either remove the module folder, or add a source file to the module"
         case .mixedSources(_):
             return "use only a single language within a module"
         }
@@ -387,17 +380,19 @@ public struct PackageBuilder {
         let modules: [Module]
         if potentialModulePaths.isEmpty {
             // There are no directories that look like modules, so try to create a module for the source directory itself (with the name coming from the name in the manifest).
-            do {
-                modules = [try createModule(srcDir, name: manifest.name, isTest: false)]
+            guard let module = try createModule(srcDir, name: manifest.name, isTest: false) else {
+                return []
             }
-            catch Module.Error.noSources {
-                // Completely empty packages are allowed as a special case.
-                modules = []
-            }
+            modules = [module]
         } else {
             // We have at least one directory that looks like a module, so we try to create a module for each one.
-            modules = try potentialModulePaths.map { path in
-                try createModule(path, name: path.basename, isTest: false)
+            modules = try potentialModulePaths.flatMap { path in
+                guard let module = try createModule(path, name: path.basename, isTest: false) else {
+                    warningStream <<< "warning: module '\(path.basename)' does not contain any sources.\n"
+                    warningStream.flush()
+                    return nil
+                }
+                return module
             }
         }
 
@@ -473,7 +468,7 @@ public struct PackageBuilder {
     }
     
     /// Private function that constructs a single Module object for the module at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
-    private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module {
+    private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module? {
         
         // Validate the module name.  This function will throw an error if it detects a problem.
         try validateModuleName(path, name, isTest: isTest)
@@ -486,15 +481,23 @@ public struct PackageBuilder {
         let cSources = sources.filter{ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) }
         let swiftSources = sources.filter{ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) }
         assert(sources.count == cSources.count + swiftSources.count)
+        
+        // Expect either C or Swift sources. Not both.
+        switch (cSources.isEmpty, swiftSources.isEmpty) {
+        case (true, true):
+            // No sources at all. This is not a module.
+            return nil
+
+        case (false, false):
+            throw Module.Error.mixedSources(path.asString)
 
         // Create and return the right kind of module depending on what kind of sources we found.
-        if cSources.isEmpty {
+        case (true, false):
             // No C sources, so we expect to have Swift sources, and we create a Swift module.
-            guard !swiftSources.isEmpty else { throw Module.Error.noSources(path.asString) }
             return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
-        } else {
+
+        case (false, true):
             // No Swift sources, so we expect to have C sources, and we create a C module.
-            guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
             return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
         }
     }
@@ -591,7 +594,12 @@ public struct PackageBuilder {
         
         // Create the test modules
         return try testsDirContents.filter(shouldConsiderDirectory).flatMap { dir in
-            return [try createModule(dir, name: dir.basename, isTest: true)]
+            guard let module = try createModule(dir, name: dir.basename, isTest: true) else {
+                warningStream <<< "warning: test module '\(dir.basename)' does not contain any sources.\n"
+                warningStream.flush()
+                return nil
+            }
+            return module
         }
     }
 }
