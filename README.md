@@ -1,7 +1,5 @@
 # Swift Package Manager Project
 
-> **PLEASE NOTE** The Swift Package Manager is still in early design and development — we are aiming to have it stable and ready for use with Swift 3 but currently all details are subject to change and many important features are yet to be implemented. Additionally, it is important to note that the Swift language syntax is not stable, so packages you write will (likely) break as Swift evolves.
-
 The Swift Package Manager is a tool for managing distribution of source code, aimed at making it easy to share your code and reuse others’ code. The tool directly addresses the challenges of compiling and linking Swift packages, managing dependencies, versioning, and supporting flexible distribution and collaboration models.
 
 We’ve designed the system to make it easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
@@ -46,36 +44,29 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 ## Installation
 
-The package manager is bundled with the [**Trunk Development** Snapshots available at swift.org](https://swift.org/download/). Following installation you will need to do one of the following to use the package manager on the command line:
+The Swift Package Manager is included in Xcode 8.0 and all subsequent release.
 
-* Xcode 7.3:
-
-        export TOOLCHAINS=swift
-
-* Linux:
-
-        export PATH=path/to/toolchain/usr/bin:$PATH
+The package manager is also available for other platforms as part of all [Snapshots available at swift.org](https://swift.org/download/), including snapshots for the latest versions built from `master`. For installation instructions for downloaded snapshots, please see the [Getting Started](https://swift.org/getting-started/#installing-swift) section of [swift.org](https://swift.org).
 
 You can verify your installation by typing `swift package --version` in a terminal:
 
 ```sh
 $ swift package --version
-Apple Swift Package Manager
+Apple Swift Package Manager - ...
 ```
-
-The following indicates you have not installed a snapshot successfully:
-
-    <unknown>:0: error: no such file or directory: 'package'
 
 ### Managing Swift Environments
 
-The `TOOLCHAINS` environment variable on OS X can be used to control which `swift` is executed:
+On macOS `/usr/bin/swift` is just a stub that forwards invocations to the active
+toolchain. Thus when you call `swift build` it will use the swift defined by
+your `TOOLCHAINS` environment variable. This can be used to easily switch
+between the default tools, and a development snapshot:
 
 ```sh
 $ xcrun --find swift
 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift
 $ swift --version
-Apple Swift version 2.2
+Apple Swift version 3.0
 $ export TOOLCHAINS=swift
 $ xcrun --find swift
 /Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swift
@@ -83,11 +74,7 @@ $ swift --version
 Swift version 3.0-dev
 ```
 
-On OS X `/usr/bin/swift` is just a stub that forwards invocations to the active toolchain. Thus when you call `swift build` it will use the swift defined by your `TOOLCHAINS` environment variable.
-
 To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier` in an `.xctoolchain`’s Info.plist.
-
-This feature requires Xcode 7.3 or later.
 
 ---
 
@@ -119,7 +106,7 @@ Note that either of the latter two options may not be compatible with the `maste
 The `SWIFT_EXEC` environment variable specifies the `swiftc` executable path used by `swift package`. If it is not set, the package manager will try to locate it:
 
 1. In `swift-package`'s parent directory.
-2. On OS X, by calling `xcrun --find swiftc`.
+2. On macOS, by calling `xcrun --find swiftc`.
 3. By searching the PATH.
 
 ---
