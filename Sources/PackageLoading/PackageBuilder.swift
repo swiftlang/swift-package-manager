@@ -490,20 +490,20 @@ public struct PackageBuilder {
         assert(sources.count == cSources.count + swiftSources.count)
         
         // Expect either C or Swift sources. Not both.
-        guard cSources.isEmpty != swiftSources.isEmpty else {
-            if swiftSources.isEmpty {
-                // No sources at all. This is not a module.
-                return nil
-            } else {
-                throw Module.Error.mixedSources(path.asString)
-            }
-        }
+        switch (cSources.isEmpty, swiftSources.isEmpty) {
+        case (true, true):
+            // No sources at all. This is not a module.
+            return nil
+
+        case (false, false):
+            throw Module.Error.mixedSources(path.asString)
 
         // Create and return the right kind of module depending on what kind of sources we found.
-        if cSources.isEmpty {
+        case (true, false):
             // No C sources, so we expect to have Swift sources, and we create a Swift module.
             return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
-        } else {
+
+        case (false, true):
             // No Swift sources, so we expect to have C sources, and we create a C module.
             return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
         }
