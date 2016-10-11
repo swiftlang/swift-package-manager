@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
 import PackageModel
 import Utility
 
@@ -35,8 +36,14 @@ extension ModuleProtocol {
             guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
                 return
             }
+            var pkgConfigProviderSearchPaths = [AbsolutePath]()
+            if let providers = module.providers,
+                let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers),
+                let providerSearchPath = provider.pkgConfigSearchPath() {
+                pkgConfigProviderSearchPaths.append(providerSearchPath)
+            }
             do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName.asString)
+                let pkgConfig = try PkgConfig(name: pkgConfigName.asString, additionalSearchPaths: pkgConfigProviderSearchPaths)
                 cFlags += pkgConfig.cFlags
                 libs += pkgConfig.libs
                 try whitelist(pcFile: pkgConfigName.asString, flags: (cFlags, libs))
@@ -78,7 +85,27 @@ private extension SystemPackageProvider {
         }
         return false
     }
-    
+
+    func pkgConfigSearchPath() -> AbsolutePath? {
+        switch self {
+        case .Brew(let name):
+            guard
+                let brewPath = try? popen(["brew", "--prefix"]),
+                let brewPathChuzzled = brewPath.chuzzle(),
+                let jsonString = try? popen(["brew", "info", name, "--json=v1"]),
+                let json = try? JSON(string: jsonString),
+                case .array(let topLevelArray) = json,
+                case .dictionary(let topLevelDict)? = topLevelArray.first,
+                case .array(let installed)? = topLevelDict["installed"],
+                case .dictionary(let lastVersion)? = installed.last,
+                case .string(let version)? = lastVersion["version"] else {
+                    return nil
+            }
+            return AbsolutePath("\(brewPathChuzzled)/Cellar/\(name)/\(version)/lib/pkgconfig")
+        default: return nil
+        }
+    }
+
     static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
         return providers.filter{ $0.isAvailable }.first
     }
