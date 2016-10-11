@@ -387,7 +387,10 @@ public struct PackageBuilder {
         let modules: [Module]
         if potentialModulePaths.isEmpty {
             // There are no directories that look like modules, so try to create a module for the source directory itself (with the name coming from the name in the manifest).
-            modules = [try createModule(srcDir, name: manifest.name, isTest: false)].flatMap { $0 }
+            guard let module = try createModule(srcDir, name: manifest.name, isTest: false) else {
+                return []
+            }
+            modules = [module]
         } else {
             // We have at least one directory that looks like a module, so we try to create a module for each one.
             modules = try potentialModulePaths.flatMap { path in
