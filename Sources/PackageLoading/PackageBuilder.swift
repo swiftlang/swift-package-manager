@@ -604,7 +604,12 @@ public struct PackageBuilder {
         
         // Create the test modules
         return try testsDirContents.filter(shouldConsiderDirectory).flatMap { dir in
-            return [try createModule(dir, name: dir.basename, isTest: true)].flatMap { $0 }
+            guard let module = try createModule(dir, name: dir.basename, isTest: true) else {
+                warningStream <<< "warning: test module '\(dir.basename)' does not contain any sources.\n"
+                warningStream.flush()
+                return nil
+            }
+            return module
         }
     }
 }

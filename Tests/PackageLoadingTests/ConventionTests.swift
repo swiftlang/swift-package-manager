@@ -851,11 +851,16 @@ class ConventionTests: XCTestCase {
     }
 
     func testNoSourcesInModule() throws {
-        let fs = InMemoryFileSystem()
+        var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
-
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkDiagnostic("warning: module 'Module' does not contain any sources.")
+        }
+
+        fs = InMemoryFileSystem()
+        try fs.createDirectory(AbsolutePath("/Tests/ModuleTests"), recursive: true)
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("warning: test module 'ModuleTests' does not contain any sources.")
         }
     }
 
