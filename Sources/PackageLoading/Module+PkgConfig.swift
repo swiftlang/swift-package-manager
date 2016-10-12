@@ -9,6 +9,7 @@
 */
 
 import Basic
+import POSIX
 import PackageModel
 import Utility
 
@@ -94,10 +95,18 @@ private extension SystemPackageProvider {
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
             // to the latest version. Instead use the version as symlinked
             // in /usr/local/opt/(NAME)/lib/pkgconfig.
-            guard let brewPrefix = try? popen(["brew", "--prefix"]).chomp() else {
+            let brewPrefix: String
+            if let prefix = getenv("BREW_PREFIX") {
+                brewPrefix = prefix
+            } else if let prefix = try? Utility.popen(["/usr/local/bin/brew", "--prefix"]).chomp() {
+                brewPrefix = prefix
+            } else if let prefix = try? Utility.popen(["brew", "--prefix"]).chomp() {
+                brewPrefix = prefix
+            } else {
                 return nil
             }
-            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
+//            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
+            return nil
         default: return nil
         }
     }
