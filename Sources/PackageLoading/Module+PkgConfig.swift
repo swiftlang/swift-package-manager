@@ -94,12 +94,10 @@ private extension SystemPackageProvider {
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
             // to the latest version. Instead use the version as symlinked
             // in /usr/local/opt/(NAME)/lib/pkgconfig.
-            guard
-                let brewPath = try? popen(["brew", "--prefix"]),
-                let brewPathChuzzled = brewPath.chuzzle() else {
-                    return nil
+            guard let brewPrefix = try? popen(["brew", "--prefix"]).chomp() else {
+                return nil
             }
-            return AbsolutePath("\(brewPathChuzzled)/opt/\(name)/lib/pkgconfig")
+            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
         default: return nil
         }
     }
