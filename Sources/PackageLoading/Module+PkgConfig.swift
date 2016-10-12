@@ -89,19 +89,17 @@ private extension SystemPackageProvider {
     func pkgConfigSearchPath() -> AbsolutePath? {
         switch self {
         case .Brew(let name):
+            // Homebrew can have multiple versions of the same package. The
+            // user can choose another version than the latest by running
+            // ``brew switch NAME VERSION``, so we shouldn't assume to link
+            // to the latest version. Instead use the version as symlinked
+            // in /usr/local/opt/(NAME)/lib/pkgconfig.
             guard
                 let brewPath = try? popen(["brew", "--prefix"]),
-                let brewPathChuzzled = brewPath.chuzzle(),
-                let jsonString = try? popen(["brew", "info", name, "--json=v1"]),
-                let json = try? JSON(string: jsonString),
-                case .array(let topLevelArray) = json,
-                case .dictionary(let topLevelDict)? = topLevelArray.first,
-                case .array(let installed)? = topLevelDict["installed"],
-                case .dictionary(let lastVersion)? = installed.last,
-                case .string(let version)? = lastVersion["version"] else {
+                let brewPathChuzzled = brewPath.chuzzle() else {
                     return nil
             }
-            return AbsolutePath("\(brewPathChuzzled)/Cellar/\(name)/\(version)/lib/pkgconfig")
+            return AbsolutePath("\(brewPathChuzzled)/opt/\(name)/lib/pkgconfig")
         default: return nil
         }
     }
