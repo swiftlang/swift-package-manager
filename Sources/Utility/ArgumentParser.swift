@@ -78,6 +78,35 @@ extension Bool: ArgumentKind {
     }
 }
 
+/// A protocol which implements ArgumentKind for string initializable enums.
+///
+/// Conforming to this protocol will automatically make an enum with is
+/// String initializable conform to ArgumentKind.
+public protocol StringEnumArgument: ArgumentKind {
+    init?(rawValue: String)
+}
+
+extension StringEnumArgument {
+
+    // FIXME: Hack because can not use init(arg:) in init(parser:)
+    static func createObject(_ arg: String) -> Self? {
+        return self.init(arg: arg)
+    }
+
+    public init(parser: ArgumentParserProtocol) throws {
+        let arg = try parser.next()
+        guard let obj = Self.createObject(arg) else {
+            throw ArgumentParserError.unknown(option: arg)
+        }
+        self = obj
+    }
+
+    public init?(arg: String) {
+        self.init(rawValue: arg)
+    }
+}
+
+
 /// A protocol representing positional or options argument.
 protocol ArgumentProtocol: Hashable {
     /// The argument kind of this argument for eg String, Bool etc.
