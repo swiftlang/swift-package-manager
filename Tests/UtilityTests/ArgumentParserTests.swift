@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Basic
 import Utility
 
 enum SampleEnum: String {
@@ -33,9 +34,9 @@ extension SampleEnum: ArgumentKind {
 class ArgumentParserTests: XCTestCase {
 
     func testBasics() throws {
-        let parser = ArgumentParser()
+        let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
 
-        let package = parser.add(positional: "package", kind: String.self, usage: "The name of the package")
+        let package = parser.add(positional: "package name of the year", kind: String.self, usage: "The name of the package")
         let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
         let branch = parser.add(option: "--branch", shortName:"-b", kind: String.self, usage: "The branch to checkout")
         let xld = parser.add(option: "-Xld", kind: Array<String>.self, usage: "The xld arguments")
@@ -52,11 +53,19 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(args.get(verbosity), 2)
         XCTAssertEqual(args.get(noFly), true)
         XCTAssertEqual(args.get(sampleEnum), .Bar)
-        XCTAssert(parser.usageText().contains("package          The name of the package"))
+
+        let stream = BufferedOutputByteStream()
+        parser.printUsage(on: stream)
+        let usage = stream.bytes.asString!
+        print(usage)
+        XCTAssert(usage.contains("OVERVIEW: Sample overview"))
+        XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
+        XCTAssert(usage.contains("  package name of the year\n                          The name of the package"))
+        XCTAssert(usage.contains(" -Xld                    The xld arguments"))
     }
 
     func testErrors() throws {
-        let parser = ArgumentParser()
+        let parser = ArgumentParser(usage: "sample", overview: "sample")
         _ = parser.add(positional: "package", kind: String.self, usage: "The name of the package")
         _ = parser.add(option: "--verbosity", kind: Int.self, usage: "The revision")
 

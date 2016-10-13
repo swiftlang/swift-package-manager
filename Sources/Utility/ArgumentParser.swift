@@ -238,11 +238,31 @@ public final class ArgumentParser: ArgumentParserProtocol {
         }
     }
 
+
     /// List of arguments added to this parser.
     private var options = [AnyArgument]()
     private var positionalArgs = [AnyArgument]()
 
-    public init() {
+    // If provided, will be substituted instead of arg0 in usage text.
+    let commandName: String?
+
+    /// Usage string of this parser.
+    let usage: String
+
+    /// Overview text of this parser.
+    let overview: String
+
+    /// Create an argument parser.
+    ///
+    /// - Parameters:
+    ///   - commandName: If provided, this will be substitued in "usage" line of the generated usage text.
+    ///   Otherwise, first command line argument will be used.
+    ///   - usage: The "usage" line of the generated usage text.
+    ///   - overview: The "overview" line of the generated usage text.
+    public init(commandName: String? = nil, usage: String, overview: String) {
+        self.commandName = commandName
+        self.usage = usage
+        self.overview = overview
     }
 
     /// Adds an option to the parser.
@@ -330,14 +350,71 @@ public final class ArgumentParser: ArgumentParserProtocol {
         return result
     }
 
-    public func usageText() -> String {
-        // FIXME: Prettify.
-        let stream = BufferedOutputByteStream()
-        for argument in options + positionalArgs {
-            if let usage = argument.usage {
-                stream <<< argument.name <<< "          " <<< usage <<< "\n"
+    /// Prints usage text for this parser on the provided stream.
+    public func printUsage(on stream: OutputByteStream) {
+        /// Space settings.
+        let maxWidthDefault = 24
+        let padding = 2
+
+        let maxWidth: Int
+        // Figure out the max width based on argument length or choose the default width if max width is longer
+        // than the default width.
+        if let maxArgument = (positionalArgs + options).map({ $0.name.characters.count }).max(), maxArgument < maxWidthDefault {
+            maxWidth = maxArgument + padding + 1
+        } else {
+            maxWidth = maxWidthDefault
+        }
+
+        /// Returns a string of n spaces.
+        func space(n: Int) -> String {
+            guard n >= 0 else { return "" }
+            var str = ""
+            for _ in 0..<n {
+                str += " "
+            }
+            return str
+        }
+
+        /// Prints an argument on a stream if it has usage.
+        func print(formatted argument: AnyArgument, on stream: OutputByteStream) {
+            // Don't do anything if we don't have usage for this argument.
+            guard let usage = argument.usage else { return }
+            // Start with a new line and add some padding.
+            stream <<< "\n" <<< space(n: padding)
+            let count = argument.name.characters.count
+            // If the argument name is more than the set width take the whole
+            // line for it, otherwise we can fit everything in one line.
+            if count >= maxWidth - padding {
+                stream <<< argument.name <<< "\n"
+                // Align full width because we on a new line.
+                stream <<< space(n: maxWidth + padding)
+            } else {
+                stream <<< argument.name
+                // Align to the remaining empty space we have.
+                stream <<< space(n: maxWidth - count)
+            }
+            stream <<< usage
+        }
+
+        stream <<< "OVERVIEW: " <<< overview <<< "\n\n"
+        // Get the binary name from command line arguments.
+        let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
+        stream <<< "USAGE: " <<< (commandName ?? defaultCommandName) <<< " " <<< usage
+
+        if positionalArgs.count > 0 {
+            stream <<< "\n\n"
+            stream <<< "COMMANDS:"
+            for argument in positionalArgs {
+                print(formatted: argument, on: stream)
             }
         }
-        return stream.bytes.asString!
+
+        if options.count > 0 {
+            stream <<< "\n\n"
+            stream <<< "OPTIONS:"
+            for argument in options {
+                print(formatted: argument, on: stream)
+            }
+        }
     }
 }
