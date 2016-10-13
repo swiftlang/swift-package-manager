@@ -4,6 +4,8 @@ The Swift Package Manager is a tool for managing distribution of source code, ai
 
 We’ve designed the system to make it easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
 
+Note that at this time the Package Manager has no support for iOS, watchOS, or tvOS platforms.
+
 ---
 
 ## Table of Contents
