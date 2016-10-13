@@ -56,11 +56,20 @@ extension Command {
             args += ["-L\(prefix.asString)"]
             args += ["-o", outpath.asString]
 
+          #if CYGWIN
+            args += ["-Xlinker", "--allow-multiple-definition"]
+          #endif
+
         case .Library(.Static):
             let inputs = buildables.map{ $0.targetName } + objects.map{ $0.asString }
             let outputs = [outpath.asString]
             return Command(name: product.targetName, tool: ArchiveTool(inputs: inputs, outputs: outputs))
         }
+
+      #if CYGWIN
+        args += ["-D", "CYGWIN"]
+        args += ["-I", "/usr/include"]
+      #endif
 
         switch product.type {
         case .Library(.Static):

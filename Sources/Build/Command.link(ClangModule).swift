@@ -36,6 +36,8 @@ extension Command {
         // Linux doesn't search executable directory for shared libs so embed runtime search path.
       #if os(Linux)
         args += ["-Xlinker", "-rpath=$ORIGIN"]
+      #elseif CYGWIN
+        args += ["-Xlinker", "--allow-multiple-definition"]
       #endif
         args += linkFlags
         args += objects.map{ $0.asString }

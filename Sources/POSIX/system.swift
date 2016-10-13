@@ -42,7 +42,7 @@ public func system(_ arguments: [String], environment: [String:String]? = nil) t
 public func system() {}
 
 
-#if os(macOS)
+#if os(macOS) || CYGWIN
 typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
 #else
 typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
@@ -90,7 +90,16 @@ private func WEXITSTATUS(_ status: CInt) -> CInt {
 func waitpid(_ pid: pid_t) throws -> Int32 {
     while true {
         var exitStatus: Int32 = 0
+#if CYGWIN
+        var rv : Int32 = -1
+        withUnsafeMutablePointer(to: &exitStatus) {
+            exitStatusPtr in
+            let exitStatusPtrWrapper = __wait_status_ptr_t(__int_ptr: exitStatusPtr) 
+            rv = waitpid(pid, exitStatusPtrWrapper, 0)
+        }
+#else
         let rv = waitpid(pid, &exitStatus, 0)
+#endif
 
         if rv != -1 {
             if WIFEXITED(exitStatus) {

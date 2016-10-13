@@ -116,6 +116,8 @@ if platform.system() == 'Darwin':
 
 if platform.system() == 'Linux':
     g_shared_lib_ext = ".so"
+elif platform.system().startswith('CYGWIN'):
+    g_shared_lib_ext = ".dll"
 else:
     g_shared_lib_ext = ".dylib"
 
@@ -321,10 +323,10 @@ def parse_manifest():
     # We have a *very* strict format for our manifest to make parsing more
     # robust.  We use this to determine the target and product definitions.
     target_pattern = re.compile(
-        r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
+        r'Target\(.*?name: "(.*?)",\r?\n? *dependencies: (\[.*?\])\)',
         re.DOTALL | re.MULTILINE)
     product_pattern = re.compile(
-        r'Library\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*targets: (\[.*?\])[\n ]*\)',
+        r'Library\([\r\n ]*name: \"(.*?)\",[\r\n ]*type: (.*?),[\r\n ]*targets: (\[.*?\])[\r\n ]*\)',
         re.DOTALL | re.MULTILINE)
 
     # Load the manifest as a string (we always assume UTF-8 encoding).
@@ -560,6 +562,8 @@ def create_bootstrap_files(sandbox_path, args):
                 link_command.extend(["-L", args.foundation_path])
             if args.libdispatch_build_dir:
                 link_command.extend(["-L", os.path.join(args.libdispatch_build_dir, "src", ".libs")])
+        if not target.is_library and platform.system().startswith("CYGWIN"):
+            link_command.extend(["-Xlinker", "--allow-multiple-definition"])
 
         # Write out the link command.
         if target.is_library:
@@ -644,11 +648,20 @@ def process_runtime_libraries(build_path, args, bootstrap=False):
         # We include an RPATH entry so that the Swift libraries can be found
         # relative to where it will be installed (in 'lib/swift/pm/...').
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.so")
+
+        # Change shared object extension for Cygwin
+        if platform.system().startswith("CYGWIN"):
+            runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dll") 
+
         cmd = [args.swiftc_path, "-Xlinker", "-shared", "-o", runtime_lib_path,
                "-Xlinker", "--whole-archive",
                "-Xlinker", input_lib_path,
                "-Xlinker", "--no-whole-archive", "-lswiftGlibc",
                "-Xlinker", "-rpath=$ORIGIN/../linux"]
+
+        # Add link flags for Cygwin
+        if platform.system().startswith("CYGWIN"):
+            cmd.extend(["-Xlinker", "--allow-multiple-definition"])
 
         # We need to pass one swift file here to bypass the "no input files"
         # error.
@@ -895,6 +908,8 @@ def main():
     # libraries.
     if platform.system() == 'Linux':
         embed_rpath = "$ORIGIN/../lib/swift/linux"
+    elif platform.system().startswith('CYGWIN'):
+        embed_rpath = "$ORIGIN/../lib/swift/cygwin"
     else:
         embed_rpath = "@executable_path/../lib/swift/macosx"
     build_flags.extend(["-Xlinker", "-rpath", "-Xlinker", embed_rpath])
