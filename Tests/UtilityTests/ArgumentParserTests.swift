@@ -17,19 +17,7 @@ enum SampleEnum: String {
     case Bar
 }
 
-extension SampleEnum: ArgumentKind {
-    public init(parser: ArgumentParserProtocol) throws {
-        let arg = try parser.next()
-        guard let obj = SampleEnum(arg: arg) else {
-            throw ArgumentParserError.unknown(option: arg)
-        }
-        self = obj
-    }
-
-    init?(arg: String) {
-        self.init(rawValue: arg)
-    }
-}
+extension SampleEnum: StringEnumArgument {}
 
 class ArgumentParserTests: XCTestCase {
 
