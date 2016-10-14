@@ -105,8 +105,7 @@ private extension SystemPackageProvider {
             } else {
                 return nil
             }
-//            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
-            return nil
+            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
         default: return nil
         }
     }
