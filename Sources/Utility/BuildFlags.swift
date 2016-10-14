@@ -14,17 +14,17 @@
 // for BuildSupport style logic yet.
 public struct BuildFlags {
     /// Flags to pass to the C compiler.
-    public var cCompilerFlags: [String] = []
+    public let cCompilerFlags: [String]
 
     /// Flags to pass to the linker.
-    public var linkerFlags: [String] = []
+    public let linkerFlags: [String]
 
     /// Flags to pass to the Swift compiler.
-    public var swiftCompilerFlags: [String] = []
+    public let swiftCompilerFlags: [String]
 
-    public init() {
-        // Ideally we shouldn't need an empty initializer but if we don't have
-        // one we cannot instantiate a `XcodeprojOptions` struct from outside
-        // the `Utility` module.
+    public init(xcc: [String]? = nil, xswiftc: [String]? = nil, xlinker: [String]? = nil) {
+        cCompilerFlags = xcc ?? []
+        linkerFlags = xlinker ?? []
+        swiftCompilerFlags = xswiftc ?? []
     }
 }

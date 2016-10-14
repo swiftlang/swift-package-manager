@@ -36,8 +36,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", in: fs)
 
-        var options = XcodeprojOptions()
-        options.xcconfigOverrides = AbsolutePath("/Overrides.xcconfig")
+        let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
         
         let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs)
 

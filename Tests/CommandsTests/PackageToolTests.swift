@@ -142,8 +142,8 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try popen(exec), "5\n")
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "--name", "bar", "--branch", "bugfix", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "--name", "baz", "--branch", "bugfix", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -167,7 +167,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of uncommited changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -176,7 +176,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -184,7 +184,7 @@ final class PackageToolTests: XCTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "--name", "bar", "--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath, printIfError: true)
         }
     }
 

@@ -46,8 +46,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
         let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
 
-        var options = XcodeprojOptions()
-        options.xcconfigOverrides = AbsolutePath("/doesntexist")
+        let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
             _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                                  graph: graph, extraDirs: [], options: options, fileSystem: fileSystem)

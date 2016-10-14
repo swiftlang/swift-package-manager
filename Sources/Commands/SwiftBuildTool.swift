@@ -18,101 +18,20 @@ import Utility
 import enum Build.Configuration
 import protocol Build.Toolchain
 
-import func POSIX.chdir
-
-public enum BuildToolMode: Argument, Equatable, CustomStringConvertible {
-    case build(Configuration, Toolchain)
-    case clean(CleanMode)
-    case usage
-    case version
-
-    public init?(argument: String, pop: @escaping () -> String?) throws {
-        switch argument {
-        case "--configuration", "--config", "-c":
-            self = try .build(Configuration(pop()), UserToolchain())
-        case "--clean":
-            self = try .clean(CleanMode(pop()))
-        case "--help", "-h":
-            self = .usage
-        case "--version":
-            self = .version
-        default:
-            return nil
-        }
-    }
-
-    public var description: String {
-        switch self {
-            case .build(let conf, _): return "--configuration \(conf)"
-            case .clean(let mode): return "--clean \(mode)"
-            case .usage: return "--help"
-            case .version: return "--version"
-        }
-    }
-}
-
-private enum BuildToolFlag: Argument {
-    case xcc(String)
-    case xld(String)
-    case xswiftc(String)
-    case buildPath(AbsolutePath)
-    case enableNewResolver
-    case buildTests
-    case chdir(AbsolutePath)
-    case colorMode(ColorWrap.Mode)
-    case verbose(Int)
-
-    init?(argument: String, pop: @escaping () -> String?) throws {
-        func forcePop() throws -> String {
-            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            return value
-        }
-        
-        switch argument {
-        case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
-        case "--verbose", "-v":
-            self = .verbose(1)
-        case "-Xcc":
-            self = try .xcc(forcePop())
-        case "-Xlinker":
-            self = try .xld(forcePop())
-        case "-Xswiftc":
-            self = try .xswiftc(forcePop())
-        case "--build-path":
-            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
-        case "--enable-new-resolver":
-            self = .enableNewResolver
-        case "--build-tests":
-            self = .buildTests
-        case "--color":
-            let rawValue = try forcePop()
-            guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
-            }
-            self = .colorMode(mode)
-        default:
-            return nil
-        }
-    }
-}
-
-public class BuildToolOptions: Options {
-    var flags = BuildFlags()
-    var buildTests: Bool = false
-}
-
 /// swift-build tool namespace
-public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
+public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
+
+   public convenience init(args: [String]) {
+       self.init(
+            toolName: "build",
+            usage: "[options]",
+            overview: "Build sources into binary products",
+            args: args
+        )
+    }
 
     override func runImpl() throws {
-        switch mode {
-        case .usage:
-            SwiftBuildTool.usage()
-
-        case .version:
-            print(Versioning.currentVersion.completeDisplayString)
-
+        switch try options.mode() {
         case .build(let conf, let toolchain):
             #if os(Linux)
             // Emit warning if clang is older than version 3.6 on Linux.
@@ -120,20 +39,10 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
             checkClangVersion()
             #endif
             let graph = try loadPackage()
-            let yaml = try describe(buildPath, conf, graph, flags: options.flags, toolchain: toolchain)
+            let yaml = try describe(buildPath, conf, graph, flags: options.buildFlags, toolchain: toolchain)
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
-        case .clean(.dist):
-            print("warning: This is deprecated and will be removed in Swift 4. Use 'swift package reset' instead.")
-            if options.enableNewResolver {
-                try getActiveWorkspace().reset()
-            } else {
-                if try exists(getCheckoutsDirectory()) {
-                    try removeFileTree(getCheckoutsDirectory())
-                }
-                fallthrough
-            }
-        case .clean(.build):
+        case .clean:
             if options.enableNewResolver {
                 try getActiveWorkspace().clean()
             } else {
@@ -142,59 +51,25 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
                     try removeFileTree(buildPath)
                 }
             }
+
+        case .version:
+            print(Versioning.currentVersion.completeDisplayString)
         }
     }
 
-    override class func usage(_ print: (String) -> Void = { print($0) }) {
-        //     .........10.........20.........30.........40.........50.........60.........70..
-        print("OVERVIEW: Build sources into binary products")
-        print("")
-        print("USAGE: swift build [mode] [options]")
-        print("")
-        print("MODES:")
-        print("  -c, --configuration <value>   Build with configuration (debug|release) [default: debug]")
-        print("  --clean [<mode>]              Delete artifacts (build|dist) [default: build]")
-        print("")
-        print("OPTIONS:")
-        print("  -C, --chdir <path>       Change working directory before any other operation")
-        print("  --build-path <path>      Specify build/cache directory [default: ./.build]")
-        print("  --color <mode>           Specify color mode (auto|always|never) [default: auto]")
-        print("  -v, --verbose            Increase verbosity of informational output")
-        print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
-        print("  -Xlinker <flag>          Pass flag through to all linker invocations")
-        print("  -Xswiftc <flag>          Pass flag through to all Swift compiler invocations")
-        print("")
-        print("NOTE: Use `swift package` to perform other functions on packages")
-    }
-    
-    override class func parse(commandLineArguments args: [String]) throws -> (BuildToolMode, BuildToolOptions) {
-        let (mode, flags): (BuildToolMode?, [BuildToolFlag]) = try Basic.parseOptions(arguments: args)
-    
-        let options = BuildToolOptions()
-        for flag in flags {
-            switch flag {
-            case .chdir(let path):
-                options.chdir = path
-            case .verbose(let amount):
-                options.verbosity += amount
-            case .xcc(let value):
-                options.flags.cCompilerFlags.append(value)
-            case .xld(let value):
-                options.flags.linkerFlags.append(value)
-            case .xswiftc(let value):
-                options.flags.swiftCompilerFlags.append(value)
-            case .buildPath(let path):
-                options.buildPath = path
-            case .enableNewResolver:
-                options.enableNewResolver = true
-            case .buildTests:
-                options.buildTests = true
-            case .colorMode(let mode):
-                options.colorMode = mode
-            }
-        }
-    
-        return try (mode ?? .build(.debug, UserToolchain()), options)
+    override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<BuildToolOptions>) {
+        binder.bind(
+            option: parser.add(option: "--build-tests", kind: Bool.self),
+            to: { $0.buildTests = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--clean", kind: Bool.self, usage: "Delete build artifacts"),
+            to: { $0.clean = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
+                usage: "Build with configuration (debug|release) [default: debug]"),
+            to: { $0.config = $1 })
     }
 
     private func checkClangVersion() {
@@ -212,43 +87,38 @@ public class SwiftBuildTool: SwiftTool<BuildToolMode, BuildToolOptions> {
     }
 }
 
-extension Build.Configuration {
-    fileprivate init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case "debug"?:
-            self = .debug
-        case "release"?:
-            self = .release
-        case nil:
-            throw OptionParserError.expectedAssociatedValue("--configuration")
-        default:
-            throw OptionParserError.invalidUsage("invalid build configuration: \(rawValue!)")
+public class BuildToolOptions: ToolOptions {
+    /// Returns the mode in which the build tool should run.
+    func mode() throws -> BuildToolMode {
+        if printVersion {
+            return .version
         }
-    }
-}
-
-public enum CleanMode: CustomStringConvertible {
-    case build, dist
-
-    public init(_ rawValue: String?) throws {
-        switch rawValue?.lowercased() {
-        case nil, "build"?:
-            self = .build
-        case "dist"?, "distribution"?:
-            self = .dist
-        case let value?:
-            throw OptionParserError.invalidUsage("invalid clean mode: \(value)")
+        if clean {
+            return .clean
         }
+        // Get the build configuration or assume debug.
+        return .build(config, try UserToolchain())
     }
 
-    public var description: String {
-        switch self {
-            case .dist: return "distribution"
-            case .build: return "build"
-        }
-    }
+    /// If the test should be built.
+    var buildTests = false
+    
+    /// If should clean the build artefacts.
+    var clean = false
+
+    /// Build configuration.
+    var config: Build.Configuration = .debug
 }
 
-public func ==(lhs: BuildToolMode, rhs: BuildToolMode) -> Bool {
-    return lhs.description == rhs.description
+public enum BuildToolMode {
+    /// Build using the configuration and toolchain.
+    case build(Configuration, Toolchain)
+
+    /// Clean the build artefacts and exit.
+    case clean
+
+    /// Print the version.
+    case version
 }
+
+extension Build.Configuration: StringEnumArgument {}

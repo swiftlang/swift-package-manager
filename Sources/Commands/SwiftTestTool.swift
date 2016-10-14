@@ -36,111 +36,58 @@ extension TestError: CustomStringConvertible {
     }
 }
 
-public enum TestMode: Argument, Equatable, CustomStringConvertible {
-    case usage
+public class TestToolOptions: ToolOptions {
+    /// Returns the mode in with the tool command should run.
+    var mode: TestMode {
+        // If we got version option, just print the version and exit.
+        if printVersion {
+            return .version
+        }
+        // List the test cases.
+        if listTests {
+            return .listTests
+        }
+        // Run tests in parallel.
+        if parallel {
+            return .runInParallel
+        }
+        return .run(specifier)
+    }
+
+    /// If the test target should be built before testing.
+    var buildTests = true
+
+    /// If tests should run in parallel mode.
+    var parallel = false 
+
+    /// List the tests and exit.
+    var listTests = false 
+    
+    /// Run only these specified tests.
+    var specifier: String?
+}
+
+public enum TestMode {
     case version
     case listTests
     case run(String?)
     case runInParallel
-
-    public init?(argument: String, pop: @escaping () -> String?) throws {
-        switch argument {
-        case "--help", "-h":
-            self = .usage
-        case "-l", "--list-tests":
-            self = .listTests
-        case "-s", "--specifier":
-            guard let specifier = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            self = .run(specifier)
-        case "--version":
-            self = .version
-        case "--parallel":
-            self = .runInParallel
-        default:
-            return nil
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .usage:
-            return "--help"
-        case .listTests:
-            return "--list-tests"
-        case .run(let specifier):
-            return specifier ?? ""
-        case .version: return "--version"
-        case .runInParallel:
-            return "--parallel"
-        }
-    }
-}
-
-public func ==(lhs: TestMode, rhs: TestMode) -> Bool {
-    return lhs.description == rhs.description
-}
-
-// FIXME: Merge this with the `swift-build` arguments.
-private enum TestToolFlag: Argument {
-    case xcc(String)
-    case xld(String)
-    case xswiftc(String)
-    case chdir(AbsolutePath)
-    case buildPath(AbsolutePath)
-    case enableNewResolver
-    case colorMode(ColorWrap.Mode)
-    case skipBuild
-    case verbose(Int)
-
-    init?(argument: String, pop: @escaping () -> String?) throws {
-        func forcePop() throws -> String {
-            guard let value = pop() else { throw OptionParserError.expectedAssociatedValue(argument) }
-            return value
-        }
-        
-        switch argument {
-        case Flag.chdir, Flag.C:
-            self = try .chdir(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
-        case "--verbose", "-v":
-            self = .verbose(1)
-        case "--skip-build":
-            self = .skipBuild
-        case "-Xcc":
-            self = try .xcc(forcePop())
-        case "-Xlinker":
-            self = try .xld(forcePop())
-        case "-Xswiftc":
-            self = try .xswiftc(forcePop())
-        case "--build-path":
-            self = try .buildPath(AbsolutePath(forcePop(), relativeTo: currentWorkingDirectory))
-        case "--enable-new-resolver":
-            self = .enableNewResolver
-        case "--color":
-            let rawValue = try forcePop()
-            guard let mode = ColorWrap.Mode(rawValue) else  {
-                throw OptionParserError.invalidUsage("invalid color mode: \(rawValue)")
-            }
-            self = .colorMode(mode)
-        default:
-            return nil
-        }
-    }
-}
-
-public class TestToolOptions: Options {
-    var buildTests: Bool = true
-    var flags = BuildFlags()
 }
 
 /// swift-test tool namespace
-public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
+public class SwiftTestTool: SwiftTool<TestToolOptions> {
+
+   public convenience init(args: [String]) {
+       self.init(
+            toolName: "test",
+            usage: "[options]",
+            overview: "Build and run tests",
+            args: args
+        )
+    }
 
     override func runImpl() throws {
-
-        switch mode {
-        case .usage:
-            SwiftTestTool.usage()
-
+        switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
@@ -175,7 +122,7 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let graph = try loadPackage()
         if options.buildTests {
-            let yaml = try describe(buildPath, configuration, graph, flags: options.flags, toolchain: UserToolchain())
+            let yaml = try describe(buildPath, configuration, graph, flags: options.buildFlags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
         }
                 
@@ -203,56 +150,26 @@ public class SwiftTestTool: SwiftTool<TestMode, TestToolOptions> {
     // to solve the testability problem first.
     private let configuration = Build.Configuration.debug
 
-    override class func usage(_ print: (String) -> Void = { print($0) }) {
-        //     .........10.........20.........30.........40.........50.........60.........70..
-        print("OVERVIEW: Build and run tests")
-        print("")
-        print("USAGE: swift test [options]")
-        print("")
-        print("OPTIONS:")
-        print("  -s, --specifier <test-module>.<test-case>         Run a test case subclass")
-        print("  -s, --specifier <test-module>.<test-case>/<test>  Run a specific test method")
-        print("  -l, --list-tests                                  Lists test methods in specifier format")
-        print("  -C, --chdir <path>     Change working directory before any other operation")
-        print("  --build-path <path>    Specify build/cache directory [default: ./.build]")
-        print("  --color <mode>         Specify color mode (auto|always|never) [default: auto]")
-        print("  -v, --verbose          Increase verbosity of informational output")
-        print("  --skip-build           Skip building the test target")
-        print("  -Xcc <flag>              Pass flag through to all C compiler invocations")
-        print("  -Xlinker <flag>          Pass flag through to all linker invocations")
-        print("  -Xswiftc <flag>          Pass flag through to all Swift compiler invocations")
-        print("")
-        print("NOTE: Use `swift package` to perform other functions on packages")
-    }
+    override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
 
-    override class func parse(commandLineArguments args: [String]) throws -> (TestMode, TestToolOptions) {
-        let (mode, flags): (TestMode?, [TestToolFlag]) = try Basic.parseOptions(arguments: args)
+        binder.bind(
+            option: parser.add(option: "--skip-build", kind: Bool.self,
+                usage: "Skip building the test target"),
+            to: { $0.buildTests = !$1 })
 
-        let options = TestToolOptions()
-        for flag in flags {
-            switch flag {
-            case .chdir(let path):
-                options.chdir = path
-            case .verbose(let amount):
-                options.verbosity += amount
-            case .xcc(let value):
-                options.flags.cCompilerFlags.append(value)
-            case .xld(let value):
-                options.flags.linkerFlags.append(value)
-            case .xswiftc(let value):
-                options.flags.swiftCompilerFlags.append(value)
-            case .buildPath(let path):
-                options.buildPath = path
-            case .enableNewResolver:
-                options.enableNewResolver = true
-            case .colorMode(let mode):
-                options.colorMode = mode
-            case .skipBuild:
-                options.buildTests = false
-            }
-        }
+        binder.bind(
+            option: parser.add(option: "--list-tests", shortName: "-l", kind: Bool.self,
+                usage: "Lists test methods in specifier format"),
+            to: { $0.listTests = $1 })
 
-        return (mode ?? .run(nil), options)
+        binder.bind(
+            option: parser.add(option: "--parallel", kind: Bool.self),
+            to: { $0.parallel = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
+                usage: "Run a specific test class or method, Format: <test-module>.<test-case> or <test-module>.<test-case>/<test>"),
+            to: { $0.specifier = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.

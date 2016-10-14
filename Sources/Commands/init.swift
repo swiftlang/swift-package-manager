@@ -216,7 +216,7 @@ final class InitPackage {
 enum InitMode: CustomStringConvertible {
     case empty, library, executable, systemModule
 
-    init(_ rawValue: String) throws {
+    init?(rawValue: String) {
         switch rawValue.lowercased() {
         case "empty":
             self = .empty
@@ -227,7 +227,7 @@ enum InitMode: CustomStringConvertible {
         case "system-module":
             self = .systemModule
         default:
-            throw OptionParserError.invalidUsage("invalid initialization type: \(rawValue)")
+            return nil
         }
     }
 

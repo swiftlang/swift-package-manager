@@ -155,7 +155,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
 func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [String: String] = [:], file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
-        _ = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"] + flags, chdir: prefix, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftPackage.execute(flags + ["generate-xcodeproj"], chdir: prefix, env: env, printIfError: true)
     } catch {
         XCTFail("`swift package generate-xcodeproj' failed:\n\n\(error)\n", file: file, line: line)
     }

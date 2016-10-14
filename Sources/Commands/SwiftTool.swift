@@ -40,15 +40,9 @@ enum SwiftToolError: Swift.Error {
     case rootManifestFileNotFound
 }
 
-public class SwiftTool<Mode: Argument, OptionType: Options> {
-    /// The command line arguments this tool should honor.
-    let args: [String]
-
-    /// The mode in which this tool is currently executing.
-    let mode: Mode
-
+public class SwiftTool<Options: ToolOptions> {
     /// The options of this tool.
-    let options: OptionType
+    let options: Options
 
     /// The package graph loader.
     let manifestLoader = ManifestLoader(resources: ToolDefaults())
@@ -72,14 +66,77 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
+    let parser: ArgumentParser
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(args: [String]) {
-        self.args = args
-        let dynamicType = type(of: self)
+    public init(toolName: String, usage: String, overview: String, args: [String]) {
+
+        // Create the parser.
+        parser = ArgumentParser(
+            commandName: "swift \(toolName)",
+            usage: usage,
+            overview: overview)
+
+        // Create the binder.
+        let binder = ArgumentBinder<Options>()
+
+        // Bind the common options.
+        binder.bindArray(
+            parser.add(
+                option: "-Xcc", kind: [String].self,
+                usage: "Pass flag through to all C compiler invocations"),
+            parser.add(
+                option: "-Xswiftc", kind: [String].self,
+                usage: "Pass flag through to all Swift compiler invocations"),
+            parser.add(
+                option: "-Xlinker", kind: [String].self,
+                usage: "Pass flag through to all linker invocations"),
+            to: { $0.buildFlags = BuildFlags(xcc: $1, xswiftc: $2, xlinker: $3) })
+
+        binder.bind(
+            option: parser.add(
+                option: "--build-path", kind: String.self, 
+                usage: "Specify build/cache directory [default: ./.build]"),
+            to: { $0.buildPath = $0.absolutePathRelativeToWorkingDir($1) })
+
+        binder.bind(
+            option: parser.add(
+                option: "--chdir", shortName: "-C", kind: String.self,
+                usage: "Change working directory before any other operation"),
+            to: { $0.chdir = $0.absolutePathRelativeToWorkingDir($1) })
+
+        binder.bind(
+            option: parser.add(option: "--color", kind: ColorWrap.Mode.self,
+                usage: "Specify color mode (auto|always|never) [default: auto]"),
+            to: { $0.colorMode = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-new-resolver", kind: Bool.self),
+            to: { $0.enableNewResolver = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--version", kind: Bool.self),
+            to: { $0.printVersion = $1 })
+
+        // FIXME: We need to allow -vv type options for this.
+        binder.bind(
+            option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
+                usage: "Increase verbosity of informational output"),
+            to: { $0.verbosity = $1 ? 1 : 0 })
+    
+        // Let subclasses bind arguments.
+        type(of: self).defineArguments(parser: parser, binder: binder)
+
         do {
-            (self.mode, self.options) = try dynamicType.parse(commandLineArguments: args)
+            // Parse the result.
+            let result = try parser.parse(args)
+
+            var options = Options()
+            binder.fill(result, into: &options)
+
+            self.options = options
             // Honor chdir option is provided.
             if let dir = options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
@@ -87,7 +144,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
                 try chdir(dir.asString)
             }
         } catch {
-            handle(error: error, usage: dynamicType.usage)
+            handle(error: error)
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
@@ -98,7 +155,7 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
         self.buildPath = getEnvBuildPath() ?? customBuildPath ?? (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
     }
 
-    class func parse(commandLineArguments args: [String]) throws -> (Mode, OptionType) {
+    class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
         fatalError("Must be implmented by subclasses")
     }
 
@@ -128,17 +185,12 @@ public class SwiftTool<Mode: Argument, OptionType: Options> {
             // Call the implementation.
             try runImpl()
         } catch {
-            handle(error: error, usage: type(of: self).usage)
+            handle(error: error)
         }
     }
 
     /// Run method implmentation to be overridden by subclasses.
     func runImpl() throws {
-        fatalError("Must be implmented by subclasses")
-    }
-
-    /// Method to be called to print the usage text of this tool.
-    class func usage(_ print: (String) -> Void = { print($0) }) {
         fatalError("Must be implmented by subclasses")
     }
 

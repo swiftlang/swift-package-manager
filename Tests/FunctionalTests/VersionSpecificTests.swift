@@ -74,7 +74,7 @@ class VersionSpecificTests: XCTestCase {
             try repo.tag(name: "1.1.0@swift-\(Versioning.currentVersion.major)")
 
             // The build should work now.
-            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean=dist"], chdir: primaryPath)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["reset"], chdir: primaryPath)
             XCTAssertBuilds(primaryPath)
         }
     }

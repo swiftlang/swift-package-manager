@@ -17,20 +17,20 @@ import Utility
 
 public struct XcodeprojOptions {
     /// The build flags.
-    public var flags = BuildFlags()
+    public let flags: BuildFlags
     
     /// If provided, a path to an xcconfig file to be included by the project.
     ///
     /// This allows the client to override settings defined in the project itself.
-    public var xcconfigOverrides: AbsolutePath?
+    public let xcconfigOverrides: AbsolutePath?
 
     /// Whether code coverage should be enabled in the generated scheme.
-    public var enableCodeCoverage = false
+    public let enableCodeCoverage: Bool
     
-    public init() {
-        // Ideally we shouldn't need an empty initializer but if we don't have
-        // one we cannot instantiate a `XcodeprojOptions` struct from outside
-        // the `Xcodeproj` module.
+    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil, enableCodeCoverage: Bool? = nil) {
+        self.flags = flags
+        self.xcconfigOverrides = xcconfigOverrides
+        self.enableCodeCoverage = enableCodeCoverage ?? false
     }
 }
 

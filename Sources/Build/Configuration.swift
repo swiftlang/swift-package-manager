@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public enum Configuration {
+public enum Configuration: String {
     case debug, release
 
     public var dirname: String {

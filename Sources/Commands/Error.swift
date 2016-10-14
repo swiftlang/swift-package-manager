@@ -11,11 +11,8 @@
 import Basic
 import PackageModel
 
-import enum Utility.ColorWrap
-import enum Utility.Stream
+import Utility
 import func POSIX.exit
-import func Utility.isTTY
-import var Utility.stderr
 import enum PackageLoading.ManifestParseError
 
 public enum Error: Swift.Error {
@@ -51,29 +48,24 @@ extension Error: FixableError {
     }
 }
 
-public func handle(error: Any, usage: ((String) -> Void) -> Void) -> Never {
+public func handle(error: Any) -> Never {
 
     switch error {
-    case OptionParserError.multipleModesSpecified(let modes):
-        print(error: error)
+    case ArgumentParserError.unknownOption(let option):
+        print(error: "Unknown option \(option). Use --help to list available options")
 
-        if isTTY(.stdErr) && (modes.contains{ ["--help", "-h"].contains($0) }) {
-            print("", to: &stderr)
-            usage { print($0, to: &stderr) }
-        }
-    case OptionParserError.noCommandProvided(let hint):
-        if !hint.isEmpty {
-            print(error: error)
-        }
-        if isTTY(.stdErr) {
-            usage { print($0, to: &stderr) }
-        }
-    case is OptionParserError:
-        print(error: error)
-        if isTTY(.stdErr) {
-            let argv0 = CommandLine.arguments.first ?? "swift package"
-            print("enter `\(argv0) --help' for usage information", to: &stderr)
-        }
+    case ArgumentParserError.unknownValue(let option, let value):
+        print(error: "Unknown value \(value) provided for option \(option). Use --help to list available values")
+
+    case ArgumentParserError.expectedValue(let option):
+        print(error: "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'")
+
+    case ArgumentParserError.unexpectedArgument(let arg):
+        print(error: "Unexpected argument \(arg). Use --help to list available arguments")
+
+    case ArgumentParserError.expectedArguments(let args):
+        print(error: "Expected arguments: \(args.joined(separator: ", ")). Use --help for display information")
+
     case let error as FixableError:
         print(error: error.error)
         if let fix = error.fix {
