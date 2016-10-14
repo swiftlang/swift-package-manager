@@ -55,8 +55,14 @@ public struct PkgConfig {
 
     /// Load the information for the named package.
     ///
-    /// - name: Name of the pkg config file (without file extension).
-    /// - fileSystem: The file system to use, defaults to local file system.
+    /// It will search `fileSystem` for the pkg config file in the following order:
+    /// * Paths defined in `PKG_CONFIG_PATH` environment variable
+    /// * Paths defined in `additionalSearchPaths` argument
+    /// * Built-in search paths (see `PkgConfig.searchPaths`)
+    ///
+    /// - parameter name: Name of the pkg config file (without file extension).
+    /// - parameter additionalSearchPaths: Additional paths to search for pkg config file.
+    /// - parameter fileSystem: The file system to use, defaults to local file system.
     ///
     /// - throws: PkgConfigError
     public init(name: String, additionalSearchPaths: [AbsolutePath] = [], fileSystem: FileSystem = localFileSystem) throws {
