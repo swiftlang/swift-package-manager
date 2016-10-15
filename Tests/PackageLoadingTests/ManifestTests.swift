@@ -47,21 +47,21 @@ class ManifestTests: XCTestCase {
 
     func testManifestLoading() {
         // Check a trivial manifest.
-        loadManifest("trivial-manifest") { manifest in
+        loadManifest("trivial-manifest.swift") { manifest in
             XCTAssertEqual(manifest.package.name, "Trivial")
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
 
         // Check a manifest with package specifications.
-        loadManifest("package-deps-manifest") { manifest in
+        loadManifest("package-deps-manifest.swift") { manifest in
             XCTAssertEqual(manifest.package.name, "PackageDeps")
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [Package.Dependency.Package(url: "https://example.com/example", majorVersion: 1)])
         }
 
         // Check a manifest with targets.
-        loadManifest("target-deps-manifest") { manifest in
+        loadManifest("target-deps-manifest.swift") { manifest in
             XCTAssertEqual(manifest.package.name, "TargetDeps")
             XCTAssertEqual(manifest.package.targets, [
                 Target(
