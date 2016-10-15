@@ -42,6 +42,23 @@ class GenerateXcodeprojTests: XCTestCase {
       #endif
     }
 
+    func testDirectoryReferenceInclusion() {
+        do {
+            let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/Sources/bar.swift", "/Bar/excludeMe/foo.txt", "/Bar/includeMe/foo.txt")
+            let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar", exclude: ["excludeMe"])], root: "/Bar", in: fileSystem)
+
+            let extraDirs = try findDirectoryReferences(for: graph.rootPackage, fileSystem: fileSystem)
+            let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+                                           graph: graph, extraDirs: extraDirs,
+                                           options: XcodeprojOptions(), fileSystem: fileSystem)
+
+            XCTAssert(!project.mainGroup.subitems.contains { $0.path == "excludeMe" })
+            XCTAssert(project.mainGroup.subitems.contains { $0.path == "includeMe" })
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testXcconfigOverrideValidatesPath() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
         let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
@@ -61,6 +78,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
     static var allTests = [
         ("testXcodebuildCanParseIt", testXcodebuildCanParseIt),
+        ("testDirectoryReferenceInclusion", testDirectoryReferenceInclusion),
         ("testXcconfigOverrideValidatesPath", testXcconfigOverrideValidatesPath),
     ]
 }

@@ -59,7 +59,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
     
     // Find the paths of any extra directories that should be added as folder
     // references in the project.
-    let extraDirs = try findDirectoryReferences(path: srcroot)
+    let extraDirs = try findDirectoryReferences(for: graph.rootPackage)
     
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
@@ -155,15 +155,17 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
 }
 
 /// Finds directories that will be added as blue folder
-/// Excludes hidden directories, Xcode projects and reserved directories
-func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
-    let rootDirectories = try walk(path, recursively: false)
+/// Excludes hidden directories, Xcode projects, reserved directories, and
+/// directories specified in "exclude" in the package manifest
+func findDirectoryReferences(for package: Package, fileSystem: FileSystem = localFileSystem) throws -> [AbsolutePath] {
+    let rootDirectories = try walk(package.path, fileSystem: fileSystem, recursively: false)
 
     return rootDirectories.filter {
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
         if PackageBuilder.isReservedDirectory(pathComponent: $0.basename) { return false }
-        return isDirectory($0)
+        if package.manifest.package.exclude.contains($0.basename) { return false }
+        return fileSystem.isDirectory($0)
     }
 }
