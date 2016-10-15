@@ -21,6 +21,9 @@ enum PackageGraphError: Swift.Error {
 
     /// Indicates a non-root package with no modules.
     case noModules(Package)
+
+    /// The package dependency declaration has cycle in it.
+    case cycleDetected((path: [Package], cycle: [Package]))
 }
 
 extension PackageGraphError: FixableError {
@@ -30,6 +33,10 @@ extension PackageGraphError: FixableError {
             return "multiple modules with the name \(name) found"
         case .noModules(let package):
             return "the package \(package) contains no modules"
+        case .cycleDetected(let cycle):
+            return "found cyclic dependency declaration: " +
+                (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
+                " -> " + cycle.cycle[0].name
         }
     }
 
@@ -39,6 +46,8 @@ extension PackageGraphError: FixableError {
             return "modules should have a unique name across dependencies"
         case .noModules(_):
             return "create at least one module"
+        case .cycleDetected(_):
+            return nil
         }
     }
 }
@@ -97,7 +106,13 @@ public struct PackageGraphLoader {
             // FIXME: This is inefficient.
             package.dependencies = package.manifest.package.dependencies.map{ dep in packages.pick{ dep.url == $0.url }! }
         }
-    
+
+        // Detect cycles in package dependencies.
+        // Input is reversed because the root manifest is the last one.
+        if let cycle = findCycle(packages.reversed(), successors: { $0.dependencies}) {
+            throw PackageGraphError.cycleDetected(cycle)
+        }
+
         // Connect up cross-package module dependencies.
         fillModuleGraph(packages)
     
