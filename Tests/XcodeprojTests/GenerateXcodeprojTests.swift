@@ -19,15 +19,13 @@ import XCTest
 
 class GenerateXcodeprojTests: XCTestCase {
     func testXcodebuildCanParseIt() {
-#if os(macOS)
+      #if os(macOS)
         mktmpdir { dstdir in
-            func dummy() throws -> [Module] {
-                return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
-            }
+            let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/DummyModuleName/source.swift")
+
+            let graph = try loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", in: fileSystem)
 
             let projectName = "DummyProjectName"
-            let dummyPackage = Package(manifest: Manifest(path: dstdir, url: dstdir.asString, package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: dstdir, modules: [], testModules: [], products: [])
-            let graph = PackageGraph(rootPackage: dummyPackage, modules: try dummy(), externalModules: [])
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)
@@ -41,25 +39,23 @@ class GenerateXcodeprojTests: XCTestCase {
 
             XCTAssertEqual(output, expectedOutput)
         }
-#endif
+      #endif
     }
 
-    func testXcconfigOverrideValidatesPath() {
-        mktmpdir { dstdir in
-            let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
-            let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
+    func testXcconfigOverrideValidatesPath() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
+        let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
 
-            var options = XcodeprojOptions()
-            options.xcconfigOverrides = AbsolutePath("/doesntexist")
-            do {
-                _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
-                                     graph: graph, extraDirs: [], options: options, fileSystem: fileSystem)
-                XCTFail("Project generation should have failed")
-            } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
-                XCTAssertEqual(options.xcconfigOverrides, path)
-            } catch {
-                XCTFail("Project generation shouldn't have had another error")
-            }
+        var options = XcodeprojOptions()
+        options.xcconfigOverrides = AbsolutePath("/doesntexist")
+        do {
+            _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+                                 graph: graph, extraDirs: [], options: options, fileSystem: fileSystem)
+            XCTFail("Project generation should have failed")
+        } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
+            XCTAssertEqual(options.xcconfigOverrides, path)
+        } catch {
+            XCTFail("Project generation shouldn't have had another error")
         }
     }
 
