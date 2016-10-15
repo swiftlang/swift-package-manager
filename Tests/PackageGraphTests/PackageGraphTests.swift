@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageGraph
+@testable import PackageGraph
 import PackageDescription
 import TestSupport
 
@@ -34,6 +34,25 @@ class PackageGraphTests: XCTestCase {
             result.check(packages: "Bar", "Foo")
             result.check(modules: "Bar", "Foo")
             result.check(testModules: "BarTests")
+        }
+    }
+
+    func testCycle() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/source.swift",
+            "/Bar/source.swift",
+            "/Baz/source.swift"
+        )
+
+        do {
+            _ = try loadMockPackageGraph([
+                "/Foo": Package(name: "Foo", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+                "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Baz", majorVersion: 1)]),
+                "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+            ], root: "/Foo", in: fs)
+        } catch PackageGraphError.cycleDetected(let cycle) {
+            XCTAssertEqual(cycle.path.map {$0.name}, ["Foo"])
+            XCTAssertEqual(cycle.cycle.map {$0.name}.sorted(), ["Bar", "Baz"])
         }
     }
 
@@ -61,6 +80,7 @@ class PackageGraphTests: XCTestCase {
 
     static var allTests = [
         ("testBasic", testBasic),
+        ("testCycle", testCycle),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
     ]
 }
