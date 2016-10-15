@@ -56,7 +56,7 @@ final class PkgConfigParserTests: XCTestCase {
             XCTAssertEqual(parser.variables, ["prefix": "/usr/local/bin", "exec_prefix": "/usr/local/bin", "my_dep": "atk"])
             XCTAssertEqual(parser.dependencies, ["gdk-3.0", "atk"])
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/Wine Cellar/gtk+3/3.18.9/include/gtk-3.0", "-I/after/extra/spaces"])
-            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk-3", "-wantareal\\here", "-one\\", "-two"])
+            XCTAssertEqual(parser.libs, ["-L/usr/local/bin", "-lgtk 3", "-wantareal\\here", "-one\\", "-two"])
         }
     }
     
@@ -69,6 +69,15 @@ final class PkgConfigParserTests: XCTestCase {
         XCTAssertEqual("/usr/lib/pkgconfig/foo.pc", try PkgConfig.locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs).asString)
     }
 
+    func testUnevenQuotes() throws {
+        do {
+            try loadPCFile("quotes_failure.pc")
+            XCTFail("Unexpected success")
+        } catch PkgConfigError.parsingError(let desc) {
+            XCTAssert(desc.hasPrefix("Text ended before matching quote"))
+        }
+    }
+    
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {
         let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
         var parser = PkgConfigParser(pcFile: input, fileSystem: localFileSystem)
