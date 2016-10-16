@@ -15,7 +15,3 @@ D: Package Manager
 N: Daniel Dunbar
 E: daniel_dunbar@apple.com
 D: Package Manager
-
-N: Max Howell
-E: max.howell@apple.com
-D: Package Manager
