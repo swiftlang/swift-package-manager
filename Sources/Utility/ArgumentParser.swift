@@ -447,3 +447,104 @@ public final class ArgumentParser: ArgumentParserProtocol {
         }
     }
 }
+
+/// A class to bind ArgumentParser's arguments to an option structure.
+public final class ArgumentBinder<Options> {
+    /// The signature of body closure.
+    private typealias BodyClosure = (inout Options, ArgumentParser.Result) -> Void
+
+    /// This array holds the closures which should be executed to fill the options structure.
+    private var bodies = [BodyClosure]()
+
+    /// Create a binder.
+    public init() {
+    }
+
+    /// Bind an option argument.
+    public func bind<T>(
+        option: OptionArgument<T>,
+        to body: @escaping (inout Options, T) -> Void
+    ) {
+        addBody {
+            guard let result = $1.get(option) else { return }
+            body(&$0, result)
+        }
+    }
+
+    /// Bind an array option argument.
+    public func bindArray<T>(
+        option: OptionArgument<[T]>,
+        to body: @escaping (inout Options, [T]) -> Void
+    ) {
+        addBody {
+            guard let result = $1.get(option) else { return }
+            body(&$0, result)
+        }
+    }
+
+    /// Bind a positional argument.
+    public func bind<T>(
+        positional: PositionalArgument<T>,
+        to body: @escaping (inout Options, T) -> Void
+    ) {
+        addBody {
+            body(&$0, $1.get(positional))
+        }
+    }
+
+    /// Bind two options.
+    public func bind<T, U>(
+        _ first: OptionArgument<T>,
+        _ second: OptionArgument<U>,
+        to body: @escaping (inout Options, T?, U?) -> Void
+    ) {
+        addBody {
+            body(&$0, $1.get(first), $1.get(second))
+        }
+    }
+
+    /// Bind three options.
+    public func bind<T, U, V>(
+        _ first: OptionArgument<T>,
+        _ second: OptionArgument<U>,
+        _ third: OptionArgument<V>,
+        to body: @escaping (inout Options, T?, U?, V?) -> Void
+    ) {
+        addBody {
+            body(&$0, $1.get(first), $1.get(second), $1.get(third))
+        }
+    }
+
+    /// Bind two array options.
+    public func bindArray<T, U>(
+        _ first: OptionArgument<[T]>,
+        _ second: OptionArgument<[U]>,
+        to body: @escaping (inout Options, [T], [U]) -> Void
+    ) {
+        addBody {
+            body(&$0, $1.get(first) ?? [], $1.get(second) ?? [])
+        }
+    }
+
+    /// Add three array option and call the final closure with their values.
+    public func bindArray<T, U, V>(
+        _ first: OptionArgument<[T]>,
+        _ second: OptionArgument<[U]>,
+        _ third: OptionArgument<[V]>,
+        to body: @escaping (inout Options, [T], [U], [V]) -> Void
+     ) {
+        addBody {
+            body(&$0, $1.get(first) ?? [], $1.get(second) ?? [], $1.get(third) ?? [])
+        }
+    }
+
+    /// Appends a closure to bodies array.
+    private func addBody(_ body: @escaping BodyClosure) {
+        bodies.append(body)
+    }
+
+    /// Fill the result into the options structure.
+    public func fill(_ result: ArgumentParser.Result, into options: inout Options) {
+        bodies.forEach { $0(&options, result) }
+    }
+}
