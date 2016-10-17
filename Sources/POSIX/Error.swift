@@ -25,10 +25,12 @@ public enum SystemError: Swift.Error {
     case realpath(Int32, String)
     case rename(Int32, old: String, new: String)
     case rmdir(Int32, String)
+    case setenv(Int32, String)
     case stat(Int32, String)
     case symlink(Int32, String, dest: String)
     case symlinkat(Int32, String)
     case unlink(Int32, String)
+    case unsetenv(Int32, String)
     case waitpid(Int32)
 }
 
@@ -92,6 +94,8 @@ extension SystemError: CustomStringConvertible {
             return "rename error: \(strerror(errno)): \(old) -> \(new)"
         case .rmdir(let errno, let path):
             return "rmdir error: \(strerror(errno)): \(path)"
+        case .setenv(let errno, let key):
+            return "setenv error: \(strerror(errno)): \(key)"
         case .stat(let errno, _):
             return "stat error: \(strerror(errno))"
         case .symlink(let errno, let path, let dest):
@@ -100,6 +104,8 @@ extension SystemError: CustomStringConvertible {
             return "symlinkat error: \(strerror(errno))"
         case .unlink(let errno, let path):
             return "unlink error: \(strerror(errno)): \(path)"
+        case .unsetenv(let errno, let key):
+            return "unsetenv error: \(strerror(errno)): \(key)"
         case .waitpid(let errno):
             return "waitpid error: \(strerror(errno))"
         }
