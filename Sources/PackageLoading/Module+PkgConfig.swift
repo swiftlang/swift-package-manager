@@ -98,8 +98,9 @@ private extension SystemPackageProvider {
             guard let brewPrefix = try? Utility.popen(["brew", "--prefix"]).chomp() else {
                 return nil
             }
-            return AbsolutePath("\(brewPrefix)/opt/\(name)/lib/pkgconfig")
-        default: return nil
+            return AbsolutePath(brewPrefix).appending(components: "opt", name, "lib", "pkgconfig")
+        case .Apt:
+            return nil
         }
     }
 
