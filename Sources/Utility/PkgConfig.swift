@@ -149,7 +149,7 @@ struct PkgConfigParser {
                 variables[name.chuzzle() ?? ""] = try resolveVariables(value)
             } else {
                 // Unexpected thing in the pc file, abort.
-                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile)")
+                throw PkgConfigError.parsingError("Unexpected line: \(line) in \(pcFile.asString)")
             }
         }
     }
@@ -162,9 +162,9 @@ struct PkgConfigParser {
         case "Requires":
             dependencies = try parseDependencies(value)
         case "Libs":
-            libs = splitEscapingSpace(value)
+            libs = try splitEscapingSpace(value)
         case "Cflags":
-            cFlags = splitEscapingSpace(value)
+            cFlags = try splitEscapingSpace(value)
         default:
             break
         }
@@ -214,7 +214,7 @@ struct PkgConfigParser {
             if operators.contains(arg) {
                 // We should have a version number next, skip.
                 guard let _ = it.next() else {
-                    throw PkgConfigError.parsingError("Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \(pcFile)")
+                    throw PkgConfigError.parsingError("Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \(pcFile.asString)")
                 }
             } else {
                 // Otherwise it is a dependency.
@@ -265,12 +265,12 @@ struct PkgConfigParser {
         return result
     }
     
-    /// Split line on unescaped spaces
+    /// Split line on unescaped spaces.
     ///
     /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def"
     /// and ignore multiple spaces such that "abc def" will split into ["abc",
     /// "def"].
-    private func splitEscapingSpace(_ line: String) -> [String] {
+    private func splitEscapingSpace(_ line: String) throws -> [String] {
         var splits = [String]()
         var fragment = [Character]()
         
@@ -282,16 +282,23 @@ struct PkgConfigParser {
         }
         
         var it = line.characters.makeIterator()
+        // Indicates if we're in a quoted fragment, we shouldn't append quote.
+        var inQuotes = false
         while let char = it.next() {
-            if char == "\\" {
+            if char == "\"" {
+                inQuotes = !inQuotes
+            } else if char == "\\" {
                 if let next = it.next() {
                     fragment.append(next)
                 }
-            } else if char == " " {
+            } else if char == " " && !inQuotes {
                 saveFragment()
             } else {
                 fragment.append(char)
             }
+        }
+        guard !inQuotes else {
+            throw PkgConfigError.parsingError("Text ended before matching quote was found in line: \(line) file: \(pcFile.asString)")
         }
         saveFragment()
         return splits
