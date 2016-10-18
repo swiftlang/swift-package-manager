@@ -163,3 +163,13 @@ products.append(
         modules: ["PackageDescription"]
     )
 )
+
+
+// SwiftPM Library -- provides package management functionality to clients
+products.append(
+    Product(
+        name: "SwiftPM",
+        type: .Library(.Dynamic),
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj"]
+    )
+)

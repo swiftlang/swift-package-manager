@@ -17,9 +17,10 @@
  to build itself to produce the production tools.
 
  Note that currently this script is also responsible for building the package
- manager in such a way that it can be installed along with the Swift package. In
- particular, it knows how to build the runtime PackageDescription library
- correctly and install it.
+ manager in such a way that it can be installed along with the Swift package.
+ In particular, it knows how to build the runtime PackageDescription library
+ correctly and install it.  It can also build libSwiftPM, allowing clients to
+ access package manager functionality.
 
 """
 
@@ -776,6 +777,10 @@ def main():
                         help="vendor name for use in --version")
     parser.add_argument("--build-identifier", dest="build_identifier",
                         help="build identifier for use in --version")
+    parser.add_argument("--libswiftpm-library-dir", dest="libswiftpm_library_dir",
+                        help="Directory in which to put libSwiftPM library")
+    parser.add_argument("--libswiftpm-modules-dir", dest="libswiftpm_modules_dir",
+                        help="Directory in which to put libSwiftPM modules")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -1045,6 +1050,58 @@ def main():
         result = subprocess.call(cmd)
         if result != 0:
             error("install failed with exit status %d" % (result,))
+    
+    # Copy the libSwiftPM library to a directory, if we've been asked to do so.
+    if args.libswiftpm_library_dir:
+        # Make the directory absolute, if needed.
+        libswiftpm_library_dir = os.path.abspath(args.libswiftpm_library_dir)
+        
+        # Create the output directory, if needed.
+        mkdir_p(libswiftpm_library_dir)
+        
+        # Find the libSwiftPM product.  It's an error if we don't.
+        try:
+            libswiftpm_product = product_map["SwiftPM"]
+        except:
+            error("unable to find 'SwiftPM' product in package manifest; cannot copy library to '%s'", libswiftpm_library_dir)
+        
+        # Copy the libSwiftPM library.
+        # FIXME: This shouldn't require so much knowledge of the manifest.
+        # FIXME: We should handle what happens if it's a static library.
+        src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
+        cmd = ["cp", src_path, libswiftpm_library_dir]
+        note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("copying failed with exit status %d" % result)
+
+    # Copy the libSwiftPM modules to a directory, if we've been asked to do so.
+    # FIXME: There is too much duplication between this part and the one above.
+    if args.libswiftpm_modules_dir:
+        # Make the directory absolute, if needed.
+        libswiftpm_modules_dir = os.path.abspath(args.libswiftpm_modules_dir)
+        
+        # Create the output directory, if needed.
+        mkdir_p(libswiftpm_modules_dir)
+        
+        # Find the libSwiftPM product.  It's an error if we don't.
+        try:
+            libswiftpm_product = product_map["SwiftPM"]
+        except:
+            error("unable to find 'SwiftPM' product in package manifest; cannot copy modules to '%s'", libswiftpm_library_dir)
+        
+        # Copy the libSwiftPM modules.
+        # FIXME: This shouldn't require so much knowledge of the manifest.
+        # FIXME: We should handle what happens if it's a static library.
+        for target in libswiftpm_product.targets:
+            for suffix in [".swiftmodule", ".swiftdoc"]:
+                src_path = os.path.join(build_path, conf, target + suffix)
+                if os.path.exists(src_path):
+                    cmd = ["cp", src_path, libswiftpm_modules_dir]
+                    note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("copying failed with exit status %d" % result)
                 
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
