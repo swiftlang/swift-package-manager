@@ -605,6 +605,17 @@ public final class ArgumentBinder<Options> {
         }
     }
 
+    /// Bind a subparser.
+    public func bind(
+        parser: ArgumentParser,
+        to body: @escaping (inout Options, String) -> Void
+    ) {
+        addBody {
+            guard let result = $1.subparser(parser) else { return }
+            body(&$0, result)
+        }
+    }
+
     /// Appends a closure to bodies array.
     private func addBody(_ body: @escaping BodyClosure) {
         bodies.append(body)

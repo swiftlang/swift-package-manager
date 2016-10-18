@@ -233,11 +233,46 @@ class ArgumentParserTests: XCTestCase {
         }
     }
 
+    func testSubparserBinder() throws {
+
+        struct Options {
+            enum Mode: String {
+                case update
+                case fetch
+            }
+            var mode: Mode = .update
+            var branch: String?
+        }
+
+        let parser = ArgumentParser(usage: "sample parser", overview: "Sample overview")
+        let binder = ArgumentBinder<Options>()
+
+        binder.bind(
+            option: parser.add(option: "--branch", shortName: "-b", kind: String.self),
+            to: { $0.branch = $1 })
+
+        _ = parser.add(subparser: "init", overview: "A!")
+        _ = parser.add(subparser: "fetch", overview: "B!")
+
+        binder.bind(
+            parser: parser,
+            to: { $0.mode = Options.Mode(rawValue: $1)! })
+
+        let result = try parser.parse(["--branch", "ok", "fetch"])
+
+        var options = Options()
+        binder.fill(result, into: &options)
+
+        XCTAssertEqual(options.branch, "ok")
+        XCTAssertEqual(options.mode, .fetch)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
         ("testOptions", testOptions),
         ("testSubparser", testSubparser),
         ("testSubsubparser", testSubsubparser),
+        ("testSubparserBinder", testSubparserBinder),
     ]
 }
