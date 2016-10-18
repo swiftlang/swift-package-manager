@@ -364,6 +364,7 @@ public final class ArgumentParser {
 
     /// Adds an argument to the parser.
     public func add<T: ArgumentKind>(positional: String, kind: T.Type, usage: String? = nil) -> PositionalArgument<T> {
+        precondition(subparsers.isEmpty, "Positional arguments are not supported with subparsers")
         let arg = PositionalArgument<T>(name: positional, usage: usage)
         positionalArgs.append(AnyArgument(arg))
         return arg
@@ -477,7 +478,7 @@ public final class ArgumentParser {
     }
 
     /// Prints usage text for this parser on the provided stream.
-    public func printUsage(on stream: OutputByteStream) {
+    public func printUsage(on stream: OutputByteStream, isSubparser: Bool = false) {
         /// Space settings.
         let maxWidthDefault = 24
         let padding = 2
@@ -502,46 +503,61 @@ public final class ArgumentParser {
         }
 
         /// Prints an argument on a stream if it has usage.
-        func print(formatted argument: AnyArgument, on stream: OutputByteStream) {
-            // Don't do anything if we don't have usage for this argument.
-            guard let usage = argument.usage else { return }
+        func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
             // Start with a new line and add some padding.
             stream <<< "\n" <<< space(n: padding)
-            let count = argument.name.characters.count
+            let count = argument.characters.count
             // If the argument name is more than the set width take the whole
             // line for it, otherwise we can fit everything in one line.
             if count >= maxWidth - padding {
-                stream <<< argument.name <<< "\n"
+                stream <<< argument <<< "\n"
                 // Align full width because we on a new line.
                 stream <<< space(n: maxWidth + padding)
             } else {
-                stream <<< argument.name
+                stream <<< argument
                 // Align to the remaining empty space we have.
                 stream <<< space(n: maxWidth - count)
             }
             stream <<< usage
         }
 
-        stream <<< "OVERVIEW: " <<< overview <<< "\n\n"
-        // Get the binary name from command line arguments.
-        let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
-        stream <<< "USAGE: " <<< (commandName ?? defaultCommandName) <<< " " <<< usage
+        stream <<< "OVERVIEW: " <<< overview
 
-        if positionalArgs.count > 0 {
+        // We only print command usage for top level parsers.
+        if !isSubparser {
             stream <<< "\n\n"
-            stream <<< "COMMANDS:"
-            for argument in positionalArgs {
-                print(formatted: argument, on: stream)
-            }
+            // Get the binary name from command line arguments.
+            let defaultCommandName = CommandLine.arguments[0].components(separatedBy: "/").last!
+            stream <<< "USAGE: " <<< (commandName ?? defaultCommandName) <<< " " <<< usage
         }
 
         if options.count > 0 {
             stream <<< "\n\n"
             stream <<< "OPTIONS:"
             for argument in options {
-                print(formatted: argument, on: stream)
+                guard let usage = argument.usage else { continue }
+                print(formatted: argument.name, usage: usage, on: stream)
             }
         }
+
+        if subparsers.keys.count > 0 {
+            stream <<< "\n\n"
+            stream <<< "SUBCOMMANDS:"
+            for (command, parser) in subparsers.sorted(by: { $0.key < $1.key }) {
+                print(formatted: command, usage: parser.overview, on: stream)
+            }
+        }
+
+        if positionalArgs.count > 0 {
+            stream <<< "\n\n"
+            stream <<< "COMMANDS:"
+            for argument in positionalArgs {
+                guard let usage = argument.usage else { continue }
+                print(formatted: argument.name, usage: usage, on: stream)
+            }
+        }
+        stream <<< "\n"
+        stream.flush()
     }
 }
 
