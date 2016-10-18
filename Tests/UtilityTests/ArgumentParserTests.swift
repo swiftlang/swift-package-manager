@@ -43,8 +43,9 @@ class ArgumentParserTests: XCTestCase {
         let verbosity = parser.add(option: "--verbose", kind: Int.self, usage: "The verbosity level")
         let noFly = parser.add(option: "--no-fly", kind: Bool.self, usage: "If should fly")
         let sampleEnum = parser.add(positional: "enum", kind: SampleEnum.self)
+        let foo = parser.add(option: "--foo", kind: String.self)
 
-        let args = try parser.parse(["Foo", "-b", "bugfix", "--verbose", "2", "-Xld", "foo", "-Xld", "bar",  "--no-fly", "Bar"])
+        let args = try parser.parse(["Foo", "-b", "bugfix", "--verbose", "2", "-Xld", "foo", "-Xld", "bar",  "--no-fly", "Bar", "--foo=bar"])
 
         XCTAssertEqual(args.get(package), "Foo")
         XCTAssert(args.get(revision) == nil)
@@ -53,6 +54,7 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(args.get(verbosity), 2)
         XCTAssertEqual(args.get(noFly), true)
         XCTAssertEqual(args.get(sampleEnum), .Bar)
+        XCTAssertEqual(args.get(foo), "bar")
 
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
