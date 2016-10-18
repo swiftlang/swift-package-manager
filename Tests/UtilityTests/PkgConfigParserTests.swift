@@ -62,10 +62,13 @@ final class PkgConfigParserTests: XCTestCase {
     
     /// Test custom search path get higher priority for locating pc files.
     func testCustomPcFileSearchPath() throws {
+
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/usr/lib/pkgconfig/foo.pc",
             "/custom/foo.pc")
         XCTAssertEqual("/custom/foo.pc", try PkgConfig.locatePCFile(name: "foo", customSearchPaths: [AbsolutePath("/custom")], fileSystem: fs).asString)
+        XCTAssertEqual("/custom/foo.pc", try PkgConfig(name: "foo", additionalSearchPaths: [AbsolutePath("/custom")], fileSystem: fs).pcFile.asString)
         XCTAssertEqual("/usr/lib/pkgconfig/foo.pc", try PkgConfig.locatePCFile(name: "foo", customSearchPaths: [], fileSystem: fs).asString)
     }
 
