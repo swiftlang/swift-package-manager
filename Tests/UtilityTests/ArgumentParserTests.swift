@@ -57,7 +57,6 @@ class ArgumentParserTests: XCTestCase {
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
         let usage = stream.bytes.asString!
-        print(usage)
         XCTAssert(usage.contains("OVERVIEW: Sample overview"))
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
         XCTAssert(usage.contains("  package name of the year\n                          The name of the package"))

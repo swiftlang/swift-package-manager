@@ -181,7 +181,7 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 /// A type-erased argument.
 ///
 /// Note: Only used for argument parsing purpose.
-fileprivate final class AnyArgument: ArgumentProtocol {
+fileprivate final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     typealias ArgumentKindTy = Any
 
     let name: String
@@ -210,6 +210,10 @@ fileprivate final class AnyArgument: ArgumentProtocol {
         self.usage = arg.usage
         isArray = true
     }
+
+    var description: String {
+        return "Argument(\(name))"
+    }
 }
 
 /// Argument parser protocol passed in initializers of ArgumentKind to manipulate
@@ -219,7 +223,7 @@ public protocol ArgumentParserProtocol {
     func next() throws -> String
 }
 
-/// Argument parser struct reponsible to parse the provided array of arguments and return
+/// Argument parser struct responsible to parse the provided array of arguments and return
 /// the parsed result.
 public final class ArgumentParser: ArgumentParserProtocol {
     /// A struct representing result of the parsed arguments.
