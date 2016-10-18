@@ -142,9 +142,102 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(options.flags.xswiftc, ["b"])
     }
 
+    func testSubparser() throws {
+        let parser = ArgumentParser(usage: "sample parser", overview: "Sample overview")
+        let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
+
+        let parserA = parser.add(subparser: "a", overview: "A!")
+        let branchOption = parserA.add(option: "--branch", kind: String.self)
+
+        let parserB = parser.add(subparser: "b", overview: "B!")
+        let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self)
+
+        var args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix"])
+        XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(branchOption), "bugfix")
+        XCTAssertEqual(args.get(noFlyOption), nil)
+        XCTAssertEqual(args.subparser(parser), "a")
+
+        args = try parser.parse(["--foo", "foo", "b", "--no-fly"])
+
+        XCTAssertEqual(args.get(foo), "foo")
+        XCTAssertEqual(args.get(branchOption), nil)
+        XCTAssertEqual(args.get(noFlyOption), true)
+        XCTAssertEqual(args.subparser(parser), "b")
+
+        do {
+            args = try parser.parse(["c"])
+        } catch ArgumentParserError.expectedArguments(let args) {
+            XCTAssertEqual(args.sorted(), ["a", "b"])
+        }
+
+        do {
+            args = try parser.parse(["--foo", "foo", "b", "--no-fly", "--branch", "bugfix"])
+        } catch ArgumentParserError.unknown(let arg) {
+            XCTAssertEqual(arg, "--branch")
+        }
+
+        do {
+            args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix", "--no-fly"])
+        } catch ArgumentParserError.unknown(let arg) {
+            XCTAssertEqual(arg, "--no-fly")
+        }
+
+        do {
+            args = try parser.parse(["a", "--branch", "bugfix", "--foo"])
+        } catch ArgumentParserError.unknown(let arg) {
+            XCTAssertEqual(arg, "--foo")
+        }
+    }
+
+    func testSubsubparser() throws {
+        let parser = ArgumentParser(usage: "sample parser", overview: "Sample overview")
+
+        let parserA = parser.add(subparser: "foo", overview: "A!")
+        let branchOption = parserA.add(option: "--branch", kind: String.self)
+
+        _ = parserA.add(subparser: "bar", overview: "Bar!")
+        let parserAB = parserA.add(subparser: "baz", overview: "Baz!")
+        let noFlyOption = parserAB.add(option: "--no-fly", kind: Bool.self)
+
+        var args = try parser.parse(["foo", "--branch", "bugfix", "baz", "--no-fly"])
+
+        XCTAssertEqual(args.get(branchOption), "bugfix")
+        XCTAssertEqual(args.get(noFlyOption), true)
+        XCTAssertEqual(args.subparser(parserA), "baz")
+        XCTAssertEqual(args.subparser(parser), "foo")
+
+        args = try parser.parse(["foo", "bar"])
+
+        XCTAssertEqual(args.get(branchOption), nil)
+        XCTAssertEqual(args.get(noFlyOption), nil)
+        XCTAssertEqual(args.subparser(parserA), "bar")
+        XCTAssertEqual(args.subparser(parser), "foo")
+
+        do {
+            args = try parser.parse(["c"])
+        } catch ArgumentParserError.expectedArguments(let args) {
+            XCTAssertEqual(args.sorted(), ["foo"])
+        }
+
+        do {
+            args = try parser.parse(["foo", "--branch", "b", "foo"])
+        } catch ArgumentParserError.expectedArguments(let args) {
+            XCTAssertEqual(args.sorted(), ["bar", "baz"])
+        }
+
+        do {
+            args = try parser.parse(["foo", "bar", "--no-fly"])
+        } catch ArgumentParserError.unknown(let arg) {
+            XCTAssertEqual(arg, "--no-fly")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
         ("testOptions", testOptions),
+        ("testSubparser", testSubparser),
+        ("testSubsubparser", testSubsubparser),
     ]
 }

@@ -226,10 +226,25 @@ public protocol ArgumentParserProtocol {
 /// Argument parser struct responsible to parse the provided array of arguments and return
 /// the parsed result.
 public final class ArgumentParser: ArgumentParserProtocol {
-    /// A struct representing result of the parsed arguments.
-    public struct Result {
+    /// A class representing result of the parsed arguments.
+    public class Result: CustomStringConvertible {
         /// Internal representation of arguments mapped to their values.
         private var results = [AnyArgument: Any]()
+
+        /// Result of the parent parent parser, if any.
+        private var parentResult: Result? = nil
+
+        /// Reference to the parser this result belongs to.
+        private let parser: ArgumentParser
+
+        /// The subparser command chosen.
+        fileprivate var subparser: String?
+
+        /// Create a result with a parser and parent result.
+        init(parser: ArgumentParser, parent: Result?) {
+            self.parser = parser
+            self.parentResult = parent
+        }
 
         /// Adds a result.
         ///
@@ -238,7 +253,7 @@ public final class ArgumentParser: ArgumentParserProtocol {
         ///     - value: The associated value of the argument.
         ///
         /// - throws: ArgumentParserError
-        fileprivate mutating func addResult(for argument: AnyArgument, result: ArgumentKind) throws {
+        fileprivate func addResult(for argument: AnyArgument, result: ArgumentKind) throws {
             if argument.isArray {
                 var array = [ArgumentKind]()
                 // Get the previously added results if present.
@@ -254,23 +269,40 @@ public final class ArgumentParser: ArgumentParserProtocol {
 
         /// Get an option argument's value from the results.
         ///
-        /// Since the options are optional, their result may or may not
-        /// be present.
+        /// Since the options are optional, their result may or may not be present.
         public func get<T>(_ arg: OptionArgument<T>) -> T? {
-            return results[AnyArgument(arg)] as? T
+            return (results[AnyArgument(arg)] as? T) ?? parentResult?.get(arg)
         }
 
         /// Array variant for option argument's get(_:).
         public func get<T>(_ arg: OptionArgument<[T]>) -> [T]? {
-            return results[AnyArgument(arg)] as? [T]
+            return (results[AnyArgument(arg)] as? [T]) ?? parentResult?.get(arg)
         }
 
         /// Get a positional argument's value.
         public func get<T>(_ arg: PositionalArgument<T>) -> T {
             return results[AnyArgument(arg)] as! T
         }
+
+        /// Get the subparser which was chosen for the given parser.
+        public func subparser(_ parser: ArgumentParser) -> String? {
+            if parser === self.parser {
+                return subparser
+            }
+            return parentResult?.subparser(parser)
+        }
+
+        public var description: String {
+            var str = "ArgParseResult(\(results))"
+            if let parent = parentResult {
+                str += " -> " + parent.description
+            }
+            return str
+        }
     }
 
+    /// The mapping of subparsers to their subcommand.
+    private var subparsers: [String: ArgumentParser] = [:]
 
     /// List of arguments added to this parser.
     private var options = [AnyArgument]()
@@ -298,6 +330,13 @@ public final class ArgumentParser: ArgumentParserProtocol {
         self.overview = overview
     }
 
+    /// Create a subparser with its help text.
+    private init(subparser overview: String) {
+        self.commandName = nil
+        self.usage = ""
+        self.overview = overview
+    }
+
     /// Adds an option to the parser.
     public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: T.Type, usage: String? = nil) -> OptionArgument<T> {
         let arg = OptionArgument<T>(name: option, shortName: shortName, usage: usage)
@@ -319,6 +358,13 @@ public final class ArgumentParser: ArgumentParserProtocol {
         return arg
     }
     
+    /// Add a parser with a subcommand name and its corresponding overview.
+    public func add(subparser command: String, overview: String) -> ArgumentParser {
+        let parser = ArgumentParser(subparser: overview)
+        subparsers[command] = parser
+        return parser
+    }
+
     // MARK:- Parsing
 
     /// The iterator used to iterate arguments.
@@ -337,7 +383,11 @@ public final class ArgumentParser: ArgumentParserProtocol {
 
     /// Parses the provided array and return the result.
     public func parse(_ args: [String] = []) throws -> Result {
-        var result = Result()
+        return try parse(args, parent: nil)
+    }
+
+    private func parse(_ args: [String] = [], parent: Result?) throws -> Result {
+        let result = Result(parser: self, parent: parent)
         // Create options map to quickly look up the arguments.
         let optionsTuple = options.flatMap { option -> [(String, AnyArgument)] in
             var result = [(option.name, option)]
@@ -356,6 +406,19 @@ public final class ArgumentParser: ArgumentParserProtocol {
             // Store current argument.
             currentArgument = arg
             if isPositional(argument: arg) {
+
+                /// If this parser has subparsers, we allow only one positional argument which is the subparser command.
+                if !subparsers.isEmpty {
+                    // Make sure this argument has a subparser.
+                    guard let subparser = subparsers[arg] else {
+                        throw ArgumentParserError.expectedArguments(Array(subparsers.keys))
+                    }
+                    // Save which subparser was chosen.
+                    result.subparser = arg
+                    // Parse reset of the arguments with the subparser.
+                    return try subparser.parse(Array(argumentsIterator), parent: result)
+                }
+
                 // Get the next positional argument we are expecting.
                 guard let positionalArg = positionalArgsIterator.next() else {
                     throw ArgumentParserError.unexpectedArgument(arg)
