@@ -145,14 +145,14 @@ class ArgumentParserTests: XCTestCase {
     }
 
     func testSubparser() throws {
-        let parser = ArgumentParser(usage: "sample parser", overview: "Sample overview")
+        let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
         let foo = parser.add(option: "--foo", kind: String.self, usage: "The foo option")
 
         let parserA = parser.add(subparser: "a", overview: "A!")
-        let branchOption = parserA.add(option: "--branch", kind: String.self)
+        let branchOption = parserA.add(option: "--branch", kind: String.self, usage: "The branch to use")
 
         let parserB = parser.add(subparser: "b", overview: "B!")
-        let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self)
+        let noFlyOption = parserB.add(option: "--no-fly", kind: Bool.self, usage: "Should you fly?")
 
         var args = try parser.parse(["--foo", "foo", "a", "--branch", "bugfix"])
         XCTAssertEqual(args.get(foo), "foo")
@@ -190,6 +190,32 @@ class ArgumentParserTests: XCTestCase {
         } catch ArgumentParserError.unknown(let arg) {
             XCTAssertEqual(arg, "--foo")
         }
+
+        var stream = BufferedOutputByteStream()
+        parser.printUsage(on: stream)
+        var usage = stream.bytes.asString!
+
+        XCTAssert(usage.contains("OVERVIEW: Sample overview"))
+        XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
+        XCTAssert(usage.contains("  --foo   The foo option"))
+        XCTAssert(usage.contains("SUBCOMMANDS:"))
+        XCTAssert(usage.contains("  b       B!"))
+
+        stream = BufferedOutputByteStream()
+        parserA.printUsage(on: stream, isSubparser: true)
+        usage = stream.bytes.asString!
+
+        XCTAssert(usage.contains("OVERVIEW: A!"))
+        XCTAssert(usage.contains("OPTIONS:"))
+        XCTAssert(usage.contains("  --branch   The branch to use"))
+
+        stream = BufferedOutputByteStream()
+        parserB.printUsage(on: stream, isSubparser: true)
+        usage = stream.bytes.asString!
+
+        XCTAssert(usage.contains("OVERVIEW: B!"))
+        XCTAssert(usage.contains("OPTIONS:"))
+        XCTAssert(usage.contains("  --no-fly"))
     }
 
     func testSubsubparser() throws {
