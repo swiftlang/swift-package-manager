@@ -44,11 +44,7 @@ public enum ColorWrap {
     public enum Mode: CustomStringConvertible {
         case Auto, Always, Never
 
-        public init?(_ rawValue: String?) {
-            guard let rawValue = rawValue else {
-                self = .Auto
-                return
-            }
+        public init?(rawValue: String) {
             switch rawValue.lowercased() {
             case "auto": self = .Auto
             case "always": self = .Always

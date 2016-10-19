@@ -9,22 +9,37 @@
 */
 
 import Basic
-import POSIX
-import PackageModel
 import Utility
 
-public class Options {
-    public var chdir: AbsolutePath?
-    public var enableNewResolver = false
-    public var colorMode: ColorWrap.Mode = .Auto
-    public var verbosity: Int = 0
+public class ToolOptions {
+    /// Custom arguments to pass to C compiler, swift compiler and the linker.
+    public var buildFlags = BuildFlags()
+
+    /// The custom build directory, if provided.
     public var buildPath: AbsolutePath?
 
-    public init()
-    {}
+    /// The custom working directory that the tool should operate in.
+    public var chdir: AbsolutePath?
+
+    /// The color mode.
+    public var colorMode: ColorWrap.Mode = .Auto
+
+    /// If the new resolver should be enabled.
+    public var enableNewResolver: Bool = false
+
+    /// If print version option was passed.
+    public var printVersion: Bool = false
+
+    /// The verbosity of informational output.
+    public var verbosity: Int = 0
+
+    public required init() {}
+
+    func absolutePathRelativeToWorkingDir(_ path: String?) -> AbsolutePath? {
+        guard let path = path else { return nil }
+        return AbsolutePath(path, relativeTo: currentWorkingDirectory)
+    }
 }
 
-public struct Flag {
-    public static let chdir = "--chdir"
-    public static let C = "-C"
-}
+/// Parser conformance for ColorWrap.
+extension ColorWrap.Mode: StringEnumArgument {}

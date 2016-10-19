@@ -112,12 +112,7 @@ private final class JSONDumper: DependenciesDumper {
 enum ShowDependenciesMode: CustomStringConvertible {
     case text, dot, json
     
-    init(_ rawValue: String?) throws {
-        guard let rawValue = rawValue else {
-            self = .text
-            return
-        }
-        
+    init?(rawValue: String) {
         switch rawValue.lowercased() {
         case "text":
            self = .text
@@ -126,7 +121,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
         case "json":
            self = .json
         default:
-            throw OptionParserError.invalidUsage("invalid show-dependencies mode: \(rawValue)")
+            return nil
         }
     }
     
