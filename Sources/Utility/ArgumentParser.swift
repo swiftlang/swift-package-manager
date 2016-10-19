@@ -9,6 +9,7 @@
 */
 
 import Basic
+import func POSIX.exit
 
 /// Errors which may be encountered when running argument parser.
 ///
@@ -425,8 +426,11 @@ public final class ArgumentParser {
         var argumentsIterator = args.makeIterator()
 
         while let arg = argumentsIterator.next() {
-            if isPositional(argument: arg) {
-
+            // If argument is help then just print usage and exit.
+            if arg == "-h" || arg == "--help" {
+                printUsage(on: stdoutStream, isSubparser: parent != nil)
+                exit(0)
+            } else if isPositional(argument: arg) {
                 /// If this parser has subparsers, we allow only one positional argument which is the subparser command.
                 if !subparsers.isEmpty {
                     // Make sure this argument has a subparser.
