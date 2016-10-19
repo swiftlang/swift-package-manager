@@ -13,13 +13,15 @@ import func POSIX.exit
 
 /// Errors which may be encountered when running argument parser.
 ///
-/// - unknown:            An unknown option is encountered.
+/// - unknownOption:      An unknown option is encountered.
+/// - unknownValue:       The value of an option is unknown.
 /// - expectedValue:      Expected a value from the option.
 /// - unexpectedArgument: An unexpected positional argument encountered.
 /// - expectedArguments:  Expected these positional arguments but not found.
 /// - typeMismatch:       The type of option's value doesn't match.
 public enum ArgumentParserError: Swift.Error {
-    case unknown(option: String)
+    case unknownOption(String)
+    case unknownValue(option: String, value: String)
     case expectedValue(option: String)
     case unexpectedArgument(String)
     case expectedArguments([String])
@@ -77,7 +79,7 @@ extension Bool: ArgumentKind {
             switch associatedValue {
             case "true": self = true
             case "false": self = false
-            default: throw ArgumentParserError.unexpectedArgument(associatedValue)
+            default: throw ArgumentParserError.unknownValue(option: parser.currentArgument, value: associatedValue)
             }
         } else {
             // We don't need to pop here because presence of the option
@@ -105,7 +107,7 @@ extension StringEnumArgument {
     public init(parser: inout ArgumentParserProtocol) throws {
         let arg = try parser.associatedArgumentValue ?? parser.next()
         guard let obj = Self.createObject(arg) else {
-            throw ArgumentParserError.unknown(option: arg)
+            throw ArgumentParserError.unknownValue(option: parser.currentArgument, value: arg)
         }
         self = obj
     }
@@ -228,6 +230,9 @@ fileprivate final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
 /// Argument parser protocol passed in initializers of ArgumentKind to manipulate
 /// parser as needed by the argument.
 public protocol ArgumentParserProtocol {
+    /// The current argument being parsed.
+    var currentArgument: String { get }
+
     /// The associated value in a `--foo=bar` style argument.
     var associatedArgumentValue: String? { get }
 
@@ -292,8 +297,8 @@ public final class ArgumentParser {
         }
 
         /// Get a positional argument's value.
-        public func get<T>(_ arg: PositionalArgument<T>) -> T {
-            return results[AnyArgument(arg)] as! T
+        public func get<T>(_ arg: PositionalArgument<T>) -> T? {
+            return results[AnyArgument(arg)] as? T
         }
 
         /// Get the subparser which was chosen for the given parser.
@@ -372,6 +377,7 @@ public final class ArgumentParser {
     }
     
     /// Add a parser with a subcommand name and its corresponding overview.
+    @discardableResult
     public func add(subparser command: String, overview: String) -> ArgumentParser {
         let parser = ArgumentParser(subparser: overview)
         subparsers[command] = parser
@@ -386,7 +392,7 @@ public final class ArgumentParser {
         var argumentsIterator: IndexingIterator<[String]>
 
         /// The current argument being parsed.
-        private let currentArgument: String
+        let currentArgument: String
 
         private(set) var associatedArgumentValue: String?
 
@@ -456,7 +462,7 @@ public final class ArgumentParser {
                 let (arg, value) = arg.split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let option = optionsMap[arg] else {
-                    throw ArgumentParserError.unknown(option: arg)
+                    throw ArgumentParserError.unknownOption(arg)
                 }
 
                 // Create a parser protocol object.
@@ -538,9 +544,11 @@ public final class ArgumentParser {
         if options.count > 0 {
             stream <<< "\n\n"
             stream <<< "OPTIONS:"
-            for argument in options {
+            for argument in options.lazy.sorted(by: {$0.name < $1.name}) {
                 guard let usage = argument.usage else { continue }
-                print(formatted: argument.name, usage: usage, on: stream)
+                // Create name with its shortname, if available.
+                let name = [argument.name, argument.shortName].flatMap{$0}.joined(separator: ", ")
+                print(formatted: name, usage: usage, on: stream)
             }
         }
 
@@ -548,6 +556,8 @@ public final class ArgumentParser {
             stream <<< "\n\n"
             stream <<< "SUBCOMMANDS:"
             for (command, parser) in subparsers.sorted(by: { $0.key < $1.key }) {
+                // Special case for hidden subcommands.
+                guard !parser.overview.isEmpty else { continue }
                 print(formatted: command, usage: parser.overview, on: stream)
             }
         }
@@ -555,7 +565,7 @@ public final class ArgumentParser {
         if positionalArgs.count > 0 {
             stream <<< "\n\n"
             stream <<< "COMMANDS:"
-            for argument in positionalArgs {
+            for argument in positionalArgs.lazy.sorted(by: {$0.name < $1.name}) {
                 guard let usage = argument.usage else { continue }
                 print(formatted: argument.name, usage: usage, on: stream)
             }
@@ -605,7 +615,8 @@ public final class ArgumentBinder<Options> {
         to body: @escaping (inout Options, T) -> Void
     ) {
         addBody {
-            body(&$0, $1.get(positional))
+            guard let result = $1.get(positional) else { return }
+            body(&$0, result)
         }
     }
 
