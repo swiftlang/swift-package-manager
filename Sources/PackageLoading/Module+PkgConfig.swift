@@ -13,7 +13,7 @@ import POSIX
 import PackageModel
 import Utility
 
-extension ModuleProtocol {
+extension Module {
     /// Returns the pkgConfig flags (cFlags + libs) escaping the cflags with -Xcc.
     //
     // FIXME: This isn't correct. We need to scan both list of flags and escape
