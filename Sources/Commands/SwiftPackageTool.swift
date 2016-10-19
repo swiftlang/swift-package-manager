@@ -165,6 +165,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             print("generated:", outpath.prettyPath)
 
+        case .describe:
+            let graph = try loadPackage()
+            describe(graph.rootPackage, in: options.describeMode, on: stdoutStream)
+
         case .dumpPackage:
             let manifest = try loadRootManifest(options)
             // FIXME: It would be nice if this has a pretty print option.
@@ -200,6 +204,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
             to: { options, _ in options.mode = .version })
+
+        let describeParser = parser.add(subparser: PackageMode.describe.rawValue, overview: "Describe the current package")
+        binder.bind(
+            option: describeParser.add(option: "--type", kind: DescribeMode.self, usage: "json|text"),
+            to: { $0.describeMode = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
@@ -276,6 +285,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 public class PackageToolOptions: ToolOptions {
     var mode: PackageMode = .help
 
+    var describeMode: DescribeMode = .text
     var initMode: InitMode = .library
 
     var inputPath: AbsolutePath?
@@ -295,6 +305,7 @@ public class PackageToolOptions: ToolOptions {
 }
 
 public enum PackageMode: String, StringEnumArgument {
+    case describe
     case dumpPackage = "dump-package"
     case edit
     case fetch
@@ -311,3 +322,4 @@ public enum PackageMode: String, StringEnumArgument {
 
 extension InitMode: StringEnumArgument {}
 extension ShowDependenciesMode: StringEnumArgument {}
+extension DescribeMode: StringEnumArgument {}

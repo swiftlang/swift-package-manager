@@ -82,4 +82,14 @@ extension String {
             return (head, nil)
         }
     }
+
+    /// Returns a string of n spaces for n >= 0 otherwise empty string.
+    public static func spaces(n: Int) -> String {
+        guard n >= 0 else { return "" }
+        var str = ""
+        for _ in 0..<n {
+            str += " "
+        }
+        return str
+    }
 }
