@@ -33,7 +33,7 @@ public protocol ArgumentKind {
     /// This will be called when the option is encountered while parsing.
     ///
     /// Call methods on the passed parser to manipulate parser as needed.
-    init(parser: ArgumentParserProtocol) throws
+    init(parser: inout ArgumentParserProtocol) throws
 
     /// This will be called for positional arguments with the value discovered.
     init?(arg: String)
@@ -46,8 +46,8 @@ extension String: ArgumentKind {
         self = arg
     }
 
-    public init(parser: ArgumentParserProtocol) throws {
-        self = try parser.next()
+    public init(parser: inout ArgumentParserProtocol) throws {
+        self = try parser.associatedArgumentValue ?? parser.next()
     }
 }
 
@@ -56,8 +56,8 @@ extension Int: ArgumentKind {
         self.init(arg)
     }
 
-    public init(parser: ArgumentParserProtocol) throws {
-        let arg = try parser.next()
+    public init(parser: inout ArgumentParserProtocol) throws {
+        let arg = try parser.associatedArgumentValue ?? parser.next()
         // Not every string can be converted into an integer.
         guard let intValue = Int(arg) else {
             throw ArgumentParserError.typeMismatch("\(arg) is not convertible to Int")
@@ -71,10 +71,18 @@ extension Bool: ArgumentKind {
         self = true
     }
 
-    public init(parser: ArgumentParserProtocol) throws {
-        // We don't need to pop here because presence of the option
-        // is enough to indicate that the bool value is true.
-        self = true
+    public init(parser: inout ArgumentParserProtocol) throws {
+        if let associatedValue = parser.associatedArgumentValue {
+            switch associatedValue {
+            case "true": self = true
+            case "false": self = false
+            default: throw ArgumentParserError.unexpectedArgument(associatedValue)
+            }
+        } else {
+            // We don't need to pop here because presence of the option
+            // is enough to indicate that the bool value is true.
+            self = true
+        }
     }
 }
 
@@ -93,8 +101,8 @@ extension StringEnumArgument {
         return self.init(arg: arg)
     }
 
-    public init(parser: ArgumentParserProtocol) throws {
-        let arg = try parser.next()
+    public init(parser: inout ArgumentParserProtocol) throws {
+        let arg = try parser.associatedArgumentValue ?? parser.next()
         guard let obj = Self.createObject(arg) else {
             throw ArgumentParserError.unknown(option: arg)
         }
@@ -219,13 +227,16 @@ fileprivate final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
 /// Argument parser protocol passed in initializers of ArgumentKind to manipulate
 /// parser as needed by the argument.
 public protocol ArgumentParserProtocol {
-    /// Provides next argument, if available.
-    func next() throws -> String
+    /// The associated value in a `--foo=bar` style argument.
+    var associatedArgumentValue: String? { get }
+
+    /// Provides (and consumes) next argument, if available.
+    mutating func next() throws -> String
 }
 
 /// Argument parser struct responsible to parse the provided array of arguments and return
 /// the parsed result.
-public final class ArgumentParser: ArgumentParserProtocol {
+public final class ArgumentParser {
     /// A class representing result of the parsed arguments.
     public class Result: CustomStringConvertible {
         /// Internal representation of arguments mapped to their values.
@@ -367,18 +378,28 @@ public final class ArgumentParser: ArgumentParserProtocol {
 
     // MARK:- Parsing
 
-    /// The iterator used to iterate arguments.
-    private var argumentsIterator: IndexingIterator<[String]>!
+    /// A wrapper struct to pass to the ArgumentKind initializers.
+    struct Parser: ArgumentParserProtocol {
+        /// The iterator used to iterate arguments.
+        var argumentsIterator: IndexingIterator<[String]>
 
-    /// The current argument being parsed.
-    private var currentArgument: String!
+        /// The current argument being parsed.
+        private let currentArgument: String
 
-    /// Provides next argument from iterator or throws.
-    public func next() throws -> String {
-        guard let nextArg = argumentsIterator.next() else {
-            throw ArgumentParserError.expectedValue(option: currentArgument)
+        private(set) var associatedArgumentValue: String?
+
+        mutating func next() throws -> String {
+            guard let nextArg = argumentsIterator.next() else {
+                throw ArgumentParserError.expectedValue(option: currentArgument)
+            }
+            return nextArg
         }
-        return nextArg
+
+        init(associatedArgumentValue: String?, argumentsIterator: IndexingIterator<[String]>, currentArgument: String) {
+            self.associatedArgumentValue = associatedArgumentValue
+            self.argumentsIterator = argumentsIterator
+            self.currentArgument = currentArgument
+        }
     }
 
     /// Parses the provided array and return the result.
@@ -400,11 +421,9 @@ public final class ArgumentParser: ArgumentParserProtocol {
         let optionsMap = Dictionary(items: optionsTuple)
         // Create iterators.
         var positionalArgsIterator = positionalArgs.makeIterator()
-        argumentsIterator = args.makeIterator()
+        var argumentsIterator = args.makeIterator()
 
         while let arg = argumentsIterator.next() {
-            // Store current argument.
-            currentArgument = arg
             if isPositional(argument: arg) {
 
                 /// If this parser has subparsers, we allow only one positional argument which is the subparser command.
@@ -429,12 +448,23 @@ public final class ArgumentParser: ArgumentParserProtocol {
                 }
                 try result.addResult(for: positionalArg, result: resultValue)
             } else {
+                let (arg, value) = arg.split(around: "=")
                 // Get the corresponding option for the option argument.
                 guard let option = optionsMap[arg] else {
                     throw ArgumentParserError.unknown(option: arg)
                 }
+
+                // Create a parser protocol object.
+                var parser: ArgumentParserProtocol = Parser(
+                    associatedArgumentValue: value,
+                    argumentsIterator: argumentsIterator,
+                    currentArgument: arg)
+
                 // Initialize the argument and add to result.
-                let resultValue = try option.kind.init(parser: self)
+                let resultValue = try option.kind.init(parser: &parser)
+                // Restore the argument iterator state.
+                // FIXME: Passing inout parser above is a compiler error without explicitly setting its type.
+                argumentsIterator = (parser as! Parser).argumentsIterator
                 try result.addResult(for: option, result: resultValue)
             }
         }
