@@ -104,8 +104,51 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testModuleLinkage() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/HelperTool/main.swift",
+            "/Pkg/Sources/Library/lib.swift",
+            "/Pkg/Tests/LibraryTests/aTest.swift"
+        )
+        
+        let g = try loadMockPackageGraph([
+            "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
+            ], root: "/Pkg", in: fs)
+        
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        
+        XcodeProjectTester(project) { result in
+            result.check(projectDir: "Pkg")
+            result.check(target: "HelperTool") { targetResult in
+                targetResult.check(productType: .executable)
+                targetResult.check(dependencies: [])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, [])
+            }
+            result.check(target: "Library") { targetResult in
+                targetResult.check(productType: .framework)
+                targetResult.check(dependencies: [])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, [])
+            }
+            result.check(target: "LibraryTests") { targetResult in
+                targetResult.check(productType: .unitTest)
+                targetResult.check(dependencies: ["Library", "HelperTool"])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, ["Library.framework"])
+            }
+        }
+    }
+    
     static var allTests = [
         ("testBasics", testBasics),
+        ("testModuleLinkage", testModuleLinkage),
     ]
 }
 
@@ -141,6 +184,9 @@ private class XcodeProjectResult {
         let target: Xcode.Target
         var commonBuildSettings: Xcode.BuildSettingsTable.BuildSettings {
             return target.buildSettings.common
+        }
+        var buildPhases: [Xcode.BuildPhase] {
+            return target.buildPhases
         }
         init(_ target: Xcode.Target) {
             self.target = target
