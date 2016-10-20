@@ -37,7 +37,6 @@ class EnvTests: XCTestCase {
         let value = "TEST"
         XCTAssertNil(POSIX.getenv(key))
         try withCustomEnv([key: value]) {
-            print(POSIX.getenv(key))
             XCTAssertEqual(value, POSIX.getenv(key))
         }
         XCTAssertNil(POSIX.getenv(key))
