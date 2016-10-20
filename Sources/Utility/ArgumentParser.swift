@@ -615,8 +615,39 @@ public final class ArgumentBinder<Options> {
         to body: @escaping (inout Options, T) -> Void
     ) {
         addBody {
+            // All the positional argument will always be present.
             guard let result = $1.get(positional) else { return }
             body(&$0, result)
+        }
+    }
+
+    /// Bind two positional arguments.
+    public func bindPositional<T, U>(
+        _ first: PositionalArgument<T>,
+        _ second: PositionalArgument<U>,
+        to body: @escaping (inout Options, T, U) -> Void
+    ) {
+        addBody {
+            // All the positional arguments will always be present.
+            guard let first = $1.get(first) else { return }
+            guard let second = $1.get(second) else { return }
+            body(&$0, first, second)
+        }
+    }
+
+    /// Bind three positional arguments.
+    public func bindPositional<T, U, V>(
+        _ first: PositionalArgument<T>,
+        _ second: PositionalArgument<U>,
+        _ third: PositionalArgument<V>,
+        to body: @escaping (inout Options, T, U, V) -> Void
+    ) {
+        addBody {
+            // All the positional arguments will always be present.
+            guard let first = $1.get(first) else { return }
+            guard let second = $1.get(second) else { return }
+            guard let third = $1.get(third) else { return }
+            body(&$0, first, second, third)
         }
     }
 
