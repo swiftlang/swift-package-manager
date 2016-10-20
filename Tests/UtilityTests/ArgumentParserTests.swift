@@ -29,6 +29,8 @@ struct Options {
     var verbose: Bool = false
     var xld = [String]()
     var flags = Flags(xswiftc: [], xlinker: [])
+    var foo: String?
+    var bar: Int?
 }
 
 class ArgumentParserTests: XCTestCase {
@@ -123,6 +125,14 @@ class ArgumentParserTests: XCTestCase {
             positional: parser.add(positional: "package", kind: String.self),
             to: { $0.package = $1 })
 
+        binder.bindPositional(
+            parser.add(positional: "foo", kind: String.self),
+            parser.add(positional: "bar", kind: Int.self),
+            to: { 
+                $0.foo = $1
+                $0.bar = $2
+            })
+
         binder.bind(
             option: parser.add(option: "--branch", shortName:"-b", kind: String.self),
             to: { $0.branch = $1 })
@@ -140,7 +150,7 @@ class ArgumentParserTests: XCTestCase {
             parser.add(option: "-xswiftc", kind: [String].self),
             to: { $0.flags = Options.Flags(xswiftc: $2, xlinker: $1) })
 
-        let result = try parser.parse(["MyPkg", "-b", "bugfix", "--verbose", "-Xld", "foo", "-Xld", "bar", "-xlinker", "a", "-xswiftc", "b"])
+        let result = try parser.parse(["MyPkg", "foo", "3", "-b", "bugfix", "--verbose", "-Xld", "foo", "-Xld", "bar", "-xlinker", "a", "-xswiftc", "b"])
 
         var options = Options()
         binder.fill(result, into: &options)
@@ -151,6 +161,8 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(options.xld, ["foo", "bar"])
         XCTAssertEqual(options.flags.xlinker, ["a"])
         XCTAssertEqual(options.flags.xswiftc, ["b"])
+        XCTAssertEqual(options.foo, "foo")
+        XCTAssertEqual(options.bar, 3)
     }
 
     func testSubparser() throws {
