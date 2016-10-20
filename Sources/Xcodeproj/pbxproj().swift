@@ -409,7 +409,11 @@ func xcodeProject(
             
             // Add a dependency on the other target.
             target.addDependency(on: otherTarget)
-            let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
+            
+            // If it's a library, we also add want to link against its product.
+            if dependency.isLibrary {
+                let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
+            }
         }
     }
 
