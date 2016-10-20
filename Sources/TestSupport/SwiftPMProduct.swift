@@ -30,6 +30,7 @@ public enum SwiftPMProduct {
     case SwiftPackage
     case SwiftTest
     case XCTestHelper
+    case TestSupportExecutable
 
     /// Path to currently built binary.
     var path: AbsolutePath {
@@ -54,6 +55,19 @@ public enum SwiftPMProduct {
             return RelativePath("swift-test")
         case .XCTestHelper:
             return RelativePath("swiftpm-xctest-helper")
+        case .TestSupportExecutable:
+            return RelativePath("TestSupportExecutable")
+        }
+    }
+
+    /// Returns true if the product can accept the --enable-new-resolver flag.
+    var canAcceptNewResolverArg: Bool {
+        switch self {
+        case .SwiftBuild: fallthrough
+        case .SwiftPackage: fallthrough
+        case .SwiftTest: return true
+        case .XCTestHelper: fallthrough
+        case .TestSupportExecutable: return false
         }
     }
 
@@ -70,7 +84,7 @@ public enum SwiftPMProduct {
         var out = ""
         var completeArgs = [path.asString]
         // FIXME: Eliminate this when we switch to the new resolver.
-        if SwiftPMProduct.enableNewResolver && self != .XCTestHelper {
+        if SwiftPMProduct.enableNewResolver && canAcceptNewResolverArg {
             completeArgs += ["--enable-new-resolver"]
         }
         if let chdir = chdir {
