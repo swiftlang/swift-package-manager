@@ -355,10 +355,8 @@ public class Workspace {
 
         // Compute new path for the dependency.
         let path = editablesPath.appending(component: packageName)
-
-        let handle = repositoryManager.lookup(repository: dependency.repository)
-        // We should already have the handle if we're editing a dependency.
-        assert(handle.isAvailable)
+        // Get handle to the repository.
+        let handle = try repositoryManager.lookupSynchronously(repository: dependency.repository)
 
         // If a branch is provided, make sure it isn't already present in the repository.
         if let branch = checkoutBranch {
@@ -441,24 +439,7 @@ public class Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        let handle = repositoryManager.lookup(repository: repository)
-
-        // Wait for the repository to be fetched.
-        let wasAvailableCondition = Condition()
-        var wasAvailableOpt: Bool? = nil
-        handle.addObserver { handle in
-            wasAvailableCondition.whileLocked{
-                wasAvailableOpt = handle.isAvailable
-                wasAvailableCondition.signal()
-            }
-        }
-        while wasAvailableCondition.whileLocked({ wasAvailableOpt == nil}) {
-            wasAvailableCondition.wait()
-        }
-        let wasAvailable = wasAvailableOpt!
-        if !wasAvailable {
-            throw WorkspaceOperationError.unavailableRepository
-        }
+        let handle = try repositoryManager.lookupSynchronously(repository: repository)
 
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)

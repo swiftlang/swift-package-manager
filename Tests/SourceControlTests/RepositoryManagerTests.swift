@@ -78,10 +78,21 @@ private class DummyRepositoryProvider: RepositoryProvider {
 }
 
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-    var fetched = [RepositorySpecifier]()
+    private var _fetched = [RepositorySpecifier]()
+    private var fetchedLock = Lock() 
+
+    var fetched: [RepositorySpecifier] {
+        get {
+            return fetchedLock.withLock {
+                return _fetched
+            }
+        }
+    }
 
     func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
-        fetched += [handle.repository]
+        fetchedLock.withLock {
+            _fetched += [handle.repository]
+        }
     }
 }
 
@@ -94,60 +105,70 @@ class RepositoryManagerTests: XCTestCase {
 
             // Check that we can "fetch" a repository.
             let dummyRepo = RepositorySpecifier(url: "dummy")
-            let handle = manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(provider.numFetches, 0)
+            let lookupExpectation = expectation(description: "Repository lookup expectation")
 
-            XCTAssertEqual(delegate.fetched, [dummyRepo])
+            manager.lookup(repository: dummyRepo) { result in
+                guard case .success(let handle) = result else {
+                    XCTFail("Could not get handle")
+                    return
+                }
 
-            // We should always get back the same handle once fetched.
-            XCTAssert(handle === manager.lookup(repository: dummyRepo))
-            XCTAssertEqual(provider.numFetches, 1)
+                XCTAssertEqual(provider.numFetches, 0)
+                XCTAssert(delegate.fetched.contains(dummyRepo))
             
-            // Validate that the repo is available.
-            XCTAssertTrue(handle.isAvailable)
+                // We should always get back the same handle once fetched.
+                XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
+                XCTAssertEqual(provider.numFetches, 1)
+            
+                // Open the repository.
+                let repository = try! handle.open()
+                XCTAssertEqual(repository.tags, ["1.0.0"])
 
-            // Open the repository.
-            let repository = try handle.open()
-            XCTAssertEqual(repository.tags, ["1.0.0"])
+                // Create a checkout of the repository.
+                let checkoutPath = path.appending(component: "checkout")
+                try! handle.cloneCheckout(to: checkoutPath, editable: false)
+            
+                XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
+                // Remove the repo.
+                try! manager.remove(repository: dummyRepo)
+                XCTAssert(localFileSystem.exists(checkoutPath))
+                lookupExpectation.fulfill()
+            }
 
-            // Create a checkout of the repository.
-            let checkoutPath = path.appending(component: "checkout")
-            try handle.cloneCheckout(to: checkoutPath, editable: false)
-            XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
-
-            XCTAssertEqual(delegate.fetched, [dummyRepo])
-            // Remove the repo.
-            try manager.remove(repository: dummyRepo)
-            XCTAssert(localFileSystem.exists(checkoutPath))
-
+            let badLookupExpectation = expectation(description: "Repository lookup expectation")
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
-            let badHandle = manager.lookup(repository: badDummyRepo)
-            XCTAssertEqual(provider.numFetches, 1)
+            manager.lookup(repository: badDummyRepo) { result in
+                guard case .failure(let error) = result else {
+                    XCTFail("Unexpected success")
+                    return
+                }
+                XCTAssertEqual(error.underlyingError as? DummyError, DummyError.invalidRepository)
+                badLookupExpectation.fulfill()
+            }
 
-            XCTAssertEqual(delegate.fetched, [dummyRepo, badDummyRepo])
-
-            // Validate that the repo is unavailable.
-            XCTAssertFalse(badHandle.isAvailable)
+            waitForExpectations(timeout: 1)
+            // We should have tried fetching these two.
+            XCTAssertEqual(Set(delegate.fetched), [dummyRepo, badDummyRepo])
         }
     }
 
-    /// Check the behavior of the observer of repository status.
-    func testObserver() {
+    func testSyncLookup() throws {
         mktmpdir { path in
+            let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
-            let manager = RepositoryManager(path: path, provider: DummyRepositoryProvider(), delegate: delegate)
+            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
-            let handle = manager.lookup(repository: dummyRepo)
-
-            XCTAssertEqual(delegate.fetched, [dummyRepo])
-
-            var wasAvailable: Bool? = nil
-            handle.addObserver { handle in
-                wasAvailable = handle.isAvailable
+            let handle = try manager.lookupSynchronously(repository: dummyRepo)
+            // Relookup should return same instance.
+            XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
+            // And async lookup should also return same instance.
+            let lookupExpectation = expectation(description: "Repository lookup expectation")
+            manager.lookup(repository: dummyRepo) { result in
+                XCTAssert(handle === (try? result.dematerialize()))
+                lookupExpectation.fulfill()
             }
-
-            XCTAssertEqual(wasAvailable, true)
+            waitForExpectations(timeout: 1)
         }
     }
 
@@ -161,10 +182,10 @@ class RepositoryManagerTests: XCTestCase {
                 let delegate = DummyRepositoryManagerDelegate()
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
-                let handle = manager.lookup(repository: dummyRepo)
+
+                _ = try manager.lookupSynchronously(repository: dummyRepo)
+
                 XCTAssertEqual(delegate.fetched, [dummyRepo])
-                // FIXME: Wait for repo to become available.
-                XCTAssertTrue(handle.isAvailable)
             }
             // We should have performed one fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -175,11 +196,9 @@ class RepositoryManagerTests: XCTestCase {
                 let delegate = DummyRepositoryManagerDelegate()
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
-                let handle = manager.lookup(repository: dummyRepo)
+                _ = try manager.lookupSynchronously(repository: dummyRepo)
                 // This time fetch shouldn't be called.
                 XCTAssertEqual(delegate.fetched, [])
-                // FIXME: Wait for repo to become available.
-                XCTAssertTrue(handle.isAvailable)
             }
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -192,10 +211,10 @@ class RepositoryManagerTests: XCTestCase {
                 try! removeFileTree(manager.statePath)
                 manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
-                let handle = manager.lookup(repository: dummyRepo)
+
+                _ = try manager.lookupSynchronously(repository: dummyRepo)
+
                 XCTAssertEqual(delegate.fetched, [dummyRepo])
-                // FIXME: Wait for repo to become available.
-                XCTAssertTrue(handle.isAvailable)
             }
             // We should have re-fetched.
             XCTAssertEqual(provider.numClones, 2)
@@ -205,7 +224,7 @@ class RepositoryManagerTests: XCTestCase {
 
     static var allTests = [
         ("testBasics", testBasics),
-        ("testObserver", testObserver),
         ("testPersistence", testPersistence),
+        ("testSyncLookup", testSyncLookup),
     ]
 }
