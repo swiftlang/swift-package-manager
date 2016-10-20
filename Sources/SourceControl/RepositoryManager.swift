@@ -19,6 +19,10 @@ public protocol RepositoryManagerDelegate: class {
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager {
+
+    public typealias LookupResult = Result<RepositoryHandle, AnyError>
+    public typealias LookupCompletion = (LookupResult) -> ()
+
     /// Handle to a managed repository.
     public class RepositoryHandle {
         enum Status: String {
@@ -72,31 +76,6 @@ public class RepositoryManager {
             self.status = status
         }
         
-        /// Check if the repository has been fetched.
-        public var isAvailable: Bool {
-            switch status {
-            case .available:
-                return true
-            default:
-                return false
-            }
-        }
-    
-        /// Add a function to be called when the repository is available.
-        ///
-        /// This function will be called on an unspecified thread when the
-        /// repository fetch operation is complete.
-        public func addObserver(whenFetched body: (RepositoryHandle) -> ()) {
-            // The current manager is not concurrent, so this has a trivial
-            // (synchronous) implementation.
-            switch status {
-            case .uninitialized, .pending:
-                fatalError("unexpected state")
-            case .available, .error:
-                body(self)
-            }
-        }
-
         /// Open the given repository.
         public func open() throws -> Repository {
             precondition(status == .available, "open() called in invalid state")
@@ -164,10 +143,8 @@ public class RepositoryManager {
 
     /// Get a handle to a repository.
     ///
-    /// This will initiate a clone of the repository automatically, if
-    /// necessary, and immediately return. The client can add observers to the
-    /// result in order to know when the repository is available.
-    public func lookup(repository: RepositorySpecifier) -> RepositoryHandle {
+    /// This will initiate a clone of the repository automatically, if necessary.
+    public func lookup(repository: RepositorySpecifier, completion: @escaping LookupCompletion) {
         // Check to see if the repository has been provided.
         if let handle = repositories[repository.url] {
             // Fetch and update the repository when it is being looked up.
@@ -179,7 +156,8 @@ public class RepositoryManager {
                 // FIXME: Better error handling.
                 print("Error while fetching the repo: \(handle)")
             }
-            return handle
+            completion(Result(handle))
+            return
         }
         
         // Otherwise, fetch the repository and return a handle.
@@ -194,14 +172,16 @@ public class RepositoryManager {
         }
         
         // FIXME: This should run on a background thread.
+        let result: LookupResult
         do {
             handle.status = .pending
             delegate.fetching(handle: handle, to: repositoryPath)
             try provider.fetch(repository: repository, to: repositoryPath)
             handle.status = .available
+            result = Result(handle)
         } catch {
-            // FIXME: Handle failure more sensibly.
             handle.status = .error
+            result = Result(AnyError(error))
         }
 
         // Save the manager state.
@@ -211,8 +191,25 @@ public class RepositoryManager {
             // FIXME: Handle failure gracefully, somehow.
             fatalError("unable to save manager state")
         }
-        
-        return handle
+        completion(result)
+    }
+
+    /// Synchronous variation of lookup(repository:) method.
+    public func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
+        let lookupCondition = Condition()
+        var result: Result<RepositoryHandle, AnyError>? = nil
+        lookup(repository: repository) { theResult in
+            lookupCondition.whileLocked {
+                result = theResult
+                lookupCondition.signal()
+            }
+        }
+        lookupCondition.whileLocked { 
+            while result == nil {
+                lookupCondition.wait()
+            }
+        }
+        return try result!.dematerialize()
     }
 
     /// Open a repository from a handle.

@@ -39,24 +39,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // Resolve the container using the repository manager.
         //
         // FIXME: We need to move this to an async interface, or document the interface as thread safe.
-        let handle = repositoryManager.lookup(repository: identifier)
-
-        // Wait for the repository to be fetched.
-        let wasAvailableCondition = Condition()
-        var wasAvailableOpt: Bool? = nil
-        handle.addObserver { handle in
-            wasAvailableCondition.whileLocked{
-                wasAvailableOpt = handle.isAvailable
-                wasAvailableCondition.signal()
-            }
-        }
-        while wasAvailableCondition.whileLocked({ wasAvailableOpt == nil}) {
-            wasAvailableCondition.wait()
-        }
-        let wasAvailable = wasAvailableOpt!
-        if !wasAvailable {
-            throw RepositoryPackageResolutionError.unavailableRepository
-        }
+        let handle = try repositoryManager.lookupSynchronously(repository: identifier)
 
         // Open the repository.
         //
