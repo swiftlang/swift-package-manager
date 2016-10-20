@@ -48,7 +48,20 @@ private class DummyRepository: Repository {
 
 private class DummyRepositoryProvider: RepositoryProvider {
     var numClones = 0
-    var numFetches = 0
+    var numFetches: Int {
+        get {
+            return fetchesLock.withLock {
+                return _numFetches
+            }
+        }
+        set {
+            fetchesLock.withLock {
+                _numFetches = newValue
+            }
+        }
+    }
+    private var fetchesLock = Lock()
+    var _numFetches = 0
     
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
@@ -222,8 +235,42 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testParallelLookups() throws {
+        mktmpdir { path in
+            let provider = DummyRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
+            let dummyRepo = RepositorySpecifier(url: "dummy")
+            // Condition to check if we have finished all lookups.
+            let doneCondition = Condition()
+            var done = false
+            var set = Set<Int>()
+            let numLookups = 1000
+
+            for i in 0..<numLookups {
+                manager.lookup(repository: dummyRepo) { _ in
+                 doneCondition.whileLocked {
+                        set.insert(i)
+                        if set.count == numLookups {
+                            // If set has all the lookups, we're done.
+                            done = true
+                            doneCondition.signal()
+                        }
+                    }
+                }
+            }
+            // Block until all the lookups are done.
+            doneCondition.whileLocked {
+                while !done {
+                    doneCondition.wait()
+                }
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testParallelLookups", testParallelLookups),
         ("testPersistence", testPersistence),
         ("testSyncLookup", testSyncLookup),
     ]
