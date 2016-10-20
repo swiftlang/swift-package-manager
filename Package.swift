@@ -154,10 +154,26 @@ let package = Package(
 )
 
 
-// otherwise executables are auto-determined you could
-// prevent this by asking for the auto-determined list
-// here and editing it.
+// The executable products are automatically determined by SwiftPM; any module
+// that contains a `main.swift` source file results in an implicit executable
+// product.
 
-let dylib = Product(name: "PackageDescription", type: .Library(.Dynamic), modules: "PackageDescription")
 
-products.append(dylib)
+// Runtime Library -- contains the package description API itself
+products.append(
+    Product(
+        name: "PackageDescription",
+        type: .Library(.Dynamic),
+        modules: ["PackageDescription"]
+    )
+)
+
+
+// SwiftPM Library -- provides package management functionality to clients
+products.append(
+    Product(
+        name: "SwiftPM",
+        type: .Library(.Dynamic),
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj"]
+    )
+)

@@ -17,9 +17,10 @@
  to build itself to produce the production tools.
 
  Note that currently this script is also responsible for building the package
- manager in such a way that it can be installed along with the Swift package. In
- particular, it knows how to build the runtime PackageDescription library
- correctly and install it.
+ manager in such a way that it can be installed along with the Swift package.
+ In particular, it knows how to build the runtime PackageDescription library
+ correctly and install it.  It can also build libSwiftPM, allowing clients to
+ access package manager functionality.
 
 """
 
@@ -118,6 +119,8 @@ if platform.system() == 'Linux':
 else:
     g_shared_lib_ext = ".dylib"
 
+
+# Represents a target definition extracted from the SwiftPM package manifest.
 class Target(object):
     @property
     def virtual_node(self):
@@ -288,29 +291,76 @@ class Target(object):
             print(file=output)
 
 
-# currently only returns the targets parsed from the manifest
+# Represents the type of a product extracted from the manifest.
+ProductType = type('Enum', (), dict(
+    EXECUTABLE = 'executable',
+    STATIC_LIBRARY = 'static_library',
+    DYNAMIC_LIBRARY = 'dynamic_library'
+))
+
+
+# Represents a product definition extracted from the SwiftPM package manifest.
+class Product(object):
+    @property
+    def product_name(self):
+        return {
+            ProductType.EXECUTABLE: self.name,
+            ProductType.DYNAMIC_LIBRARY: "lib" + self.name + g_shared_lib_ext,
+            ProductType.STATIC_LIBRARY: "lib" + self.name + ".a"
+        }[self.type]
+
+    def __init__(self, name, type, targets=[]):
+        self.name = name
+        self.type = type
+        self.targets = list(targets)
+
+
+# Loads and parses the Package.swift manifest, returning the lists of Targets
+# and Product objects discovered by doing so.
 def parse_manifest():
-    # we have a *very* strict format for our manifest to make parsing more
-    # robust
-    pattern = re.compile(
+    # We have a *very* strict format for our manifest to make parsing more
+    # robust.  We use this to determine the target and product definitions.
+    target_pattern = re.compile(
         r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
         re.DOTALL | re.MULTILINE)
+    product_pattern = re.compile(
+        r'Product\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*modules: (\[.*?\])[\n ]*\)',
+        re.DOTALL | re.MULTILINE)
+
+    # Load the manifest as a string (we always assume UTF-8 encoding).
     manifest_data = codecs.open(os.path.join(g_project_root,
                                 "Package.swift"), encoding='utf-8',
                                 errors='strict').read()
 
-    def convert(match):
+    # Extract the target definitions.
+    def make_target(match):
         name = match.group(1)
         deps = eval(match.group(2))
         return Target(name, deps)
-    targets = list(map(convert, pattern.finditer(manifest_data)))
+    targets = list(map(make_target, target_pattern.finditer(manifest_data)))
 
-    # Remove the targets which should be ignored in stage 1.
+    # Extract the product definitions.
+    def make_product(match):
+        name = match.group(1)
+        try:
+            type = {
+                '.Executable': ProductType.EXECUTABLE,
+                '.Library(.Dynamic)': ProductType.DYNAMIC_LIBRARY,
+                '.Library(.Static)': ProductType.STATIC_LIBRARY
+            }[match.group(2)]
+        except:
+            error("unknown type '%s for product '%s' in manifest" % (match.group(2), name))
+        targets = eval(match.group(3))
+        return Product(name, type, targets)
+    products = list(map(make_product, product_pattern.finditer(manifest_data)))
+
+    # Filter out the targets that should be ignored in stage 1.
     targets = [target for target in targets
                if target.name not in g_ignored_targets and
                   not target.name.endswith("Tests")]
 
-    # substitute strings for Target objects
+    # Convert each target's array of dependencies from strings to corresponding
+    # Target objects (taking into account that some might be implicit).
     for target in targets:
         def convert(targetName):
             try:
@@ -323,7 +373,8 @@ def parse_manifest():
                 return b
         target.dependencies = list(map(convert, target.dependencies))
 
-    # fill dependency graph and set dependencies back to strings
+    # Construct the dependency graph, and convert each Target's dependencies
+    # back to an array of strings.
     def convert(target):
         myset = set()
 
@@ -336,14 +387,18 @@ def parse_manifest():
             return deps
         # `reversed` because Linux link order must be reverse-topological
         return Target(target.name, reversed(recurse(target)))
-    return list(map(convert, targets))
+    targets = list(map(convert, targets))
+    
+    # Finally, return the lists of targets and products.
+    return (targets, products)
 
 # Hard-coded target definition.
 g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
 g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport"]
-targets = parse_manifest()
+(targets, products) = parse_manifest()
 target_map = dict((t.name, t) for t in targets)
+product_map = dict((p.name, p) for p in products)
 
 
 # Create a quoted C string literal from an arbitrary string.
@@ -722,6 +777,10 @@ def main():
                         help="vendor name for use in --version")
     parser.add_argument("--build-identifier", dest="build_identifier",
                         help="build identifier for use in --version")
+    parser.add_argument("--libswiftpm-library-dir", dest="libswiftpm_library_dir",
+                        help="Directory in which to put libSwiftPM library")
+    parser.add_argument("--libswiftpm-modules-dir", dest="libswiftpm_modules_dir",
+                        help="Directory in which to put libSwiftPM modules")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -975,6 +1034,7 @@ def main():
                           add_rpath=("@executable_path/../../../"
                                      "lib/swift/macosx"))
 
+        # Install the main executables.
         for product_path in [swift_package_path, swift_build_path,
                              swift_test_path]:
             installBinary(product_path, bin_install_path)
@@ -990,6 +1050,58 @@ def main():
         result = subprocess.call(cmd)
         if result != 0:
             error("install failed with exit status %d" % (result,))
+    
+    # Copy the libSwiftPM library to a directory, if we've been asked to do so.
+    if args.libswiftpm_library_dir:
+        # Make the directory absolute, if needed.
+        libswiftpm_library_dir = os.path.abspath(args.libswiftpm_library_dir)
+        
+        # Create the output directory, if needed.
+        mkdir_p(libswiftpm_library_dir)
+        
+        # Find the libSwiftPM product.  It's an error if we don't.
+        try:
+            libswiftpm_product = product_map["SwiftPM"]
+        except:
+            error("unable to find 'SwiftPM' product in package manifest; cannot copy library to '%s'", libswiftpm_library_dir)
+        
+        # Copy the libSwiftPM library.
+        # FIXME: This shouldn't require so much knowledge of the manifest.
+        # FIXME: We should handle what happens if it's a static library.
+        src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
+        cmd = ["cp", src_path, libswiftpm_library_dir]
+        note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("copying failed with exit status %d" % result)
+
+    # Copy the libSwiftPM modules to a directory, if we've been asked to do so.
+    # FIXME: There is too much duplication between this part and the one above.
+    if args.libswiftpm_modules_dir:
+        # Make the directory absolute, if needed.
+        libswiftpm_modules_dir = os.path.abspath(args.libswiftpm_modules_dir)
+        
+        # Create the output directory, if needed.
+        mkdir_p(libswiftpm_modules_dir)
+        
+        # Find the libSwiftPM product.  It's an error if we don't.
+        try:
+            libswiftpm_product = product_map["SwiftPM"]
+        except:
+            error("unable to find 'SwiftPM' product in package manifest; cannot copy modules to '%s'", libswiftpm_library_dir)
+        
+        # Copy the libSwiftPM modules.
+        # FIXME: This shouldn't require so much knowledge of the manifest.
+        # FIXME: We should handle what happens if it's a static library.
+        for target in libswiftpm_product.targets:
+            for suffix in [".swiftmodule", ".swiftdoc"]:
+                src_path = os.path.join(build_path, conf, target + suffix)
+                if os.path.exists(src_path):
+                    cmd = ["cp", src_path, libswiftpm_modules_dir]
+                    note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("copying failed with exit status %d" % result)
                 
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
