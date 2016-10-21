@@ -140,7 +140,7 @@ let package = Package(
             dependencies: ["PackageGraph", "TestSupport"]),
         Target(
             name: "POSIXTests",
-            dependencies: ["POSIX"]),
+            dependencies: ["POSIX", "TestSupport"]),
         Target(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),

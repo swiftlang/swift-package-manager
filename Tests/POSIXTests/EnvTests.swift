@@ -11,8 +11,13 @@
 import XCTest
 
 import POSIX
+import TestSupport
 
 class EnvTests: XCTestCase {
+    enum CustomEnvError: Swift.Error {
+        case someError
+    }
+
     func testGet() throws {
         XCTAssertNotNil(POSIX.getenv("PATH"))
     }
@@ -24,6 +29,26 @@ class EnvTests: XCTestCase {
         try POSIX.setenv(key, value: value)
         XCTAssertEqual(value, POSIX.getenv(key))
         try POSIX.unsetenv(key)
+        XCTAssertNil(POSIX.getenv(key))
+    }
+
+    func testWithCustomEnv() throws {
+        let key = "XCTEST_TEST"
+        let value = "TEST"
+        XCTAssertNil(POSIX.getenv(key))
+        try withCustomEnv([key: value]) {
+            XCTAssertEqual(value, POSIX.getenv(key))
+        }
+        XCTAssertNil(POSIX.getenv(key))
+        do {
+            try withCustomEnv([key: value]) {
+                XCTAssertEqual(value, POSIX.getenv(key))
+                throw CustomEnvError.someError
+            }
+        } catch CustomEnvError.someError {
+        } catch {
+            XCTFail("Incorrect error thrown")
+        }
         XCTAssertNil(POSIX.getenv(key))
     }
 }

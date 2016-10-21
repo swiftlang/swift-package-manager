@@ -192,3 +192,35 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
     }
     return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests, fileSystem: fs)
 }
+
+/// Temporary override environment variables
+///
+/// WARNING! This method is not thread-safe. POSIX environments are shared 
+/// between threads. This means that when this method is called simultaneously 
+/// from different threads, the environment will neither be setup nor restored
+/// correctly.
+///
+/// - throws: errors thrown in `body`, POSIX.SystemError.setenv and 
+///           POSIX.SystemError.unsetenv
+public func withCustomEnv(_ env: [String: String], body: () throws -> ()) throws {
+    let state = Array(env.keys).map { ($0, getenv($0)) }
+    let restore = {
+        for (key, value) in state {
+            if let value = value {
+                try setenv(key, value: value)
+            } else {
+                try unsetenv(key)
+            }
+        }
+    }
+    do {
+        for (key, value) in env {
+            try setenv(key, value: value)
+        }
+        try body()
+    } catch {
+        try? restore()
+        throw error
+    }
+    try restore()
+}
