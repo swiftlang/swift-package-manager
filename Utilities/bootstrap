@@ -1120,6 +1120,12 @@ def main():
         toolchains = os.getenv("TOOLCHAINS")
         if toolchains is not None:
             xcconfig_path = os.path.join("SwiftPM.xcodeproj/overrides.xcconfig")
+            # Create directories, if necessary.
+            if not os.path.exists(os.path.dirname(xcconfig_path)):
+                mkdir_p(os.path.dirname(xcconfig_path))
+            # Generate the .xcconfig file.
+            with open(xcconfig_path, "w") as f:
+                print("TOOLCHAINS = %s" % (toolchains,), file=f)
             cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.
@@ -1127,11 +1133,6 @@ def main():
         result = subprocess.call(cmd)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
-
-        # Generate the .xcconfig file.
-        if toolchains is not None:
-            with open(xcconfig_path, "w") as f:
-                print("TOOLCHAINS = %s" % (toolchains,), file=f)
                 
         # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
         # add an option to the `generate-xcodeproj` subcommand to allow a
