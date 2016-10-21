@@ -456,6 +456,87 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testSubmodules() throws {
+        mktmpdir { path in
+            let provider = GitRepositoryProvider()
+
+            // Create repos: foo and bar, foo will have bar as submodule and then later
+            // the submodule ref will be updated in foo.
+            let fooPath = path.appending(component: "foo-original")
+            let fooSpecifier = RepositorySpecifier(url: fooPath.asString)
+            let fooRepoPath = path.appending(component: "foo-repo")
+            let fooWorkingPath = path.appending(component: "foo-working")
+            let barPath = path.appending(component: "bar-original")
+            let bazPath = path.appending(component: "baz-original")
+            // Create the repos and add a file.
+            for path in [fooPath, barPath, bazPath] {
+                try makeDirectories(path)
+                initGitRepo(path)
+                try localFileSystem.writeFileContents(path.appending(component: "hello.txt"), bytes: "hello")
+                let repo = GitRepository(path: path)
+                try repo.stageEverything()
+                try repo.commit()
+            }
+            let foo = GitRepository(path: fooPath)
+            let bar = GitRepository(path: barPath)
+            // The tag 1.0.0 does not contain the submodule. 
+            try foo.tag(name: "1.0.0")
+
+            // Fetch and clone repo foo.
+            try provider.fetch(repository: fooSpecifier, to: fooRepoPath)
+            try provider.cloneCheckout(repository: fooSpecifier, at: fooRepoPath, to: fooWorkingPath, editable: false)
+
+            let fooRepo = GitRepository(path: fooRepoPath, isWorkingRepo: false)
+            let fooWorkingRepo = GitRepository(path: fooWorkingPath)
+
+            // Checkout the first tag which doesn't has submodule.
+            try fooWorkingRepo.checkout(tag: "1.0.0")
+            XCTAssertFalse(exists(fooWorkingPath.appending(component: "bar")))
+
+            // Add submodule to foo and tag it as 1.0.1
+            try foo.checkout(newBranch: "submodule")
+            try systemQuietly([Git.tool, "-C", fooPath.asString, "submodule", "add", barPath.asString, "bar"])
+            try foo.stageEverything()
+            try foo.commit()
+            try foo.tag(name: "1.0.1")
+
+            // Update our bare and working repos.
+            try fooRepo.fetch()
+            try fooWorkingRepo.fetch()
+            // Checkout the tag with submodule and expect submodules files to be present.
+            try fooWorkingRepo.checkout(tag: "1.0.1")
+            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
+            // Checkout the tag without submodule and ensure that the submodule files are gone.
+            try fooWorkingRepo.checkout(tag: "1.0.0")
+            XCTAssertFalse(exists(fooWorkingPath.appending(components: "bar")))
+
+            // Add something to bar.
+            try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
+            // Add a submodule too to check for recusive submodules.
+            try systemQuietly([Git.tool, "-C", barPath.asString, "submodule", "add", bazPath.asString, "baz"])
+            try bar.stageEverything()
+            try bar.commit()
+
+            // Update the ref of bar in foo and tag as 1.0.2
+            try systemQuietly([Git.tool, "-C", fooPath.appending(component: "bar").asString, "pull"])
+            try foo.stageEverything()
+            try foo.commit()
+            try foo.tag(name: "1.0.2")
+
+            try fooRepo.fetch()
+            try fooWorkingRepo.fetch()
+            // We should see the new file we added in the submodule.
+            try fooWorkingRepo.checkout(tag: "1.0.2")
+            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
+            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "bar.txt")))
+            XCTAssertTrue(exists(fooWorkingPath.appending(components: "bar", "baz", "hello.txt")))
+
+            // Sanity check.
+            try fooWorkingRepo.checkout(tag: "1.0.0")
+            XCTAssertFalse(exists(fooWorkingPath.appending(components: "bar")))
+        }
+    }
+
     static var allTests = [
         ("testBranchOperations", testBranchOperations),
         ("testFetch", testFetch),
@@ -468,5 +549,6 @@ class GitRepositoryTests: XCTestCase {
         ("testCheckouts", testCheckouts),
         ("testHasUnpushedCommits", testHasUnpushedCommits),
         ("testUncommitedChanges", testUncommitedChanges),
+        ("testSubmodules", testSubmodules),
     ]
 }
