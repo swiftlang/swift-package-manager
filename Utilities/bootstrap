@@ -799,6 +799,12 @@ def main():
         args.xctest_path = os.path.abspath(args.xctest_path)
         
     build_actions = set(args.build_actions)
+
+    # Save the build configuration.
+    if args.release:
+        conf = "release"
+    else:
+        conf = "debug"
             
     # Validate the build actions.
     for action in build_actions:
@@ -852,7 +858,7 @@ def main():
         sandbox_path, args, bootstrap=True)
 
     libdir = os.path.join(build_path, "lib")
-    bindir = os.path.join(build_path, "debug")
+    bindir = os.path.join(build_path, conf)
     mkdir_p(bindir)
     bootstrapped_product = os.path.join(bindir, "swift-build-stage1")
 
@@ -930,6 +936,12 @@ def main():
             args.libdispatch_source_dir)])
         build_flags.extend(["-Xcc", "-fblocks"])
     
+    # Enable testing in release mode because SwiftPM's tests uses @testable imports.
+    #
+    # Note: Testing is already enabled in debug mode by SwiftPM itself.
+    if args.release:
+        build_flags.extend(["-Xswiftc", "-enable-testing"])
+
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                       "SWIFT_BUILD_PATH=" + build_path]
     if args.sysroot:
@@ -939,22 +951,14 @@ def main():
     if args.release:
         cmd.extend(["--configuration", "release"])
 
-    # Always build tests in stage2, unless building for release.
-    #
-    # FIXME: Resolve how we are going to deal with @testable and release builds.
-    if not args.release:
-        cmd.extend(["--build-tests"])
+    # Always build tests in stage2.
+    cmd.extend(["--build-tests"])
 
     note("building self-hosted 'swift-build': %s" % (
         ' '.join(cmd),))
     result = subprocess.call(cmd, cwd=g_project_root)
     if result != 0:
         error("build failed with exit status %d" % (result,))
-
-    if args.release:
-        conf = "release"
-    else:
-        conf = "debug"
 
     swift_package_path = os.path.join(build_path, conf, "swift-package")
     swift_build_path = os.path.join(build_path, conf, "swift-build")
