@@ -40,10 +40,6 @@ public class GitRepositoryProvider: RepositoryProvider {
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
 
-        // FIXME: We need to define if this is only for the initial clone, or
-        // also for the update, and if for the update then we need to handle it
-        // here.
-
         // FIXME: Need to think about & handle submodules.
         precondition(!exists(path))
         
@@ -55,12 +51,7 @@ public class GitRepositoryProvider: RepositoryProvider {
                 Git.tool, "clone", "--bare", repository.url, path.asString,
                 environment: env, message: nil)
         } catch POSIX.Error.exitStatus {
-            // Git 2.0 or higher is required
-            if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {
-                throw Utility.Error.obsoleteGitVersion
-            } else {
-                throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)
-            }
+            throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)
         }
     }
 
