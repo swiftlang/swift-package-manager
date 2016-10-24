@@ -941,15 +941,13 @@ def main():
     # Note: Testing is already enabled in debug mode by SwiftPM itself.
     if args.release:
         build_flags.extend(["-Xswiftc", "-enable-testing"])
+        build_flags.extend(["--configuration", "release"])
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
                       "SWIFT_BUILD_PATH=" + build_path]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
-
-    if args.release:
-        cmd.extend(["--configuration", "release"])
 
     # Always build tests in stage2.
     cmd.extend(["--build-tests"])
