@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import class Foundation.ProcessInfo
+
 import POSIX
 
 import Basic
@@ -67,7 +69,7 @@ struct UserToolchain: Toolchain {
         }
         else {
             // No value in env, so search for `clang`.
-            guard let foundPath = try? POSIX.popen(whichClangArgs).chomp(), !foundPath.isEmpty else {
+            guard let foundPath = try? POSIX.popen(whichClangArgs, environment: ProcessInfo.processInfo.environment).chomp(), !foundPath.isEmpty else {
                 throw Error.invalidToolchain(problem: "could not find `clang`")
             }
             clangCompiler = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
@@ -88,7 +90,7 @@ struct UserToolchain: Toolchain {
         }
         else {
             // No value in env, so search for it.
-            guard let foundPath = try? POSIX.popen(whichDefaultSDKArgs).chomp(), !foundPath.isEmpty else {
+            guard let foundPath = try? POSIX.popen(whichDefaultSDKArgs, environment: ProcessInfo.processInfo.environment).chomp(), !foundPath.isEmpty else {
                 throw Error.invalidToolchain(problem: "could not find default SDK")
             }
             defaultSDK = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
