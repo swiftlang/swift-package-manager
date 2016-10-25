@@ -40,7 +40,6 @@ public class GitRepositoryProvider: RepositoryProvider {
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
 
-        // FIXME: Need to think about & handle submodules.
         precondition(!exists(path))
         
         do {
@@ -90,8 +89,6 @@ public class GitRepositoryProvider: RepositoryProvider {
             // re-resolve such that the objects in this repository changed, we would
             // only ever expect to get back a revision that remains present in the
             // object storage.
-            //
-            // FIXME: Need to think about & handle submodules.
             try system(
                     Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString, message: nil)
         }
@@ -331,13 +328,25 @@ public class GitRepository: Repository, WorkingCheckout {
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+        try queue.sync {
+            try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+            try self.updateSubmoduleAndClean()
+        }
     }
 
     public func checkout(revision: Revision) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
+        try queue.sync {
+            try Git.runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
+            try self.updateSubmoduleAndClean()
+        }
+    }
+
+    /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
+    private func updateSubmoduleAndClean() throws {
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive"])
+        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "clean", "-ffd"])
     }
 
     /// Returns true if a revision exists.
