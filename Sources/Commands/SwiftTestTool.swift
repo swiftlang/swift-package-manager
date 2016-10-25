@@ -57,6 +57,9 @@ public class TestToolOptions: ToolOptions {
     /// If the test target should be built before testing.
     var buildTests = true
 
+    /// Build configuration.
+    var config: Build.Configuration = .debug
+
     /// If tests should run in parallel mode.
     var parallel = false 
 
@@ -122,7 +125,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let graph = try loadPackage()
         if options.buildTests {
-            let yaml = try describe(buildPath, configuration, graph, flags: options.buildFlags, toolchain: UserToolchain())
+            let yaml = try describe(buildPath, options.config, graph, flags: options.buildFlags, toolchain: UserToolchain())
             try build(yamlPath: yaml, target: "test")
         }
                 
@@ -142,15 +145,16 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         } else if testProducts.count > 1 {
             throw TestError.multipleTestProducts
         } else {
-            return buildPath.appending(RelativePath(configuration.dirname)).appending(component: testProducts[0].name + ".xctest")
+            return buildPath.appending(RelativePath(options.config.dirname)).appending(component: testProducts[0].name + ".xctest")
         }
     }
 
-    // FIXME: We need to support testing in other build configurations, but need
-    // to solve the testability problem first.
-    private let configuration = Build.Configuration.debug
-
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
+
+        binder.bind(
+            option: parser.add(option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
+                usage: "Build with configuration (debug|release) [default: debug]"),
+            to: { $0.config = $1 })
 
         binder.bind(
             option: parser.add(option: "--skip-build", kind: Bool.self,
