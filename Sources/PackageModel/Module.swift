@@ -19,8 +19,10 @@ import Basic
 
 @_exported import enum PackageDescription.SystemPackageProvider
 
-public enum ModuleType {
-    case executable, library, systemModule
+public enum ModuleType: String {
+    case executable
+    case library
+    case systemModule = "system-module"
 }
 
 public class Module {

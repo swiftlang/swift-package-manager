@@ -61,6 +61,35 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testDescribe() throws {
+        fixture(name: "ClangModules/SwiftCMixed") { prefix in
+            let output = try execute(["describe", "--type=json"], chdir: prefix)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
+
+            XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
+            // Path should be an absolute path.
+            XCTAssert(json["path"]?.string?.hasPrefix("/") == true)
+            // Sort the module.
+            let modules = json["modules"]?.array?.sorted {
+                guard let first = $0["name"], let second = $1["name"] else {
+                    return false
+                }
+                return first.stringValue < second.stringValue
+            }
+
+            XCTAssertEqual(modules?[0]["name"]?.stringValue, "CExec")
+            XCTAssertEqual(modules?[2]["type"]?.stringValue, "library")
+            XCTAssertEqual(modules?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
+
+            let textOutput = try execute(["describe"], chdir: prefix)
+            
+            XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
+            XCTAssert(textOutput.contains("    C99name: CExec"))
+            XCTAssert(textOutput.contains("    Name: SeaLib"))
+            XCTAssert(textOutput.contains("   Sources: main.swift"))
+        }
+    }
+
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
@@ -223,6 +252,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     static var allTests = [
+        ("testDescribe", testDescribe),
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testFetch", testFetch),
