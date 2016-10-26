@@ -41,7 +41,7 @@ extension Module: Buildable {
                     let genModuleMap = buildMeta.buildDirectory.appending(component: moduleMapFilename)
                     moduleMapFile = genModuleMap.asString
                 }
-                return ["-Xcc", "-fmodule-map-file=\(moduleMapFile)"]
+                return ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "-I", module.includeDir.asString]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
             } else {
