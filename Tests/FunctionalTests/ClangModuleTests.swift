@@ -50,6 +50,15 @@ class ClangModulesTestCase: XCTestCase {
             output = try popen([debugPath.appending(component: "CExec").asString])
             XCTAssertEqual(output, "5")
         }
+
+        // This has legacy style headers and the swift module imports clang module.
+        fixture(name: "ClangModules/SwiftCMixed2") { prefix in
+            XCTAssertBuilds(prefix)
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
+            let output = try popen([debugPath.appending(component: "SeaExec").asString])
+            XCTAssertEqual(output, "a = 5\n")
+        }
     }
     
     func testExternalSimpleCDep() {
