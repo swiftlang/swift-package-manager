@@ -18,8 +18,9 @@ import Utility
 import class Foundation.Bundle
 #endif
 
-enum SwiftPMProductError: Swift.Error {
+public enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
+    case executionFailure(error: Swift.Error, output: String)
 }
 
 /// Defines the executables used by SwiftPM.
@@ -103,7 +104,7 @@ public enum SwiftPMProduct {
                 print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
                 print("output:", out)
             }
-            throw error
+            throw SwiftPMProductError.executionFailure(error: error, output: out)
         }
     }
 

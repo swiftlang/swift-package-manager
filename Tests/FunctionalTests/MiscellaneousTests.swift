@@ -149,12 +149,16 @@ class MiscellaneousTestCase: XCTestCase {
         var foo = false
         do {
             try executeSwiftBuild(AbsolutePath("/"))
-        } catch POSIX.Error.exitStatus(let code, _) {
+        } catch SwiftPMProductError.executionFailure(let error, _) {
+            switch error {
+            case POSIX.Error.exitStatus(let code, _):
 
             // if our code crashes we'll get an exit code of 256
             XCTAssertEqual(code, Int32(1))
-
             foo = true
+            default:
+                XCTFail()
+            }
         } catch {
             XCTFail("\(error)")
         }
@@ -166,12 +170,15 @@ class MiscellaneousTestCase: XCTestCase {
             var foo = false
             do {
                 try executeSwiftBuild(prefix)
-            } catch POSIX.Error.exitStatus(let code, _) {
-
-                // if our code crashes we'll get an exit code of 256
-                XCTAssertEqual(code, Int32(1))
-
-                foo = true
+            } catch SwiftPMProductError.executionFailure(let error, _) {
+                switch error {
+                case POSIX.Error.exitStatus(let code, _):
+                    // if our code crashes we'll get an exit code of 256
+                    XCTAssertEqual(code, Int32(1))
+                    foo = true
+                default:
+                    XCTFail()
+                }
             } catch {
                 XCTFail()
             }
