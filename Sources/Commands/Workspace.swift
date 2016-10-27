@@ -156,8 +156,8 @@ public class Workspace {
             }
             self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpathString)
-            self.currentVersion = ManagedDependency.optionalStringTransformer(currentVersionData, transformer: Version.init)
-            self.currentRevision = ManagedDependency.optionalStringTransformer(currentRevisionString, transformer: Revision.init(identifier:))
+            self.currentVersion = Version(json: currentVersionData)
+            self.currentRevision = Revision(json: currentRevisionString)
             self.basedOn = ManagedDependency(json: basedOnData) ?? nil
         }
 
@@ -165,29 +165,10 @@ public class Workspace {
             return .dictionary([
                     "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString),
-                    "currentVersion": ManagedDependency.optionalJSONTransformer(currentVersion) { .string(String(describing: $0)) },
-                    "currentRevision": ManagedDependency.optionalJSONTransformer(currentRevision) { .string($0.identifier) },
+                    "currentVersion":  currentVersion.flatMap { JSON.string(String(describing: $0)) } ?? .null,
+                    "currentRevision": currentRevision.flatMap { JSON.string($0.identifier) } ?? .null,
                     "basedOn": basedOn?.toJSON() ?? .null,
                 ])
-        }
-
-        // FIXME: Move these to JSON.
-        private static func optionalStringTransformer<T>(_ value: JSON, transformer: (String) -> T?) -> T? {
-            switch value {
-            case .null:
-                return nil
-            case .string(let string):
-                return transformer(string)
-            default:
-                return nil
-            }
-        }
-
-        private static func optionalJSONTransformer<T>(_ value: T?, transformer: (T) -> JSON) -> JSON {
-            guard let value = value else {
-                return .null
-            }
-            return transformer(value)
         }
     }
 
