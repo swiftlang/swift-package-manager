@@ -9,8 +9,10 @@
 */
 
 import XCTest
+import Dispatch
 
 import Basic
+import POSIX
 import TestSupport
 
 class LockTests: XCTestCase {
@@ -46,6 +48,18 @@ class LockTests: XCTestCase {
         threads.forEach { $0.join() }
 
         XCTAssertEqual(try localFileSystem.readFileContents(sharedResource.path).asString, String((N * (N + 1) / 2 )))
+    }
+
+    func testFileLockTimeout() throws {
+        let tempDir = try TemporaryDirectory()
+        let lock = FileLock(name: "TestLock", cachePath: tempDir.path)
+        // Get a lock.
+        let locked = try lock.lock()
+        XCTAssertTrue(locked)
+        // Try to get the lock again with a timeout.
+        let relocked = try lock.lock(timeout: 0.01)
+        XCTAssertFalse(relocked)
+        lock.unlock()
     }
 
     static var allTests = [
