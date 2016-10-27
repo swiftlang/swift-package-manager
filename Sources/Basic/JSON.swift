@@ -244,3 +244,36 @@ extension JSON {
         try self.init(bytes: bytes)
     }
 }
+
+public extension JSON {
+    /// A transformer helper to convert optional types to JSON.
+    ///
+    /// - Parameters:
+    ///   - value: The optional value to convert to JSON.
+    ///   - transformer: The transformer to call if the optional value is present.
+    /// - Returns: The converted JSON value.
+    static func optionalTransformer<T>(_ value: T?, transformer: (T) throws -> JSON) rethrows -> JSON {
+        guard let value = value else {
+            return .null
+        }
+        return try transformer(value)
+    }
+
+    /// A transformer helper to convert JSON strings to optional transformed types.
+    /// Note: This will return nil if a non null JSON value is present but not of the string type.
+    ///
+    /// - Parameters:
+    ///   - value: The JSON to convert into optional string.
+    ///   - transformer: The transformer to apply if string value is found in JSON.
+    /// - Returns: The transformed optional type.
+    static func optionalStringTransformer<T>(_ json: JSON, transformer: (String) throws -> T?) rethrows -> T? {
+        switch json {
+        case .null:
+            return nil
+        case .string(let string):
+            return try transformer(string)
+        default:
+            return nil
+        }
+    }
+}

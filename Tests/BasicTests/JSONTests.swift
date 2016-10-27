@@ -52,9 +52,21 @@ class JSONTests: XCTestCase {
         XCTAssertEqual(json, .dictionary(["name": .string("jon doe")]))
     }
 
+    func testTransformers() {
+        // Optional value to JSON transformer.
+        XCTAssertEqual(JSON.optionalTransformer(1, transformer: JSON.int), JSON.int(1))
+        XCTAssertEqual(JSON.optionalTransformer(nil, transformer: JSON.string), JSON.null)
+
+        // JSON to string value transformer.
+        XCTAssertEqual(JSON.optionalStringTransformer(.string("Hello")) { String($0) }, "Hello")
+        XCTAssertEqual(JSON.optionalStringTransformer(.int(1)) { String($0) }, nil)
+        XCTAssertEqual(JSON.optionalStringTransformer(.null) { String($0) }, nil)
+    }
+
     static var allTests = [
         ("testEncoding", testEncoding),
         ("testDecoding", testDecoding),
         ("testStringInitalizer", testStringInitalizer),
+        ("testTransformers", testTransformers),
     ]
 }
