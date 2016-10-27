@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
+
 import Basic
 import Utility
 
@@ -53,6 +55,10 @@ public class RepositoryManager {
 
         /// The status of the repository.
         fileprivate var status: Status = .uninitialized
+
+        /// The serial queue to perform the operations like updating the state of the handle and fetching the repositories
+        /// from its remote. The advantage of having a serial queue in handle is that we don't have to worry about multiple lookups on the same handle as they will be queued automatically.
+        fileprivate let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repohandle-serial")
 
         /// Create a handle.
         fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
@@ -120,6 +126,12 @@ public class RepositoryManager {
     // repositories map to the same location.
     private var repositories: [String: RepositoryHandle] = [:]
         
+    /// Queue to protect concurrent reads and mutations to repositories registery.
+    private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
+
+    /// Queue to do concurrent operations on manager.
+    private let concurrentQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-concurrent", attributes: .concurrent)
+
     /// Create a new empty manager.
     ///
     /// - path: The path under which to store repositories. This should be a
@@ -145,53 +157,83 @@ public class RepositoryManager {
     ///
     /// This will initiate a clone of the repository automatically, if necessary.
     public func lookup(repository: RepositorySpecifier, completion: @escaping LookupCompletion) {
-        // Check to see if the repository has been provided.
-        if let handle = repositories[repository.url] {
-            // Fetch and update the repository when it is being looked up.
-            // We need some mechanism to maybe not do this for pinned repos.
-            do {
-                let repo = try handle.open()
-                try repo.fetch()
-            } catch {
-                // FIXME: Better error handling.
-                print("Error while fetching the repo: \(handle)")
+        concurrentQueue.async { 
+            // First look for the handle.
+            let handle = self.getHandle(repository: repository)
+            // Dispatch the action we want to take on the serial queue of the handle.
+            handle.serialQueue.async {
+                let result: LookupResult
+                switch handle.status {
+                case .available:
+                    // FIXME: Need to only do this for first lookup.
+                    result = try! LookupResult {
+                        // Fetch and update the repository when it is being looked up.
+                        let repo = try handle.open()
+                        try repo.fetch()
+                        return handle
+                    }
+                case .pending:
+                    precondition(false, "This should never have been called")
+                    return
+                case .uninitialized, .error:
+                    // Change the state to pending.
+                    handle.status = .pending
+                    let repositoryPath = self.path.appending(handle.subpath)
+                    // Make sure desination is free.
+                    if localFileSystem.exists(repositoryPath) {
+                        _ = try? removeFileTree(repositoryPath)
+                    }
+
+                    // Fetch the repo.
+                    do {
+                        // Inform delegate.
+                        DispatchQueue.global().async {
+                            self.delegate.fetching(handle: handle, to: repositoryPath)
+                        }
+                        // Start fetching.
+                        try self.provider.fetch(repository: handle.repository, to: repositoryPath)
+                        // Update status to available.
+                        handle.status = .available
+                        result = Result(handle)
+                    } catch {
+                        handle.status = .error
+                        result = Result(AnyError(error))
+                    }
+                    // Save the manager state.
+                    self.serialQueue.sync { 
+                        do {
+                            try self.saveState()
+                        } catch {
+                            // FIXME: Handle failure gracefully, somehow.
+                            fatalError("unable to save manager state \(error)")
+                            
+                        }
+                    }
+                }
+                // Call the completion handler on the global queue otherwise,
+                // nested calls to lookup on same handle will block.
+                DispatchQueue.global().async {
+                    completion(result)
+                }
             }
-            completion(Result(handle))
-            return
         }
-        
-        // Otherwise, fetch the repository and return a handle.
-        let subpath = RelativePath(repository.fileSystemIdentifier)
-        let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
-        repositories[repository.url] = handle
+    }
 
-        // Ensure nothing else exists at the subpath.
-        let repositoryPath = path.appending(subpath)
-        if localFileSystem.exists(repositoryPath) {
-            _ = try? removeFileTree(repositoryPath)
+    /// Returns the handle for repository if available, otherwise creates a new one.
+    /// Note: This method is thread safe.
+    private func getHandle(repository: RepositorySpecifier) -> RepositoryHandle {
+        return serialQueue.sync {
+            let handle: RepositoryHandle
+            if let oldHandle = self.repositories[repository.url] {
+                handle = oldHandle
+            } else {
+                let subpath = RelativePath(repository.fileSystemIdentifier)
+                let newHandle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+                self.repositories[repository.url] = newHandle
+                handle = newHandle
+            }
+            return handle
         }
-        
-        // FIXME: This should run on a background thread.
-        let result: LookupResult
-        do {
-            handle.status = .pending
-            delegate.fetching(handle: handle, to: repositoryPath)
-            try provider.fetch(repository: repository, to: repositoryPath)
-            handle.status = .available
-            result = Result(handle)
-        } catch {
-            handle.status = .error
-            result = Result(AnyError(error))
-        }
-
-        // Save the manager state.
-        do {
-            try saveState()
-        } catch {
-            // FIXME: Handle failure gracefully, somehow.
-            fatalError("unable to save manager state")
-        }
-        completion(result)
     }
 
     /// Synchronous variation of lookup(repository:) method.
