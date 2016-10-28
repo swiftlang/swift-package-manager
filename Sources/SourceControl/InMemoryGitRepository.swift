@@ -248,7 +248,7 @@ extension InMemoryGitRepository: WorkingCheckout {
 /// This class implement provider for in memeory git repository.
 public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Contains the repository added to this provider.
-    private var specifierMap = [RepositorySpecifier: InMemoryGitRepository]()
+    public private(set) var specifierMap = [RepositorySpecifier: InMemoryGitRepository]()
 
     /// Contains the repositories which are fetched using this provider.
     private var fetchedMap = [AbsolutePath: InMemoryGitRepository]()
