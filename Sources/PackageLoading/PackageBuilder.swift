@@ -111,7 +111,7 @@ extension Module.Error: FixableError {
     var error: String {
         switch self {
           case .invalidName(let path, let name, let problem):
-            return "the module at \(path) has an invalid name ('\(name)'): \(problem.error)"
+            return "the directory \(path) has an invalid name ('\(name)'): \(problem.error)"
           case .mixedSources(let path):
             return "the module at \(path) contains mixed language source files"
         }
@@ -120,7 +120,7 @@ extension Module.Error: FixableError {
     var fix: String? {
         switch self {
         case .invalidName(let path, _, let problem):
-            return "rename the module at ‘\(path)’\(problem.fix ?? "")"
+            return "rename the directory ‘\(path)’\(problem.fix ?? "")"
         case .mixedSources(_):
             return "use only a single language within a module"
         }
