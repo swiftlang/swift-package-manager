@@ -135,6 +135,8 @@ func xcodeProject(
     projectSettings.release.SWIFT_OPTIMIZATION_LEVEL = "-O"
 
     // Add a file reference for the package manifest itself.
+    // FIXME: We should parameterize this so that a package can return the path
+    // of its manifest file.
     project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
     
     // Add a group for the overriding .xcconfig file, if we have one.
@@ -171,20 +173,30 @@ func xcodeProject(
     
     // Private helper function to make a group (or return an existing one) for
     // a particular path, including any intermediate groups that may be needed.
-    func makeGroup(for path: AbsolutePath) -> Xcode.Group {
+    // A name can be specified, if different from the last path component (any
+    // custom name does not apply to any intermediate groups).
+    func makeGroup(for path: AbsolutePath, named name: String? = nil) -> Xcode.Group {
         // Check if we already have a group.
         if let group = srcPathsToGroups[path] {
+            // We do, so we just return it without creating anything.
             return group
         }
-        // We don't, so create one, starting with the parent.
+        // No existing group, so start by making sure we have the parent.  Note
+        // that we don't pass along any custom name for any parent groups.
         let parentGroup = makeGroup(for: path.parentDirectory)
-        let group = parentGroup.addGroup(path: path.basename)
+        
+        // Now we have a parent, so we can create a group, optionally using the
+        // custom name we were given.
+        let group = parentGroup.addGroup(path: path.basename, pathBase: .groupDir, name: name ?? path.basename)
+        
+        // Add the new group to the mapping, so future lookups will find it.
         srcPathsToGroups[path] = group
         return group
     }
     
     // Add a mapping from the project dir to the main group, as a backstop for
-    // any paths that get so far (doesn't happen in a standard package layout).
+    // any paths that get that far (which does not happen in standard package
+    // layout).
     srcPathsToGroups[sourceRootDir] = project.mainGroup
     
     // Add a `Sources` group, to which we'll add a subgroup for every regular
@@ -194,7 +206,8 @@ func xcodeProject(
     // Add a `Tests` group, to which we'll add a subgroup for every test module.
     let testsGroup = project.mainGroup.addGroup(path: "Tests")
     
-    // Add "blue folders" for all the other directories at the top level.
+    // Add "blue folders" for any other directories at the top level (note that
+    // they are not guaranteed to be direct children of the root directory).
     for extraDir in extraDirs {
         project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
     }
@@ -202,7 +215,12 @@ func xcodeProject(
     // Add a `Products` group, and set it as the project's product group.  This
     // is the group to which we'll add references to the outputs of the various
     // targets; these references will be added to the link phases.
+    // Add a `Products` group, to which we'll add references to the outputs of
+    // the various targets; these references will be added to the link phases.
     let productsGroup = project.mainGroup.addGroup(path: "", pathBase: .buildDir, name: "Products")
+    
+    // Set the newly created `Products` group as the official products group of
+    // the project.
     project.productGroup = productsGroup
     
     // Determine the set of modules to generate in the project by excluding
