@@ -165,6 +165,28 @@ func xcodeProject(
         xcconfigOverridesFileRef = nil
     }
     
+    // To avoid creating multiple groups for the same path, we keep a mapping
+    // of the paths we've seen and the corresponding groups we've created.
+    var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
+    
+    // Private helper function to make a group (or return an existing one) for
+    // a particular path, including any intermediate groups that may be needed.
+    func makeGroup(for path: AbsolutePath) -> Xcode.Group {
+        // Check if we already have a group.
+        if let group = srcPathsToGroups[path] {
+            return group
+        }
+        // We don't, so create one, starting with the parent.
+        let parentGroup = makeGroup(for: path.parentDirectory)
+        let group = parentGroup.addGroup(path: path.basename)
+        srcPathsToGroups[path] = group
+        return group
+    }
+    
+    // Add a mapping from the project dir to the main group, as a backstop for
+    // any paths that get so far (doesn't happen in a standard package layout).
+    srcPathsToGroups[sourceRootDir] = project.mainGroup
+    
     // Add a `Sources` group, to which we'll add a subgroup for every regular
     // module.
     let sourcesGroup = project.mainGroup.addGroup(path: "Sources")
@@ -189,28 +211,6 @@ func xcodeProject(
     
     // We'll need a mapping of modules to the corresponding targets.
     var modulesToTargets: [Module: Xcode.Target] = [:]
-    
-    // To avoid creating multiple groups for the same path, we keep a mapping
-    // of the paths we've seen and the corresponding groups we've created.
-    var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
-    
-    // Private helper function to make a group (or return an existing one) for
-    // a particular path, including any intermediate groups that may be needed.
-    func makeGroup(for path: AbsolutePath) -> Xcode.Group {
-        // Check if we already have a group.
-        if let group = srcPathsToGroups[path] {
-            return group
-        }
-        // We don't, so create one, starting with the parent.
-        let parentGroup = makeGroup(for: path.parentDirectory)
-        let group = parentGroup.addGroup(path: path.basename)
-        srcPathsToGroups[path] = group
-        return group
-    }
-    
-    // Add a mapping from the project dir to the main group, as a backstop for
-    // any paths that get so far (doesn't happen in a standard package layout).
-    srcPathsToGroups[sourceRootDir] = project.mainGroup
     
     // Go through all the modules, creating targets and adding file references
     // to the group tree (the specific top-level group under which they are
