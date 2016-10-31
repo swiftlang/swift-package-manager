@@ -43,14 +43,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
         case .clean:
-            if options.enableNewResolver {
-                try getActiveWorkspace().clean()
-            } else {
-                // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-                if exists(buildPath) {
-                    try removeFileTree(buildPath)
-                }
-            }
+            print("warning: swift build --clean is deprecated. Use 'swift package clean' instead. (SR-2082)")
+            try clean()
 
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
@@ -63,7 +57,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             to: { $0.buildTests = $1 })
 
         binder.bind(
-            option: parser.add(option: "--clean", kind: Bool.self, usage: "Delete build artifacts"),
+            option: parser.add(option: "--clean", kind: Bool.self),
             to: { $0.clean = $1 })
 
         binder.bind(

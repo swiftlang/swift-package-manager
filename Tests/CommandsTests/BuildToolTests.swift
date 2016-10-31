@@ -36,7 +36,8 @@ final class BuildToolTests: XCTestCase {
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
 
             // Clean, and check for removal of the build directory but not Packages.
-            _ = try execute(["--clean"], chdir: packageRoot)
+            let output = try execute(["--clean"], chdir: packageRoot)
+            XCTAssertTrue(output.contains("deprecated"))
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             // We don't delete the build folder in new resolver.
             // FIXME: Eliminate this once we switch to new resolver.

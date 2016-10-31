@@ -217,6 +217,30 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testPackageClean() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+
+            // Build it.
+            XCTAssertBuilds(packageRoot)
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+
+            // Clean, and check for removal of the build directory but not Packages.
+            _ = try execute(["clean"], chdir: packageRoot)
+            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
+            // We don't delete the build folder in new resolver.
+            // FIXME: Eliminate this once we switch to new resolver.
+            if !SwiftPMProduct.enableNewResolver {
+                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
+            }
+
+            // Clean again to ensure we get no error.
+            _ = try execute(["clean"], chdir: packageRoot)
+        }
+    }
+
     func testPackageReset() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
@@ -262,6 +286,7 @@ final class PackageToolTests: XCTestCase {
         ("testInitEmpty", testInitEmpty),
         ("testInitExecutable", testInitExecutable),
         ("testInitLibrary", testInitLibrary),
+        ("testPackageClean", testPackageClean),
         ("testPackageEditAndUnedit", testPackageEditAndUnedit),
         ("testPackageReset", testPackageReset),
     ]
