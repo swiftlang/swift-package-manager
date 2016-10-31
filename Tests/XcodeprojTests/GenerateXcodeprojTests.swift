@@ -25,9 +25,11 @@ class GenerateXcodeprojTests: XCTestCase {
                 return [try SwiftModule(name: "DummyModuleName", sources: Sources(paths: [], root: dstdir))]
             }
 
+            let dummyModules = try dummy()
+
             let projectName = "DummyProjectName"
-            let dummyPackage = Package(manifest: Manifest(path: dstdir, url: dstdir.asString, package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: dstdir, modules: [], testModules: [], products: [])
-            let graph = PackageGraph(rootPackage: dummyPackage, modules: try dummy(), externalModules: [])
+            let dummyPackage = Package(manifest: Manifest(path: dstdir, url: dstdir.asString, package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: dstdir, modules: dummyModules, testModules: [], products: [])
+            let graph = PackageGraph(rootPackage: dummyPackage, modules: dummyModules, externalModules: [])
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
 
             XCTAssertDirectoryExists(outpath)

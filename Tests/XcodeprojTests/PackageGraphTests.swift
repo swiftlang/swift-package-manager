@@ -42,7 +42,7 @@ class PackageGraphTests: XCTestCase {
 
             result.check(references:
                 "Package.swift",
-                "Sources/Foo/foo.swift",
+                "Dependencies/Foo/foo.swift",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
                 "Sources/Sea2/include/module.modulemap",
