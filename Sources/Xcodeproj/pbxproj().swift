@@ -167,6 +167,9 @@ func xcodeProject(
         xcconfigOverridesFileRef = nil
     }
     
+    // Determine the list of external package dependencies, if any.
+    let externalPackages = graph.packages.filter{ $0 != graph.rootPackage }
+    
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
     var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
@@ -199,12 +202,52 @@ func xcodeProject(
     // layout).
     srcPathsToGroups[sourceRootDir] = project.mainGroup
     
-    // Add a `Sources` group, to which we'll add a subgroup for every regular
-    // module.
-    let sourcesGroup = project.mainGroup.addGroup(path: "Sources")
+    // Private helper function that creates a source group for one or more
+    // modules (which could be regular modules, tests, etc).  If there is a
+    // single module whose source directory's basename is not equal to the
+    // module name (i.e. the "flat" form of a single-module package), then
+    // the top-level group will itself represent that module; otherwise, it
+    // will have one subgroup for each module.
+    //
+    // The provided name is always used for the top-level group, whether or
+    // not it represents a single module or is the parent of a collection of
+    // modules.
+    //
+    // Regardless of the layout case, this function adds a mapping from the
+    // source directory of each module to the corresponding group, so that
+    // source files added later will be able to find the right group.
+    func createSourceGroup(named groupName: String, for modules: [Module], in parentGroup: Xcode.Group) {
+        // Look for the special case of a single module in a flat layout.
+        let needsSourcesGroup: Bool
+        if modules.count == 1, let module = modules.first {
+            // FIXME: This is somewhat flaky; packages should have a notion of
+            // what kind of layout they have.  But at least this is just a
+            // heuristic and won't affect the functioning of the Xcode project.
+            needsSourcesGroup = (module.sources.root.basename == module.name)
+        } else {
+            needsSourcesGroup = true
+        }
+        
+        // If we need a sources group, create one.
+        let sourcesGroup = needsSourcesGroup ? parentGroup.addGroup(path: "", pathBase: .projectDir, name: groupName) : nil
+        
+        // Create a group for each module.
+        for module in modules {
+            // The sources could be anywhere, so we use a project-relative path.
+            let path = module.sources.root.relative(to: sourceRootDir).asString
+            let name = (sourcesGroup == nil ? groupName : module.name)
+            let group = (sourcesGroup ?? parentGroup).addGroup(path: (path == "." ? "" : path), pathBase: .projectDir, name: name)
+            
+            // Associate the group with the module's root path.
+            srcPathsToGroups[module.sources.root] = group
+        }
+    }
     
-    // Add a `Tests` group, to which we'll add a subgroup for every test module.
-    let testsGroup = project.mainGroup.addGroup(path: "Tests")
+    // Create a `Sources` group for the source modules in the root package.
+    createSourceGroup(named: "Sources", for: graph.rootPackage.modules, in: project.mainGroup)
+    
+    // Create a `Tests` group for the source modules in the root package.
+    createSourceGroup(named: "Tests", for: graph.rootPackage.testModules, in: project.mainGroup)
     
     // Add "blue folders" for any other directories at the top level (note that
     // they are not guaranteed to be direct children of the root directory).
@@ -212,9 +255,27 @@ func xcodeProject(
         project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
     }
     
-    // Add a `Products` group, and set it as the project's product group.  This
-    // is the group to which we'll add references to the outputs of the various
-    // targets; these references will be added to the link phases.
+    // If we have any external packages, we also add a `Dependencies` group at
+    // the top level, along with a sources subgroup for each package.
+    if !externalPackages.isEmpty {
+        // Create the top-level `Dependencies` group.  We cannot count on each
+        // external package's path, so we don't assign a particular path to the
+        // `Dependencies` group; each package provides its own project-relative
+        // path.
+        let dependenciesGroup = project.mainGroup.addGroup(path: "", pathBase: .groupDir, name: "Dependencies")
+        
+        // Add a subgroup for each external package.
+        for package in externalPackages {
+            // Construct a group name from the package name and optional version.
+            var groupName = package.name
+            if let version = package.version {
+                groupName += " " + version.description
+            }
+            // Create the source group for all the modules in the package.
+            createSourceGroup(named: groupName, for: package.modules, in: dependenciesGroup)
+        }
+    }
+    
     // Add a `Products` group, to which we'll add references to the outputs of
     // the various targets; these references will be added to the link phases.
     let productsGroup = project.mainGroup.addGroup(path: "", pathBase: .buildDir, name: "Products")
@@ -352,25 +413,13 @@ func xcodeProject(
         // Record the target that we created for this module, for later passes.
         modulesToTargets[module] = target
         
-        // Determine the top-level directory for source files of the module.
-        let moduleRootDir = module.sources.root
-        
-        // Choose either `Sources` or `Tests` as the parent group.
-        let moduleParentGroup = module.isTest ? testsGroup : sourcesGroup
-        
-        // Create a group for the module, and set its path to the module source
-        // root.  We make it a top-level group even if it isn't in the package's
-        // `Sources` directory (doesn't happen in a standard package layout).
-        let moduleGroup = moduleParentGroup.addGroup(path: moduleRootDir.relative(to: sourceRootDir).asString, pathBase: .projectDir, name: module.name)
-        
-        // We add the group to the mapping, so that sources will find it.
-        srcPathsToGroups[moduleRootDir] = moduleGroup
-        
         // Go through the module source files.  As we do, we create groups for
         // any path components other than the last one.  We also add build files
         // to the compile phase of the target we created.
         for sourceFile in module.sources.paths {
-            // Make (or find) a group for the directory.
+            // Find or make a group for the parent directory of the source file.
+            // We know that there will always be one, because we created groups
+            // for the source directories of all the modules.
             let group = makeGroup(for: sourceFile.parentDirectory)
             
             // Create a reference for the source file.  We don't set its file

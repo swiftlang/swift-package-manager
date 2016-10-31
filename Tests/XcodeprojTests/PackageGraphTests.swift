@@ -19,7 +19,7 @@ import TestSupport
 class PackageGraphTests: XCTestCase {
     func testBasics() throws {
       let fs = InMemoryFileSystem(emptyFiles:
-          "/Foo/foo.swift",
+          "/Foo/Sources/foo.swift",
           "/Foo/Tests/FooTests/fooTests.swift",
           "/Bar/Sources/Bar/bar.swift",
           "/Bar/Sources/Sea/include/Sea.h",
@@ -46,7 +46,6 @@ class PackageGraphTests: XCTestCase {
             result.check(references:
                 "Package.swift",
                 "Configs/Overrides.xcconfig",
-                "Sources/Foo/foo.swift",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
                 "Sources/Sea2/include/module.modulemap",
@@ -55,6 +54,7 @@ class PackageGraphTests: XCTestCase {
                 "Sources/Sea/include/Sea.h",
                 "Sources/Sea/include/module.modulemap",
                 "Tests/BarTests/barTests.swift",
+                "Dependencies/Foo 1.0.0/foo.swift",
                 "Products/Foo.framework",
                 "Products/Sea2.framework",
                 "Products/Bar.framework",
