@@ -24,10 +24,10 @@ public struct PackageGraph {
 
     // FIXME: These are temporary.
     public let modules: [Module]
-    public let externalModules: Set<Module>
+    public let externalModules: [Module]
     
     /// Construct a package graph directly.
-    public init(rootPackage: Package, modules: [Module], externalModules: Set<Module>) {
+    public init(rootPackage: Package, modules: [Module], externalModules: [Module]) {
         self.rootPackage = rootPackage
         self.modules = modules
         self.externalModules = externalModules

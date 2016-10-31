@@ -48,7 +48,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
             if module.isTest { continue }
           #endif
             // FIXME: Find a way to eliminate `externalModules` from here.
-            let compile = try Command.compile(clangModule: module, externalModules: graph.externalModules, configuration: conf, prefix: prefix, otherArgs: flags.cCompilerFlags + toolchain.clangPlatformArgs, compilerExec: toolchain.clangCompiler)
+            let compile = try Command.compile(clangModule: module, externalModules: Set(graph.externalModules), configuration: conf, prefix: prefix, otherArgs: flags.cCompilerFlags + toolchain.clangPlatformArgs, compilerExec: toolchain.clangCompiler)
             commands += compile
             targets.append(compile, for: module)
 

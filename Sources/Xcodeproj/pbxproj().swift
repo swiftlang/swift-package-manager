@@ -134,13 +134,17 @@ func xcodeProject(
         project.buildSettings.xcconfigFileRef = xcconfigFileRef
     }
     
-    // Add a `Sources` group, to which we'll add a subgroup for every regular
-    // module.
+    // Add a `Sources` group, to which we'll add a subgroup for every module
+    // from the root package.
     let sourcesGroup = project.mainGroup.addGroup(path: "Sources")
     
+    // Add a `Dependencies` group, to which we'll add a subgroup for every
+    // module from all other packages.
+    let dependenciesGroup = project.mainGroup.addGroup(path: "Dependencies")
+
     // Add a `Tests` group, to which we'll add a subgroup for every test module.
     let testsGroup = project.mainGroup.addGroup(path: "Tests")
-    
+
     // Add "blue folders" for all the other directories at the top level.
     for extraDir in extraDirs {
         project.mainGroup.addFileReference(path: extraDir.relative(to: sourceRootDir).asString, pathBase: .projectDir)
@@ -180,11 +184,9 @@ func xcodeProject(
     // Add a mapping from the project dir to the main group, as a backstop for
     // any paths that get so far (doesn't happen in a standard package layout).
     srcPathsToGroups[sourceRootDir] = project.mainGroup
-    
-    // Go through all the modules, creating targets and adding file references
-    // to the group tree (the specific top-level group under which they are
-    // added depends on whether or not the module is a test module).
-    for module in modules {
+
+    // Adds module to group
+    func add(_ module: Module, to group: Xcode.Group) throws {
         // Add a target for the module.  The product type depends on the kind
         // of module it is.
         // FIXME: We should factor this out.
@@ -199,16 +201,16 @@ func xcodeProject(
         let productName = module.c99name
         let target = project.addTarget(productType: productType, name: module.name)
         target.productName = productName
-        
+
         // Configure the target settings based on the module.
         let targetSettings = target.buildSettings
-        
+
         targetSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
         targetSettings.common.TARGET_NAME = module.name
-        
+
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
-        
+
         // Add default library search path to the directory where symlinks to
         // framework binaries will be put with name `lib<library-name>.dylib`
         // so that autolinking can proceed without providing another modulemap
@@ -217,7 +219,7 @@ func xcodeProject(
         if module.recursiveDependencies.first(where: { $0 is ClangModule }) != nil {
             targetSettings.common.LIBRARY_SEARCH_PATHS = ["$(PROJECT_TEMP_DIR)/SymlinkLibs/"]
         }
-        
+
         if module.isTest {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks"]
@@ -238,16 +240,16 @@ func xcodeProject(
             else {
                 targetSettings.common.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"
                 targetSettings.common.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = "YES"
-                
+
                 targetSettings.common.LD_RUNPATH_SEARCH_PATHS += ["@executable_path"]
             }
         }
-        
+
         if let pkgArgs = try? module.pkgConfigArgs() {
             targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"] + pkgArgs.libs
             targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"] + pkgArgs.cFlags
         }
-        
+
         // Add header search paths for any C module on which we depend.
         var hdrInclPaths = [String]()
         for depModule in [module] + module.recursiveDependencies {
@@ -257,11 +259,11 @@ func xcodeProject(
             // affect search paths and other flags.  This should be done in a
             // way that allows SwiftPM to detect incompatibilities.
             switch depModule {
-              case let cModule as CModule:  // System module
+            case let cModule as CModule:  // System module
                 hdrInclPaths.append(cModule.path.relative(to: sourceRootDir).asString)
-              case let clangModule as ClangModule:
+            case let clangModule as ClangModule:
                 hdrInclPaths.append(clangModule.includeDir.relative(to: sourceRootDir).asString)
-              default:
+            default:
                 continue
             }
         }
@@ -269,64 +271,61 @@ func xcodeProject(
 
         // Add framework search path to build settings.
         targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(PLATFORM_DIR)/Developer/Library/Frameworks"]
-        
+
         // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
         targetSettings.common.SWIFT_VERSION = "3.0"
-        
+
         // Defined for regular `swift build` instantiations, so also should be defined here.
         targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
 
         // Add a file reference for the target's product.
         let productRef = productsGroup.addFileReference(path: module.productPath.asString, pathBase: .buildDir)
-        
+
         // Set that file reference as the target's product reference.
         target.productReference = productRef
-        
+
         // Add a shell script build phase to create a symlink to the produced
         // library in a shared location so other modules can find it.
         if case let clangModule as ClangModule = module, clangModule.type == .library {
             let script = "mkdir -p \"${PROJECT_TEMP_DIR}/SymlinkLibs\"\n"
-                       + "ln -sf \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\" \"${PROJECT_TEMP_DIR}/SymlinkLibs/lib${EXECUTABLE_NAME}.dylib\"\n"
+                + "ln -sf \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\" \"${PROJECT_TEMP_DIR}/SymlinkLibs/lib${EXECUTABLE_NAME}.dylib\"\n"
             target.addShellScriptBuildPhase(script: script)
         }
-        
+
         // Add a compile build phase (which Xcode calls "Sources").
         let compilePhase = target.addSourcesBuildPhase()
-        
+
         // We don't add dependencies yet — we do so in a separate pass, since
         // some dependencies might be on targets that we have not yet created.
-        
+
         // We also don't add the link phase yet, since we'll do so at the same
         // time as we set up dependencies.
-        
+
         // Record the target that we created for this module, for later passes.
         modulesToTargets[module] = target
-        
+
         // Determine the top-level directory for source files of the module.
         let moduleRootDir = module.sources.root
-        
-        // Choose either `Sources` or `Tests` as the parent group.
-        let moduleParentGroup = module.isTest ? testsGroup : sourcesGroup
-        
+
         // Create a group for the module, and set its path to the module source
         // root.  We make it a top-level group even if it isn't in the package's
         // `Sources` directory (doesn't happen in a standard package layout).
-        let moduleGroup = moduleParentGroup.addGroup(path: moduleRootDir.relative(to: sourceRootDir).asString, pathBase: .projectDir, name: module.name)
-        
+        let moduleGroup = group.addGroup(path: moduleRootDir.relative(to: sourceRootDir).asString, pathBase: .projectDir, name: module.name)
+
         // We add the group to the mapping, so that sources will find it.
         srcPathsToGroups[moduleRootDir] = moduleGroup
-        
+
         // Go through the module source files.  As we do, we create groups for
         // any path components other than the last one.  We also add build files
         // to the compile phase of the target we created.
         for sourceFile in module.sources.paths {
             // Make (or find) a group for the directory.
             let group = makeGroup(for: sourceFile.parentDirectory)
-            
+
             // Create a reference for the source file.  We don't set its file
             // type; rather, we let Xcode determine it based on the suffix.
             let srcFileRef = group.addFileReference(path: sourceFile.basename)
-            
+
             // Also add the source file to the compile phase.
             compilePhase.addBuildFile(fileRef: srcFileRef)
         }
@@ -359,7 +358,19 @@ func xcodeProject(
             targetSettings.common.MODULEMAP_FILE = moduleMapPath.relative(to: xcodeprojPath.parentDirectory).asString
         }
     }
-    
+
+    // Add the modules to their corresponding groups (ie. sources, tests,
+    // dependencies)
+    try graph.rootPackage.modules.forEach { (module) in
+        try add(module, to: sourcesGroup)
+    }
+    try graph.rootPackage.testModules.forEach { (module) in
+        try add(module, to: testsGroup)
+    }
+    try graph.externalModules.forEach { (module) in
+        try add(module, to: dependenciesGroup)
+    }
+
     // Go through all the module/target pairs again, and add target dependencies
     // for any module dependencies.  As we go, we also add link phases and set
     // up the targets to link against the products of the dependencies.

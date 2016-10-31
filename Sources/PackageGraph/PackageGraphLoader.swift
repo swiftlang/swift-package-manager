@@ -107,7 +107,7 @@ public struct PackageGraphLoader {
         let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
-        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: Set(externalModules))
+        return PackageGraph(rootPackage: rootPackage, modules: modules, externalModules: externalModules)
     }
 }
 
