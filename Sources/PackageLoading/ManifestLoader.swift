@@ -105,7 +105,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             } catch FileSystemError.noEntry {
                 throw PackageModel.Package.Error.noManifest(inputPath.asString)
             }
-            let tmpFile = try TemporaryFile()
+            let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
             return try loadFile(path: tmpFile.path, baseURL: baseURL, version: version)
         }
@@ -150,6 +150,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Parse the manifest at the given path to JSON.
     private func parse(path manifestPath: AbsolutePath) throws -> String? {
+        // The compiler has special meaning for files with extensions like .ll, .bc etc.
+        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
+        assert(manifestPath.extension == "swift", "Manifest files must contain .swift suffix in their name, given: \(manifestPath.asString).")
+
         // For now, we load the manifest by having Swift interpret it directly.
         // Eventually, we should have two loading processes, one that loads only the
         // the declarative package specification using the Swift compiler directly

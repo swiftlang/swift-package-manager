@@ -143,7 +143,11 @@ let package = Package(
         Target(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
-    ])
+    ],
+    exclude: [
+        "Tests/PackageLoadingTests/Inputs",
+    ]
+)
 
 
 // otherwise executables are auto-determined you could
