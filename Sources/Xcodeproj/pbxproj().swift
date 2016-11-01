@@ -69,7 +69,10 @@ func xcodeProject(
     // FIXME: This doesn't seem correct, but was what the old project generation
     // code did, so for now we do so too.
     projectSettings.common.SUPPORTED_PLATFORMS = ["macosx", "iphoneos", "iphonesimulator", "appletvos", "appletvsimulator", "watchos", "watchsimulator"]
-    
+
+    // Set the default `SDKROOT` to the latest macOS SDK.
+    projectSettings.common.SDKROOT = "macosx"
+
     // Set a conservative default deployment target.
     // FIXME: There needs to be some kind of control over this.  But currently
     // it is required to set this in order for SwiftPM to be able to self-host
@@ -100,6 +103,13 @@ func xcodeProject(
     // Prevent Xcode project upgrade warnings.
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
     
+    // Set the Swift version to 3.0 (we'll need to make this dynamic), but for
+    // now this is necessary.
+    projectSettings.common.SWIFT_VERSION = "3.0"
+    
+    // Defined for regular `swift build` instantiations, so also should be defined here.
+    projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
+    
     // Opt out of headermaps.  The semantics of the build should be explicitly
     // defined by the project structure, so that we don't get any additional
     // magic behavior that isn't present in `swift build`.
@@ -122,16 +132,27 @@ func xcodeProject(
     // Add a file reference for the package manifest itself.
     project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
     
-    // Add a group for the .xcconfig files.
+    // Add a group for the overriding .xcconfig file, if we have one.
+    let xcconfigOverridesFileRef: Xcode.FileReference?
     if let xcconfigPath = options.xcconfigOverrides {
         // Create a "Configs" group whose path is the same as the project path.
         let xcconfigsGroup = project.mainGroup.addGroup(path: "", name: "Configs")
+        
         // Create a file reference for the .xcconfig file (with a path relative
         // to the group).
-        let xcconfigFileRef = xcconfigsGroup.addFileReference(path: xcconfigPath.relative(to: sourceRootDir).asString, name: xcconfigPath.basename)
-        // Finally, set the file reference as the base file ref of the project
-        // build settings.
-        project.buildSettings.xcconfigFileRef = xcconfigFileRef
+        xcconfigOverridesFileRef = xcconfigsGroup.addFileReference(path: xcconfigPath.relative(to: sourceRootDir).asString, name: xcconfigPath.basename)
+        
+        // We don't assign the file reference as the xcconfig file reference of
+        // the project's build settings, because if we do, the xcconfig cannot
+        // override any of the default build settings at the project level.  So
+        // we instead assign it to each target.
+        
+        // We may instead want to emit all build settings to separate .xcconfig
+        // files that use `#include` to include the overriding .xcconfig file.
+    }
+    else {
+        // Otherwise, we don't create an .xcconfig file reference.
+        xcconfigOverridesFileRef = nil
     }
     
     // Add a `Sources` group, to which we'll add a subgroup for every regular
@@ -185,8 +206,7 @@ func xcodeProject(
     // to the group tree (the specific top-level group under which they are
     // added depends on whether or not the module is a test module).
     for module in modules {
-        // Add a target for the module.  The product type depends on the kind
-        // of module it is.
+        // Determine the appropriate product type based on the kind of module.
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
         if module.isTest {
@@ -196,14 +216,22 @@ func xcodeProject(
         } else {
             productType = .executable
         }
-        let productName = module.c99name
-        let target = project.addTarget(productType: productType, name: module.name)
-        target.productName = productName
         
-        // Configure the target settings based on the module.
+        // Create a target for the module.
+        let target = project.addTarget(productType: productType, name: module.name)
+        
+        // Set the product name to the C99-mangled form of the module name.
+        target.productName = module.c99name
+        
+        // Configure the target settings based on the module.  We set only the
+        // minimum settings required, because anything we set on the target is
+        // not overridable by the user-supplied .xcconfig file.
         let targetSettings = target.buildSettings
         
-        targetSettings.common.SUPPORTED_PLATFORMS = ["macosx"]
+        // Set the target's base .xcconfig file to the user-supplied override
+        // .xcconfig, if we have one.  This lets it override project settings.
+        targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
+
         targetSettings.common.TARGET_NAME = module.name
         
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
@@ -249,7 +277,7 @@ func xcodeProject(
         }
         
         // Add header search paths for any C module on which we depend.
-        var hdrInclPaths = [String]()
+        var hdrInclPaths = ["$(inherited)"]
         for depModule in [module] + module.recursiveDependencies {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the module how it contributes
@@ -268,14 +296,8 @@ func xcodeProject(
         targetSettings.common.HEADER_SEARCH_PATHS = hdrInclPaths
 
         // Add framework search path to build settings.
-        targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(PLATFORM_DIR)/Developer/Library/Frameworks"]
+        targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
         
-        // At the moment, set the Swift version to 3 (we will need to make this dynamic), but for now this is necessary.
-        targetSettings.common.SWIFT_VERSION = "3.0"
-        
-        // Defined for regular `swift build` instantiations, so also should be defined here.
-        targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
-
         // Add a file reference for the target's product.
         let productRef = productsGroup.addFileReference(path: module.productPath.asString, pathBase: .buildDir)
         
@@ -387,7 +409,11 @@ func xcodeProject(
             
             // Add a dependency on the other target.
             target.addDependency(on: otherTarget)
-            let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
+            
+            // If it's a library, we also add want to link against its product.
+            if dependency.isLibrary {
+                let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
+            }
         }
     }
 

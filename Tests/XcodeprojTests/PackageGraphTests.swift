@@ -35,13 +35,17 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", in: fs)
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        var options = XcodeprojOptions()
+        options.xcconfigOverrides = AbsolutePath("/Overrides.xcconfig")
+        
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: options, fileSystem: fs)
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Bar")
 
             result.check(references:
                 "Package.swift",
+                "Configs/Overrides.xcconfig",
                 "Sources/Foo/foo.swift",
                 "Sources/Sea2/Sea2.c",
                 "Sources/Sea2/include/Sea2.h",
@@ -58,39 +62,93 @@ class PackageGraphTests: XCTestCase {
                 "Products/BarTests.xctest"
             )
 
+            XCTAssertNil(project.buildSettings.xcconfigFileRef)
+
+            XCTAssertEqual(project.buildSettings.common.SDKROOT, "macosx")
+            XCTAssertEqual(project.buildSettings.common.SUPPORTED_PLATFORMS!, ["macosx", "iphoneos", "iphonesimulator", "appletvos", "appletvsimulator", "watchos", "watchsimulator"])
+
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: [])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
+                XCTAssertNil(targetResult.target.buildSettings.common.SDKROOT)
             }
 
             result.check(target: "Bar") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "Bar/Sources/Sea2/include/module.modulemap")
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
                 targetResult.check(dependencies: ["Foo", "Bar"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks"])
+                XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
         }
     }
 
+    func testModuleLinkage() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/HelperTool/main.swift",
+            "/Pkg/Sources/Library/lib.swift",
+            "/Pkg/Tests/LibraryTests/aTest.swift"
+        )
+        
+        let g = try loadMockPackageGraph([
+            "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
+            ], root: "/Pkg", in: fs)
+        
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        
+        XcodeProjectTester(project) { result in
+            result.check(projectDir: "Pkg")
+            result.check(target: "HelperTool") { targetResult in
+                targetResult.check(productType: .executable)
+                targetResult.check(dependencies: [])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, [])
+            }
+            result.check(target: "Library") { targetResult in
+                targetResult.check(productType: .framework)
+                targetResult.check(dependencies: [])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, [])
+            }
+            result.check(target: "LibraryTests") { targetResult in
+                targetResult.check(productType: .unitTest)
+                targetResult.check(dependencies: ["Library", "HelperTool"])
+                let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
+                XCTAssertEqual(linkPhases.count, 1)
+                let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
+                XCTAssertEqual(linkedFiles, ["Library.framework"])
+            }
+        }
+    }
+    
     static var allTests = [
         ("testBasics", testBasics),
+        ("testModuleLinkage", testModuleLinkage),
     ]
 }
 
@@ -126,6 +184,9 @@ private class XcodeProjectResult {
         let target: Xcode.Target
         var commonBuildSettings: Xcode.BuildSettingsTable.BuildSettings {
             return target.buildSettings.common
+        }
+        var buildPhases: [Xcode.BuildPhase] {
+            return target.buildPhases
         }
         init(_ target: Xcode.Target) {
             self.target = target

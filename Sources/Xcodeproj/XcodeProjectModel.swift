@@ -345,6 +345,7 @@ public struct Xcode {
             var PRODUCT_MODULE_NAME: String?
             var PRODUCT_NAME: String?
             var PROJECT_NAME: String?
+            var SDKROOT: String?
             var SUPPORTED_PLATFORMS: [String]?
             var SWIFT_ACTIVE_COMPILATION_CONDITIONS: String?
             var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
