@@ -21,7 +21,10 @@ extension Command {
         // Get the unique set of all input modules.
         //
         // FIXME: This needs to handle C language targets.
-        let buildables = OrderedSet(product.modules.flatMap{ [$0] + $0.recursiveDependencies }.flatMap{ $0 as? SwiftModule }).contents
+        let buildables = OrderedSet(product.modules.flatMap{ module in
+            // Filter out non library modules from recursive dependencies so that we don't link executable dependencies together.
+            return [module] + module.recursiveDependencies.filter{ $0.type == .library }
+        }.flatMap{ $0 as? SwiftModule }).contents
         
         var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: linkerExec.asString, conf: conf).objects }
 

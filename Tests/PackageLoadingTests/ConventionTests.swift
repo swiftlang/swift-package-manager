@@ -579,14 +579,51 @@ class ConventionTests: XCTestCase {
             result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
         }
 
+        // Reference self in dependencies.
+        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["pkg"])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("found cyclic dependency declaration: pkg -> pkg")
+        }
+
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/pkg1/Foo.swift",
+            "/Sources/pkg2/Foo.swift",
+            "/Sources/pkg3/Foo.swift"
+        )
+        // Cyclic dependency.
+        package = PackageDescription.Package(name: "pkg", targets: [
+            Target(name: "pkg1", dependencies: ["pkg2"]),
+            Target(name: "pkg2", dependencies: ["pkg3"]),
+            Target(name: "pkg3", dependencies: ["pkg1"]),
+        ])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg1")
+        }
+
+        package = PackageDescription.Package(name: "pkg", targets: [
+            Target(name: "pkg1", dependencies: ["pkg2"]),
+            Target(name: "pkg2", dependencies: ["pkg3"]),
+            Target(name: "pkg3", dependencies: ["pkg2"]),
+        ])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg2")
+        }
+
         // Executable as dependency.
-        // FIXME: maybe should support this and condiser it as build order dependency.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec/main.swift",
             "/Sources/lib/lib.swift")
         package = PackageDescription.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("the target lib cannot have the executable exec as a dependency fix: move the shared logic inside a library, which can be referenced from both the target and the executable")
+            result.checkModule("exec") { moduleResult in
+                moduleResult.check(c99name: "exec", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
+            }
+
+            result.checkModule("lib") { moduleResult in
+                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
+            }
         }
     }
 

@@ -360,7 +360,15 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testExecutableAsBuildOrderDependency() throws {
+        // Test that we can build packages which have modules depending on executable modules.
+        fixture(name: "Miscellaneous/ExecDependency") { prefix in
+            XCTAssertBuilds(prefix)
+        }
+    }
+
     static var allTests = [
+        ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
         ("testPackageWithNoSources", testPackageWithNoSources),
         ("testPackageWithNoSourcesButDependency", testPackageWithNoSourcesButDependency),

@@ -31,13 +31,17 @@ extension Module: Buildable {
                 // module map in ClangModule's `generateModuleMap()` function.
                 // There shouldn't be need to redo this but it is difficult in
                 // current architecture.
-                if isFile(module.moduleMapPath) {
-                    return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
-                }
 
-                let buildMeta = ClangModuleBuildMetadata(module: module, prefix: buildDir, otherArgs: [])
-                let genModuleMap = buildMeta.buildDirectory.appending(component: moduleMapFilename)
-                return ["-Xcc", "-fmodule-map-file=\(genModuleMap.asString)"]
+                let moduleMapFile: String
+                // Locate the modulemap file for this clang module. Either user provided or we should have generated one.
+                if isFile(module.moduleMapPath) {
+                    moduleMapFile = module.moduleMapPath.asString
+                } else {
+                    let buildMeta = ClangModuleBuildMetadata(module: module, prefix: buildDir, otherArgs: [])
+                    let genModuleMap = buildMeta.buildDirectory.appending(component: moduleMapFilename)
+                    moduleMapFile = genModuleMap.asString
+                }
+                return ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "-I", module.includeDir.asString]
             } else if let module = module as? CModule {
                 return ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
             } else {

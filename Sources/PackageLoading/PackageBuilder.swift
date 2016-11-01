@@ -29,11 +29,11 @@ public enum ModuleError: Swift.Error {
             case unexpectedSourceFiles([String])
         }
     
-    /// A module was marked as being dependent on an executable.
-    case executableAsDependency(module: String, dependency: String)
-
     /// The manifest has invalid configuration wrt type of the module.
     case invalidManifestConfig(String, String)
+
+    /// The target dependency declaration has cycle in it.
+    case cycleDetected((path: [Module], cycle: [Module]))
 }
 
 extension ModuleError: FixableError {
@@ -43,10 +43,12 @@ extension ModuleError: FixableError {
             return "these referenced modules could not be found: " + modules.joined(separator: ", ")
         case .invalidLayout(let type):
             return "the package has an unsupported layout, \(type.error)"
-        case .executableAsDependency(let module, let dependency):
-            return "the target \(module) cannot have the executable \(dependency) as a dependency"
         case .invalidManifestConfig(let package, let message):
             return "invalid configuration in '\(package)': \(message)"
+        case .cycleDetected(let cycle):
+            return "found cyclic dependency declaration: " +
+                (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
+                " -> " + cycle.cycle[0].name
         }
     }
 
@@ -56,9 +58,9 @@ extension ModuleError: FixableError {
             return "reference only valid modules"
         case .invalidLayout(let type):
             return type.fix
-        case .executableAsDependency(_):
-            return "move the shared logic inside a library, which can be referenced from both the target and the executable"
         case .invalidManifestConfig(_):
+            return nil
+        case .cycleDetected(_):
             return nil
         }
     }
@@ -430,9 +432,6 @@ public struct PackageBuilder {
                     guard let dependency = modulesByName[name] else {
                         throw ModuleError.modulesNotFound([name])
                     }
-                    if dependency.type != .library {
-                        throw ModuleError.executableAsDependency(module: module.name, dependency: name)
-                    }
                     return dependency
                 }
             }
@@ -451,6 +450,11 @@ public struct PackageBuilder {
             if let baseModule = modulesByName[module.basename] {
                 module.dependencies = [baseModule]
             }
+        }
+
+        // Look for any cycle in the dependencies.
+        if let cycle = findCycle(modules.sorted { $0.name < $1.name }, successors: { $0.dependencies}) {
+            throw ModuleError.cycleDetected(cycle)
         }
     }
     
