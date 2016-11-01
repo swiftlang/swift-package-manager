@@ -51,6 +51,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let initPackage = try InitPackage(mode: options.initMode)
             try initPackage.writePackageStructure()
 
+        case .clean:
+            try clean()
+
         case .reset:
             if options.enableNewResolver {
                 try getActiveWorkspace().reset()
@@ -229,6 +232,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.editOptions.revision = $1 
                 $0.editOptions.checkoutBranch = $2})
 
+        parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "Fetch package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.resolve.rawValue, overview: "")
@@ -305,6 +309,7 @@ public class PackageToolOptions: ToolOptions {
 }
 
 public enum PackageMode: String, StringEnumArgument {
+    case clean
     case describe
     case dumpPackage = "dump-package"
     case edit

@@ -210,6 +210,19 @@ public class SwiftTool<Options: ToolOptions> {
             return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
         }
     }
+
+    /// Cleans the build artefacts.
+    // FIXME: Move this to swift-package once its not needed in swift-build.
+    func clean() throws {
+        if options.enableNewResolver {
+            try getActiveWorkspace().clean()
+        } else {
+            // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
+            if exists(buildPath) {
+                try removeFileTree(buildPath)
+            }
+        }
+    }
 }
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
