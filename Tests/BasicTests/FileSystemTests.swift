@@ -262,6 +262,21 @@ class FileSystemTests: XCTestCase {
         XCTAssert(!fs.exists(missingDir))
     }
 
+    func testInMemoryFsCopy() throws {
+        let fs = InMemoryFileSystem()
+        try! fs.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
+        let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
+        try! fs.writeFileContents(filePath, bytes: "Hello, world!")
+        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
+
+        let copyFs = fs.copy()
+        XCTAssertEqual(try! copyFs.readFileContents(filePath), "Hello, world!")
+        try! copyFs.writeFileContents(filePath, bytes: "Hello, world 2!")
+
+        XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, world!")
+        XCTAssertEqual(try! copyFs.readFileContents(filePath), "Hello, world 2!")
+    }
+
     // MARK: RootedFileSystem Tests
 
     func testRootedFileSystem() throws {
@@ -291,6 +306,7 @@ class FileSystemTests: XCTestCase {
         ("testLocalReadWriteFile", testLocalReadWriteFile),
         ("testInMemoryBasics", testInMemoryBasics),
         ("testInMemoryCreateDirectory", testInMemoryCreateDirectory),
+        ("testInMemoryFsCopy", testInMemoryFsCopy),
         ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
         ("testRootedFileSystem", testRootedFileSystem),
     ]

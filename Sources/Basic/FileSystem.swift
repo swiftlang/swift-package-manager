@@ -289,16 +289,40 @@ public class InMemoryFileSystem: FileSystem {
         init(_ contents: NodeContents) {
             self.contents = contents
         }
+
+        /// Creates deep copy of the object.
+        func copy() -> Node {
+           return Node(contents.copy()) 
+        }
     }
     private enum NodeContents {
         case file(ByteString)
         case directory(DirectoryContents)
+
+        /// Creates deep copy of the object.
+        func copy() -> NodeContents {
+            switch self {
+            case .file(let bytes):
+                return .file(bytes)
+            case .directory(let contents):
+                return .directory(contents.copy())
+            }
+        }
     }    
     private class DirectoryContents {
         var entries:  [String: Node]
 
         init(entries: [String: Node] = [:]) {
             self.entries = entries
+        }
+
+        /// Creates deep copy of the object.
+        func copy() -> DirectoryContents {
+            let contents = DirectoryContents()
+            for (key, node) in entries {
+                contents.entries[key] = node.copy()
+            }
+            return contents
         }
     }
     
@@ -307,6 +331,13 @@ public class InMemoryFileSystem: FileSystem {
 
     public init() {
         root = Node(.directory(DirectoryContents()))
+    }
+
+    /// Creates deep copy of the object.
+    public func copy() -> InMemoryFileSystem {
+        let fs = InMemoryFileSystem()
+        fs.root = root.copy()
+        return fs
     }
 
     /// Get the node corresponding to the given path.
