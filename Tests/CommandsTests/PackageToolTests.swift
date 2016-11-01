@@ -275,7 +275,68 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testConcurrentEdit() throws {
+        // We test running concurrent package edit doesn't corrupt the workspace.
+        fixture(name: "Miscellaneous/PackageEdit") { prefix in
+            let fooPath = prefix.appending(component: "foo")
+            func build() throws -> String {
+                return try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+            }
+            // Build the package.
+            _ = try build()
+
+            func edit() throws -> String {
+                return try SwiftPMProduct.SwiftPackage.execute(
+                    ["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"],
+                    chdir: fooPath)
+            }
+
+            // The resullt of package state after executing the package edits.
+            enum PackageState: String, CustomStringConvertible {
+                case alreadyInEditMode
+                case edited
+                case unknownError
+                // For better logs.
+                var description: String { return rawValue }
+            }
+
+            // Array to hold the results.
+            var result = [PackageState]()
+            var resultLock = Lock()
+            func appendResult(_ state: PackageState) {
+                resultLock.withLock {
+                    result.append(state)
+                }
+            }
+
+            // Edit the same package twice.
+            let threads = (1...2).map { _ in
+                return Basic.Thread {
+                  do {
+                    _ = try edit()
+                    appendResult(.edited)
+                  } catch  SwiftPMProductError.executionFailure(_, let output) {
+                      if output == "swift-package: error: dependencyAlreadyInEditMode\n" {
+                          appendResult(.alreadyInEditMode)
+                      } else {
+                          appendResult(.unknownError)
+                      }
+                  } catch {
+                      appendResult(.unknownError)
+                  }
+                }
+            }
+            threads.forEach { $0.start() }
+            threads.forEach { $0.join() }
+
+            // We should have one result as edited and another as already in edit mode.
+            XCTAssertEqual(result.count, 2)
+            XCTAssertEqual(result.sorted(by: {$0.rawValue < $1.rawValue}), [.alreadyInEditMode, .edited])
+        }
+    }
+
     static var allTests = [
+        ("testConcurrentEdit", testConcurrentEdit),
         ("testDescribe", testDescribe),
         ("testUsage", testUsage),
         ("testVersion", testVersion),

@@ -229,6 +229,9 @@ public class Workspace {
     /// The path where packages which are put in edit mode are checked out.
     let editablesPath: AbsolutePath
 
+    /// File lock to prevent concurrent manipulations to workspace operations.
+    let fileLock: FileLock
+
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -282,6 +285,10 @@ public class Workspace {
         try localFileSystem.createDirectory(repositoriesPath, recursive: true)
         try localFileSystem.createDirectory(checkoutsPath, recursive: true)
 
+        // Create a file lock and immediately try to aquire the lock before restoring the previous state.
+        fileLock = FileLock(name: "swiftpm-workspace-lock", cachePath: self.dataPath)
+        try fileLock.lock()
+
         // Initialize the default state.
         self.dependencyMap = [:]
 
@@ -290,6 +297,11 @@ public class Workspace {
             // There was no state, write the default state immediately.
             try saveState()
         }
+    }
+
+    deinit {
+        // Release the aquired file lock.
+        fileLock.unlock()
     }
 
     /// Cleans the build artefacts from workspace data.

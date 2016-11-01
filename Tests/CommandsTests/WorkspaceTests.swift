@@ -386,67 +386,74 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
-            // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-            // Load the package graph.
-            let graph = try workspace.loadPackageGraph()
-            // Sanity checks.
-            XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+            do {
+                // Create the workspace.
+                let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+                // Load the package graph.
+                let graph = try workspace.loadPackageGraph()
+                // Sanity checks.
+                XCTAssertEqual(graph.packages.count, 2)
+                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
 
-            let manifests = try workspace.loadDependencyManifests()
-            guard let aManifest = manifests.lookup(manifest: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
+                let manifests = try workspace.loadDependencyManifests()
+                guard let aManifest = manifests.lookup(manifest: "A") else {
+                    return XCTFail("Expected manifest for package A not found")
+                }
 
-            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
-                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
-            }
+                func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+                    return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+                }
 
-            // Get the dependency for package A.
-            let dependency = getDependency(aManifest)
-            // It should not be in edit mode.
-            XCTAssert(!dependency.isInEditableState)
-            // Put the dependency in edit mode at its current revision.
-            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
+                // Get the dependency for package A.
+                let dependency = getDependency(aManifest)
+                // It should not be in edit mode.
+                XCTAssert(!dependency.isInEditableState)
+                // Put the dependency in edit mode at its current revision.
+                try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
 
-            let editedDependency = getDependency(aManifest)
-            // It should be in edit mode.
-            XCTAssert(editedDependency.isInEditableState)
-            // Check the based on data.
-            XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
-            XCTAssertEqual(editedDependency.basedOn?.currentVersion, dependency.currentVersion)
-            XCTAssertEqual(editedDependency.basedOn?.currentRevision, dependency.currentRevision)
+                let editedDependency = getDependency(aManifest)
+                // It should be in edit mode.
+                XCTAssert(editedDependency.isInEditableState)
+                // Check the based on data.
+                XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
+                XCTAssertEqual(editedDependency.basedOn?.currentVersion, dependency.currentVersion)
+                XCTAssertEqual(editedDependency.basedOn?.currentRevision, dependency.currentRevision)
 
-            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
-            // Get the repo from edits path.
-            let editRepo = GitRepository(path: editRepoPath)
-            // Ensure that the editable checkout's remote points to the original repo path.
-            XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
-            // Check revision and head.
-            XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.currentRevision!)
-            // FIXME: Current checkout behavior seems wrong, it just resets and doesn't leave checkout to a detached head.
+                let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+                // Get the repo from edits path.
+                let editRepo = GitRepository(path: editRepoPath)
+                // Ensure that the editable checkout's remote points to the original repo path.
+                XCTAssertEqual(try editRepo.remotes()[0].url, manifestGraph.repo("A").url)
+                // Check revision and head.
+                XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.currentRevision!)
+                // FIXME: Current checkout behavior seems wrong, it just resets and doesn't leave checkout to a detached head.
           #if false
-            XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "HEAD")
+                XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "HEAD")
           #endif
 
-            do {
-                try workspace.edit(dependency: editedDependency, at: dependency.currentRevision!, packageName: aManifest.name)
-                XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
-            } catch WorkspaceOperationError.dependencyAlreadyInEditMode {}
+                do {
+                    try workspace.edit(dependency: editedDependency, at: dependency.currentRevision!, packageName: aManifest.name)
+                    XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
+                } catch WorkspaceOperationError.dependencyAlreadyInEditMode {}
+            }
 
             do {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-                let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
+                let dependency = workspace.dependencyMap[manifestGraph.repo("A")]!
                 XCTAssert(dependency.isInEditableState)
             }
 
-            // We should be able to unedit the dependency.
-            try workspace.unedit(dependency: editedDependency, forceRemove: false)
-            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
+            do {
+                // We should be able to unedit the dependency.
+                let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+                let editedDependency = workspace.dependencyMap[manifestGraph.repo("A")]!
+                try workspace.unedit(dependency: editedDependency, forceRemove: false)
+                let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+                XCTAssertEqual(workspace.dependencyMap[manifestGraph.repo("A")]!.isInEditableState, false)
+                XCTAssertFalse(exists(editRepoPath))
+                XCTAssertFalse(exists(workspace.editablesPath))
+            }
         }
     }
 
