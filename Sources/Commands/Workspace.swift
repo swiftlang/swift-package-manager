@@ -229,6 +229,9 @@ public class Workspace {
     /// The path where packages which are put in edit mode are checked out.
     let editablesPath: AbsolutePath
 
+    /// The file system on which the workspace will operate.
+    private var fileSystem: FileSystem
+
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -257,13 +260,15 @@ public class Workspace {
     ///   - dataPath: The path for the workspace data files, if explicitly provided.
     ///   - editablesPath: The path where editable packages should be placed, if explicitly provided.
     ///   - manifestLoader: The manifest loader.
+    ///   - fileSystem: The file system to operate on.
     /// - Throws: If the state was present, but could not be loaded.
     public init(
         rootPackage path: AbsolutePath,
         dataPath: AbsolutePath? = nil,
         editablesPath: AbsolutePath? = nil,
         manifestLoader: ManifestLoaderProtocol,
-        delegate: WorkspaceDelegate
+        delegate: WorkspaceDelegate,
+        fileSystem: FileSystem = localFileSystem
     ) throws {
         self.delegate = delegate
         self.rootPackagePath = path
@@ -277,10 +282,11 @@ public class Workspace {
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager, manifestLoader: manifestLoader)
+        self.fileSystem = fileSystem
 
         // Ensure the cache path exists.
-        try localFileSystem.createDirectory(repositoriesPath, recursive: true)
-        try localFileSystem.createDirectory(checkoutsPath, recursive: true)
+        try self.fileSystem.createDirectory(repositoriesPath, recursive: true)
+        try self.fileSystem.createDirectory(checkoutsPath, recursive: true)
 
         // Initialize the default state.
         self.dependencyMap = [:]
@@ -305,18 +311,18 @@ public class Workspace {
             return path.basename
         })
         // If we have no data yet, we're done.
-        guard localFileSystem.exists(dataPath) else {
+        guard fileSystem.exists(dataPath) else {
             return
         }
-        for name in try localFileSystem.getDirectoryContents(dataPath) {
+        for name in try fileSystem.getDirectoryContents(dataPath) {
             guard !protectedAssets.contains(name) else { continue }
-            try removeFileTree(dataPath.appending(RelativePath(name)))
+            fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
         }
     }
 
     /// Resets the entire workspace by removing the data directory.
     func reset() throws {
-        try removeFileTree(dataPath)
+        fileSystem.removeFileTree(dataPath)
     }
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
@@ -387,12 +393,12 @@ public class Workspace {
             }
         }
         // Remove the editable checkout from disk.
-        if localFileSystem.exists(path) {
-            try removeFileTree(path)
+        if fileSystem.exists(path) {
+            fileSystem.removeFileTree(path)
         }
         // If this was the last editable dependency, remove the editables directory too.
-        if localFileSystem.exists(editablesPath), try localFileSystem.getDirectoryContents(editablesPath).isEmpty {
-            try removeFileTree(editablesPath)
+        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
+            fileSystem.removeFileTree(editablesPath)
         }
         // Restore the dependency state.
         dependencyMap[dependency.repository] = basedOn
@@ -425,7 +431,7 @@ public class Workspace {
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
         // Ensure the destination is free.
-        _ = try? removeFileTree(path)
+        fileSystem.removeFileTree(path)
         // Inform the delegate that we're starting cloning.
         delegate.cloning(repository: handle.repository.url)
         try handle.cloneCheckout(to: path, editable: false)
@@ -605,7 +611,7 @@ public class Workspace {
         for dependency in dependencies where dependency.isInEditableState {
             // If some edited dependency has been removed, mark it as unedited.
             let dependencyPath = editablesPath.appending(dependency.subpath)
-            if !localFileSystem.exists(dependencyPath) {
+            if !fileSystem.exists(dependencyPath) {
                 try unedit(dependency: dependency, forceRemove: true)
                 // FIXME: Use diagnosics engine when we have that.
                 print("warning: \(dependencyPath.asString) was being edited but has been removed, falling back to original checkout.")
@@ -715,7 +721,7 @@ public class Workspace {
         guard !checkedOutRepo.hasUncommitedChanges() else {
             throw WorkspaceOperationError.hasUncommitedChanges(repo: dependencyPath)
         }
-        try removeFileTree(dependencyPath)
+        fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
         try repositoryManager.remove(repository: dependency.repository)
@@ -762,12 +768,12 @@ public class Workspace {
     /// available.
     private func restoreState() throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
-        if !exists(statePath) {
+        if !fileSystem.exists(statePath) {
             return false
         }
 
         // Load the state.
-        let json = try JSON(bytes: try localFileSystem.readFileContents(statePath))
+        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
 
         // Load the state from JSON.
         guard case let .dictionary(contents) = json,
@@ -802,6 +808,6 @@ public class Workspace {
         data["dependencies"] = .array(dependencies.map{ $0.toJSON() })
 
         // FIXME: This should write atomically.
-        try localFileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        try fileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
     }
 }
