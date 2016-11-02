@@ -132,15 +132,23 @@ public class RepositoryManager {
     /// Queue to do concurrent operations on manager.
     private let concurrentQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-concurrent", attributes: .concurrent)
 
+    /// The filesystem to operate on.
+    private var fileSystem: FileSystem
+
     /// Create a new empty manager.
     ///
-    /// - path: The path under which to store repositories. This should be a
-    ///         directory in which the content can be completely managed by this
-    ///         instance.
-    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: RepositoryManagerDelegate) {
+    /// - Parameters:
+    ///   - path: The path under which to store repositories. This should be a
+    ///           directory in which the content can be completely managed by this
+    ///           instance.
+    ///   - provider: The repository provider.
+    ///   - delegate: The repository manager delegate.
+    ///   - fileSystem: The filesystem to operate on.
+    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: RepositoryManagerDelegate, fileSystem: FileSystem = localFileSystem) {
         self.path = path
         self.provider = provider
         self.delegate = delegate
+        self.fileSystem = fileSystem
 
         // Load the state from disk, if possible.
         do {
@@ -180,9 +188,7 @@ public class RepositoryManager {
                     handle.status = .pending
                     let repositoryPath = self.path.appending(handle.subpath)
                     // Make sure desination is free.
-                    if localFileSystem.exists(repositoryPath) {
-                        _ = try? removeFileTree(repositoryPath)
-                    }
+                    self.fileSystem.removeFileTree(repositoryPath)
 
                     // Fetch the repo.
                     do {
@@ -272,7 +278,7 @@ public class RepositoryManager {
         }
         repositories[repository.url] = nil
         let repositoryPath = path.appending(handle.subpath)
-        try removeFileTree(repositoryPath)
+        fileSystem.removeFileTree(repositoryPath)
         try saveState()
     }
 
@@ -305,12 +311,12 @@ public class RepositoryManager {
     /// available.
     private func restoreState() throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
-        if !exists(statePath) {
+        if !fileSystem.exists(statePath) {
             return false
         }
         
         // Load the state.
-        let json = try JSON(bytes: try localFileSystem.readFileContents(statePath))
+        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
 
         // Load the state from JSON.
         guard case let .dictionary(contents) = json,
@@ -357,7 +363,7 @@ public class RepositoryManager {
             })
 
         // FIXME: This should write atomically.
-        try localFileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        try fileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
     }
 }
 
