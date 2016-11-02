@@ -15,6 +15,7 @@ public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(RepositoryManagerTests.allTests),
         testCase(GitRepositoryTests.allTests),
+        testCase(InMemoryGitRepositoryTests.allTests),
     ]
 }
 #endif
