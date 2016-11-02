@@ -130,6 +130,10 @@ public protocol FileSystem {
     //
     // FIXME: This is obviously not a very efficient or flexible API.
     mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
+
+    /// Recursively deletes the file system entity at `path`.
+    /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered to be an error).
+    mutating func removeFileTree(_ path: AbsolutePath)
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -274,6 +278,12 @@ private class LocalFileSystem: FileSystem {
                 throw FileSystemError.ioError
             }
             break
+        }
+    }
+
+    func removeFileTree(_ path: AbsolutePath) {
+        if self.exists(path) {
+            try? Basic.removeFileTree(path)
         }
     }
 }
@@ -506,6 +516,17 @@ public class InMemoryFileSystem: FileSystem {
         // Write the file.
         contents.entries[path.basename] = Node(.file(bytes))
     }
+
+    public func removeFileTree(_ path: AbsolutePath) {
+        // Ignore root and get the parent node's content if its a directory.
+        guard !path.isRoot,
+              let parent = try? getNode(path.parentDirectory),
+              case .directory(let contents)? = parent?.contents else {
+            return
+        }
+        // Set it to nil to release the contents.
+        contents.entries[path.basename] = nil
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -574,6 +595,10 @@ public struct RerootedFileSystemView: FileSystem {
 
     public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         return try underlyingFileSystem.writeFileContents(formUnderlyingPath(path), bytes: bytes)
+    }
+
+    public mutating func removeFileTree(_ path: AbsolutePath) {
+        underlyingFileSystem.removeFileTree(path)
     }
 }
 

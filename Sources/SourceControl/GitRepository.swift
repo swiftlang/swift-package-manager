@@ -621,4 +621,8 @@ private class GitFileSystemView: FileSystem {
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         throw FileSystemError.unsupported
     }
+
+    func removeFileTree(_ path: AbsolutePath) {
+        fatalError("unsupported")
+    }
 }
