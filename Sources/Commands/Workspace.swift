@@ -278,7 +278,7 @@ public class Workspace {
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
-            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate))
+            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate), fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager, manifestLoader: manifestLoader)
