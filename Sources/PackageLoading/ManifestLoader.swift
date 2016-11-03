@@ -185,7 +185,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             try system(cmd)
         } catch {
-            print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again.")
+            print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again (error: \(error)).")
             throw ManifestParseError.invalidManifestFormat(nil)
         }
     
