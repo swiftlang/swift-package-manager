@@ -261,6 +261,7 @@ public class Workspace {
     ///   - editablesPath: The path where editable packages should be placed, if explicitly provided.
     ///   - manifestLoader: The manifest loader.
     ///   - fileSystem: The file system to operate on.
+    ///   - repositoryProvider: The repository provider to use in repository manager.
     /// - Throws: If the state was present, but could not be loaded.
     public init(
         rootPackage path: AbsolutePath,
@@ -268,7 +269,8 @@ public class Workspace {
         editablesPath: AbsolutePath? = nil,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem = localFileSystem,
+        repositoryProvider: RepositoryProvider = GitRepositoryProvider()
     ) throws {
         self.delegate = delegate
         self.rootPackagePath = path
@@ -278,7 +280,7 @@ public class Workspace {
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
-            path: repositoriesPath, provider: GitRepositoryProvider(), delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate), fileSystem: fileSystem)
+            path: repositoriesPath, provider: repositoryProvider, delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate), fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager, manifestLoader: manifestLoader)
