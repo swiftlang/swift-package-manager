@@ -204,6 +204,25 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testPackageGraphLoadingBasicsInMem() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+                MockDependency("A", version: v1),
+            ],
+            packages: [
+                MockPackage("A", version: v1),
+            ],
+            fs: fs
+        )
+        let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate(), fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
+        let graph = try workspace.loadPackageGraph()
+        XCTAssertEqual(graph.packages.count, 2)
+        XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+    }
+
+
     /// Check the ability to load a graph which requires cloning new packages.
     func testPackageGraphLoadingWithCloning() {
         // We mock up the following dep graph:
@@ -559,6 +578,7 @@ final class WorkspaceTests: XCTestCase {
         ("testEditDependencyOnNewBranch", testEditDependencyOnNewBranch),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
+        ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
         ("testUpdate", testUpdate),
         ("testUneditDependency", testUneditDependency),
@@ -619,6 +639,9 @@ struct MockManifestGraph {
     /// The map of external manifests created.
     let manifests: [MockManifestLoader.Key: Manifest]
 
+    /// Present if file system used is in inmemory.
+    let repoProvider: InMemoryGitRepositoryProvider?
+
     /// Convinience accessor for repository specifiers.
     func repo(_ package: String) -> RepositorySpecifier {
         return repos[package]!
@@ -629,17 +652,48 @@ struct MockManifestGraph {
         return manifests[MockManifestLoader.Key(url: repo(package).url, version: version)]!
     }
 
-    init(at path: AbsolutePath, rootDeps: [MockDependency], packages: [MockPackage]) throws {
+    /// Create instance with mocking on in memory file system.
+    init(
+        at path: AbsolutePath,
+        rootDeps: [MockDependency],
+        packages: [MockPackage],
+        fs: InMemoryFileSystem
+    ) throws {
+        try self.init(at: path, rootDeps: rootDeps, packages: packages, inMemory: (fs, InMemoryGitRepositoryProvider()))
+    }
+
+    init(
+        at path: AbsolutePath,
+        rootDeps: [MockDependency],
+        packages: [MockPackage],
+        inMemory: (fs: InMemoryFileSystem, provider: InMemoryGitRepositoryProvider)? = nil
+    ) throws {
+        repoProvider = inMemory?.provider
         // Create the test repositories, we don't need them to have actual
         // contents (the manifests are mocked).
         let repos = Dictionary(items: try packages.map { package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
-            // Don't recreate repo if it is already there.
-            if !exists(repoPath) {
-                try makeDirectories(repoPath)
-                initGitRepo(repoPath, tag: package.version?.description ?? "initial")
+            let tag = package.version?.description ?? "initial"
+            let specifier = RepositorySpecifier(url: repoPath.asString)
+
+            // If this is in memory mocked graph.
+            if let inMemory = inMemory {
+                let repo = InMemoryGitRepository(path: repoPath, fs: inMemory.fs)
+                try repo.createDirectory(repoPath, recursive: true)
+                let filePath = repoPath.appending(component: "source.swift")
+                try repo.writeFileContents(filePath, bytes: "foo")
+                repo.commit()
+                try repo.tag(name: tag)
+                inMemory.provider.add(specifier: specifier, repository: repo)
+
+            } else {
+                // Don't recreate repo if it is already there.
+                if !exists(repoPath) {
+                    try makeDirectories(repoPath)
+                    initGitRepo(repoPath, tag: package.version?.description ?? "initial")
+                }
             }
-            return (package.name, RepositorySpecifier(url: repoPath.asString))
+            return (package.name, specifier)
         })
 
         // Create the root manifest.
