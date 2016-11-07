@@ -678,14 +678,15 @@ struct MockManifestGraph {
 
             // If this is in memory mocked graph.
             if let inMemory = inMemory {
-                let repo = InMemoryGitRepository(path: repoPath, fs: inMemory.fs)
-                try repo.createDirectory(repoPath, recursive: true)
-                let filePath = repoPath.appending(component: "source.swift")
-                try repo.writeFileContents(filePath, bytes: "foo")
-                repo.commit()
-                try repo.tag(name: tag)
-                inMemory.provider.add(specifier: specifier, repository: repo)
-
+                if !inMemory.fs.exists(repoPath) {
+                    let repo = InMemoryGitRepository(path: repoPath, fs: inMemory.fs)
+                    try repo.createDirectory(repoPath, recursive: true)
+                    let filePath = repoPath.appending(component: "source.swift")
+                    try repo.writeFileContents(filePath, bytes: "foo")
+                    repo.commit()
+                    try repo.tag(name: tag)
+                    inMemory.provider.add(specifier: specifier, repository: repo)
+                }
             } else {
                 // Don't recreate repo if it is already there.
                 if !exists(repoPath) {
