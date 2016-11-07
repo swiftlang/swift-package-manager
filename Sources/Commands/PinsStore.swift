@@ -10,6 +10,7 @@
 
 import Basic
 import struct Utility.Version
+import struct SourceControl.RepositorySpecifier
 
 public enum PinOperationError: Swift.Error {
     case notPinned
@@ -20,14 +21,18 @@ public struct PinsStore {
         /// The package name of the pinned dependency.
         public let package: String
 
+        /// The repository specifier of the pinned dependency.
+        public let repository: RepositorySpecifier
+
         /// The pinned version.
         public let version: Version
 
         /// The reason text for pinning this dependency.
         public let reason: String?
 
-        init(package: String, version: Version, reason: String? = nil) {
+        init(package: String, repository: RepositorySpecifier, version: Version, reason: String? = nil) {
             self.package = package 
+            self.repository = repository 
             self.version = version
             self.reason = reason
         }
@@ -66,9 +71,9 @@ public struct PinsStore {
     ///   - at: The version to pin at.
     ///   - reason: The optional reason for pinning.
     /// - Throws: PinOperationError
-    public mutating func pin(package: String, at version: Version, reason: String? = nil) throws {
+    public mutating func pin(package: String, repository: RepositorySpecifier, at version: Version, reason: String? = nil) throws {
         // Add pin and save the state.
-        pinsMap[package] = Pin(package: package, version: version, reason: reason)
+        pinsMap[package] = Pin(package: package, repository: repository, version: version, reason: reason)
         try saveState()
     }
 
@@ -152,10 +157,12 @@ extension PinsStore.Pin: Equatable {
         guard case let .dictionary(contents) = data,
               case let .string(package)? = contents["package"],
               case let .string(version)? = contents["version"],
+              case let .string(repositoryURL)? = contents["repositoryURL"],
               let reasonData = contents["reason"] else {
             return nil
         }
         self.package = package
+        self.repository = RepositorySpecifier(url: repositoryURL)
         if case .string(let reason) = reasonData { 
             self.reason = reason
         } else {
@@ -168,6 +175,7 @@ extension PinsStore.Pin: Equatable {
     func toJSON() -> JSON {
         return .dictionary([
                 "package": .string(package),
+                "repositoryURL": .string(repository.url),
                 "version": .string(String(describing: version)),
                 "reason": reason.flatMap(JSON.string) ?? .null,
             ])
@@ -175,6 +183,7 @@ extension PinsStore.Pin: Equatable {
 
     public static func ==(lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
         return lhs.package == rhs.package &&
+               lhs.repository == rhs.repository &&
                lhs.version == rhs.version
     }
 }
