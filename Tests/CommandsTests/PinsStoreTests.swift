@@ -13,6 +13,7 @@ import XCTest
 import Basic
 import struct Utility.Version
 import TestSupport
+import SourceControl
 @testable import Commands
 
 final class PinsStoreTests: XCTestCase {
@@ -22,8 +23,10 @@ final class PinsStoreTests: XCTestCase {
     func testBasics() throws {
         let foo = "foo"
         let bar = "bar"
+        let fooRepo = RepositorySpecifier(url: "/foo")
+        let barRepo = RepositorySpecifier(url: "/bar")
 
-        let pin = PinsStore.Pin(package: foo, version: v1, reason: "bad")
+        let pin = PinsStore.Pin(package: foo, repository: fooRepo, version: v1, reason: "bad")
         // We should be able to round trip from JSON.
         XCTAssertEqual(PinsStore.Pin(json: pin.toJSON()), pin)
         
@@ -34,7 +37,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
 
-        try store.pin(package: foo, at: v1, reason: "bad")
+        try store.pin(package: foo, repository: fooRepo, at: v1, reason: "bad")
         XCTAssert(fs.exists(pinsFile))
 
         // Load the store again from disk.
@@ -50,14 +53,14 @@ final class PinsStoreTests: XCTestCase {
         }
         
         // We should be able to pin again.
-        try store.pin(package: foo, at: v1)
-        try store.pin(package: foo, at: "1.0.2")
+        try store.pin(package: foo, repository: fooRepo, at: v1)
+        try store.pin(package: foo, repository: fooRepo, at: "1.0.2")
 
         XCTAssertThrows(PinOperationError.notPinned) {
             try store.unpin(package: bar)
         }
 
-        try store.pin(package: bar, at: v1)
+        try store.pin(package: bar, repository: barRepo, at: v1)
         XCTAssert(store.pins.map{$0}.count == 2)
         try store.unpin(package: foo)
         try store.unpin(package: bar)
