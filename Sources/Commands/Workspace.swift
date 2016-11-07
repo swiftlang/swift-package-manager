@@ -642,7 +642,7 @@ public class Workspace {
         let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies.map{$0.manifest})
+            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
