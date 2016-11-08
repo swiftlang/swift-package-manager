@@ -16,6 +16,7 @@ import PackageDescription
 import PackageGraph
 import PackageModel
 import Utility
+import TestSupport
 
 final class DescribeTests: XCTestCase {
     let dummyPackage = Package(manifest: Manifest(path: AbsolutePath("/"), url: "/", package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: AbsolutePath("/"), modules: [], testModules: [], products: [])
@@ -26,6 +27,14 @@ final class DescribeTests: XCTestCase {
         var defaultSDK: AbsolutePath?  { fatalError() }
         var swiftPlatformArgs: [String] { fatalError() }
         var clangPlatformArgs: [String] { fatalError() }
+    }
+
+    struct DummyToolchain: Toolchain {
+        var swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
+        var clangCompiler = AbsolutePath("/fake/path/to/clang")
+        var defaultSDK: AbsolutePath? = nil
+        var swiftPlatformArgs: [String] = []
+        var clangPlatformArgs: [String] = []
     }
 
     func testDescribingNoModulesThrows() {
@@ -63,9 +72,24 @@ final class DescribeTests: XCTestCase {
         XCTAssertEqual(buildMeta.inputs, ["/SwiftModule.swiftmodule"])
     }
 
+    func testCppLinkCommand() throws {
+        mktmpdir { path in
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Pkg/Sources/swift/main.swift",
+                "/Pkg/Sources/c/main.c",
+                "/Pkg/Sources/cpp/main.cpp"
+            )
+            let graph = try loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
+            let yaml = try describe(path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: DummyToolchain())
+            // FIXME: This is not a good test but should be good enough until we have the Buld re-write.
+            XCTAssertTrue(try localFileSystem.readFileContents(yaml).asString!.contains("-lc++"))
+        }
+    }
+
     static var allTests = [
         ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
         ("testDescribingCModuleThrows", testDescribingCModuleThrows),
         ("testClangModuleCanHaveSwiftDep", testClangModuleCanHaveSwiftDep),
+        ("testCppLinkCommand", testCppLinkCommand),
     ]
 }

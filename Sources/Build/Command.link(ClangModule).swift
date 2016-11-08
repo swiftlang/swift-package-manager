@@ -28,7 +28,7 @@ extension Command {
             let buildMeta = ClangModuleBuildMetadata(module: module, prefix: prefix, otherArgs: [])
             objects += buildMeta.objects
             inputs += buildMeta.inputs
-            linkFlags += buildMeta.linkDependenciesFlags
+            linkFlags += buildMeta.linkDependenciesFlags + module.languageLinkArgs
         }
 
         args += try ClangModuleBuildMetadata.basicArgs() + otherArgs
