@@ -372,6 +372,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSwiftTestParallel() throws {
+        // Disabled till https://bugs.swift.org/browse/SR-3122 is fixed.
+    #if false
         // Running swift-test fixtures on linux is not yet possible.
       #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
@@ -385,6 +387,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("100%"))
         }
       #endif
+    #endif
     }
 
     func testExecutableAsBuildOrderDependency() throws {
