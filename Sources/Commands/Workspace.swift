@@ -778,7 +778,7 @@ public class Workspace {
 
         // Perform dependency resolution using the constraint set induced by the active checkouts.
         let result = try resolveDependencies(constraints: constraints)
-        let packageStateChanges = computePackageStateChanges(resolvedDependencies: result.map { ($0 as RepositorySpecifier, $1 as Version) })
+        let packageStateChanges = computePackageStateChanges(resolvedDependencies: result)
 
         // Create a checkout for each of the resolved versions.
         //
