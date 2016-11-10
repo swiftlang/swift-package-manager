@@ -232,6 +232,9 @@ public class Workspace {
     /// The file system on which the workspace will operate.
     private var fileSystem: FileSystem
 
+    /// The Pins store. The pins file will be created when first pin is added to pins store.
+    var pinsStore: PinsStore
+
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -292,6 +295,9 @@ public class Workspace {
 
         // Initialize the default state.
         self.dependencyMap = [:]
+
+        let pinsFile = self.rootPackagePath.appending(component: "Package.pins")
+        self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
 
         // Load the state from disk, if possible.
         if try !restoreState() {
@@ -408,6 +414,68 @@ public class Workspace {
         try saveState()
     }
 
+    /// Pins a package at a given version.
+    ///
+    /// - Parameters:
+    ///   - dependency: The dependency to pin.
+    ///   - packageName: The name of the package which is being pinned.
+    ///   - version: The version to pin at.
+    ///   - reason: The optional reason for pinning.
+    /// - Throws: WorkspaceOperationError, PinOperationError
+    func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
+        // Compute constaints with the new pin and try to resolve dependencies. We only commit the pin if the
+        // dependencies can be resolved with new constraints.
+        //
+        // The constraints consist of three things:
+        // * Root manifest contraints without pins.
+        // * Exisiting pins except the dependency we're currently pinning.
+        // * The constraint for the new pin we're trying to add.
+        let constraints = computeRootPackageConstraints(try loadRootManifest(), includePins: false) 
+                        + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository }) as [RepositoryPackageConstraint]
+                        // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
+                        + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .range(version..<version.successor()))]
+        // Resolve the dependencies.
+        let results = try resolveDependencies(constraints: constraints)
+        // Add the record in pins store.
+        try pinsStore.pin(package: packageName, repository: dependency.repository, at: version, reason: reason)
+        // Update the checkouts based on new dependency resolution.
+        try updateCheckouts(with: results)
+    }
+
+    /// Pins all of the dependencies to the loaded version.
+    ///
+    /// - Parameters:
+    ///   - reason: The optional reason for pinning.
+    func pinAll(reason: String? = nil) throws {
+        // Load the package graph
+        _ = try loadPackageGraph()
+        // Load the dependencies.
+        let dependencyManifests = try loadDependencyManifests()
+        // Start pinning each dependency.
+        for dependencyManifest in dependencyManifests.dependencies {
+            let dependency = dependencyManifest.dependency
+            // Get package name.
+            let package = dependencyManifest.manifest.name
+            // If the dependency is in editable state, do not pin it.
+            guard !dependency.isInEditableState else {
+                print("warning: not pinning \(package) because it is being edited.")
+                continue
+            }
+            // We should have a version loaded to pin. This will never happen right now
+            // because we can't have dependencies checked out to a git ref.
+            guard let version = dependency.currentVersion else {
+                print("warning: not pinning \(package) because doesn't have a version loaded.")
+                continue
+            }
+            // Commit the pin.
+            try pinsStore.pin(
+                package: package,
+                repository: dependency.repository,
+                at: version,
+                reason: reason)
+        }
+    }
+
     // MARK: Low-level Operations
 
     /// Fetch a given `repository` and create a local checkout for it.
@@ -504,14 +572,37 @@ public class Workspace {
     }
 
     /// Updates the current dependencies.
-    public func updateDependencies() throws {
+    public func updateDependencies(repin: Bool = false) throws {
         let rootManifest = try loadRootManifest()
-        // Only create constraints based on root manifest for the update resolution.
-        let updateConstraints = computeRootPackageConstraints(rootManifest)
+        // Create constraints based on root manifest and pins for the update resolution.
+        let updateConstraints = computeRootPackageConstraints(rootManifest, includePins: !repin)
         // Resolve the dependencies.
-        let updateResults = try resolveDependencies(constraints: updateConstraints)
+        let updateResults = try resolveDependencies(constraints: updateConstraints) as [(RepositorySpecifier, Version)]
+        // Update the checkouts based on new dependency resolution.
+        try updateCheckouts(with: updateResults)
+        // If we're repinning, update the pins store.
+        if repin {
+            // Create a dictionary of result for fast lookup.
+            let updateResultsMap = Dictionary(items: updateResults)
+            for pin in pinsStore.pins {
+                guard let newVersion = updateResultsMap[pin.repository] else {
+                    // This is a stray pin as it is not present in updated results.
+                    // FIXME: Use diagnosics engine when we have that.
+                    print("note: Considering unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
+                    continue
+                }
+                // We don't need to repin if its version did not change.
+                guard newVersion != pin.version else { continue }
+                // Repin this dependency.
+                try pinsStore.pin(package: pin.package, repository: pin.repository, at: newVersion, reason: pin.reason)
+            }
+        }
+    }
+
+    /// Updates the current working checkouts i.e. clone or remove based on the provided dependency resolution result.
+    private func updateCheckouts(with updateResults: [(RepositorySpecifier, Version)]) throws {
         // Get the update package states from resolved results.
-        let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults.map { ($0 as RepositorySpecifier, $1 as Version) })
+        let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults)
         // Update or clone new packages.
         for (specifier, state) in packageStateChanges {
             switch state {
@@ -553,10 +644,15 @@ public class Workspace {
     }
 
     /// Create package constraints based on the root manifest.
-    private func computeRootPackageConstraints(_ rootManifest: Manifest) -> [RepositoryPackageConstraint] {
+    ///
+    /// - Parameters:
+    ///   - rootManifest: The root manifest.
+    ///   - includePins: If the constraints from pins should be included.
+    /// - Returns: Array of constraints.
+    private func computeRootPackageConstraints(_ rootManifest: Manifest, includePins: Bool) -> [RepositoryPackageConstraint] {
         return rootManifest.package.dependencies.map{
             RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
-        }
+        } + (includePins ? pinsStore.createConstraints() : [])
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
@@ -650,7 +746,7 @@ public class Workspace {
         delegate.fetchingMissingRepositories(missingURLs)
 
         // First, add the root package constraints.
-        var constraints = computeRootPackageConstraints(currentManifests.root)
+        var constraints = computeRootPackageConstraints(currentManifests.root, includePins: true)
 
         // Add constraints to pin to *exactly* all the checkouts we have.
         //
@@ -665,8 +761,14 @@ public class Workspace {
                 // FIXME: We need a way to state that we don't want any constaints on this dependency.
                 fatalError("FIXME: Unimplemented.")
             } else if let version = managedDependency.currentVersion {
+                // If this specifier is pinned, we should already have it checked out at that version.
+                // We also don't need to add the constraint again.
+                if let pin = pinsStore.pinsMap[externalManifest.name] {
+                    assert(version == pin.version)
+                    continue
+                }
                 // If we know the manifest is at a particular version, use that.
-                // FIXME: This is broken, successor isn't correct and should be eliminated.
+                // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
                 constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .range(version..<version.successor())))
             } else {
                 // FIXME: Otherwise, we need to be able to constraint precisely to the revision we have.
@@ -713,6 +815,12 @@ public class Workspace {
 
         // Inform the delegate.
         delegate.removing(repository: dependency.repository.url)
+
+        // If this specifier is pinned, emit a note about stray pin.
+        if let pin = pinsStore.pins.first(where: { $0.repository == specifier }) {
+            // FIXME: Use diagnosics engine when we have that.
+            print("note: Considering unpinning \(pin.package), it is pinned at \(pin.version) but the package is being removed.")
+        }
 
         // Remove the repository from dependencies.
         dependencyMap[dependency.repository] = nil

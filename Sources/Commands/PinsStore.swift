@@ -11,6 +11,7 @@
 import Basic
 import struct Utility.Version
 import struct SourceControl.RepositorySpecifier
+import typealias PackageGraph.RepositoryPackageConstraint
 
 public enum PinOperationError: Swift.Error {
     case notPinned
@@ -68,7 +69,7 @@ public struct PinsStore {
     ///
     /// - Parameters:
     ///   - package: The name of the package to pin.
-    ///   - at: The version to pin at.
+    ///   - version: The version to pin at.
     ///   - reason: The optional reason for pinning.
     /// - Throws: PinOperationError
     public mutating func pin(package: String, repository: RepositorySpecifier, at version: Version, reason: String? = nil) throws {
@@ -91,6 +92,23 @@ public struct PinsStore {
         pinsMap[package] = nil
         try saveState()
         return pin
+    }
+
+    /// Unpin all of the currently pinnned dependencies.
+    @discardableResult
+    public mutating func unpinAll() throws {
+        // Reset the pins map.
+        pinsMap = [:]
+        // Save the state.
+        try saveState()
+    }
+
+    /// Creates constraints based on the pins in the store.
+    public func createConstraints() -> [RepositoryPackageConstraint] {
+        return pins.map {
+            // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
+            RepositoryPackageConstraint(container: $0.repository, versionRequirement: .range($0.version..<$0.version.successor()))
+        }
     }
 }
 
