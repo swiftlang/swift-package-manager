@@ -15,6 +15,7 @@ import typealias PackageGraph.RepositoryPackageConstraint
 
 public enum PinOperationError: Swift.Error {
     case notPinned
+    case autoPinEnabled
 }
 
 public struct PinsStore {
@@ -96,6 +97,10 @@ public struct PinsStore {
     /// - Throws: PinOperationError
     @discardableResult
     public mutating func unpin(package: String) throws -> Pin {
+        // Ensure autopin is not on.
+        guard !autoPin else {
+            throw PinOperationError.autoPinEnabled
+        }
         // The repo should already be pinned.
         guard let pin = pinsMap[package] else { throw PinOperationError.notPinned }
         // Remove pin and save the state.

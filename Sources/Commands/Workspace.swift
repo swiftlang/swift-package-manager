@@ -446,7 +446,11 @@ public class Workspace {
     ///
     /// - Parameters:
     ///   - reason: The optional reason for pinning.
-    func pinAll(reason: String? = nil) throws {
+    ///   - reset: Remove all current pins before pinning dependencies.
+    func pinAll(reason: String? = nil, reset: Bool = false) throws {
+        if reset {
+            try pinsStore.unpinAll()
+        }
         // Load the package graph
         _ = try loadPackageGraph()
         // Load the dependencies.
@@ -582,20 +586,30 @@ public class Workspace {
         try updateCheckouts(with: updateResults)
         // If we're repinning, update the pins store.
         if repin {
-            // Create a dictionary of result for fast lookup.
-            let updateResultsMap = Dictionary(items: updateResults)
-            for pin in pinsStore.pins {
-                guard let newVersion = updateResultsMap[pin.repository] else {
-                    // This is a stray pin as it is not present in updated results.
-                    // FIXME: Use diagnosics engine when we have that.
-                    print("note: Considering unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
-                    continue
-                }
-                // We don't need to repin if its version did not change.
-                guard newVersion != pin.version else { continue }
-                // Repin this dependency.
-                try pinsStore.pin(package: pin.package, repository: pin.repository, at: newVersion, reason: pin.reason)
+            try repinPackages(with: updateResults)
+        }
+    }
+
+    /// Repin the packages with dependency resolution result.
+    private func repinPackages(with updateResults: [(RepositorySpecifier, Version)]) throws {
+        // If autopin is on, pin everything and return.
+        if pinsStore.autoPin {
+            return try pinAll(reset: true)
+        }
+        // Otherwise we need to repin only the previous pins.
+        // Create a dictionary of result for fast lookup.
+        let updateResultsMap = Dictionary(items: updateResults)
+        for pin in pinsStore.pins {
+            guard let newVersion = updateResultsMap[pin.repository] else {
+                // This is a stray pin as it is not present in updated results.
+                // FIXME: Use diagnosics engine when we have that.
+                print("note: Consider unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
+                continue
             }
+            // We don't need to repin if its version did not change.
+            guard newVersion != pin.version else { continue }
+            // Repin this dependency.
+            try pinsStore.pin(package: pin.package, repository: pin.repository, at: newVersion, reason: pin.reason)
         }
     }
 
@@ -803,6 +817,11 @@ public class Workspace {
             }
         }
 
+        // If autopin is enabled, reset and pin everything.
+        if pinsStore.autoPin {
+            try pinAll(reset: true)
+        }
+
         // We've loaded the complete set of manifests, load the graph.
         return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: externalManifests, fileSystem: fileSystem)
     }
@@ -815,12 +834,6 @@ public class Workspace {
 
         // Inform the delegate.
         delegate.removing(repository: dependency.repository.url)
-
-        // If this specifier is pinned, emit a note about stray pin.
-        if let pin = pinsStore.pins.first(where: { $0.repository == specifier }) {
-            // FIXME: Use diagnosics engine when we have that.
-            print("note: Considering unpinning \(pin.package), it is pinned at \(pin.version) but the package is being removed.")
-        }
 
         // Remove the repository from dependencies.
         dependencyMap[dependency.repository] = nil

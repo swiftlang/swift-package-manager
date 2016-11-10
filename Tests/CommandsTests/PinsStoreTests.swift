@@ -76,7 +76,12 @@ final class PinsStoreTests: XCTestCase {
         try store.pin(package: foo, repository: fooRepo, at: v1)
         try store.pin(package: foo, repository: fooRepo, at: "1.0.2")
 
+        XCTAssertThrows(PinOperationError.autoPinEnabled) {
+            try store.unpin(package: bar)
+        }
+
         XCTAssertThrows(PinOperationError.notPinned) {
+            try store.setAutoPin(on: false)
             try store.unpin(package: bar)
         }
 
