@@ -9,6 +9,7 @@
  */
 
 import XCTest
+import TestSupport
 @testable import Utility
 
 class miscTests: XCTestCase {
@@ -26,7 +27,24 @@ class miscTests: XCTestCase {
         XCTAssert(getClangVersion(versionOutput: versionOutput) ?? (0, 0) == (2, 4))
     }
 
+    func testVersion() throws {
+        // Valid.
+        XCTAssertEqual(try Version(string: "0.9.21-alpha.beta+1011"), Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011"))
+        XCTAssertEqual(try Version(string: "0.9.21+1011"), Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifier: "1011"))
+        XCTAssertEqual(try Version(string: "01.002.0003"), Version(1,2,3))
+        XCTAssertEqual(try Version(string: "0.9.21"), Version(0,9,21))
+        // Invalid.
+
+        let invalidVersions = ["foo", "1", "1.0", "1.0.", "1.0.0."]
+        for v in invalidVersions {
+            XCTAssertThrows(VersionError.invalidVersionString(v)) {
+                _ = try Version(string: v)
+            }
+        }
+    }
+
     static var allTests = [
         ("testClangVersionOutput", testClangVersionOutput),
+        ("testVersion", testVersion),
     ]
 }

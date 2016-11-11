@@ -16,3 +16,29 @@
 // from other versions of the package manager within a single build.
 
 @_exported import struct PackageDescription.Version
+
+public enum VersionError: Swift.Error, Equatable {
+    /// The string can not be used to construct a version object.
+    case invalidVersionString(String)
+
+    public static func ==(lhs: VersionError, rhs: VersionError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidVersionString(let l), .invalidVersionString(let r)):
+            return l == r
+        }
+    }
+}
+
+public extension Version {
+    /// Create a version object from string.
+    ///
+    /// - Parameters:
+    ///   - string: The string to parse.
+    /// - Throws: VersionError
+    init(string: String) throws {
+        guard let version = Version(string) else {
+            throw VersionError.invalidVersionString(string)
+        }
+        self.init(version)
+    }
+}

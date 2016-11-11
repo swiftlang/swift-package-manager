@@ -32,7 +32,7 @@ extension Version: ExpressibleByStringLiteral {
 
 extension Version {
 
-    init(_ version: Version) {
+    public init(_ version: Version) {
         major = version.major
         minor = version.minor
         patch = version.patch
