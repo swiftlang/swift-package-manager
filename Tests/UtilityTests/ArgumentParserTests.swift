@@ -316,6 +316,54 @@ class ArgumentParserTests: XCTestCase {
         XCTAssertEqual(options.mode, .fetch)
     }
 
+    func testOptionalPositionalArg() throws {
+        let parser = ArgumentParser(commandName:"SomeBinary", usage: "sample parser", overview: "Sample overview")
+
+        let package = parser.add(positional: "package name of the year", kind: String.self, optional: true, usage: "The name of the package")
+        let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
+
+        do {
+            let args = try parser.parse(["Foo", "--revision", "bugfix"])
+            XCTAssertEqual(args.get(package), "Foo")
+            XCTAssertEqual(args.get(revision), "bugfix")
+        }
+
+        do {
+            let args = try parser.parse(["--revision", "bugfix"])
+            XCTAssertEqual(args.get(package), nil)
+            XCTAssertEqual(args.get(revision), "bugfix")
+        }
+
+        struct Options {
+            var package: String?
+            var revision: String?
+        }
+        let binder = ArgumentBinder<Options>()
+
+        binder.bind(
+            positional: package,
+            to: { $0.package = $1 })
+        binder.bind(
+            option: revision,
+            to: { $0.revision = $1 })
+
+        do {
+            let result = try parser.parse(["Foo", "--revision", "bugfix"])
+            var options = Options()
+            binder.fill(result, into: &options)
+            XCTAssertEqual(options.package, "Foo")
+            XCTAssertEqual(options.revision, "bugfix")
+        }
+
+        do {
+            let result = try parser.parse(["--revision", "bugfix"])
+            var options = Options()
+            binder.fill(result, into: &options)
+            XCTAssertEqual(options.package, nil)
+            XCTAssertEqual(options.revision, "bugfix")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
@@ -323,5 +371,6 @@ class ArgumentParserTests: XCTestCase {
         ("testSubparser", testSubparser),
         ("testSubsubparser", testSubsubparser),
         ("testSubparserBinder", testSubparserBinder),
+        ("testOptionalPositionalArg", testOptionalPositionalArg),
     ]
 }
