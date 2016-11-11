@@ -334,6 +334,9 @@ public final class ArgumentParser {
     /// Overview text of this parser.
     let overview: String
 
+    /// The parser contains one and only optional positional argument.
+    private var optionalPositionalArg = false
+
     /// Create an argument parser.
     ///
     /// - Parameters:
@@ -369,8 +372,11 @@ public final class ArgumentParser {
     }
 
     /// Adds an argument to the parser.
-    public func add<T: ArgumentKind>(positional: String, kind: T.Type, usage: String? = nil) -> PositionalArgument<T> {
+    /// Note: Only one positional argument is allowed if optional setting is enabled.
+    public func add<T: ArgumentKind>(positional: String, kind: T.Type, optional: Bool = false, usage: String? = nil) -> PositionalArgument<T> {
         precondition(subparsers.isEmpty, "Positional arguments are not supported with subparsers")
+        precondition(optional ? positionalArgs.count <= 1 : true, "Only one positional argument is allowed if optional setting is enabled.")
+        optionalPositionalArg = optional
         let arg = PositionalArgument<T>(name: positional, usage: usage)
         positionalArgs.append(AnyArgument(arg))
         return arg
@@ -479,9 +485,9 @@ public final class ArgumentParser {
                 try result.addResult(for: option, result: resultValue)
             }
         }
-        // Report if there are any positional arguments which were not present in the arguments.
+        // Report if there are any non-optional positional arguments left which were not present in the arguments.
         let leftOverArgs = Array(positionalArgsIterator)
-        guard leftOverArgs.isEmpty else {
+        if !optionalPositionalArg && !leftOverArgs.isEmpty {
             throw ArgumentParserError.expectedArguments(leftOverArgs.map {$0.name})
         }
         return result
