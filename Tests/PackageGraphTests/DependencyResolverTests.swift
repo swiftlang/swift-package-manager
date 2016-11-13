@@ -256,20 +256,23 @@ class DependencyResolverTests: XCTestCase {
             // Check the unconstrained solution.
             XCTAssertEqual(
                 try resolver.resolveSubtree(a, subjectTo: ConstraintSet(), excluding: [:]),
-                ["A": v2, "B": v1])
+                [
+                    ["A": v2, "B": v1],
+                    ["A": v1, "B": v1],
+                ])
 
             // Check when constraints prevents a specific version.
             XCTAssertEqual(
                 try resolver.resolveSubtree(a, subjectTo: ["A": v1Range]),
-                ["A": v1, "B": v1])
+                [["A": v1, "B": v1]])
 
             // Check when constraints prevent resolution.
             XCTAssertEqual(
                 try resolver.resolveSubtree(a, subjectTo: ["A": v0_0_0Range]),
-                nil)
+                [])
             XCTAssertEqual(
                 try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
-                nil)
+                [])
         }
 
         // Check respect for the constraints induced by the initial package.
@@ -290,7 +293,7 @@ class DependencyResolverTests: XCTestCase {
             // referencing "C" because the it is unsatisfiable.
             XCTAssertEqual(
                 try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
-                ["A": v1])
+                [["A": v1]])
         }
 
         // Check when a subtree is unsolvable.
@@ -304,10 +307,9 @@ class DependencyResolverTests: XCTestCase {
             let delegate = MockResolverDelegate()
             let resolver = MockDependencyResolver(provider, delegate)
 
-            // FIXME: This should return a `["A": v1]` assignment.
-            XCTAssertThrows(DependencyResolverError.unimplemented) {
-                _ = try resolver.resolveSubtree(a, subjectTo: ["C": v0_0_0Range])
-            }
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a, subjectTo: ["C": v0_0_0Range]),
+                [["A": v1]])
         }
 
         // Check when a subtree can't be merged.
@@ -317,7 +319,7 @@ class DependencyResolverTests: XCTestCase {
                     v2: [
                         (container: "B", versionRequirement: v1Range),
                         (container: "C", versionRequirement: v1Range)]])
-            // B will pick `"D" == v1_1`, due to the more limited range.
+            // B will pick `"D" == v1_1`, due to the open range.
             let b = MockPackageContainer(name: "B", dependenciesByVersion: [
                     v1: [(container: "D", versionRequirement: v1Range)]])
             // C will pick `"D" == v1_0`, due to the more limited range (but not
@@ -331,10 +333,12 @@ class DependencyResolverTests: XCTestCase {
             let delegate = MockResolverDelegate()
             let resolver = MockDependencyResolver(provider, delegate)
 
-            // FIXME: This should return a `["A": v1]` assignment.
-            XCTAssertThrows(DependencyResolverError.unimplemented) {
-                _ = try resolver.resolveSubtree(a)
-            }
+            XCTAssertEqual(
+                try resolver.resolveSubtree(a),
+                [
+                    ["A": v2, "B": v1, "C": v1, "D": v1],
+                    ["A": v1]
+                ])
         }
     }
 
@@ -556,7 +560,7 @@ private extension DependencyResolver {
         _ container: Container,
         subjectTo allConstraints: [Identifier: VersionSetSpecifier] = [:],
         excluding exclusions: [Identifier: Set<Version>] = [:]
-    ) throws -> AssignmentSet? {
+    ) throws -> AnySequence<AssignmentSet> {
         return try resolveSubtree(container, subjectTo: ConstraintSet(allConstraints), excluding: exclusions)
     }
 }
@@ -604,6 +608,21 @@ where C.Identifier == String
         XCTAssertEqual(actual, expected, file: file, line: line)
     } else {
         return XCTFail("unexpected missing assignment, expected: \(expected)", file: file, line: line)
+    }
+}
+
+private func XCTAssertEqual<C: PackageContainer>(
+    _ assignments: AnySequence<VersionAssignmentSet<C>>,
+    _ expected: [[String: Version]],
+    file: StaticString = #file, line: UInt = #line)
+where C.Identifier == String
+{
+    let assignments = Array(assignments)
+    guard assignments.count == expected.count else {
+        return XCTFail("unexpected assignments `\(assignments)`, expected: \(expected)", file: file, line: line)
+    }
+    for (a,b) in zip(assignments, expected) {
+        XCTAssertEqual(a, b, file: file, line: line)
     }
 }
 

@@ -13,11 +13,6 @@ import struct Utility.Version
 public enum DependencyResolverError: Error {
     /// The resolver was unable to find a solution to the input constraints.
     case unsatisfiable
-
-    /// The resolver hit unimplemented functionality (used temporarily for test case coverage).
-    //
-    // FIXME: Eliminate this.
-    case unimplemented
 }
 
 /// An abstract definition for a set of versions.
@@ -605,7 +600,7 @@ public class DependencyResolver<
         // Create an assignment for the input constraints.
         guard let assignment = try merge(
                 constraints: constraints, into: AssignmentSet(),
-                subjectTo: ConstraintSet(), excluding: [:]) else {
+                subjectTo: ConstraintSet(), excluding: [:]).first(where: { _ in true }) else {
             throw DependencyResolverError.unsatisfiable
         }
         return assignment
@@ -617,8 +612,8 @@ public class DependencyResolver<
     /// dependencies. The inputs define an active set of constraints and set of
     /// versions to exclude (conceptually the latter could be merged with the
     /// former, but it is convenient to separate them in our
-    /// implementation). The result is an assignment for this container's
-    /// subtree.
+    /// implementation). The result is a sequence of all valid assignments for
+    /// this container's subtree.
     ///
     /// - Parameters:
     ///   - container: The container to resolve.
@@ -635,12 +630,12 @@ public class DependencyResolver<
         _ container: Container,
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
-    ) throws -> AssignmentSet? {
+    ) throws -> AnySequence<AssignmentSet> {
         func validVersions(_ container: Container) -> AnyIterator<Version> {
             let constraints = allConstraints[container.identifier]
             let exclusions = allExclusions[container.identifier] ?? Set()
             var it = container.versions.reversed().makeIterator()
-            return AnyIterator { () -> Version? in
+            return AnyIterator{ () -> Version? in
                     while let version = it.next() {
                         if constraints.contains(version) && !exclusions.contains(version) {
                             return version
@@ -650,44 +645,40 @@ public class DependencyResolver<
             }
         }
 
-        // Attempt to select each valid version in order.
+        // Attempt to select each valid version in the preferred order.
         //
         // FIXME: We must detect recursion here.
-        for version in validVersions(container) {
-            // Create an assignment for this container and version.
-            var assignment = AssignmentSet()
-            assignment[container] = .version(version)
+        return try AnySequence(validVersions(container).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
+                // Create an assignment for this container and version.
+                var assignment = AssignmentSet()
+                assignment[container] = .version(version)
 
-            // Get the constraints for this container version and update the
-            // assignment to include each one.
-            if let result = try merge(
-                     constraints: try container.getDependencies(at: version),
-                     into: assignment, subjectTo: allConstraints, excluding: allExclusions) {
-                // We found a complete valid assignment.
-                assert(result.checkIfValidAndComplete())
-                return result
-            }
-        }
-
-        // We were unable to find a valid solution.
-        return nil
+                // Get the constraints for this container version and update the
+                // assignment to include each one.
+                return AnySequence(try merge(
+                            constraints: try container.getDependencies(at: version),
+                            into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
+                        // We found a complete valid assignment.
+                        assert(result.checkIfValidAndComplete())
+                        return result
+                    })
+            })
     }
 
-    /// Solve the `constraints` and merge the results into the `assignment`.
+    /// Find all solutions for `constraints` with the results merged into the `assignment`.
     ///
     /// - Parameters:
     ///   - constraints: The input list of constraints to solve.
     ///   - assignment: The assignment to merge the result into.
     ///   - allConstraints: An additional set of constraints on the viable solutions.
     ///   - allExclusions: A set of package assignments to exclude from consideration.
-    /// - Returns: A satisfying assignment, if solvable.
+    /// - Returns: A sequence of all valid satisfying assignment, in order of preference.
     private func merge(
         constraints: [Constraint],
         into assignment: AssignmentSet,
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
-    ) throws -> AssignmentSet? {
-        var assignment = assignment
+    ) throws -> AnySequence<AssignmentSet> {
         var allConstraints = allConstraints
 
         // Update the active constraint set to include all active constraints.
@@ -699,56 +690,62 @@ public class DependencyResolver<
         // of statistics on the number of backtracks.
         for constraint in constraints {
             guard let merged = allConstraints.merging(constraint) else {
-                return nil
+                return AnySequence([])
             }
             allConstraints = merged
         }
 
-        for constraint in constraints {
-            // Get the container.
-            //
-            // Failures here will immediately abort the solution, although in
-            // theory one could imagine attempting to find a solution not
-            // requiring this container. It isn't clear that is something we
-            // would ever want to handle at this level.
-            //
-            // FIXME: We want to ask for all of these containers up-front to
-            // allow for async cloning.
-            let container = try getContainer(for: constraint.identifier)
+        // Perform an (eager) reduction merging each container into the (lazy)
+        // sequence of possible assignments.
+        //
+        // NOTE: What we are *accumulating* here is a lazy sequence (of
+        // solutions) satisfying some number of the constraints; the final lazy
+        // sequence is effectively one which has all of the constraints
+        // merged. Thus, the reduce itself can be eager since the result is
+        // lazy.
+        return try AnySequence(constraints.map{ $0.identifier }.reduce(AnySequence([(assignment, allConstraints)])) { (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                    // Get the container.
+                    //
+                    // Failures here will immediately abort the solution, although in
+                    // theory one could imagine attempting to find a solution not
+                    // requiring this container. It isn't clear that is something we
+                    // would ever want to handle at this level.
+                    //
+                    // FIXME: We want to ask for all of these containers up-front to
+                    // allow for async cloning.
+                    let container = try getContainer(for: identifier)
 
-            // Solve for an assignment with the current constraints.
-            guard let subtreeAssignment = try resolveSubtree(
-                    container, subjectTo: allConstraints, excluding: allExclusions) else {
-                // If we couldn't find an assignment, we need to backtrack in some way.
-                throw DependencyResolverError.unimplemented
-            }
+                    // Return a new lazy sequence merging all possible subtree solutions into all possible incoming assignments.
+                    return try AnySequence(possibleAssignments.lazy.flatMap{ (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                            return AnySequence(try resolveSubtree(
+                                    container, subjectTo: allConstraints, excluding: allExclusions).lazy.flatMap{ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
+                                    // We found a valid subtree assignment, attempt to merge it with the
+                                    // current solution.
+                                    guard let newAssignment = assignment.merging(subtreeAssignment) else {
+                                        // The assignment couldn't be merged with the current
+                                        // assignment, or the constraint sets couldn't be merged.
+                                        //
+                                        // This happens when (a) the subtree has a package overlapping
+                                        // with a previous subtree assignment, and (b) the subtrees
+                                        // needed to resolve different versions due to constraints not
+                                        // present in the top-down constraint set.
+                                        return nil
+                                    }
 
-            // We found a valid subtree assignment, attempt to merge it with the
-            // current solution.
-            guard let newAssignment = assignment.merging(subtreeAssignment) else {
-                // The assignment couldn't be merged with the current
-                // assignment, or the constraint sets couldn't be merged.
-                //
-                // This happens when (a) the subtree has a package overlapping
-                // with a previous subtree assignment, and (b) the subtrees
-                // needed to resolve different versions due to constraints not
-                // present in the top-down constraint set.
-                throw DependencyResolverError.unimplemented
-            }
+                                    // Update the working assignment and constraint set.
+                                    //
+                                    // This should always be feasible, because all prior constraints
+                                    // were part of the input constraint request (see comment around
+                                    // initial `merge` outside the loop).
+                                    guard let merged = allConstraints.merging(subtreeAssignment.constraints) else {
+                                        preconditionFailure("unsatisfiable constraints while merging subtree")
+                                    }
 
-            // Update the working assignment and constraint set.
-            //
-            // This should always be feasible, because all prior constraints
-            // were part of the input constraint request (see comment around
-            // initial `merge` outside the loop).
-            assignment = newAssignment
-            guard let merged = allConstraints.merging(subtreeAssignment.constraints) else {
-                preconditionFailure("unsatisfiable constraints while merging subtree")
-            }
-            allConstraints = merged
-        }
-
-        return assignment
+                                    // We found a valid assignment and updated constraint set.
+                                    return (newAssignment, merged)
+                                })
+                        })
+            }.map{ $0.0 })
     }
 
     // MARK: Container Management

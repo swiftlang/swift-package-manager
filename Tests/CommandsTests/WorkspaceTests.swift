@@ -840,11 +840,11 @@ final class WorkspaceTests: XCTestCase {
             let graph = try workspace.loadPackageGraph()
             XCTAssert(graph.lookup("A").version == v1)
             // Pinning non existant version should fail.
-            XCTAssertThrows(DependencyResolverError.unimplemented) {
+            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
                 try pin(at: "1.0.2")
             }
             // Pinning an unstatisfiable version should fail.
-            XCTAssertThrows(DependencyResolverError.unimplemented) {
+            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
                 try pin(at: "1.0.1")
             }
             // But we should still be able to repin at v1.
@@ -885,12 +885,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // We should not be able to load package graph.
-        XCTAssertThrows(DependencyResolverError.unimplemented) {
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
             _ = try newWorkspace().loadPackageGraph()
         }
 
         // We should not be able to pin all.
-        XCTAssertThrows(DependencyResolverError.unimplemented) {
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
             _ = try newWorkspace().pinAll()
         }
     }
