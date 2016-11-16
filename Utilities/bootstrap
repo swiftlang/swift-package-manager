@@ -1073,12 +1073,23 @@ def main():
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
         src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
-        cmd = ["cp", src_path, libswiftpm_library_dir]
+        dst_path = os.path.join(libswiftpm_library_dir, libswiftpm_product.product_name)
+        cmd = ["cp", src_path, dst_path]
         note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
         result = subprocess.call(cmd)
         if result != 0:
             error("copying failed with exit status %d" % result)
-
+        
+        # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
+        if platform.system() == 'Darwin':
+            if libswiftpm_product.type == ProductType.DYNAMIC_LIBRARY:
+                dylib_id = os.path.join("@rpath", libswiftpm_product.product_name)
+                cmd = ["install_name_tool", "-id", dylib_id, dst_path]
+                note("resetting dylib id: %s" % ' '.join(cmd))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("command  failed with exit status %d" % (result,))
+    
     # Copy the libSwiftPM modules to a directory, if we've been asked to do so.
     # FIXME: There is too much duplication between this part and the one above.
     if args.libswiftpm_modules_dir:
@@ -1088,7 +1099,7 @@ def main():
         # Create the output directory, if needed.
         mkdir_p(libswiftpm_modules_dir)
         
-        # Find the libSwiftPM product.  It's an error if we don't.
+        # Find the libSwiftPM product.  It's an error if we don't find it.
         try:
             libswiftpm_product = product_map["SwiftPM"]
         except:
@@ -1101,12 +1112,21 @@ def main():
             for suffix in [".swiftmodule", ".swiftdoc"]:
                 src_path = os.path.join(build_path, conf, target + suffix)
                 if os.path.exists(src_path):
-                    cmd = ["cp", src_path, libswiftpm_modules_dir]
+                    dst_path = os.path.join(libswiftpm_modules_dir, target + suffix)
+                    cmd = ["cp", src_path, dst_path]
                     note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
                 result = subprocess.call(cmd)
                 if result != 0:
                     error("copying failed with exit status %d" % result)
-                
+        
+        # Also emit the version info, if appropriate.  This appears as a module
+        # consisting of a header file and a module map.
+        if args.vendor_name or args.build_identifier:
+            if not args.vendor_name or not args.build_identifier:
+                error("--build-identifier is required with --vendor-name")
+            note("writing version info ('%s', '%s') to %s" % (args.vendor_name, args.build_identifier, libswiftpm_modules_dir))
+            write_bootstrap_version_info(libswiftpm_modules_dir, args.vendor_name, args.build_identifier)
+    
     # If generating an Xcode project, also use the build product to do that.
     if args.generate_xcodeproj:
         # We will use the `swift-package` binary we just built to generate the
