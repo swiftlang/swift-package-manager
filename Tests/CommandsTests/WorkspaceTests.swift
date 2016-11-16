@@ -306,6 +306,8 @@ final class WorkspaceTests: XCTestCase {
             // Create the workspace.
             let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
 
+            // Turn off auto pinning.
+            try workspace.pinsStore.setAutoPin(on: false)
             // Ensure delegates haven't been called yet.
             XCTAssert(delegate.fetched.isEmpty)
             XCTAssert(delegate.cloned.isEmpty)
@@ -573,6 +575,106 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testAutoPinning() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+            ],
+            packages: [
+                MockPackage("A", version: v1),
+                MockPackage("A", version: "1.0.1", dependencies: [
+                    MockDependency("AA", version: v1),
+                ]),
+                MockPackage("AA", version: v1),
+            ],
+            fs: fs
+        )
+
+        let provider = manifestGraph.repoProvider!
+
+        func newWorkspace() -> Workspace {
+            return try! Workspace(
+                rootPackage: path,
+                manifestLoader: manifestGraph.manifestLoader,
+                delegate: TestWorkspaceDelegate(),
+                fileSystem: fs,
+                repositoryProvider: provider)
+        }
+
+        do {
+            let workspace = newWorkspace()
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == v1)
+            try workspace.reset()
+        }
+
+        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
+
+        // We should still get v1 even though an update is available.
+        do {
+            let workspace = newWorkspace()
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == v1)
+            try workspace.reset()
+        }
+
+        // Updating dependencies shouldn't matter.
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies()
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == v1)
+        }
+
+        // Updating dependencies with repinning should do the actual update.
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies(repin: true)
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == "1.0.1")
+            XCTAssert(graph.lookup("AA").version == v1)
+            // We should have pin for AA automatically.
+            XCTAssertNotNil(workspace.pinsStore.pinsMap["A"])
+            XCTAssertNotNil(workspace.pinsStore.pinsMap["AA"])
+        }
+
+        // Unpin all of the dependencies.
+        do {
+            let workspace = newWorkspace()
+            try workspace.pinsStore.unpinAll()
+            // Reset so we have a clean workspace.
+            try workspace.reset()
+            try workspace.pinsStore.setAutoPin(on: false)
+        }
+
+        // Pin at A at v1.
+        do {
+            let workspace = newWorkspace()
+            _ = try workspace.loadPackageGraph()
+            let manifests = try workspace.loadDependencyManifests()
+            guard let (_, dep) = manifests.lookup(package: "A") else {
+                return XCTFail("Expected manifest for package A not found")
+            }
+            try workspace.pin(dependency: dep, packageName: "A", at: v1)
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == v1)
+        }
+
+        // Updating and repinning shouldn't pin new deps which are introduced.
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies(repin: true)
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == "1.0.1")
+            XCTAssert(graph.lookup("AA").version == v1)
+            XCTAssertNotNil(workspace.pinsStore.pinsMap["A"])
+            // We should not have pinned AA.
+            XCTAssertNil(workspace.pinsStore.pinsMap["AA"])
+        }
+    }
+
     func testPinning() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -607,7 +709,17 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
+            // Try unpinning something which is not pinned.
+            XCTAssertThrows(PinOperationError.notPinned) {
+                try workspace.pinsStore.unpin(package: "A")
+            }
             try workspace.pin(dependency: dep, packageName: "A", at: v1)
+        }
+
+        // Turn off autopin.
+        do {
+            let workspace = newWorkspace()
+            try workspace.pinsStore.setAutoPin(on: false)
         }
 
         // Package graph should load 1.0.1.
@@ -650,6 +762,14 @@ final class WorkspaceTests: XCTestCase {
             try workspace.updateDependencies()
             let graph = try workspace.loadPackageGraph()
             XCTAssert(graph.lookup("A").version == "1.0.0")
+        }
+
+        // Package *update* should load 1.0.1 with repinning.
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies(repin: true)
+            let graph = try workspace.loadPackageGraph()
+            XCTAssert(graph.lookup("A").version == "1.0.1")
         }
     }
 
@@ -924,6 +1044,7 @@ final class WorkspaceTests: XCTestCase {
         
         do {
             let workspace = newWorkspace()
+            try workspace.pinsStore.setAutoPin(on: false)
             _ = try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
             guard let (_, dep) = manifests.lookup(package: "B") else {
@@ -933,17 +1054,34 @@ final class WorkspaceTests: XCTestCase {
             try workspace.reset()
         }
 
+        // Try updating with repin and versions shouldn't change.
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies(repin: true)
+            let g = try workspace.loadPackageGraph()
+            XCTAssert(g.lookup("A").version == v1)
+            XCTAssert(g.lookup("B").version == v1)
+            try workspace.reset()
+        }
+
         try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
 
         do {
             let workspace = newWorkspace()
             let g = try workspace.loadPackageGraph()
             XCTAssert(g.lookup("A").version == "1.0.1")
-            // FIXME: This is wrong, we only have this dependency cloned because it is referenced by the stray pin.
-            // We shouldn't clone stray pins.
+            // FIXME: We also cloned B because it has a pin.
             XCTAssertNotNil(workspace.dependencyMap[manifestGraph.repo("B")])
         }
 
+        do {
+            let workspace = newWorkspace()
+            try workspace.updateDependencies(repin: true)
+            let g = try workspace.loadPackageGraph()
+            XCTAssert(g.lookup("A").version == "1.0.1")
+            // This dependency should be removed on updating dependencies because it is not referenced anywhere.
+            XCTAssertNil(workspace.dependencyMap[manifestGraph.repo("B")])
+        }
     }
 
     static var allTests = [
@@ -954,6 +1092,7 @@ final class WorkspaceTests: XCTestCase {
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
+        ("testAutoPinning", testAutoPinning),
         ("testPinAll", testPinAll),
         ("testPinning", testPinning),
         ("testUpdateRepinning", testUpdateRepinning),

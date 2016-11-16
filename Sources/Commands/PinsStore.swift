@@ -15,6 +15,7 @@ import typealias PackageGraph.RepositoryPackageConstraint
 
 public enum PinOperationError: Swift.Error {
     case notPinned
+    case autoPinEnabled
 }
 
 public struct PinsStore {
@@ -48,6 +49,9 @@ public struct PinsStore {
     /// The pins map.
     fileprivate(set) var pinsMap: [String: Pin]
 
+    /// Autopin enabled or disabled. Autopin is enabled by default.
+    fileprivate(set) var autoPin: Bool
+
     /// The current pins.
     public var pins: AnySequence<Pin> {
         return AnySequence<Pin>(pinsMap.values)
@@ -62,7 +66,14 @@ public struct PinsStore {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
         pinsMap = [:]
+        autoPin = true
         try restoreState()
+    }
+
+    /// Update the autopin setting. Writes the setting to pins file.
+    public mutating func setAutoPin(on value: Bool) throws {
+        autoPin = value
+        try saveState()
     }
 
     /// Pin a repository at a version.
@@ -86,6 +97,10 @@ public struct PinsStore {
     /// - Throws: PinOperationError
     @discardableResult
     public mutating func unpin(package: String) throws -> Pin {
+        // Ensure autopin is not on.
+        guard !autoPin else {
+            throw PinOperationError.autoPinEnabled
+        }
         // The repo should already be pinned.
         guard let pin = pinsMap[package] else { throw PinOperationError.notPinned }
         // Remove pin and save the state.
@@ -142,7 +157,8 @@ extension PinsStore {
         guard version == PinsStore.currentSchemaVersion else {
             fatalError("Migration not supported yet")
         }
-        guard case let .array(pinsData)? = contents["pins"] else {
+        guard case let .bool(autoPin)? = contents["autoPin"],
+              case let .array(pinsData)? = contents["pins"] else {
             throw PersistenceError.unexpectedData
         }
 
@@ -155,6 +171,7 @@ extension PinsStore {
             pins[pin.package] = pin
         }
 
+        self.autoPin = autoPin
         self.pinsMap = pins 
     }
 
@@ -163,6 +180,7 @@ extension PinsStore {
         var data = [String: JSON]()
         data["version"] = .int(PinsStore.currentSchemaVersion)
         data["pins"] = .array(pins.sorted{ $0.package < $1.package  }.map{ $0.toJSON() })
+        data["autoPin"] = .bool(autoPin)
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(pinsFile, bytes: JSON.dictionary(data).toBytes())
     }

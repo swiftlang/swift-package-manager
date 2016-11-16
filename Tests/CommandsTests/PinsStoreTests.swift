@@ -36,12 +36,32 @@ final class PinsStoreTests: XCTestCase {
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
+        XCTAssert(store.autoPin)
 
         try store.pin(package: foo, repository: fooRepo, at: v1, reason: "bad")
         XCTAssert(fs.exists(pinsFile))
 
+        // Test autopin toggle and persistence.
+        do {
+            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssert(store.autoPin)
+            try store.setAutoPin(on: false)
+            XCTAssertFalse(store.autoPin)
+        }
+        do {
+            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssertFalse(store.autoPin)
+            try store.setAutoPin(on: true)
+            XCTAssert(store.autoPin)
+        }
+        do {
+            let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssert(store.autoPin)
+        }
+
         // Load the store again from disk.
         let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssert(store2.autoPin)
         // Test basics on the store.
         for s in [store, store2] {
             XCTAssert(s.pins.map{$0}.count == 1)
@@ -56,7 +76,12 @@ final class PinsStoreTests: XCTestCase {
         try store.pin(package: foo, repository: fooRepo, at: v1)
         try store.pin(package: foo, repository: fooRepo, at: "1.0.2")
 
+        XCTAssertThrows(PinOperationError.autoPinEnabled) {
+            try store.unpin(package: bar)
+        }
+
         XCTAssertThrows(PinOperationError.notPinned) {
+            try store.setAutoPin(on: false)
             try store.unpin(package: bar)
         }
 
