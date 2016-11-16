@@ -284,9 +284,9 @@ final class PackageToolTests: XCTestCase {
             }
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
 
-            func checkOutput(_ value: Int) throws {
+            func checkOutput(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
                 _ = try build()
-                XCTAssertEqual(try popen(exec), "\(value)\n")
+                XCTAssertEqual(try popen(exec), "\(value)\n", file: file, line: line)
             }
             try checkOutput(5)
 
