@@ -18,6 +18,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PinsStoreTests.allTests),
         testCase(TestToolTests.allTests),
         testCase(WorkspaceTests.allTests),
+        testCase(UserToolchainTests.allTests),
     ]
 }
 #endif
