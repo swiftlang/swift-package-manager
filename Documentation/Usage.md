@@ -39,9 +39,106 @@
 
 You can link against system libraries using the package manager. To do so, there needs to be a special package for each system library that contains a module map for that library. Such a wrapper package does not contain any code of its own.
 
-Let’s see an example of using [IJG’s JPEG library](http://www.ijg.org) from an executable.
+Let's see an example of using [libgit2](https://libgit2.github.com) from an executable.
 
 First, create a directory called `example`, and initialize it as a package that builds an executable:
+
+    $ mkdir example
+    $ cd example
+    example$ swift package init --type executable
+
+Edit the `Sources/main.swift` so it consists of this code:
+
+```swift
+import Clibgit
+
+let options = git_repository_init_options()
+print(options)
+```
+
+To `import Clibgit`, the package manager requires
+that the libgit2 library has been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).
+The following files from the libgit2 system-package are of interest:
+
+    /usr/local/lib/libgit2.dylib      # .so on Linux
+    /usr/local/include/git2.h
+
+Swift packages that provide module maps for system libraries are handled differently from regular Swift packages.
+
+Note that the system library may be located elsewhere on your system, such as `/usr/` rather than `/usr/local/`.
+
+Create a directory called `Clibgit` next to the `example` directory and initialize it as a package
+that builds a system module:
+
+    example$ cd ..
+    $ mkdir Clibgit
+    $ cd Clibgit
+    Clibgit$ swift package init --type system-module
+
+This creates `Package.swift` and `module.modulemap` files in the directory.  Edit `Package.swift` and add `pkgConfig` parameter:
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "Clibgit",
+    pkgConfig: "libgit2"
+)
+```
+
+The `pkgConfig` parameter helps SwiftPM in figuring out the include and library search paths for the system library.  
+Note: If you don't want to use pkgConfig paramater you can pass the path to directory containing libary using commandline when building your app:
+
+    example$ swift build -Xlinker -L/usr/local/lib/
+
+Edit `module.modulemap` so it consists of the following:
+
+    module Clibgit [system] {
+      header "/usr/local/include/git2.h"
+      link "git2"
+      export *
+    }
+
+> The convention we hope the community will adopt is to prefix such modules with `C` and to camelcase the modules
+> as per Swift module name conventions. Then the community is free to name another module simply `libgit` which
+> contains more “Swifty” function wrappers around the raw C interface.
+
+Packages are Git repositories, tagged with semantic versions, containing a `Package.swift` file at their root.
+Initializing the package created a `Package.swift` file, but to make it a usable package we need to initialize
+a Git repository with at least one version tag:
+
+    Clibgit$ git init
+    Clibgit$ git add .
+    Clibgit$ git commit -m "Initial Commit"
+    Clibgit$ git tag 1.0.0
+
+Now to use the Clibgit package we must declare our dependency in our example app’s `Package.swift`:
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "example",
+    dependencies: [
+        .Package(url: "../Clibgit", majorVersion: 1)
+    ]
+)
+```
+
+Here we used a relative URL to speed up initial development. If you push your module map package to a public repository you must change the above URL reference so that it is a full, qualified git URL.
+
+Now if we type `swift build` in our example app directory we will create an executable:
+
+    example$ swift build
+    …
+    example$ .build/debug/example
+    git_repository_init_options(version: 0, flags: 0, mode: 0, workdir_path: nil, description: nil, template_path: nil, initial_head: nil, origin_url: nil)
+    example$
+
+
+Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org) from an executable which has some caveats.
+
+Create a directory called `example`, and initialize it as a package that builds an executable:
 
     $ mkdir example
     $ cd example
@@ -56,16 +153,7 @@ let jpegData = jpeg_common_struct()
 print(jpegData)
 ```
 
-To `import CJPEG`, the package manager requires
-that the JPEG library has been installed by a system packager (eg. `apt`, `brew`, `yum`, etc.).
-The following files from the JPEG system-package are of interest:
-
-    /usr/lib/libjpeg.so      # .dylib on OS X
-    /usr/include/jpeglib.h
-
-Swift packages that provide module maps for system libraries are handled differently from regular Swift packages.
-
-Note that the system library may be located elsewhere on your system, such as `/usr/local/` rather than `/usr/`.
+Install JPEG library using a system packager e.g `$ brew install jpeg`
 
 Create a directory called `CJPEG` next to the `example` directory and initialize it as a package
 that builds a system module:
@@ -79,18 +167,19 @@ This creates `Package.swift` and `module.modulemap` files in the directory.  Edi
 consists of the following:
 
     module CJPEG [system] {
-        header "/usr/include/jpeglib.h"
+        header "shim.h"
+        header "/usr/local/include/jpeglib.h"
         link "jpeg"
         export *
     }
 
-> The convention we hope the community will adopt is to prefix such modules with `C` and to camelcase the modules
-> as per Swift module name conventions. Then the community is free to name another module simply `JPEG` which
-> contains more “Swifty” function wrappers around the raw C interface.
+Create a `shim.h` file in the same directory and add `#include <stdio.h>` in it.
 
-Packages are Git repositories, tagged with semantic versions, containing a `Package.swift` file at their root.
-Initializing the package created a `Package.swift` file, but to make it a usable package we need to initialize
-a Git repository with at least one version tag:
+    $ echo '#include <stdio.h>' > shim.h 
+
+This is because `jpeglib.h` is not a correct module. You can also add `#include <stdio.h>` to the top of jpeglib.h and avoid creating `shim.h` file.
+
+Create a Git repository and tag it:
 
     CJPEG$ git init
     CJPEG$ git add .
@@ -103,110 +192,22 @@ Now to use the CJPEG package we must declare our dependency in our example app�
 import PackageDescription
 
 let package = Package(
+    name: "example",
     dependencies: [
         .Package(url: "../CJPEG", majorVersion: 1)
     ]
 )
 ```
 
-Here we used a relative URL to speed up initial development. If (we hope when) you push your module map package to a public repository you must change the above URL reference so that it is a full, qualified git URL.
-
 Now if we type `swift build` in our example app directory we will create an executable:
 
-    example$ swift build
+    example$ swift build -Xlinker -L/usr/local/lib/
     …
     example$ .build/debug/example
     jpeg_common_struct(err: nil, mem: nil, progress: nil, client_data: nil, is_decompressor: 0, global_state: 0)
     example$
 
-
-### Module Maps With Dependencies
-
-Let’s expand our example to include [JasPer](https://www.ece.uvic.ca/~frodo/jasper/), a JPEG-2000 library. It depends on The JPEG Library. First create a directory called `CJasPer` parallel to `CJPEG` and our example app, and initialize it as a package that builds a system module:
-
-    CJPEG$ cd ..
-    $ mkdir CJasPer
-    $ cd CJasPer
-    CJasPer$ swift package init --type system-module
-
-JasPer depends on JPEG, and thus any package that consumes `CJasPer` must know to also import `CJPEG`. We accomplish this by specifying the dependency in CJasPer’s `Package.swift`:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    dependencies: [
-        .Package(url: "../CJPEG", majorVersion: 1)
-    ])
-```
-
-The module map for CJasPer is similar to that of CJPEG:
-
-    module CJasPer [system] {
-        header "/usr/local/include/jasper/jasper.h"
-        link "jasper"
-        export *
-    }
-
-**Take care**; the module map must specify all the headers that a system package uses, ***BUT*** you must not specify headers that are included from the headers you have already specified. For example with JasPer there are many headers but all the others are included from the umbrella header `jasper.h`. If you get the includes wrong you will get intermittent and hard to debug compile issues.
-
-A package is a Git repository with semantically versioned tags and a `Package.swift` file, so we must create the Git repository:
-
-    CJasPer$ git init
-    CJasPer$ git add .
-    CJasPer$ git commit -m "Initial Commit"
-    CJasPer$ git tag 1.0.0
-
-> **PLEASE NOTE** The package manager clones _the tag_. If you edit the `module.modulemap` and don’t `git tag -f 1.0.0` you will not build against your local changes.
-
-Back in our example app’s `Package.swift` we can change our dependency to `CJasPer`:
-
-```swift
-import PackageDescription
-
-let package = Package(
-    dependencies: [
-        .Package(url: "../CJasPer", majorVersion: 1)
-    ])
-```
-
-CJasPer depends on CJPEG, so we do not need to specify our dependency on CJPEG in our example app’s Package.swift.
-
-To test our JasPer support let’s amend our example’s `main.swift`:
-
-```swift
-import CJasPer
-
-guard let version = String.fromCString(jas_getversion()) else {
-    fatalError("Could not get JasPer version")
-}
-
-print("JasPer \(version)")
-```
-
-And run it:
-
-    example$ swift build
-    …
-    example$ .build/debug/example
-    JasPer 1.900.1
-    example$
-
-
-> Note that we do not call the module `CLibjasper`. In general, avoid the lib prefix unless the authors of the package typically always refer to it that way. A good rule of thumb is to look at the header files, here we can see the header is called simply "jasper.h". In the event of non-typical headers (eg `jpeglib.h`) refer to the project homepage, the authors of the JPEG library refer to it as “The JPEG library” and not “libjpeg” or “jpeglib”. Pay attention to capitalization; it is `CJPEG` and not `CJpeg`, because JPEG is an acronym and is typically spelled all-caps. It is `CJasPer` and not `CJasper` because the project itself refers to the library as “JasPer” in all their documentation.
-
-On some platforms, the above steps fail with:
-
-    <module-includes>:1:10: note: in file included from <module-includes>:1:
-    #include "/usr/include/jpeglib.h"
-             ^
-    /usr/include/jpeglib.h:792:3: error: unknown type name 'size_t'
-      size_t free_in_buffer;        /* # of byte spaces remaining in buffer */
-      ^
-
-This is because `jpeglib.h` is not a correct module. To fix this you need to add `#include <stdio.h>` to the top of jpeglib.h.
-
-JPEG lib itself needs to be patched, but since this situation will be common we intend to add a workaround system in module packages.
+We have to specify path where the libjpeg is present using `-Xlinker` because there is no pkg-config file for it. We plan to provide solution to avoid passing the flag in commandline.
 
 ### Packages That Provide Multiple Libraries
 
