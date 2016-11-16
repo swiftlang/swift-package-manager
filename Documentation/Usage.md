@@ -4,34 +4,78 @@
 
 * [Overview](README.md)
 * [**Usage**](Usage.md)
-  * [Create a Module](#create-a-module)
-  * [Create a Library](#create-a-library)
-  * [Define Dependencies](#define-dependencies)
-  * [Require System Libraries](#require-system-libraries)
-  * [Build an Executable](#build-an-executable)
   * [Create a Package](#create-a-package)
-  * [Distribute a Package](#distribute-a-package)
+    * [Create a library package](#create-a-library-package)
+    * [Create an executable package](#create-an-executable-package)
+  * [Define Dependencies](#define-dependencies)
+  * [Publishing a package](#publishing-a-package)
+  * [Require System Libraries](#require-system-libraries)
   * [Handling version-specific logic](#version-specific-logic)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
 ---
 
-## Create a Module
+## Create a Package
 
-*Content to come.*
+Simply put: a package is a git repository with semantically versioned tags, that contains Swift sources and a `Package.swift` manifest file at its root.
 
----
+### Create a library package
 
-## Create a Library
+A libary package contains code which other packages can use and depend on. To get started, create a directory and run `swift package init` command:
 
-*Content to come.*
+    $ mkdir MyPackage
+    $ cd MyPackage
+    $ swift package init # or swift package init --type library
+    $ swift build
+    $ swift test
 
----
+This will create the directory structure needed for a library package with a module and the corresponding test module to write unit tests. A library package can contain multiple modules as explained in [Module Format Reference](Reference.md#module-format-reference).
+
+### Create an executable package
+
+SwiftPM can create native binary which can be executed from command line. To get started: 
+
+    $ mkdir MyExecutable
+    $ cd MyExecutable
+    $ swift package init --type executable
+    $ swift build
+    $ .build/debug/MyExecutable
+    Hello, World!
+
+This creates the directory structure needed for executable modules. Any module can be turned into a executable module if there is a `main.swift` present in its sources. Complete reference for layout is [here](Reference.md#module-format-reference).
 
 ## Define Dependencies
 
-*Content to come.*
+All you need to do to depend on a package is define the dependency and the version, in manifest of your package.
+For e.g. if you want to use https://github.com/apple/example-package-playingcard as a dependency, add the github URL in dependencies of your `Package.swift`:
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "MyPackage",
+    dependencies: [
+        .Package(url: "https://github.com/apple/example-package-playingcard.git", majorVersion: 3),
+    ]
+)
+```
+
+Now you should be able to `import PlayingCard` anywhere in your package and use the public APIs.
+
+## Publish a package
+
+To publish a package, you just have to initialize a git repository and create a semantic version tag:
+
+    $ git init
+    $ git add .
+    $ git remote add origin [github-URL]
+    $ git commit -m "Initial Commit"
+    $ git tag 1.0.0
+    $ git push origin master --tags
+
+Now other packages can depend on version 1.0.0 of this package using the github url.  
+Example of a published package: https://github.com/apple/example-package-fisheryates
 
 ---
 
@@ -253,45 +297,6 @@ At this time you will need to make another module map package to represent syste
 
 For example, `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it is not required. To provide a package that uses libarchive with xz you must make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
 
----
-
-## Build an Executable
-
-*Content to come.*
-
----
-
-## Create a Package
-
-Simply put: a package is a git repository with semantically versioned tags, that contains Swift sources and a `Package.swift` manifest file at its root.
-
-### Turning a Library Module into an External Package
-
-If you are building an app with several modules, at some point you may decide to make that module into an external package. Doing this makes that code available as a dependable library that others may use.
-
-Doing so with the package manager is relatively simple:
-
- 1. Create a new repository on GitHub
- 2. In a terminal, step into the module directory
- 3. `git init`
- 4. `git remote add origin [github-URL]`
- 5. `git add .`
- 6. `git commit --message="…"`
- 7. `git tag 1.0.0`
- 8. `git push origin master --tags`
-
-Now delete the subdirectory, and amend your `Package.swift` so that its `package` declaration includes:
-
-```swift
-let package = Package(
-    dependencies: [
-        .Package(url: "…", versions: Version(1,0,0)..<Version(2,0,0)),
-    ]
-)
-```
-
-Now type `swift build`.
-
 
 ### Working on Apps and Packages Side-by-Side
 
@@ -318,12 +323,6 @@ In these cases, you can use the build configuration `SWIFT_PACKAGE` to condition
 import Foundation
 #endif
 ```
-
----
-
-## Distribute a Package
-
-*Content to come.*
 
 ## Handling version-specific logic
 
