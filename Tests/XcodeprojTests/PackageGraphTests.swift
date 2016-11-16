@@ -66,6 +66,8 @@ class PackageGraphTests: XCTestCase {
 
             XCTAssertEqual(project.buildSettings.common.SDKROOT, "macosx")
             XCTAssertEqual(project.buildSettings.common.SUPPORTED_PLATFORMS!, ["macosx", "iphoneos", "iphonesimulator", "appletvos", "appletvsimulator", "watchos", "watchsimulator"])
+            XCTAssertEqual(project.buildSettings.release.SWIFT_OPTIMIZATION_LEVEL, "-Owholemodule")
+            XCTAssertEqual(project.buildSettings.debug.SWIFT_OPTIMIZATION_LEVEL, "-Onone")
 
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)

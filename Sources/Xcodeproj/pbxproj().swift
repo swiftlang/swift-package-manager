@@ -132,7 +132,7 @@ func xcodeProject(
     projectSettings.release.COPY_PHASE_STRIP = "YES"
     projectSettings.release.DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"
     projectSettings.release.GCC_OPTIMIZATION_LEVEL = "s"
-    projectSettings.release.SWIFT_OPTIMIZATION_LEVEL = "-O"
+    projectSettings.release.SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule"
 
     // Add a file reference for the package manifest itself.
     // FIXME: We should parameterize this so that a package can return the path
