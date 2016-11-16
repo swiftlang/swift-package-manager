@@ -423,6 +423,7 @@ public class Workspace {
     ///   - reason: The optional reason for pinning.
     /// - Throws: WorkspaceOperationError, PinOperationError
     func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
+        assert(!dependency.isInEditableState, "Can not pin a dependency which is in being edited.")
         // Compute constaints with the new pin and try to resolve dependencies. We only commit the pin if the
         // dependencies can be resolved with new constraints.
         //

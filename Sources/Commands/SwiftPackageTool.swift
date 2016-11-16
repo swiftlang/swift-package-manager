@@ -29,6 +29,9 @@ enum PackageToolOperationError: Swift.Error {
 
     /// The current mode does not have all the options it requires.
     case insufficientOptions(usage: String)
+
+    /// The package is in editable state.
+    case packageInEditableState
 }
 
 /// swift-build tool namespace
@@ -79,7 +82,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .update:
             if options.enableNewResolver {
                 let workspace = try getActiveWorkspace()
-                try workspace.updateDependencies()
+                // We repin either on explicit repin option or if autopin is enabled.
+                let repin = options.repin || workspace.pinsStore.autoPin
+                try workspace.updateDependencies(repin: repin)
             } else {
                 let packagesDirectory = try getCheckoutsDirectory()
                 // Attempt to ensure that none of the repositories are modified.
@@ -178,6 +183,56 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(manifest.jsonString())
         case .help:
             parser.printUsage(on: stdoutStream)
+        case .pin:
+            guard options.enableNewResolver else {
+                fatalError("This mode requires --enable-new-resolver")
+            }
+            // FIXME: It would be nice to have mutual exclusion pinning options.
+            // Argument parser needs to provide that functionality.
+
+            // Toggle enable auto pinning if requested.
+            if let enableAutoPin = options.pinOptions.enableAutoPin {
+                let workspace = try getActiveWorkspace()
+                return try workspace.pinsStore.setAutoPin(on: enableAutoPin)
+            }
+            // Pin all dependencies if requested.
+            if options.pinOptions.pinAll {
+                let workspace = try getActiveWorkspace()
+                return try workspace.pinAll()
+            }
+            // Ensure we have the package name at this point.
+            guard let packageName = options.pinOptions.packageName else {
+                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
+            }
+            let workspace = try getActiveWorkspace()
+            // Load the package graph.
+            _ = try workspace.loadPackageGraph()
+            // Load the dependencies.
+            let manifests = try workspace.loadDependencyManifests()
+            // Lookup the dependency to pin.
+            guard let (_, dependency) = manifests.lookup(package: packageName) else {
+                throw PackageToolOperationError.packageNotFound
+            }
+            // We can't pin something which is in editable mode.
+            guard !dependency.isInEditableState else {
+                throw PackageToolOperationError.packageInEditableState
+            }
+            // Pin the dependency.
+            try workspace.pin(
+                dependency: dependency,
+                packageName: packageName,
+                at: try options.pinOptions.version.flatMap(Version.init(string:)) ?? dependency.currentVersion!,
+                reason: options.pinOptions.message
+            )
+        case .unpin:
+            guard options.enableNewResolver else {
+                fatalError("This mode requires --enable-new-resolver")
+            }
+            guard let packageName = options.pinOptions.packageName else {
+                fatalError("Expected package name from parser")
+            }
+            let workspace = try getActiveWorkspace()
+            try workspace.pinsStore.unpin(package: packageName)
         }
     }
 
@@ -202,6 +257,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         return stream.bytes.asString!
     }
     
+    var pinUsage: String {
+        let stream = BufferedOutputByteStream()
+        stream <<< "Expected package pin format:\n"
+        stream <<< "swift package pin (--all | <packageName> [--version <version>])\n"
+        stream <<< "Note: Either provide a package to pin or provide pin all option to pin all dependencies."
+        return stream.bytes.asString!
+    }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<PackageToolOptions>) {
         binder.bind(
@@ -236,7 +298,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "Fetch package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
         parser.add(subparser: PackageMode.resolve.rawValue, overview: "")
-        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        binder.bind(
+            option: updateParser.add(
+                option: "--repin", kind: Bool.self,
+                usage: "Update without applying pins and repin the updated versions"),
+            to: { $0.repin = $1 })
 
         let initPackageParser = parser.add(subparser: PackageMode.initPackage.rawValue, overview: "Initialize a new package")
         binder.bind(
@@ -280,6 +347,45 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $0.absolutePathRelativeToWorkingDir($1), enableCodeCoverage: $2)
                 $0.outputPath = $0.absolutePathRelativeToWorkingDir($3) })
 
+        let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "")
+        binder.bind(
+            positional: pinParser.add(
+                positional: "name", kind: String.self, optional: true,
+                usage: "The name of the package to pin"),
+            to: { $0.pinOptions.packageName = $1 })
+        binder.bind(
+            option: pinParser.add(
+                option: "--enable-autopin", kind: Bool.self,
+                usage: "Enable automatic pinning"),
+            to: { $0.pinOptions.enableAutoPin = $1 })
+        binder.bind(
+            option: pinParser.add(
+                option: "--disable-autopin", kind: Bool.self,
+                usage: "Disable automatic pinning"),
+            to: { $0.pinOptions.enableAutoPin = !$1 })
+
+        binder.bind(
+            pinParser.add(
+                option: "--all", kind: Bool.self,
+                usage: "Pin all dependencies"),
+            pinParser.add(
+                option: "--message", kind: String.self,
+                usage: "The reason for pinning"),
+            pinParser.add(
+                option: "--version", kind: String.self,
+                usage: "The version to pin at"),
+            to: {
+                $0.pinOptions.pinAll = $1 ?? false
+                $0.pinOptions.message = $2
+                $0.pinOptions.version = $3 })
+
+        let unpinParser = parser.add(subparser: PackageMode.unpin.rawValue, overview: "")
+        binder.bind(
+            positional: unpinParser.add(
+                positional: "name", kind: String.self,
+                usage: "The name of the package to unpin"),
+            to: { $0.pinOptions.packageName = $1 })
+
         binder.bind(
             parser: parser,
             to: { $0.mode = PackageMode(rawValue: $1)! })
@@ -306,6 +412,18 @@ public class PackageToolOptions: ToolOptions {
 
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
+
+    struct PinOptions {
+        var enableAutoPin: Bool?
+        var pinAll = false
+        var message: String?
+        var packageName: String?
+        var version: String?
+    }
+    var pinOptions = PinOptions()
+
+    /// Repin the dependencies when running package update.
+    var repin = false
 }
 
 public enum PackageMode: String, StringEnumArgument {
@@ -316,10 +434,12 @@ public enum PackageMode: String, StringEnumArgument {
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
     case initPackage = "init"
+    case pin
     case reset
     case resolve
     case showDependencies = "show-dependencies"
     case unedit
+    case unpin
     case update
     case version
     case help
