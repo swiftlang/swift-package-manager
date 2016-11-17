@@ -211,6 +211,7 @@ extension String {
                 0x0CE6...0x0CEF, 0x0D66...0x0D6F, 0x0E50...0x0E59,
                 0x0ED0...0x0ED9, 0x0F20...0x0F33:
                 mangledUnichars[idx] = replacementUnichar
+                break loop
               default:
                 break loop
             }

@@ -30,6 +30,8 @@ class StringConversionTests: XCTestCase {
         // Invalid leading characters.
         XCTAssertEqual("1".mangledToC99ExtendedIdentifier(), "_")
         XCTAssertEqual("1foo".mangledToC99ExtendedIdentifier(), "_foo")
+        XCTAssertEqual("٠٠٠".mangledToC99ExtendedIdentifier(), "_٠٠")
+        XCTAssertEqual("12 3".mangledToC99ExtendedIdentifier(), "_2_3")
         
         // FIXME: There are lots more interesting test cases to add here.
         var str1 = ""
