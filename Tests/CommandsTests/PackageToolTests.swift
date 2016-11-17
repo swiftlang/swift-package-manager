@@ -277,20 +277,37 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testPinning() throws {
-      // Disabled due to <rdar://problem/29301474> PackageToolTests.testPinning : XCTAssertEqual failed: ("5") is not equal to ("6").
-      #if false
+        // FIXME: Temporary method until we switch to new resolver permanently.
+        func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
+            let packagesPath = packageRoot.appending(components: ".build", "checkouts")
+            for name in try localFileSystem.getDirectoryContents(packagesPath) {
+                if name.hasPrefix(packageName) {
+                    return packagesPath.appending(RelativePath(name))
+                }
+            }
+            throw SwiftPMProductError.packagePathNotFound
+        }
+
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+                let buildOutput = try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+                return buildOutput
             }
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
 
-            func checkOutput(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                _ = try build()
-                XCTAssertEqual(try popen(exec), "\(value)\n", file: file, line: line)
+            // Build and sanity check.
+            _ = try build()
+            XCTAssertEqual(try popen(exec).chomp(), "\(5)")
+
+            // Get path to bar checkout.
+            let barPath = try packagePath(for: "bar", packageRoot: fooPath)
+
+            // Checks the content of checked out bar.swift.
+            func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
+                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).asString?.chomp()
+                XCTAssert(contents?.hasSuffix("\(value)") ?? false, file: file, line: line)
             }
-            try checkOutput(5)
 
             // We should see a pin file now.
             let pinsFile = fooPath.appending(component: "Package.pins")
@@ -349,13 +366,13 @@ final class PackageToolTests: XCTestCase {
             // Run package update and ensure that it is not updated due to pinning.
             do {
                 try execute("update")
-                try checkOutput(5)
+                try checkBar(5)
             }
 
             // Running package update with --repin should update the package.
             do {
                 try execute("update", "--repin")
-                try checkOutput(6)
+                try checkBar(6)
             }
 
             // We should be able to revert to a older version.
@@ -364,7 +381,7 @@ final class PackageToolTests: XCTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.reason, "bad deppy")
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.version, "1.2.3")
-                try checkOutput(5)
+                try checkBar(5)
             }
 
             // Unpinning bar and updating should get the latest version.
@@ -372,7 +389,7 @@ final class PackageToolTests: XCTestCase {
                 try execute("unpin", "bar")
                 try execute("update")
                 XCTAssertEqual(try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem).pinsMap["bar"], nil)
-                try checkOutput(6)
+                try checkBar(6)
             }
 
             // Try pinning a dependency which is in edit mode.
@@ -395,7 +412,6 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(pinsStore.pinsMap["baz"]!.version, "1.2.3")
             }
         }
-      #endif
     }
 
     static var allTests = [
