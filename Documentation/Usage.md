@@ -12,6 +12,7 @@
   * [Create a Package](#create-a-package)
   * [Distribute a Package](#distribute-a-package)
   * [Handling version-specific logic](#version-specific-logic)
+  * [Working on Apps and Packages Side-by-Side](#working-on-apps-and-packages-side-by-side-top-of-the-tree-development)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
@@ -294,19 +295,37 @@ let package = Package(
 Now type `swift build`.
 
 
-### Working on Apps and Packages Side-by-Side
+## Working on Apps and Packages Side-by-Side (Top of the tree development)
 
-If you are developing an app that consumes a package and you need to work on that package simultaneously then you have several options:
+If you are developing an app that consumes a package and you need to work on that package simultaneously then you can use editable packages as a workaround until we have dedicated tooling for it.
 
- 1. Edit the sources that the package manager clones.
+Consider you have a package `foo` which depends on `bar`.
 
-	The sources are cloned visibly into `./Packages` to facilitate this.
+```swift
+import PackageDescription
 
- 2. Alter your `Package.swift` so it refers to a local clone of the package.
+let package = Package(
+    name: "foo",
+    dependencies: [
+        .Package(url: "http://url/to/bar", majorVersion: 1),
+    ]
+)
+```
 
-	This can be tedious however as you will need to force an update every time you make a change, including updating the version tag. Both options are currently non-ideal since it is easy to commit code that will break for other members of your team, for example, if you change the sources for `Foo` and then commit a change to your app that uses those new changes but you have not committed those changes to `Foo` then you have caused dependency hell for your co-workers.
+If you want to develop on `bar` as well as `foo`, navigate to `foo` directory and put `bar` in edit mode:
 
-	It is our intention to provide tooling to prevent such situations, but for now please be aware of the caveats.
+    $ cd foo
+    $ swift package edit bar --revision master
+
+Then remove the `bar` directory created in `Packages/` and instead create a symbolic link to the path of `bar` package on your filesystem. This will make sure the package manager uses the sources in your local `bar`, and does not try and resolve `bar` based on the version specification in the manifest.
+
+    $ cd Packages
+    $ rm -r bar
+    $ ln -s ln -s /path/to/bar bar
+
+Now go ahead and make changes in `bar`, building `foo` will pick `bar` sources from the local copy of `bar` package. Once you're done editing you can unedit the package:
+
+    $ swift package unedit bar #--force
 
 ### Packaging legacy code
 
