@@ -44,11 +44,51 @@ struct UserToolchain: Toolchain {
     let swiftPlatformArgs: [String] = []
 #endif
 
+    /// Lookup an executable path from environment variable value. This method searches in the following order:
+    /// * If env value is a valid abolsute path, return it.
+    /// * If env value is relative path, first try to locate it in current working directory.
+    /// * Otherwise, in provided search paths.
+    ///
+    /// - Parameters:
+    ///   - value: The value from environment variable.
+    ///   - cwd: The current working directory to look in.
+    ///   - searchPath: The addtional search path to look in if not found in cwd.
+    /// - Returns: Valid path to executable if present, otherwise nil.
+    static func lookupExecutablePath(inEnvValue value: String?, currentWorkingDirectory cwd: AbsolutePath, searchPaths: [AbsolutePath]) -> AbsolutePath? {
+        // We should have a value to continue.
+        guard let value = value, !value.isEmpty else {
+            return nil
+        }
+        // We have a value, but it could be an absolute or a relative path.
+        let path = AbsolutePath(value, relativeTo: cwd)
+        if exists(path) {
+            return path
+        }
+        // Ensure the value is not a path.
+        guard !value.characters.contains("/") else {
+            return nil
+        }
+        // Try to locate in search paths.
+        for path in searchPaths {
+            let exec = path.appending(component: value)
+            if exists(exec) {
+                return exec
+            }
+        }
+        return nil
+    }
+
     init() throws {
+        // Compute search paths from PATH variable.
+        let envSearchPaths = (getenv("PATH") ?? "").characters.split(separator: ":").map(String.init).map(AbsolutePath.init)
+
+        func lookup(env: String) -> AbsolutePath? {
+            return UserToolchain.lookupExecutablePath(inEnvValue: getenv(env), currentWorkingDirectory: currentWorkingDirectory, searchPaths: envSearchPaths)
+        }
+
         // Find the Swift compiler, looking first in the environment.
-        if let value = getenv("SWIFT_EXEC"), !value.isEmpty {
-            // We have a value, but it could be an absolute or a relative path.
-            swiftCompiler = AbsolutePath(value, relativeTo: currentWorkingDirectory)
+        if let value = lookup(env: "SWIFT_EXEC") {
+            swiftCompiler = value
         }
         else {
             // No value in env, so look for `swiftc` alongside our own binary.
@@ -63,9 +103,8 @@ struct UserToolchain: Toolchain {
         }
         
         // Find the Clang compiler, looking first in the environment.
-        if let value = getenv("CC"), !value.isEmpty {
-            // We have a value, but it could be an absolute or a relative path.
-            clangCompiler = AbsolutePath(value, relativeTo: currentWorkingDirectory)
+        if let value = lookup(env: "CC") {
+            clangCompiler = value
         }
         else {
             // No value in env, so search for `clang`.
@@ -84,9 +123,8 @@ struct UserToolchain: Toolchain {
         
         // Find the default SDK (on macOS only).
       #if os(macOS)
-        if let value = getenv("SYSROOT"), !value.isEmpty {
-            // We have a value, but it could be an absolute or a relative path.
-            defaultSDK = AbsolutePath(value, relativeTo: currentWorkingDirectory)
+        if let value = UserToolchain.lookupExecutablePath(inEnvValue: getenv("SYSROOT"), currentWorkingDirectory: currentWorkingDirectory, searchPaths: []) {
+            defaultSDK = value
         }
         else {
             // No value in env, so search for it.
