@@ -773,6 +773,8 @@ def main():
                         help="Build stage 2 for release")
     parser.add_argument("--generate-xcodeproj", action="store_true",
                         help="Also generate an Xcode project for SwiftPM")
+    parser.add_argument("--enable-perf-tests", action="store_true",
+                        help="Enables performance tests in the generated Xcode project")
     parser.add_argument("--vendor-name", dest="vendor_name",
                         help="vendor name for use in --version")
     parser.add_argument("--build-identifier", dest="build_identifier",
@@ -1131,7 +1133,10 @@ def main():
     if args.generate_xcodeproj:
         # We will use the `swift-package` binary we just built to generate the
         # Xcode project.
-        cmd = [swift_package_path, "generate-xcodeproj"]
+        cmd = [swift_package_path]
+        if args.enable_perf_tests:
+            cmd.extend(["-Xswiftc", "-DENABLE_PERF_TESTS"])
+        cmd.extend(["generate-xcodeproj"])
         
         # If there is a `llvm-profdata` binary next to `swiftc`, we enable code
         # coverage in the generated project.
