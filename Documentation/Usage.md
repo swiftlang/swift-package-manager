@@ -12,6 +12,7 @@
   * [Require System Libraries](#require-system-libraries)
   * [Handling version-specific logic](#version-specific-logic)
   * [Working on Apps and Packages Side-by-Side](#working-on-apps-and-packages-side-by-side-top-of-the-tree-development)
+  * [Editable Packages](#editable-packages)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
@@ -416,3 +417,36 @@ manifest API).
 It is *not* expected the packages would ever use this feature unless absolutely
 necessary to support existing clients. In particular, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift version.
+
+### Editable Packages
+
+Swift package manager supports editing dependencies, when your work requires making a change to one of your dependencies (for example, to fix a bug, or add a new API). The package manager moves the dependency into a location under `Packages/` directory where it can be edited.
+
+For the packages which are in the editable state, `swift build` will always use the exact sources in this directory to build, regardless of its state, git repository status, tags, or the tag desired by dependency resolution. In other words, this will _just build_ against the sources that are present. When an editable package is present, it will be used to satisfy all instances of that package in the depencency graph. It is possible to edit all, some, or none of the packages in a dependency graph, without restriction.
+
+Editable packages are best used to do experimentation with dependency code or create and submit a patch in the dependency owner's repository (upstream).  
+There are two ways to put a package in editable state:
+
+    $ swift package edit Foo --branch bugFix
+
+This will create a branch called `bugFix` from currently resolved version and put the dependency Foo in `Packages/` directory. 
+
+    $ swift package edit Foo --revision 969c6a9
+
+This is similar to previous version except that the Package Manager will leave the dependency at a detched HEAD on the specified revision.
+
+Note: It is necessary to provide either a branch or revision option. The rationale here is that checking out the currently resolved version would leave the repository on a detached HEAD, which is confusing. Explict options makes the action predictable for user.
+
+Once a package is in an editable state, you can navigate to the directory `Packages/Foo` to make changes, build and then push the changes or open a pull request to the upstream repository.
+
+You can end editing a package using `unedit` command:
+
+    $ swift package unedit Foo
+
+This will remove the edited dependency from `Packages/` and put the originally resolved version back. 
+
+This command fails if there are uncommited changes or changes which are not pushed to the remote repository. If you want to discard these changes and unedit, you can use the `--force` option:
+
+    $ swift package unedit Foo --force
+
+You can read the Swift evolution proposal [here](https://github.com/apple/swift-evolution/blob/master/proposals/0082-swiftpm-package-edit.md).
