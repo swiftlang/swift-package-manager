@@ -217,7 +217,7 @@ public class GitRepository: Repository, WorkingCheckout {
         self.path = path
         self.isWorkingRepo = isWorkingRepo
         do {
-            let isBareRepo = try Git.runPopen([Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository"]).chomp() == "true"
+            let isBareRepo = try popen([Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository"]).chomp() == "true"
             assert(isBareRepo != isWorkingRepo)
         } catch {
             // Ignore if we couldn't run popen for some reason.
@@ -248,11 +248,11 @@ public class GitRepository: Repository, WorkingCheckout {
     public func remotes() throws -> [(name: String, url: String)] {
         return try queue.sync {
             // Get the remote names.
-            let remoteNamesOutput = try Git.runPopen([Git.tool, "-C", path.asString, "remote"]).chomp()
+            let remoteNamesOutput = try popen([Git.tool, "-C", path.asString, "remote"]).chomp()
             let remoteNames = remoteNamesOutput.characters.split(separator: "\n").map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
-                let url = try Git.runPopen([Git.tool, "-C", path.asString, "config", "--get", "remote.\(name).url"]).chomp()
+                let url = try popen([Git.tool, "-C", path.asString, "config", "--get", "remote.\(name).url"]).chomp()
                 return (name, url)
             }
         }
@@ -278,7 +278,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Returns the tags present in repository.
     private func getTags() -> [String] {
         // FIXME: Error handling.
-        let tagList = try! Git.runPopen([Git.tool, "-C", path.asString, "tag", "-l"])
+        let tagList = try! popen([Git.tool, "-C", path.asString, "tag", "-l"])
         return tagList.characters.split(separator: "\n").map(String.init)
     }
 
@@ -301,8 +301,8 @@ public class GitRepository: Repository, WorkingCheckout {
             // just a safety measure for now.
             let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
             do {
-                _ = try Git.runPopen([Git.tool, "-C", path.asString, "diff"] + diffArgs)
-                _ = try Git.runPopen([Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs)
+                try system(args: [Git.tool, "-C", path.asString, "diff"] + diffArgs)
+                try system(args: [Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs)
             } catch {
                 return true
             }
@@ -329,7 +329,7 @@ public class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         try queue.sync {
-            try Git.runCommandQuietly([Git.tool, "-C", path.asString, "reset", "--hard", tag])
+            try system(args: [Git.tool, "-C", path.asString, "reset", "--hard", tag])
             try self.updateSubmoduleAndClean()
         }
     }
@@ -338,15 +338,15 @@ public class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         try queue.sync {
-            try Git.runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
+            try system(args: [Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
             try self.updateSubmoduleAndClean()
         }
     }
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndClean() throws {
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive"])
-        try Git.runCommandQuietly([Git.tool, "-C", path.asString, "clean", "-ffd"])
+        try system(args: [Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive"])
+        try system(args: [Git.tool, "-C", path.asString, "clean", "-ffd"])
     }
 
     /// Returns true if a revision exists.
@@ -451,7 +451,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Runs the command in the serial queue and runs the completion closure if present.
     private func runCommandQuietly(_ command: [String], completion: (() -> Void)? = nil) throws {
         try queue.sync {
-            try Git.runCommandQuietly(command)
+            try system(args: command)
             completion?()
         }
     }
@@ -459,7 +459,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Executes popen in the serial queue.
     private func runPopen(_ command: [String]) throws -> String {
         return try queue.sync {
-            return try Git.runPopen(command)
+            return try popen(command)
         }
     }
 }

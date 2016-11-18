@@ -21,18 +21,21 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
     
     func fetching(repository: String) {
+        print("Fetching \(repository)")
     }
 
     func cloning(repository: String) {
+        print("Cloning \(repository)")
     }
 
     func checkingOut(repository: String, at reference: String) {
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
-        print("Resolved version: \(reference)")
+        print("Resolving \(repository) at \(reference)")
     }
 
     func removing(repository: String) {
+        print("Removing \(repository)")
     }
 }
 
