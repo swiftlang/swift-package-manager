@@ -350,7 +350,7 @@ func xcodeProject(
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"
                 targetSettings.common.PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)"
-                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = module.c99name
+                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = module.c99name.mangledToBundleIdentifier()
             }
             else {
                 targetSettings.common.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"

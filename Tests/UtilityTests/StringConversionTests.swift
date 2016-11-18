@@ -13,6 +13,13 @@ import Utility
 
 class StringConversionTests: XCTestCase {
 
+    func testManglingToBundleIdentifier() {
+        XCTAssertEqual("foo".mangledToBundleIdentifier(), "foo")
+        XCTAssertEqual("1foo__ò".mangledToBundleIdentifier(), "1foo---")
+        XCTAssertEqual("com.example.🐴🔄".mangledToBundleIdentifier(), "com.example.----")
+        XCTAssertEqual("٠٠٠".mangledToBundleIdentifier(), "---")
+    }
+
     func testManglingToC99ExtendedIdentifier() {
         
         // Simple cases.
