@@ -24,7 +24,7 @@ Simply put: a package is a git repository with semantically versioned tags, that
 
 ### Create a library package
 
-A libary package contains code which other packages can use and depend on. To get started, create a directory and run `swift package init` command:
+A library package contains code which other packages can use and depend on. To get started, create a directory and run `swift package init` command:
 
     $ mkdir MyPackage
     $ cd MyPackage
@@ -133,7 +133,7 @@ let package = Package(
 ```
 
 The `pkgConfig` parameter helps SwiftPM in figuring out the include and library search paths for the system library.  
-Note: If you don't want to use pkgConfig paramater you can pass the path to directory containing libary using commandline when building your app:
+Note: If you don't want to use pkgConfig paramater you can pass the path to directory containing library using commandline when building your app:
 
     example$ swift build -Xlinker -L/usr/local/lib/
 
