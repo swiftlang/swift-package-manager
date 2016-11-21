@@ -19,11 +19,15 @@ final class TestToolTests: XCTestCase {
     }
     
     func testUsage() throws {
+#if os(macOS)
         XCTAssert(try execute(["--help"]).contains("USAGE: swift test"))
+#endif
     }
 
     func testVersion() throws {
+#if os(macOS)
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+#endif
     }
 
     static var allTests = [
