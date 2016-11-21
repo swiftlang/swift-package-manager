@@ -65,10 +65,21 @@ extension Command {
             // TODO should be llbuild rules∫
             if conf == .debug {
                 let infoPlistPath = outpath.parentDirectory.parentDirectory.appending(component: "Info.plist")
-                try localFileSystem.createDirectory(outpath.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
+                do {
+                    try localFileSystem.createDirectory(outpath.parentDirectory, recursive: true)
+                    try localFileSystem.writeFileContents(infoPlistPath, bytes: ByteString(encodingAsUTF8: product.Info.plist))
+                } catch let error as FileSystemError {
+                    if error == .notDirectory {
+                        print("\(outpath.parentDirectory.asString) is not a directory: try `swift package clean`")
+                    }
+                    throw error
+                }
             }
           #else
+            if localFileSystem.isDirectory(outpath) {
+                print("warning: \(outpath.asString) is a directory: try `swift package clean`")
+            }
+
             // HACK: To get a path to LinuxMain.swift, we just grab the
             //       parent directory of the first test module we can find.
             let firstTestModule = product.modules.flatMap{$0 as? SwiftModule}.filter{ $0.isTest }.first!
