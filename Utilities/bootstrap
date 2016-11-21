@@ -1162,6 +1162,13 @@ def main():
         result = subprocess.call(cmd)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
+
+        # Copy the perf test scheme if perf tests should be enabled.
+        #
+        # This is hacky but we need a way to run only performance tests and there
+        # is no way to do this with SwiftPM right now.
+        if args.enable_perf_tests:
+            shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "PerformanceTests.xcscheme"), "SwiftPM.xcodeproj/xcshareddata/xcschemes/PerformanceTests.xcscheme")
                 
         # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
         # add an option to the `generate-xcodeproj` subcommand to allow a
