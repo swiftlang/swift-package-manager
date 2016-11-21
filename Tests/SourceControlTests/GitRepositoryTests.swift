@@ -125,6 +125,25 @@ class GitRepositoryTests: XCTestCase {
        }
     }
 
+    func testSubmoduleRead() throws {
+        mktmpdir { path in
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+
+            let repoPath = path.appending(component: "repo")
+            try makeDirectories(repoPath)
+            initGitRepo(repoPath)
+
+            try system(Git.tool, "-C", repoPath.asString, "submodule", "add", testRepoPath.asString)
+            let repo = GitRepository(path: repoPath)
+            try repo.stageEverything()
+            try repo.commit()
+            // We should be able to read a repo which as a submdoule.
+            _ = try repo.read(tree: try repo.resolveHash(treeish: "master"))
+        }
+    }
+
     /// Test the Git file system view.
     func testGitFileView() throws {
         mktmpdir { path in
@@ -550,5 +569,6 @@ class GitRepositoryTests: XCTestCase {
         ("testHasUnpushedCommits", testHasUnpushedCommits),
         ("testUncommitedChanges", testUncommitedChanges),
         ("testSubmodules", testSubmodules),
+        ("testSubmoduleRead", testSubmoduleRead),
     ]
 }
