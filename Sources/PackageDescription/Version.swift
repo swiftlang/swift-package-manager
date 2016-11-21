@@ -34,11 +34,15 @@ public func ==(v1: Version, v2: Version) -> Bool {
         return false
     }
     
-    if v1.prereleaseIdentifiers != v2.prereleaseIdentifiers {
+    guard v1.prereleaseIdentifiers == v2.prereleaseIdentifiers else{
         return false
     }
     
-    return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
+    guard v1.buildMetadataIdentifier == v2.buildMetadataIdentifier else{
+        return false
+    }
+
+    return true
 }
 
 // MARK: Hashable
