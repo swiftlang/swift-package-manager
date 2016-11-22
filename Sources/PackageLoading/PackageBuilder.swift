@@ -27,6 +27,7 @@ public enum ModuleError: Swift.Error {
         public enum InvalidLayoutType {
             case multipleSourceRoots([String])
             case unexpectedSourceFiles([String])
+            case modulemapInSources(String)
         }
     
     /// The manifest has invalid configuration wrt type of the module.
@@ -73,6 +74,8 @@ extension ModuleError.InvalidLayoutType: FixableError {
             return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
         case .unexpectedSourceFiles(let paths):
             return "unexpected source file(s) found: " + paths.sorted().joined(separator: ", ")
+        case .modulemapInSources(let path):
+            return "modulemap (\(path)) is not allowed to be mixed with sources"
         }
     }
 
@@ -82,6 +85,8 @@ extension ModuleError.InvalidLayoutType: FixableError {
             return "remove the extra source roots, or add them to the source root exclude list"
         case .unexpectedSourceFiles(_):
             return "move the file(s) inside a module"
+        case .modulemapInSources(_):
+            return "move the modulemap inside include directory"
         }
     }
 }
@@ -478,7 +483,10 @@ public struct PackageBuilder {
         
         // Find all the files under the module path.
         let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
-        
+        // Make sure there is no modulemap mixed with the sources.
+        if let path = walked.first(where: { $0.basename == "module.modulemap"}) {
+            throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
+        }
         // Select any source files for the C-based languages and for Swift.
         let sources = walked.filter(isValidSource)
         let cSources = sources.filter{ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) }
