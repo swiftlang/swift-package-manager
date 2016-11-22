@@ -165,6 +165,7 @@ public class GitRepository: Repository, WorkingCheckout {
         struct Entry {
             enum EntryType {
                 case blob
+                case commit
                 case executableBlob
                 case symlink
                 case tree
@@ -181,6 +182,8 @@ public class GitRepository: Repository, WorkingCheckout {
                         self = .executableBlob
                     case 0o120000:
                         self = .symlink
+                    case 0o160000:
+                        self = .commit
                     default:
                         return nil
                     }
@@ -407,14 +410,16 @@ public class GitRepository: Repository, WorkingCheckout {
             //
             //   `mode type hash\tname`
             //
-            // where `mode` is the 6-byte octal file mode, `type` is a 4-byte
-            // type ("blob" or "tree"), `hash` is the hash, and the remainder of
+            // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
+            // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
             // the line is the file name.
             let bytes = ByteString(encodingAsUTF8: line)
             guard bytes.count > 6 + 1 + 4 + 1 + 40 + 1,
                   bytes.contents[6] == UInt8(ascii: " "),
-                  bytes.contents[6 + 1 + 4] == UInt8(ascii: " "),
-                  bytes.contents[6 + 1 + 4 + 1 + 40] == UInt8(ascii: "\t") else {
+                  // Search for the second space since `type` is of variable length.
+                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].index(of: UInt8(ascii: " ")),
+                  bytes.contents[secondSpace] == UInt8(ascii: " "),
+                  bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
             }
 
@@ -423,8 +428,8 @@ public class GitRepository: Repository, WorkingCheckout {
                 (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
             }
             guard let type = Tree.Entry.EntryType(mode: mode),
-                  let hash = Hash(asciiBytes: bytes.contents[(6 + 1 + 4 + 1)..<(6 + 1 + 4 + 1 + 40)]),
-                  let name = ByteString(bytes.contents[(6 + 1 + 4 + 1 + 40 + 1)..<bytes.count]).asString else {
+                  let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1)..<(secondSpace + 1 + 40)]),
+                  let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1)..<bytes.count]).asString else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
             }
 
