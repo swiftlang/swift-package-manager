@@ -868,6 +868,37 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testModuleMapLayout() throws {
+       var fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/clib/include/module.modulemap",
+            "/Sources/clib/include/clib.h",
+            "/Sources/clib/clib.c")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkModule("clib") { moduleResult in
+                moduleResult.check(c99name: "clib", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
+            }
+        }
+
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/module.modulemap",
+            "/Sources/foo.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, modulemap (/Sources/module.modulemap) is not allowed to be mixed with sources fix: move the modulemap inside include directory")
+        }
+
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/module.modulemap",
+            "/Sources/Foo/foo.swift",
+            "/Sources/Bar/bar.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, modulemap (/Sources/Foo/module.modulemap) is not allowed to be mixed with sources fix: move the modulemap inside include directory")
+        }
+    }
+
     func testNoSourcesInModule() throws {
         var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
@@ -953,6 +984,7 @@ class ConventionTests: XCTestCase {
         ("testInvalidTestTargets", testInvalidTestTargets),
         ("testLooseSourceFileInTestsDir", testLooseSourceFileInTestsDir),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
+        ("testModuleMapLayout", testModuleMapLayout),
         ("testProducts", testProducts),
         ("testBadProducts", testBadProducts),
         ("testVersionSpecificManifests", testVersionSpecificManifests),
