@@ -370,8 +370,8 @@ public struct PackageBuilder {
         // Locate any directories that might be the roots of modules inside the source directory.
         let potentialModulePaths = try directoryContents(srcDir).filter(shouldConsiderDirectory)
         
-        // If there's a single module inside the source directory, make sure there are no loose source files in the sources directory.
-        if potentialModulePaths.count == 1 && potentialModulePaths[0] != srcDir {
+        // If atleast one module in the source directory, make sure there are no loose source files in the sources directory.
+        if let firstPath = potentialModulePaths.first, firstPath != srcDir {
             let invalidModuleFiles = try directoryContents(srcDir).filter(isValidSource)
             guard invalidModuleFiles.isEmpty else {
                 throw ModuleError.invalidLayout(.unexpectedSourceFiles(invalidModuleFiles.map{ $0.asString }))

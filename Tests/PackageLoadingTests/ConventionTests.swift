@@ -857,6 +857,17 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testInvalidLayout6() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/file.swift",
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.swift")
+
+        PackageBuilderTester("MyPackage", in: fs) { result in
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/file.swift fix: move the file(s) inside a module")
+        }
+    }
+
     func testNoSourcesInModule() throws {
         var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
@@ -933,6 +944,7 @@ class ConventionTests: XCTestCase {
         ("testInvalidLayout3", testInvalidLayout3),
         ("testInvalidLayout4", testInvalidLayout4),
         ("testInvalidLayout5", testInvalidLayout5),
+        ("testInvalidLayout6", testInvalidLayout5),
         ("testNoSourcesInModule", testNoSourcesInModule),
         ("testValidSources", testValidSources),
         ("testExcludes", testExcludes),
