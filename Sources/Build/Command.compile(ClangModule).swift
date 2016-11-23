@@ -134,6 +134,7 @@ extension Command {
             args += ["-c", path.source.asString, "-o", path.object.asString]
             // Add include directory in include search paths.
             args += ["-I", module.includeDir.asString]
+            args += try module.pkgConfigArgs().cFlags
 
             let clang = ClangTool(desc: "Compile \(module.name) \(path.filename.asString)",
                                   inputs: buildMeta.inputs + [path.source.asString],
