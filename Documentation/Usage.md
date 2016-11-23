@@ -13,6 +13,7 @@
   * [Handling version-specific logic](#version-specific-logic)
   * [Working on Apps and Packages Side-by-Side](#working-on-apps-and-packages-side-by-side-top-of-the-tree-development)
   * [Editable Packages](#editable-packages)
+  * [Package Pinning](#package-pinning)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
@@ -450,3 +451,68 @@ This command fails if there are uncommited changes or changes which are not push
     $ swift package unedit Foo --force
 
 You can read the Swift evolution proposal [here](https://github.com/apple/swift-evolution/blob/master/proposals/0082-swiftpm-package-edit.md).
+
+### Package Pinning
+
+Swift package manager has package pinning feature, also called _dependency locking_ in some dependency managers. Pinning refers to the practice of controlling exactly which specific version of a dependency is selected by the dependency resolution algorithm, independent from the semantic versioning specification. Thus, it is a way of instructing the package manager to select a particular version from among all of the versions of a package which could be chosen while honoring the dependency constraints. 
+
+The package manager uses a file named `Package.pins`("pins file") to record the pinning information. The exact file format is unspecified/implementation defined, however, in practice it is a JSON data file. This file may be checked into SCM by the user, so that its effects apply to all users of the package. However, it may also be maintained only locally (e.g., placed in the `.gitignore` file). We intend to leave it to package authors to decide which use case is best for their project. We will recommend that it not be checked in by library authors, at least for released versions, since pins are not inherited and thus this information may be confusing.
+
+In the presence of a top-level `Package.pins` file, the package manager will respect the pinned dependencies recorded in the file whenever it needs to do dependency resolution (e.g., on the initial checkout or when updating).
+In the absence of a top-level `Package.pins` file, the package manager will operate based purely on the requirements specified in the package manifest, but will then automatically record the choices it makes into a `Package.pins` file as part of the _automatic pinning_ feature. 
+
+#### Automatic Pinning
+
+The package manager has automatic pinning enabled by default (this is equivalent to `swift package pin --enable-autopin`). The package manager will automatically record all package dependencies in the pins file. Package project owners can choose to disable this if they wish to have more fine grained control over their pinning behavior, for e.g. pin only certain dependencies.
+
+The automatic pinning behavior works as follows:
+
+* When enabled, the package manager will write all dependency versions into the pin file after any operation which changes the set of active working dependencies (for example, if a new dependency is added).
+
+* A package author can still change the individual pinned versions using the package pin commands (explained below), these will simply update the pinned state.
+
+* Some commands do not make sense when automatic pinning is enabled; for example, it is not possible to `unpin` and attempts to do so will produce an error.
+
+Since package pin information is *not* inherited across dependencies, our recommendation is that packages which are primarily intended to be consumed by other developers either disable automatic pinning or put the `Package.pins` file into `.gitignore`, so that users are not confused why they get different versions of dependencies that are those being used by the library authors while they develop.
+
+#### Pinning Commands (Manual Pinning)
+
+1. Pinning:
+
+        $ swift package pin ( --all | <package-name> [--version <version>] ) [--message <message>]
+        
+    The `package-name` refers to the name of the package as specified in its manifest.
+        
+    This command pins one or all dependencies. The command which pins a single version can optionally take a specific version to pin to, if unspecified (or with `--all`) the behavior is to pin to the current package version in use. Examples:
+        
+   * `$ swift package pin --all` - pins all the dependencies. 
+   * `$ swift package pin Foo` - pins Foo at current resolved version.  
+   * `$ swift package pin Foo --version 1.2.3` - pins `Foo` at 1.2.3. The specified version should be valid and resolvable.  
+        
+   The `--message` option is an optional argument to document the reason for pinning a dependency. This could be helpful for user to later remember why a dependency was pinned. Example:
+        
+        $ swift package pin Foo --message "The patch updates for Foo are really unstable and need screening."
+
+2. Toggle automatic pinning:
+
+        $ swift package pin ( [--enable-autopin] | [--disable-autopin] )
+
+    These will enable or disable automatic pinning for the package (this state is recorded in the `Package.pins` file).
+
+3. Unpinning:
+
+        $ swift package unpin [<package-name>]
+
+    This is the counterpart to the pin command, and unpins packages.
+
+    Note: It is an error to attempt to unpin when automatic pinning is enabled.
+
+4. Package update with pinning:
+
+        $ swift package update [--repin]
+
+    The default behavior is to update all unpinned packages to the latest possible versions which can be resolved while respecting the existing pins.
+    
+    The `--repin` argument can be used to lift the version pinning restrictions. In this case, the behavior is that all packages are updated, and packages which were previously pinned are then repinned to the latest resolved versions.
+    
+    When automatic pinning is enabled, package update act as if `--repin` was specified.
