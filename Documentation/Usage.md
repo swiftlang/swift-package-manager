@@ -8,10 +8,11 @@
     * [Create a library package](#create-a-library-package)
     * [Create an executable package](#create-an-executable-package)
   * [Define Dependencies](#define-dependencies)
-  * [Publishing a package](#publishing-a-package)
+  * [Publish a package](#publish-a-package)
   * [Require System Libraries](#require-system-libraries)
-  * [Handling version-specific logic](#version-specific-logic)
   * [Working on Apps and Packages Side-by-Side](#working-on-apps-and-packages-side-by-side-top-of-the-tree-development)
+  * [Packaging legacy code](#packaging-legacy-code)
+  * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
   * [Package Pinning](#package-pinning)
 * [Reference](Reference.md)
@@ -79,8 +80,6 @@ To publish a package, you just have to initialize a git repository and create a 
 
 Now other packages can depend on version 1.0.0 of this package using the github url.  
 Example of a published package: https://github.com/apple/example-package-fisheryates
-
----
 
 ## Require System Libraries
 
@@ -334,7 +333,7 @@ Now go ahead and make changes in `bar`, building `foo` will pick `bar` sources f
 
     $ swift package unedit bar #--force
 
-### Packaging legacy code
+## Packaging legacy code
 
 You may be working with code that builds both as a package and not. For example, you may be packaging a project that also builds with Xcode.
 
@@ -419,7 +418,7 @@ It is *not* expected the packages would ever use this feature unless absolutely
 necessary to support existing clients. In particular, packages *should not*
 adopt this syntax for tagging versions supporting the _latest GM_ Swift version.
 
-### Editable Packages
+## Editable Packages
 
 Swift package manager supports editing dependencies, when your work requires making a change to one of your dependencies (for example, to fix a bug, or add a new API). The package manager moves the dependency into a location under `Packages/` directory where it can be edited.
 
@@ -452,7 +451,7 @@ This command fails if there are uncommited changes or changes which are not push
 
 You can read the Swift evolution proposal [here](https://github.com/apple/swift-evolution/blob/master/proposals/0082-swiftpm-package-edit.md).
 
-### Package Pinning
+## Package Pinning
 
 Swift package manager has package pinning feature, also called _dependency locking_ in some dependency managers. Pinning refers to the practice of controlling exactly which specific version of a dependency is selected by the dependency resolution algorithm, independent from the semantic versioning specification. Thus, it is a way of instructing the package manager to select a particular version from among all of the versions of a package which could be chosen while honoring the dependency constraints. 
 
@@ -461,7 +460,7 @@ The package manager uses a file named `Package.pins`("pins file") to record the 
 In the presence of a top-level `Package.pins` file, the package manager will respect the pinned dependencies recorded in the file whenever it needs to do dependency resolution (e.g., on the initial checkout or when updating).
 In the absence of a top-level `Package.pins` file, the package manager will operate based purely on the requirements specified in the package manifest, but will then automatically record the choices it makes into a `Package.pins` file as part of the _automatic pinning_ feature. 
 
-#### Automatic Pinning
+### Automatic Pinning
 
 The package manager has automatic pinning enabled by default (this is equivalent to `swift package pin --enable-autopin`). The package manager will automatically record all package dependencies in the pins file. Package project owners can choose to disable this if they wish to have more fine grained control over their pinning behavior, for e.g. pin only certain dependencies.
 
@@ -475,7 +474,7 @@ The automatic pinning behavior works as follows:
 
 Since package pin information is *not* inherited across dependencies, our recommendation is that packages which are primarily intended to be consumed by other developers either disable automatic pinning or put the `Package.pins` file into `.gitignore`, so that users are not confused why they get different versions of dependencies that are those being used by the library authors while they develop.
 
-#### Pinning Commands (Manual Pinning)
+### Pinning Commands (Manual Pinning)
 
 1. Pinning:
 
