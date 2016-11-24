@@ -91,15 +91,15 @@ public func ==(lhs: JSON, rhs: JSON) -> Bool {
 
 extension JSON {
     /// Encode a JSON item into a string of bytes.
-    public func toBytes() -> ByteString {
+    public func toBytes(prettyPrint: Bool = false) -> ByteString {
         let stream = BufferedOutputByteStream()
-        stream <<< self
+        write(to: stream, indent: prettyPrint ? 0 : nil)
         return stream.bytes
     }
     
     /// Encode a JSON item into a JSON string
-    public func toString() -> String {
-        guard let contents = self.toBytes().asString else {
+    public func toString(prettyPrint: Bool = false) -> String {
+        guard let contents = self.toBytes(prettyPrint: prettyPrint).asString else {
             fatalError("Failed to serialize JSON: \(self)")
         }
         return contents
@@ -109,6 +109,14 @@ extension JSON {
 /// Support writing to a byte stream.
 extension JSON: ByteStreamable {
     public func write(to stream: OutputByteStream) {
+        write(to: stream, indent: nil)
+    }
+
+    public func write(to stream: OutputByteStream, indent: Int?) {
+        func indentStreamable(offset: Int? = nil) -> ByteStreamable {
+            return Format.asRepeating(string: " ", count: indent.flatMap {$0 + (offset ?? 0)} ?? 0)
+        }
+        let shouldIndent = indent != nil
         switch self {
         case .null:
             stream <<< "null"
@@ -122,23 +130,22 @@ extension JSON: ByteStreamable {
         case .string(let value):
             stream <<< Format.asJSON(value)
         case .array(let contents):
-            // FIXME: OutputByteStream should just let us do this via conformances.
-            stream <<< "["
+            stream <<< "[" <<< (shouldIndent ? "\n" : "")
             for (i, item) in contents.enumerated() {
-                if i != 0 { stream <<< ", " }
-                stream <<< item
+                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
+                stream <<< indentStreamable(offset: 2)
+                item.write(to: stream, indent: indent.flatMap {$0 + 2})
             }
-            stream <<< "]"
+            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "]"
         case .dictionary(let contents):
             // We always output in a deterministic order.
-            //
-            // FIXME: OutputByteStream should just let us do this via conformances.
-            stream <<< "{"
+            stream <<< "{" <<< (shouldIndent ? "\n" : "")
             for (i, key) in contents.keys.sorted().enumerated() {
-                if i != 0 { stream <<< ", " }
-                stream <<< Format.asJSON(key) <<< ": " <<< contents[key]!
+                if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
+                stream <<<  indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": " 
+                contents[key]!.write(to: stream, indent: indent.flatMap{ $0 + 2})
             }
-            stream <<< "}"
+            stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
         }
     }
 }
