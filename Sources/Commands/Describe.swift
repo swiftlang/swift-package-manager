@@ -55,13 +55,13 @@ extension Package: JSONSerializable {
 extension Module: JSONSerializable {
 
     func describe(on stream: OutputByteStream, indent: Int = 0) {
-        stream <<< String.spaces(n: indent) <<< "Name: " <<< name <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "C99name: " <<< c99name <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "Test module: " <<< isTest.description <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "Type: " <<< type.rawValue <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "Module type: " <<< String(describing: type(of: self)) <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "Path: " <<< sources.root.asString <<< "\n"
-        stream <<< String.spaces(n: indent) <<< "Sources: " <<< sources.relativePaths.map{$0.asString}.joined(separator: ", ") <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Name: " <<< name <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "C99name: " <<< c99name <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Test module: " <<< isTest.description <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Type: " <<< type.rawValue <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Module type: " <<< String(describing: type(of: self)) <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Path: " <<< sources.root.asString <<< "\n"
+        stream <<< " ".repeating(n: indent) <<< "Sources: " <<< sources.relativePaths.map{$0.asString}.joined(separator: ", ") <<< "\n"
     }
 
     public func toJSON() -> JSON {

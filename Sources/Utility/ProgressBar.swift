@@ -96,15 +96,3 @@ public func createProgressBar(forStream stream: OutputByteStream, header: String
     }
     return SimpleProgressBar(stream: stream, header: header)
 }
-
-private extension String {
-    /// Repeats self n times. If n is less than zero, returns the same string.
-    func repeating(n: Int) -> String {
-        guard n > 0 else { return self }
-        var str = ""
-        for _ in 0..<n {
-            str = str + self
-        }
-        return str
-    }
-}

@@ -508,31 +508,21 @@ public final class ArgumentParser {
             maxWidth = maxWidthDefault
         }
 
-        /// Returns a string of n spaces.
-        func space(n: Int) -> String {
-            guard n >= 0 else { return "" }
-            var str = ""
-            for _ in 0..<n {
-                str += " "
-            }
-            return str
-        }
-
         /// Prints an argument on a stream if it has usage.
         func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
             // Start with a new line and add some padding.
-            stream <<< "\n" <<< space(n: padding)
+            stream <<< "\n" <<< " ".repeating(n: padding)
             let count = argument.characters.count
             // If the argument name is more than the set width take the whole
             // line for it, otherwise we can fit everything in one line.
             if count >= maxWidth - padding {
                 stream <<< argument <<< "\n"
                 // Align full width because we on a new line.
-                stream <<< space(n: maxWidth + padding)
+                stream <<< " ".repeating(n: maxWidth + padding)
             } else {
                 stream <<< argument
                 // Align to the remaining empty space we have.
-                stream <<< space(n: maxWidth - count)
+                stream <<< " ".repeating(n: maxWidth - count)
             }
             stream <<< usage
         }
