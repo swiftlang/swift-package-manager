@@ -74,3 +74,15 @@ public extension String {
         self = shellEscaped()
     }
 }
+
+extension String {
+    /// Repeats self n times. If n is less than zero, returns the same string.
+    public func repeating(n: Int) -> String {
+        guard n >= 0 else { return self }
+        var str = ""
+        for _ in 0..<n {
+            str = str + self
+        }
+        return str
+    }
+}
