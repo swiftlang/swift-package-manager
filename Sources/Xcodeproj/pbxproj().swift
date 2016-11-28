@@ -455,7 +455,7 @@ func xcodeProject(
                 moduleMapPath = path.appending(component: moduleMapFilename)
             }
             includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
-            targetSettings.common.MODULEMAP_FILE = moduleMapPath.relative(to: xcodeprojPath.parentDirectory).asString
+            targetSettings.common.MODULEMAP_FILE = moduleMapPath.relative(to: sourceRootDir).asString
         }
     }
     

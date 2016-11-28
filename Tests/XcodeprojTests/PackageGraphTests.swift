@@ -86,14 +86,14 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
-                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
+                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "../xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
-                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "Bar/Sources/Sea2/include/module.modulemap")
+                XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "Sources/Sea2/include/module.modulemap")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
@@ -104,6 +104,23 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
         }
+    }
+
+    func testModulemap() throws {
+      let fs = InMemoryFileSystem(emptyFiles:
+          "/Bar/Sources/Sea/include/Sea.h",
+          "/Bar/Sources/Sea/Sea.c"
+      )
+      let g = try loadMockPackageGraph([
+          "/Bar": Package(name: "Bar"),
+      ], root: "/Bar", in: fs)
+      let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+
+      XcodeProjectTester(project) { result in
+          result.check(target: "Sea") { targetResult in
+              XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, "build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
+          }
+      }
     }
 
     func testModuleLinkage() throws {
@@ -150,6 +167,7 @@ class PackageGraphTests: XCTestCase {
     
     static var allTests = [
         ("testBasics", testBasics),
+        ("testModulemap", testModulemap),
         ("testModuleLinkage", testModuleLinkage),
     ]
 }
