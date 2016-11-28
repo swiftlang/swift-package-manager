@@ -139,6 +139,9 @@ let package = Package(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "TestSupport"]),
         Target(
+            name: "PackageLoadingPerformanceTests",
+            dependencies: ["PackageLoading", "TestSupport"]),
+        Target(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "TestSupport"]),
         Target(
