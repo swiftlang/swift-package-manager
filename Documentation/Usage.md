@@ -327,7 +327,7 @@ Then remove the `bar` directory created in `Packages/` and instead create a symb
 
     $ cd Packages
     $ rm -r bar
-    $ ln -s ln -s /path/to/bar bar
+    $ ln -s /path/to/bar bar
 
 Now go ahead and make changes in `bar`, building `foo` will pick `bar` sources from the local copy of `bar` package. Once you're done editing you can unedit the package:
 
