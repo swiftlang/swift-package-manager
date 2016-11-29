@@ -16,9 +16,19 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_796"
+               BlueprintIdentifier = "OBJ_799"
                BuildableName = "BasicPerformanceTests.xctest"
                BlueprintName = "BasicPerformanceTests"
+               ReferencedContainer = "container:SwiftPM.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "OBJ_1045"
+               BuildableName = "PackageLoadingPerformanceTests.xctest"
+               BlueprintName = "PackageLoadingPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
             </BuildableReference>
          </TestableReference>
