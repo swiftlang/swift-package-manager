@@ -20,66 +20,8 @@ import TestSupport
 // FIXME: We have no @testable way to import generic structures.
 @testable import PackageGraph
 
-extension String: PackageContainerIdentifier { }
-
 private typealias MockPackageConstraint = PackageContainerConstraint<String>
 
-private enum MockLoadingError: Error {
-    case unknownModule
-}
-
-private struct MockPackageContainer: PackageContainer {
-    typealias Identifier = String
-
-    let name: Identifier
-
-    let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
-
-    var identifier: Identifier {
-        return name
-    }
-
-    var versions: [Version] {
-        return dependenciesByVersion.keys.sorted()
-    }
-
-    func getDependencies(at version: Version) -> [MockPackageConstraint] {
-        return dependenciesByVersion[version]!.map{ (name, versions) in
-            return MockPackageConstraint(container: name, versionRequirement: versions)
-        }
-    }
-}
-
-private struct MockPackagesProvider: PackageContainerProvider {
-    typealias Container = MockPackageContainer
-
-    let containers: [Container]
-    let containersByIdentifier: [Container.Identifier: Container]
-
-    init(containers: [MockPackageContainer]) {
-        self.containers = containers
-        self.containersByIdentifier = Dictionary(items: containers.map{ ($0.identifier, $0) })
-    }
-
-    func getContainer(for identifier: Container.Identifier) throws -> Container {
-        if let container = containersByIdentifier[identifier] {
-            return container
-        }
-        throw MockLoadingError.unknownModule
-    }
-}
-
-private class MockResolverDelegate: DependencyResolverDelegate {
-    typealias Identifier = MockPackageContainer.Identifier
-
-    var messages = [String]()
-
-    func added(container identifier: Identifier) {
-        messages.append("added container: \(identifier)")
-    }
-}
-
-private typealias MockDependencyResolver = DependencyResolver<MockPackagesProvider, MockResolverDelegate>
 private typealias MockVersionAssignmentSet = VersionAssignmentSet<MockPackageContainer>
 
 // Some handy ranges.
@@ -624,16 +566,4 @@ where C.Identifier == String
     for (a,b) in zip(assignments, expected) {
         XCTAssertEqual(a, b, file: file, line: line)
     }
-}
-
-func XCTAssertEqual<I: PackageContainerIdentifier>(
-    _ assignment: [(container: I, version: Version)],
-    _ expected: [I: Version],
-    file: StaticString = #file, line: UInt = #line)
-{
-    var actual = [I: Version]()
-    for (identifier, binding) in assignment {
-        actual[identifier] = binding
-    }
-    XCTAssertEqual(actual, expected, file: file, line: line)
 }
