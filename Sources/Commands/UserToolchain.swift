@@ -78,9 +78,27 @@ struct UserToolchain: Toolchain {
         return nil
     }
 
-    init() throws {
+    /// Computes search paths from PATH variable.
+    ///
+    /// - Parameters:
+    ///   - pathString: The path string to parse.
+    ///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths based on this path.
+    /// - Returns: List of search paths.
+    static func getEnvSearchPaths(pathString: String?, currentWorkingDirectory cwd: AbsolutePath) -> [AbsolutePath] {
         // Compute search paths from PATH variable.
-        let envSearchPaths = (getenv("PATH") ?? "").characters.split(separator: ":").map(String.init).map(AbsolutePath.init)
+        return (pathString ?? "").characters.split(separator: ":").map(String.init).map { pathString in
+            // If this is an absolute path, we're done.
+            if pathString.characters.first == "/" {
+                return AbsolutePath(pathString)
+            }
+            // Otherwise convert it into absolute path relative to the working directory.
+            return AbsolutePath(pathString, relativeTo: cwd)
+        }
+    }
+
+    init() throws {
+        // Get the search paths from PATH.
+        let envSearchPaths = UserToolchain.getEnvSearchPaths(pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
 
         func lookup(env: String) -> AbsolutePath? {
             return UserToolchain.lookupExecutablePath(inEnvValue: getenv(env), currentWorkingDirectory: currentWorkingDirectory, searchPaths: envSearchPaths)

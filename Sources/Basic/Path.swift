@@ -492,7 +492,7 @@ extension AbsolutePath {
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
-    precondition(string.characters.first == "/")
+    precondition(string.characters.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
     
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.

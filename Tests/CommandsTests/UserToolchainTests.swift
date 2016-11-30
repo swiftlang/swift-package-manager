@@ -46,7 +46,14 @@ final class UserToolchainTests: XCTestCase {
         }
     }
 
+    func testEnvSearchPaths() throws {
+        let cwd = AbsolutePath("/dummy")
+        let paths = UserToolchain.getEnvSearchPaths(pathString: "something:.:abc/../.build/debug:/usr/bin:/bin/", currentWorkingDirectory: cwd)
+        XCTAssertEqual(paths, ["/dummy/something", "/dummy", "/dummy/.build/debug", "/usr/bin", "/bin"].map(AbsolutePath.init))
+    }
+
     static var allTests = [
         ("testExecutableLookup", testExecutableLookup),
+        ("testEnvSearchPaths", testEnvSearchPaths),
     ]
 }
