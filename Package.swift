@@ -145,6 +145,9 @@ let package = Package(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "TestSupport"]),
         Target(
+            name: "PackageGraphPerformanceTests",
+            dependencies: ["PackageGraph", "TestSupport"]),
+        Target(
             name: "POSIXTests",
             dependencies: ["POSIX", "TestSupport"]),
         Target(
