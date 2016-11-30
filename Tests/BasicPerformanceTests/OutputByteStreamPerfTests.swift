@@ -12,11 +12,7 @@ import XCTest
 
 import Basic
 
-// FIXME: Performance tests are disabled for the time being because they have
-// too high an impact on overall testing time.
-//
-// See: https://bugs.swift.org/browse/SR-1354
-#if false
+#if ENABLE_PERF_TESTS
 
 struct ByteSequence: Sequence {
     let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
