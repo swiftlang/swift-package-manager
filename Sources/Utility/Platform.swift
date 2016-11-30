@@ -10,6 +10,7 @@
 
 import Basic
 import func POSIX.popen
+import class Foundation.ProcessInfo
 
 public enum Platform {
     case darwin
@@ -40,7 +41,7 @@ public enum Platform {
 public func platformFrameworksPath() throws -> AbsolutePath {
     // Lazily compute the platform the first time it is needed.
     struct Static {
-        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"]) }()
+        static let value = { try? POSIX.popen(["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"], environment: ProcessInfo.processInfo.environment) }()
     }
     guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
         throw Error.invalidPlatformPath
