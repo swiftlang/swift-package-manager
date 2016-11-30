@@ -12,11 +12,7 @@ import XCTest
 
 import Basic
 
-// FIXME: Performance tests are disabled for the time being because they have
-// too high an impact on overall testing time.
-//
-// See: https://bugs.swift.org/browse/SR-1354
-#if false
+#if ENABLE_PERF_TESTS
 
 class PathPerfTests: XCTestCase {
     
@@ -28,7 +24,7 @@ class PathPerfTests: XCTestCase {
         self.measure {
             var lengths = 0
             for _ in 0 ..< N {
-                let result = absPath.join(relPath)
+                let result = absPath.appending(relPath)
                 lengths = lengths &+ result.asString.utf8.count
             }
             XCTAssertEqual(lengths, (absPath.asString.utf8.count + 1 + relPath.asString.utf8.count) &* N)
@@ -36,10 +32,6 @@ class PathPerfTests: XCTestCase {
     }
     
     // FIXME: We will obviously want a lot more tests here.
-
-    static var allTests = [
-        ("testJoinPerf_X100000",         testJoinPerf_X100000),
-    ]
 }
     
 #endif
