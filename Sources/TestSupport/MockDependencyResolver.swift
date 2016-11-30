@@ -20,6 +20,36 @@ extension String: PackageContainerIdentifier { }
 
 public typealias MockPackageConstraint = PackageContainerConstraint<String>
 
+extension VersionSetSpecifier {
+    init(_ json: JSON) {
+        switch json {
+        case let .string(str):
+            switch str {
+            case "any": self = .any
+            case "empty": self = .empty
+            default: fatalError()
+            }
+        case let .array(arr):
+            guard arr.count == 2 else { fatalError() }
+            let versions = arr.map { json -> Version in
+                guard case let .string(str) = json else { fatalError() }
+                return Version(str)!
+            }
+            self = .range(versions[0] ..< versions[1])
+        default: fatalError()
+        }
+    }
+}
+
+extension PackageContainerConstraint where T == String {
+    public init(json: JSON) {
+        guard case let .dictionary(dict) = json else { fatalError() }
+        guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
+        guard let requirement = dict["requirement"] else { fatalError() }
+        self.init(container: identifier, versionRequirement: VersionSetSpecifier(requirement))
+    }
+}
+
 public enum MockLoadingError: Error {
     case unknownModule
 }
@@ -48,6 +78,22 @@ public struct MockPackageContainer: PackageContainer {
     public init(name: Identifier, dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]) {
         self.name = name
         self.dependenciesByVersion = dependenciesByVersion
+    }
+}
+
+extension MockPackageContainer {
+    public init(json: JSON) {
+        guard case let .dictionary(dict) = json else { fatalError() }
+        guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
+        guard case let .dictionary(versions)? = dict["versions"] else { fatalError() }
+
+        var depByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]] = [:]
+        for (version, deps) in versions {
+            guard case let .array(depArray) = deps else { fatalError() }
+            depByVersion[Version(version)!] = depArray.map(PackageContainerConstraint.init(json:)).map {  ($0.identifier, $0.versionRequirement) }
+        }
+
+        self.init(name: identifier, dependenciesByVersion: depByVersion)
     }
 }
 
@@ -80,6 +126,41 @@ public class MockResolverDelegate: DependencyResolverDelegate {
     }
 
     public init(){}
+}
+
+public struct MockGraph {
+
+    public let name: String
+    public let constraints: [MockPackageConstraint]
+    public let containers: [MockPackageContainer]
+    public let result: [String: Version]
+
+    public init(_ json: JSON) {
+        guard case let .dictionary(dict) = json else { fatalError() }
+        guard case let .string(name)? = dict["name"] else { fatalError() }
+        guard case let .array(constraints)? = dict["constraints"] else { fatalError() }
+        guard case let .array(containers)? = dict["containers"] else { fatalError() }
+        guard case let .dictionary(result)? = dict["result"] else { fatalError() }
+
+        self.result = Dictionary(items: result.map { (container, version) in
+            guard case let .string(str) = version else { fatalError() }
+            return (container, Version(str)!)
+        })
+        self.name = name
+        self.constraints = constraints.map(PackageContainerConstraint.init(json:))
+        self.containers = containers.map(MockPackageContainer.init(json:))
+    }
+
+    public func checkResult(_ output: [(container: String, version: Version)], file: StaticString = #file, line: UInt = #line) {
+        var result = self.result
+        for item in output {
+            XCTAssertEqual(result[item.container], item.version, file: file, line: line)
+            result[item.container] = nil
+        }
+        if !result.isEmpty {
+            XCTFail("Unchecked containers: \(result)", file: file, line: line)
+        }
+    }
 }
 
 public func XCTAssertEqual<I: PackageContainerIdentifier>(
