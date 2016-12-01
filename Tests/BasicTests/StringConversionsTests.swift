@@ -38,27 +38,7 @@ class StringConversionTests: XCTestCase {
         XCTAssertEqual("'hello\nA\"B C>D*[$;()^><'", str.shellEscaped())
     }
 
-    func testRepeating() throws {
-        // Repeating a string 0 times should be empty string.
-        XCTAssertEqual(" ".repeating(n: 0), "")
-        // Empty string.
-        XCTAssertEqual("".repeating(n: 5), "")
-        XCTAssertEqual("".repeating(n: 0), "")
-        XCTAssertEqual("".repeating(n: -1), "")
-
-        XCTAssertEqual("foo".repeating(n: -1), "foo")
-        XCTAssertEqual("foo".repeating(n: 0), "")
-        XCTAssertEqual("foo".repeating(n: 1), "foo")
-        XCTAssertEqual("foo".repeating(n: 3), "foofoofoo")
-
-        XCTAssertEqual("o".repeating(n: -1), "o")
-        XCTAssertEqual("o".repeating(n: 0), "")
-        XCTAssertEqual("o".repeating(n: 1), "o")
-        XCTAssertEqual("o".repeating(n: 3), "ooo")
-    }
-    
     static var allTests = [
         ("testShellEscaped",  testShellEscaped),
-        ("testRepeating",  testRepeating),
     ]
 }
