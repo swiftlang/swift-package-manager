@@ -26,6 +26,9 @@ public enum VersionSetSpecifier: Equatable {
     /// A non-empty range of version.
     case range(Range<Version>)
 
+    /// The exact version that is required.
+    case exact(Version)
+
     /// Compute the intersection of two set specifiers.
     public func intersection(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
         switch (self, rhs) {
@@ -45,9 +48,19 @@ public enum VersionSetSpecifier: Equatable {
             } else {
                 return .empty
             }
+        case (.exact(let v), _):
+            if rhs.contains(v) {
+                return self
+            }
+            return .empty
+        case (_, .exact(let v)):
+            if contains(v) {
+                return rhs
+            }
+            return .empty
         default:
             // FIXME: Compiler should be able to prove this? https://bugs.swift.org/browse/SR-2221
-            fatalError("not reachable")
+            fatalError("not reachable: \(self), \(rhs)")
         }
     }
 
@@ -60,6 +73,8 @@ public enum VersionSetSpecifier: Equatable {
             return range.contains(version)
         case .any:
             return true
+        case .exact(let v):
+            return v == version
         }
     }
 }
@@ -76,6 +91,10 @@ public func ==(_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
     case (.range(let lhs), .range(let rhs)):
         return lhs == rhs
     case (.range, _):
+        return false
+    case (.exact(let lhs), .exact(let rhs)):
+        return lhs == rhs
+    case (.exact, _):
         return false
     }
 }

@@ -89,6 +89,8 @@ extension VersionSetSpecifier: JSONSerializable {
             return .string("any")
         case .empty:
             return .string("empty")
+        case .exact(let version):
+            return .array([.string(version.description)])
         case .range(let range):
             var upperBound = range.upperBound
             // Patch the version representation. Ideally we should store in manifest properly.

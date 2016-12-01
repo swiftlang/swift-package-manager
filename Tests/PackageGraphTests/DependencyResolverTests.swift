@@ -356,6 +356,26 @@ class DependencyResolverTests: XCTestCase {
         XCTAssertEqual(a.requestedVersions, [v1_1])
     }
 
+    func testExactConstraint() throws {
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []])
+        ])
+        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+
+        let result = try resolver.resolve(constraints: [
+            MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
+            MockPackageConstraint(container: "A", versionRequirement: v1Range)
+        ])
+        XCTAssertEqual(result[0].version, v1)
+
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+            _ = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
+                MockPackageConstraint(container: "A", versionRequirement: v1_1Range)
+            ])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -365,6 +385,7 @@ class DependencyResolverTests: XCTestCase {
         ("testResolve", testResolve),
         ("testCompleteness", testCompleteness),
         ("testLazyResolve", testLazyResolve),
+        ("testExactConstraint", testExactConstraint),
     ]
 }
 
