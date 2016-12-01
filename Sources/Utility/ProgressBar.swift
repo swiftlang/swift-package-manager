@@ -60,7 +60,7 @@ public final class ProgressBar: ProgressBarProtocol {
     public func update(percent: Int, text: String) {
         if isClear {
             let spaceCount = (term.width/2 - header.utf8.count/2)
-            term.write(" ".repeating(n: spaceCount))
+            term.write(String(repeating: " ", count: spaceCount))
             term.write(header, inColor: .cyan, bold: true)
             term.endLine()
             isClear = false
@@ -74,7 +74,7 @@ public final class ProgressBar: ProgressBarProtocol {
         let barWidth = term.width - prefix.utf8.count
         let n = Int(Double(barWidth) * Double(percent)/100.0)
 
-        term.write("=".repeating(n: n) + "-".repeating(n: barWidth - n), inColor: .green)
+        term.write(String(repeating: "=", count: n) + String(repeating: "-", count: barWidth - n), inColor: .green)
         term.write("]", inColor: .green, bold: true)
         term.endLine()
 

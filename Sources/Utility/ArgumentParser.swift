@@ -511,18 +511,18 @@ public final class ArgumentParser {
         /// Prints an argument on a stream if it has usage.
         func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
             // Start with a new line and add some padding.
-            stream <<< "\n" <<< " ".repeating(n: padding)
+            stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
             let count = argument.characters.count
             // If the argument name is more than the set width take the whole
             // line for it, otherwise we can fit everything in one line.
             if count >= maxWidth - padding {
                 stream <<< argument <<< "\n"
                 // Align full width because we on a new line.
-                stream <<< " ".repeating(n: maxWidth + padding)
+                stream <<< Format.asRepeating(string: " ", count: maxWidth + padding)
             } else {
                 stream <<< argument
                 // Align to the remaining empty space we have.
-                stream <<< " ".repeating(n: maxWidth - count)
+                stream <<< Format.asRepeating(string: " ", count: maxWidth - count)
             }
             stream <<< usage
         }
