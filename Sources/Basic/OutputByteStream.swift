@@ -491,6 +491,26 @@ public struct Format {
     static public func asSeparatedList<T>(_ items: [T], transform: @escaping (T) -> ByteStreamable, separator: String) -> ByteStreamable {
         return TransformedSeparatedListStreamable(items: items, transform: transform, separator: separator)
     }
+
+    static public func asRepeating(string: String, count: Int) -> ByteStreamable {
+        return RepeatingStringStreamable(string: string, count: count)
+    }
+    private struct RepeatingStringStreamable: ByteStreamable {
+        let string: String
+        let count: Int
+
+        init(string: String, count: Int) {
+            precondition(count >= 0, "Count should be >= zero")
+            self.string = string
+            self.count = count
+        }
+
+        func write(to stream: OutputByteStream) {
+            for _ in 0..<count {
+                stream <<< string
+            }
+        }
+    }
 }
 
 /// Inmemory implementation of OutputByteStream.

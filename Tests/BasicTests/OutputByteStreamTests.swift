@@ -138,6 +138,24 @@ class OutputByteStreamTests: XCTestCase {
             stream <<< Format.asSeparatedList([MyThing("hello"), MyThing("world")], transform: { $0.value }, separator: ", ")
             XCTAssertEqual(stream.bytes, "hello, world")
         }
+
+        do {
+            var stream = BufferedOutputByteStream()
+            stream <<< Format.asRepeating(string: "foo", count: 1)
+            XCTAssertEqual(stream.bytes, "foo")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asRepeating(string: "foo", count: 0)
+            XCTAssertEqual(stream.bytes, "")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asRepeating(string: "x", count: 4)
+            XCTAssertEqual(stream.bytes, "xxxx")
+
+            stream = BufferedOutputByteStream()
+            stream <<< Format.asRepeating(string: "foo", count: 3)
+            XCTAssertEqual(stream.bytes, "foofoofoo")
+        }
     }
 
     func testLocalFileStream() throws {
