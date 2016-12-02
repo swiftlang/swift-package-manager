@@ -54,12 +54,15 @@ public enum MockLoadingError: Error {
     case unknownModule
 }
 
-public struct MockPackageContainer: PackageContainer {
+public final class MockPackageContainer: PackageContainer {
     public typealias Identifier = String
 
     let name: Identifier
 
     let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+
+    /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
+    public var requestedVersions: Set<Version> = []
 
     public var identifier: Identifier {
         return name
@@ -70,6 +73,7 @@ public struct MockPackageContainer: PackageContainer {
     }
 
     public func getDependencies(at version: Version) -> [MockPackageConstraint] {
+        requestedVersions.insert(version)
         return dependenciesByVersion[version]!.map{ (name, versions) in
             return MockPackageConstraint(container: name, versionRequirement: versions)
         }
@@ -82,7 +86,7 @@ public struct MockPackageContainer: PackageContainer {
 }
 
 extension MockPackageContainer {
-    public init(json: JSON) {
+    public convenience init(json: JSON) {
         guard case let .dictionary(dict) = json else { fatalError() }
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard case let .dictionary(versions)? = dict["versions"] else { fatalError() }

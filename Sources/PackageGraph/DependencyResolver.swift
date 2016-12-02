@@ -568,6 +568,10 @@ public class DependencyResolver<
     /// The resolver's delegate.
     public let delegate: Delegate
 
+    /// Contains any error encountered during dependency resolution.
+    // FIXME: @testable private
+    var error: Swift.Error?
+
     public init(_ provider: Provider, _ delegate: Delegate) {
         self.provider = provider
         self.delegate = delegate
@@ -598,9 +602,13 @@ public class DependencyResolver<
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     func resolveAssignment(constraints: [Constraint]) throws -> AssignmentSet {
         // Create an assignment for the input constraints.
-        guard let assignment = try merge(
+        guard let assignment = merge(
                 constraints: constraints, into: AssignmentSet(),
                 subjectTo: ConstraintSet(), excluding: [:]).first(where: { _ in true }) else {
+            // Throw any error encountered during resolution.
+            if let error = error {
+                throw error
+            }
             throw DependencyResolverError.unsatisfiable
         }
         return assignment
@@ -620,7 +628,6 @@ public class DependencyResolver<
     ///   - constraints: The external constraints which must be honored by the solution.
     ///   - exclusions: The list of individually excluded package versions.
     /// - Returns: A sequence of feasible solutions, starting with the most preferable.
-    /// - Throws: Only rethrows errors from the container provider.
     //
     // FIXME: This needs to a way to return information on the failure, or we
     // will need to have it call the delegate directly.
@@ -630,7 +637,7 @@ public class DependencyResolver<
         _ container: Container,
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
-    ) throws -> AnySequence<AssignmentSet> {
+    ) -> AnySequence<AssignmentSet> {
         func validVersions(_ container: Container) -> AnyIterator<Version> {
             let constraints = allConstraints[container.identifier]
             let exclusions = allExclusions[container.identifier] ?? Set()
@@ -648,15 +655,19 @@ public class DependencyResolver<
         // Attempt to select each valid version in the preferred order.
         //
         // FIXME: We must detect recursion here.
-        return try AnySequence(validVersions(container).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
+        return AnySequence(validVersions(container).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
                 // Create an assignment for this container and version.
                 var assignment = AssignmentSet()
                 assignment[container] = .version(version)
 
+                // FIXME: Making these methods throwing will kill the lazy behavior.
+                guard let constraints = self.safely({ try container.getDependencies(at: version) }) else {
+                    return AnySequence([])
+                }
                 // Get the constraints for this container version and update the
                 // assignment to include each one.
-                return AnySequence(try merge(
-                            constraints: try container.getDependencies(at: version),
+                return AnySequence(self.merge(
+                            constraints: constraints,
                             into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
                         // We found a complete valid assignment.
                         assert(result.checkIfValidAndComplete())
@@ -678,7 +689,7 @@ public class DependencyResolver<
         into assignment: AssignmentSet,
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
-    ) throws -> AnySequence<AssignmentSet> {
+    ) -> AnySequence<AssignmentSet> {
         var allConstraints = allConstraints
 
         // Update the active constraint set to include all active constraints.
@@ -703,7 +714,7 @@ public class DependencyResolver<
         // sequence is effectively one which has all of the constraints
         // merged. Thus, the reduce itself can be eager since the result is
         // lazy.
-        return try AnySequence(constraints.map{ $0.identifier }.reduce(AnySequence([(assignment, allConstraints)])) { (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+        return AnySequence(constraints.map{ $0.identifier }.reduce(AnySequence([(assignment, allConstraints)])) { (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
                     // Get the container.
                     //
                     // Failures here will immediately abort the solution, although in
@@ -713,11 +724,14 @@ public class DependencyResolver<
                     //
                     // FIXME: We want to ask for all of these containers up-front to
                     // allow for async cloning.
-                    let container = try getContainer(for: identifier)
+                    // FIXME: Making these methods throwing will kill the lazy behavior,
+                    guard let container = safely({ try getContainer(for: identifier) }) else {
+                        return AnySequence([])
+                    }
 
                     // Return a new lazy sequence merging all possible subtree solutions into all possible incoming assignments.
-                    return try AnySequence(possibleAssignments.lazy.flatMap{ (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
-                            return AnySequence(try resolveSubtree(
+                    return AnySequence(possibleAssignments.lazy.flatMap{ (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                            return AnySequence(self.resolveSubtree(
                                     container, subjectTo: allConstraints, excluding: allExclusions).lazy.flatMap{ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
                                     // We found a valid subtree assignment, attempt to merge it with the
                                     // current solution.
@@ -745,7 +759,18 @@ public class DependencyResolver<
                                     return (newAssignment, merged)
                                 })
                         })
-            }.map{ $0.0 })
+            }.lazy.map{ $0.0 })
+    }
+    
+    /// Executes the body and return the value if the body doesn't throw.
+    /// Returns nil if the body throws and save the error.
+    private func safely<T>(_ body: () throws -> T) -> T? {
+        do {
+            return try body()
+        } catch {
+            self.error = error
+        }
+        return nil
     }
 
     // MARK: Container Management

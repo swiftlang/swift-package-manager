@@ -197,24 +197,28 @@ class DependencyResolverTests: XCTestCase {
 
             // Check the unconstrained solution.
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ConstraintSet(), excluding: [:]),
+                resolver.resolveSubtree(a, subjectTo: ConstraintSet(), excluding: [:]),
                 [
                     ["A": v2, "B": v1],
                     ["A": v1, "B": v1],
                 ])
+            XCTAssertNil(resolver.error)
 
             // Check when constraints prevents a specific version.
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ["A": v1Range]),
+                resolver.resolveSubtree(a, subjectTo: ["A": v1Range]),
                 [["A": v1, "B": v1]])
+            XCTAssertNil(resolver.error)
 
             // Check when constraints prevent resolution.
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ["A": v0_0_0Range]),
+                resolver.resolveSubtree(a, subjectTo: ["A": v0_0_0Range]),
                 [])
+            XCTAssertNil(resolver.error)
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
+                resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
                 [])
+            XCTAssertNil(resolver.error)
         }
 
         // Check respect for the constraints induced by the initial package.
@@ -227,15 +231,16 @@ class DependencyResolverTests: XCTestCase {
             let resolver = MockDependencyResolver(provider, delegate)
 
             // Check that this throws, because we try to fetch "B".
-            XCTAssertThrows(MockLoadingError.unknownModule) {
-                _ = try resolver.resolveSubtree(a)
-            }
+            let _ = resolver.resolveSubtree(a).map{$0}
+            XCTAssertEqual(resolver.error as? MockLoadingError, MockLoadingError.unknownModule)
+            resolver.error = nil
 
             // Check that this works, because we skip ever trying the version
             // referencing "C" because the it is unsatisfiable.
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
+                resolver.resolveSubtree(a, subjectTo: ["B": v0_0_0Range]),
                 [["A": v1]])
+            XCTAssertNil(resolver.error)
         }
 
         // Check when a subtree is unsolvable.
@@ -250,8 +255,9 @@ class DependencyResolverTests: XCTestCase {
             let resolver = MockDependencyResolver(provider, delegate)
 
             XCTAssertEqual(
-                try resolver.resolveSubtree(a, subjectTo: ["C": v0_0_0Range]),
+                resolver.resolveSubtree(a, subjectTo: ["C": v0_0_0Range]),
                 [["A": v1]])
+            XCTAssertNil(resolver.error)
         }
 
         // Check when a subtree can't be merged.
@@ -276,11 +282,12 @@ class DependencyResolverTests: XCTestCase {
             let resolver = MockDependencyResolver(provider, delegate)
 
             XCTAssertEqual(
-                try resolver.resolveSubtree(a),
+                resolver.resolveSubtree(a),
                 [
                     ["A": v2, "B": v1, "C": v1, "D": v1],
                     ["A": v1]
                 ])
+            XCTAssertNil(resolver.error)
         }
     }
 
@@ -337,6 +344,18 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testLazyResolve() throws {
+        // Make sure that we don't ask for dependencies of versions we don't need to resolve.
+        let a = MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []])
+        let provider = MockPackagesProvider(containers: [a])
+        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+        let result = try resolver.resolve(constraints: [
+            MockPackageConstraint(container: "A", versionRequirement: v1Range),
+        ])
+        XCTAssertEqual(result[0].version, v1_1)
+        XCTAssertEqual(a.requestedVersions, [v1_1])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -345,6 +364,7 @@ class DependencyResolverTests: XCTestCase {
         ("testResolveSubtree", testResolveSubtree),
         ("testResolve", testResolve),
         ("testCompleteness", testCompleteness),
+        ("testLazyResolve", testLazyResolve),
     ]
 }
 
@@ -502,8 +522,8 @@ private extension DependencyResolver {
         _ container: Container,
         subjectTo allConstraints: [Identifier: VersionSetSpecifier] = [:],
         excluding exclusions: [Identifier: Set<Version>] = [:]
-    ) throws -> AnySequence<AssignmentSet> {
-        return try resolveSubtree(container, subjectTo: ConstraintSet(allConstraints), excluding: exclusions)
+    ) -> AnySequence<AssignmentSet> {
+        return resolveSubtree(container, subjectTo: ConstraintSet(allConstraints), excluding: exclusions)
     }
 }
 
