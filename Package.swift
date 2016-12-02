@@ -133,6 +133,9 @@ let package = Package(
             name: "FunctionalTests",
             dependencies: ["Basic", "Utility", "PackageModel", "TestSupport"]),
         Target(
+            name: "FunctionalPerformanceTests",
+            dependencies: ["swift-build", "swift-package", "TestSupport"]),
+        Target(
             name: "GetTests",
             dependencies: ["Get", "TestSupport"]),
         Target(
