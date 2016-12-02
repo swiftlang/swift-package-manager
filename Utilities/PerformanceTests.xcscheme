@@ -16,7 +16,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_799"
+               BlueprintIdentifier = "OBJ_807"
                BuildableName = "BasicPerformanceTests.xctest"
                BlueprintName = "BasicPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
@@ -26,7 +26,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_1020"
+               BlueprintIdentifier = "OBJ_1030"
                BuildableName = "PackageGraphPerformanceTests.xctest"
                BlueprintName = "PackageGraphPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
@@ -36,9 +36,19 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_1077"
+               BlueprintIdentifier = "OBJ_1087"
                BuildableName = "PackageLoadingPerformanceTests.xctest"
                BlueprintName = "PackageLoadingPerformanceTests"
+               ReferencedContainer = "container:SwiftPM.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "OBJ_945"
+               BuildableName = "FunctionalPerformanceTests.xctest"
+               BlueprintName = "FunctionalPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
             </BuildableReference>
          </TestableReference>
