@@ -89,7 +89,7 @@ struct ClangModuleBuildMetadata {
 
     /// Basic flags needed to compile this module.
     func basicCompileArgs() throws -> [String] {
-        return try ClangModuleBuildMetadata.basicArgs() + ["-fobjc-arc", "-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
+        return try ClangModuleBuildMetadata.basicArgs() + ["-fobjc-arc", "-fblocks", "-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
     }
 
     /// Flags to link the C language dependencies of this module.
