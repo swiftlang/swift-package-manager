@@ -30,12 +30,18 @@ extension VersionSetSpecifier {
             default: fatalError()
             }
         case let .array(arr):
-            guard arr.count == 2 else { fatalError() }
-            let versions = arr.map { json -> Version in
-                guard case let .string(str) = json else { fatalError() }
-                return Version(str)!
+            switch arr.count {
+            case 1:
+                guard case let .string(str) = arr[0] else { fatalError() }
+                self = .exact(Version(str)!)
+            case 2: 
+                let versions = arr.map { json -> Version in
+                    guard case let .string(str) = json else { fatalError() }
+                    return Version(str)!
+                }
+                self = .range(versions[0] ..< versions[1])
+            default: fatalError()
             }
-            self = .range(versions[0] ..< versions[1])
         default: fatalError()
         }
     }
