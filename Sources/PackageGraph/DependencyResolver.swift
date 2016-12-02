@@ -751,7 +751,7 @@ public class DependencyResolver<
     // MARK: Container Management
 
     /// The active set of managed containers.
-    private var containers: [Identifier: Container] = [:]
+    public private(set) var containers: [Identifier: Container] = [:]
 
     /// Get the container for the given identifier, loading it if necessary.
     private func getContainer(for identifier: Identifier) throws -> Container {

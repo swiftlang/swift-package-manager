@@ -297,7 +297,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "Fetch package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-        parser.add(subparser: PackageMode.resolve.rawValue, overview: "")
+
+        let resolveParser = parser.add(subparser: PackageMode.resolve.rawValue, overview: "")
+        binder.bind(
+            option: resolveParser.add(
+                option: "--type", kind: PackageToolOptions.ResolveToolMode.self,
+                usage: "text|json"),
+            to: { $0.resolveToolMode = $1 })
+
         let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
         binder.bind(
             option: updateParser.add(
@@ -424,6 +431,12 @@ public class PackageToolOptions: ToolOptions {
 
     /// Repin the dependencies when running package update.
     var repin = false
+
+    enum ResolveToolMode: String, StringEnumArgument {
+        case text
+        case json
+    }
+    var resolveToolMode: ResolveToolMode = .text
 }
 
 public enum PackageMode: String, StringEnumArgument {

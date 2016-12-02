@@ -11,6 +11,7 @@
 import Basic
 import PackageGraph
 import SourceControl
+import struct Utility.Version
 
 private class ResolverToolDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
@@ -46,15 +47,73 @@ extension SwiftPackageTool {
             RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange)) }
         let result = try resolver.resolve(constraints: constraints)
 
-        print("Resolved dependencies for: \(manifest.name)")
-        for (container, version) in result {
-            // FIXME: It would be nice to show the reference path, should we get
-            // that back or do we need to re-derive it?
+        switch opts.resolveToolMode {
+        case .text:
+            print("Resolved dependencies for: \(manifest.name)")
+            for (container, version) in result {
+                // FIXME: It would be nice to show the reference path, should we get
+                // that back or do we need to re-derive it?
 
-            // FIXME: It would be nice to show information on the resulting
-            // constraints, e.g., how much latitude do we have on particular
-            // dependencies.
-            print("  \(container.url): \(version)")
+                // FIXME: It would be nice to show information on the resulting
+                // constraints, e.g., how much latitude do we have on particular
+                // dependencies.
+                print("  \(container.url): \(version)")
+            }
+        case .json:
+            let json = JSON.dictionary([
+                "name": .string(manifest.name),
+                "constraints": .array(constraints.map{$0.toJSON()}),
+                "containers": .array(resolver.containers.values.map{$0.toJSON()}),
+                "result": .dictionary(Dictionary(items: result.map{($0.0.url, JSON.string($0.1.description))})),
+            ])
+            print(json.toString())
         }
+    }
+}
+
+// MARK:- JSON Convertible
+
+extension PackageContainerConstraint where T == RepositorySpecifier {
+    public func toJSON() -> JSON {
+        return .dictionary([
+            "identifier": .string(identifier.url),
+            "requirement": versionRequirement.toJSON(),
+        ])
+    }
+}
+
+extension VersionSetSpecifier: JSONSerializable {
+    public func toJSON() -> JSON {
+        switch self {
+        case .any:
+            return .string("any")
+        case .empty:
+            return .string("empty")
+        case .range(let range):
+            var upperBound = range.upperBound
+            // Patch the version representation. Ideally we should store in manifest properly.
+            if upperBound.minor == .max && upperBound.patch == .max {
+                upperBound = Version(upperBound.major+1,0,0)
+            }
+            if upperBound.minor != .max && upperBound.patch == .max {
+                upperBound = Version(upperBound.major,upperBound.minor+1,0)
+            }
+            return .array([range.lowerBound, upperBound].map { .string($0.description) })
+        }
+    }
+}
+
+extension RepositoryPackageContainer: JSONSerializable {
+    public func toJSON() -> JSON {
+        let depByVersions = versions.flatMap { version -> (String, JSON)? in
+            // Ignore if we can't load the dependencies.
+            guard let deps = try? getDependencies(at: version) else { return nil }
+            return (version.description, JSON.array(deps.map { $0.toJSON() }))
+        }
+
+        return .dictionary([
+            "identifier": .string(identifier.url),
+            "versions": .dictionary(Dictionary(items: depByVersions)),
+        ])
     }
 }
