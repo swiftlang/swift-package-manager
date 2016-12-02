@@ -1,0 +1,204 @@
+{
+    "constraints": [
+        {
+            "identifier": "https://github.com/Carthage/Commandant.git",
+            "requirement": [
+                "0.11.3",
+                "0.12.0"
+            ]
+        },
+        {
+            "identifier": "https://github.com/drmohundro/SWXMLHash.git",
+            "requirement": [
+                "3.0.3",
+                "3.0.4"
+            ]
+        },
+        {
+            "identifier": "https://github.com/jpsim/Yams.git",
+            "requirement": [
+                "0.1.2",
+                "0.1.3"
+            ]
+        },
+        {
+            "identifier": "https://github.com/norio-nomura/Clang_C.git",
+            "requirement": [
+                "1.0.0",
+                "2.0.0"
+            ]
+        },
+        {
+            "identifier": "https://github.com/norio-nomura/SourceKit.git",
+            "requirement": [
+                "1.0.0",
+                "2.0.0"
+            ]
+        }
+    ],
+    "containers": [
+        {
+            "identifier": "https://github.com/jpsim/Yams.git",
+            "versions": {
+                "0.1.0": [],
+                "0.1.1": [],
+                "0.1.2": []
+            }
+        },
+        {
+            "identifier": "https://github.com/norio-nomura/SourceKit.git",
+            "versions": {
+                "1.0.0": [],
+                "1.0.1": []
+            }
+        },
+        {
+            "identifier": "https://github.com/antitypical/Result.git",
+            "versions": {
+                "1.0.2": [],
+                "2.0.0": [],
+                "2.1.0": [],
+                "2.1.1": [],
+                "2.1.2": [],
+                "2.1.3": [],
+                "3.0.0": [],
+                "3.0.0-alpha.1": [],
+                "3.0.0-alpha.2": [],
+                "3.0.0-alpha.3": [],
+                "3.0.0-alpha.4": [],
+                "3.1.0": []
+            }
+        },
+        {
+            "identifier": "https://github.com/drmohundro/SWXMLHash.git",
+            "versions": {
+                "1.1.2": [],
+                "2.1.0": [],
+                "2.2.0": [],
+                "2.3.0": [],
+                "2.3.1": [],
+                "2.3.2": [],
+                "2.4.0": [],
+                "2.4.1": [],
+                "2.4.2": [],
+                "2.4.3": [],
+                "2.4.4": [],
+                "2.4.5": [],
+                "2.5.0": [],
+                "2.5.1": [],
+                "3.0.0": [],
+                "3.0.1": [],
+                "3.0.2": [],
+                "3.0.3": []
+            }
+        },
+        {
+            "identifier": "https://github.com/norio-nomura/Clang_C.git",
+            "versions": {
+                "1.0.0": [],
+                "1.0.1": [],
+                "1.0.2": []
+            }
+        },
+        {
+            "identifier": "https://github.com/Carthage/Commandant.git",
+            "versions": {
+                "0.10.0": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "2.0.0",
+                            "3.0.0"
+                        ]
+                    }
+                ],
+                "0.10.1": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "2.0.0",
+                            "2.0.1"
+                        ]
+                    }
+                ],
+                "0.11.0-alpha.1": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "3.0.0-alpha.4",
+                            "3.0.1"
+                        ]
+                    },
+                    {
+                        "identifier": "https://github.com/norio-nomura/Nimble",
+                        "requirement": [
+                            "5.0.0-alpha.30p6",
+                            "5.0.1"
+                        ]
+                    },
+                    {
+                        "identifier": "https://github.com/norio-nomura/Quick",
+                        "requirement": [
+                            "0.10.0-alpha.2",
+                            "0.10.1"
+                        ]
+                    }
+                ],
+                "0.11.1": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "3.0.0",
+                            "3.1.0"
+                        ]
+                    }
+                ],
+                "0.11.2": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "3.0.0",
+                            "3.1.0"
+                        ]
+                    }
+                ],
+                "0.11.3": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "3.0.0",
+                            "4.0.0"
+                        ]
+                    }
+                ],
+                "0.8.3": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "1.0.0",
+                            "2.0.0"
+                        ]
+                    }
+                ],
+                "0.9.0": [
+                    {
+                        "identifier": "https://github.com/antitypical/Result.git",
+                        "requirement": [
+                            "1.0.0",
+                            "2.0.0"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "name": "SourceKitten",
+    "result": {
+        "https://github.com/Carthage/Commandant.git": "0.11.3",
+        "https://github.com/antitypical/Result.git": "3.1.0",
+        "https://github.com/drmohundro/SWXMLHash.git": "3.0.3",
+        "https://github.com/jpsim/Yams.git": "0.1.2",
+        "https://github.com/norio-nomura/Clang_C.git": "1.0.2",
+        "https://github.com/norio-nomura/SourceKit.git": "1.0.1"
+    }
+}

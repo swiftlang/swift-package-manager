@@ -120,6 +120,43 @@ class DependencyResolverPerfTests: XCTestCase {
             }
         }
     }
+
+    func testKitura() throws {
+        try runPackageTest(name: "kitura.json")
+    }
+
+    func testZewoHTTPServer() throws {
+        try runPackageTest(name: "ZewoHTTPServer.json")
+    }
+
+    func testPerfectHTTPServer() throws {
+        try runPackageTest(name: "PerfectHTTPServer.json")
+    }
+
+    func testSourceKitten_X100() throws {
+        try runPackageTest(name: "SourceKitten.json", N: 100)
+    }
+    
+    func runPackageTest(name: String, N: Int = 0) throws {
+        let N = 100
+        let graph = try mockGraph(for: name)
+        let provider = MockPackagesProvider(containers: graph.containers)
+        
+        measure {
+            for _ in 0 ..< N {
+                let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+                let result = try! resolver.resolve(constraints: graph.constraints)
+                graph.checkResult(result)
+            }
+        }
+    }
+
+    func mockGraph(for name: String) throws -> MockGraph {
+        let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: name)
+        let jsonString = try localFileSystem.readFileContents(input)
+        let json = try JSON(bytes: jsonString)
+        return MockGraph(json)
+    }
 }
 
 /// Create dummpy graph with depth X breadth nodes.
