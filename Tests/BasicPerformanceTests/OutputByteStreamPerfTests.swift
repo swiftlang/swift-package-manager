@@ -190,6 +190,32 @@ class OutputByteStreamPerfTests: XCTestCase {
             }
         }
     }
+
+    func testJSONToString_X100() {
+        let foo = JSON.dictionary([
+            "foo": .string("bar"),
+            "bar": .int(2),
+            "baz": .array([1, 2, 3].map(JSON.int)),
+            ])
+
+        let bar = JSON.dictionary([
+            "poo": .array([foo, foo, foo]),
+            "foo": .int(1),
+            ])
+
+        let baz = JSON.dictionary([
+            "poo": .array([foo, bar, foo]),
+            "foo": .int(1),
+            ])
+
+        let json = JSON.array((0..<100).map { _ in baz })
+        measure {
+            for _ in 0..<100 {
+                let result = json.toString()
+                XCTAssertGreaterThan(result.utf8.count, 10)
+            }
+        }
+    }
 }
 
 #endif
