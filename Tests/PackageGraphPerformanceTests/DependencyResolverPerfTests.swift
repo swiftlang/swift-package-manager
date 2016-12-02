@@ -137,8 +137,7 @@ class DependencyResolverPerfTests: XCTestCase {
         try runPackageTest(name: "SourceKitten.json", N: 100)
     }
     
-    func runPackageTest(name: String, N: Int = 0) throws {
-        let N = 100
+    func runPackageTest(name: String, N: Int = 1) throws {
         let graph = try mockGraph(for: name)
         let provider = MockPackagesProvider(containers: graph.containers)
         
