@@ -57,10 +57,16 @@ public final class ProgressBar: ProgressBarProtocol {
         self.isClear = true
     }
 
+    /// Creates repeating string for count times.
+    /// If count is negative, returns empty string.
+    private func repeating(string: String, count: Int) -> String {
+        return String(repeating: string, count: max(count, 0))
+    }
+
     public func update(percent: Int, text: String) {
         if isClear {
             let spaceCount = (term.width/2 - header.utf8.count/2)
-            term.write(String(repeating: " ", count: spaceCount))
+            term.write(repeating(string: " ", count: spaceCount))
             term.write(header, inColor: .cyan, bold: true)
             term.endLine()
             isClear = false
@@ -74,7 +80,7 @@ public final class ProgressBar: ProgressBarProtocol {
         let barWidth = term.width - prefix.utf8.count
         let n = Int(Double(barWidth) * Double(percent)/100.0)
 
-        term.write(String(repeating: "=", count: n) + String(repeating: "-", count: barWidth - n), inColor: .green)
+        term.write(repeating(string: "=", count: n) + repeating(string: "-", count: barWidth - n), inColor: .green)
         term.write("]", inColor: .green, bold: true)
         term.endLine()
 
