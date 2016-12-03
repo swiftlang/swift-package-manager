@@ -25,7 +25,7 @@ public class ToolOptions {
     public var colorMode: ColorWrap.Mode = .Auto
 
     /// If the new resolver should be enabled.
-    public var enableNewResolver: Bool = false
+    public var enableNewResolver: Bool = true
 
     /// If print version option was passed.
     public var printVersion: Bool = false

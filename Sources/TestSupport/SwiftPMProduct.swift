@@ -109,7 +109,7 @@ public enum SwiftPMProduct {
     }
 
     /// Set this to true to run tests with new resolver.
-    public static var enableNewResolver = false
+    public static var enableNewResolver = true
 
     public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
         // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
