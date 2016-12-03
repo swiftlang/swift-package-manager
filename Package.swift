@@ -189,6 +189,6 @@ products.append(
     Product(
         name: "SwiftPM",
         type: .Library(.Dynamic),
-        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj"]
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Commands"]
     )
 )
