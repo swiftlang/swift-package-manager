@@ -28,14 +28,14 @@ class VersionSpecificTests: XCTestCase {
             initGitRepo(depPath)
             let repo = GitRepository(path: depPath)
 
-            // Create the initial version (works, but empty).
+            // Create the initial commit.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
                 $0 <<< "let package = Package(name: \"Dep\")\n"
             }
             try repo.stage(file: "Package.swift")
-            try repo.commit(message: "Initial v1.0.0")
-            try repo.tag(name: "1.0.0")
+            try repo.commit(message: "Initial")
+            try repo.tag(name: "initialtag")
 
             // Create the version to test against.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
