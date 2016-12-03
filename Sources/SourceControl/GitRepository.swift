@@ -304,8 +304,8 @@ public class GitRepository: Repository, WorkingCheckout {
             // just a safety measure for now.
             let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
             do {
-                try system(args: [Git.tool, "-C", path.asString, "diff"] + diffArgs)
-                try system(args: [Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs)
+                try system(args: [Git.tool, "-C", path.asString, "diff"] + diffArgs, quietly: true)
+                try system(args: [Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs, quietly: true)
             } catch {
                 return true
             }
@@ -456,7 +456,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Runs the command in the serial queue and runs the completion closure if present.
     private func runCommandQuietly(_ command: [String], completion: (() -> Void)? = nil) throws {
         try queue.sync {
-            try system(args: command)
+            try system(args: command, quietly: true)
             completion?()
         }
     }

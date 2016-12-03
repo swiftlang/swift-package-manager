@@ -105,7 +105,7 @@ public func system(_ arguments: String..., environment: [String:String] = [:], m
     try system(args: arguments, environment: environment, message: message)
 }
 
-public func system(args arguments: [String], environment: [String:String] = [:], message: String? = nil) throws {
+public func system(args arguments: [String], environment: [String:String] = [:], message: String? = nil, quietly: Bool = false) throws {
     var out = ""
     do {
         if Utility.verbosity == .concise {
@@ -120,7 +120,7 @@ public func system(args arguments: [String], environment: [String:String] = [:],
             try system(arguments, environment: environment)
         }
     } catch {
-        if verbosity == .concise {
+        if verbosity == .concise && !quietly {
             print(prettyArguments(arguments, for: .stdOut), to: &stderr)
             print(out, to: &stderr)
         }
