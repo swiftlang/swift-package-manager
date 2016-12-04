@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 import XCTest
+import Dispatch
 
 import Basic
 import PackageGraph
@@ -118,11 +119,10 @@ public struct MockPackagesProvider: PackageContainerProvider {
         self.containersByIdentifier = Dictionary(items: containers.map{ ($0.identifier, $0) })
     }
 
-    public func getContainer(for identifier: Container.Identifier) throws -> Container {
-        if let container = containersByIdentifier[identifier] {
-            return container
+    public func getContainer(for identifier: Container.Identifier, completion: @escaping (Result<Container, AnyError>) -> Void) {
+        DispatchQueue.global().async {
+            completion(self.containersByIdentifier[identifier].map(Result.init) ?? Result(MockLoadingError.unknownModule))
         }
-        throw MockLoadingError.unknownModule
     }
 }
 

@@ -131,6 +131,16 @@ class DependencyResolverPerfTests: XCTestCase {
             }
         }
     }
+
+    func testResolutionWithGitRepositoriesAndPrefetching() {
+        mktmpdir { path in
+            let testHelper = try GitRepositoryResolutionHelper(path)
+            measure {
+                let result = testHelper.resolve(enablePrefetching: true)
+                XCTAssertEqual(result.count, 5)
+            }
+        }
+    }
 }
 
 class DependencyResolverRealWorldPerfTests: XCTestCase {
@@ -251,12 +261,12 @@ struct GitRepositoryResolutionHelper {
         }
     }
 
-    func resolve() -> [(container: RepositorySpecifier, version: Version)] {
+    func resolve(enablePrefetching: Bool = false) -> [(container: RepositorySpecifier, version: Version)] {
         let repositoriesPath = path.appending(component: "repositories")
         _ = try? systemQuietly(["rm", "-r", repositoriesPath.asString])
         let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())
         let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: manifestGraph.manifestLoader)
-        let resolver = DependencyResolver(containerProvider, DummyResolverDelegate())
+        let resolver = DependencyResolver(containerProvider, DummyResolverDelegate(), enablePrefetching: enablePrefetching)
         let result = try! resolver.resolve(constraints: constraints)
         return result
     }

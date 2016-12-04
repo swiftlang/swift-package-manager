@@ -566,7 +566,7 @@ public class Workspace {
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
-        let container = try containerProvider.getContainer(for: specifier)
+        let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
         guard let tag = container.getTag(for: version) else {
             fatalError("Resolved version: \(version) not found for \(specifier).")
         }

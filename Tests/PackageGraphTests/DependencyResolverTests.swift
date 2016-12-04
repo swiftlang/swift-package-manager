@@ -232,7 +232,13 @@ class DependencyResolverTests: XCTestCase {
 
             // Check that this throws, because we try to fetch "B".
             let _ = resolver.resolveSubtree(a).map{$0}
-            XCTAssertEqual(resolver.error as? MockLoadingError, MockLoadingError.unknownModule)
+            if case let error as AnyError = resolver.error,
+               case let actualError as MockLoadingError = error.underlyingError {
+                XCTAssertEqual(actualError, MockLoadingError.unknownModule)
+            } else {
+                XCTFail("Unexpected or no error in resolver \(resolver.error.debugDescription)")
+            }
+
             resolver.error = nil
 
             // Check that this works, because we skip ever trying the version
@@ -416,7 +422,7 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
                 guard case let .version(version)? = assignment[identifier] else {
                     fatalError("unexpected assignment")
                 }
-                let container = try! resolver.provider.getContainer(for: identifier)
+                let container = try! await { resolver.provider.getContainer(for: identifier, completion: $0) }
                 return [identifier] + container.getDependencies(at: version).map{ $0.identifier }
             })
         for (container, _) in assignment {
