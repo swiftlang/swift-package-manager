@@ -23,8 +23,7 @@ enum DescribeMode: String {
 func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) {
     switch mode {
     case .json:
-        // FIXME: Pretty print support would be nice.
-        stream <<< package.toJSON().toString() <<< "\n"
+        stream <<< package.toJSON().toString(prettyPrint: true) <<< "\n"
     case .text:
         package.describe(on: stream)
     }

@@ -179,8 +179,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .dumpPackage:
             let manifest = try loadRootManifest(options)
-            // FIXME: It would be nice if this has a pretty print option.
-            print(manifest.jsonString())
+            print(try manifest.jsonString())
         case .help:
             parser.printUsage(on: stdoutStream)
         case .pin:
