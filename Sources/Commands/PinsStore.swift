@@ -181,7 +181,7 @@ extension PinsStore {
         data["pins"] = .array(pins.sorted{ $0.package < $1.package  }.map{ $0.toJSON() })
         data["autoPin"] = .bool(autoPin)
         // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(pinsFile, bytes: JSON.dictionary(data).toBytes())
+        try fileSystem.writeFileContents(pinsFile, bytes: JSON.dictionary(data).toBytes(prettyPrint: true))
     }
 }
 

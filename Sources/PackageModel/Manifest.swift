@@ -64,7 +64,8 @@ extension Manifest {
     /// Returns JSON representation of this manifest.
     // Note: Right now we just return the JSON representation of the package,
     // but this can be expanded to include the details about manifest too.
-    public func jsonString() -> String {
-        return PackageDescription.jsonString(package: package)
+    public func jsonString() throws -> String {
+        // FIXME: It is unfortunate to re-parse the JSON string.
+        return try JSON(string: PackageDescription.jsonString(package: package)).toString(prettyPrint: true)
     }
 }
