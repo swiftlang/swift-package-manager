@@ -303,58 +303,68 @@ final class WorkspaceTests: XCTestCase {
                 ]
             )
             let delegate = TestWorkspaceDelegate()
-            // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-
-            // Turn off auto pinning.
-            try workspace.pinsStore.setAutoPin(on: false)
-            // Ensure delegates haven't been called yet.
-            XCTAssert(delegate.fetched.isEmpty)
-            XCTAssert(delegate.cloned.isEmpty)
-            XCTAssert(delegate.checkedOut.isEmpty)
-            XCTAssert(delegate.removed.isEmpty)
-
-            // Load the package graph.
-            var graph = try workspace.loadPackageGraph()
-
-            // Test the delegates.
-            XCTAssert(delegate.fetched.count == 2)
-            XCTAssert(delegate.cloned.count == 2)
-            XCTAssert(delegate.removed.isEmpty)
-            for (_, repoPath) in manifestGraph.repos {
-                XCTAssert(delegate.fetched.contains(repoPath.url))
-                XCTAssert(delegate.cloned.contains(repoPath.url))
-                XCTAssertEqual(delegate.checkedOut[repoPath.url], "1.0.0")
-            }
-
-            // Validate the graph has the correct basic structure.
-            XCTAssertEqual(graph.packages.count, 3)
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
-
             let repoPath = AbsolutePath(manifestGraph.repo("A").url)
 
-            let file = repoPath.appending(component: "update.swift")
-            try systemQuietly(["touch", file.asString])
-            let testRepo = GitRepository(path: repoPath)
-            try testRepo.stageEverything()
-            try testRepo.commit(message: "update")
-            try testRepo.tag(name: "1.0.1")
-
-            try workspace.updateDependencies()
-            // Test the delegates after update.
-            XCTAssert(delegate.fetched.count == 2)
-            XCTAssert(delegate.cloned.count == 2)
-            for (_, repoPath) in manifestGraph.repos {
-                XCTAssert(delegate.fetched.contains(repoPath.url))
-                XCTAssert(delegate.cloned.contains(repoPath.url))
+            func createWorkspace() throws -> Workspace {
+                return  try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
             }
-            XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
-            XCTAssertEqual(delegate.removed, [manifestGraph.repo("AA").url])
 
-            graph = try workspace.loadPackageGraph()
-            XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
-            XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
-            XCTAssertEqual(delegate.removed.sorted(), [manifestGraph.repo("AA").url])
+            do {
+                // Create the workspace.
+                let workspace = try createWorkspace()
+
+                // Turn off auto pinning.
+                try workspace.pinsStore.setAutoPin(on: false)
+                // Ensure delegates haven't been called yet.
+                XCTAssert(delegate.fetched.isEmpty)
+                XCTAssert(delegate.cloned.isEmpty)
+                XCTAssert(delegate.checkedOut.isEmpty)
+                XCTAssert(delegate.removed.isEmpty)
+
+                // Load the package graph.
+                let graph = try workspace.loadPackageGraph()
+
+                // Test the delegates.
+                XCTAssert(delegate.fetched.count == 2)
+                XCTAssert(delegate.cloned.count == 2)
+                XCTAssert(delegate.removed.isEmpty)
+                for (_, repoPath) in manifestGraph.repos {
+                    XCTAssert(delegate.fetched.contains(repoPath.url))
+                    XCTAssert(delegate.cloned.contains(repoPath.url))
+                    XCTAssertEqual(delegate.checkedOut[repoPath.url], "1.0.0")
+                }
+
+                // Validate the graph has the correct basic structure.
+                XCTAssertEqual(graph.packages.count, 3)
+                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
+
+
+                let file = repoPath.appending(component: "update.swift")
+                try systemQuietly(["touch", file.asString])
+                let testRepo = GitRepository(path: repoPath)
+                try testRepo.stageEverything()
+                try testRepo.commit(message: "update")
+                try testRepo.tag(name: "1.0.1")
+            }
+
+            do {
+                let workspace = try createWorkspace()
+                try workspace.updateDependencies()
+                // Test the delegates after update.
+                XCTAssert(delegate.fetched.count == 2)
+                XCTAssert(delegate.cloned.count == 2)
+                for (_, repoPath) in manifestGraph.repos {
+                    XCTAssert(delegate.fetched.contains(repoPath.url))
+                    XCTAssert(delegate.cloned.contains(repoPath.url))
+                }
+                XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
+                XCTAssertEqual(delegate.removed, [manifestGraph.repo("AA").url])
+
+                let graph = try workspace.loadPackageGraph()
+                XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
+                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+                XCTAssertEqual(delegate.removed.sorted(), [manifestGraph.repo("AA").url])
+            }
         }
     }
 
