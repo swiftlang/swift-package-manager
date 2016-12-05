@@ -60,11 +60,19 @@ public class RepositoryManager {
         /// from its remote. The advantage of having a serial queue in handle is that we don't have to worry about multiple lookups on the same handle as they will be queued automatically.
         fileprivate let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repohandle-serial")
 
+        /// If the repository needs to be fetched, due to being possibly outdated.
+        ///
+        /// If we have just created this handle, we don't need to fetch the repository handled
+        /// by this instance. If we're loading this handle from a saved state, it may be possible that
+        /// the copy on disk has become outdated and we should fetch it from remote.
+        fileprivate var needsFetch: Bool
+
         /// Create a handle.
         fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
+            self.needsFetch = false
         }
 
         /// Create a handle from JSON data.
@@ -80,6 +88,7 @@ public class RepositoryManager {
             self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpath)
             self.status = status
+            self.needsFetch = true
         }
         
         /// Open the given repository.
@@ -173,11 +182,14 @@ public class RepositoryManager {
                 let result: LookupResult
                 switch handle.status {
                 case .available:
-                    // FIXME: Need to only do this for first lookup.
                     result = try! LookupResult {
                         // Fetch and update the repository when it is being looked up.
-                        let repo = try handle.open()
-                        try repo.fetch()
+                        if handle.needsFetch {
+                            let repo = try handle.open()
+                            try repo.fetch()
+                            // Toggle so we don't fetch it again on next lookup.
+                            handle.needsFetch = false
+                        }
                         return handle
                     }
                 case .pending:

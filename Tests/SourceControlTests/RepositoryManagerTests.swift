@@ -131,7 +131,8 @@ class RepositoryManagerTests: XCTestCase {
             
                 // We should always get back the same handle once fetched.
                 XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
-                XCTAssertEqual(provider.numFetches, 1)
+                // We should not have refetched because we just cloned this repo.
+                XCTAssertEqual(provider.numFetches, 0)
             
                 // Open the repository.
                 let repository = try! handle.open()
