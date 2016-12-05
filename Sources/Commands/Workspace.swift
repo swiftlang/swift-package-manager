@@ -433,8 +433,7 @@ public class Workspace {
         // * The constraint for the new pin we're trying to add.
         let constraints = computeRootPackageConstraints(try loadRootManifest(), includePins: false) 
                         + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository }) as [RepositoryPackageConstraint]
-                        // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
-                        + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .range(version..<version.successor()))]
+                        + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
         // Add the record in pins store.
@@ -783,8 +782,7 @@ public class Workspace {
                     continue
                 }
                 // If we know the manifest is at a particular version, use that.
-                // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
-                constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .range(version..<version.successor())))
+                constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .exact(version)))
             } else {
                 // FIXME: Otherwise, we need to be able to constraint precisely to the revision we have.
                 fatalError("FIXME: Unimplemented.")
