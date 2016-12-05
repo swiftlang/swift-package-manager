@@ -121,8 +121,7 @@ public struct PinsStore {
     /// Creates constraints based on the pins in the store.
     public func createConstraints() -> [RepositoryPackageConstraint] {
         return pins.map {
-            // FIXME: This is broken, successor isn't correct and should be eliminated. (SR-3171)
-            RepositoryPackageConstraint(container: $0.repository, versionRequirement: .range($0.version..<$0.version.successor()))
+            RepositoryPackageConstraint(container: $0.repository, versionRequirement: .exact($0.version))
         }
     }
 }
