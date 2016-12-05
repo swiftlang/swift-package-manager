@@ -92,7 +92,42 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(store.pins.map{$0}.isEmpty)
     }
 
+    func testLoadingV1() throws {
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+        let fs = InMemoryFileSystem()
+        let contents =
+            "{"                                                         + "\n" +
+            "  \"autoPin\": true,"                                      + "\n" +
+            "  \"pins\": ["                                             + "\n" +
+            "    {"                                                     + "\n" +
+            "      \"package\": \"bam\","                               + "\n" +
+            "      \"reason\": null,"                                   + "\n" +
+            "      \"repositoryURL\": \"/private/tmp/BigPackage/bam\"," + "\n" +
+            "      \"version\": \"1.0.0\""                              + "\n" +
+            "    },"                                                    + "\n" +
+            "    {"                                                     + "\n" +
+            "      \"package\": \"bar\","                               + "\n" +
+            "      \"reason\": null,"                                   + "\n" +
+            "      \"repositoryURL\": \"/private/tmp/BigPackage/bar\"," + "\n" +
+            "      \"version\": \"1.0.0\""                              + "\n" +
+            "    },"                                                    + "\n" +
+            "    {"                                                     + "\n" +
+            "      \"package\": \"baz\","                               + "\n" +
+            "      \"reason\": null,"                                   + "\n" +
+            "      \"repositoryURL\": \"/private/tmp/BigPackage/baz\"," + "\n" +
+            "      \"version\": \"1.0.0\""                              + "\n" +
+            "    }"                                                     + "\n" +
+            "  ],"                                                      + "\n" +
+            "  \"version\": 1"                                          + "\n" +
+            "}"
+        try fs.writeFileContents(pinsFile, bytes: ByteString(encodingAsUTF8: contents))
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssertEqual(store.autoPin, true)
+        XCTAssertEqual(store.pins.map {$0.package}.sorted() , ["bam", "bar", "baz"])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testLoadingV1", testLoadingV1),
     ]
 }
