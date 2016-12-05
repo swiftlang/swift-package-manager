@@ -9,6 +9,7 @@
 */
 
 import Dispatch
+import class Foundation.OperationQueue
 
 import Basic
 import Utility
@@ -138,8 +139,10 @@ public class RepositoryManager {
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
 
-    /// Queue to do concurrent operations on manager.
-    private let concurrentQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-concurrent", attributes: .concurrent)
+    /// Operation queue to do concurrent operations on manager.
+    ///
+    /// We use operation queue (and not dispatch queue) to limit the amount of concurrent operations.
+    private let operationQueue: OperationQueue
 
     /// The filesystem to operate on.
     private var fileSystem: FileSystem
@@ -159,6 +162,10 @@ public class RepositoryManager {
         self.delegate = delegate
         self.fileSystem = fileSystem
 
+        self.operationQueue = OperationQueue()
+        self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
+        self.operationQueue.maxConcurrentOperationCount = 10
+
         // Load the state from disk, if possible.
         do {
             _ = try restoreState()
@@ -174,11 +181,11 @@ public class RepositoryManager {
     ///
     /// This will initiate a clone of the repository automatically, if necessary.
     public func lookup(repository: RepositorySpecifier, completion: @escaping LookupCompletion) {
-        concurrentQueue.async { 
+        operationQueue.addOperation {
             // First look for the handle.
             let handle = self.getHandle(repository: repository)
             // Dispatch the action we want to take on the serial queue of the handle.
-            handle.serialQueue.async {
+            handle.serialQueue.sync {
                 let result: LookupResult
                 switch handle.status {
                 case .available:
