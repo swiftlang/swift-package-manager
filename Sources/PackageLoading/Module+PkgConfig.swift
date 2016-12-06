@@ -57,7 +57,7 @@ extension Module {
                 }
             }
         }
-        return (cFlags, libs)
+        return removeDefaultFlags(cFlags: cFlags, libs: libs)
     }
 }
 
@@ -136,4 +136,40 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
     guard filtered.isEmpty else {
         throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }
+}
+
+/// Remove the default flags which are already added by the compiler.
+///
+/// This behavior is similar to pkg-config cli tool and helps avoid conflicts between
+/// sdk and default search paths in macOS.
+func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]) {
+    /// removes a flag from given array of flags.
+    func remove(flag: (String, String), from flags: [String]) -> [String] {
+        var result = [String]()
+        var it = flags.makeIterator()
+        while let curr = it.next() {
+            switch curr {
+            case flag.0:
+                // Check for <flag><space><value> style.
+                guard let val = it.next() else {
+                    fatalError("Expected associated value")
+                }
+                // If we found a match, don't add these flags and just skip.
+                if val == flag.1 { continue }
+                // Otherwise add both the flags.
+                result.append(curr)
+                result.append(val)
+
+            case flag.0 + flag.1:
+                // Check for <flag><value> style.
+                continue
+
+            default:
+                // Otherwise just append this flag.
+                result.append(curr)
+            }
+        }
+        return result
+    }
+    return (remove(flag: ("-I", "/usr/include"), from: cFlags), remove(flag: ("-L", "/usr/lib"), from: libs))
 }

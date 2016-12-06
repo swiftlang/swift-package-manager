@@ -44,9 +44,19 @@ final class PkgConfigWhitelistTests: XCTestCase {
         }
     }
 
+    func testRemoveDefaultFlags() {
+        let cFlags = ["-I/usr/include", "-I", "/usr/include" , "-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello", "-I", "/usr/include"]
+        let libs = ["-L", "/usr/lib", "-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-L/usr/lib", "-L/usr/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name", "-L", "/usr/lib"]
+        let result = removeDefaultFlags(cFlags: cFlags, libs: libs)
+
+        XCTAssertEqual(result.0, ["-I", "/usr/include/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"])
+        XCTAssertEqual(result.1, ["-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"])
+    }
+
     static var allTests = [
         ("testSimpleFlags", testSimpleFlags),
         ("testFlagsWithInvalidFlags", testFlagsWithInvalidFlags),
         ("testFlagsWithValueInNextFlag", testFlagsWithValueInNextFlag),
+        ("testRemoveDefaultFlags", testRemoveDefaultFlags),
     ]
 }
