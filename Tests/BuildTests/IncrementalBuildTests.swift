@@ -40,7 +40,7 @@ final class IncrementalBuildTests: XCTestCase {
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             // Build it once and capture the log (this will be a full build).
-            let fullLog = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            let fullLog = try executeSwiftBuild(prefix, printIfError: true)
             
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
@@ -68,13 +68,13 @@ final class IncrementalBuildTests: XCTestCase {
             try localFileSystem.writeFileContents(sourceFile, bytes: contents)
             
             // Now build again.  This should be an incremental build.
-            let log2 = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            let log2 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
             XCTAssertTrue(log2.contains("Linking CLibrarySources"))
             
             // Now build again without changing anything.  This should be a null
             // build.
-            let log3 = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            let log3 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
             XCTAssertFalse(log3.contains("Linking CLibrarySources"))
         }

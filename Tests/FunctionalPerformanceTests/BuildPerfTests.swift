@@ -20,7 +20,7 @@ class BuildPerfTests: XCTestCase {
 
     @discardableResult
     func execute(args: [String] = [], chdir: AbsolutePath) throws -> String {
-        // FIXME: We shouldn't pass the SWIFT_EXEC at lower level.
+        // FIXME: We should pass the SWIFT_EXEC at lower level.
         return try SwiftPMProduct.SwiftBuild.execute(args + ["--enable-new-resolver"], chdir: chdir, env: ["SWIFT_EXEC": resources.swiftCompilerPath.asString], printIfError: true)
     }
 

@@ -212,7 +212,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
-        try system(args, environment: ["DYLD_FRAMEWORK_PATH": try platformFrameworksPath().asString])
+        var env = ProcessInfo.processInfo.environment
+        env["DYLD_FRAMEWORK_PATH"] = try platformFrameworksPath().asString
+        try system(args, environment: env)
         // Read the temporary file's content.
         let data = try fopen(tempFile.path).readFileContents()
       #else
@@ -263,11 +265,6 @@ final class TestRunner {
         return args
     }
 
-    /// Current inherited enviornment variables.
-    private var environment: [String: String] {
-        return ProcessInfo.processInfo.environment
-    }
-
     /// Executes the tests without printing anything on standard streams.
     ///
     /// - Returns: A tuple with first bool member indicating if test execution returned code 0
@@ -276,7 +273,7 @@ final class TestRunner {
         var output = ""
         var success = true
         do {
-            try popen(args(), redirectStandardError: true, environment: environment) { line in
+            try popen(args(), redirectStandardError: true) { line in
                 output += line
             }
         } catch {
@@ -287,7 +284,7 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
-        let result: Void? = try? system(args(), environment: environment)
+        let result: Void? = try? system(args())
         return result != nil
     }
 }

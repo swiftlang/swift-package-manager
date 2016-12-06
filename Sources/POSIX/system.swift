@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
+import class Foundation.ProcessInfo
 import libc
 
 /**
@@ -25,7 +25,7 @@ public func system(_ args: String...) throws {
  the tool. Uses PATH to find the tool if the first argument
  path is not absolute.
 */
-public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
+public func system(_ arguments: [String], environment: [String:String]? = nil) throws {
     // make sure subprocess output doesn't get interleaved with our own
     fflush(stdout)
 
@@ -49,21 +49,11 @@ typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
 #endif
 
 /// Convenience wrapper for posix_spawn.
-func posix_spawnp(_ path: String, args: [String], environment: [String: String] = [:], fileActions: swiftpm_posix_spawn_file_actions_t? = nil) throws -> pid_t {
+func posix_spawnp(_ path: String, args: [String], environment: [String: String]? = nil, fileActions: swiftpm_posix_spawn_file_actions_t? = nil) throws -> pid_t {
     let argv: [UnsafeMutablePointer<CChar>?] = args.map{ $0.withCString(strdup) }
     defer { for case let arg? in argv { free(arg) } }
 
-    var environment = environment
-#if Xcode
-    let keys = ["SWIFT_EXEC", "HOME", "PATH", "TOOLCHAINS", "DEVELOPER_DIR", "LLVM_PROFILE_FILE"]
-#else
-    let keys = ["SWIFT_EXEC", "HOME", "PATH", "SDKROOT", "TOOLCHAINS", "DEVELOPER_DIR", "LLVM_PROFILE_FILE"]
-#endif
-    for key in keys {
-        if environment[key] == nil {
-            environment[key] = POSIX.getenv(key)
-        }
-    }
+    let environment = environment ?? ProcessInfo.processInfo.environment
 
     let env: [UnsafeMutablePointer<CChar>?] = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }
     defer { for case let arg? in env { free(arg) } }

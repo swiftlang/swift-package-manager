@@ -81,17 +81,17 @@ private func printArgumentsIfVerbose(_ arguments: [String]) {
     }
 }
 
-public func system(_ arguments: [String], environment: [String:String] = [:]) throws {
+public func system(_ arguments: [String], environment: [String:String]? = nil) throws {
     printArgumentsIfVerbose(arguments)
     try POSIX.system(arguments, environment: environment)
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:]) throws -> String {
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String]? = nil) throws -> String {
     printArgumentsIfVerbose(arguments)
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment)
 }
 
-public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String] = [:], body: (String) -> Void) throws {
+public func popen(_ arguments: [String], redirectStandardError: Bool = false, environment: [String: String]? = nil, body: (String) -> Void) throws {
     printArgumentsIfVerbose(arguments)
     return try POSIX.popen(arguments, redirectStandardError: redirectStandardError, environment: environment, body: body)
 }
@@ -101,11 +101,11 @@ import func libc.fflush
 import var libc.stdout
 import enum POSIX.Error
 
-public func system(_ arguments: String..., environment: [String:String] = [:], message: String?) throws {
+public func system(_ arguments: String..., environment: [String:String]? = nil, message: String?) throws {
     try system(args: arguments, environment: environment, message: message)
 }
 
-public func system(args arguments: [String], environment: [String:String] = [:], message: String? = nil, quietly: Bool = false) throws {
+public func system(args arguments: [String], environment: [String:String]? = nil, message: String? = nil, quietly: Bool = false) throws {
     var out = ""
     do {
         if Utility.verbosity == .concise {

@@ -18,7 +18,7 @@ import Utility
 import class Foundation.Bundle
 #endif
 
-public func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
+public func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configuration> = [.Debug, .Release], file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String]? = nil) {
     for conf in configurations {
         do {
             print("    Building \(conf)")
@@ -29,7 +29,7 @@ public func XCTAssertBuilds(_ path: AbsolutePath, configurations: Set<Configurat
     }
 }
 
-public func XCTAssertSwiftTest(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, env: [String: String] = [:]) {
+public func XCTAssertSwiftTest(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, env: [String: String]? = nil) {
     do {
         _ = try SwiftPMProduct.SwiftTest.execute([], chdir: path, env: env, printIfError: true)
     } catch {
@@ -37,7 +37,7 @@ public func XCTAssertSwiftTest(_ path: AbsolutePath, file: StaticString = #file,
     }
 }
 
-public func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) {
+public func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String]? = nil) {
     do {
         _ = try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
 
