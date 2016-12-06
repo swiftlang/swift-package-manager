@@ -407,6 +407,34 @@ class MiscellaneousTestCase: XCTestCase {
 #endif
     }
 
+    func testPkgConfigClangModules() throws {
+        fixture(name: "Miscellaneous/PkgConfig") { prefix in
+            _ = try executeSwiftBuild(prefix.appending(component: "SystemModule"))
+            XCTAssertFileExists(prefix.appending(components: "SystemModule", ".build", "debug", "libSystemModule.\(Product.dynamicLibraryExtension)"))
+
+            let pcFile = prefix.appending(component: "libSystemModule.pc")
+
+            let stream = BufferedOutputByteStream()
+            stream <<< "prefix=\(prefix.appending(component: "SystemModule").asString)\n"
+            stream <<< "exec_prefix=${prefix}\n"
+            stream <<< "libdir=${exec_prefix}/.build/debug\n"
+            stream <<< "includedir=${prefix}/Sources/include\n"
+            stream <<< "Name: SystemModule\n"
+            stream <<< "URL: http://127.0.0.1/\n"
+            stream <<< "Description: The one and only SystemModule\n"
+            stream <<< "Version: 1.10.0\n"
+            stream <<< "Cflags: -I${includedir}\n"
+            stream <<< "Libs: -L${libdir} -lSystemModule\n"
+            try localFileSystem.writeFileContents(pcFile, bytes: stream.bytes)
+
+            let moduleUser = prefix.appending(component: "SystemModuleUserClang")
+            let env = ["PKG_CONFIG_PATH": prefix.asString]
+            _ = try executeSwiftBuild(moduleUser, env: env)
+
+            XCTAssertFileExists(moduleUser.appending(components: ".build", "debug", "SystemModuleUserClang"))
+        }
+    }
+
     static var allTests = [
         ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
@@ -439,5 +467,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSwiftTestParallel", testSwiftTestParallel),
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
+        ("testPkgConfigClangModules", testPkgConfigClangModules),
     ]
 }
