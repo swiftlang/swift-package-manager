@@ -12,6 +12,30 @@
 /// of them are programming-related.
 extension String {
 
+    /// Returns a form of the string that is a valid bundle identifier
+    public func mangledToBundleIdentifier() -> String {
+        let mangledUnichars: [UInt16] = self.utf16.map {
+            switch $0 {
+            case
+            // A-Z
+            0x0041...0x005A,
+            // a-z
+            0x0061...0x007A,
+            // 0-9
+            0x0030...0x0039,
+            // -
+            0x2D,
+            // .
+            0x2E:
+                return $0
+            default:
+                return 0x2D
+            }
+        }
+
+        return String(utf16CodeUnits: mangledUnichars, count: mangledUnichars.count)
+    }
+
     /// Returns a form of the string that is valid C99 Extended Identifier (by
     /// replacing any invalid characters in an unspecified but consistent way).
     /// The output string is guaranteed to be non-empty as long as the input
