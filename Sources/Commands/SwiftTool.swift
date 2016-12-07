@@ -245,6 +245,8 @@ private func findPackageRoot() -> AbsolutePath? {
 }
 
 private func getEnvBuildPath() -> AbsolutePath? {
+    // Don't rely on build path from env for SwiftPM's own tests.
+    guard getenv("IS_SWIFTPM_TEST") == nil else { return nil }
     guard let env = getenv("SWIFT_BUILD_PATH") else { return nil }
     return AbsolutePath(env, relativeTo: currentWorkingDirectory)
 }

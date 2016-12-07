@@ -14,7 +14,6 @@ import Utility
 
 import func POSIX.getenv
 import enum POSIX.Error
-import class Foundation.ProcessInfo
 
 enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(url: String, path: AbsolutePath)
@@ -45,10 +44,9 @@ public class GitRepositoryProvider: RepositoryProvider {
         do {
             // FIXME: We need infrastructure in this subsystem for reporting
             // status information.
-            let env = ProcessInfo.processInfo.environment
             try system(
                 Git.tool, "clone", "--bare", repository.url, path.asString,
-                environment: env, message: nil)
+                message: nil)
         } catch POSIX.Error.exitStatus {
             throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)
         }

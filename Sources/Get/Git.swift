@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.ProcessInfo
-
 import Basic
 import Utility
 
@@ -27,11 +25,10 @@ extension Git {
         }
 
         do {
-            let env = ProcessInfo.processInfo.environment
             try system(Git.tool, "clone",
                        "--recursive",   // get submodules too so that developers can use these if they so choose
                 "--depth", "10",
-                url, dstdir.asString, environment: env, message: "Cloning \(url)")
+                url, dstdir.asString, message: "Cloning \(url)")
         } catch POSIX.Error.exitStatus {
             // Git 2.0 or higher is required
             if let majorVersion = Git.majorVersionNumber, majorVersion < 2 {

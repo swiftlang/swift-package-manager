@@ -12,7 +12,6 @@ import Basic
 import func POSIX.realpath
 import func POSIX.getenv
 import libc
-import class Foundation.ProcessInfo
 
 extension Version {
     static func vprefix(_ string: String) -> Version? {
@@ -124,7 +123,7 @@ public class Git {
         }
 
         public func fetch() throws {
-            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", environment: ProcessInfo.processInfo.environment, message: nil)
+            try system(Git.tool, "-C", path.asString, "fetch", "--tags", "origin", message: nil)
         }
     }
 

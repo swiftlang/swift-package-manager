@@ -118,7 +118,7 @@ public enum Configuration {
 private var globalSymbolInMainBinary = 0
 
 @discardableResult
-public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String] = [:]) throws -> String {
+public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String]? = nil) throws -> String {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -130,13 +130,7 @@ public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuratio
     args += Xld.flatMap{ ["-Xlinker", $0] }
     args += Xswiftc.flatMap{ ["-Xswiftc", $0] }
 
-    let swiftBuild = SwiftPMProduct.SwiftBuild
-    var env = env
-
-    // FIXME: We use this private environment variable hack to be able to
-    // create special conditions in swift-build for swiftpm tests.
-    env["IS_SWIFTPM_TEST"] = "1"
-    return try swiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
+    return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
 /// Test helper utility for executing a block with a temporary directory.

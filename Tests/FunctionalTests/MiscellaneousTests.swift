@@ -360,7 +360,7 @@ class MiscellaneousTestCase: XCTestCase {
         XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
 
         // Run package init.
-        _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, env: [:], printIfError: true)
+        _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, printIfError: true)
         // Try building it.
         XCTAssertBuilds(packageRoot)
         XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "some_package.swiftmodule"))
@@ -369,9 +369,9 @@ class MiscellaneousTestCase: XCTestCase {
     func testSecondBuildIsNullInModulemapGen() throws {
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            var output = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            var output = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(output.isEmpty)
-            output = try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: [], env: [:])
+            output = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(output.isEmpty)
         }
     }
@@ -402,7 +402,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testOverridingSwiftcArguments() throws {
 #if os(macOS)
         fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
-            try executeSwiftBuild(prefix, configuration: .Debug, printIfError: true, Xcc: [], Xld: [], Xswiftc: ["-target", "x86_64-apple-macosx10.20"], env: [:])
+            try executeSwiftBuild(prefix, printIfError: true, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
         }
 #endif
     }

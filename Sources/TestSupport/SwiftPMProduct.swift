@@ -9,6 +9,7 @@
 */
 
 import func XCTest.XCTFail
+import class Foundation.ProcessInfo
 
 import Basic
 import POSIX
@@ -76,12 +77,20 @@ public enum SwiftPMProduct {
     ///
     /// - Parameters:
     ///         - args: The arguments to pass.
-    ///         - env: Environment variables to pass. Environment will never be inherited.
+    ///         - env: Additional environment variables to pass. The values here are merged with default env.
     ///         - chdir: Adds argument `--chdir <path>` if not nil.
     ///         - printIfError: Print the output on non-zero exit.
     ///
     /// - Returns: The output of the process.
-    public func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String] = [:], printIfError: Bool = false) throws -> String {
+    public func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String]? = nil, printIfError: Bool = false) throws -> String {
+        var environment = ProcessInfo.processInfo.environment
+        for (key, value) in (env ?? [:]) {
+            environment[key] = value
+        }
+        // FIXME: We use this private environment variable hack to be able to
+        // create special conditions in swift-build for swiftpm tests.
+        environment["IS_SWIFTPM_TEST"] = "1"
+
         var out = ""
         var completeArgs = [path.asString]
         // FIXME: Eliminate this when we switch to the new resolver.
@@ -93,7 +102,7 @@ public enum SwiftPMProduct {
         }
         completeArgs += args
         do {
-            try POSIX.popen(completeArgs, redirectStandardError: true, environment: env) {
+            try POSIX.popen(completeArgs, redirectStandardError: true, environment: environment) {
                 out += $0
             }
             return out
@@ -101,7 +110,7 @@ public enum SwiftPMProduct {
             if printIfError {
                 print("**** FAILURE EXECUTING SUBPROCESS ****")
                 print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
-                print("SWIFT_EXEC:", env["SWIFT_EXEC"] ?? "nil")
+                print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
                 print("output:", out)
             }
             throw SwiftPMProductError.executionFailure(error: error, output: out)
