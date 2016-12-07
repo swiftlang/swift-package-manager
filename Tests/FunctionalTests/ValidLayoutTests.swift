@@ -59,7 +59,7 @@ class ValidLayoutsTests: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             for x in ["Bar", "Baz", "Foo"] {
-                let output = try popen([debugPath.appending(component: x).asString])
+                let output = try popen([debugPath.appending(component: x).asString], environment: [:])
                 XCTAssertEqual(output, "\(x)\n")
             }
         }

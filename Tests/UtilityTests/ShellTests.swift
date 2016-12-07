@@ -16,7 +16,7 @@ import Utility
 class ShellTests: XCTestCase {
 
     func testPopen() {
-        XCTAssertEqual(try! popen(["echo", "foo"]), "foo\n")
+        XCTAssertEqual(try! popen(["echo", "foo"], environment: [:]), "foo\n")
     }
 
     func testPopenWithBufferLargerThanThatAllocated() {
@@ -25,7 +25,7 @@ class ShellTests: XCTestCase {
     }
 
     func testPopenWithBinaryOutput() {
-        if (try? popen(["cat", "/bin/cat"])) != nil {
+        if (try? popen(["cat", "/bin/cat"], environment: [:])) != nil {
             XCTFail("popen succeeded but should have faileds")
         }
     }

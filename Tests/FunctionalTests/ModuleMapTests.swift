@@ -46,9 +46,9 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let debugout = try popen([prefix.appending(RelativePath("App/.build/debug/App")).asString])
+            let debugout = try popen([prefix.appending(RelativePath("App/.build/debug/App")).asString], environment: [:])
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try popen([prefix.appending(RelativePath("App/.build/release/App")).asString])
+            let releaseout = try popen([prefix.appending(RelativePath("App/.build/release/App")).asString], environment: [:])
             XCTAssertEqual(releaseout, "123\n")
         }
     }
@@ -60,7 +60,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
                 let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                let out = try popen([prefix.appending(components: "packageA", ".build", conf, "packageA").asString])
+                let out = try popen([prefix.appending(components: "packageA", ".build", conf, "packageA").asString], environment: [:])
                 XCTAssertEqual(out, expectedOutput)
             }
 

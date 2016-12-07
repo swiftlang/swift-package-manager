@@ -22,7 +22,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try popen([prefix.appending(components: ".build", "debug", "Foo").asString])
+            let output = try popen([prefix.appending(components: ".build", "debug", "Foo").asString], environment: [:])
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -37,7 +37,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try popen([prefix.appending(components: ".build", "debug", "Foo").asString])
+            let output = try popen([prefix.appending(components: ".build", "debug", "Foo").asString], environment: [:])
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
@@ -69,7 +69,7 @@ class DependencyResolutionTests: XCTestCase {
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let output = try POSIX.popen([prefix.appending(components: "app", ".build", "debug", "Dealer").asString])
+            let output = try POSIX.popen([prefix.appending(components: "app", ".build", "debug", "Dealer").asString], environment: [:])
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }

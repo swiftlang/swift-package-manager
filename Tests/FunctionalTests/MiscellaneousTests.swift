@@ -253,7 +253,7 @@ class MiscellaneousTestCase: XCTestCase {
             let execpath = [prefix.appending(components: ".build", "debug", "Foo").asString]
 
             XCTAssertBuilds(prefix)
-            var output = try popen(execpath)
+            var output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "Hello\n")
 
             // we need to sleep at least one second otherwise
@@ -263,7 +263,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(prefix.appending(components: "Bar", "Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
             XCTAssertBuilds(prefix)
-            output = try popen(execpath)
+            output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "Goodbye\n")
         }
     }
@@ -278,7 +278,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
-            var output = try popen(execpath)
+            var output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
 
             // we need to sleep at least one second otherwise
@@ -289,7 +289,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix.appending(component: "app"))
-            output = try popen(execpath)
+            output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
     }
@@ -304,7 +304,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
-            var output = try popen(execpath)
+            var output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "Hello\n")
 
             // we need to sleep at least one second otherwise
@@ -315,7 +315,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix.appending(component: "root"))
-            output = try popen(execpath)
+            output = try popen(execpath, environment: [:])
             XCTAssertEqual(output, "Goodbye\n")
         }
     }

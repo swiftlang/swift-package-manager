@@ -170,7 +170,7 @@ final class PackageToolTests: XCTestCase {
 
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
             // Sanity check.
-            XCTAssertEqual(try popen(exec), "5\n")
+            XCTAssertEqual(try popen(exec, environment: [:]), "5\n")
 
             // Put bar and baz in edit mode.
             _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
@@ -191,7 +191,7 @@ final class PackageToolTests: XCTestCase {
 
             XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
             // We should be able to see that modification now.
-            XCTAssertEqual(try popen(exec), "8\n")
+            XCTAssertEqual(try popen(exec, environment: [:]), "8\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
@@ -299,7 +299,7 @@ final class PackageToolTests: XCTestCase {
 
             // Build and sanity check.
             _ = try build()
-            XCTAssertEqual(try popen(exec).chomp(), "\(5)")
+            XCTAssertEqual(try popen(exec, environment: [:]).chomp(), "\(5)")
 
             // Get path to bar checkout.
             let barPath = try packagePath(for: "bar", packageRoot: fooPath)

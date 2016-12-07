@@ -46,9 +46,9 @@ class ClangModulesTestCase: XCTestCase {
             let debugPath = prefix.appending(components: ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
             XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
-            var output = try popen([debugPath.appending(component: "SeaExec").asString])
+            var output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
             XCTAssertEqual(output, "a = 5\n")
-            output = try popen([debugPath.appending(component: "CExec").asString])
+            output = try popen([debugPath.appending(component: "CExec").asString], environment: [:])
             XCTAssertEqual(output, "5")
         }
 
@@ -57,7 +57,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
-            let output = try popen([debugPath.appending(component: "SeaExec").asString])
+            let output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
             XCTAssertEqual(output, "a = 5\n")
         }
     }
@@ -100,7 +100,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "CExecutable"))
-            let output = try popen([debugPath.appending(component: "CExecutable").asString])
+            let output = try popen([debugPath.appending(component: "CExecutable").asString], environment: [:])
             XCTAssertEqual(output, "hello 5")
         }
     }
