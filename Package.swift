@@ -82,13 +82,17 @@ let package = Package(
             /** Generates Xcode projects */
             name: "Xcodeproj",
             dependencies: ["Basic", "PackageGraph"]),
+        Target(
+            /** High level functionality */
+            name: "Workspace",
+            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
         
         Target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj"]),
+            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -128,7 +132,10 @@ let package = Package(
             dependencies: ["Build", "TestSupport"]),
         Target(
             name: "CommandsTests",
-            dependencies: ["Commands", "TestSupport"]),
+            dependencies: ["Commands", "Workspace", "TestSupport"]),
+        Target(
+            name: "WorkspaceTests",
+            dependencies: ["Workspace", "TestSupport"]),
         Target(
             name: "FunctionalTests",
             dependencies: ["Basic", "Utility", "PackageModel", "TestSupport"]),
@@ -189,6 +196,6 @@ products.append(
     Product(
         name: "SwiftPM",
         type: .Library(.Dynamic),
-        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Commands"]
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Workspace"]
     )
 )

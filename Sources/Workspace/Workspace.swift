@@ -91,7 +91,7 @@ public class Workspace {
     ///
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
-    public class ManagedDependency {
+    public final class ManagedDependency {
         /// The specifier for the dependency.
         public let repository: RepositorySpecifier
 
@@ -103,7 +103,7 @@ public class Workspace {
 
         /// The dependency is in editable state i.e. user is expected to modify the sources of the dependency.
         /// The version of the dependency will not be considered during dependency resolution.
-        var isInEditableState: Bool {
+        public var isInEditableState: Bool {
             return basedOn != nil
         }
 
@@ -173,7 +173,7 @@ public class Workspace {
     }
 
     /// A struct representing all the current manifests (root + external) in a package graph.
-    struct DependencyManifests {
+    public struct DependencyManifests {
         /// The root manifest.
         let root: Manifest
 
@@ -199,12 +199,12 @@ public class Workspace {
         }
 
         /// Find a package given its name.
-        func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
+        public func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
             return dependencies.first(where: { $0.manifest.name == name })
         }
 
         /// Find a manifest given its name.
-        func lookup(manifest name: String) -> Manifest? {
+        public func lookup(manifest name: String) -> Manifest? {
             return lookup(package: name)?.manifest
         }
 
@@ -233,7 +233,7 @@ public class Workspace {
     private var fileSystem: FileSystem
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
-    var pinsStore: PinsStore
+    public var pinsStore: PinsStore
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
@@ -307,7 +307,7 @@ public class Workspace {
     }
 
     /// Cleans the build artefacts from workspace data.
-    func clean() throws {
+    public func clean() throws {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
             repositoryManager.path,
@@ -329,7 +329,7 @@ public class Workspace {
     }
 
     /// Resets the entire workspace by removing the data directory.
-    func reset() throws {
+    public func reset() throws {
         fileSystem.removeFileTree(dataPath)
     }
 
@@ -342,7 +342,7 @@ public class Workspace {
     ///     - checkoutBranch: If provided, a new branch with this name will be created from the revision provided.
     ///
     /// - throws: WorkspaceOperationError
-    func edit(dependency: ManagedDependency, at revision: Revision?, packageName: String, checkoutBranch: String? = nil) throws {
+    public func edit(dependency: ManagedDependency, at revision: Revision?, packageName: String, checkoutBranch: String? = nil) throws {
         // Ensure that the dependency is not already in edit mode.
         guard !dependency.isInEditableState else {
             throw WorkspaceOperationError.dependencyAlreadyInEditMode
@@ -383,7 +383,7 @@ public class Workspace {
     /// unpushed and uncommited changes. Otherwise will throw respective errors.
     ///
     /// - throws: WorkspaceOperationError
-    func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+    public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
         // If the dependency isn't in edit mode, we can't unedit it.
         guard let basedOn = dependency.basedOn else {
             throw WorkspaceOperationError.dependencyNotInEditMode
@@ -422,7 +422,7 @@ public class Workspace {
     ///   - version: The version to pin at.
     ///   - reason: The optional reason for pinning.
     /// - Throws: WorkspaceOperationError, PinOperationError
-    func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
+    public func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
         assert(!dependency.isInEditableState, "Can not pin a dependency which is in being edited.")
         // Compute constaints with the new pin and try to resolve dependencies. We only commit the pin if the
         // dependencies can be resolved with new constraints.
@@ -447,7 +447,7 @@ public class Workspace {
     /// - Parameters:
     ///   - reason: The optional reason for pinning.
     ///   - reset: Remove all current pins before pinning dependencies.
-    func pinAll(reason: String? = nil, reset: Bool = false) throws {
+    public func pinAll(reason: String? = nil, reset: Bool = false) throws {
         if reset {
             try pinsStore.unpinAll()
         }
@@ -682,7 +682,7 @@ public class Workspace {
     /// current dependencies from the working checkouts.
     ///
     /// Throws: If the root manifest could not be loaded.
-    func loadDependencyManifests() throws -> DependencyManifests {
+    public func loadDependencyManifests() throws -> DependencyManifests {
         // Load the root manifest.
         let rootManifest = try loadRootManifest()
 
@@ -931,5 +931,19 @@ public class Workspace {
 
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+    }
+}
+
+extension Version {
+    init?(json: JSON) {
+        guard case .string(let str) = json else { return nil }
+        self.init(str)
+    }
+}
+
+extension Revision {
+    init?(json: JSON) {
+        guard case .string(let str) = json else { return nil }
+        self.init(identifier: str)
     }
 }

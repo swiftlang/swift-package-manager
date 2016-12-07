@@ -14,7 +14,7 @@ import Basic
 import struct Utility.Version
 import TestSupport
 import SourceControl
-@testable import Commands
+@testable import Workspace
 
 final class PinsStoreTests: XCTestCase {
 

@@ -13,7 +13,8 @@ import XCTest
 import TestSupport
 import Basic
 import Commands
-@testable import struct Commands.PinsStore
+import Workspace
+@testable import struct Workspace.PinsStore
 import SourceControl
 import func POSIX.popen
 import class Utility.Git

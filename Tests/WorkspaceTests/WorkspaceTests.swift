@@ -11,19 +11,18 @@
 import XCTest
 
 import Basic
-import Commands
 import PackageDescription
 import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
 import Utility
-
+import Workspace
+@testable import class Workspace.Workspace
 import struct TestSupport.MockManifestLoader
 
 import TestSupport
 
-@testable import class Commands.Workspace
 
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
