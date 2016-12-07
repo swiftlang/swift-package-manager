@@ -9,7 +9,7 @@
 */
 
 import Basic
-
+import Foundation
 import func POSIX.getenv
 import func POSIX.popen
 
@@ -90,7 +90,7 @@ public struct PkgConfig {
     }
     
     private static var envSearchPaths: [AbsolutePath] {
-        if let configPath = getenv("PKG_CONFIG_PATH") {
+        if let configPath = POSIX.getenv("PKG_CONFIG_PATH") {
             return configPath.characters.split(separator: ":").map{ AbsolutePath(String($0)) }
         }
         return []

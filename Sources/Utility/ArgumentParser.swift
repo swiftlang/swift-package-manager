@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Foundation
 import func POSIX.exit
 
 /// Errors which may be encountered when running argument parser.

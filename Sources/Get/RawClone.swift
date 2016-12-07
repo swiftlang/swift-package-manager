@@ -11,6 +11,7 @@
 import Basic
 import PackageModel
 import Utility
+import Foundation
 
 /// A clone of a repository which is not yet fully loaded.
 ///
