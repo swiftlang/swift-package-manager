@@ -50,7 +50,7 @@ public struct PinsStore {
     fileprivate(set) var pinsMap: [String: Pin]
 
     /// Autopin enabled or disabled. Autopin is enabled by default.
-    fileprivate(set) var autoPin: Bool
+    public fileprivate(set) var autoPin: Bool
 
     /// The current pins.
     public var pins: AnySequence<Pin> {

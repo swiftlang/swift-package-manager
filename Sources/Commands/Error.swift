@@ -14,6 +14,7 @@ import PackageModel
 import Utility
 import func POSIX.exit
 import enum PackageLoading.ManifestParseError
+import Workspace
 
 public enum Error: Swift.Error {
     case noManifestFound

@@ -15,6 +15,7 @@ import PackageGraph
 import PackageModel
 import POSIX
 import Utility
+import Workspace
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
