@@ -121,20 +121,24 @@ class DependencyResolverPerfTests: XCTestCase {
         }
     }
 
-    func testKitura() throws {
-        try runPackageTest(name: "kitura.json")
+}
+
+class DependencyResolverRealWorldPerfTests: XCTestCase {
+
+    func testKitura_X100() throws {
+        try runPackageTest(name: "kitura.json", N: 100)
     }
 
-    func testZewoHTTPServer() throws {
-        try runPackageTest(name: "ZewoHTTPServer.json")
+    func testZewoHTTPServer_X100() throws {
+        try runPackageTest(name: "ZewoHTTPServer.json", N: 100)
     }
 
-    func testPerfectHTTPServer() throws {
-        try runPackageTest(name: "PerfectHTTPServer.json")
+    func testPerfectHTTPServer_X100() throws {
+        try runPackageTest(name: "PerfectHTTPServer.json", N: 100)
     }
 
-    func testSourceKitten_X100() throws {
-        try runPackageTest(name: "SourceKitten.json", N: 100)
+    func testSourceKitten_X1000() throws {
+        try runPackageTest(name: "SourceKitten.json", N: 1000)
     }
     
     func runPackageTest(name: String, N: Int = 1) throws {
