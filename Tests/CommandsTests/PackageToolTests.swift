@@ -9,7 +9,7 @@
 */
 
 import XCTest
-
+import Foundation
 import TestSupport
 import Basic
 import Commands

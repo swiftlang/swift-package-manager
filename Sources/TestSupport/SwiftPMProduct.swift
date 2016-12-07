@@ -87,6 +87,10 @@ public enum SwiftPMProduct {
         for (key, value) in (env ?? [:]) {
             environment[key] = value
         }
+      #if Xcode
+         // Unset this variable which is read by XCTest when using Xcode.
+        environment["XCTestConfigurationFilePath"] = nil
+      #endif
         // FIXME: We use this private environment variable hack to be able to
         // create special conditions in swift-build for swiftpm tests.
         environment["IS_SWIFTPM_TEST"] = "1"
