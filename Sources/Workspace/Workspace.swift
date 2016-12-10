@@ -260,7 +260,7 @@ public class Workspace {
     ///
     /// - Parameters:
     ///   - path: The path of the root package.
-    ///   - dataPath: The path for the workspace data files, if explicitly provided.
+    ///   - dataPath: The path for the workspace data files.
     ///   - editablesPath: The path where editable packages should be placed, if explicitly provided.
     ///   - manifestLoader: The manifest loader.
     ///   - fileSystem: The file system to operate on.
@@ -268,7 +268,7 @@ public class Workspace {
     /// - Throws: If the state was present, but could not be loaded.
     public init(
         rootPackage path: AbsolutePath,
-        dataPath: AbsolutePath? = nil,
+        dataPath: AbsolutePath,
         editablesPath: AbsolutePath? = nil,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
@@ -277,7 +277,7 @@ public class Workspace {
     ) throws {
         self.delegate = delegate
         self.rootPackagePath = path
-        self.dataPath = dataPath ?? path.appending(component: ".build")
+        self.dataPath = dataPath
         self.editablesPath = editablesPath ?? path.appending(component: "Packages")
         self.manifestLoader = manifestLoader
 

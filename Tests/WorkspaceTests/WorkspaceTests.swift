@@ -57,6 +57,22 @@ extension Workspace {
     convenience init(rootPackage path: AbsolutePath) throws {
         try self.init(rootPackage: path, manifestLoader: sharedManifestLoader, delegate: TestWorkspaceDelegate())
     }
+
+    convenience init(
+        rootPackage path: AbsolutePath,
+        manifestLoader: ManifestLoaderProtocol,
+        delegate: WorkspaceDelegate,
+        fileSystem: FileSystem = localFileSystem,
+        repositoryProvider: RepositoryProvider = GitRepositoryProvider()
+    ) throws {
+        try self.init(
+            rootPackage: path,
+            dataPath: path.appending(component: ".build"),
+            manifestLoader: manifestLoader,
+            delegate: delegate,
+            fileSystem: fileSystem,
+            repositoryProvider: repositoryProvider)
+    }
 }
 
 private let v1: Version = "1.0.0"
