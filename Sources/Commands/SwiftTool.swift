@@ -176,7 +176,14 @@ public class SwiftTool<Options: ToolOptions> {
             return workspace
         }
         let delegate = ToolWorkspaceDelegate()
-        _workspace = try Workspace(rootPackage: try getPackageRoot(), dataPath: buildPath, manifestLoader: manifestLoader, delegate: delegate)
+        let rootPackage = try getPackageRoot()
+        _workspace = try Workspace(
+            rootPackage: rootPackage,
+            dataPath: buildPath,
+            editablesPath: rootPackage.appending(component: "Packages"),
+            manifestLoader: manifestLoader,
+            delegate: delegate
+        )
         return _workspace!
     }
 

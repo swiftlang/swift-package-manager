@@ -261,7 +261,7 @@ public class Workspace {
     /// - Parameters:
     ///   - path: The path of the root package.
     ///   - dataPath: The path for the workspace data files.
-    ///   - editablesPath: The path where editable packages should be placed, if explicitly provided.
+    ///   - editablesPath: The path where editable packages should be placed.
     ///   - manifestLoader: The manifest loader.
     ///   - fileSystem: The file system to operate on.
     ///   - repositoryProvider: The repository provider to use in repository manager.
@@ -269,7 +269,7 @@ public class Workspace {
     public init(
         rootPackage path: AbsolutePath,
         dataPath: AbsolutePath,
-        editablesPath: AbsolutePath? = nil,
+        editablesPath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
@@ -278,7 +278,7 @@ public class Workspace {
         self.delegate = delegate
         self.rootPackagePath = path
         self.dataPath = dataPath
-        self.editablesPath = editablesPath ?? path.appending(component: "Packages")
+        self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")

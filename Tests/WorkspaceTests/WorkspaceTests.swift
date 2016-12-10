@@ -68,6 +68,7 @@ extension Workspace {
         try self.init(
             rootPackage: path,
             dataPath: path.appending(component: ".build"),
+            editablesPath: path.appending(component: "Packages"),
             manifestLoader: manifestLoader,
             delegate: delegate,
             fileSystem: fileSystem,
