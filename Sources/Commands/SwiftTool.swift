@@ -181,6 +181,7 @@ public class SwiftTool<Options: ToolOptions> {
             rootPackage: rootPackage,
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
+            pinsFile: rootPackage.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
             delegate: delegate
         )

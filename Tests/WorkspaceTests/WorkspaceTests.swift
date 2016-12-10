@@ -69,6 +69,7 @@ extension Workspace {
             rootPackage: path,
             dataPath: path.appending(component: ".build"),
             editablesPath: path.appending(component: "Packages"),
+            pinsFile: path.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
             delegate: delegate,
             fileSystem: fileSystem,

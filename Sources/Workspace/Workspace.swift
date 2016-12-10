@@ -262,6 +262,7 @@ public class Workspace {
     ///   - path: The path of the root package.
     ///   - dataPath: The path for the workspace data files.
     ///   - editablesPath: The path where editable packages should be placed.
+    ///   - pinsFile: The path to pins file. If pins file is not present, it will be created.
     ///   - manifestLoader: The manifest loader.
     ///   - fileSystem: The file system to operate on.
     ///   - repositoryProvider: The repository provider to use in repository manager.
@@ -270,6 +271,7 @@ public class Workspace {
         rootPackage path: AbsolutePath,
         dataPath: AbsolutePath,
         editablesPath: AbsolutePath,
+        pinsFile: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
@@ -296,7 +298,6 @@ public class Workspace {
         // Initialize the default state.
         self.dependencyMap = [:]
 
-        let pinsFile = self.rootPackagePath.appending(component: "Package.pins")
         self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
 
         // Load the state from disk, if possible.
