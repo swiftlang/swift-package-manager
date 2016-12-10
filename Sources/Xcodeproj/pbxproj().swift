@@ -55,7 +55,7 @@ func xcodeProject(
     // Determine the source root directory (which is NOT necessarily related in
     // any way to `xcodeprojPath`, i.e. we cannot assume that the Xcode project
     // will be generated into to the source root directory).
-    let sourceRootDir = graph.rootPackage.path
+    let sourceRootDir = graph.rootPackages[0].path
     
     // Set the project's notion of the source root directory to be a relative
     // path from the directory that contains the .xcodeproj to the source root
@@ -168,7 +168,7 @@ func xcodeProject(
     }
     
     // Determine the list of external package dependencies, if any.
-    let externalPackages = graph.packages.filter{ $0 != graph.rootPackage }
+    let externalPackages = graph.packages.filter{ !graph.rootPackages.contains($0) }
     
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
@@ -184,6 +184,7 @@ func xcodeProject(
             // We do, so we just return it without creating anything.
             return group
         }
+
         // No existing group, so start by making sure we have the parent.  Note
         // that we don't pass along any custom name for any parent groups.
         let parentGroup = makeGroup(for: path.parentDirectory)
@@ -244,10 +245,10 @@ func xcodeProject(
     }
     
     // Create a `Sources` group for the source modules in the root package.
-    createSourceGroup(named: "Sources", for: graph.rootPackage.modules, in: project.mainGroup)
+    createSourceGroup(named: "Sources", for: graph.rootPackages[0].modules, in: project.mainGroup)
     
     // Create a `Tests` group for the source modules in the root package.
-    createSourceGroup(named: "Tests", for: graph.rootPackage.testModules, in: project.mainGroup)
+    createSourceGroup(named: "Tests", for: graph.rootPackages[0].testModules, in: project.mainGroup)
     
     // Add "blue folders" for any other directories at the top level (note that
     // they are not guaranteed to be direct children of the root directory).

@@ -13,13 +13,11 @@ import PackageModel
 
 /// A collection of packages.
 public struct PackageGraph {
-    /// The root package.
-    public let rootPackage: Package
+    /// The root packages.
+    public let rootPackages: [Package]
 
     /// The complete list of contained packages, in topological order starting
-    /// with the root package.
-    ///
-    /// - Precondition: packages[0] === rootPackage
+    /// with the root packages.
     public let packages: [Package]
 
     // FIXME: These are temporary.
@@ -27,14 +25,11 @@ public struct PackageGraph {
     public let externalModules: Set<Module>
     
     /// Construct a package graph directly.
-    public init(rootPackage: Package, modules: [Module], externalModules: Set<Module>) {
-        self.rootPackage = rootPackage
+    public init(rootPackages: [Package], modules: [Module], externalModules: Set<Module>) {
+        self.rootPackages = rootPackages
         self.modules = modules
         self.externalModules = externalModules
-        
-        // This will leave the root package at the beginning, considering the relation we are providing.
-        self.packages = try! topologicalSort([rootPackage], successors: { $0.dependencies })
-        assert(self.rootPackage == self.packages[0])
+        self.packages = try! topologicalSort(rootPackages, successors: { $0.dependencies })
     }
 
     /// A sequence of all of the products in the graph.
