@@ -286,17 +286,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let generateXcodeParser = parser.add(subparser: PackageMode.generateXcodeproj.rawValue, overview: "Generates an Xcode project")
         binder.bind(
             generateXcodeParser.add(
-                option: "--xcconfig-overrides", kind: String.self,
+                option: "--xcconfig-overrides", kind: PathArgument.self,
                 usage: "Path to xcconfig file"),
             generateXcodeParser.add(
                 option: "--enable-code-coverage", kind: Bool.self,
                 usage: "Enable code coverage in the generated project"),
             generateXcodeParser.add(
-                option: "--output", kind: String.self,
+                option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
             to: { 
-                $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $0.absolutePathRelativeToWorkingDir($1), enableCodeCoverage: $2)
-                $0.outputPath = $0.absolutePathRelativeToWorkingDir($3) })
+                $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $1?.path, enableCodeCoverage: $2)
+                $0.outputPath = $3?.path })
 
         let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "Perform pinning operations on a package.")
         binder.bind(

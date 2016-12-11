@@ -113,6 +113,21 @@ extension StringEnumArgument {
 }
 
 
+/// An argument representing a path (file / directory).
+///
+/// The path is resolved in the current working directory.
+public struct PathArgument: ArgumentKind {
+    public let path: AbsolutePath
+
+    public init?(arg: String) {
+        path = AbsolutePath(arg, relativeTo: currentWorkingDirectory)
+    }
+
+    public init(parser: inout ArgumentParserProtocol) throws {
+        path = AbsolutePath(try parser.associatedArgumentValue ?? parser.next(), relativeTo: currentWorkingDirectory)
+    }
+}
+
 /// A protocol representing positional or options argument.
 protocol ArgumentProtocol: Hashable {
     /// The argument kind of this argument for eg String, Bool etc.

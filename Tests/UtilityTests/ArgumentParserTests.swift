@@ -10,6 +10,7 @@
 
 import XCTest
 import Basic
+import TestSupport
 import Utility
 
 enum SampleEnum: String {
@@ -367,6 +368,21 @@ class ArgumentParserTests: XCTestCase {
         }
     }
 
+    func testPathArgument() {
+        // relative path
+        do {
+            let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["absolutePath", "some/path"]).chomp()
+            let expected = currentWorkingDirectory.appending(RelativePath("some/path")).asString
+            XCTAssertEqual(actual, expected)
+        }
+
+        // absolute path
+        do {
+            let actual = try! SwiftPMProduct.TestSupportExecutable.execute(["absolutePath", "/bin/echo"]).chomp()
+            XCTAssertEqual(actual, "/bin/echo")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
@@ -375,5 +391,6 @@ class ArgumentParserTests: XCTestCase {
         ("testSubsubparser", testSubsubparser),
         ("testSubparserBinder", testSubparserBinder),
         ("testOptionalPositionalArg", testOptionalPositionalArg),
+        ("testPathArgument", testPathArgument),
     ]
 }

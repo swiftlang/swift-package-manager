@@ -48,6 +48,7 @@ class HandlerTest {
 enum Mode: String {
     case fileLockTest
     case interruptHandlerTest
+    case absolutePath
     case help
 }
 
@@ -59,6 +60,7 @@ struct Options {
     }
     var fileLockOptions: FileLockOptions?
     var temporaryFile: AbsolutePath?
+    var absolutePath: AbsolutePath?
     var mode = Mode.help
 }
 
@@ -84,6 +86,11 @@ do {
         positional: intHandlerParser.add(positional: "temporary file", kind: String.self, usage: "Path to temp file"),
         to: { $0.temporaryFile = AbsolutePath($1) })
 
+    let absolutePathParser = parser.add(subparser: Mode.absolutePath.rawValue, overview: "Print the absolute path for the given relative path")
+    binder.bind(
+        positional: absolutePathParser.add(positional: "relative path", kind: PathArgument.self, usage: "Relative path to return absolute path for"),
+        to: { $0.absolutePath = $1.path })
+
     binder.bind(
         parser: parser,
         to: { $0.mode = Mode(rawValue: $1)! })
@@ -99,6 +106,8 @@ do {
     case .interruptHandlerTest:
         let handlerTest = try HandlerTest(options.temporaryFile!)
         handlerTest.run()
+    case .absolutePath:
+        print(options.absolutePath!.asString)
     case .help:
         parser.printUsage(on: stdoutStream)
     }
