@@ -29,6 +29,31 @@ public enum ArgumentParserError: Swift.Error {
     case typeMismatch(String)
 }
 
+/// Different shells for which we can generate shell scripts.
+public enum Shell: String, StringEnumArgument {
+    case bash
+    case zsh
+
+    public static var completion: ShellCompletion = .values([
+        (bash.rawValue, "generate completion script for Bourne-again shell"),
+        (zsh.rawValue, "generate completion script for Z shell")
+    ])
+}
+
+/// Various shell completions modes supplied by ArgumentKind.
+///
+/// - none:        Offers no completions at all; e.g. for string identifier
+/// - unspecified: No specific completions, will offer tool's completions
+/// - filename:    Offers filename completions
+/// - values:      Offers completions from predefined list. A description
+///                can be provided which is shown in some shells, like zsh.
+public enum ShellCompletion {
+    case none
+    case unspecified
+    case filename
+    case values([(value: String, description: String)])
+}
+
 /// A protocol representing the possible types of arguments.
 ///
 /// Conforming to this protocol will qualify the type to act as
@@ -41,6 +66,9 @@ public protocol ArgumentKind {
 
     /// This will be called for positional arguments with the value discovered.
     init?(arg: String)
+
+    /// Type of shell completion to provide for this argument.
+    static var completion: ShellCompletion { get }
 }
 
 // MARK:- ArgumentKind conformance for common types
@@ -53,6 +81,8 @@ extension String: ArgumentKind {
     public init(parser: inout ArgumentParserProtocol) throws {
         self = try parser.associatedArgumentValue ?? parser.next()
     }
+
+    public static let completion: ShellCompletion = .none
 }
 
 extension Int: ArgumentKind {
@@ -68,6 +98,8 @@ extension Int: ArgumentKind {
         }
         self = intValue
     }
+
+    public static let completion: ShellCompletion = .none
 }
 
 extension Bool: ArgumentKind {
@@ -88,6 +120,8 @@ extension Bool: ArgumentKind {
             self = true
         }
     }
+
+    public static var completion: ShellCompletion = .unspecified
 }
 
 /// A protocol which implements ArgumentKind for string initializable enums.
@@ -126,6 +160,8 @@ public struct PathArgument: ArgumentKind {
     public init(parser: inout ArgumentParserProtocol) throws {
         path = AbsolutePath(try parser.associatedArgumentValue ?? parser.next(), relativeTo: currentWorkingDirectory)
     }
+
+    public static var completion: ShellCompletion = .filename
 }
 
 /// A protocol representing positional or options argument.
@@ -202,7 +238,7 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 /// A type-erased argument.
 ///
 /// Note: Only used for argument parsing purpose.
-fileprivate final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
+internal final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     typealias ArgumentKindTy = Any
 
     let name: String
@@ -329,11 +365,11 @@ public final class ArgumentParser {
     }
 
     /// The mapping of subparsers to their subcommand.
-    private var subparsers: [String: ArgumentParser] = [:]
+    internal var subparsers: [String: ArgumentParser] = [:]
 
     /// List of arguments added to this parser.
-    private var options = [AnyArgument]()
-    private var positionalArgs = [AnyArgument]()
+    internal var options = [AnyArgument]()
+    internal var positionalArgs = [AnyArgument]()
 
     // If provided, will be substituted instead of arg0 in usage text.
     let commandName: String?

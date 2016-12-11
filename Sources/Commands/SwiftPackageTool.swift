@@ -417,7 +417,7 @@ public class PackageToolOptions: ToolOptions {
     /// Repin the dependencies when running package update.
     var repin = false
 
-    enum ResolveToolMode: String, StringEnumArgument {
+    enum ResolveToolMode: String {
         case text
         case json
     }
@@ -449,8 +449,41 @@ public enum PackageMode: String, StringEnumArgument {
     case update
     case version
     case help
+
+    // PackageMode is not used as an argument; completions will be
+    // provided by the subparsers.
+    public static var completion: ShellCompletion = .none
 }
 
-extension InitPackage.PackageType: StringEnumArgument {}
-extension ShowDependenciesMode: StringEnumArgument {}
-extension DescribeMode: StringEnumArgument {}
+extension InitPackage.PackageType: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (empty.description, "generates an empty project"),
+        (library.description, "generates project for a dynamic library"),
+        (executable.description, "generates a project for a cli executable"),
+        (systemModule.description, "generates a project for a system module")
+    ])
+}
+
+extension ShowDependenciesMode: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (text.description, "list dependencies using text format"),
+        (dot.description, "list dependencies using dot format"),
+        (json.description, "list dependencies using JSON format")
+    ])
+}
+
+extension DescribeMode: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (text.rawValue, "describe using text format"),
+        (json.rawValue, "describe using JSON format")
+    ])
+}
+
+extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
+    static var completion: ShellCompletion {
+        return .values([
+            (text.rawValue, "resolve using text format"),
+            (json.rawValue, "resolve using JSON format")
+        ])
+    }
+}
