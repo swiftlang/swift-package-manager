@@ -174,22 +174,26 @@ public class Workspace {
 
     /// A struct representing all the current manifests (root + external) in a package graph.
     public struct DependencyManifests {
-        /// The root manifest.
-        let root: Manifest
+        /// The root manifests.
+        let roots: [Manifest]
 
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
 
         /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
         func missingURLs() -> Set<String> {
-            let manifestsMap = Dictionary<String, Manifest>(
-                items: [(root.url, root)] + dependencies.map{ ($0.manifest.url, $0.manifest) })
+            let manifestsMap = Dictionary<String, Manifest>(items:
+                roots.map{ ($0.url, $0) } +
+                dependencies.map{ ($0.manifest.url, $0.manifest) }
+            )
 
-            var requiredURLs = transitiveClosure([root.url]) { url in
+            var requiredURLs = transitiveClosure(roots.map{ $0.url}) { url in
                 guard let manifest = manifestsMap[url] else { return [] }
                 return manifest.package.dependencies.map{ $0.url }
             }
-            requiredURLs.insert(root.url)
+            for root in roots {
+                requiredURLs.insert(root.url)
+            }
 
             let availableURLs = Set<String>(manifestsMap.keys)
             // We should never have loaded a manifest we don't need.
@@ -208,8 +212,8 @@ public class Workspace {
             return lookup(package: name)?.manifest
         }
 
-        init(root: Manifest, dependencies: [(Manifest, ManagedDependency)]) {
-            self.root = root
+        init(roots: [Manifest], dependencies: [(Manifest, ManagedDependency)]) {
+            self.roots = roots
             self.dependencies = dependencies
         }
     }
@@ -432,7 +436,7 @@ public class Workspace {
         // * Root manifest contraints without pins.
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
-        let constraints = computeRootPackageConstraints(try loadRootManifest(), includePins: false) 
+        let constraints = computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
                         + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository }) as [RepositoryPackageConstraint]
                         + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
         // Resolve the dependencies.
@@ -578,9 +582,9 @@ public class Workspace {
 
     /// Updates the current dependencies.
     public func updateDependencies(repin: Bool = false) throws {
-        let rootManifest = try loadRootManifest()
+        let rootManifests = try loadRootManifests()
         // Create constraints based on root manifest and pins for the update resolution.
-        let updateConstraints = computeRootPackageConstraints(rootManifest, includePins: !repin)
+        let updateConstraints = computeRootPackagesConstraints(rootManifests, includePins: !repin)
         // Resolve the dependencies.
         let updateResults = try resolveDependencies(constraints: updateConstraints) as [(RepositorySpecifier, Version)]
         // Update the checkouts based on new dependency resolution.
@@ -658,16 +662,18 @@ public class Workspace {
         return packageStateChanges
     }
 
-    /// Create package constraints based on the root manifest.
+    /// Create package constraints based on the root manifests.
     ///
     /// - Parameters:
-    ///   - rootManifest: The root manifest.
+    ///   - rootManifests: The root manifests.
     ///   - includePins: If the constraints from pins should be included.
     /// - Returns: Array of constraints.
-    private func computeRootPackageConstraints(_ rootManifest: Manifest, includePins: Bool) -> [RepositoryPackageConstraint] {
-        return rootManifest.package.dependencies.map{
-            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
-        } + (includePins ? pinsStore.createConstraints() : [])
+    private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
+        return rootManifests.flatMap{ rootManifest in
+            rootManifest.package.dependencies.map{
+                RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+            } + (includePins ? pinsStore.createConstraints() : [])
+        }
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
@@ -684,14 +690,14 @@ public class Workspace {
     ///
     /// Throws: If the root manifest could not be loaded.
     public func loadDependencyManifests() throws -> DependencyManifests {
-        // Load the root manifest.
-        let rootManifest = try loadRootManifest()
+        // Load the root manifests.
+        let rootManifests = try loadRootManifests()
 
         // Validate that edited dependencies are still present.
         try validateEditedPackages()
 
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure([KeyedPair(rootManifest, key: rootManifest.url)]) { node in
+        let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
                 // Check if this dependency is available.
                 guard let managedDependency = dependencyMap[RepositorySpecifier(url: dependency.url)] else {
@@ -714,7 +720,7 @@ public class Workspace {
             }
         }
 
-        return DependencyManifests(root: rootManifest, dependencies: dependencies.map{ ($0.item, dependencyMap[RepositorySpecifier(url: $0.item.url)]!) })
+        return DependencyManifests(roots: rootManifests, dependencies: dependencies.map{ ($0.item, dependencyMap[RepositorySpecifier(url: $0.item.url)]!) })
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
@@ -753,7 +759,7 @@ public class Workspace {
         let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifests: [currentManifests.root], externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
+            return try PackageGraphLoader().load(rootManifests: currentManifests.roots, externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
@@ -761,7 +767,7 @@ public class Workspace {
         delegate.fetchingMissingRepositories(missingURLs)
 
         // First, add the root package constraints.
-        var constraints = computeRootPackageConstraints(currentManifests.root, includePins: true)
+        var constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
 
         // Add constraints to pin to *exactly* all the checkouts we have.
         //
@@ -823,7 +829,7 @@ public class Workspace {
         }
 
         // We've loaded the complete set of manifests, load the graph.
-        return try PackageGraphLoader().load(rootManifests: [currentManifests.root], externalManifests: externalManifests, fileSystem: fileSystem)
+        return try PackageGraphLoader().load(rootManifests: currentManifests.roots, externalManifests: externalManifests, fileSystem: fileSystem)
     }
 
     /// Removes the clone and checkout of the provided specifier.
@@ -853,9 +859,9 @@ public class Workspace {
         try saveState()
     }
 
-    /// Loads and returns the root manifest.
-    private func loadRootManifest() throws -> Manifest {
-        return try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)
+    /// Loads and returns the root manifests.
+    private func loadRootManifests() throws -> [Manifest] {
+        return [try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)]
     }
     
     // MARK: Persistence
