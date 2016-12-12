@@ -69,3 +69,16 @@ extension Manifest {
         return try JSON(string: PackageDescription.jsonString(package: package)).toString(prettyPrint: true)
     }
 }
+
+extension Manifest: Hashable {
+
+    public static func ==(lhs: Manifest, rhs: Manifest) -> Bool {
+        // FIXME: Maybe we should make PackageDescription.Package conform to Equatable.
+        return lhs.name == rhs.name &&
+               lhs.package === rhs.package
+    }
+
+    public var hashValue: Int {
+        return name.hashValue
+    }
+}
