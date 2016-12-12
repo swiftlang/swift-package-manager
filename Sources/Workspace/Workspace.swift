@@ -753,7 +753,7 @@ public class Workspace {
         let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
+            return try PackageGraphLoader().load(rootManifests: [currentManifests.root], externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
@@ -823,7 +823,7 @@ public class Workspace {
         }
 
         // We've loaded the complete set of manifests, load the graph.
-        return try PackageGraphLoader().load(rootManifest: currentManifests.root, externalManifests: externalManifests, fileSystem: fileSystem)
+        return try PackageGraphLoader().load(rootManifests: [currentManifests.root], externalManifests: externalManifests, fileSystem: fileSystem)
     }
 
     /// Removes the clone and checkout of the provided specifier.

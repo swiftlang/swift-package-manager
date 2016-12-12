@@ -184,7 +184,7 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
             externalManifests.append(manifest)
         }
     }
-    return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests, fileSystem: fs)
+    return try PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, fileSystem: fs)
 }
 
 /// Temporary override environment variables

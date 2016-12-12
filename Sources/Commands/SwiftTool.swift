@@ -219,7 +219,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Fetch and load the manifests.
             let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()
         
-            return try PackageGraphLoader().load(rootManifest: rootManifest, externalManifests: externalManifests)
+            return try PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests)
         }
     }
 
