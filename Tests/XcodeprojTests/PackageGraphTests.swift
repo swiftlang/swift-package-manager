@@ -72,6 +72,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: [])
+                XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
                 XCTAssertNil(targetResult.target.buildSettings.common.SDKROOT)
             }
@@ -80,6 +81,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
+                XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
@@ -87,6 +89,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "../xcodeproj/GeneratedModuleMap/Sea/module.modulemap")
+                XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
@@ -94,6 +97,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE ?? "", "Sources/Sea2/include/module.modulemap")
+                XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
 
