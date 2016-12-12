@@ -675,6 +675,8 @@ public class DependencyResolver<
         //
         // FIXME: We must detect recursion here.
         return AnySequence(validVersions(container).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
+                // If we had encountered any error, return early.
+                guard self.error == nil else { return AnySequence([]) }
                 // Create an assignment for this container and version.
                 var assignment = AssignmentSet()
                 assignment[container] = .version(version)
@@ -734,6 +736,9 @@ public class DependencyResolver<
         // merged. Thus, the reduce itself can be eager since the result is
         // lazy.
         return AnySequence(constraints.map{ $0.identifier }.reduce(AnySequence([(assignment, allConstraints)])) { (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                    // If we had encountered any error, return early.
+                    guard self.error == nil else { return AnySequence([]) }
+
                     // Get the container.
                     //
                     // Failures here will immediately abort the solution, although in

@@ -35,7 +35,7 @@ class VersionSpecificTests: XCTestCase {
             }
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "Initial")
-            try repo.tag(name: "initialtag")
+            try repo.tag(name: "1.0.0")
 
             // Create the version to test against.
             try fs.writeFileContents(depPath.appending(component: "Package.swift")) {
