@@ -177,15 +177,16 @@ public class SwiftTool<Options: ToolOptions> {
         }
         let delegate = ToolWorkspaceDelegate()
         let rootPackage = try getPackageRoot()
-        _workspace = try Workspace(
-            rootPackage: rootPackage,
+        let workspace = try Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
             pinsFile: rootPackage.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
             delegate: delegate
         )
-        return _workspace!
+        workspace.registerPackage(at: rootPackage)
+        _workspace = workspace
+        return workspace
     }
 
     /// Execute the tool.

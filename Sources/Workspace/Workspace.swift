@@ -34,6 +34,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// The branch already exists in repository.
     case branchAlreadyExists
+
+    /// There are no registered root package paths.
+    case noRegisteredPackages
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -221,8 +224,8 @@ public class Workspace {
     /// The delegate interface.
     public let delegate: WorkspaceDelegate
 
-    /// The path of the root package.
-    public let rootPackagePath: AbsolutePath
+    /// The paths of the registered root packages.
+    public private(set) var rootPackages: Set<AbsolutePath>
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
@@ -256,14 +259,13 @@ public class Workspace {
         return AnySequence<ManagedDependency>(dependencyMap.values)
     }
 
-    /// Create a new workspace for the package at the given path.
+    /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
     /// present. If the state isn't present then a default state will be
     /// constructed.
     ///
     /// - Parameters:
-    ///   - path: The path of the root package.
     ///   - dataPath: The path for the workspace data files.
     ///   - editablesPath: The path where editable packages should be placed.
     ///   - pinsFile: The path to pins file. If pins file is not present, it will be created.
@@ -272,7 +274,6 @@ public class Workspace {
     ///   - repositoryProvider: The repository provider to use in repository manager.
     /// - Throws: If the state was present, but could not be loaded.
     public init(
-        rootPackage path: AbsolutePath,
         dataPath: AbsolutePath,
         editablesPath: AbsolutePath,
         pinsFile: AbsolutePath,
@@ -281,8 +282,8 @@ public class Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider()
     ) throws {
+        self.rootPackages = []
         self.delegate = delegate
-        self.rootPackagePath = path
         self.dataPath = dataPath
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
@@ -309,6 +310,14 @@ public class Workspace {
             // There was no state, write the default state immediately.
             try saveState()
         }
+    }
+
+    /// Registers the provided path as a root package. It is valid to re-add previously registered path.
+    ///
+    /// Note: This method just registers the path and does not validate it. A newly registered
+    /// package will only be loaded on explicitly calling a related API.
+    public func registerPackage(at path: AbsolutePath) {
+        rootPackages.insert(path)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -789,6 +798,7 @@ public class Workspace {
                     continue
                 }
                 // If we know the manifest is at a particular version, use that.
+                // FIXME: This backfires in certain cases when the graph is resolvable but this constraint makes the resolution unsatisfiable.
                 constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .exact(version)))
             } else {
                 // FIXME: Otherwise, we need to be able to constraint precisely to the revision we have.
@@ -861,7 +871,13 @@ public class Workspace {
 
     /// Loads and returns the root manifests.
     private func loadRootManifests() throws -> [Manifest] {
-        return [try manifestLoader.load(packagePath: rootPackagePath, baseURL: rootPackagePath.asString, version: nil)]
+        // Ensure we have at least one registered root package path.
+        guard rootPackages.count > 0 else {
+            throw WorkspaceOperationError.noRegisteredPackages
+        }
+        return try rootPackages.map {
+            try manifestLoader.load(packagePath: $0, baseURL: $0.asString, version: nil)
+        }
     }
     
     // MARK: Persistence

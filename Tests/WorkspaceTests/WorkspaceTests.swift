@@ -23,7 +23,7 @@ import struct TestSupport.MockManifestLoader
 
 import TestSupport
 
-
+private let v1Range = Version("1.0.0") ..< Version("2.0.0")
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
 private class TestWorkspaceDelegate: WorkspaceDelegate {
@@ -54,19 +54,18 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 }
 
 extension Workspace {
-    convenience init(rootPackage path: AbsolutePath) throws {
-        try self.init(rootPackage: path, manifestLoader: sharedManifestLoader, delegate: TestWorkspaceDelegate())
+    static func createWith(rootPackage path: AbsolutePath) throws -> Workspace {
+        return try createWith(rootPackage: path, manifestLoader: sharedManifestLoader, delegate: TestWorkspaceDelegate())
     }
 
-    convenience init(
+    static func createWith(
         rootPackage path: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider()
-    ) throws {
-        try self.init(
-            rootPackage: path,
+    ) throws -> Workspace {
+        let workspace = try Workspace(
             dataPath: path.appending(component: ".build"),
             editablesPath: path.appending(component: "Packages"),
             pinsFile: path.appending(component: "Package.pins"),
@@ -74,6 +73,8 @@ extension Workspace {
             delegate: delegate,
             fileSystem: fileSystem,
             repositoryProvider: repositoryProvider)
+        workspace.registerPackage(at: path)
+        return workspace
     }
 }
 
@@ -99,7 +100,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Create the initial workspace.
             do {
-                let workspace = try Workspace(rootPackage: path)
+                let workspace = try Workspace.createWith(rootPackage: path)
                 XCTAssertEqual(workspace.dependencies.map{ $0.repository.url }, [])
 
                 // Do a low-level clone.
@@ -109,7 +110,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Re-open the workspace, and check we know the checkout version.
             do {
-                let workspace = try Workspace(rootPackage: path)
+                let workspace = try Workspace.createWith(rootPackage: path)
                 XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
                 if let dependency = workspace.dependencies.first(where: { _ in true }) {
                     XCTAssertEqual(dependency.repository, testRepoSpec)
@@ -124,7 +125,7 @@ final class WorkspaceTests: XCTestCase {
             // Re-check the persisted state.
             let statePath: AbsolutePath
             do {
-                let workspace = try Workspace(rootPackage: path)
+                let workspace = try Workspace.createWith(rootPackage: path)
                 statePath = workspace.statePath
                 XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
                 if let dependency = workspace.dependencies.first(where: { _ in true }) {
@@ -136,7 +137,7 @@ final class WorkspaceTests: XCTestCase {
             // Blow away the workspace state file, and check we can get back to a good state.
             try removeFileTree(statePath)
             do {
-                let workspace = try Workspace(rootPackage: path)
+                let workspace = try Workspace.createWith(rootPackage: path)
                 XCTAssertEqual(workspace.dependencies.map{ $0.repository.url }, [])
                 _ = try workspace.clone(repository: testRepoSpec, at: currentRevision)
                 XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
@@ -165,7 +166,7 @@ final class WorkspaceTests: XCTestCase {
                 ]
             )
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: graph.manifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: graph.manifestLoader, delegate: TestWorkspaceDelegate())
 
             // Ensure we have checkouts for A & AA.
             for name in ["A", "AA"] {
@@ -205,7 +206,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
             // Ensure we have a checkout for A.
             for name in ["A"] {
@@ -234,7 +235,7 @@ final class WorkspaceTests: XCTestCase {
             ],
             fs: fs
         )
-        let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate(), fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
+        let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate(), fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
         let graph = try workspace.loadPackageGraph()
         XCTAssertEqual(graph.packages.count, 2)
         XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
@@ -266,7 +267,7 @@ final class WorkspaceTests: XCTestCase {
             )
             // Create the workspace.
             let delegate = TestWorkspaceDelegate()
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
 
             // Ensure delegates haven't been called yet.
             XCTAssert(delegate.fetched.isEmpty)
@@ -323,7 +324,7 @@ final class WorkspaceTests: XCTestCase {
             let repoPath = AbsolutePath(manifestGraph.repo("A").url)
 
             func createWorkspace() throws -> Workspace {
-                return  try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
+                return  try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
             }
 
             do {
@@ -393,7 +394,7 @@ final class WorkspaceTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "initial")
 
-            let workspace = try Workspace(rootPackage: path)
+            let workspace = try Workspace.createWith(rootPackage: path)
             let checkoutPath = try workspace.clone(repository: testRepoSpec, at: Revision(identifier: "initial"))
             XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
 
@@ -436,7 +437,7 @@ final class WorkspaceTests: XCTestCase {
                 ]
             )
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
             let graph = try workspace.loadPackageGraph()
             // Sanity checks.
@@ -486,7 +487,7 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 // Reopen workspace and check if we maintained the state.
-                let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+                let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
                 let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
                 XCTAssert(dependency.isInEditableState)
             }
@@ -511,7 +512,7 @@ final class WorkspaceTests: XCTestCase {
                 ]
             )
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
             let graph = try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
@@ -555,7 +556,7 @@ final class WorkspaceTests: XCTestCase {
                 ]
             )
             // Create the workspace.
-            let workspace = try Workspace(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
             let graph = try workspace.loadPackageGraph()
             // Sanity checks.
@@ -622,7 +623,7 @@ final class WorkspaceTests: XCTestCase {
         let provider = manifestGraph.repoProvider!
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -721,7 +722,7 @@ final class WorkspaceTests: XCTestCase {
         try aRepo.tag(name: "1.0.1")
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -819,7 +820,7 @@ final class WorkspaceTests: XCTestCase {
         let provider = manifestGraph.repoProvider!
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -900,7 +901,7 @@ final class WorkspaceTests: XCTestCase {
         let provider = manifestGraph.repoProvider!
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -954,7 +955,7 @@ final class WorkspaceTests: XCTestCase {
         try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "2.0.0")
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -1023,7 +1024,7 @@ final class WorkspaceTests: XCTestCase {
         let provider = manifestGraph.repoProvider!
         try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "2.0.0")
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -1061,7 +1062,7 @@ final class WorkspaceTests: XCTestCase {
         let provider = manifestGraph.repoProvider!
 
         func newWorkspace() -> Workspace {
-            return try! Workspace(
+            return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
                 delegate: TestWorkspaceDelegate(),
@@ -1111,6 +1112,128 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testMultipleRootPackages() throws {
+        mktmpdir { path in
+            var repos = [String: AbsolutePath]()
+            var manifests = try Dictionary(items: ["A", "B", "C", "D"].map { pkg -> (MockManifestLoader.Key, Manifest) in
+                let repoPath = path.appending(component: pkg)
+                repos[pkg] = repoPath
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath, tag: v1.description)
+
+                let manifest = Manifest(
+                    path: path.appending(component: Manifest.filename),
+                    url: repoPath.asString,
+                    package: PackageDescription.Package(
+                        name: pkg,
+                        dependencies: []),
+                    products: [],
+                    version: v1)
+                return (MockManifestLoader.Key(url: repoPath.asString, version: v1), manifest)
+            })
+
+            // Add a 1.5 version for A.
+            do {
+                let aPath = repos["A"]!
+                let repo = GitRepository(path: aPath)
+                try repo.tag(name: "1.5.0")
+                let aManifest = Manifest(
+                    path: path.appending(component: Manifest.filename),
+                    url: aPath.asString,
+                    package: PackageDescription.Package(name: "A", dependencies: []),
+                    products: [],
+                    version: "1.5.0")
+                manifests[MockManifestLoader.Key(url: aPath.asString, version: "1.5.0")] = aManifest
+            }
+
+            let roots = (1...3).map { path.appending(component: "root\($0)") }
+
+            var deps: [AbsolutePath: [PackageDescription.Package.Dependency]] = [:]
+            deps[roots[0]] = [
+                .Package(url: repos["A"]!.asString, versions: v1Range),
+                .Package(url: repos["B"]!.asString, versions: v1Range),
+            ]
+            deps[roots[1]] = [
+                .Package(url: repos["C"]!.asString, versions: v1Range),
+            ]
+            deps[roots[2]] = [
+                .Package(url: repos["A"]!.asString, versions: "1.0.0"..<"1.5.0"),
+                .Package(url: repos["D"]!.asString, versions: v1Range),
+            ]
+
+            for root in roots {
+                let rootManifest = Manifest(
+                    path: path.appending(component: Manifest.filename),
+                    url: root.asString,
+                    package: PackageDescription.Package(
+                        name: root.basename,
+                        dependencies: deps[root]!),
+                    products: [],
+                    version: nil
+                )
+                manifests[MockManifestLoader.Key(url: root.asString, version: nil)] = rootManifest
+            }
+
+            // We have mocked a graph with multiple root packages, now continue with workspace testing.
+
+            func createWorkspace() throws -> Workspace {
+                let buildPath = path.appending(components: "build")
+                return try Workspace(
+                    dataPath: buildPath,
+                    editablesPath: buildPath.appending(component: "Packages"),
+                    pinsFile: buildPath.appending(component: "Package.pins"),
+                    manifestLoader: MockManifestLoader(manifests: manifests),
+                    delegate: TestWorkspaceDelegate()
+                )
+            }
+
+            // Throw if we have not registered any packages but want to load things.
+            do {
+                let workspace = try createWorkspace()
+                _ = try workspace.loadDependencyManifests()
+                XCTFail("unexpected success")
+            } catch WorkspaceOperationError.noRegisteredPackages {}
+
+            do {
+                let workspace = try createWorkspace()
+                _ = try workspace.loadPackageGraph()
+                XCTFail("unexpected success")
+            } catch WorkspaceOperationError.noRegisteredPackages {}
+
+            do {
+                let workspace = try createWorkspace()
+                // Register first two packages.
+                for root in roots[0..<2] {
+                    workspace.registerPackage(at: root)
+                }
+                let graph = try workspace.loadPackageGraph()
+                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
+                XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
+                XCTAssertEqual(graph.lookup("A").version, "1.5.0")
+            }
+
+            // FIXME: We shouldn't need to reset workspace here, but we have to because we introduce 
+            // incompatible constraints via root package 3. This happens because when we add new dependencies and resolve in workspace
+            // we constraint old manifests to previously resolved versions.
+            do {
+                let workspace = try createWorkspace()
+                try workspace.reset()
+            }
+
+            do {
+                let workspace = try createWorkspace()
+                // Register all packages.
+                for root in roots {
+                    workspace.registerPackage(at: root)
+                }
+                let graph = try workspace.loadPackageGraph()
+                XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "D", "root1", "root2", "root3"])
+                XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2", "root3"])
+                XCTAssertEqual(graph.lookup("A").version, v1)
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testEditDependency", testEditDependency),
@@ -1129,6 +1252,7 @@ final class WorkspaceTests: XCTestCase {
         ("testUpdate", testUpdate),
         ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
+        ("testMultipleRootPackages", testMultipleRootPackages),
     ]
 }
 
