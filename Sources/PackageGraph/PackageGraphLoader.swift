@@ -11,6 +11,7 @@
 import Basic
 import PackageModel
 import PackageLoading
+import Utility
 
 // FIXME: This doesn't belong here.
 import func POSIX.exit
@@ -123,27 +124,6 @@ public struct PackageGraphLoader {
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
         return PackageGraph(rootPackages: rootPackages, modules: modules, externalModules: Set(externalModules))
-    }
-}
-
-// FIXME: Maybe lift this into Utility.
-private extension Array {
-    /// Splits into two arrays, first containing elements which matching the predicate
-    /// and other containting elements not matching the predicate.
-    ///
-    /// - Parameter isMatching: The predicate to apply.
-    /// - Returns: Tuple of split arrays.
-    func split(_ isMatching: (Element) -> Bool) -> ([Element], [Element]) {
-        var matchingElements = [Element]()
-        var nonMatchingElements = [Element]()
-        for element in self {
-            if isMatching(element) {
-                matchingElements.append(element)
-            } else {
-                nonMatchingElements.append(element)
-            }
-        }
-        return (matchingElements, nonMatchingElements)
     }
 }
 
