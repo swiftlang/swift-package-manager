@@ -540,16 +540,25 @@ func ==<C: PackageContainer>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmen
 /// and #3, and optimality requires additional information (e.g. a
 /// prioritization among packages).
 ///
-/// As described, this problem is NP-complete (*). However, this solver does
-/// *not* currently attempt to solve the full NP-complete problem, rather it
-/// proceeds by first always attempting to choose the latest version of each
-/// container under consideration. However, if this version is unavailable due
-/// to the current choice of assignments, it will be rejected and no longer
-/// considered.
+/// As described, this problem is NP-complete (*). This solver currently
+/// implements a basic depth-first greedy backtracking algorithm, and honoring
+/// the order of dependencies as specified in the manifest file. The solver uses
+/// persistent data structures to manage the accumulation of state along the
+/// traversal, so the backtracking is not explicit, rather it is an implicit
+/// side effect of the underlying copy-on-write data structures.
 ///
-/// This algorithm is sound (a valid solution satisfies the assignment
-/// guarantees above), but *incomplete*; it may fail to find a valid solution to
-/// a satisfiable input.
+/// The resolver will always merge the complete set of immediate constraints for
+/// a package (i.e., the version ranges of its immediate dependencies) into the
+/// constraint set *before* traversing into any dependency. This property allows
+/// packages to manually work around performance issues in the resolution
+/// algorithm by _lifting_ problematic dependency constraints up to be immediate
+/// dependencies.
+///
+/// There is currently no external control offered by the solver over _which_
+/// solution satisfying the properties above is selected, if more than one are
+/// possible. In practice, the algorithm is designed such that it will
+/// effectively prefer (i.e., optimize for the newest version of) dependencies
+/// which are earliest in the depth-first, pre-order, traversal.
 ///
 /// (*) Via reduction from 3-SAT: Introduce a package for each variable, with
 /// two versions representing true and false. For each clause `C_n`, introduce a
