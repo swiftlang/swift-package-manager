@@ -150,7 +150,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .showDependencies:
             let graph = try loadPackage()
-            dumpDependenciesOf(rootPackage: graph.rootPackage, mode: options.showDepsMode)
+            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: options.showDepsMode)
         case .generateXcodeproj:
             let graph = try loadPackage()
 
@@ -164,10 +164,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackage.name
+                projectName = graph.rootPackages[0].name
             case _:
                 dstdir = try getPackageRoot()
-                projectName = graph.rootPackage.name
+                projectName = graph.rootPackages[0].name
             }
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
 
@@ -175,7 +175,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .describe:
             let graph = try loadPackage()
-            describe(graph.rootPackage, in: options.describeMode, on: stdoutStream)
+            describe(graph.rootPackages[0], in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
             let manifest = try loadRootManifest(options)

@@ -44,7 +44,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
     
-    let srcroot = graph.rootPackage.path
+    let srcroot = graph.rootPackages[0].path
     
     // Determine the path of the .xcodeproj wrapper directory.
     let xcodeprojName = "\(projectName).xcodeproj"
