@@ -137,6 +137,34 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertFileExists(debugPath.appending(component: "CDynamicLookup".soname))
         }
     }
+    
+    func testObjectiveCPackageWithTestTarget(){
+#if os(macOS)
+        fixture(name: "ClangModules/ObjCmacOSPackage") { prefix in
+            // Build the package.
+            XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "ObjCmacOSPackage".soname))
+            // Run swift-test on package.
+            XCTAssertSwiftTest(prefix)
+            // Expected output dictionary.
+            let testCases = ["name": "All Tests", "tests": [["name" : "ObjCmacOSPackagePackageTests.xctest",
+                "tests": [
+                [
+                "name": "HelloWorldTest",
+                "tests": [
+                        ["name": "testNoName"],
+                        ["name": "testOtherSampleName"],
+                        ["name": "testSampleName"],
+                        ] as Array<Dictionary<String, String>>
+                ],
+              ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
+            ] as Dictionary<String, Any> as NSDictionary
+            // Run the XCTest helper tool and check result.
+            XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "ObjCmacOSPackagePackageTests.xctest"), testCases: testCases)
+        }
+#endif
+
+    }
 
     static var allTests = [
         ("testSingleModuleFlatCLibrary", testSingleModuleFlatCLibrary),
@@ -149,5 +177,6 @@ class ClangModulesTestCase: XCTestCase {
         ("testCExecutable", testCExecutable),
         ("testModuleMapGenerationCases", testModuleMapGenerationCases),
         ("testCanForwardExtraFlagsToClang", testCanForwardExtraFlagsToClang),
+        ("testObjectiveCPackageWithTestTarget", testObjectiveCPackageWithTestTarget),
     ]
 }
