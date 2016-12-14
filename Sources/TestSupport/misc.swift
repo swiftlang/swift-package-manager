@@ -9,6 +9,7 @@
 */
 
 import func XCTest.XCTFail
+import class Foundation.NSDate
 
 import Basic
 import PackageDescription
@@ -217,4 +218,18 @@ public func withCustomEnv(_ env: [String: String], body: () throws -> ()) throws
         throw error
     }
     try restore()
+}
+
+/// Waits for a file to appear for around 1 second.
+/// Returns true if found, false otherwise.
+public func waitForFile(_ path: AbsolutePath) -> Bool {
+    let endTime = NSDate().timeIntervalSince1970 + 2
+    while NSDate().timeIntervalSince1970 < endTime {
+        // Sleep for a bit so we don't burn a lot of CPU.
+        try? usleep(microSeconds: 10000)
+        if localFileSystem.exists(path) {
+            return true
+        }
+    }
+    return false
 }
