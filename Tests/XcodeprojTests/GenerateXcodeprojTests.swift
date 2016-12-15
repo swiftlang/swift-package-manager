@@ -58,7 +58,6 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    
     func testGenerateXcodeprojWithInvalidModuleNames() {
 #if os(macOS)
             let warningStream = BufferedOutputByteStream()

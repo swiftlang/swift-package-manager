@@ -41,7 +41,6 @@ public func pbxproj(
     return "// !$*UTF8*$!\n" + project.generatePlist().description
 }
 
-
 /// A set of c99 module names that are invalid for Xcode Framework targets.
 /// They will conflict with the required Framework directory structure,
 /// and cause a linker error (rdar://problem/29617753).

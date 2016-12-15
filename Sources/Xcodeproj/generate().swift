@@ -97,7 +97,6 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
-        
         try open(xcodeprojPath.appending(RelativePath(name))) { print in
             print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             print("<plist version=\"1.0\">")
