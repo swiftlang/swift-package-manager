@@ -43,15 +43,9 @@ public func pbxproj(
 
 /// A set of c99 module names that are invalid for Xcode Framework targets.
 /// They will conflict with the required Framework directory structure,
-/// and cause a linker error (rdar://problem/29617753).
+/// and cause a linker error (SR-3398).
 // FIXME: Handle case insensitive filesystems
 fileprivate let invalidXcodeModuleNames = Set(["Modules", "Headers", "Versions"])
-
-/// Modules matching invalidXcodeModuleNames should output a warning,
-/// this function returns the warning (See invalidXcodeModuleNames).
-internal func warningString(invalidXcodeModuleName name: String) -> String {
-    return "warning: Target '\(module.c99name)' conflicts with required framework filenames, rename this target to avoid conflicts."
-}
 
 func xcodeProject(
     xcodeprojPath: AbsolutePath,
@@ -485,7 +479,7 @@ func xcodeProject(
         
         // Warn if the module name is invalid (See invalidXcodeModuleNames)
         if invalidXcodeModuleNames.contains(module.c99name) {
-            warningStream << warningString(invalidXcodeModuleName: module.name)
+            warningStream << "warning: Target '\(module.name)' conflicts with required framework filenames, rename this target to avoid conflicts."
             warningStream.flush()
         }
         
