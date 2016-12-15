@@ -92,20 +92,6 @@ class FunctionalTests: XCTestCase {
 #endif
     }
     
-    func testGenerateXcodeprojWithInvalidModuleNames() {
-#if os(macOS)
-        fixture(name: "Miscellaneous/PackageWithInvalidXcodeNameModules") { prefix in
-            let log = try! executeXcodeprojGen(prefix: prefix)
-            func targetErrorString(name: String) { 
-                return "warning: Target '\(name)' conflicts with required framework filenames, rename this target to avoid conflicts."
-            }
-            XCTAssertTrue(log.contains(targetErrorString(name: "Modules")))
-            XCTAssertTrue(log.contains(targetErrorString(name: "Versions")))
-            XCTAssertTrue(log.contains(targetErrorString(name: "Headers")))
-        }
-#endif
-    }
-
     func testSystemModule() {
 #if os(macOS)
         // Because there isn't any one system module that we can depend on for testing purposes, we build our own.

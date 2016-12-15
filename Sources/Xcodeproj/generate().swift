@@ -93,14 +93,10 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
         print("</plist>")
     }
 
-    let invalidModuleNames = Set(["Modules", "Headers", "Versions"])
     for module in graph.modules where module.isLibrary {
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
-        if invalidModuleNames.contains(name) {
-            print("warning: Target '\(name)' conflicts with required framework filenames, rename this target to avoid conflicts.")
-        }
         
         try open(xcodeprojPath.appending(RelativePath(name))) { print in
             print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")

@@ -133,11 +133,6 @@ public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuratio
     return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
-@discardableResult
-public func executeXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [String: String]? = nil) throws -> String {
-    return try SwiftPMProduct.SwiftPackage.execute(flags + ["generate-xcodeproj"], chdir: prefix, env: env, printIfError: true)
-}
-
 /// Test helper utility for executing a block with a temporary directory.
 public func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
     do {
