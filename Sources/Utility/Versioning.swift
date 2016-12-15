@@ -80,7 +80,7 @@ private func getBuildIdentifier() -> String? {
 public struct Versioning {
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
-        version: (3, 0, 0),
+        version: (3, 1, 0),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier())
 
