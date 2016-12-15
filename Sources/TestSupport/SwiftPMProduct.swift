@@ -35,7 +35,7 @@ public enum SwiftPMProduct {
     case TestSupportExecutable
 
     /// Path to currently built binary.
-    var path: AbsolutePath {
+    public var path: AbsolutePath {
       #if os(macOS)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return AbsolutePath(bundle.bundlePath).parentDirectory.appending(self.exec)

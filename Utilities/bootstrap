@@ -970,6 +970,8 @@ def main():
     if "test" in build_actions:
         # Construct the test environment.
         cmd = env_cmd + [swift_test_path] + build_flags
+        note("testing with command: %s" % (
+            ' '.join(cmd),))
         result = subprocess.call(cmd, cwd=g_project_root)
         if result != 0:
             error("tests failed with exit status %d" % (result,))

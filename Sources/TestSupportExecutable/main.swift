@@ -1,3 +1,5 @@
+import Dispatch
+
 import Basic
 import POSIX
 import libc
@@ -24,10 +26,28 @@ func fileLockTest(cacheDir: AbsolutePath, path: AbsolutePath, content: Int) thro
     }
 }
 
+class HandlerTest {
+    let interruptHandler: InterruptHandler
+
+    init(_ file: AbsolutePath) throws {
+        interruptHandler = try InterruptHandler {
+            print("Hello from handler!")
+            libc.exit(0)
+        }
+        try localFileSystem.writeFileContents(file, bytes: ByteString())
+    }
+
+    func run() {
+        // Block.
+        dispatchMain()
+    }
+}
+
 // MARK:- Frontend
 
 enum Mode: String {
     case fileLockTest
+    case interruptHandlerTest
     case help
 }
 
@@ -38,6 +58,7 @@ struct Options {
         let content: Int
     }
     var fileLockOptions: FileLockOptions?
+    var temporaryFile: AbsolutePath?
     var mode = Mode.help
 }
 
@@ -57,7 +78,12 @@ do {
         to: {
             $0.fileLockOptions = Options.FileLockOptions(cacheDir: AbsolutePath($1), path: AbsolutePath($2), content: $3)
     })
-    
+
+    let intHandlerParser = parser.add(subparser: Mode.interruptHandlerTest.rawValue, overview: "Execute the interrupt handler test")
+    binder.bind(
+        positional: intHandlerParser.add(positional: "temporary file", kind: String.self, usage: "Path to temp file"),
+        to: { $0.temporaryFile = AbsolutePath($1) })
+
     binder.bind(
         parser: parser,
         to: { $0.mode = Mode(rawValue: $1)! })
@@ -70,6 +96,9 @@ do {
     case .fileLockTest:
         guard let fileLockOptions = options.fileLockOptions else { break }
         try fileLockTest(cacheDir: fileLockOptions.cacheDir, path: fileLockOptions.path, content: fileLockOptions.content)
+    case .interruptHandlerTest:
+        let handlerTest = try HandlerTest(options.temporaryFile!)
+        handlerTest.run()
     case .help:
         parser.printUsage(on: stdoutStream)
     }
