@@ -11,6 +11,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import XCTest
 
 import Basic
+import TestSupport
 
 private enum DummyError: Swift.Error {
     case somethingWentWrong
@@ -117,8 +118,63 @@ class ResultTests: XCTestCase {
         }
     }
 
+    func testMap() throws {
+        XCTAssertEqual(try Result<String, DummyError>("Hello").map { $0 + " World" }.dematerialize(), "Hello World")
+
+        XCTAssertThrows(DummyError.somethingWentWrong) {
+            _ = try Result<String, DummyError>(.somethingWentWrong).map { $0 + " World" }.dematerialize()
+        }
+    }
+
+    func testMapAny() throws {
+        func throwing(_ shouldThrow: Bool) throws -> String {
+            if shouldThrow {
+                throw DummyError.somethingWentWrong
+            }
+            return " World"
+        }
+
+        // We should be able to map when we have value in result and our closure doesn't throw.
+        let success = Result<String, AnyError>("Hello").mapAny { value -> String in
+            let second = try throwing(false)
+            return value + second
+        }
+        XCTAssertEqual(try success.dematerialize(), "Hello World")
+
+        // We don't have a value, closure shouldn't matter.
+        let failure1 = Result<String, AnyError>(DummyError.somethingWentWrong).mapAny { value -> String in
+            let second = try throwing(false)
+            return value + second
+        }
+        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
+            _ = try failure1.dematerialize()
+        }
+
+        // We have a value, but our closure throws.
+        let failure2 = Result<String, AnyError>("Hello").mapAny { value -> String in
+            let second = try throwing(true)
+            return value + second
+        }
+        XCTAssertThrowsAny(DummyError.somethingWentWrong) {
+            _ = try failure2.dematerialize()
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testAnyError", testAnyError),
+        ("testMap", testMap),
+        ("testMapAny", testMapAny),
     ]
+}
+
+public func XCTAssertThrowsAny<T: Swift.Error>(_ expectedError: T, file: StaticString = #file, line: UInt = #line, _ body: () throws -> ()) where T: Equatable {
+    do {
+        try body()
+        XCTFail("body completed successfully", file: file, line: line)
+    } catch let error as AnyError {
+        XCTAssertEqual(error.underlyingError as? T, expectedError, file: file, line: line)
+    } catch {
+        XCTFail("unexpected error thrown", file: file, line: line)
+    }
 }
