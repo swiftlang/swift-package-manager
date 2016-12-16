@@ -46,6 +46,17 @@ public enum Result<Value, ErrorType: Swift.Error> {
             throw error
         }
     }
+
+    /// Evaluates the given closure when this Result instance has a value.
+    public func map<U>(_ transform: (Value) throws -> U) rethrows -> Result<U, ErrorType> {
+        switch self {
+        case .success(let value):
+            return Result<U, ErrorType>(try transform(value))
+        case .failure(let error):
+            return Result<U, ErrorType>(error)
+        }
+    }
+
 }
 
 extension Result: CustomStringConvertible {
@@ -92,5 +103,21 @@ extension Result where ErrorType == AnyError {
     /// Initialise with an error, it will be automatically converted to AnyError.
     public init(_ error: Swift.Error) {
         self = .failure(AnyError(error))
+    }
+
+    /// Evaluates the given throwing closure when this Result instance has a value.
+    ///
+    /// The final result will either be the transformed value or any error thrown by the closure.
+    public func mapAny<U>(_ transform: (Value) throws -> U) -> Result<U, AnyError> {
+        switch self {
+        case .success(let value):
+            do {
+                return Result<U, AnyError>(try transform(value))
+            } catch {
+                return Result<U, AnyError>(error)
+            }
+        case .failure(let error):
+            return Result<U, AnyError>(error)
+        }
     }
 }
