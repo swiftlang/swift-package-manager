@@ -535,10 +535,11 @@ public struct PackageBuilder {
         }
 
     ////// auto-determine tests
-
+        // FIXME: https://bugs.swift.org/browse/SR-3438
+        var testModules = testModules
         // FIXME: Ignore C language test modules on linux for now.
       #if os(Linux)
-        let testModules = testModules.filter { module in
+        testModules = testModules.filter { module in
             if module is ClangModule {
                 warningStream <<< "warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux."
                 warningStream.flush()
