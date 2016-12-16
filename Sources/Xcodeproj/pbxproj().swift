@@ -479,7 +479,7 @@ func xcodeProject(
         
         // Warn if the module name is invalid (See invalidXcodeModuleNames)
         if invalidXcodeModuleNames.contains(module.c99name) {
-            warningStream << "warning: Target '\(module.name)' conflicts with required framework filenames, rename this target to avoid conflicts."
+            warningStream <<< "warning: Target '\(module.name)' conflicts with required framework filenames, rename this target to avoid conflicts."
             warningStream.flush()
         }
         
