@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import PackageGraph
+import SourceControl
 
 import struct Utility.Version
 
@@ -121,6 +122,15 @@ class DependencyResolverPerfTests: XCTestCase {
         }
     }
 
+    func testResolutionWithGitRepositories() {
+        mktmpdir { path in
+            let testHelper = try GitRepositoryResolutionHelper(path)
+            measure {
+                let result = testHelper.resolve()
+                XCTAssertEqual(result.count, 5)
+            }
+        }
+    }
 }
 
 class DependencyResolverRealWorldPerfTests: XCTestCase {
@@ -207,6 +217,60 @@ func createDummyGraph(depth: Int, breadth: Int) -> (rootConstraint: MockPackageC
     }
     // Return the root constaint and containers.
     return (MockPackageConstraint(container: "0", versionRequirement: v1Range), containers)
+}
+
+/// Helper class to run performance test of dependency resolution using git repositories.
+struct GitRepositoryResolutionHelper {
+    let manifestGraph: MockManifestGraph
+    let path: AbsolutePath
+
+    init(_ path: AbsolutePath) throws {
+        self.path = path
+        manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+                MockDependency("A", version: v1),
+                MockDependency("B", version: v1),
+                MockDependency("C", version: v1),
+                MockDependency("D", version: v1),
+            ],
+            packages: [
+                MockPackage("A", version: v1, dependencies: [
+                    MockDependency("AA", version: v1)
+                ]),
+                MockPackage("AA", version: v1),
+                MockPackage("B", version: v1),
+                MockPackage("C", version: v1),
+                MockPackage("D", version: v1),
+            ]
+        )
+    }
+
+    var constraints: [RepositoryPackageConstraint] { 
+        return manifestGraph.rootManifest.package.dependencies.map{
+            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+        }
+    }
+
+    func resolve() -> [(container: RepositorySpecifier, version: Version)] {
+        let repositoriesPath = path.appending(component: "repositories")
+        _ = try? systemQuietly(["rm", "-r", repositoriesPath.asString])
+        let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())
+        let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: manifestGraph.manifestLoader)
+        let resolver = DependencyResolver(containerProvider, DummyResolverDelegate())
+        let result = try! resolver.resolve(constraints: constraints)
+        return result
+    }
+
+    class DummyResolverDelegate: DependencyResolverDelegate {
+        typealias Identifier = RepositoryPackageContainer.Identifier
+        func added(container identifier: Identifier) {
+        }
+    }
+
+    class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
+        func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
+        }
+    }
 }
 
 #endif
