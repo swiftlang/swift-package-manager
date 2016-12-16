@@ -58,8 +58,26 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
+    func testGenerateXcodeprojWithInvalidModuleNames() throws {
+#if os(macOS)
+        let moduleName = "Modules"
+        let warningStream = BufferedOutputByteStream()
+        let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/\(moduleName)/example.swift")
+        let graph = try loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", in: fileSystem)
+
+        _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+                             graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem,
+                             warningStream: warningStream)
+
+        let warnings = warningStream.bytes.asReadableString
+
+        XCTAssertTrue(warnings.contains("warning: Target '\(moduleName)' conflicts with required framework filenames, rename this target to avoid conflicts."))
+#endif
+    }
+
     static var allTests = [
         ("testXcodebuildCanParseIt", testXcodebuildCanParseIt),
         ("testXcconfigOverrideValidatesPath", testXcconfigOverrideValidatesPath),
+        ("testGenerateXcodeprojWithInvalidModuleNames", testGenerateXcodeprojWithInvalidModuleNames),
     ]
 }
