@@ -44,7 +44,15 @@ extension Command {
         case .Executable: break
         case .Library(.Dynamic):
             args += ["-shared"]
-        case .Test, .Library(.Static):
+        case .Test:
+            #if os(macOS)
+                args += ["-Xlinker", "-bundle"]
+                args += ["-F", try platformFrameworksPath().asString]
+            #else
+                fatalError("Can't build \(product.name), \(product.type) is not yet supported.")
+            #endif
+
+        case .Library(.Static):
             fatalError("Can't build \(product.name), \(product.type) is not yet supported.")
         }
 
