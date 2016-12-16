@@ -435,6 +435,15 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testCanDebugUsinglldb() throws {
+        fixture(name: "DependencyResolution/Internal/Simple") { prefix in
+            _ = try executeSwiftBuild(prefix)
+            let exec = prefix.appending(components: ".build", "debug", "Foo").asString
+            let result = try popen(["lldb", exec, "-o", "b main.swift:2", "-o", "r", "-o", "po Bar().value", "-b"])
+            XCTAssertTrue(result.contains("\"Bar\""))
+        }
+    }
+
     static var allTests = [
         ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
@@ -468,5 +477,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
+        ("testCanDebugUsinglldb", testCanDebugUsinglldb),
     ]
 }

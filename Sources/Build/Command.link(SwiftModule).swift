@@ -26,7 +26,16 @@ extension Command {
             return [module] + module.recursiveDependencies.filter{ $0.type == .library }
         }.flatMap{ $0 as? SwiftModule }).contents
         
-        var objects = buildables.flatMap { SwiftcTool(module: $0, prefix: prefix, otherArgs: [], executable: linkerExec.asString, conf: conf).objects }
+        var objects = buildables.flatMap { module -> [AbsolutePath] in
+            let tool = SwiftcTool(module: module, prefix: prefix, otherArgs: [], executable: linkerExec.asString, conf: conf)
+            var objects = tool.objects
+            // To make executables debuggable, we need to link swiftmodule of the main executable module.
+            if module.type == .executable && conf == .debug {
+                assert(product.type == .Executable)
+                objects.append(tool.moduleOutputPath)
+            }
+            return objects
+        }
 
         let outpath = prefix.appending(product.outname)
 
@@ -84,6 +93,11 @@ extension Command {
         case .Library(.Dynamic):
             args.append("-emit-library")
         case .Executable:
+            // FIXME: This is inefficient, we can store the main module in enum payload.
+            guard let mainModule = product.modules.first(where: { $0.type == .executable }) else {
+                fatalError("Product does not have an executable module \(product.modules)")
+            }
+            args += ["-module-name", mainModule.c99name]
             args.append("-emit-executable")
         }
         
