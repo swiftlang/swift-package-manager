@@ -189,7 +189,7 @@ public class RepositoryManager {
                 let result: LookupResult
                 switch handle.status {
                 case .available:
-                    result = try! LookupResult {
+                    result = LookupResult(anyError: {
                         // Fetch and update the repository when it is being looked up.
                         if handle.needsFetch {
                             let repo = try handle.open()
@@ -198,7 +198,7 @@ public class RepositoryManager {
                             handle.needsFetch = false
                         }
                         return handle
-                    }
+                    })
                 case .pending:
                     precondition(false, "This should never have been called")
                     return
@@ -222,7 +222,7 @@ public class RepositoryManager {
                         result = Result(handle)
                     } catch {
                         handle.status = .error
-                        result = Result(AnyError(error))
+                        result = Result(error)
                     }
                     // Save the manager state.
                     self.serialQueue.sync { 

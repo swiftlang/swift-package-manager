@@ -65,10 +65,32 @@ public struct AnyError: Swift.Error, CustomStringConvertible  {
     public let underlyingError: Swift.Error
 
     public init(_ error: Swift.Error) {
-        self.underlyingError = error
+        // If we already have any error, don't nest it.
+        if case let error as AnyError = error {
+            self = error
+        } else {
+            self.underlyingError = error
+        }
     }
 
     public var description: String {
         return String(describing: underlyingError)
+    }
+}
+
+// AnyError specific helpers.
+extension Result where ErrorType == AnyError {
+    /// Initialise with something that throws AnyError.
+    public init(anyError body: () throws -> Value) {
+        do {
+            self = .success(try body())
+        } catch {
+            self = .failure(AnyError(error))
+        }
+    }
+
+    /// Initialise with an error, it will be automatically converted to AnyError.
+    public init(_ error: Swift.Error) {
+        self = .failure(AnyError(error))
     }
 }
