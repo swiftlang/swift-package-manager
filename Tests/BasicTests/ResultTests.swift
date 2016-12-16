@@ -68,7 +68,7 @@ class ResultTests: XCTestCase {
             if right {
                 return Result("All OK.")
             }
-            return Result(AnyError(DummyError.somethingWentWrong))
+            return Result(DummyError.somethingWentWrong)
         }
 
         // Success.
@@ -85,6 +85,35 @@ class ResultTests: XCTestCase {
             XCTFail("Unexpected success: \(string)")
         case .failure(let error):
             XCTAssertEqual(error.underlyingError as? DummyError, DummyError.somethingWentWrong)
+        }
+
+        do {
+            // Create an any error and check it doesn't nest.
+            let error = AnyError(DummyError.somethingWentWrong)
+            XCTAssertEqual(error.underlyingError as? DummyError, DummyError.somethingWentWrong)
+            let nested = AnyError(error)
+            XCTAssertEqual(nested.underlyingError as? DummyError, DummyError.somethingWentWrong)
+
+            // Check can create result directly from error.
+            let result: Result<String, AnyError> = Result(DummyError.somethingWentWrong)
+            if case let .failure(resultError) = result {
+                XCTAssertEqual(resultError.underlyingError as? DummyError, DummyError.somethingWentWrong)
+            } else {
+                XCTFail("Wrong result value \(result)")
+            }
+        }
+
+        do {
+            // Check any error closure initializer.
+            func throwing() throws -> String {
+                throw DummyError.somethingWentWrong
+            }
+            let result = Result(anyError: { try throwing() })
+            if case let .failure(resultError) = result {
+                XCTAssertEqual(resultError.underlyingError as? DummyError, DummyError.somethingWentWrong)
+            } else {
+                XCTFail("Wrong result value \(result)")
+            }
         }
     }
 

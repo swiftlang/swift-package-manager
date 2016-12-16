@@ -27,7 +27,7 @@ class AwaitTests: XCTestCase {
 
     func throwingAsync(_ param: String, _ completion: @escaping (Result<String, AnyError>) -> Void) {
         DispatchQueue.global().async {
-            completion(Result(AnyError(DummyError.error)))
+            completion(Result(DummyError.error))
         }
     }
 
