@@ -39,7 +39,7 @@ Use the [Swift bug tracker](http://bugs.swift.org) to report bugs with Swift Pac
 Fill the following fields:
 * `Summary`: One line summary of the problem you're facing  
 * `Description`: The complete description of the problem. Be specific and clearly mention the steps to reproduce the bug  
-* `Environment`: The Operating System, Xcode version (`$ xcodebuild --version`), Toolchain and `swift build` version (`$ swift build --version`)  
+* `Environment`: The Operating System, Xcode version (`$ xcodebuild -version`), Toolchain and `swift build` version (`$ swift build --version`)  
 * `Component/s`: Package Manager  
 * `Attachment`: Attach relevant files like logs, project
 
