@@ -1005,7 +1005,7 @@ class ConventionTests: XCTestCase {
 /// - Throws: ModuleError, ProductError
 private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, products: [PackageDescription.Product], warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: products, version: nil)
-    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream)
+    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, dependencies: [])
     return try builder.construct(includingTestModules: true)
 }
 

@@ -82,16 +82,15 @@ public final class Package {
     public let products: [Product]
 
     /// The resolved dependencies of the package.
-    ///
-    /// This value is only available once package loading is complete.
-    public var dependencies: [Package] = []
+    public let dependencies: [Package]
 
-    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product]) {
+    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product], dependencies: [Package]) {
         self.manifest = manifest
         self.path = path
         self.modules = modules
         self.testModules = testModules
         self.products = products
+        self.dependencies = dependencies 
     }
 
     public enum Error: Swift.Error, Equatable {

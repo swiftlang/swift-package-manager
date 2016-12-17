@@ -200,15 +200,19 @@ public struct PackageBuilder {
     /// The stream to which warnings should be published.
     private let warningStream: OutputByteStream
 
+    /// The dependencies of the package.
+    private let dependencies: [Package]
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
     ///   - path: The root path of the package.
-    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
+    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream, dependencies: [Package]) {
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
         self.warningStream = warningStream
+        self.dependencies = dependencies
     }
     
     /// Build a new package following the conventions.
@@ -221,7 +225,7 @@ public struct PackageBuilder {
         try fillDependencies(modules: modules + testModules)
         // FIXME: Lift includingTestModules into a higher module.
         let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
-        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products)
+        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products, dependencies: dependencies)
     }
 
     // MARK: Utility Predicates
