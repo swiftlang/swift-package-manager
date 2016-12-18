@@ -34,6 +34,11 @@ extension InMemoryFileSystem {
 
     /// Create a new file system with an empty file at each provided path.
     public convenience init(emptyFiles files: String...) {
+        self.init(emptyFiles: files)
+    }
+
+    /// Create a new file system with an empty file at each provided path.
+    public convenience init(emptyFiles files: [String]) {
         self.init()
 
         for path in files {
