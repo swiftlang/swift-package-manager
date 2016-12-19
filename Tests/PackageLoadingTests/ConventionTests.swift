@@ -386,7 +386,9 @@ class ConventionTests: XCTestCase {
     }
 
     func testNoSources() throws {
-        PackageBuilderTester("MixedSources", in: InMemoryFileSystem()) { _ in }
+        PackageBuilderTester("NoSources", in: InMemoryFileSystem()) { result in
+            result.checkDiagnostic("warning: module 'NoSources' does not contain any sources.")
+        }
     }
 
     func testMixedSources() throws {
@@ -633,7 +635,10 @@ class ConventionTests: XCTestCase {
         package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
-            result.checkDiagnostic("these referenced modules could not be found: pkg2 fix: reference only valid modules")
+            result.checkModule("pkg1") { moduleResult in
+                moduleResult.check(c99name: "pkg1", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
+            }
         }
     }
 
@@ -906,10 +911,12 @@ class ConventionTests: XCTestCase {
             result.checkDiagnostic("warning: module 'Module' does not contain any sources.")
         }
 
-        fs = InMemoryFileSystem()
+        fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Module/foo.swift")
         try fs.createDirectory(AbsolutePath("/Tests/ModuleTests"), recursive: true)
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("warning: test module 'ModuleTests' does not contain any sources.")
+            result.checkDiagnostic("warning: module 'ModuleTests' does not contain any sources.")
+            result.checkModule("Module")
         }
     }
 
