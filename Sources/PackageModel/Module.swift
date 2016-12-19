@@ -36,7 +36,7 @@ public class Module {
     public var dependencies: [Module]
 
     /// The language-level module name.
-    public var c99name: String
+    public let c99name: String
 
     /// Whether this is a test module.
     //
