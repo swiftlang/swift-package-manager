@@ -22,6 +22,7 @@ import PackageLoadingTests
 import PackageModelTests
 import SourceControlTests
 import UtilityTests
+import WorkspaceTests 
 import XcodeprojTests
 
 var tests = [XCTestCaseEntry]()
@@ -37,5 +38,6 @@ tests += PackageLoadingTests.allTests()
 tests += PackageModelTests.allTests()
 tests += SourceControlTests.allTests()
 tests += UtilityTests.allTests()
+tests += WorkspaceTests.allTests()
 tests += XcodeprojTests.allTests()
 XCTMain(tests)
