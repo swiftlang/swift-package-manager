@@ -35,19 +35,19 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         self.manifestLoader = manifestLoader
     }
 
-    public func getContainer(for identifier: RepositorySpecifier) throws -> Container {
+    public func getContainer(for identifier: Container.Identifier, completion: @escaping (Result<Container, AnyError>) -> Void) {
         // Resolve the container using the repository manager.
-        //
-        // FIXME: We need to move this to an async interface, or document the interface as thread safe.
-        let handle = try repositoryManager.lookupSynchronously(repository: identifier)
-
-        // Open the repository.
-        //
-        // FIXME: Do we care about holding this open for the lifetime of the container.
-        let repository = try handle.open()
-
-        // Create the container wrapper.
-        return RepositoryPackageContainer(identifier: identifier, repository: repository, manifestLoader: manifestLoader)
+        repositoryManager.lookup(repository: identifier) { result in
+            // Create the container wrapper.
+            let container = result.mapAny { handle -> Container in
+                // Open the repository.
+                //
+                // FIXME: Do we care about holding this open for the lifetime of the container.
+                let repository = try handle.open()
+                return RepositoryPackageContainer(identifier: identifier, repository: repository, manifestLoader: self.manifestLoader)
+            }
+            completion(container)
+        }
     }
 }
 
