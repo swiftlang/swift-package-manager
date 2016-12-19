@@ -34,7 +34,7 @@ public enum ModuleError: Swift.Error {
     case invalidManifestConfig(String, String)
 
     /// The target dependency declaration has cycle in it.
-    case cycleDetected((path: [Module], cycle: [Module]))
+    case cycleDetected((path: [String], cycle: [String]))
 }
 
 extension ModuleError: FixableError {
@@ -48,8 +48,8 @@ extension ModuleError: FixableError {
             return "invalid configuration in '\(package)': \(message)"
         case .cycleDetected(let cycle):
             return "found cyclic dependency declaration: " +
-                (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
-                " -> " + cycle.cycle[0].name
+                (cycle.path + cycle.cycle).joined(separator: " -> ") +
+                " -> " + cycle.cycle[0]
         }
     }
 
@@ -220,9 +220,7 @@ public struct PackageBuilder {
     /// - Parameters:
     ///   - includingTestModules: Whether the package's test modules should be loaded.
     public func construct(includingTestModules: Bool) throws -> Package {
-        let modules = try constructModules()
-        let testModules = try constructTestModules(modules: modules)
-        try fillDependencies(modules: modules + testModules)
+        let (modules, testModules) = try constructModules().split { !$0.isTest }
         // FIXME: Lift includingTestModules into a higher module.
         let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
         return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products, dependencies: dependencies)
@@ -388,83 +386,85 @@ public struct PackageBuilder {
         }
         
         // With preliminary checks done, we can start creating modules.
-        let modules: [Module]
+        let potentialModules: [PotentialModule]
         if potentialModulePaths.isEmpty {
             // There are no directories that look like modules, so try to create a module for the source directory itself (with the name coming from the name in the manifest).
-            guard let module = try createModule(srcDir, name: manifest.name, isTest: false) else {
-                // FIXME: We should return nil from here.
-                return []
-            }
-            modules = [module]
+            potentialModules = [PotentialModule(name: manifest.name, path: srcDir, isTest: false)]
         } else {
-            // We have at least one directory that looks like a module, so we try to create a module for each one.
-            modules = try potentialModulePaths.flatMap { path in
-                guard let module = try createModule(path, name: path.basename, isTest: false) else {
-                    warningStream <<< "warning: module '\(path.basename)' does not contain any sources.\n"
-                    warningStream.flush()
-                    return nil
-                }
-                return module
-            }
+            potentialModules = potentialModulePaths.map { PotentialModule(name: $0.basename, path: $0, isTest: false) }
         }
-
-        return modules
+        return try createModules(potentialModules + potentialTestModules())
     }
 
-    /// Fills the module dependencies delcared via targets in manifest.
-    private func fillDependencies(modules: [Module]) throws {
-
-        // Create a map of modules indexed by name.
-        var modulesByName = [String: Module]()
-        for module in modules {
-            modulesByName[module.name] = module
+    // Create modules from the provided potential modules.
+    private func createModules(_ potentialModules: [PotentialModule]) throws -> [Module] {
+        // Find if manifest references a module which isn't present on disk.
+        let allReferencedModules = manifest.allReferencedModules()
+        let potentialModulesName = Set(potentialModules.map{$0.name})
+        let missingModules = allReferencedModules.subtracting(potentialModulesName).intersection(allReferencedModules)
+        guard missingModules.isEmpty else {
+            throw ModuleError.modulesNotFound(missingModules.map{$0})
         }
 
-        // Collect the declared module dependencies from the manifest.
-        //
-        // The remaining modules are left with their (empty) dependencies.
-        var missingModuleNames = [String]()
-        for target in manifest.package.targets {
-            // Find the matching module.
-            guard let module = modulesByName[target.name] else {
-                // The manifest referenced an undefined module.
-                missingModuleNames.append(target.name)
-                continue
-            }
-
-            // Collect the dependencies.
-            module.dependencies = try target.dependencies.map {
+        let targetMap = Dictionary(items: manifest.package.targets.map { ($0.name, $0) })
+        let potentialModuleMap = Dictionary(items: potentialModules.map { ($0.name, $0) })
+        let successors: (PotentialModule) -> [PotentialModule] = {
+            // No reference of this module in manifest, i.e. it has no dependencies.
+            guard let target = targetMap[$0.name] else { return [] }
+            return target.dependencies.map {
                 switch $0 {
                 case .Target(let name):
-                    guard let dependency = modulesByName[name] else {
-                        throw ModuleError.modulesNotFound([name])
-                    }
-                    return dependency
+                    return potentialModuleMap[name]!
                 }
             }
         }
-
-        // Check for targets that are not mapped to any modules.
-        guard missingModuleNames.isEmpty else {
-            throw ModuleError.modulesNotFound(missingModuleNames)
+        // Look for any cycle in the dependencies.
+        if let cycle = findCycle(potentialModules.sorted{ $0.name < $1.name }, successors: successors) {
+            throw ModuleError.cycleDetected((cycle.path.map{$0.name}, cycle.cycle.map{$0.name}))
         }
+        // There was no cycle so we sort the modules topologically.
+        let potentialModules = try! topologicalSort(potentialModules, successors: successors)
 
-        // Normally, test modules are only dependent upon modules with
-        // the same basename. For example, a test module in
-        // 'Root/Tests/FooTests' is dependent upon 'Root/Sources/Foo'.
-        // Only do this if there is no explict dependency declared in manifest.
-        for module in modules where module.isTest && module.dependencies.isEmpty {
-            if let baseModule = modulesByName[module.basename] {
-                module.dependencies = [baseModule]
+        // The created modules mapped to their name.
+        var modules = [String: Module]()
+        // If a direcotry is empty, we don't create a module object for them.
+        var emptyModules = Set<String>()
+
+        // Start iterating the potential modules.
+        for potentialModule in potentialModules.lazy.reversed() {
+            // Validate the module name.  This function will throw an error if it detects a problem.
+            try validateModuleName(potentialModule.path, potentialModule.name, isTest: potentialModule.isTest)
+            // Get the intra-package dependencies of this module.
+            var deps: [Module] = targetMap[potentialModule.name].map {
+                $0.dependencies.flatMap {
+                    switch $0 {
+                    case .Target(let name):
+                        // If this is a module with no sources, we don't have a module object.
+                        if emptyModules.contains(name) { return nil }
+                        return modules[name]!
+                    }
+                }
+            } ?? []
+            // For test modules, add dependencies to its base module, if it has no explicit dependency.
+            if potentialModule.isTest && deps.isEmpty {
+                if let baseModule = modules[potentialModule.basename] {
+                    deps.append(baseModule)
+                }
+            }
+            // Create the module.
+            let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps)
+            // Add the created module to the map or print no sources warning.
+            if let createdModule = module {
+                modules[createdModule.name] = createdModule
+            } else {
+                emptyModules.insert(potentialModule.name)
+                warningStream <<< "warning: module '\(potentialModule.name)' does not contain any sources.\n"
+                warningStream.flush()
             }
         }
-
-        // Look for any cycle in the dependencies.
-        if let cycle = findCycle(modules.sorted { $0.name < $1.name }, successors: { $0.dependencies}) {
-            throw ModuleError.cycleDetected(cycle)
-        }
+        return modules.values.map{$0}
     }
-    
+
     /// Private function that checks whether a module name is valid.  This method doesn't return anything, but rather, if there's a problem, it throws an error describing what the problem is.
     // FIXME: We will eventually be loosening this restriction to allow test-only libraries etc
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
@@ -479,14 +479,11 @@ public struct PackageBuilder {
         }
     }
     
-    /// Private function that constructs a single Module object for the module at `path`, having the name `name`.  If `isTest` is true, the module is constructed as a test module; if false, it is a regular module.
-    private func createModule(_ path: AbsolutePath, name: String, isTest: Bool) throws -> Module? {
-        
-        // Validate the module name.  This function will throw an error if it detects a problem.
-        try validateModuleName(path, name, isTest: isTest)
+    /// Private function that constructs a single Module object for the potential module.
+    private func createModule(potentialModule: PotentialModule, moduleDependencies: [Module]) throws -> Module? {
         
         // Find all the files under the module path.
-        let walked = try walk(path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
+        let walked = try walk(potentialModule.path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
         // Make sure there is no modulemap mixed with the sources.
         if let path = walked.first(where: { $0.basename == "module.modulemap"}) {
             throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
@@ -501,12 +498,43 @@ public struct PackageBuilder {
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
             // No C sources, so we expect to have Swift sources, and we create a Swift module.
-            return try SwiftModule(name: name, isTest: isTest, sources: Sources(paths: swiftSources, root: path))
+            return try SwiftModule(
+                name: potentialModule.name,
+                isTest: potentialModule.isTest,
+                sources: Sources(paths: swiftSources, root: potentialModule.path),
+                dependencies: moduleDependencies)
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C module.
-            guard swiftSources.isEmpty else { throw Module.Error.mixedSources(path.asString) }
-            return try ClangModule(name: name, isTest: isTest, sources: Sources(paths: cSources, root: path))
+            guard swiftSources.isEmpty else { throw Module.Error.mixedSources(potentialModule.path.asString) }
+            return try ClangModule(
+                name: potentialModule.name,
+                isTest: potentialModule.isTest,
+                sources: Sources(paths: cSources, root: potentialModule.path),
+                dependencies: moduleDependencies)
         }
+    }
+
+    /// Scans tests directory and returns potential modules from it.
+    private func potentialTestModules() throws -> [PotentialModule] {
+        let testsPath = packagePath.appending(component: "Tests")
+        
+        // Don't try to walk Tests if it is in excludes or doesn't exists.
+        guard fileSystem.isDirectory(testsPath) && !excludedPaths.contains(testsPath) else {
+            return []
+        }
+
+        // Get the contents of the Tests directory.
+        let testsDirContents = try directoryContents(testsPath)
+        
+        // Check that the Tests directory doesn't contain any loose source files.
+        // FIXME: Right now we just check for source files.  We need to decide whether we should check for other kinds of files too.
+        // FIXME: We should factor out the checking for the `LinuxMain.swift` source file.  So ugly...
+        let looseSourceFiles = testsDirContents.filter(isValidSource).filter({ $0.basename.lowercased() != "linuxmain.swift" })
+        guard looseSourceFiles.isEmpty else {
+            throw ModuleError.invalidLayout(.unexpectedSourceFiles(looseSourceFiles.map{ $0.asString }))
+        }
+        
+        return testsDirContents.filter(shouldConsiderDirectory).map{ PotentialModule(name: $0.basename, path: $0, isTest: true) }
     }
 
     /// Collects the products defined by a package.
@@ -581,33 +609,51 @@ public struct PackageBuilder {
         return products
     }
 
-    private func constructTestModules(modules: [Module]) throws -> [Module] {
-        let testsPath = packagePath.appending(component: "Tests")
-        
-        // Don't try to walk Tests if it is in excludes or doesn't exists.
-        guard fileSystem.isDirectory(testsPath) && !excludedPaths.contains(testsPath) else {
-            return []
-        }
+}
 
-        // Get the contents of the Tests directory.
-        let testsDirContents = try directoryContents(testsPath)
-        
-        // Check that the Tests directory doesn't contain any loose source files.
-        // FIXME: Right now we just check for source files.  We need to decide whether we should check for other kinds of files too.
-        // FIXME: We should factor out the checking for the `LinuxMain.swift` source file.  So ugly...
-        let looseSourceFiles = testsDirContents.filter(isValidSource).filter({ $0.basename.lowercased() != "linuxmain.swift" })
-        guard looseSourceFiles.isEmpty else {
-            throw ModuleError.invalidLayout(.unexpectedSourceFiles(looseSourceFiles.map{ $0.asString }))
+/// We create this structure after scanning the filesystem for potential modules.
+private struct PotentialModule: Hashable {
+
+    /// Name of the module.
+    let name: String
+
+    /// The path of the module.
+    let path: AbsolutePath
+
+    /// If this should be a test module.
+    let isTest: Bool
+
+    /// The base prefix for the test module, used to associate with the target it tests.
+    public var basename: String {
+        guard isTest else {
+            fatalError("\(type(of: self)) should be a test module to access basename.")
         }
-        
-        // Create the test modules
-        return try testsDirContents.filter(shouldConsiderDirectory).flatMap { dir in
-            guard let module = try createModule(dir, name: dir.basename, isTest: true) else {
-                warningStream <<< "warning: test module '\(dir.basename)' does not contain any sources.\n"
-                warningStream.flush()
-                return nil
+        precondition(name.hasSuffix(Module.testModuleNameSuffix))
+        return name[name.startIndex..<name.index(name.endIndex, offsetBy: -Module.testModuleNameSuffix.characters.count)]
+    }
+
+    var hashValue: Int {
+        return name.hashValue ^ path.hashValue ^ isTest.hashValue
+    }
+
+    static func ==(lhs: PotentialModule, rhs: PotentialModule) -> Bool {
+        return lhs.name == rhs.name &&
+               lhs.path == rhs.path &&
+               lhs.isTest == rhs.isTest
+    }
+}
+
+private extension Manifest {
+    /// Returns the names of all the referenced modules in the manifest.
+    func allReferencedModules() -> Set<String> {
+        let names = package.targets.flatMap { target in
+            [target.name] + target.dependencies.map {
+                switch $0 {
+                case .Target(let name):
+                    return name
+                }
             }
-            return module
         }
+        return Set(names)
     }
 }
