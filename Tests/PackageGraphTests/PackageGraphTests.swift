@@ -78,8 +78,27 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testDuplicateModules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Bar/source.swift",
+            "/Bar/source.swift"
+        )
+
+        do {
+            let g = try loadMockPackageGraph([
+                "/Foo": Package(name: "Foo"),
+                "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
+            ], root: "/Bar", in: fs)
+            XCTFail("Unexpected graph \(g)")
+        } catch PackageGraphError.duplicateModule(let module) {
+            XCTAssertEqual(module, "Bar")
+        }
+
+    }
+
     static var allTests = [
         ("testBasic", testBasic),
+        ("testDuplicateModules", testDuplicateModules),
         ("testCycle", testCycle),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
     ]
