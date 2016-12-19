@@ -24,7 +24,7 @@ enum PackageGraphError: Swift.Error {
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
-    case cycleDetected((path: [Package], cycle: [Package]))
+    case cycleDetected((path: [Manifest], cycle: [Manifest]))
 }
 
 extension PackageGraphError: FixableError {
@@ -61,12 +61,23 @@ public struct PackageGraphLoader {
     /// Load the package graph for the given package path.
     public func load(rootManifests: [Manifest], externalManifests: [Manifest], fileSystem: FileSystem = localFileSystem) throws -> PackageGraph {
         let rootManifestSet = Set(rootManifests)
-        let allManifests = externalManifests + rootManifests
+        // Manifest url to manifest map.
+        let manifestURLMap: [String: Manifest] = Dictionary(items: (externalManifests + rootManifests).map { ($0.url, $0) })
+        // Detect cycles in manifest dependencies.
+        if let cycle = findCycle(rootManifests, successors: { $0.package.dependencies.map{ manifestURLMap[$0.url]! } }) {
+            throw PackageGraphError.cycleDetected(cycle)
+        }
+        // Sort all manifests toplogically.
+        //
+        // This is important because we want to create packages bottom up, so we always have any dependent package.
+        let allManifests = try! topologicalSort(rootManifests) { $0.package.dependencies.map{ manifestURLMap[$0.url]! } }
 
         // Create the packages and convert to modules.
         var packages: [Package] = []
         var map: [Package: [Module]] = [:]
-        for manifest in allManifests {
+        // Mapping of package url (in manifest) to created package.
+        var packageURLMap: [String: Package] = [:]
+        for manifest in allManifests.lazy.reversed() {
             let isRootPackage = rootManifestSet.contains(manifest)
 
             // Derive the path to the package.
@@ -74,16 +85,21 @@ public struct PackageGraphLoader {
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
 
+            // Load all of the package dependencies.
+            // We will always have all of the dependent packages because we create packages bottom up.
+            let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
+
             // Create a package from the manifest and sources.
             //
             // FIXME: We should always load the tests, but just change which
             // tests we build based on higher-level logic. This would make it
             // easier to allow testing of external package tests.
-            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem)
+            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem, dependencies: dependencies)
             let package = try builder.construct(includingTestModules: isRootPackage)
             packages.append(package)
             
             map[package] = package.modules + package.testModules
+            packageURLMap[package.manifest.url] = package
 
             // Diagnose empty non-root packages, which are something we allow as a special case.
             if package.modules.isEmpty {
@@ -99,20 +115,6 @@ public struct PackageGraphLoader {
                     throw PackageGraphError.noModules(package)
                 }
             }
-        }
-
-        // Load all of the package dependencies.
-        //
-        // FIXME: Do this concurrently with creating the packages so we can create immutable ones.
-        for package in packages {
-            // FIXME: This is inefficient.
-            package.dependencies = package.manifest.package.dependencies.map{ dep in packages.pick{ dep.url == $0.url }! }
-        }
-
-        // Detect cycles in package dependencies.
-        // Input is reversed because the root manifest is the last one.
-        if let cycle = findCycle(packages.reversed(), successors: { $0.dependencies}) {
-            throw PackageGraphError.cycleDetected(cycle)
         }
 
         // Connect up cross-package module dependencies.
