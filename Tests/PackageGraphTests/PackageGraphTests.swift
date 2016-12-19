@@ -13,7 +13,9 @@ import XCTest
 import Basic
 @testable import PackageGraph
 import PackageDescription
+import PackageModel
 import TestSupport
+import enum PackageLoading.ModuleError
 
 class PackageGraphTests: XCTestCase {
 
@@ -22,18 +24,22 @@ class PackageGraphTests: XCTestCase {
             "/Foo/source.swift",
             "/Foo/Tests/FooTests/source.swift",
             "/Bar/source.swift",
-            "/Bar/Tests/BarTests/source.swift"
+            "/Baz/source.swift",
+            "/Baz/Tests/BazTests/source.swift"
         )
 
         let g = try loadMockPackageGraph([
             "/Foo": Package(name: "Foo"),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
-        ], root: "/Bar", in: fs)
+            "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+        ], root: "/Baz", in: fs)
 
         PackageGraphTester(g) { result in
-            result.check(packages: "Bar", "Foo")
-            result.check(modules: "Bar", "Foo")
-            result.check(testModules: "BarTests")
+            result.check(packages: "Bar", "Foo", "Baz")
+            result.check(modules: "Bar", "Foo", "Baz")
+            result.check(testModules: "BazTests")
+            result.check(dependencies: "Foo", module: "Bar")
+            result.check(dependencies: "Bar", module: "Baz")
         }
     }
 
@@ -90,7 +96,7 @@ class PackageGraphTests: XCTestCase {
                 "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
             ], root: "/Bar", in: fs)
             XCTFail("Unexpected graph \(g)")
-        } catch PackageGraphError.duplicateModule(let module) {
+        } catch ModuleError.duplicateModule(let module) {
             XCTAssertEqual(module, "Bar")
         }
 
@@ -116,14 +122,30 @@ private class PackageGraphResult {
     }
 
     func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.name}, packages, file: file, line: line)
+        XCTAssertEqual(graph.packages.map {$0.name}.sorted(), packages.sorted(), file: file, line: line)
     }
 
     func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap {$0.modules.map {$0.name} }, modules, file: file, line: line)
+        XCTAssertEqual(graph.packages.flatMap {$0.modules.map {$0.name} }.sorted(), modules.sorted(), file: file, line: line)
     }
 
     func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap {$0.testModules.map {$0.name} }, testModules, file: file, line: line)
+        XCTAssertEqual(graph.packages.flatMap {$0.testModules.map {$0.name} }.sorted(), testModules.sorted(), file: file, line: line)
+    }
+
+    func find(module: String) -> Module? {
+        for pkg in graph.packages {
+            if let module = pkg.modules.first(where: { $0.name == module }) {
+                return module
+            }
+        }
+        return nil
+    }
+
+    func check(dependencies: String..., module name: String, file: StaticString = #file, line: UInt = #line) {
+        guard let module = find(module: name) else {
+            return XCTFail("Module \(name) not found", file: file, line: line)
+        }
+        XCTAssertEqual(dependencies.sorted(), module.dependencies.map{$0.name}.sorted(), file: file, line: line)
     }
 }

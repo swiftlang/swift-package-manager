@@ -17,9 +17,6 @@ import Utility
 import func POSIX.exit
 
 enum PackageGraphError: Swift.Error {
-    /// Indicates two modules with the same name.
-    case duplicateModule(String)
-
     /// Indicates a non-root package with no modules.
     case noModules(Package)
 
@@ -30,8 +27,6 @@ enum PackageGraphError: Swift.Error {
 extension PackageGraphError: FixableError {
     var error: String {
         switch self {
-        case .duplicateModule(let name):
-            return "multiple modules with the name \(name) found"
         case .noModules(let package):
             return "the package \(package) contains no modules"
         case .cycleDetected(let cycle):
@@ -43,8 +38,6 @@ extension PackageGraphError: FixableError {
 
     var fix: String? {
         switch self {
-        case .duplicateModule(_):
-            return "modules should have a unique name across dependencies"
         case .noModules(_):
             return "create at least one module"
         case .cycleDetected(_):
@@ -117,47 +110,12 @@ public struct PackageGraphLoader {
             }
         }
 
-        // Connect up cross-package module dependencies.
-        fillModuleGraph(packages)
-    
         let (rootPackages, externalPackages) = packages.split { rootManifests.contains($0.manifest) }
 
         let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
         let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
 
         return PackageGraph(rootPackages: rootPackages, modules: modules, externalModules: Set(externalModules))
-    }
-}
-
-/// Add inter-package dependencies.
-///
-/// This function will add cross-package dependencies between a module and all
-/// of the modules produced by any package in the transitive closure of its
-/// containing package's dependencies.
-private func fillModuleGraph(_ packages: [Package]) {
-    for package in packages {
-        let packageModules = package.modules + package.testModules
-        let dependencies = try! topologicalSort(package.dependencies, successors: { $0.dependencies })
-        for dep in dependencies {
-            let depModules = dep.modules.filter {
-                guard !$0.isTest else { return false }
-
-                switch $0 {
-                case let module as SwiftModule where module.type == .library:
-                    return true
-                case let module as ClangModule where module.type == .library:
-                    return true
-                case is CModule:
-                    return true
-                default:
-                    return false
-                }
-            }
-            for module in packageModules {
-                // FIXME: This is inefficient.
-                module.dependencies.insert(contentsOf: depModules, at: 0)
-            }
-        }
     }
 }
 
@@ -179,8 +137,7 @@ private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
                   top.sources.root != set[index].sources.root else {
                 continue;
             }
-
-            throw PackageGraphError.duplicateModule(top.name)
+            fatalError("This should have been caught by package builder.")
         }
     }
 

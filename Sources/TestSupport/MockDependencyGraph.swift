@@ -127,6 +127,16 @@ public struct MockManifestGraph {
             return (package.name, specifier)
             })
 
+        let src = path.appending(component: "Sources")
+        if let fs = inMemory?.fs {
+            try fs.createDirectory(src, recursive: true)
+            try fs.writeFileContents(src.appending(component: "foo.swift"), bytes: "")
+        } else {
+            // Make a sources folder for our root package.
+            try makeDirectories(src)
+            try systemQuietly(["touch", src.appending(component: "foo.swift").asString])
+        }
+
         // Create the root manifest.
         rootManifest = Manifest(
             path: path.appending(component: Manifest.filename),
@@ -142,7 +152,7 @@ public struct MockManifestGraph {
         var manifests = Dictionary(items: packages.map { package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
-                path: path.appending(component: Manifest.filename),
+                path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 package: PackageDescription.Package(
                     name: package.name,

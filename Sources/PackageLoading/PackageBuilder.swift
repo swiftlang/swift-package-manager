@@ -16,6 +16,9 @@ import class PackageDescription.Target
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
+
+    /// Indicates two modules with the same name.
+    case duplicateModule(String)
     
     /// One or more referenced modules could not be found.
     case modulesNotFound([String])
@@ -40,6 +43,8 @@ public enum ModuleError: Swift.Error {
 extension ModuleError: FixableError {
     public var error: String {
         switch self {
+        case .duplicateModule(let name):
+            return "multiple modules with the name \(name) found"
         case .modulesNotFound(let modules):
             return "these referenced modules could not be found: " + modules.joined(separator: ", ")
         case .invalidLayout(let type):
@@ -55,6 +60,8 @@ extension ModuleError: FixableError {
 
     public var fix: String? {
         switch self {
+        case .duplicateModule(_):
+            return "modules should have a unique name across dependencies"
         case .modulesNotFound(_):
             return "reference only valid modules"
         case .invalidLayout(let type):
@@ -203,6 +210,26 @@ public struct PackageBuilder {
     /// The dependencies of the package.
     private let dependencies: [Package]
 
+    /// All the modules of the dependency packages.
+    private func moduleDependencies() -> [Module] {
+        return dependencies.flatMap {
+             $0.modules.filter {
+                 guard !$0.isTest else { return false }
+ 
+                 switch $0 {
+                 case let module as SwiftModule where module.type == .library:
+                     return true
+                 case let module as ClangModule where module.type == .library:
+                     return true
+                 case is CModule:
+                     return true
+                 default:
+                     return false
+                 }
+             }
+         }
+    }
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -346,7 +373,7 @@ public struct PackageBuilder {
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
-            return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers)]
+            return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers, dependencies: moduleDependencies())]
         }
 
         // At this point the module can't be a system module, make sure manifest doesn't contain
@@ -406,6 +433,16 @@ public struct PackageBuilder {
             throw ModuleError.modulesNotFound(missingModules.map{$0})
         }
 
+        // Modules of the package dependency.
+        let moduleDeps = moduleDependencies()
+
+        // Find that the module names in this package are unique in its dependencies.
+        let dependencyModuleNames = Set(moduleDeps.map{$0.name})
+        let duplicateModules = dependencyModuleNames.intersection(potentialModulesName)
+        guard duplicateModules.isEmpty else {
+            throw ModuleError.duplicateModule(duplicateModules.first!)
+        }
+
         let targetMap = Dictionary(items: manifest.package.targets.map { ($0.name, $0) })
         let potentialModuleMap = Dictionary(items: potentialModules.map { ($0.name, $0) })
         let successors: (PotentialModule) -> [PotentialModule] = {
@@ -451,6 +488,8 @@ public struct PackageBuilder {
                     deps.append(baseModule)
                 }
             }
+            /// Add inter-package dependencies.
+            deps += moduleDeps
             // Create the module.
             let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps)
             // Add the created module to the map or print no sources warning.

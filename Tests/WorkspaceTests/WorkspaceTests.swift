@@ -1122,7 +1122,7 @@ final class WorkspaceTests: XCTestCase {
                 initGitRepo(repoPath, tag: v1.description)
 
                 let manifest = Manifest(
-                    path: path.appending(component: Manifest.filename),
+                    path: repoPath.appending(component: Manifest.filename),
                     url: repoPath.asString,
                     package: PackageDescription.Package(
                         name: pkg,
@@ -1138,7 +1138,7 @@ final class WorkspaceTests: XCTestCase {
                 let repo = GitRepository(path: aPath)
                 try repo.tag(name: "1.5.0")
                 let aManifest = Manifest(
-                    path: path.appending(component: Manifest.filename),
+                    path: aPath.appending(component: Manifest.filename),
                     url: aPath.asString,
                     package: PackageDescription.Package(name: "A", dependencies: []),
                     products: [],
@@ -1162,8 +1162,10 @@ final class WorkspaceTests: XCTestCase {
             ]
 
             for root in roots {
+                try makeDirectories(root)
+                try system(["touch", root.appending(component: "foo.swift").asString])
                 let rootManifest = Manifest(
-                    path: path.appending(component: Manifest.filename),
+                    path: root.appending(component: Manifest.filename),
                     url: root.asString,
                     package: PackageDescription.Package(
                         name: root.basename,
