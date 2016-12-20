@@ -37,6 +37,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// There are no registered root package paths.
     case noRegisteredPackages
+
+    /// Can't update the dependencies because some dependencies are in edit mode.
+    case dependenciesInEditMode([String])
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -183,14 +186,12 @@ public class Workspace {
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
 
+        /// Map of all url to manifest.
+        let manifestsMap: [String: Manifest]
+
         /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
         func missingURLs() -> Set<String> {
-            let manifestsMap = Dictionary<String, Manifest>(items:
-                roots.map{ ($0.url, $0) } +
-                dependencies.map{ ($0.manifest.url, $0.manifest) }
-            )
-
-            var requiredURLs = transitiveClosure(roots.map{ $0.url}) { url in
+            var requiredURLs = transitiveClosure(roots.map{ $0.url }) { url in
                 guard let manifest = manifestsMap[url] else { return [] }
                 return manifest.package.dependencies.map{ $0.url }
             }
@@ -218,6 +219,8 @@ public class Workspace {
         init(roots: [Manifest], dependencies: [(Manifest, ManagedDependency)]) {
             self.roots = roots
             self.dependencies = dependencies
+            self.manifestsMap = Dictionary<String, Manifest>(
+                items: (roots + dependencies.map{$0.0}).map{ ($0.url, $0) })
         }
     }
 
@@ -591,6 +594,12 @@ public class Workspace {
 
     /// Updates the current dependencies.
     public func updateDependencies(repin: Bool = false) throws {
+        let deps = try loadDependencyManifests()
+        // We can not update if any of the dependency is in edit mode.
+        let editedDependencies = dependencies.filter{$0.isInEditableState}.map{$0.repository.url}
+        guard editedDependencies.isEmpty else {
+            throw WorkspaceOperationError.dependenciesInEditMode(editedDependencies.map{deps.manifestsMap[$0]!.name})
+        }
         let rootManifests = try loadRootManifests()
         // Create constraints based on root manifest and pins for the update resolution.
         let updateConstraints = computeRootPackagesConstraints(rootManifests, includePins: !repin)
@@ -650,6 +659,8 @@ public class Workspace {
         // Set the states from resolved dependencies results.
         for (specifier, version) in resolvedDependencies {
             if let currentDependency = dependencyMap[specifier] {
+                // Ensure we don't operate on editable dependencies, atleast for now.
+                assert(!currentDependency.isInEditableState)
                 // FIXME: PackageStateChange needs to get richer API for updating packages 
                 // which are pinned to a revision, whenever we have that feature.
                 guard let currentVersion = currentDependency.currentVersion else {

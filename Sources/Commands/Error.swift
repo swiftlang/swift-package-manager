@@ -79,6 +79,9 @@ public func handle(error: Any) -> Never {
     case PackageToolOperationError.packageNotFound:
         print(error: "The provided package was not found")
 
+    case WorkspaceOperationError.dependenciesInEditMode(let packages):
+        print(error: "Can't update because these dependencies are in edit mode: " + packages.joined(separator: ", "))
+
     case let error as FixableError:
         print(error: error.error)
         if let fix = error.fix {
