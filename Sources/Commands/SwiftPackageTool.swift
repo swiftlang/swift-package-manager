@@ -10,17 +10,10 @@
 
 import Basic
 import Build
-import Get
-import PackageLoading
 import PackageModel
 import SourceControl
 import Utility
 import Xcodeproj
-
-import enum Build.Configuration
-import protocol Build.Toolchain
-import func POSIX.exit
-import func POSIX.chdir
 
 /// Errors encountered duing the package tool operations.
 enum PackageToolOperationError: Swift.Error {

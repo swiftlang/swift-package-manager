@@ -10,7 +10,6 @@
 
 import Basic
 import PackageLoading
-import PackageModel
 import POSIX
 
 struct ToolDefaults: ManifestResourceProvider {

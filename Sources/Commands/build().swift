@@ -9,7 +9,6 @@
 */
 
 import Basic
-import PackageModel
 import Utility
 
 // Builds the default target in the llbuild manifest unless specified.

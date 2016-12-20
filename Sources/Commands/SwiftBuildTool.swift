@@ -8,15 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basic
 import Build
-import Get
-import PackageLoading
-import PackageModel
 import Utility
-
-import enum Build.Configuration
-import protocol Build.Toolchain
 
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolOptions> {

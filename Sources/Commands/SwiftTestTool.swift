@@ -14,7 +14,6 @@ import Basic
 import Build
 import Utility
 
-import func POSIX.chdir
 import func POSIX.exit
 
 private enum TestError: Swift.Error {
