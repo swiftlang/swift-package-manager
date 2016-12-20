@@ -33,7 +33,7 @@ public class Module {
     public let name: String
 
     /// The dependencies of this module, once loaded.
-    public var dependencies: [Module]
+    public let dependencies: [Module]
 
     /// The language-level module name.
     public let c99name: String
