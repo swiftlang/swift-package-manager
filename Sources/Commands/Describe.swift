@@ -10,7 +10,6 @@
 
 import Basic
 import PackageModel
-import Utility
 
 enum DescribeMode: String {
     /// JSON format.

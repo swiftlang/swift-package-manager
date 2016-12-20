@@ -10,7 +10,6 @@
 
 import Basic
 import PackageModel
-import POSIX
 
 private extension FileSystem {
     /// Write to a file from a stream producer.
