@@ -94,19 +94,9 @@ public struct PackageGraphLoader {
             map[package] = package.modules + package.testModules
             packageURLMap[package.manifest.url] = package
 
-            // Diagnose empty non-root packages, which are something we allow as a special case.
-            if package.modules.isEmpty {
-                if isRootPackage {
-                    // Ignore and print warning if root package doesn't contain any sources.
-                    print("warning: root package '\(package)' does not contain any sources")
-                    
-                    // Exit now if there are no more packages.
-                    //
-                    // FIXME: This does not belong here.
-                    if allManifests.count == 1 { exit(0) }
-                } else {
-                    throw PackageGraphError.noModules(package)
-                }
+            // Throw if any of the non-root package is empty.
+            if package.modules.isEmpty && !isRootPackage {
+                throw PackageGraphError.noModules(package)
             }
         }
 

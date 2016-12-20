@@ -32,6 +32,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             checkClangVersion()
             #endif
             let graph = try loadPackage()
+            // If we don't have any modules in root package, we're done.
+            guard !graph.rootPackages[0].modules.isEmpty else { break }
             let yaml = try describe(buildPath, conf, graph, flags: options.buildFlags, toolchain: toolchain)
             try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
 
