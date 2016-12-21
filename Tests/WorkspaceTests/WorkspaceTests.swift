@@ -32,6 +32,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     /// Map of checkedout repos with key as repository and value as the reference (version or revision).
     var checkedOut = [String: String]()
     var removed = [String]()
+    var warnings = [String]()
 
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
@@ -50,6 +51,10 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
     func removing(repository: String) {
         removed.append(repository)
+    }
+
+    func warning(message: String) {
+        warnings.append(message)
     }
 }
 
@@ -1059,13 +1064,14 @@ final class WorkspaceTests: XCTestCase {
             ],
             fs: fs
         )
+        let delegate = TestWorkspaceDelegate()
         let provider = manifestGraph.repoProvider!
 
         func newWorkspace() -> Workspace {
             return try! Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
+                delegate: delegate,
                 fileSystem: fs,
                 repositoryProvider: provider)
         }
@@ -1104,7 +1110,9 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let workspace = newWorkspace()
+            XCTAssertTrue(delegate.warnings.isEmpty)
             try workspace.updateDependencies(repin: true)
+            XCTAssertEqual(delegate.warnings, ["Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."])
             let g = try workspace.loadPackageGraph()
             XCTAssert(g.lookup("A").version == "1.0.1")
             // This dependency should be removed on updating dependencies because it is not referenced anywhere.
@@ -1236,6 +1244,39 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testWarnings() throws {
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: v1),
+                ],
+                packages: [
+                    MockPackage("A", version: v1),
+                    MockPackage("A", version: nil),
+                ]
+            )
+
+            let delegate = TestWorkspaceDelegate()
+            let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
+            let _ = try workspace.loadPackageGraph()
+
+            // Put A in edit mode.
+            let aManifest = try workspace.loadDependencyManifests().lookup(manifest: "A")!
+            let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
+            try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
+
+            // Try to pin.
+            try workspace.pinAll()
+            XCTAssertEqual(delegate.warnings, ["not pinning A because it is being edited."])
+
+            // Remove edited checkout.
+            try removeFileTree(workspace.editablesPath)
+            delegate.warnings.removeAll()
+            let _ = try workspace.loadPackageGraph()
+            XCTAssertTrue(delegate.warnings[0].hasSuffix("A was being edited but has been removed, falling back to original checkout."))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testEditDependency", testEditDependency),
@@ -1255,6 +1296,7 @@ final class WorkspaceTests: XCTestCase {
         ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
         ("testMultipleRootPackages", testMultipleRootPackages),
+        ("testWarnings", testWarnings),
     ]
 }
 

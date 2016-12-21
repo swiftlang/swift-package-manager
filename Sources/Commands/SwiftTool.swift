@@ -38,6 +38,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func removing(repository: String) {
         print("Removing \(repository)")
     }
+
+    func warning(message: String) {
+        print("warning: " + message)
+    }
 }
 
 enum SwiftToolError: Swift.Error {
