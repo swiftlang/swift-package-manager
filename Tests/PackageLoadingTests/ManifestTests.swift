@@ -159,6 +159,20 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    func testEmptyManifest() throws {
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< "import PackageDescription" <<< "\n"
+            let manifest = try loadManifest(stream.bytes)
+            XCTFail("Unexpected success \(manifest)")
+        } catch ManifestParseError.emptyManifestFile {}
+
+        do {
+            let manifest = try loadManifest("")
+            XCTFail("Unexpected success \(manifest)")
+        } catch ManifestParseError.emptyManifestFile {}
+    }
+
     func testRuntimeManifestErrors() throws {
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
@@ -212,6 +226,7 @@ class ManifestTests: XCTestCase {
     }
     
     static var allTests = [
+        ("testEmptyManifest", testEmptyManifest),
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
         ("testNonexistentBaseURL", testNonexistentBaseURL),

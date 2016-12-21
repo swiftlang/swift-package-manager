@@ -85,6 +85,9 @@ public func handle(error: Any) -> Never {
             print(fix: fix)
         }
 
+    case ManifestParseError.emptyManifestFile:
+        print(error: "Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
+
     case ManifestParseError.invalidManifestFormat(let errors):
         print(error: errors)
 
