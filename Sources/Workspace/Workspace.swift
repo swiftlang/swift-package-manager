@@ -56,6 +56,9 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
+
+    /// The workspace operation emitted this warning.
+    func warning(message: String)
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -476,13 +479,13 @@ public class Workspace {
             let package = dependencyManifest.manifest.name
             // If the dependency is in editable state, do not pin it.
             guard !dependency.isInEditableState else {
-                print("warning: not pinning \(package) because it is being edited.")
+                delegate.warning(message: "not pinning \(package) because it is being edited.")
                 continue
             }
             // We should have a version loaded to pin. This will never happen right now
             // because we can't have dependencies checked out to a git ref.
             guard let version = dependency.currentVersion else {
-                print("warning: not pinning \(package) because doesn't have a version loaded.")
+                delegate.warning(message: "not pinning \(package) because doesn't have a version loaded.")
                 continue
             }
             // Commit the pin.
@@ -617,7 +620,7 @@ public class Workspace {
             guard let newVersion = updateResultsMap[pin.repository] else {
                 // This is a stray pin as it is not present in updated results.
                 // FIXME: Use diagnosics engine when we have that.
-                print("note: Consider unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
+                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
                 continue
             }
             // We don't need to repin if its version did not change.
@@ -742,7 +745,7 @@ public class Workspace {
             if !fileSystem.exists(dependencyPath) {
                 try unedit(dependency: dependency, forceRemove: true)
                 // FIXME: Use diagnosics engine when we have that.
-                print("warning: \(dependencyPath.asString) was being edited but has been removed, falling back to original checkout.")
+                delegate.warning(message: "\(dependencyPath.asString) was being edited but has been removed, falling back to original checkout.")
             }
         }
     }
