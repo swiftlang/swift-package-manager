@@ -1145,21 +1145,16 @@ def main():
         if os.path.exists(llvm_profdata_path):
             cmd.append("--enable-code-coverage")
 
-        # If a TOOLCHAINS value is active, embed it in the project.
-        toolchains = os.getenv("TOOLCHAINS")
-        if toolchains is not None:
-            xcconfig_path = os.path.join("SwiftPM.xcodeproj/overrides.xcconfig")
-            # Create directories, if necessary.
-            if not os.path.exists(os.path.dirname(xcconfig_path)):
-                mkdir_p(os.path.dirname(xcconfig_path))
-            # Generate the .xcconfig file.
-            with open(xcconfig_path, "w") as f:
-                print("TOOLCHAINS = %s" % (toolchains,), file=f)
-            cmd += ["--xcconfig-overrides", xcconfig_path]
-            
+        # Tell swiftpm that we're bootstrapping ourself using this env variable.
+        # Right now we only use this to add a shell script to PackageDescription target to 
+        # log build time TOOLCHAINS variable value. This is needed because we need to know
+        # which swift compiler we used to compile PackageDescription for running tests from Xcode.
+        env = os.environ.copy()
+        env["SWIFTPM_BOOTSTRAP"] = "1"
+
         # Call `swift-package` to generate the Xcode project.
         note("generating Xcode project: %s" % (' '.join(cmd),))
-        result = subprocess.call(cmd)
+        result = subprocess.call(cmd, env=env)
         if result != 0:
             error("xcodeproj generation failed with exit status %d" % (result,))
 
@@ -1169,30 +1164,6 @@ def main():
         # is no way to do this with SwiftPM right now.
         if args.enable_perf_tests:
             shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "PerformanceTests.xcscheme"), "SwiftPM.xcodeproj/xcshareddata/xcschemes/PerformanceTests.xcscheme")
-                
-        # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
-        # add an option to the `generate-xcodeproj` subcommand to allow a
-        # user to specify env variable/value pairs to generate into the
-        # scheme, but that seems a bit too arbitrary at this point.
-        cmd = ["sed", "-i", "",
-            "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
-                    "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
-            "-e", "s|</TestAction>|"
-                    "<EnvironmentVariables>"
-                      "<EnvironmentVariable"
-                        " key=" + make_xml_string_literal("SWIFT_EXEC") +
-                        " value=" + make_xml_string_literal(args.swiftc_path) +
-                        " isEnabled=\"YES\">"
-                      "</EnvironmentVariable>"
-                    "</EnvironmentVariables>&|",
-            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-        subprocess.call(cmd)
-        # sed(1) doesn't tell us if it can't do the subsitution, so we check
-        cmd = ["fgrep", "-q", "SWIFT_EXEC",
-            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("xcscheme modification failed; couldn't set SWIFT_EXEC")
 
 if __name__ == '__main__':
     main()

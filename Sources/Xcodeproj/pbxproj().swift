@@ -415,6 +415,14 @@ func xcodeProject(
                        + "ln -sf \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\" \"${PROJECT_TEMP_DIR}/SymlinkLibs/lib${EXECUTABLE_NAME}.dylib\"\n"
             target.addShellScriptBuildPhase(script: script)
         }
+
+        // Hack: If we're bootstrapping add this shell script phase for package description
+        // target. This will let us log the build time TOOLCHAINS value and then read it later
+        // when running tests. This means we can change the toolchain from Xcode preferences
+        // and run tests without doing anything else.
+        if getenv("SWIFTPM_BOOTSTRAP") != nil && module.name == "PackageDescription" {
+            target.addShellScriptBuildPhase(script: "echo $TOOLCHAINS > ${TARGET_BUILD_DIR}/toolchains-build-time-value.log")
+        }
         
         // Add a compile build phase (which Xcode calls "Sources").
         let compilePhase = target.addSourcesBuildPhase()

@@ -24,7 +24,7 @@ import struct TestSupport.MockManifestLoader
 import TestSupport
 
 private let v1Range = Version("1.0.0") ..< Version("2.0.0")
-private let sharedManifestLoader = ManifestLoader(resources: Resources())
+private let sharedManifestLoader = ManifestLoader(resources: Resources.sharedResources)
 
 private class TestWorkspaceDelegate: WorkspaceDelegate {
     var fetched = [String]()
