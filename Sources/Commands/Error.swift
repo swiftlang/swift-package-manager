@@ -84,12 +84,14 @@ public func handle(error: Any) -> Never {
         if let fix = error.fix {
             print(fix: fix)
         }
+
     case ManifestParseError.invalidManifestFormat(let errors):
-        var errorString = "invalid manifest format"
-        if let errors = errors {
-            errorString += "; " + errors.joined(separator: ", ")
-        }
+        print(error: errors)
+
+    case ManifestParseError.runtimeManifestErrors(let errors):
+        let errorString = "invalid manifest format; " + errors.joined(separator: ", ")
         print(error: errorString)
+
     case PackageToolOperationError.insufficientOptions(let usage):
         print(usage, to: &stderr)
     default:
