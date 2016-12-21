@@ -138,7 +138,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Load the manifest description.
         guard let jsonString = try parse(path: path) else {
-            print("Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
             throw ManifestParseError.emptyManifestFile
         }
         let json = try JSON(string: jsonString)
