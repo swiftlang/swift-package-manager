@@ -18,10 +18,15 @@ import func POSIX.realpath
 public enum ManifestParseError: Swift.Error {
     /// The manifest file is empty.
     case emptyManifestFile
+
     /// The manifest had a string encoding error.
     case invalidEncoding
+
     /// The manifest contains invalid format.
-    case invalidManifestFormat([String]?)
+    case invalidManifestFormat(String)
+
+    /// The manifest was successfully loaded by swift interpreter but there were runtime issues.
+    case runtimeManifestErrors([String])
 }
 
 /// Resources required for manifest loading.
@@ -142,7 +147,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let errors = parseErrors(json)
 
         guard errors.isEmpty else {
-            throw ManifestParseError.invalidManifestFormat(errors)
+            throw ManifestParseError.runtimeManifestErrors(errors)
         }
 
         return Manifest(path: path, url: baseURL, package: package, products: products, version: version)
@@ -182,11 +187,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let file = try TemporaryFile()
         // Pass the fd in arguments.
         cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
+
+        // FIXME: Move this to the new Process class once we have that.
+        var output = ""
         do {
-            try system(cmd)
+            try popen(cmd, redirectStandardError: true) { output += $0 }
         } catch {
-            print("Can't parse Package.swift manifest file because it contains invalid format. Fix Package.swift file format and try again (error: \(error)).")
-            throw ManifestParseError.invalidManifestFormat(nil)
+            output += String(describing: error)
+        }
+        // We expect output from interpreter to be empty, if something was emitted
+        // throw and report it.
+        guard output.isEmpty else {
+            throw ManifestParseError.invalidManifestFormat(output)
         }
     
         guard let json = try localFileSystem.readFileContents(file.path).asString else {
