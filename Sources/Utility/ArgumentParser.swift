@@ -25,7 +25,7 @@ public enum ArgumentParserError: Swift.Error {
     case unknownValue(option: String, value: String)
     case expectedValue(option: String)
     case unexpectedArgument(String)
-    case expectedArguments([String])
+    case expectedArguments(ArgumentParser, [String])
     case typeMismatch(String)
 }
 
@@ -338,6 +338,9 @@ public final class ArgumentParser {
     /// The parser contains one and only optional positional argument.
     private var optionalPositionalArg = false
 
+    /// If this parser is a subparser.
+    private let isSubparser: Bool
+
     /// Create an argument parser.
     ///
     /// - Parameters:
@@ -346,6 +349,7 @@ public final class ArgumentParser {
     ///   - usage: The "usage" line of the generated usage text.
     ///   - overview: The "overview" line of the generated usage text.
     public init(commandName: String? = nil, usage: String, overview: String) {
+        self.isSubparser = false
         self.commandName = commandName
         self.usage = usage
         self.overview = overview
@@ -353,6 +357,7 @@ public final class ArgumentParser {
 
     /// Create a subparser with its help text.
     private init(subparser overview: String) {
+        self.isSubparser = true
         self.commandName = nil
         self.usage = ""
         self.overview = overview
@@ -441,14 +446,14 @@ public final class ArgumentParser {
         while let arg = argumentsIterator.next() {
             // If argument is help then just print usage and exit.
             if arg == "-h" || arg == "--help" {
-                printUsage(on: stdoutStream, isSubparser: parent != nil)
+                printUsage(on: stdoutStream)
                 exit(0)
             } else if isPositional(argument: arg) {
                 /// If this parser has subparsers, we allow only one positional argument which is the subparser command.
                 if !subparsers.isEmpty {
                     // Make sure this argument has a subparser.
                     guard let subparser = subparsers[arg] else {
-                        throw ArgumentParserError.expectedArguments(Array(subparsers.keys))
+                        throw ArgumentParserError.expectedArguments(self, Array(subparsers.keys))
                     }
                     // Save which subparser was chosen.
                     result.subparser = arg
@@ -489,13 +494,13 @@ public final class ArgumentParser {
         // Report if there are any non-optional positional arguments left which were not present in the arguments.
         let leftOverArgs = Array(positionalArgsIterator)
         if !optionalPositionalArg && !leftOverArgs.isEmpty {
-            throw ArgumentParserError.expectedArguments(leftOverArgs.map {$0.name})
+            throw ArgumentParserError.expectedArguments(self, leftOverArgs.map {$0.name})
         }
         return result
     }
 
     /// Prints usage text for this parser on the provided stream.
-    public func printUsage(on stream: OutputByteStream, isSubparser: Bool = false) {
+    public func printUsage(on stream: OutputByteStream) {
         /// Space settings.
         let maxWidthDefault = 24
         let padding = 2
