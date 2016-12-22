@@ -299,20 +299,25 @@ public class Workspace {
             repositoryManager: repositoryManager, manifestLoader: manifestLoader)
         self.fileSystem = fileSystem
 
-        // Ensure the cache path exists.
-        try self.fileSystem.createDirectory(repositoriesPath, recursive: true)
-        try self.fileSystem.createDirectory(checkoutsPath, recursive: true)
-
         // Initialize the default state.
         self.dependencyMap = [:]
 
         self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
+
+        // Ensure the cache path exists.
+        try createCacheDirectories()
 
         // Load the state from disk, if possible.
         if try !restoreState() {
             // There was no state, write the default state immediately.
             try saveState()
         }
+    }
+
+    /// Create the cache directories.
+    private func createCacheDirectories() throws {
+        try fileSystem.createDirectory(repositoryManager.path, recursive: true)
+        try fileSystem.createDirectory(checkoutsPath, recursive: true)
     }
 
     /// Registers the provided path as a root package. It is valid to re-add previously registered path.
@@ -347,7 +352,10 @@ public class Workspace {
 
     /// Resets the entire workspace by removing the data directory.
     public func reset() throws {
+        dependencyMap = [:]
+        repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
+        try createCacheDirectories()
     }
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.

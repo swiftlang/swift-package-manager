@@ -291,14 +291,26 @@ public class RepositoryManager {
 
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
-        // If repository isn't present, we're done.
-        guard let handle = repositories[repository.url] else {
-            return
+        try serialQueue.sync {
+            // If repository isn't present, we're done.
+            guard let handle = repositories[repository.url] else {
+                return
+            }
+            repositories[repository.url] = nil
+            let repositoryPath = path.appending(handle.subpath)
+            fileSystem.removeFileTree(repositoryPath)
+            try self.saveState()
         }
-        repositories[repository.url] = nil
-        let repositoryPath = path.appending(handle.subpath)
-        fileSystem.removeFileTree(repositoryPath)
-        try saveState()
+    }
+
+    /// Reset the repository manager.
+    ///
+    /// Note: This also removes the cloned repositories from the disk.
+    public func reset() {
+        serialQueue.sync {
+            self.repositories = [:]
+            self.fileSystem.removeFileTree(path)
+        }
     }
 
     // MARK: Persistence

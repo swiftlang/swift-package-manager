@@ -167,6 +167,23 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testReset() throws {
+        mktmpdir { path in
+            let provider = DummyRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
+            let dummyRepo = RepositorySpecifier(url: "dummy")
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            XCTAssertTrue(delegate.fetched.count == 1)
+            manager.reset()
+            XCTAssertTrue(!isDirectory(path))
+            try localFileSystem.createDirectory(path, recursive: true)
+            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            XCTAssertTrue(delegate.fetched.count == 2)
+        }
+    }
+
     func testSyncLookup() throws {
         mktmpdir { path in
             let provider = DummyRepositoryProvider()
@@ -274,5 +291,6 @@ class RepositoryManagerTests: XCTestCase {
         ("testParallelLookups", testParallelLookups),
         ("testPersistence", testPersistence),
         ("testSyncLookup", testSyncLookup),
+        ("testReset", testReset),
     ]
 }
