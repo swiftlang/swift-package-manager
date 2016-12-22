@@ -425,8 +425,11 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(localFileSystem.exists(buildArtifact))
 
             try workspace.reset()
-            // Everything should go away.
-            XCTAssertFalse(localFileSystem.exists(workspace.dataPath))
+            // Everything should go away but cache directory should be present.
+            XCTAssertFalse(localFileSystem.exists(buildArtifact))
+            XCTAssertFalse(localFileSystem.exists(checkoutPath))
+            XCTAssertTrue(localFileSystem.exists(workspace.dataPath))
+            XCTAssertTrue(workspace.dependencies.map{$0}.isEmpty)
         }
     }
 

@@ -261,6 +261,7 @@ final class PackageToolTests: XCTestCase {
 
             _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
+            XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
             // We don't delete the build folder in new resolver.
             // FIXME: Eliminate this once we switch to new resolver.
             if !SwiftPMProduct.enableNewResolver {
@@ -268,9 +269,11 @@ final class PackageToolTests: XCTestCase {
                 XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
             }
 
-            // Fully clean, and check for removal of both.
+            // Fully clean.
             _ = try execute(["reset"], chdir: packageRoot)
-            XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssertTrue(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
+            // We preserve cache directories.
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
             // FIXME: Eliminate this.
             if !SwiftPMProduct.enableNewResolver {
                 XCTAssert(!isDirectory(packageRoot.appending(component: "Packages")))
