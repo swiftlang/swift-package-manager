@@ -26,7 +26,7 @@ class GetTests: XCTestCase {
             guard let repo = makeGitRepo(tmpdir, tag: "0.1.0") else { return XCTFail() }
             try systemQuietly([Git.tool, "-C", repo.path.asString, "remote", "add", "origin", repo.path.asString])
             let clone = try RawClone(path: repo.path, manifestParser: { _,_,_ throws -> Manifest in
-                throw Package.Error.noManifest(tmpdir.asString)
+                throw Package.Error.noManifest(baseURL: repo.path.asString, version: nil)
             })
             XCTAssertEqual(clone.children.count, 0)
         }

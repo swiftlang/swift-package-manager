@@ -94,7 +94,7 @@ public final class Package {
     }
 
     public enum Error: Swift.Error, Equatable {
-        case noManifest(String)
+        case noManifest(baseURL: String, version: String?)
         case noOrigin(String)
     }
 }
@@ -116,7 +116,7 @@ public func ==(lhs: Package, rhs: Package) -> Bool {
 public func ==(lhs: Package.Error, rhs: Package.Error) -> Bool {
     switch (lhs, rhs) {
     case let (.noManifest(lhs), .noManifest(rhs)):
-        return lhs == rhs
+        return lhs.baseURL == rhs.baseURL && lhs.version == rhs.version
     case (.noManifest, _):
         return false
     case let (.noOrigin(lhs), .noOrigin(rhs)):
