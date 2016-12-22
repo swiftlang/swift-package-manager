@@ -1194,10 +1194,16 @@ final class WorkspaceTests: XCTestCase {
                 return try Workspace(
                     dataPath: buildPath,
                     editablesPath: buildPath.appending(component: "Packages"),
-                    pinsFile: buildPath.appending(component: "Package.pins"),
+                    pinsFile: path.appending(component: "Package.pins"),
                     manifestLoader: MockManifestLoader(manifests: manifests),
                     delegate: TestWorkspaceDelegate()
                 )
+            }
+
+            // Set auto pinning off.
+            do {
+                let workspace = try createWorkspace()
+                try workspace.pinsStore.setAutoPin(on: false)
             }
 
             // Throw if we have not registered any packages but want to load things.
@@ -1212,6 +1218,16 @@ final class WorkspaceTests: XCTestCase {
                 _ = try workspace.loadPackageGraph()
                 XCTFail("unexpected success")
             } catch WorkspaceOperationError.noRegisteredPackages {}
+
+            // Throw if we try to unregister a path which doesn't exists in workspace.
+            let fakePath = path.appending(component: "fake")
+            do {
+                let workspace = try createWorkspace()
+                try workspace.unregisterPackage(at: fakePath)
+                XCTFail("unexpected success")
+            } catch WorkspaceOperationError.pathNotRegistered(let path) {
+                XCTAssertEqual(path, fakePath)
+            }
 
             do {
                 let workspace = try createWorkspace()
@@ -1243,6 +1259,16 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "D", "root1", "root2", "root3"])
                 XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2", "root3"])
                 XCTAssertEqual(graph.lookup("A").version, v1)
+
+                // FIXME: We need to reset because we apply constraints for current checkouts (see the above note).
+                try workspace.reset()
+
+                // Remove one of the packages.
+                try workspace.unregisterPackage(at: roots[2])
+                let newGraph = try workspace.loadPackageGraph()
+                XCTAssertEqual(newGraph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
+                XCTAssertEqual(newGraph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
+                XCTAssertEqual(newGraph.lookup("A").version, "1.5.0")
             }
         }
     }
