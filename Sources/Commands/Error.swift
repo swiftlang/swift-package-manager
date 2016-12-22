@@ -85,6 +85,13 @@ public func handle(error: Any) -> Never {
             print(fix: fix)
         }
 
+    case Package.Error.noManifest(let url, let version):
+        var string = "\(url) has no manifest"
+        if let version = version {
+            string += " for version \(version)"
+        }
+        print(error: string)
+
     case ManifestParseError.emptyManifestFile:
         print(error: "Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
 

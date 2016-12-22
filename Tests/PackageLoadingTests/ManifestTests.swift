@@ -88,12 +88,12 @@ class ManifestTests: XCTestCase {
     }
 
     func testNoManifest() {
-        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
-            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil)
+        XCTAssertThrows(PackageModel.Package.Error.noManifest(baseURL: "/foo", version: nil)) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/foo", version: nil)
         }
 
-        XCTAssertThrows(PackageModel.Package.Error.noManifest("/non-existent-file")) {
-            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/", version: nil, fileSystem: InMemoryFileSystem())
+        XCTAssertThrows(PackageModel.Package.Error.noManifest(baseURL: "/bar", version: "1.0.0")) {
+            _ = try manifestLoader.loadFile(path: AbsolutePath("/non-existent-file"), baseURL: "/bar", version: "1.0.0", fileSystem: InMemoryFileSystem())
         }
     }
 

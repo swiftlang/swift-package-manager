@@ -108,7 +108,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             do {
                 contents = try fileSystem.readFileContents(inputPath)
             } catch FileSystemError.noEntry {
-                throw PackageModel.Package.Error.noManifest(inputPath.asString)
+                throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
             }
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
@@ -134,7 +134,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let path: AbsolutePath = isDirectory(inputPath) ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard isFile(path) else { throw PackageModel.Package.Error.noManifest(path.asString) }
+        guard isFile(path) else { throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description) }
 
         // Load the manifest description.
         guard let jsonString = try parse(path: path) else {
