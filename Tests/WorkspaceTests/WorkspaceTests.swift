@@ -465,6 +465,14 @@ final class WorkspaceTests: XCTestCase {
             // Put the dependency in edit mode at its current revision.
             try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
 
+            // We should fail to update dependencies.
+            do {
+                try workspace.updateDependencies()
+                XCTFail("Unexpected success")
+            } catch WorkspaceOperationError.dependenciesInEditMode(let packages) {
+                XCTAssertEqual(packages, ["A"])
+            }
+
             let editedDependency = getDependency(aManifest)
             // It should be in edit mode.
             XCTAssert(editedDependency.isInEditableState)
