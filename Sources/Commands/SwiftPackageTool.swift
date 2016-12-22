@@ -270,7 +270,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
-        let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "")
+        let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode (either --revision or --branch option is required)")
         binder.bind(
             positional: editParser.add(
                 positional: "name", kind: String.self,
@@ -312,7 +312,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
 
-        let uneditParser = parser.add(subparser: PackageMode.unedit.rawValue, overview: "")
+        let uneditParser = parser.add(subparser: PackageMode.unedit.rawValue, overview: "Remove a package from editable mode")
         binder.bind(
             positional: uneditParser.add(
                 positional: "name", kind: String.self,

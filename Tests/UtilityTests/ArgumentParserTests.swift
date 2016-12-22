@@ -76,7 +76,8 @@ class ArgumentParserTests: XCTestCase {
         do {
             _ = try parser.parse()
             XCTFail("unexpected success")
-        } catch ArgumentParserError.expectedArguments(let args) {
+        } catch ArgumentParserError.expectedArguments(let p, let args) {
+            XCTAssert(p === parser)
             XCTAssertEqual(args, ["package"])
         }
 
@@ -190,7 +191,7 @@ class ArgumentParserTests: XCTestCase {
 
         do {
             args = try parser.parse(["c"])
-        } catch ArgumentParserError.expectedArguments(let args) {
+        } catch ArgumentParserError.expectedArguments(_, let args) {
             XCTAssertEqual(args.sorted(), ["a", "b"])
         }
 
@@ -223,18 +224,20 @@ class ArgumentParserTests: XCTestCase {
         XCTAssert(usage.contains("  b       B!"))
 
         stream = BufferedOutputByteStream()
-        parserA.printUsage(on: stream, isSubparser: true)
+        parserA.printUsage(on: stream)
         usage = stream.bytes.asString!
 
         XCTAssert(usage.contains("OVERVIEW: A!"))
+        XCTAssert(!usage.contains("USAGE:"))
         XCTAssert(usage.contains("OPTIONS:"))
         XCTAssert(usage.contains("  --branch   The branch to use"))
 
         stream = BufferedOutputByteStream()
-        parserB.printUsage(on: stream, isSubparser: true)
+        parserB.printUsage(on: stream)
         usage = stream.bytes.asString!
 
         XCTAssert(usage.contains("OVERVIEW: B!"))
+        XCTAssert(!usage.contains("USAGE:"))
         XCTAssert(usage.contains("OPTIONS:"))
         XCTAssert(usage.contains("  --no-fly"))
     }
@@ -265,13 +268,13 @@ class ArgumentParserTests: XCTestCase {
 
         do {
             args = try parser.parse(["c"])
-        } catch ArgumentParserError.expectedArguments(let args) {
+        } catch ArgumentParserError.expectedArguments(_, let args) {
             XCTAssertEqual(args.sorted(), ["foo"])
         }
 
         do {
             args = try parser.parse(["foo", "--branch", "b", "foo"])
-        } catch ArgumentParserError.expectedArguments(let args) {
+        } catch ArgumentParserError.expectedArguments(_, let args) {
             XCTAssertEqual(args.sorted(), ["bar", "baz"])
         }
 

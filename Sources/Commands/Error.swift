@@ -64,8 +64,9 @@ public func handle(error: Any) -> Never {
     case ArgumentParserError.unexpectedArgument(let arg):
         print(error: "Unexpected argument \(arg). Use --help to list available arguments")
 
-    case ArgumentParserError.expectedArguments(let args):
-        print(error: "Expected arguments: \(args.joined(separator: ", ")). Use --help for display information")
+    case ArgumentParserError.expectedArguments(let parser, let args):
+        print(error: "Expected arguments: \(args.joined(separator: ", ")).\n")
+        parser.printUsage(on: stderrStream)
 
     case PinOperationError.notPinned:
         print(error: "The provided package is not pinned")
