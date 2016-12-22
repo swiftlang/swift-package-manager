@@ -763,6 +763,7 @@ public class Workspace {
     ///
     /// - Returns: The loaded package graph.
     /// - Throws: Rethrows errors from dependency resolution (if required) and package graph loading.
+    @discardableResult
     public func loadPackageGraph() throws -> PackageGraph {
         // First, load the active manifest sets.
         let currentManifests = try loadDependencyManifests()

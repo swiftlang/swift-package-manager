@@ -165,16 +165,17 @@ final class PackageToolTests: XCTestCase {
             func build() throws -> String {
                 return try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
             }
+
+            // Put bar and baz in edit mode.
+            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+
             // Build the package.
             _ = try build()
 
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
             // Sanity check.
             XCTAssertEqual(try popen(exec, environment: [:]), "5\n")
-
-            // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")

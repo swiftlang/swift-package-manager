@@ -116,6 +116,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
+            try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
             // Look for the package's manifest.
             guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
