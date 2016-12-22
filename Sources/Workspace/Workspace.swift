@@ -37,6 +37,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// There are no registered root package paths.
     case noRegisteredPackages
+
+    /// The given path is not a registered root package.
+    case pathNotRegistered(path: AbsolutePath)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -321,6 +324,16 @@ public class Workspace {
     /// package will only be loaded on explicitly calling a related API.
     public func registerPackage(at path: AbsolutePath) {
         rootPackages.insert(path)
+    }
+
+    /// Unregister the provided path. This method will throw if the provided path is not a registered package.
+    ///
+    /// Note: Clients should call a related API to update managed dependencies.
+    public func unregisterPackage(at path: AbsolutePath) throws {
+        guard rootPackages.contains(path) else {
+            throw WorkspaceOperationError.pathNotRegistered(path: path)
+        }
+        rootPackages.remove(path)
     }
 
     /// Cleans the build artefacts from workspace data.
