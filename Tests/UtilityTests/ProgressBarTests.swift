@@ -27,7 +27,7 @@ final class PseudoTerminal {
         if openpty(&master, &slave, nil, nil, nil) != 0 {
             return nil
         }
-        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(slave, "w")) else {
+        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(master, "w")) else {
             return nil
         }
         self.outStream = outStream
@@ -35,9 +35,9 @@ final class PseudoTerminal {
         self.slave = slave
     }
 
-    func readMaster(maxChars n: Int = 1000) -> String? {
+    func readSlave(maxChars n: Int = 1000) -> String? {
         var buf: [CChar] = [CChar](repeating: 0, count: n)
-        if read(master, &buf, n) <= 0 {
+        if read(slave, &buf, n) <= 0 {
             return nil
         }
         return String(cString: buf)
@@ -73,16 +73,16 @@ final class ProgressBarTests: XCTestCase {
 
         var output = ""
         let thread = Thread {
-            while let out = pty.readMaster() {
+            while let out = pty.readSlave() {
                 output += out
             }
         }
         thread.start()
         runProgressBar(bar)
-        pty.closeSlave()
+        pty.closeMaster()
         // Make sure to read the complete output before checking it.
         thread.join()
-        pty.closeMaster()
+        pty.closeSlave()
         XCTAssertTrue(output.chuzzle()?.hasPrefix("\u{1B}[36m\u{1B}[1mTestHeader\u{1B}[0m") ?? false)
     }
 
