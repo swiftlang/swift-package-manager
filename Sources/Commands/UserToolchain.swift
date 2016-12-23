@@ -43,14 +43,14 @@ struct UserToolchain: Toolchain {
 #endif
 
     /// Lookup an executable path from environment variable value. This method searches in the following order:
-    /// * If env value is a valid abolsute path, return it.
+    /// * If env value is a valid absolute path, return it.
     /// * If env value is relative path, first try to locate it in current working directory.
     /// * Otherwise, in provided search paths.
     ///
     /// - Parameters:
     ///   - value: The value from environment variable.
     ///   - cwd: The current working directory to look in.
-    ///   - searchPath: The addtional search path to look in if not found in cwd.
+    ///   - searchPath: The additional search path to look in if not found in cwd.
     /// - Returns: Valid path to executable if present, otherwise nil.
     static func lookupExecutablePath(inEnvValue value: String?, currentWorkingDirectory cwd: AbsolutePath, searchPaths: [AbsolutePath]) -> AbsolutePath? {
         // We should have a value to continue.
