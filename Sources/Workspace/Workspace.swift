@@ -705,8 +705,8 @@ public class Workspace {
         return rootManifests.flatMap{ rootManifest in
             rootManifest.package.dependencies.map{
                 RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
-            } + (includePins ? pinsStore.createConstraints() : [])
-        }
+            }
+        } + (includePins ? pinsStore.createConstraints() : [])
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
