@@ -1,5 +1,4 @@
 module Foo {
   header "Foo/Foo.h"
-  link "Foo"
   export *
 }

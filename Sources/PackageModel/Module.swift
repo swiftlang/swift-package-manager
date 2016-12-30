@@ -64,6 +64,13 @@ public class Module: ObjectIdentifierProtocol {
 }
 
 public class SwiftModule: Module {
+
+    /// Create a Swift module for linux main test manifest file.
+    public init(linuxMain: AbsolutePath, name: String, dependencies: [Module] = []) {
+        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
+        super.init(name: name, type: .executable, sources: sources, isTest: true, dependencies: dependencies)
+    }
+
     public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
         // Compute the module type.
         let isLibrary = !sources.relativePaths.contains { path in

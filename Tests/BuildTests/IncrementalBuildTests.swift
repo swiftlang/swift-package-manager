@@ -46,7 +46,6 @@ final class IncrementalBuildTests: XCTestCase {
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
             XCTAssertTrue(fullLog.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertTrue(fullLog.contains("Linking CLibrarySources"))
             
             // Now sleep for one second.  This is super-unfortunate, but with
             // the one-second granularity that many file systems have, and with
@@ -70,13 +69,11 @@ final class IncrementalBuildTests: XCTestCase {
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertTrue(log2.contains("Linking CLibrarySources"))
             
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertFalse(log3.contains("Linking CLibrarySources"))
         }
     }
     
