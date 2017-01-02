@@ -25,7 +25,7 @@ public enum ModuleType: String {
     case systemModule = "system-module"
 }
 
-public class Module {
+public class Module: ObjectIdentifierProtocol {
     /// The name of the module.
     ///
     /// NOTE: This name is not the language-level module (i.e., the importable
@@ -68,14 +68,6 @@ public class Module {
         return (try! topologicalSort(dependencies, successors: { $0.dependencies })).reversed()
     }
 
-}
-
-extension Module: Hashable, Equatable {
-    public var hashValue: Int { return c99name.hashValue }
-}
-
-public func ==(lhs: Module, rhs: Module) -> Bool {
-    return lhs.c99name == rhs.c99name
 }
 
 public class SwiftModule: Module {
