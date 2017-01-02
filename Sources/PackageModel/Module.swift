@@ -94,9 +94,9 @@ public class SwiftModule: Module {
 
 public class CModule: Module {
     public let path: AbsolutePath
-    public let pkgConfig: RelativePath?
+    public let pkgConfig: String?
     public let providers: [SystemPackageProvider]?
-    public init(name: String, type: ModuleType = .systemModule, sources: Sources, path: AbsolutePath, isTest: Bool = false, pkgConfig: RelativePath? = nil, providers: [SystemPackageProvider]? = nil, dependencies: [Module] = []) {
+    public init(name: String, type: ModuleType = .systemModule, sources: Sources, path: AbsolutePath, isTest: Bool = false, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, dependencies: [Module] = []) {
         self.path = path
         self.pkgConfig = pkgConfig
         self.providers = providers
