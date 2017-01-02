@@ -41,10 +41,6 @@ extension Command {
             args += ["-L\(prefix.asString)"]
             args += ["-o", outpath.asString]
 
-          #if os(macOS)
-            args += ["-F", try platformFrameworksPath().asString]
-          #endif
-
         case .Library(.Static):
             let inputs = buildables.map{ $0.targetName } + objects.map{ $0.asString }
             let outputs = [outpath.asString]
@@ -60,7 +56,6 @@ extension Command {
             objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
           #if os(macOS)
             args += ["-Xlinker", "-bundle"]
-            args += ["-F", try platformFrameworksPath().asString]
 
             // TODO should be llbuild rules∫
             if conf == .debug {

@@ -12,6 +12,7 @@ import POSIX
 
 import Basic
 import protocol Build.Toolchain
+import Utility
 
 #if os(macOS)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
@@ -31,14 +32,17 @@ struct UserToolchain: Toolchain {
     let defaultSDK: AbsolutePath?
 
 #if os(macOS)
+    /// Path to the sdk platform framework path.
+    let sdkPlatformFrameworksPath: AbsolutePath
+
     var clangPlatformArgs: [String] {
-        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString]
+        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
     var swiftPlatformArgs: [String] {
-        return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString]
+        return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
 #else
-    let clangPlatformArgs: [String] = []
+    let clangPlatformArgs: [String] = ["-fPIC"]
     let swiftPlatformArgs: [String] = []
 #endif
 
@@ -157,6 +161,8 @@ struct UserToolchain: Toolchain {
                 throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
             }
         }
+
+        self.sdkPlatformFrameworksPath = try platformFrameworksPath()
       #else
         defaultSDK = nil
       #endif

@@ -71,7 +71,7 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
 #endif
         let command: Command
         if product.containsOnlyClangModules {
-            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld, linkerExec: toolchain.clangCompiler)
+            command = try Command.linkClangModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + toolchain.clangPlatformArgs, linkerExec: toolchain.clangCompiler)
         } else {
             command = try Command.linkSwiftModule(product, configuration: conf, prefix: prefix, otherArgs: Xld + toolchain.swiftPlatformArgs + swiftcArgs + rpathArgs, linkerExec: toolchain.swiftCompiler)
         }
