@@ -10,6 +10,7 @@
 
 import Build
 import Utility
+import Basic
 
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
@@ -25,17 +26,16 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
     override func runImpl() throws {
         switch try options.mode() {
-        case .build(let conf, let toolchain):
-            #if os(Linux)
+        case .build:
+          #if os(Linux)
             // Emit warning if clang is older than version 3.6 on Linux.
             // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
             checkClangVersion()
-            #endif
+          #endif
             let graph = try loadPackage()
             // If we don't have any modules in root package, we're done.
             guard !graph.rootPackages[0].modules.isEmpty else { break }
-            let yaml = try describe(buildPath, conf, graph, flags: options.buildFlags, toolchain: toolchain)
-            try build(yamlPath: yaml, target: options.buildTests ? "test" : nil)
+            try build(graph: graph, includingTests: options.buildTests, config: options.config)
 
         case .clean:
             print("warning: swift build --clean is deprecated. Use 'swift package clean' instead. (SR-2082)")
@@ -86,7 +86,7 @@ public class BuildToolOptions: ToolOptions {
             return .clean
         }
         // Get the build configuration or assume debug.
-        return .build(config, try UserToolchain())
+        return .build
     }
 
     /// If the test should be built.
@@ -100,8 +100,8 @@ public class BuildToolOptions: ToolOptions {
 }
 
 public enum BuildToolMode {
-    /// Build using the configuration and toolchain.
-    case build(Configuration, Toolchain)
+    /// Build the package.
+    case build
 
     /// Clean the build artefacts and exit.
     case clean

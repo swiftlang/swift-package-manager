@@ -124,8 +124,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let graph = try loadPackage()
         if options.buildTests {
-            let yaml = try describe(buildPath, options.config, graph, flags: options.buildFlags, toolchain: UserToolchain())
-            try build(yamlPath: yaml, target: "test")
+            try build(graph: graph, includingTests: true, config: options.config)
         }
                 
         // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
