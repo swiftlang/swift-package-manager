@@ -373,7 +373,7 @@ public struct PackageBuilder {
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
-            return [try CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers, dependencies: moduleDependencies())]
+            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers, dependencies: moduleDependencies())]
         }
 
         // At this point the module can't be a system module, make sure manifest doesn't contain
@@ -537,7 +537,7 @@ public struct PackageBuilder {
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
             // No C sources, so we expect to have Swift sources, and we create a Swift module.
-            return try SwiftModule(
+            return SwiftModule(
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
@@ -545,7 +545,7 @@ public struct PackageBuilder {
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C module.
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(potentialModule.path.asString) }
-            return try ClangModule(
+            return ClangModule(
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: cSources, root: potentialModule.path),

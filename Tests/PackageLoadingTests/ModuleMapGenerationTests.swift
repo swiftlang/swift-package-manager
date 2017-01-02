@@ -138,7 +138,7 @@ class ModuleMapGeneration: XCTestCase {
 }
 
 func ModuleMapTester(_ name: String, in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let module = try! ClangModule(name: name, isTest: false, sources: Sources(paths: [], root: .root))
+    let module = ClangModule(name: name, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: module, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
