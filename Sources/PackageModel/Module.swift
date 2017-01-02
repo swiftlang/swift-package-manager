@@ -6,13 +6,6 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-
- -----------------------------------------------------------------------
-
- A Target is a collection of sources and configuration that can be built
- into a product.
- 
- TODO should be a protocol
 */
 
 import Basic
