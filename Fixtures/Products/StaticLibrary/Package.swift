@@ -1,5 +1,8 @@
 import PackageDescription
 
-let package = Package(name: "PackageName")
-
-products.append(Product(name: "ProductName", type: .Library(.Static), modules: ["PackageName"]))
+let package = Package(
+    name: "PackageName",
+    products: [
+        .Library(name: "ProductName", type: .static, targets: ["PackageName"]),
+    ]
+)

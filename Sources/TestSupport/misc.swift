@@ -175,7 +175,6 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
             package: package,
-            products: [],
             version: "1.0.0"
         )
         if url == root {

@@ -190,6 +190,27 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    func testProducts() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "    name: \"Foo\"," <<< "\n"
+        stream <<< "    products: [" <<< "\n"
+        stream <<< "    .Library(name: \"libfooA\", targets: [\"Foo\"])," <<< "\n"
+        stream <<< "    .Library(name: \"libfooS\", type: .static, targets: [\"Foo\"])," <<< "\n"
+        stream <<< "    .Library(name: \"libfooD\", type: .dynamic, targets: [\"Foo\"])," <<< "\n"
+        stream <<< "    .Executable(name: \"exe\", targets: [\"Bar\"])," <<< "\n"
+        stream <<< "    ])" <<< "\n" <<< "\n"
+
+        let manifest = try loadManifest(stream.bytes)
+        let products = Dictionary(items: manifest.package.products.map{ ($0.name, $0) })
+
+        XCTAssertEqual(products["libfooA"], .Library(name: "libfooA", targets: ["Foo"]))
+        XCTAssertEqual(products["libfooS"], .Library(name: "libfooS", type: .static, targets: ["Foo"]))
+        XCTAssertEqual(products["libfooD"], .Library(name: "libfooD", type: .dynamic, targets: ["Foo"]))
+        XCTAssertEqual(products["exe"], .Executable(name: "exe", targets: ["Bar"]))
+    }
+
     func testSwiftInterpreterErrors() throws {
         // Forgot importing package description.
         var stream = BufferedOutputByteStream()

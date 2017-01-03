@@ -603,22 +603,41 @@ public struct PackageBuilder {
             products.append(product)
         }
 
-    ////// add products from the manifest
+        // Map containing modules mapped to their names.
+        let modulesMap = Dictionary(items: modules.map{ ($0.name, $0) })
 
-        for p in manifest.products {
-            let modules: [Module] = try p.modules.map{ moduleName in
-                guard let picked = (modules.pick{ $0.name == moduleName }) else {
-                    throw Product.Error.moduleNotFound(product: p.name, module: moduleName)
+        /// Helper method to get modules from target names.
+        func modulesFrom(targetNames names: [String], product: String) throws -> [Module] {
+            // Ensure the target names are non-empty.
+            guard !names.isEmpty else { throw Product.Error.noModules(product) }
+            // Get modules from target names.
+            let productModules: [Module] = try names.map { target in
+                // Ensure we have this target.
+                guard let module = modulesMap[target] else {
+                    throw Product.Error.moduleNotFound(product: product, module: target)
                 }
-                return picked
+                return module
             }
+            return productModules
+        }
 
-            guard !modules.isEmpty else {
-                throw Product.Error.noModules(p.name)
+        // Create products declared in the manifest.
+        for product in manifest.package.products {
+            switch product {
+            case .exe(let p):
+                // FIXME: We should handle/diagnose name collisions between local and vended executables.
+                products += [Product(name: p.name, type: .Executable, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
+            case .lib(let p):
+                // Get the library type.
+                let type: ProductType
+                switch p.type {
+                case .static?: type = .Library(.Static)
+                case .dynamic?: type = .Library(.Dynamic)
+                // FIXME: For now infer nil as dylibs, we need to expand PackageModel.Product to store this information.
+                case nil: type = .Library(.Dynamic)
+                }
+                products += [Product(name: p.name, type: type, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
             }
-
-            let product = Product(name: p.name, type: p.type, modules: modules)
-            products.append(product)
         }
 
         return products

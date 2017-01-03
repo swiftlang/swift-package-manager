@@ -142,14 +142,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
         let json = try JSON(string: jsonString)
         let package = PackageDescription.Package.fromJSON(json, baseURL: baseURL)
-        let products = PackageDescription.Product.fromJSON(json)
         let errors = parseErrors(json)
 
         guard errors.isEmpty else {
             throw ManifestParseError.runtimeManifestErrors(errors)
         }
 
-        return Manifest(path: path, url: baseURL, package: package, products: products, version: version)
+        return Manifest(path: path, url: baseURL, package: package, version: version)
     }
 
     /// Parse the manifest at the given path to JSON.
@@ -237,6 +236,12 @@ extension PackageDescription.Package {
             targets = array.map(PackageDescription.Target.fromJSON)
         }
 
+        // Parse the products.
+        var products: [PackageDescription.Product] = []
+        if case .array(let array)? = package["products"] {
+            products = array.map(PackageDescription.Product.fromJSON)
+        }
+
         var providers: [PackageDescription.SystemPackageProvider]? = nil
         if case .array(let array)? = package["providers"] {
             providers = array.map(PackageDescription.SystemPackageProvider.fromJSON)
@@ -257,7 +262,7 @@ extension PackageDescription.Package {
             }
         }
 
-        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, exclude: exclude)
+        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, products: products, dependencies: dependencies, exclude: exclude)
     }
 }
 
@@ -325,38 +330,35 @@ extension PackageDescription.Target.Dependency {
 }
 
 extension PackageDescription.Product {
-    private init(json: JSON) {
+    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription.Product {
         guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
-        guard case .string(let name)? = dict["name"] else { fatalError("missing name") }
+        guard case .string(let name)? = dict["name"] else { fatalError("missing item") }
+        guard case .string(let productType)? = dict["product_type"] else { fatalError("missing item") }
+        guard case .array(let targetsJSON)? = dict["targets"] else { fatalError("missing item") }
 
-        let type: ProductType
-        switch dict["type"] {
-        case .string("exe")?:
-            type = .Executable
-        case .string("a")?:
-            type = .Library(.Static)
-        case .string("dylib")?:
-            type = .Library(.Dynamic)
-        case .string("test")?:
-            type = .Test
-        default:
-            fatalError("missing type")
-        }
-
-        guard case .array(let mods)? = dict["modules"] else { fatalError("missing modules") }
-
-        let modules: [String] = mods.map { module in
-            guard case JSON.string(let string) = module else { fatalError("invalid modules") }
+        let targets: [String] = targetsJSON.map {
+            guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
             return string
         }
 
-        self.init(name: name, type: type, modules: modules)
-    }
-
-    static func fromJSON(_ json: JSON) -> [PackageDescription.Product] {
-        guard case .dictionary(let topLevelDict) = json else { fatalError("unexpected item") }
-        guard case .array(let products)? = topLevelDict["products"] else { fatalError("missing products") }
-        return products.map(Product.init)
+        switch productType {
+        case "exe":
+            return PackageDescription.Product.Executable(name: name, targets: targets)
+        case "lib":
+            let type: PackageDescription.Product.LibraryProduct.LibraryType?
+            switch dict["type"] {
+            case .string("static")?:
+                type = .static
+            case .string("dynamic")?:
+                type = .dynamic
+            case .null?:
+                type = nil
+            default: fatalError("unexpected item")
+            }
+            return PackageDescription.Product.Library(name: name, type: type, targets: targets)
+        default:
+            fatalError("unexpected item")
+        }
     }
 }
 

@@ -163,7 +163,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                                 .Package(url: "B", majorVersion: 2)
                             ]
                         ),
-                        products: [],
                         version: v1
                     )
                 ])
@@ -175,7 +174,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                         url: "B",
                         package: PackageDescription.Package(
                             name: "Bar"),
-                        products: [],
                         version: v2
                     )
                 ])

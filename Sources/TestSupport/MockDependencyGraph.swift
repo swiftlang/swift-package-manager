@@ -144,7 +144,6 @@ public struct MockManifestGraph {
             package: PackageDescription.Package(
                 name: "Root",
                 dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps)),
-            products: [],
             version: nil
         )
 
@@ -157,7 +156,6 @@ public struct MockManifestGraph {
                 package: PackageDescription.Package(
                     name: package.name,
                     dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)),
-                products: [],
                 version: package.version)
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
         })
