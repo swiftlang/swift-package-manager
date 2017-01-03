@@ -95,7 +95,10 @@ private extension SystemPackageProvider {
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
             // to the latest version. Instead use the version as symlinked
             // in /usr/local/opt/(NAME)/lib/pkgconfig.
-            guard let brewPrefix = try? Utility.popen(["brew", "--prefix"]).chomp() else {
+            struct Static {
+                static let value = { try? Utility.popen(["brew", "--prefix"]).chomp() }()
+            }
+            guard let brewPrefix = Static.value else {
                 return nil
             }
             return AbsolutePath(brewPrefix).appending(components: "opt", name, "lib", "pkgconfig")
