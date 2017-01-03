@@ -16,9 +16,9 @@ import XCTest
 @testable import PackageLoading
 
 class JSONSerializationTests: XCTestCase {
-    func assertEqual(package: Package, expected: String) {
+    func assertEqual(package: Package, expected: String, file: StaticString = #file, line: UInt = #line) {
         let json = package.toJSON().toString()
-        XCTAssertEqual(json, expected)
+        XCTAssertEqual(json, expected, file: file, line: line)
     }
 
     func testSimple() {
@@ -54,7 +54,20 @@ class JSONSerializationTests: XCTestCase {
         let t1 = Target(name: "One")
         let t2 = Target(name: "Two", dependencies: [.Target(name: "One")])
         let package = Package(name: "Targets", targets: [t1, t2])
-        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Targets\", \"targets\": [{\"dependencies\": [], \"name\": \"One\"}, {\"dependencies\": [\"One\"], \"name\": \"Two\"}]}")
+        assertEqual(package: package, expected: "{\"dependencies\": [], \"exclude\": [], \"name\": \"Targets\", \"targets\": [{\"dependencies\": [], \"name\": \"One\"}, {\"dependencies\": [{\"name\": \"One\", \"type\": \"target\"}], \"name\": \"Two\"}]}")
+
+        // Test target dependencies.
+        var dependency: Target.Dependency = .Target(name: "foo")
+        XCTAssertEqual(dependency.toJSON().toString(), "{\"name\": \"foo\", \"type\": \"target\"}")
+
+        dependency = .ByName(name: "foo")
+        XCTAssertEqual(dependency.toJSON().toString(), "{\"name\": \"foo\", \"type\": \"byname\"}")
+
+        dependency = .Product(name: "foo", package: nil)
+        XCTAssertEqual(dependency.toJSON().toString(), "{\"name\": \"foo\", \"package\": null, \"type\": \"product\"}")
+
+        dependency = .Product(name: "foo", package: "bar")
+        XCTAssertEqual(dependency.toJSON().toString(), "{\"name\": \"foo\", \"package\": \"bar\", \"type\": \"product\"}")
     }
 
     static var allTests = [

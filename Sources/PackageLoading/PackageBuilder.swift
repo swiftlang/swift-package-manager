@@ -448,10 +448,14 @@ public struct PackageBuilder {
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this module in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
-            return target.dependencies.map {
+            return target.dependencies.flatMap {
                 switch $0 {
                 case .Target(let name):
                     return potentialModuleMap[name]!
+                case .Product:
+                    return nil
+                case .ByName(let name):
+                    return potentialModuleMap[name]
                 }
             }
         }
@@ -479,6 +483,11 @@ public struct PackageBuilder {
                         // If this is a module with no sources, we don't have a module object.
                         if emptyModules.contains(name) { return nil }
                         return modules[name]!
+                    case .ByName(let name):
+                        // If this is a module with no sources, we don't have a module object.
+                        if emptyModules.contains(name) { return nil }
+                        return modules[name]
+                    case .Product: return nil
                     }
                 }
             } ?? []
@@ -686,10 +695,11 @@ private extension Manifest {
     /// Returns the names of all the referenced modules in the manifest.
     func allReferencedModules() -> Set<String> {
         let names = package.targets.flatMap { target in
-            [target.name] + target.dependencies.map {
+            [target.name] + target.dependencies.flatMap {
                 switch $0 {
                 case .Target(let name):
                     return name
+                default: return nil
                 }
             }
         }

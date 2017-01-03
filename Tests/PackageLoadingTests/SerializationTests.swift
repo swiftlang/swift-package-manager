@@ -39,7 +39,7 @@ class SerializationTests: XCTestCase {
     }
 
     func testTargetDependencyIsStringConvertible() {
-      XCTAssertEqual(Target.Dependency.Target(name: "foo"), "foo")
+      XCTAssertEqual(Target.Dependency.ByName(name: "foo"), "foo")
     }
 
     func testInvalidVersionString() {
