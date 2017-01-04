@@ -644,29 +644,11 @@ class ConventionTests: XCTestCase {
 
     func testProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exe/main.swift",
             "/Sources/Foo/Foo.swift",
-            "/Sources/Bar/Bar.swift",
-            "/Sources/Tests/FooTests/Foo.swift",
-            "/Sources/Tests/BarTests/Bar.swift"
-        )
+            "/Sources/Bar/Bar.swift")
+        let products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
 
-        let package = PackageDescription.Package(
-            name: "pkg", 
-            products: [
-                .Library(name: "libpmS", type: .static, targets: ["Foo", "Bar"]),
-                .Library(name: "libpmD", type: .dynamic, targets: ["Foo", "Bar"]),
-                .Library(name: "libpmA", targets: ["Foo"]),
-                .Executable(name: "executable", targets: ["exe", "Foo"]),
-            ]
-        )
-
-        PackageBuilderTester(package, in: fs) { result in
-            result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .executable, isTest: false)
-                moduleResult.checkSources(root: "/Sources/exe", paths: "main.swift")
-            }
-
+        PackageBuilderTester("pkg", in: fs, products: products) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
@@ -677,24 +659,8 @@ class ConventionTests: XCTestCase {
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
             }
 
-            result.checkProduct("libpmS") { productResult in
-                productResult.check(type: .Library(.Static), modules: ["Bar", "Foo"])
-            }
-
-            result.checkProduct("libpmD") { productResult in
+            result.checkProduct("libpm") { productResult in
                 productResult.check(type: .Library(.Dynamic), modules: ["Bar", "Foo"])
-            }
-
-            result.checkProduct("libpmA") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Foo"])
-            }
-
-            result.checkProduct("executable") { productResult in
-                productResult.check(type: .Executable, modules: ["Foo", "exe"])
-            }
-
-            result.checkProduct("exe") { productResult in
-                productResult.check(type: .Executable, modules: ["exe"])
             }
         }
     }
@@ -705,7 +671,7 @@ class ConventionTests: XCTestCase {
             "/Sources/Foo.swift",
             "/Tests/FooTests/Bar.swift")
 
-        PackageBuilderTester("Foo", in: fs) { result in
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.swift")
@@ -728,7 +694,7 @@ class ConventionTests: XCTestCase {
             "/Tests/FooTests/Foo.swift",
             "/Tests/BarTests/Bar.swift")
 
-        PackageBuilderTester("Foo", in: fs) { result in
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
@@ -757,22 +723,14 @@ class ConventionTests: XCTestCase {
 
     func testBadProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/Foo.swift"
-        )
-
-        let package = PackageDescription.Package(
-            name: "pkg", 
-            products: [
-                .Library(name: "libpm", type: .dynamic, targets: ["Foo", "Bar"]),
-            ]
-        )
-
-        PackageBuilderTester(package, in: fs) { result in
+            "/Foo.swift")
+        var products = [Product(name: "libpm", type: .Library(.Dynamic), modules: ["Foo", "Bar"])]
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkDiagnostic("the product named libpm references a module that could not be found: Bar fix: reference only valid modules from the product")
         }
 
-        package.products = [.Library(name: "libpm", type: .dynamic, targets: [])]
-        PackageBuilderTester(package, in: fs) { result in
+        products = [Product(name: "libpm", type: .Library(.Dynamic), modules: [])]
+        PackageBuilderTester("Foo", in: fs, products: products) { result in
             result.checkDiagnostic("the product named libpm doesn\'t reference any modules fix: reference one or more modules from the product")
         }
     }
@@ -1048,11 +1006,12 @@ class ConventionTests: XCTestCase {
 ///     - package: PackageDescription instance to use for loading this package.
 ///     - path: Directory where the package is located.
 ///     - in: FileSystem in which the package should be loaded from.
+///     - products: List of products in the package.
 ///     - warningStream: OutputByteStream to be passed to package builder.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, products: [PackageDescription.Product], warningStream: OutputByteStream) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, products: products, version: nil)
     let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, dependencies: [])
     return try builder.construct(includingTestModules: true)
 }
@@ -1085,16 +1044,16 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
+   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
        let package = Package(name: name)
-       self.init(package, path: path, in: fs, file: file, line: line, body)
+       self.init(package, path: path, in: fs, products: products, file: file, line: line, body)
     }
 
     @discardableResult
-    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
+    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, products: [PackageDescription.Product] = [], file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
         let warningStream = BufferedOutputByteStream()
         do {
-            let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
+            let loadedPackage = try loadPackage(package, path: path, in: fs, products: products, warningStream: warningStream)
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.allModules)
         } catch {
@@ -1155,9 +1114,9 @@ final class PackageBuilderTester {
             self.product = product
         }
 
-        func check(type: ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
+        func check(type: PackageDescription.ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(product.type, type, file: file, line: line)
-            XCTAssertEqual(product.modules.map{$0.name}.sorted(), modules.sorted(), file: file, line: line)
+            XCTAssertEqual(product.modules.map{$0.name}.sorted(), modules, file: file, line: line)
         }
     }
 

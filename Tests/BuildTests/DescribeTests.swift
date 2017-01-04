@@ -19,7 +19,7 @@ import Utility
 import TestSupport
 
 final class DescribeTests: XCTestCase {
-    let dummyPackage = Package(manifest: Manifest(path: AbsolutePath("/"), url: "/", package: PackageDescription.Package(name: "Foo"), version: nil), path: AbsolutePath("/"), modules: [], testModules: [], products: [], dependencies: [])
+    let dummyPackage = Package(manifest: Manifest(path: AbsolutePath("/"), url: "/", package: PackageDescription.Package(name: "Foo"), products: [], version: nil), path: AbsolutePath("/"), modules: [], testModules: [], products: [], dependencies: [])
     
     struct InvalidToolchain: Toolchain {
         var swiftCompiler: AbsolutePath { fatalError() }

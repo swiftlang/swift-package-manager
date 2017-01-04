@@ -10,31 +10,7 @@
 
 import Basic
 
-public enum LibraryType {
-    case Static
-    case Dynamic
-}
-
-public enum ProductType {
-    case Test
-    case Executable
-    case Library(LibraryType)
-}
-
-extension ProductType: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .Test:
-            return "test"
-        case .Executable:
-            return "exe"
-        case .Library(.Static):
-            return "a"
-        case .Library(.Dynamic):
-            return "dylib"
-        }
-    }
-}
+@_exported import enum PackageDescription.ProductType
 
 public class Product {
     /// The name of the product.
