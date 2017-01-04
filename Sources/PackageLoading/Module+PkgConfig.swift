@@ -13,6 +13,72 @@ import POSIX
 import PackageModel
 import Utility
 
+/// Wrapper struct containing result of a pkgConfig query.
+public struct PkgConfigResult {
+
+    /// The name of the pkgConfig file.
+    public let pkgConfigName: String
+
+    /// The cFlags from pkgConfig.
+    public let cFlags: [String]
+
+    /// The library flags from pkgConfig.
+    public let libs: [String]
+
+    /// Available provider, if any.
+    public let provider: SystemPackageProvider?
+
+    /// Any error encountered during operation.
+    public let error: Swift.Error?
+
+    /// If the pc file was not found.
+    public var noPcFile: Bool {
+        switch error {
+            case PkgConfigError.couldNotFindConfigFile?: return true
+            default: return false
+        }
+    }
+
+    /// Create a successful result with given cflags and libs.
+    fileprivate init(pkgConfigName: String, cFlags: [String], libs: [String]) {
+        self.pkgConfigName = pkgConfigName
+        self.cFlags = cFlags
+        self.libs = libs
+        self.error = nil
+        self.provider = nil
+    }
+
+    /// Create an error result.
+    fileprivate init(pkgConfigName: String, error: Swift.Error, provider: SystemPackageProvider?) {
+        self.cFlags = []
+        self.libs = []
+        self.error = error
+        self.provider = provider
+        self.pkgConfigName = pkgConfigName
+    }
+}
+
+/// Get pkgConfig result for a CModule.
+public func pkgConfigArgs(for module: CModule) -> PkgConfigResult? {
+    // If there is no pkg config name defined, we're done.
+    guard let pkgConfigName = module.pkgConfig?.asString else { return nil }
+    // Compute additional search paths for the provider, if any.
+    let provider = module.providers?.first{ $0.isAvailable }
+    let additionalSearchPaths = provider?.pkgConfigSearchPath().map{[$0]} ?? []
+    // Get the pkg config flags.
+    do {
+        let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths)
+        // Run the whitelist checker.
+        try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+        // Remove any default flags which compiler adds automatically.
+        let (cFlags, libs) = removeDefaultFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
+        return PkgConfigResult(pkgConfigName: pkgConfigName, cFlags: cFlags, libs: libs)
+    } catch {
+        return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
+    }
+}
+
+// FIXME: Get rid of this extension once we move on to new Build code.
 extension Module {
     /// Returns the pkgConfig flags (cFlags + libs) escaping the cflags with -Xcc.
     //
@@ -61,8 +127,8 @@ extension Module {
     }
 }
 
-private extension SystemPackageProvider {
-    var installText: String {
+extension SystemPackageProvider {
+    public var installText: String {
         switch self {
         case .Brew(let name):
             return "    brew install \(name)\n"
@@ -95,7 +161,10 @@ private extension SystemPackageProvider {
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
             // to the latest version. Instead use the version as symlinked
             // in /usr/local/opt/(NAME)/lib/pkgconfig.
-            guard let brewPrefix = try? Utility.popen(["brew", "--prefix"]).chomp() else {
+            struct Static {
+                static let value = { try? Utility.popen(["brew", "--prefix"]).chomp() }()
+            }
+            guard let brewPrefix = Static.value else {
                 return nil
             }
             return AbsolutePath(brewPrefix).appending(components: "opt", name, "lib", "pkgconfig")
@@ -104,6 +173,7 @@ private extension SystemPackageProvider {
         }
     }
 
+    // FIXME: Get rid of this method once we move on to new Build code.
     static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
         return providers.filter{ $0.isAvailable }.first
     }
