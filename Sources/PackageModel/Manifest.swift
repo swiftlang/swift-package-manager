@@ -6,9 +6,6 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-
- -------------------------------------------------------------------------
- This file defines the support for loading the Swift-based manifest files.
 */
 
 import Basic
