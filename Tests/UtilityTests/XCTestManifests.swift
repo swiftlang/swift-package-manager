@@ -23,6 +23,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(StringTests.allTests),
         testCase(StringConversionTests.allTests),
         testCase(URLTests.allTests),
+        testCase(ProcessTests.allTests),
     ]
 }
 #endif

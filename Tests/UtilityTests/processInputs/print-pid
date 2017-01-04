@@ -1,0 +1,6 @@
+#!/bin/sh
+trap 'exit 1' INT
+set -e
+printf $$ > $1
+touch $2
+while true; do sleep 1; done

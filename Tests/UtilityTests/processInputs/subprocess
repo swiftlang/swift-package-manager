@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+PID=$$
+while true; do sleep 1; done &
+CHILD_PID=$!
+printf "{\"parent\": $PID, \"child\": $CHILD_PID}" >> $1
+touch $2
+while true; do sleep 1; done
