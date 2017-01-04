@@ -306,11 +306,6 @@ public struct PackageBuilder {
         return manifest.package.exclude.map { packagePath.appending(RelativePath($0)) }
     }
     
-    private var pkgConfigPath: RelativePath? {
-        guard let pkgConfig = manifest.package.pkgConfig else { return nil }
-        return RelativePath(pkgConfig)
-    }
-
     /// Returns path to all the items in a directory.
     /// FIXME: This is generic functionality, and should move to FileSystem.
     func directoryContents(_ path: AbsolutePath) throws -> [AbsolutePath] {
@@ -373,7 +368,7 @@ public struct PackageBuilder {
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
-            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: pkgConfigPath, providers: manifest.package.providers, dependencies: moduleDependencies())]
+            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers, dependencies: moduleDependencies())]
         }
 
         // At this point the module can't be a system module, make sure manifest doesn't contain

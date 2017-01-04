@@ -20,11 +20,11 @@ extension CModule {
     convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
         let root = AbsolutePath("/fake")
         let sources = Sources(paths: [root.appending(component: "module.modulemap")], root: root)
-        try! self.init(
+        self.init(
             name: "Foo",
             sources: sources,
             path: root,
-            pkgConfig: pkgConfig.isEmpty ? nil : RelativePath(pkgConfig),
+            pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
             providers: providers.isEmpty ? nil : providers,
             dependencies: [])
     }

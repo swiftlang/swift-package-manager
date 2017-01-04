@@ -61,7 +61,7 @@ public struct PkgConfigResult {
 /// Get pkgConfig result for a CModule.
 public func pkgConfigArgs(for module: CModule) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
-    guard let pkgConfigName = module.pkgConfig?.asString else { return nil }
+    guard let pkgConfigName = module.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
     let provider = module.providers?.first{ $0.isAvailable }
     let additionalSearchPaths = provider?.pkgConfigSearchPath().map{[$0]} ?? []
@@ -110,15 +110,15 @@ extension Module {
                 pkgConfigProviderSearchPaths.append(providerSearchPath)
             }
             do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName.asString, additionalSearchPaths: pkgConfigProviderSearchPaths)
+                let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: pkgConfigProviderSearchPaths)
                 cFlags += pkgConfig.cFlags
                 libs += pkgConfig.libs
-                try whitelist(pcFile: pkgConfigName.asString, flags: (cFlags, libs))
+                try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
             }
             catch PkgConfigError.couldNotFindConfigFile {
                 if let providers = module.providers,
                     let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
-                    print("note: you may be able to install \(pkgConfigName.asString) using your system-packager:\n")
+                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
                     print(provider.installText)
                 }
             }
