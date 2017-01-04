@@ -16,16 +16,27 @@ import PackageModel
 import SourceControl
 import Utility
 
+extension String {
+    // FIXME: It doesn't seem right for this to be an extension on String; it isn't inherent "string behavior".
+    fileprivate var soname: String {
+        return "lib\(self).\(Product.dynamicLibraryExtension)"
+    }
+}
+
 class ClangModulesTestCase: XCTestCase {
     func testSingleModuleFlatCLibrary() {
         fixture(name: "ClangModules/CLibraryFlat") { prefix in
             XCTAssertBuilds(prefix)
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(components: "CLibraryFlat".soname))
         }
     }
     
     func testSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
             XCTAssertBuilds(prefix)
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "CLibrarySources".soname))
         }
     }
     
@@ -33,6 +44,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
             XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
             var output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
             XCTAssertEqual(output, "a = 5\n")
@@ -44,6 +56,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/SwiftCMixed2") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "SeaLib".soname))
             let output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
             XCTAssertEqual(output, "a = 5\n")
         }
@@ -55,6 +68,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(packageRoot)
             let debugPath = prefix.appending(components: "Bar", ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "Bar"))
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
@@ -63,6 +77,10 @@ class ClangModulesTestCase: XCTestCase {
     func testiquoteDep() {
         fixture(name: "ClangModules/CLibraryiquote") { prefix in
             XCTAssertBuilds(prefix)
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
+            XCTAssertFileExists(debugPath.appending(component: "Bar".soname))
+            XCTAssertFileExists(debugPath.appending(component: "Bar with spaces".soname))
         }
     }
     
@@ -70,6 +88,8 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
+            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
@@ -90,6 +110,8 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/CUsingCDep2") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
+            let debugPath = prefix.appending(components: "Bar", ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "Foo".soname))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
@@ -99,6 +121,10 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/ModuleMapGenerationCases") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "UmbrellaHeader".soname))
+            XCTAssertFileExists(debugPath.appending(component: "FlatInclude".soname))
+            XCTAssertFileExists(debugPath.appending(component: "UmbellaModuleNameInclude".soname))
+            XCTAssertFileExists(debugPath.appending(component: "NoIncludeDir".soname))
             XCTAssertFileExists(debugPath.appending(component: "Baz"))
         }
     }
@@ -107,6 +133,8 @@ class ClangModulesTestCase: XCTestCase {
         // Try building a fixture which needs extra flags to be able to build.
         fixture(name: "ClangModules/CDynamicLookup") { prefix in
             XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
+            let debugPath = prefix.appending(components: ".build", "debug")
+            XCTAssertFileExists(debugPath.appending(component: "CDynamicLookup".soname))
         }
     }
     
@@ -115,6 +143,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/ObjCmacOSPackage") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
+            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "ObjCmacOSPackage".soname))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
         }

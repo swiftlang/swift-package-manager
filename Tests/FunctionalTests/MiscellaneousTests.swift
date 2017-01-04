@@ -411,18 +411,15 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testPkgConfigClangModules() throws {
         fixture(name: "Miscellaneous/PkgConfig") { prefix in
-            let systemModule = prefix.appending(component: "SystemModule")
-            // Create a shared library.
-            let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let output =  systemModule.appending(component: "libSystemModule.\(Product.dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
+            _ = try executeSwiftBuild(prefix.appending(component: "SystemModule"))
+            XCTAssertFileExists(prefix.appending(components: "SystemModule", ".build", "debug", "libSystemModule.\(Product.dynamicLibraryExtension)"))
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
 
             let stream = BufferedOutputByteStream()
-            stream <<< "prefix=\(systemModule.asString)\n"
+            stream <<< "prefix=\(prefix.appending(component: "SystemModule").asString)\n"
             stream <<< "exec_prefix=${prefix}\n"
-            stream <<< "libdir=${exec_prefix}\n"
+            stream <<< "libdir=${exec_prefix}/.build/debug\n"
             stream <<< "includedir=${prefix}/Sources/include\n"
             stream <<< "Name: SystemModule\n"
             stream <<< "URL: http://127.0.0.1/\n"
