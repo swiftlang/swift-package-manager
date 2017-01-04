@@ -88,8 +88,8 @@ struct ClangModuleBuildMetadata {
     var objects: [AbsolutePath] { return compilePaths().map{$0.object} }
 
     /// Basic flags needed to compile this module.
-    func basicCompileArgs() throws -> [String] {
-        return try ClangModuleBuildMetadata.basicArgs() + ["-fobjc-arc", "-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
+    func basicCompileArgs() -> [String] {
+        return ["-fobjc-arc", "-fmodules", "-fmodule-name=\(module.c99name)"] + otherArgs + module.moduleCacheArgs(prefix: prefix)
     }
 
     /// Flags to link the C language dependencies of this module.
@@ -98,17 +98,6 @@ struct ClangModuleBuildMetadata {
         for case let dep as ClangModule in module.recursiveDependencies {
             args += ["-l\(dep.c99name)"]
         }
-        return args
-    }
-
-    /// Basic arguments needed for both compiling and linking.
-    static func basicArgs() throws -> [String] {
-        var args: [String] = []
-      #if os(macOS)
-        args += ["-F", try platformFrameworksPath().asString]
-      #else
-        args += ["-fPIC"]
-      #endif
         return args
     }
 }
@@ -125,7 +114,7 @@ extension Command {
         
         ///------------------------------ Compile -----------------------------------------
         var compileCommands = [Command]()
-        var basicArgs = try buildMeta.basicCompileArgs() + module.includeFlagsWithExternalModules(externalModules)
+        var basicArgs = buildMeta.basicCompileArgs() + module.includeFlagsWithExternalModules(externalModules)
         basicArgs += module.optimizationFlags(conf)
 
         for path in buildMeta.compilePaths() {
