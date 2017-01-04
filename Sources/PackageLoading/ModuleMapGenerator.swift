@@ -159,6 +159,7 @@ public struct ModuleMapGenerator {
         case .directory(let path):
             stream <<< "    umbrella \"\(path.asString)\"\n"
         }
+        stream <<< "    link \"\(module.c99name)\"\n"
         stream <<< "    export *\n"
         stream <<< "}\n"
 

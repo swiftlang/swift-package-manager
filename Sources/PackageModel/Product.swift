@@ -10,31 +10,7 @@
 
 import Basic
 
-public enum LibraryType {
-    case Static
-    case Dynamic
-}
-
-public enum ProductType {
-    case Test
-    case Executable
-    case Library(LibraryType)
-}
-
-extension ProductType: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .Test:
-            return "test"
-        case .Executable:
-            return "exe"
-        case .Library(.Static):
-            return "a"
-        case .Library(.Dynamic):
-            return "dylib"
-        }
-    }
-}
+@_exported import enum PackageDescription.ProductType
 
 public class Product {
     /// The name of the product.
@@ -48,13 +24,6 @@ public class Product {
     /// This is never empty, and is only the modules which are required to be in
     /// the product, but not necessarily their transitive dependencies.
     public let modules: [Module]
-
-    /// Path to the main file for test product on linux.
-    public var linuxMainTest: AbsolutePath {
-        precondition(type == .Test, "This property is only valid for test product type")
-        let testDirectory = modules.first{$0.isTest}!.sources.root.parentDirectory
-        return testDirectory.appending(component: "LinuxMain.swift")
-    }
 
     public init(name: String, type: ProductType, modules: [Module]) {
         precondition(!modules.isEmpty)

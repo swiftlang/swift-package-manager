@@ -24,6 +24,7 @@ class ModuleMapGeneration: XCTestCase {
         let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
         expected <<< "    umbrella header \"/include/Foo.h\"\n"
+        expected <<< "    link \"Foo\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
 
@@ -40,6 +41,7 @@ class ModuleMapGeneration: XCTestCase {
         let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
         expected <<< "    umbrella header \"/include/Foo/Foo.h\"\n"
+        expected <<< "    link \"Foo\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
 
@@ -53,6 +55,7 @@ class ModuleMapGeneration: XCTestCase {
         let expected = BufferedOutputByteStream()
         expected <<< "module Foo {\n"
         expected <<< "    umbrella \"/include\"\n"
+        expected <<< "    link \"Foo\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
 
@@ -96,6 +99,7 @@ class ModuleMapGeneration: XCTestCase {
         let expected = BufferedOutputByteStream()
         expected <<< "module F_o_o {\n"
         expected <<< "    umbrella \"/include\"\n"
+        expected <<< "    link \"F_o_o\"\n"
         expected <<< "    export *\n"
         expected <<< "}\n"
         ModuleMapTester("F-o-o", in: fs) { result in

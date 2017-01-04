@@ -99,7 +99,7 @@ private func tryCloningRepoWithTag(_ tag: String?, shouldCrash: Bool) {
         _ = makeGitRepo(path, tag: tag)!
         do {
             _ = try RawClone(path: path, manifestParser: { _ throws in
-                return Manifest(path: path, url: path.asString, package: PackageDescription.Package(name: path.basename), version: nil)
+                return Manifest(path: path, url: path.asString, package: PackageDescription.Package(name: path.basename), products: [], version: nil)
             })
         } catch Get.Error.unversioned {
             done = shouldCrash

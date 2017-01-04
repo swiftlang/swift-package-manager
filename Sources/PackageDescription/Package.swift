@@ -60,9 +60,6 @@ public final class Package {
     /// The list of targets.
     public var targets: [Target]
 
-    /// The list of products vended by this package.
-    public var products: [Product]
-
     /// The list of dependencies.
     public var dependencies: [Dependency]
 
@@ -70,20 +67,11 @@ public final class Package {
     public var exclude: [String]
 
     /// Construct a package.
-    public init(
-        name: String,
-        pkgConfig: String? = nil,
-        providers: [SystemPackageProvider]? = nil,
-        targets: [Target] = [],
-        products: [Product] = [],
-        dependencies: [Dependency] = [],
-        exclude: [String] = []
-    ) {
+    public init(name: String, pkgConfig: String? = nil, providers: [SystemPackageProvider]? = nil, targets: [Target] = [], dependencies: [Dependency] = [], exclude: [String] = []) {
         self.name = name
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.targets = targets
-        self.products = products
         self.dependencies = dependencies
         self.exclude = exclude
 
@@ -167,7 +155,6 @@ extension Package {
         dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
         dict["exclude"] = .array(exclude.map { .string($0) })
         dict["targets"] = .array(targets.map { $0.toJSON() })
-        dict["products"] = .array(products.map { $0.toJSON() })
         if let providers = self.providers {
             dict["providers"] = .array(providers.map { $0.toJSON() })
         }
@@ -193,6 +180,16 @@ extension Target.Dependency {
     }
 }
 
+extension Product {
+    func toJSON() -> JSON {
+        var dict: [String: JSON] = [:]
+        dict["name"] = .string(name)
+        dict["type"] = .string(type.description)
+        dict["modules"] = .array(modules.map(JSON.string))
+        return .dictionary(dict)
+    }
+}
+
 // MARK: Package Dumping
 
 struct Errors {
@@ -215,6 +212,7 @@ struct Errors {
 func manifestToJSON(_ package: Package) -> String {
     var dict: [String: JSON] = [:]
     dict["package"] = package.toJSON()
+    dict["products"] = .array(products.map { $0.toJSON() })
     dict["errors"] = errors.toJSON()
     return JSON.dictionary(dict).toString()
 }
