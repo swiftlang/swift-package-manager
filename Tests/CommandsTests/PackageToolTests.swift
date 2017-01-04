@@ -170,12 +170,8 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
             _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
 
-            // Build the package.
-            _ = try build()
-
+            // Path to the executable.
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
-            // Sanity check.
-            XCTAssertEqual(try popen(exec, environment: [:]), "5\n")
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -187,12 +183,12 @@ final class PackageToolTests: XCTestCase {
             try removeFileTree(bazEditsPath)
 
             // Do a modification in bar and build.
-            try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88\n")
+            try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
             let buildOutput = try build()
 
             XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
             // We should be able to see that modification now.
-            XCTAssertEqual(try popen(exec, environment: [:]), "88\n")
+            XCTAssertEqual(try popen(exec, environment: [:]), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
