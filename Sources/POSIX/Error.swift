@@ -32,6 +32,7 @@ public enum SystemError: Swift.Error {
     case unlink(Int32, String)
     case unsetenv(Int32, String)
     case waitpid(Int32)
+    case usleep(Int32)
 }
 
 import func libc.strerror_r
@@ -108,6 +109,8 @@ extension SystemError: CustomStringConvertible {
             return "unsetenv error: \(strerror(errno)): \(key)"
         case .waitpid(let errno):
             return "waitpid error: \(strerror(errno))"
+        case .usleep(let errno):
+            return "usleep error: \(strerror(errno))"
         }
     }
 }

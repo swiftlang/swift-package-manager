@@ -14,6 +14,7 @@ import XCTest
 public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ReaddirTests.allTests),
+        testCase(UsleepTests.allTests),
     ]
 }
 #endif
