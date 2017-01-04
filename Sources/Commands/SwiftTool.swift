@@ -269,7 +269,20 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Build the package graph using swift-build-tool.
     func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
-        let yaml = try describe(buildPath, config, graph, flags: options.buildFlags, toolchain: try UserToolchain())
+        // Create build parameters.
+        let buildParameters = BuildParameters(
+            dataPath: buildPath,
+            configuration: config,
+            toolchain: try UserToolchain(),
+            flags: options.buildFlags
+        )
+        let yaml = buildPath.appending(component: config.dirname + ".yaml")
+        // Create build plan.
+        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph)
+        // Generate llbuild manifest.
+        let llbuild = LLbuildManifestGenerator(buildPlan)
+        try llbuild.generateManifest(at: yaml)
+        // Run the swift-build-tool with the generated manifest.
         try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil)
     }
 

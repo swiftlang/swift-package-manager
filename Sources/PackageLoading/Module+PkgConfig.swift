@@ -59,7 +59,7 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a CModule.
-public func pkgConfigArgs(for module: CModule) -> PkgConfigResult? {
+public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = module.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
@@ -67,7 +67,7 @@ public func pkgConfigArgs(for module: CModule) -> PkgConfigResult? {
     let additionalSearchPaths = provider?.pkgConfigSearchPath().map{[$0]} ?? []
     // Get the pkg config flags.
     do {
-        let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths)
+        let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths, fileSystem: fileSystem)
         // Run the whitelist checker.
         try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
         // Remove any default flags which compiler adds automatically.
