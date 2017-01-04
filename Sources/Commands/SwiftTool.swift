@@ -9,6 +9,7 @@
  */
 
 import Basic
+import Build
 import Get
 import PackageLoading
 import PackageGraph
@@ -226,6 +227,12 @@ public class SwiftTool<Options: ToolOptions> {
         
             return try PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests)
         }
+    }
+
+    /// Build the package graph using swift-build-tool.
+    func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
+        let yaml = try describe(buildPath, config, graph, flags: options.buildFlags, toolchain: try UserToolchain())
+        try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil)
     }
 
     /// Cleans the build artefacts.
