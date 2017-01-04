@@ -1138,7 +1138,6 @@ final class WorkspaceTests: XCTestCase {
                     package: PackageDescription.Package(
                         name: pkg,
                         dependencies: []),
-                    products: [],
                     version: v1)
                 return (MockManifestLoader.Key(url: repoPath.asString, version: v1), manifest)
             })
@@ -1152,7 +1151,6 @@ final class WorkspaceTests: XCTestCase {
                     path: aPath.appending(component: Manifest.filename),
                     url: aPath.asString,
                     package: PackageDescription.Package(name: "A", dependencies: []),
-                    products: [],
                     version: "1.5.0")
                 manifests[MockManifestLoader.Key(url: aPath.asString, version: "1.5.0")] = aManifest
             }
@@ -1181,7 +1179,6 @@ final class WorkspaceTests: XCTestCase {
                     package: PackageDescription.Package(
                         name: root.basename,
                         dependencies: deps[root]!),
-                    products: [],
                     version: nil
                 )
                 manifests[MockManifestLoader.Key(url: root.asString, version: nil)] = rootManifest
