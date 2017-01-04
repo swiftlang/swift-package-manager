@@ -187,12 +187,12 @@ final class PackageToolTests: XCTestCase {
             try removeFileTree(bazEditsPath)
 
             // Do a modification in bar and build.
-            try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 8\n")
+            try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88\n")
             let buildOutput = try build()
 
             XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
             // We should be able to see that modification now.
-            XCTAssertEqual(try popen(exec, environment: [:]), "8\n")
+            XCTAssertEqual(try popen(exec, environment: [:]), "88\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
