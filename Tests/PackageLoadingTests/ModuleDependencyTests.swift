@@ -15,8 +15,8 @@ import PackageModel
 import PackageLoading
 
 private extension Module {
-    convenience init(name: String, deps: Module...) throws {
-        try self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: deps)
+    convenience init(name: String, deps: Module...) {
+        self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: deps)
     }
 }
 
@@ -32,9 +32,9 @@ class ModuleDependencyTests: XCTestCase {
 
     func test1() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2)
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2)
 
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
             XCTAssertEqual(t2.recursiveDeps, [t1])
@@ -43,10 +43,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test2() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2, t1)
-            let t4 = try Module(name: "t4", deps: t2, t3, t1)
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2, t1)
+            let t4 = Module(name: "t4", deps: t2, t3, t1)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -56,10 +56,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test3() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2, t1)
-            let t4 = try Module(name: "t4", deps: t1, t2, t3)
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2, t1)
+            let t4 = Module(name: "t4", deps: t1, t2, t3)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -69,10 +69,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test4() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2)
-            let t4 = try Module(name: "t4", deps: t3)
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2)
+            let t4 = Module(name: "t4", deps: t3)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -82,12 +82,12 @@ class ModuleDependencyTests: XCTestCase {
 
     func test5() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2)
-            let t4 = try Module(name: "t4", deps: t3)
-            let t5 = try Module(name: "t5", deps: t2)
-            let t6 = try Module(name: "t6", deps: t5, t4)
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2)
+            let t4 = Module(name: "t4", deps: t3)
+            let t5 = Module(name: "t5", deps: t2)
+            let t6 = Module(name: "t6", deps: t5, t4)
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps
@@ -106,12 +106,12 @@ class ModuleDependencyTests: XCTestCase {
 
     func test6() {
         testModules {
-            let t1 = try Module(name: "t1")
-            let t2 = try Module(name: "t2", deps: t1)
-            let t3 = try Module(name: "t3", deps: t2)
-            let t4 = try Module(name: "t4", deps: t3)
-            let t5 = try Module(name: "t5", deps: t2)
-            let t6 = try Module(name: "t6", deps: t4, t5) // same as above, but these two swapped
+            let t1 = Module(name: "t1")
+            let t2 = Module(name: "t2", deps: t1)
+            let t3 = Module(name: "t3", deps: t2)
+            let t4 = Module(name: "t4", deps: t3)
+            let t5 = Module(name: "t5", deps: t2)
+            let t6 = Module(name: "t6", deps: t4, t5) // same as above, but these two swapped
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps

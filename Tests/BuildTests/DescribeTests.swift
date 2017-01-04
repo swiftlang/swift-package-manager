@@ -53,7 +53,7 @@ final class DescribeTests: XCTestCase {
     func testDescribingCModuleThrows() {
         do {
             let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-            let graph = PackageGraph(rootPackages: [dummyPackage], modules: [try CModule(name: "MyCModule", sources: Sources(paths: [], root: AbsolutePath("/")), path: AbsolutePath("/"))], externalModules: [])
+            let graph = PackageGraph(rootPackages: [dummyPackage], modules: [CModule(name: "MyCModule", sources: Sources(paths: [], root: AbsolutePath("/")), path: AbsolutePath("/"))], externalModules: [])
             _ = try describe(tempDir.path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: InvalidToolchain())
             XCTFail("This call should throw")
         } catch Build.Error.onlyCModule (let name) {
@@ -65,8 +65,8 @@ final class DescribeTests: XCTestCase {
     }
 
     func testClangModuleCanHaveSwiftDep() throws {
-        let swiftModule = try SwiftModule(name: "SwiftModule", sources: Sources(paths: [], root: .root))
-        let clangModule = try ClangModule(name: "ClangModule", sources: Sources(paths: [], root: .root), dependencies: [swiftModule])
+        let swiftModule = SwiftModule(name: "SwiftModule", sources: Sources(paths: [], root: .root))
+        let clangModule = ClangModule(name: "ClangModule", sources: Sources(paths: [], root: .root), dependencies: [swiftModule])
         let buildMeta = ClangModuleBuildMetadata(module: clangModule, prefix: .root, otherArgs: [])
         XCTAssertEqual(buildMeta.inputs, ["/SwiftModule.swiftmodule"])
     }

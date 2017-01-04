@@ -14,17 +14,17 @@ import Basic
 @testable import PackageModel
 
 private extension Module {
-    convenience init(name: String, dependencies: [Module] = []) throws {
-        try self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: dependencies)
+    convenience init(name: String, dependencies: [Module] = []) {
+        self.init(name: name, type: .library, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: dependencies)
     }
 }
 
 class ModuleTests: XCTestCase {
     /// Check that module dependencies appear in build order.
     func testDependencyOrder() throws {
-        let c = try Module(name: "c")
-        let b = try Module(name: "b", dependencies: [c])
-        let a = try Module(name: "a", dependencies: [b])
+        let c = Module(name: "c")
+        let b = Module(name: "b", dependencies: [c])
+        let a = Module(name: "a", dependencies: [b])
         XCTAssertEqual(a.recursiveDependencies, [c, b])
     }
 
