@@ -544,7 +544,7 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem(emptyFiles:
             "/Sources/FooTests/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test module has a ‘Tests’ suffix fix: rename the directory ‘Sources/FooTests’ to not have a ‘Tests’ suffix")
+            result.checkDiagnostic("the directory Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test module has a 'Tests' suffix fix: rename the directory 'Sources/FooTests' to not have a 'Tests' suffix")
         }
 
         // Normal module in Tests/
@@ -552,7 +552,7 @@ class ConventionTests: XCTestCase {
             "/Sources/main.swift",
             "/Tests/Foo/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Tests/Foo has an invalid name (\'Foo\'): the name of a test module has no ‘Tests’ suffix fix: rename the directory ‘Tests/Foo’ to have a ‘Tests’ suffix")
+            result.checkDiagnostic("the directory Tests/Foo has an invalid name (\'Foo\'): the name of a test module has no 'Tests' suffix fix: rename the directory 'Tests/Foo' to have a 'Tests' suffix")
         }
     }
 

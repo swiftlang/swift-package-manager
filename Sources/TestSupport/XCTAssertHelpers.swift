@@ -57,13 +57,13 @@ public func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file
 
 public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if !isFile(path) {
-        XCTFail("Expected file doesn’t exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected file doesn't exist: \(path.asString)", file: file, line: line)
     }
 }
 
 public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     if !isDirectory(path) {
-        XCTFail("Expected directory doesn’t exist: \(path.asString)", file: file, line: line)
+        XCTFail("Expected directory doesn't exist: \(path.asString)", file: file, line: line)
     }
 }
 

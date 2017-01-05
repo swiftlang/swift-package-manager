@@ -132,7 +132,7 @@ extension Module.Error: FixableError {
     var fix: String? {
         switch self {
         case .invalidName(let path, _, let problem):
-            return "rename the directory ‘\(path)’\(problem.fix ?? "")"
+            return "rename the directory '\(path)'\(problem.fix ?? "")"
         case .mixedSources(_):
             return "use only a single language within a module"
         }
@@ -145,9 +145,9 @@ extension Module.Error.ModuleNameProblem : FixableError {
           case .emptyName:
             return "the module name is empty"
           case .noTestSuffix:
-            return "the name of a test module has no ‘Tests’ suffix"
+            return "the name of a test module has no 'Tests' suffix"
           case .hasTestSuffix:
-            return "the name of a non-test module has a ‘Tests’ suffix"
+            return "the name of a non-test module has a 'Tests' suffix"
         }
     }
     var fix: String? {
@@ -155,9 +155,9 @@ extension Module.Error.ModuleNameProblem : FixableError {
           case .emptyName:
             return " to have a non-empty name"
           case .noTestSuffix:
-            return " to have a ‘Tests’ suffix"
+            return " to have a 'Tests' suffix"
           case .hasTestSuffix:
-            return " to not have a ‘Tests’ suffix"
+            return " to not have a 'Tests' suffix"
         }
     }
 }
