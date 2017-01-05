@@ -61,7 +61,7 @@ extension ClangModule {
         }
         // Link C++ if found any cpp source. 
         if linkCpp {
-            args += ["-lc++"]
+            args += ["-lstdc++"]
         }
         return args
     }
