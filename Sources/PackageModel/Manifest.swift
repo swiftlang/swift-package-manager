@@ -37,9 +37,6 @@ public struct Manifest {
     /// The raw package description.
     public let package: PackageDescription.Package
 
-    /// The raw product descriptions.
-    public let products: [PackageDescription.Product]
-
     /// The version this package was loaded from, if known.
     public let version: Version?
 
@@ -48,11 +45,10 @@ public struct Manifest {
         return package.name
     }
 
-    public init(path: AbsolutePath, url: String, package: PackageDescription.Package, products: [PackageDescription.Product], version: Version?) {
+    public init(path: AbsolutePath, url: String, package: PackageDescription.Package, version: Version?) {
         self.path = path
         self.url = url
         self.package = package
-        self.products = products
         self.version = version
     }
 }

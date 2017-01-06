@@ -324,7 +324,7 @@ def parse_manifest():
         r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
         re.DOTALL | re.MULTILINE)
     product_pattern = re.compile(
-        r'Product\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*modules: (\[.*?\])[\n ]*\)',
+        r'Library\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*targets: (\[.*?\])[\n ]*\)',
         re.DOTALL | re.MULTILINE)
 
     # Load the manifest as a string (we always assume UTF-8 encoding).
@@ -340,13 +340,13 @@ def parse_manifest():
     targets = list(map(make_target, target_pattern.finditer(manifest_data)))
 
     # Extract the product definitions.
+    # Note: This only deals with library products (as that is all we need for now).
     def make_product(match):
         name = match.group(1)
         try:
             type = {
-                '.Executable': ProductType.EXECUTABLE,
-                '.Library(.Dynamic)': ProductType.DYNAMIC_LIBRARY,
-                '.Library(.Static)': ProductType.STATIC_LIBRARY
+                '.dynamic': ProductType.DYNAMIC_LIBRARY,
+                '.static': ProductType.STATIC_LIBRARY
             }[match.group(2)]
         except:
             error("unknown type '%s for product '%s' in manifest" % (match.group(2), name))
