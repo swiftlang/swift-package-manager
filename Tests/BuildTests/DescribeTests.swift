@@ -81,7 +81,7 @@ final class DescribeTests: XCTestCase {
             let graph = try loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
             let yaml = try describe(path.appending(component: "foo"), .debug, graph, flags: BuildFlags(), toolchain: DummyToolchain())
             // FIXME: This is not a good test but should be good enough until we have the Buld re-write.
-            XCTAssertTrue(try localFileSystem.readFileContents(yaml).asString!.contains("-lc++"))
+            XCTAssertTrue(try localFileSystem.readFileContents(yaml).asString!.contains("-lstdc++"))
         }
     }
 
