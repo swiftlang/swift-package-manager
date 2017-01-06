@@ -64,7 +64,7 @@ public struct ProcessResult {
 /// Process allows spawning new subprocesses and working with them.
 ///
 /// Note: This class is not thread safe.
-public final class Process {
+public final class Process: ObjectIdentifierProtocol {
 
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
