@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Foundation
 
 import Basic
 
@@ -69,8 +70,33 @@ class ConditionTests: XCTestCase {
         XCTAssert(doneWaiting[1])
     }
 
+    func testWaitUntil() {
+        let condition = Condition()
+        var waiting = false
+        var doneWaiting = false
+
+        let thread = Thread {
+            condition.whileLocked{
+                waiting = true
+                let timeLimitReached = !condition.wait(until: Date() + 0.1)
+                if timeLimitReached {
+                    doneWaiting = true
+                }
+            }
+        }
+        thread.start()
+
+        // Wait for the thread to start waiting
+        while condition.whileLocked({ !waiting }) {}
+        // We expect condition wait to timeout.
+        thread.join()
+
+        XCTAssert(doneWaiting)
+    }
+
     static var allTests = [
         ("testSignal", testSignal),
         ("testBroadcast", testBroadcast),
+        ("testWaitUntil", testWaitUntil),
     ]
 }
