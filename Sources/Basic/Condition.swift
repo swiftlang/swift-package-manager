@@ -22,6 +22,13 @@ public struct Condition {
         _condition.wait()
     }
 
+    /// Blocks the current thread until the condition is signaled or the specified time limit is reached.
+    ///
+    /// - Returns: true if the condition was signaled; otherwise, false if the time limit was reached.
+    public func wait(until limit: Date) -> Bool {
+        return _condition.wait(until: limit)
+    }
+
     /// Signal the availability of the condition (awake one thread waiting on
     /// the condition).
     public func signal() {
