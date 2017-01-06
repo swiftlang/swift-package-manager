@@ -29,7 +29,12 @@ extension GitRepositoryProviderError: CustomStringConvertible {
 
 /// A `git` repository provider.
 public class GitRepositoryProvider: RepositoryProvider {
-    public init() {
+
+    /// Reference to process set, if installed.
+    private let processSet: ProcessSet?
+
+    public init(processSet: ProcessSet? = nil) {
+        self.processSet = processSet
     }
     
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
@@ -41,13 +46,20 @@ public class GitRepositoryProvider: RepositoryProvider {
 
         precondition(!exists(path))
         
-        do {
-            // FIXME: We need infrastructure in this subsystem for reporting
-            // status information.
-            try system(
-                Git.tool, "clone", "--bare", repository.url, path.asString,
-                message: nil)
-        } catch POSIX.Error.exitStatus {
+        // FIXME: We need infrastructure in this subsystem for reporting
+        // status information.
+
+        let process = Process(args: Git.tool, "clone", "--bare", repository.url, path.asString)
+        // Add to process set.
+        try processSet?.add(process)
+        // Launch the process.
+        try process.launch()
+        // Block until cloning completes.
+        let result = try process.waitUntilExit()
+        // Remove from process set after completion.
+        processSet?.remove(process)
+        // Throw if cloning failed.
+        guard result.exitStatus == .terminated(code: 0) else {
             throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)
         }
     }
