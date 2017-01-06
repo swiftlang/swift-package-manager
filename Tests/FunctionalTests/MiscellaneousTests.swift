@@ -12,11 +12,13 @@ import XCTest
 import TestSupport
 import Basic
 import PackageModel
+import Utility
+import libc
+import class Foundation.ProcessInfo
 
-import class Utility.Git
-import func libc.sleep
 import enum POSIX.Error
 import func POSIX.popen
+typealias ProcessID = Utility.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() {
@@ -437,6 +439,55 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testCanKillSubprocessOnSigInt() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+
+            let fakeGit = prefix.appending(components: "bin", "git")
+            let waitFile = prefix.appending(components: "waitfile")
+
+            try localFileSystem.createDirectory(fakeGit.parentDirectory)
+
+            // Write out fake git.
+            let stream = BufferedOutputByteStream()
+            stream <<< "#!/bin/sh" <<< "\n"
+            stream <<< "set -e" <<< "\n"
+            stream <<< "printf \"$$\" >> " <<< waitFile.asString <<< "\n"
+            stream <<< "while true; do sleep 1; done" <<< "\n"
+            try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
+
+            // Make it executable.
+            _ = try Process.popen(args: "chmod", "+x", fakeGit.asString)
+
+            // Put fake git in PATH.
+            var env = ProcessInfo.processInfo.environment
+            let oldPath = env["PATH"]
+            env["PATH"] = fakeGit.parentDirectory.asString
+            if let oldPath = oldPath {
+                env["PATH"] = env["PATH"]! + ":" + oldPath
+            }
+
+            // Launch swift-build.
+            let app = prefix.appending(component: "Bar")
+            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--chdir", app.asString, environment: env)
+            try process.launch()
+
+            guard waitForFile(waitFile) else {
+                return XCTFail("Couldn't launch the process")
+            }
+            // Interrupt the process.
+            process.signal(SIGINT)
+            let result = try process.waitUntilExit()
+
+            // We should not have exited with zero.
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+
+            // Process and subprocesses should be dead.
+            let contents = try localFileSystem.readFileContents(waitFile).asString!
+            XCTAssertFalse(try Process.running(process.processID))
+            XCTAssertFalse(try Process.running(ProcessID(contents)!))
+        }
+    }
+
     static var allTests = [
         ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
@@ -470,5 +521,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
+        ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
     ]
 }

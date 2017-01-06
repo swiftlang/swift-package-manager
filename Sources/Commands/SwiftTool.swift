@@ -15,8 +15,10 @@ import PackageLoading
 import PackageGraph
 import PackageModel
 import POSIX
+import SourceControl
 import Utility
 import Workspace
+import libc
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
@@ -75,7 +77,15 @@ public class SwiftTool<Options: ToolOptions> {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
+    /// Reference to the argument parser.
     let parser: ArgumentParser
+
+    /// The process set to hold the launched processes. These will be terminated on any signal
+    /// received by the swift tools.
+    let processSet: ProcessSet
+
+    /// The interrupt handler.
+    let interruptHandler: InterruptHandler
 
     /// Create an instance of this tool.
     ///
@@ -150,8 +160,28 @@ public class SwiftTool<Options: ToolOptions> {
             if let dir = options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
                 // should be moved to file system APIs with currentWorkingDirectory.
-                try chdir(dir.asString)
+                try POSIX.chdir(dir.asString)
             }
+
+            let processSet = ProcessSet()
+            interruptHandler = try InterruptHandler {
+                // Terminate all processes on receiving an interrupt signal.
+                processSet.terminate()
+
+                // Install the default signal handler.
+                var action = sigaction()
+              #if os(macOS)
+                action.__sigaction_u.__sa_handler = SIG_DFL
+              #else
+                action.__sigaction_handler = unsafeBitCast(SIG_DFL, to: sigaction.__Unnamed_union___sigaction_handler.self)
+              #endif
+                sigaction(SIGINT, &action, nil)
+
+                // Die with sigint.
+                kill(getpid(), SIGINT)
+            }
+            self.processSet = processSet
+
         } catch {
             handle(error: error)
         }
@@ -182,12 +212,14 @@ public class SwiftTool<Options: ToolOptions> {
         }
         let delegate = ToolWorkspaceDelegate()
         let rootPackage = try getPackageRoot()
+        let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = try Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
             pinsFile: rootPackage.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
-            delegate: delegate
+            delegate: delegate,
+            repositoryProvider: provider
         )
         workspace.registerPackage(at: rootPackage)
         _workspace = workspace
@@ -266,7 +298,7 @@ private func findPackageRoot() -> AbsolutePath? {
 
 private func getEnvBuildPath() -> AbsolutePath? {
     // Don't rely on build path from env for SwiftPM's own tests.
-    guard getenv("IS_SWIFTPM_TEST") == nil else { return nil }
-    guard let env = getenv("SWIFT_BUILD_PATH") else { return nil }
+    guard POSIX.getenv("IS_SWIFTPM_TEST") == nil else { return nil }
+    guard let env = POSIX.getenv("SWIFT_BUILD_PATH") else { return nil }
     return AbsolutePath(env, relativeTo: currentWorkingDirectory)
 }
