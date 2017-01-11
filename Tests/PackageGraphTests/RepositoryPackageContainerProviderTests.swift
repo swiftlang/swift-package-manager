@@ -134,7 +134,7 @@ private struct MockDependencyResolver {
         self.resolver = DependencyResolver(provider, delegate)
     }
 
-    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: RepositorySpecifier, version: Version)] {
+    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: RepositorySpecifier, binding: BoundVersion)] {
         return try resolver.resolve(constraints: constraints)
     }
 }
@@ -184,7 +184,13 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     container: repoA.specifier,
                     versionRequirement: v1Range)
             ]
-            let result = try resolver.resolve(constraints: constraints)
+            let result: [(RepositorySpecifier, Version)] = try resolver.resolve(constraints: constraints).flatMap {
+                guard case .version(let version) = $0.binding else {
+                    XCTFail("Unexpecting non version binding \($0.binding)")
+                    return nil
+                }
+                return ($0.container, version)
+            }
             XCTAssertEqual(result, [
                     repoA.specifier: v1,
                     repoB.specifier: v2,

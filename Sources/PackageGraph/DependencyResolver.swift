@@ -196,7 +196,7 @@ public protocol DependencyResolverDelegate {
 /// A bound version for a package within an assignment.
 //
 // FIXME: This should be nested, but cannot be currently.
-enum BoundVersion: Equatable {
+public enum BoundVersion: Equatable, CustomStringConvertible {
     /// The assignment should not include the package.
     ///
     /// This is different from the absence of an assignment for a particular
@@ -206,8 +206,17 @@ enum BoundVersion: Equatable {
 
     /// The version of the package to include.
     case version(Version)
+
+    public var description: String {
+        switch self {
+        case .excluded:
+            return "excluded"
+        case .version(let version):
+            return version.description
+        }
+    }
 }
-func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
+public func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
     switch (lhs, rhs) {
     case (.excluded, .excluded):
         return true
@@ -613,15 +622,10 @@ public class DependencyResolver<
     /// - Parameters:
     ///   - constraints: The contraints to solve. It is legal to supply multiple
     ///                  constraints for the same container identifier.
-    /// - Returns: A satisfying assignment of containers and versions.
+    /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
-    public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, version: Version)] {
-        return try resolveAssignment(constraints: constraints).map { (container, binding) in
-            guard case .version(let version) = binding else {
-                fatalError("unexpected exclude binding")
-            }
-            return (container: container.identifier, version: version)
-        }
+    public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
+        return try resolveAssignment(constraints: constraints).map{ ($0.identifier, $1) }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.

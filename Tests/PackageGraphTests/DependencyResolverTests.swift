@@ -313,14 +313,14 @@ class DependencyResolverTests: XCTestCase {
 
             // Check the constraints are respected.
             XCTAssertEqual(
-                try resolver.resolve(constraints: [
+                try resolver.resolveToVersion(constraints: [
                         MockPackageConstraint(container: "A", versionRequirement: v1to3Range),
                         MockPackageConstraint(container: "A", versionRequirement: v1Range)]),
                 ["A": v1])
 
             // Check the constraints are respected if unsatisfiable.
             XCTAssertThrows(DependencyResolverError.unsatisfiable) {
-                _ = try resolver.resolve(constraints: [
+                _ = try resolver.resolveToVersion(constraints: [
                         MockPackageConstraint(container: "A", versionRequirement: v1Range),
                         MockPackageConstraint(container: "A", versionRequirement: v2Range)])
             }
@@ -355,7 +355,7 @@ class DependencyResolverTests: XCTestCase {
         let a = MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []])
         let provider = MockPackagesProvider(containers: [a])
         let resolver = MockDependencyResolver(provider, MockResolverDelegate())
-        let result = try resolver.resolve(constraints: [
+        let result = try resolver.resolveToVersion(constraints: [
             MockPackageConstraint(container: "A", versionRequirement: v1Range),
         ])
         XCTAssertEqual(result[0].version, v1_1)
@@ -368,14 +368,14 @@ class DependencyResolverTests: XCTestCase {
         ])
         let resolver = MockDependencyResolver(provider, MockResolverDelegate())
 
-        let result = try resolver.resolve(constraints: [
+        let result = try resolver.resolveToVersion(constraints: [
             MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
             MockPackageConstraint(container: "A", versionRequirement: v1Range)
         ])
         XCTAssertEqual(result[0].version, v1)
 
         XCTAssertThrows(DependencyResolverError.unsatisfiable) {
-            _ = try resolver.resolve(constraints: [
+            _ = try resolver.resolveToVersion(constraints: [
                 MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
                 MockPackageConstraint(container: "A", versionRequirement: v1_1Range)
             ])
