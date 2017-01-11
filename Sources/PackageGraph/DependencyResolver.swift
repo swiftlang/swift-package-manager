@@ -168,7 +168,7 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T: PackageContainerIdentifier> {
+public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible {
     public typealias Identifier = T
 
     /// The identifier for the container the constraint is on.
@@ -182,6 +182,10 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier> {
     public init(container identifier: Identifier, versionRequirement: VersionSetSpecifier) {
         self.identifier = identifier
         self.versionRequirement = versionRequirement
+    }
+
+    public var description: String {
+        return "Constraint(\(identifier), \(versionRequirement))"
     }
 }
 
