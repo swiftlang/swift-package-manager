@@ -619,7 +619,7 @@ public class Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         let updateConstraints = computeRootPackagesConstraints(rootManifests, includePins: !repin)
         // Resolve the dependencies.
-        let updateResults = try resolveDependencies(constraints: updateConstraints) as [(RepositorySpecifier, Version)]
+        let updateResults = try resolveDependencies(constraints: updateConstraints)
         // Update the checkouts based on new dependency resolution.
         try updateCheckouts(with: updateResults)
         // If we're repinning, update the pins store.
@@ -629,7 +629,7 @@ public class Workspace {
     }
 
     /// Repin the packages with dependency resolution result.
-    private func repinPackages(with updateResults: [(RepositorySpecifier, Version)]) throws {
+    private func repinPackages(with updateResults: [(RepositorySpecifier, BoundVersion)]) throws {
         // If autopin is on, pin everything and return.
         if pinsStore.autoPin {
             return try pinAll(reset: true)
@@ -638,12 +638,14 @@ public class Workspace {
         // Create a dictionary of result for fast lookup.
         let updateResultsMap = Dictionary(items: updateResults)
         for pin in pinsStore.pins {
-            guard let newVersion = updateResultsMap[pin.repository] else {
+            guard let newBinding = updateResultsMap[pin.repository] else {
                 // This is a stray pin as it is not present in updated results.
                 // FIXME: Use diagnosics engine when we have that.
                 delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
                 continue
             }
+            // We can only pin the version bindings.
+            guard case .version(let newVersion) = newBinding else { continue }
             // We don't need to repin if its version did not change.
             guard newVersion != pin.version else { continue }
             // Repin this dependency.
@@ -652,7 +654,7 @@ public class Workspace {
     }
 
     /// Updates the current working checkouts i.e. clone or remove based on the provided dependency resolution result.
-    private func updateCheckouts(with updateResults: [(RepositorySpecifier, Version)]) throws {
+    private func updateCheckouts(with updateResults: [(RepositorySpecifier, BoundVersion)]) throws {
         // Get the update package states from resolved results.
         let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults)
         // Update or clone new packages.
@@ -669,10 +671,13 @@ public class Workspace {
     }
 
     /// Computes states of the packages based on last stored state.
-    private func computePackageStateChanges(resolvedDependencies: [(RepositorySpecifier, Version)]) -> [RepositorySpecifier: PackageStateChange] {
+    private func computePackageStateChanges(resolvedDependencies: [(RepositorySpecifier, BoundVersion)]) -> [RepositorySpecifier: PackageStateChange] {
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         // Set the states from resolved dependencies results.
-        for (specifier, version) in resolvedDependencies {
+        for (specifier, boundVersion) in resolvedDependencies {
+            // FIXME: This is not correct, we should compute the change according to binding.
+            guard case .version(let version) = boundVersion else { continue }
+
             if let currentDependency = dependencyMap[specifier] {
                 // FIXME: PackageStateChange needs to get richer API for updating packages 
                 // which are pinned to a revision, whenever we have that feature.
@@ -710,7 +715,7 @@ public class Workspace {
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
-    fileprivate func resolveDependencies(constraints: [RepositoryPackageConstraint]) throws -> [(container: WorkspaceResolverDelegate.Identifier, version: Version)] {
+    fileprivate func resolveDependencies(constraints: [RepositoryPackageConstraint]) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
         let resolver = DependencyResolver(containerProvider, resolverDelegate)
         return try resolver.resolve(constraints: constraints)

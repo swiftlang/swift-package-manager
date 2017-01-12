@@ -48,7 +48,7 @@ class DependencyResolverPerfTests: XCTestCase {
         let resolver = MockDependencyResolver(provider, MockResolverDelegate())
         measure {
             for _ in 0..<N {
-                let result = try! resolver.resolve(constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)])
+                let result = try! resolver.resolveToVersion(constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)])
                 XCTAssertEqual(result, ["A": v1, "B": v1, "C": v1, "D": v1])
             }
         }
@@ -168,7 +168,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCase {
         measure {
             for _ in 0 ..< N {
                 let resolver = MockDependencyResolver(provider, MockResolverDelegate())
-                let result = try! resolver.resolve(constraints: graph.constraints)
+                let result = try! resolver.resolveToVersion(constraints: graph.constraints)
                 graph.checkResult(result)
             }
         }
@@ -261,7 +261,7 @@ struct GitRepositoryResolutionHelper {
         }
     }
 
-    func resolve(enablePrefetching: Bool = false) -> [(container: RepositorySpecifier, version: Version)] {
+    func resolve(enablePrefetching: Bool = false) -> [(container: RepositorySpecifier, binding: BoundVersion)] {
         let repositoriesPath = path.appending(component: "repositories")
         _ = try? systemQuietly(["rm", "-r", repositoriesPath.asString])
         let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: DummyRepositoryManagerDelegate())

@@ -50,14 +50,14 @@ extension SwiftPackageTool {
         switch opts.resolveToolMode {
         case .text:
             print("Resolved dependencies for: \(manifest.name)")
-            for (container, version) in result {
+            for (container, binding) in result {
                 // FIXME: It would be nice to show the reference path, should we get
                 // that back or do we need to re-derive it?
 
                 // FIXME: It would be nice to show information on the resulting
                 // constraints, e.g., how much latitude do we have on particular
                 // dependencies.
-                print("  \(container.url): \(version)")
+                print("  \(container.url): \(binding.description)")
             }
         case .json:
             let json = JSON.dictionary([
