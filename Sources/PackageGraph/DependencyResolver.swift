@@ -168,24 +168,57 @@ public protocol PackageContainerProvider {
 }
 
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible {
+public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomStringConvertible, Equatable {
     public typealias Identifier = T
+
+    /// The requirement of this constraint.
+    public enum Requirement: Equatable {
+
+        /// The requirement is specified by the version set.
+        case versionSet(VersionSetSpecifier)
+
+        /// Un-versioned requirement i.e. a version should not resolved.
+        case unversioned([PackageContainerConstraint<Identifier>])
+
+        public static func ==(lhs: Requirement, rhs: Requirement) -> Bool {
+            switch (lhs, rhs) {
+            case (.unversioned(let lhs), .unversioned(let rhs)):
+                return lhs == rhs
+            case (.unversioned, _):
+                return false
+            case (.versionSet(let lhs), .versionSet(let rhs)):
+                return lhs == rhs
+            case (.versionSet, _):
+                return false
+            }
+        }
+    }
 
     /// The identifier for the container the constraint is on.
     public let identifier: Identifier
 
-    /// The version requirements.
-    public let versionRequirement: VersionSetSpecifier
+    /// The constraint requirement.
+    public let requirement: Requirement
+
+    /// Create a constraint requiring the given `container` satisfying the
+    /// `requirement`.
+    public init(container identifier: Identifier, requirement: Requirement) {
+        self.identifier = identifier
+        self.requirement = requirement
+    }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
     public init(container identifier: Identifier, versionRequirement: VersionSetSpecifier) {
-        self.identifier = identifier
-        self.versionRequirement = versionRequirement
+        self.init(container: identifier, requirement: .versionSet(versionRequirement))
     }
 
     public var description: String {
-        return "Constraint(\(identifier), \(versionRequirement))"
+        return "Constraint(\(identifier), \(requirement))"
+    }
+
+    public static func ==(lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
+        return lhs.identifier == rhs.identifier && lhs.requirement == rhs.requirement
     }
 }
 
@@ -211,12 +244,17 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
     /// The version of the package to include.
     case version(Version)
 
+    /// The package assignment is unversioned.
+    case unversioned
+
     public var description: String {
         switch self {
         case .excluded:
             return "excluded"
         case .version(let version):
             return version.description
+        case .unversioned:
+            return "unversioned"
         }
     }
 }
@@ -229,6 +267,10 @@ public func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
     case (.version(let lhs), .version(let rhs)):
         return lhs == rhs
     case (.version, _):
+        return false
+    case (.unversioned, .unversioned):
+        return true
+    case (.unversioned, _):
         return false
     }
 }
@@ -246,12 +288,13 @@ public func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
 struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     typealias Container = C
     typealias Identifier = Container.Identifier
+    typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
 
-    typealias Index = Dictionary<Identifier, VersionSetSpecifier>.Index
-    typealias Element = Dictionary<Identifier, VersionSetSpecifier>.Element
+    typealias Index = Dictionary<Identifier, Requirement>.Index
+    typealias Element = Dictionary<Identifier, Requirement>.Element
 
     /// The set of constraints.
-    private var constraints: [Identifier: VersionSetSpecifier]
+    private var constraints: [Identifier: Requirement]
 
     /// Create an empty constraint set.
     init() {
@@ -261,8 +304,8 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     /// Create an constraint set from known values.
     ///
     /// The initial constraints should never be unsatisfiable.
-    init(_ constraints: [Identifier: VersionSetSpecifier]) {
-        assert(constraints.values.filter({ $0 == .empty }).isEmpty)
+    init(_ constraints: [Identifier: Requirement]) {
+        assert(constraints.values.filter({ $0 == .versionSet(.empty) }).isEmpty)
         self.constraints = constraints
     }
 
@@ -272,31 +315,51 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     }
 
     /// Get the version set specifier associated with the given package `identifier`.
-    subscript(identifier: Identifier) -> VersionSetSpecifier {
-        return constraints[identifier] ?? .any
+    subscript(identifier: Identifier) -> Requirement {
+        return constraints[identifier] ?? .versionSet(.any)
     }
 
-    /// Create a constraint set by merging the `versionRequirement` for container `identifier`.
+    /// Create a constraint set by merging the `requirement` for container `identifier`.
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
     private func merging(
-        versionRequirement: VersionSetSpecifier, for identifier: Identifier
+        requirement: Requirement, for identifier: Identifier
     ) -> PackageContainerConstraintSet<C>?
     {
-        let intersection = self[identifier].intersection(versionRequirement)
-        if intersection == .empty {
+        switch (requirement, self[identifier]) {
+        case (.versionSet(let newSet), .versionSet(let currentSet)):
+            // Try to intersect two version set requirements.
+            let intersection = currentSet.intersection(newSet)
+            if intersection == .empty {
+                return nil
+            }
+            var result = self
+            result.constraints[identifier] = .versionSet(intersection)
+            return result
+        case (.unversioned(let newConstraints), .unversioned(let currentConstraints)):
+            // Two unversioned requirements can only merge if they both impose the same constraints.
+            if newConstraints == currentConstraints {
+                return self
+            }
             return nil
+        case (.unversioned, _):
+            // Unversioned requirements always *wins*.
+            var result = self
+            result.constraints[identifier] = requirement
+            return result
+        case (_, .unversioned):
+            // Unversioned requirements always *wins*.
+            return self
+        default:
+            fatalError("Unreachable")
         }
-        var result = self
-        result.constraints[identifier] = intersection
-        return result
     }
 
     /// Create a constraint set by merging `constraint`.
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
     func merging(_ constraint: PackageContainerConstraint<Identifier>) -> PackageContainerConstraintSet<C>? {
-        return merging(versionRequirement: constraint.versionRequirement, for: constraint.identifier)
+        return merging(requirement: constraint.requirement, for: constraint.identifier)
     }
 
     /// Create a new constraint set by merging the given constraint set.
@@ -308,8 +371,8 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     ) -> PackageContainerConstraintSet<C>?
     {
         var result = self
-        for (key, versionRequirement) in constraints {
-            guard let merged = result.merging(versionRequirement: versionRequirement, for: key) else {
+        for (key, requirement) in constraints {
+            guard let merged = result.merging(requirement: requirement, for: key) else {
                 return nil
             }
             result = merged
@@ -433,8 +496,8 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         var result = PackageContainerConstraintSet<Container>()
         for (_, (container: container, binding: binding)) in assignments {
             switch binding {
-            case .excluded:
-                // If the package is excluded, it doesn't contribute.
+            case .unversioned, .excluded:
+                // If the package is unversioned or excluded, it doesn't contribute.
                 continue
 
             case .version(let version):
@@ -465,11 +528,18 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
             // A package can be excluded if there are no constraints on the
             // package (it has not been requested by any other package in the
             // assignment).
-            return constraints[container.identifier] == .any
+            return constraints[container.identifier] == .versionSet(.any)
 
         case .version(let version):
             // A version is valid if it is contained in the constraints.
-            return constraints[container.identifier].contains(version)
+            if case .versionSet(let versionSet) = constraints[container.identifier] {
+                return versionSet.contains(version)
+            }
+            return false
+
+        case .unversioned:
+            // An unversioned binding is always valid.
+            return true
         }
     }
 
@@ -486,7 +556,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         for identifier in constraints.containerIdentifiers {
             // Verify we have a non-excluded entry for this key.
             switch assignments[identifier]?.binding {
-            case .version?:
+            case .unversioned?, .version?:
                 continue
             case .excluded?, nil:
                 return false
@@ -677,13 +747,12 @@ public class DependencyResolver<
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
     ) -> AnySequence<AssignmentSet> {
-        func validVersions(_ container: Container) -> AnyIterator<Version> {
-            let constraints = allConstraints[container.identifier]
+        func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnyIterator<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
             var it = container.versions.reversed().makeIterator()
             return AnyIterator{ () -> Version? in
                     while let version = it.next() {
-                        if constraints.contains(version) && !exclusions.contains(version) {
+                        if versionSet.contains(version) && !exclusions.contains(version) {
                             return version
                     }
                 }
@@ -691,30 +760,42 @@ public class DependencyResolver<
             }
         }
 
-        // Attempt to select each valid version in the preferred order.
+        // Helper method to abstract passing common parameters to merge().
         //
         // FIXME: We must detect recursion here.
-        return AnySequence(validVersions(container).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
+        func merge(constraints: [Constraint], binding: BoundVersion) -> AnySequence<AssignmentSet> {
+            // Create an assignment for the container.
+            var assignment = AssignmentSet()
+            assignment[container] = binding
+
+            return AnySequence(self.merge(
+                constraints: constraints,
+                into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
+                // We found a complete valid assignment.
+                assert(result.checkIfValidAndComplete())
+                return result
+            })
+        }
+
+        switch allConstraints[container.identifier] {
+        case .unversioned(let constraints):
+            // Merge the dependencies of unversioned constraint into the assignment.
+            return merge(constraints: constraints, binding: .unversioned)
+
+        case .versionSet(let versionSet):
+            // Attempt to select each valid version in the preferred order.
+            return AnySequence(validVersions(container, in: versionSet).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
                 // If we had encountered any error, return early.
                 guard self.error == nil else { return AnySequence([]) }
-                // Create an assignment for this container and version.
-                var assignment = AssignmentSet()
-                assignment[container] = .version(version)
 
+                // Get the constraints for this container version and update the assignment to include each one.
                 // FIXME: Making these methods throwing will kill the lazy behavior.
                 guard let constraints = self.safely({ try container.getDependencies(at: version) }) else {
                     return AnySequence([])
                 }
-                // Get the constraints for this container version and update the
-                // assignment to include each one.
-                return AnySequence(self.merge(
-                            constraints: constraints,
-                            into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
-                        // We found a complete valid assignment.
-                        assert(result.checkIfValidAndComplete())
-                        return result
-                    })
+                return merge(constraints: constraints, binding: .version(version))
             })
+        }
     }
 
     /// Find all solutions for `constraints` with the results merged into the `assignment`.

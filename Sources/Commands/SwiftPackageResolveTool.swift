@@ -75,9 +75,16 @@ extension SwiftPackageTool {
 
 extension PackageContainerConstraint where T == RepositorySpecifier {
     public func toJSON() -> JSON {
+        let requirement: JSON
+        switch self.requirement {
+        case .versionSet(let versionSet):
+            requirement = versionSet.toJSON()
+        case .unversioned:
+            requirement = .string("unversioned")
+        }
         return .dictionary([
             "identifier": .string(identifier.url),
-            "requirement": versionRequirement.toJSON(),
+            "requirement": requirement,
         ])
     }
 }
