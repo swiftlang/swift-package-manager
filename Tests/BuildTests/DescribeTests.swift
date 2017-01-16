@@ -85,6 +85,25 @@ final class DescribeTests: XCTestCase {
         }
     }
 
+    func testClangModuleLinkArguments() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/swift/main.swift",
+            "/Pkg/Sources/cLib1/see.c",
+            "/Pkg/Sources/cLib2/see.c",
+            "/Pkg/Sources/cLib3/see.c"
+        )
+        let pkg = PackageDescription.Package(
+            name: "Pkg",
+            targets: [
+                Target(name: "swift", dependencies: ["cLib1", "cLib2"]),
+                Target(name: "cLib2", dependencies: ["cLib3"]),
+            ]
+        )
+        let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let product = graph.products.first{ _ in return true }!
+        XCTAssertEqual(product.clangModuleLinkArguments(), ["-lcLib1", "-lcLib2"])
+    }
+
     static var allTests = [
         ("testDescribingNoModulesThrows", testDescribingNoModulesThrows),
         ("testDescribingCModuleThrows", testDescribingCModuleThrows),
