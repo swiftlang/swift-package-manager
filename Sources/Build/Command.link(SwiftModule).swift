@@ -15,6 +15,21 @@ import Utility
 
 //FIXME messy :/
 
+extension Product {
+
+    /// Returns link arguments for the clang module dependencies of a product.
+    func clangModuleLinkArguments() -> [String] {
+        var linkArguments = [String]()
+        for module in modules {
+            // Add link argument for each clang module dependency of modules in the product.
+            for case let clangModule as ClangModule in module.dependencies where clangModule.type == .library {
+                linkArguments.append("-l" + clangModule.c99name)
+            }
+        }
+        return linkArguments
+    }
+}
+
 extension Command {
     static func linkSwiftModule(_ product: Product, configuration conf: Configuration, prefix: AbsolutePath, otherArgs: [String], linkerExec: AbsolutePath) throws -> Command {
 
@@ -77,8 +92,10 @@ extension Command {
             args += ["-I", prefix.asString]
           #endif
         case .Library(.Dynamic):
+            args += product.clangModuleLinkArguments()
             args.append("-emit-library")
         case .Executable:
+            args += product.clangModuleLinkArguments()
             args.append("-emit-executable")
         }
         
