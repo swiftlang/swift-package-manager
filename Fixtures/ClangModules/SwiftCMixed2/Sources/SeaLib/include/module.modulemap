@@ -1,0 +1,5 @@
+module SeaLib {
+    header "SeaLib/header1.h"
+    header "SeaLib/header2.h"
+    export *
+}
