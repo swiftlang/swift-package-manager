@@ -127,6 +127,9 @@ func xcodeProject(
     // magic behavior that isn't present in `swift build`.
     projectSettings.common.USE_HEADERMAP = "NO"
     
+    // Enable `Automatic Reference Counting` for Objective-C sources
+    projectSettings.common.CLANG_ENABLE_OBJC_ARC = "YES"
+    
     // Add some debug-specific settings.
     projectSettings.debug.COPY_PHASE_STRIP = "NO"
     projectSettings.debug.DEBUG_INFORMATION_FORMAT = "dwarf"
