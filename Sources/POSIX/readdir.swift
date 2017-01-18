@@ -11,31 +11,13 @@
 import libc
 
 extension dirent {
-#if !os(macOS)
-    // Add a portability wrapper.
-    //
-    // FIXME: This should come from the standard library: https://bugs.swift.org/browse/SR-1726
-    public var d_namlen: UInt16 {
-        get {
-            return d_reclen
-        }
-        set {
-            d_reclen = newValue
-        }
-    }
-#endif
-
     /// Get the directory name.
     ///
     /// This returns nil if the name is not valid UTF8.
     public var name: String? {
-        var name = self.d_name
-        return withUnsafePointer(to: &name) { (ptr) -> String? in
-            // FIXME: This is wasteful, but String doesn't have a public API
-            // that let's us avoid the copy.
-            var nameBytes = [CChar](UnsafeBufferPointer(start: unsafeBitCast(ptr, to: UnsafePointer<CChar>.self), count: Int(self.d_namlen)))
-            nameBytes.append(0)
-            return String(validatingUTF8: nameBytes)
+        var d_name = self.d_name
+        return withUnsafePointer(to: &d_name) {
+            String(validatingUTF8: UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self))
         }
     }
 }
