@@ -26,7 +26,6 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(LazyCacheTests.allTests),
         testCase(LockTests.allTests),
         testCase(ObjectIdentifierProtocolTests.allTests),
-        testCase(OptionParserTests.allTests),
         testCase(OrderedSetTests.allTests),
         testCase(OutputByteStreamTests.allTests),
         testCase(POSIXTests.allTests),
