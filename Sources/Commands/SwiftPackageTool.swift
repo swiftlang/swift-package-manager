@@ -347,7 +347,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $0.absolutePathRelativeToWorkingDir($1), enableCodeCoverage: $2)
                 $0.outputPath = $0.absolutePathRelativeToWorkingDir($3) })
 
-        let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "")
+        let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "Perform pinning operations on a package.")
         binder.bind(
             positional: pinParser.add(
                 positional: "name", kind: String.self, optional: true,
@@ -379,7 +379,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.pinOptions.message = $2
                 $0.pinOptions.version = $3 })
 
-        let unpinParser = parser.add(subparser: PackageMode.unpin.rawValue, overview: "")
+        let unpinParser = parser.add(subparser: PackageMode.unpin.rawValue, overview: "Unpin a package. Note: This can only be used when auto-pinning is disabled.")
         binder.bind(
             positional: unpinParser.add(
                 positional: "name", kind: String.self,
