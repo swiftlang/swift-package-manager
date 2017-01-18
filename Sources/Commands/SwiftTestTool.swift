@@ -165,7 +165,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.listTests = $1 })
 
         binder.bind(
-            option: parser.add(option: "--parallel", kind: Bool.self),
+            option: parser.add(option: "--parallel", kind: Bool.self,
+                usage: "Run the tests in parallel."),
             to: { $0.parallel = $1 })
 
         binder.bind(
