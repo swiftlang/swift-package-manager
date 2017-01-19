@@ -91,7 +91,7 @@ class DependencyResolverTests: XCTestCase {
         // Check basics.
         set = set.merging(MockPackageConstraint(container: "A", versionRequirement: v1Range))!
         XCTAssertEqual(set.containerIdentifiers.map{ $0 }, ["A"])
-        XCTAssertEqual(set["A"], v1Range)
+        XCTAssertEqual(set["A"], .versionSet(v1Range))
         set = set.merging(MockPackageConstraint(container: "B", versionRequirement: v2Range))!
         XCTAssertEqual(set.containerIdentifiers.sorted(), ["A", "B"])
 
@@ -382,6 +382,87 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testUnversionedConstraint() throws {
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependenciesByVersion: [v1: [], v1_1: []]),
+            MockPackageContainer(name: "B", dependenciesByVersion: [
+                v1: [(container: "A", versionRequirement: v1Range)], 
+                v1_1: []
+            ]),
+        ])
+        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+
+        let a_v1_constraint = MockPackageConstraint(container: "A", versionRequirement: v1Range)
+        let a_v1Exact_constraint = MockPackageConstraint(container: "A", versionRequirement: .exact(v1))
+
+        // Empty unversioned constraint.
+        var result = try resolver.resolve(constraints: [
+            MockPackageConstraint(container: "B", requirement: .unversioned([])),
+        ])
+        XCTAssertEqual(result, [
+            "B": .unversioned,
+        ])
+
+        // Single unversioned constraint.
+        result = try resolver.resolve(constraints: [
+            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+        ])
+        XCTAssertEqual(result, [
+            "A": .version(v1_1),
+            "B": .unversioned,
+        ])
+
+        // Two equal unversioned constraint.
+        result = try resolver.resolve(constraints: [
+            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+            MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+        ])
+        XCTAssertEqual(result, [
+            "A": .version(v1_1),
+            "B": .unversioned,
+        ])
+
+        // Two unequal unversioned constraint.
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+            _ = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+                MockPackageConstraint(container: "B", requirement: .unversioned([a_v1Exact_constraint])),
+            ])
+        }
+
+       // A mix of constraints.
+       result = try resolver.resolve(constraints: [
+           a_v1_constraint,
+           a_v1Exact_constraint,
+           MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
+           MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
+           MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+           MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
+           MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
+       ])
+       XCTAssertEqual(result, [
+           "A": .version(v1),
+           "B": .unversioned,
+       ])
+
+       // Two unversioned constraints.
+       result = try resolver.resolve(constraints: [
+           MockPackageConstraint(container: "B", versionRequirement: v1_0Range),
+           MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
+           MockPackageConstraint(container: "B", requirement: .unversioned([a_v1_constraint])),
+           MockPackageConstraint(container: "B", versionRequirement: v1Range),
+
+           MockPackageConstraint(container: "A", versionRequirement: v1Range),
+           MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
+           MockPackageConstraint(container: "A", requirement: .unversioned([])),
+           MockPackageConstraint(container: "A", versionRequirement: v1Range),
+       ])
+       XCTAssertEqual(result, [
+           "A": .unversioned,
+           "B": .unversioned,
+       ])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -392,6 +473,7 @@ class DependencyResolverTests: XCTestCase {
         ("testCompleteness", testCompleteness),
         ("testLazyResolve", testLazyResolve),
         ("testExactConstraint", testExactConstraint),
+        ("testUnversionedConstraint", testUnversionedConstraint),
     ]
 }
 
@@ -405,8 +487,14 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
         for constraint in constraints {
             // FIXME: This is ambiguous, but currently the presence of a
             // constraint means the package is required.
-            guard case let .version(version)? = assignment[constraint.identifier] else { return false }
-            if !constraint.versionRequirement.contains(version) {
+            switch (constraint.requirement, assignment[constraint.identifier]) {
+            case (.versionSet(let versionSet), .version(let version)?):
+                if !versionSet.contains(version) {
+                    return false
+                }
+            case (.unversioned, .unversioned?):
+                break
+            default:
                 return false
             }
         }
@@ -550,7 +638,8 @@ private extension DependencyResolver {
         subjectTo allConstraints: [Identifier: VersionSetSpecifier] = [:],
         excluding exclusions: [Identifier: Set<Version>] = [:]
     ) -> AnySequence<AssignmentSet> {
-        return resolveSubtree(container, subjectTo: ConstraintSet(allConstraints), excluding: exclusions)
+        let constraints = Dictionary(items: allConstraints.map{ ($0.0, PackageContainerConstraint<Identifier>.Requirement.versionSet($0.1)) })
+        return resolveSubtree(container, subjectTo: ConstraintSet(constraints), excluding: exclusions)
     }
 }
 
@@ -575,7 +664,12 @@ where C.Identifier == String
 {
     var actual = [String: VersionSetSpecifier]()
     for identifier in constraints.containerIdentifiers {
-        actual[identifier] = constraints[identifier]
+        switch constraints[identifier] {
+        case .versionSet(let versionSet):
+            actual[identifier] = versionSet
+        case .unversioned:
+            return XCTFail("Unexpected unversioned constraint for \(identifier)", file: file, line: line)
+        }
     }
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
@@ -612,5 +706,22 @@ where C.Identifier == String
     }
     for (a,b) in zip(assignments, expected) {
         XCTAssertEqual(a, b, file: file, line: line)
+    }
+}
+
+private func XCTAssertEqual(
+    _ result: [(String, BoundVersion)],
+    _ expected: [String: BoundVersion],
+    file: StaticString = #file, line: UInt = #line) {
+    guard result.count == expected.count else {
+        return XCTFail("unexpected result `\(result)`, expected: \(expected)", file: file, line: line)
+    }
+    for (container, binding) in result {
+        let expectedBinding = expected[container]
+        if expectedBinding != binding {
+            XCTFail(
+                "unexpected binding for \(container). Expected: \(expectedBinding.debugDescription) got: \(binding)",
+                file: file, line: line)
+        }
     }
 }

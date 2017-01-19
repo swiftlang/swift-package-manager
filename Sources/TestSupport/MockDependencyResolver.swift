@@ -101,7 +101,14 @@ extension MockPackageContainer {
         var depByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
             guard case let .array(depArray) = deps else { fatalError() }
-            depByVersion[Version(version)!] = depArray.map(PackageContainerConstraint.init(json:)).map {  ($0.identifier, $0.versionRequirement) }
+            depByVersion[Version(version)!] = depArray.map(PackageContainerConstraint.init(json:)).map { constraint in
+                switch constraint.requirement {
+                case .versionSet(let versionSet):
+                    return (constraint.identifier, versionSet) 
+                case .unversioned: 
+                    fatalError()
+                }
+            }
         }
 
         self.init(name: identifier, dependenciesByVersion: depByVersion)
