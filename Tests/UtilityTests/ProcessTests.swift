@@ -52,24 +52,6 @@ class ProcessTests: XCTestCase {
         XCTAssert(outputCount == count)
     }
 
-    /// If the given pid is running or not.
-    ///
-    /// - Parameters:
-    ///   - pid: The pid to check.
-    ///   - orDefunct: If set to true, the method will also check if pid is defunct and return false.
-    /// - Returns: True if the given pid is running.
-    func running(_ pid: ProcessID, orDefunct: Bool = false) throws -> Bool {
-        // Shell out to `ps -s` instead of using getpgid() as that is more deterministic on linux.
-        let result = try Process.popen(arguments: ["ps", "-p", String(pid)])
-        // If ps -p exited with return code 1, it means there is no entry for the process.
-        var exited = result.exitStatus == .terminated(code: 1)
-        if orDefunct {
-            // Check if the process became defunct.
-            exited = try exited || result.utf8Output().contains("defunct")
-        }
-        return !exited
-    }
-
     func testSignals() throws {
 
         // Test sigint terminates the script.
@@ -82,13 +64,13 @@ class ProcessTests: XCTestCase {
                 return XCTFail("Couldn't launch the process")
             }
             // Ensure process has started running.
-            XCTAssertTrue(try running(process.processID))
+            XCTAssertTrue(try Process.running(process.processID))
             process.signal(SIGINT)
             try process.waitUntilExit()
             // Ensure the process's pid was written.
             let contents = try localFileSystem.readFileContents(file).asString!
             XCTAssertEqual("\(process.processID)", contents)
-            XCTAssertFalse(try running(process.processID))
+            XCTAssertFalse(try Process.running(process.processID))
         }
 
         // Test SIGKILL terminates the subprocess and any of its subprocess.
@@ -101,7 +83,7 @@ class ProcessTests: XCTestCase {
                 return XCTFail("Couldn't launch the process")
             }
             // Ensure process has started running.
-            XCTAssertTrue(try running(process.processID))
+            XCTAssertTrue(try Process.running(process.processID))
             process.signal(SIGKILL)
             let result = try process.waitUntilExit()
             XCTAssertEqual(result.exitStatus, .signalled(signal: SIGKILL))
@@ -113,9 +95,9 @@ class ProcessTests: XCTestCase {
             }
             XCTAssertEqual(process.processID, ProcessID(parent))
             // We should have killed the process and any subprocess spawned by it.
-            XCTAssertFalse(try running(ProcessID(parent)))
+            XCTAssertFalse(try Process.running(ProcessID(parent)))
             // FIXME: The child process becomes defunct when executing the tests using docker directly without entering the bash.
-            XCTAssertFalse(try running(ProcessID(child), orDefunct: true))
+            XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
         }
     }
 

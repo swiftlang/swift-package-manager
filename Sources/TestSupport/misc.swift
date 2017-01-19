@@ -232,3 +232,23 @@ public func waitForFile(_ path: AbsolutePath) -> Bool {
     }
     return false
 }
+
+extension Process {
+    /// If the given pid is running or not.
+    ///
+    /// - Parameters:
+    ///   - pid: The pid to check.
+    ///   - orDefunct: If set to true, the method will also check if pid is defunct and return false.
+    /// - Returns: True if the given pid is running.
+    public static func running(_ pid: ProcessID, orDefunct: Bool = false) throws -> Bool {
+        // Shell out to `ps -s` instead of using getpgid() as that is more deterministic on linux.
+        let result = try Process.popen(arguments: ["ps", "-p", String(pid)])
+        // If ps -p exited with return code 1, it means there is no entry for the process.
+        var exited = result.exitStatus == .terminated(code: 1)
+        if orDefunct {
+            // Check if the process became defunct.
+            exited = try exited || result.utf8Output().contains("defunct")
+        }
+        return !exited
+    }
+}
