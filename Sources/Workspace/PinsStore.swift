@@ -110,7 +110,6 @@ public struct PinsStore {
     }
 
     /// Unpin all of the currently pinnned dependencies.
-    @discardableResult
     public mutating func unpinAll() throws {
         // Reset the pins map.
         pinsMap = [:]
