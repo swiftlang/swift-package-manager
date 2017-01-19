@@ -23,35 +23,35 @@ class ReaddirTests: XCTestCase {
         do {
             var s = dirent()
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
-                let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
+                let ptr = UnsafeMutableRawPointer(ptr).assumingMemoryBound(to: UInt8.self)
                 ptr[0] = UInt8(ascii: "A")
                 ptr[1] = UInt8(ascii: "B")
+                ptr[2] = 0
             }
-            s.d_namlen = 2
             XCTAssertEqual(s.name, "AB")
         }
         
         do {
             var s = dirent()
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
-                let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
+                let ptr = UnsafeMutableRawPointer(ptr).assumingMemoryBound(to: UInt8.self)
                 ptr[0] = 0xFF
                 ptr[1] = 0xFF
+                ptr[2] = 0
             }
-            s.d_namlen = 2
             XCTAssertEqual(s.name, nil)
         }
         
         do {
             var s = dirent()
-            let n = MemoryLayout.ofInstance(s.d_name).size
+            let n = MemoryLayout.ofInstance(s.d_name).size - 1
             withUnsafeMutablePointer(to: &s.d_name) { ptr in
-                let ptr = unsafeBitCast(ptr, to: UnsafeMutablePointer<UInt8>.self)
+                let ptr = UnsafeMutableRawPointer(ptr).assumingMemoryBound(to: UInt8.self)
                 for i in 0 ..< n {
                     ptr[i] = UInt8(ascii: "A")
                 }
+                ptr[n] = 0
             }
-            s.d_namlen = UInt16(n)
             XCTAssertEqual(s.name, String(repeating: "A", count: n))
         }
     }
