@@ -1,5 +1,4 @@
-import SeaLib
+import SwiftLib
 
-let a = foo(5)
-print("a = \(a)")
+print("a = \(bar())")
 

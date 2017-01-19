@@ -101,7 +101,7 @@ final class DescribeTests: XCTestCase {
         )
         let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
         let product = graph.products.first{ _ in return true }!
-        XCTAssertEqual(product.clangModuleLinkArguments(), ["-lcLib1", "-lcLib2"])
+        XCTAssertEqual(product.clangModuleLinkArguments().sorted(), ["-lcLib1", "-lcLib2", "-lcLib3"])
     }
 
     static var allTests = [

@@ -22,7 +22,7 @@ extension Product {
         var linkArguments = [String]()
         for module in modules {
             // Add link argument for each clang module dependency of modules in the product.
-            for case let clangModule as ClangModule in module.dependencies where clangModule.type == .library {
+            for case let clangModule as ClangModule in module.recursiveDependencies where clangModule.type == .library {
                 linkArguments.append("-l" + clangModule.c99name)
             }
         }
