@@ -15,6 +15,7 @@
   * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
   * [Package Pinning](#package-pinning)
+  * [Prefetching Dependencies](#prefetching-dependencies)
 * [Reference](Reference.md)
 * [Resources](Resources.md)
 
@@ -515,3 +516,11 @@ Since package pin information is *not* inherited across dependencies, our recomm
     The `--repin` argument can be used to lift the version pinning restrictions. In this case, the behavior is that all packages are updated, and packages which were previously pinned are then repinned to the latest resolved versions.
     
     When automatic pinning is enabled, package update act as if `--repin` was specified.
+
+### Prefetching Dependencies
+
+You can pass `--enable-prefetching` option to `swift build`, `swift package` and `swift test` to enable prefetching of dependencies. That means the missing dependencies will be cloned in parallel. For e.g.:
+
+```sh
+$ swift build --enable-prefetching
+```

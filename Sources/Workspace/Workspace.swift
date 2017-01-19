@@ -260,6 +260,9 @@ public class Workspace {
     /// The current state of managed dependencies.
     private(set) var dependencyMap: [RepositorySpecifier: ManagedDependency]
 
+    /// Enable prefetching containers in resolver.
+    let enableResolverPrefetching: Bool
+
     /// The known set of dependencies.
     public var dependencies: AnySequence<ManagedDependency> {
         return AnySequence<ManagedDependency>(dependencyMap.values)
@@ -286,13 +289,15 @@ public class Workspace {
         manifestLoader: ManifestLoaderProtocol,
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
-        repositoryProvider: RepositoryProvider = GitRepositoryProvider()
+        repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        enableResolverPrefetching: Bool = false
     ) throws {
         self.rootPackages = []
         self.delegate = delegate
         self.dataPath = dataPath
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
+        self.enableResolverPrefetching = enableResolverPrefetching 
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -717,7 +722,7 @@ public class Workspace {
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(constraints: [RepositoryPackageConstraint]) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
-        let resolver = DependencyResolver(containerProvider, resolverDelegate)
+        let resolver = DependencyResolver(containerProvider, resolverDelegate, enablePrefetching: enableResolverPrefetching)
         return try resolver.resolve(constraints: constraints)
     }
 

@@ -136,6 +136,11 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.enableNewResolver = $1 })
 
         binder.bind(
+            option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
+            usage: "Enable prefetching in resolver"),
+            to: { $0.enableResolverPrefetching = $1 })
+
+        binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
             to: { $0.printVersion = $1 })
 
@@ -219,7 +224,8 @@ public class SwiftTool<Options: ToolOptions> {
             pinsFile: rootPackage.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
             delegate: delegate,
-            repositoryProvider: provider
+            repositoryProvider: provider,
+            enableResolverPrefetching: options.enableResolverPrefetching
         )
         workspace.registerPackage(at: rootPackage)
         _workspace = workspace
