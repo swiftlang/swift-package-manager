@@ -607,7 +607,7 @@ public class Workspace {
         case removed
 
         /// The package is unchanged.
-        case unchanged(Version)
+        case unchanged
 
         /// The package is updated to a new version.
         case updated(old: Version, new: Version)
@@ -665,7 +665,7 @@ public class Workspace {
             case .updated(_, let version):
                 _ = try clone(specifier: specifier, version: version)
             case .removed: try remove(specifier: specifier)
-            case .unchanged(_): break
+            case .unchanged: break
             }
         }
     }
@@ -685,7 +685,7 @@ public class Workspace {
                     continue
                 }
                 if currentVersion == version {
-                    packageStateChanges[specifier] = .unchanged(version)
+                    packageStateChanges[specifier] = .unchanged
                 } else {
                     packageStateChanges[specifier] = .updated(old: currentVersion, new: version)
                 }
@@ -859,7 +859,7 @@ public class Workspace {
                 // update is needed, or cases where the range is invalid.
                 fatalError("unexpected dependency resolution result")
             case .removed: try remove(specifier: specifier)
-            case .unchanged(_): break
+            case .unchanged: break
             }
         }
 
