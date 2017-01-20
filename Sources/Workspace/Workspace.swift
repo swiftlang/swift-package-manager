@@ -495,14 +495,22 @@ public class Workspace {
         let dependencyManifests = try loadDependencyManifests()
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
-            let dependency = dependencyManifest.dependency
             // Get package name.
             let package = dependencyManifest.manifest.name
-            // If the dependency is in editable state, do not pin it.
-            guard !dependency.isInEditableState else {
-                delegate.warning(message: "not pinning \(package) because it is being edited.")
-                continue
+
+            // Get the managed dependency.
+            var dependency = dependencyManifest.dependency
+
+            // For editable dependencies, pin the underlying dependency if we have them.
+            if dependency.isInEditableState {
+                if let basedOn = dependency.basedOn {
+                    dependency = basedOn
+                } else {
+                    delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
+                    continue
+                }
             }
+
             // We should have a version loaded to pin. This will never happen right now
             // because we can't have dependencies checked out to a git ref.
             guard let version = dependency.currentVersion else {
@@ -615,9 +623,20 @@ public class Workspace {
 
     /// Updates the current dependencies.
     public func updateDependencies(repin: Bool = false) throws {
-        let rootManifests = try loadRootManifests()
+        let currentManifests = try loadDependencyManifests()
+
         // Create constraints based on root manifest and pins for the update resolution.
-        let updateConstraints = computeRootPackagesConstraints(rootManifests, includePins: !repin)
+        var updateConstraints = computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
+
+        // Add unversioned constraint for edited packages.
+        for (externalManifest, managedDependency) in currentManifests.dependencies where managedDependency.isInEditableState {
+            let specifier = RepositorySpecifier(url: externalManifest.url)
+            let dependencies = externalManifest.package.dependencies.map{
+                RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+            }
+            updateConstraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
+        }
+
         // Resolve the dependencies.
         let updateResults = try resolveDependencies(constraints: updateConstraints)
         // Update the checkouts based on new dependency resolution.
@@ -674,23 +693,29 @@ public class Workspace {
     private func computePackageStateChanges(resolvedDependencies: [(RepositorySpecifier, BoundVersion)]) -> [RepositorySpecifier: PackageStateChange] {
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         // Set the states from resolved dependencies results.
-        for (specifier, boundVersion) in resolvedDependencies {
-            // FIXME: This is not correct, we should compute the change according to binding.
-            guard case .version(let version) = boundVersion else { continue }
-
-            if let currentDependency = dependencyMap[specifier] {
-                // FIXME: PackageStateChange needs to get richer API for updating packages 
-                // which are pinned to a revision, whenever we have that feature.
-                guard let currentVersion = currentDependency.currentVersion else {
-                    continue
-                }
-                if currentVersion == version {
-                    packageStateChanges[specifier] = .unchanged
+        for (specifier, binding) in resolvedDependencies {
+            switch binding {
+            case .excluded:
+                fatalError("Unexpected excluded binding")
+            case .unversioned:
+                // Right not it is only possible to get unversioned binding if a dependency is in editable state.
+                assert(dependencyMap[specifier]?.isInEditableState ?? false)
+                packageStateChanges[specifier] = .unchanged
+            case .version(let version):
+                if let currentDependency = dependencyMap[specifier] {
+                    // FIXME: PackageStateChange needs to get richer API for updating packages 
+                    // which are pinned to a revision, whenever we have that feature.
+                    guard let currentVersion = currentDependency.currentVersion else {
+                        continue
+                    }
+                    if currentVersion == version {
+                        packageStateChanges[specifier] = .unchanged
+                    } else {
+                        packageStateChanges[specifier] = .updated(old: currentVersion, new: version)
+                    }
                 } else {
-                    packageStateChanges[specifier] = .updated(old: currentVersion, new: version)
+                    packageStateChanges[specifier] = .added(version)
                 }
-            } else {
-                packageStateChanges[specifier] = .added(version)
             }
         }
         // Set the state of any old package that might have been removed.
@@ -809,17 +834,14 @@ public class Workspace {
         var constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
 
         // Add constraints to pin to *exactly* all the checkouts we have.
-        //
-        // FIXME: We may need a better way to tell the resolution algorithm that
-        // certain repositories are pinned to the current checkout. We might be
-        // able to do that simply by overriding the view presented by the
-        // repository container provider.
         for (externalManifest, managedDependency) in currentManifests.dependencies {
             let specifier = RepositorySpecifier(url: externalManifest.url)
 
             if managedDependency.isInEditableState {
-                // FIXME: We need a way to state that we don't want any constaints on this dependency.
-                fatalError("FIXME: Unimplemented.")
+                let dependencies = externalManifest.package.dependencies.map{
+                    RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+                }
+                constraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
             } else if let version = managedDependency.currentVersion {
                 // If this specifier is pinned, we should already have it checked out at that version.
                 // We also don't need to add the constraint again.
@@ -874,8 +896,18 @@ public class Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     func remove(specifier: RepositorySpecifier) throws {
-        guard let dependency = dependencyMap[specifier] else {
+        guard var dependency = dependencyMap[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
+        }
+
+        // If this dependency is based on a dependency, switch to that because we don't want to touch the editable checkout here.
+        //
+        // FIXME: This will remove also the data about the editable dependency and it will not be possible to "unedit" that dependency anymore.
+        // To do that we need to persist the value of isInEditableState and also store the package names in managed dependencies, because 
+        // it will not be possible to lookup these dependencies using their manifests as we won't have them anymore.
+        // https://bugs.swift.org/browse/SR-3689
+        if let basedOn = dependency.basedOn {
+            dependency = basedOn
         }
 
         // Inform the delegate.

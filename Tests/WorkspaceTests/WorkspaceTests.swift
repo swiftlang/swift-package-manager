@@ -1291,15 +1291,70 @@ final class WorkspaceTests: XCTestCase {
             let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
             try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
 
-            // Try to pin.
-            try workspace.pinAll()
-            XCTAssertEqual(delegate.warnings, ["not pinning A because it is being edited."])
+            // We should retain the original pin for a package which is in edit mode.
+            try workspace.pinAll(reset: true)
+            XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.version, v1)
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
             delegate.warnings.removeAll()
             let _ = try workspace.loadPackageGraph()
             XCTAssertTrue(delegate.warnings[0].hasSuffix("A was being edited but has been removed, falling back to original checkout."))
+        }
+    }
+
+    func testDependencyResolutionWithEdit() throws {
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                    MockDependency("B", version: v1),
+                ],
+                packages: [
+                    MockPackage("A", version: v1),
+                    MockPackage("A", version: "1.0.1"),
+                    MockPackage("B", version: v1),
+                    MockPackage("B", version: nil),
+                ]
+            )
+
+            let delegate = TestWorkspaceDelegate()
+            func createWorkspace() throws -> Workspace {
+                return  try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
+            }
+
+            do {
+                let workspace = try createWorkspace()
+                _ = try workspace.loadPackageGraph()
+                let manifests = try workspace.loadDependencyManifests()
+
+                let bDependency = manifests.lookup(package: "B")!.dependency
+                try workspace.edit(dependency: bDependency, at: bDependency.currentRevision!, packageName: "B")
+
+                XCTAssertEqual(manifests.lookup(package: "A")!.dependency.currentVersion, v1)
+                XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.version, v1)
+                XCTAssertEqual(workspace.pinsStore.pinsMap["B"]?.version, v1)
+
+                // Create update.
+                let repoPath = AbsolutePath(manifestGraph.repo("A").url)
+                try localFileSystem.writeFileContents(repoPath.appending(component: "update.swift"), bytes: "")
+                let testRepo = GitRepository(path: repoPath)
+                try testRepo.stageEverything()
+                try testRepo.commit(message: "update")
+                try testRepo.tag(name: "1.0.1")
+            }
+
+            // Update and check states.
+            do {
+                let workspace = try createWorkspace()
+                try workspace.updateDependencies(repin: true)
+                let manifests = try workspace.loadDependencyManifests()
+
+                XCTAssertEqual(manifests.lookup(package: "A")!.dependency.currentVersion, "1.0.1")
+                XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.version, "1.0.1")
+                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.isInEditableState)
+                XCTAssertEqual(workspace.pinsStore.pinsMap["B"]?.version, v1)
+            }
         }
     }
 
@@ -1323,6 +1378,7 @@ final class WorkspaceTests: XCTestCase {
         ("testCleanAndReset", testCleanAndReset),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testWarnings", testWarnings),
+        ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
     ]
 }
 
