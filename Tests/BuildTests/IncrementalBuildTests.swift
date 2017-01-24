@@ -46,37 +46,23 @@ final class IncrementalBuildTests: XCTestCase {
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
             XCTAssertTrue(fullLog.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertTrue(fullLog.contains("Linking CLibrarySources"))
             
-            // Now sleep for one second.  This is super-unfortunate, but with
-            // the one-second granularity that many file systems have, and with
-            // the lower-level build engine still using timestamps to determine
-            // when files change, we need to make sure that touching the file
-            // results in a new timestamp.
-            sleep(1)
-            
-            // Touch a source file.  Right now the way to do that is to write
-            // out the file contents again.
-            // FIXME: We can make this better when/if we get a way to set the
-            // timestamp of a file in the `FileSystem` class.  However, when
-            // the low-level build system starts looking at file contents (as
-            // I hope that it will at some point), we may again want to do this
-            // by reading the contents, appending a newline, and then writing
-            // it out.
+            // Modify the source file in a way that changes its size so that the low-level
+            // build system can detect the change. The timestamp change might be too less
+            // for it to detect.
             let sourceFile = prefix.appending(components: "Sources", "Foo.c")
-            let contents = try localFileSystem.readFileContents(sourceFile)
-            try localFileSystem.writeFileContents(sourceFile, bytes: contents)
+            let stream = BufferedOutputByteStream()
+            stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
+            try localFileSystem.writeFileContents(sourceFile, bytes: stream.bytes)
             
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertTrue(log2.contains("Linking CLibrarySources"))
             
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
-            XCTAssertFalse(log3.contains("Linking CLibrarySources"))
         }
     }
     
