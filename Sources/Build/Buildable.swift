@@ -24,7 +24,7 @@ extension Module: Buildable {
 
 extension Product: Buildable {
     var isTest: Bool {
-        if case .Test = type {
+        if case .test = type {
             return true
         }
         return false
@@ -32,13 +32,13 @@ extension Product: Buildable {
 
     var targetName: String {
         switch type {
-        case .Library(.Dynamic):
+        case .library(.dynamic):
             return "<\(name).dylib>"
-        case .Test:
+        case .test:
             return "<\(name).test>"
-        case .Library(.Static):
+        case .library(.static):
             return "<\(name).a>"
-        case .Executable:
+        case .executable:
             return "<\(name).exe>"
         }
     }

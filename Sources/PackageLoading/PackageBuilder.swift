@@ -567,7 +567,7 @@ public struct PackageBuilder {
 
         for case let module as SwiftModule in modules {
             if module.type == .executable {
-                let product = Product(name: module.name, type: .Executable, modules: [module])
+                let product = Product(name: module.name, type: .executable, modules: [module])
                 products.append(product)
             }
         }
@@ -576,7 +576,7 @@ public struct PackageBuilder {
 
         for case let module as ClangModule in modules {
             if module.type == .executable {
-                let product = Product(name: module.name, type: .Executable, modules: [module])
+                let product = Product(name: module.name, type: .executable, modules: [module])
                 products.append(product)
             }
         }
@@ -599,7 +599,7 @@ public struct PackageBuilder {
             // TODO and then we should prefix all modules with their package probably.
             // Add suffix 'PackageTests' to test product so the module name of linux executable don't collide with
             // main package, if present.
-            let product = Product(name: manifest.name + "PackageTests", type: .Test, modules: testModules)
+            let product = Product(name: manifest.name + "PackageTests", type: .test, modules: testModules)
             products.append(product)
         }
 
@@ -626,15 +626,15 @@ public struct PackageBuilder {
             switch product {
             case .exe(let p):
                 // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
-                products += [Product(name: p.name, type: .Executable, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
+                products += [Product(name: p.name, type: .executable, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
             case .lib(let p):
                 // Get the library type.
                 let type: ProductType
                 switch p.type {
-                case .static?: type = .Library(.Static)
-                case .dynamic?: type = .Library(.Dynamic)
+                case .static?: type = .library(.static)
+                case .dynamic?: type = .library(.dynamic)
                 // FIXME: For now infer nil as dylibs, we need to expand PackageModel.Product to store this information.
-                case nil: type = .Library(.Dynamic)
+                case nil: type = .library(.dynamic)
                 }
                 products += [Product(name: p.name, type: type, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
             }

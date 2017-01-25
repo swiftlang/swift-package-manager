@@ -678,23 +678,23 @@ class ConventionTests: XCTestCase {
             }
 
             result.checkProduct("libpmS") { productResult in
-                productResult.check(type: .Library(.Static), modules: ["Bar", "Foo"])
+                productResult.check(type: .library(.static), modules: ["Bar", "Foo"])
             }
 
             result.checkProduct("libpmD") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Bar", "Foo"])
+                productResult.check(type: .library(.dynamic), modules: ["Bar", "Foo"])
             }
 
             result.checkProduct("libpmA") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Foo"])
+                productResult.check(type: .library(.dynamic), modules: ["Foo"])
             }
 
             result.checkProduct("executable") { productResult in
-                productResult.check(type: .Executable, modules: ["Foo", "exe"])
+                productResult.check(type: .executable, modules: ["Foo", "exe"])
             }
 
             result.checkProduct("exe") { productResult in
-                productResult.check(type: .Executable, modules: ["exe"])
+                productResult.check(type: .executable, modules: ["exe"])
             }
         }
     }
@@ -717,7 +717,7 @@ class ConventionTests: XCTestCase {
             }
 
             result.checkProduct("FooPackageTests") { productResult in
-                productResult.check(type: .Test, modules: ["FooTests"])
+                productResult.check(type: .test, modules: ["FooTests"])
             }
         }
 
@@ -750,7 +750,7 @@ class ConventionTests: XCTestCase {
             }
 
             result.checkProduct("FooPackageTests") { productResult in
-                productResult.check(type: .Test, modules: ["BarTests", "FooTests"])
+                productResult.check(type: .test, modules: ["BarTests", "FooTests"])
             }
         }
     }
