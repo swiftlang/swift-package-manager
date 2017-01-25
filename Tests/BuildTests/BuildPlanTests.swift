@@ -196,6 +196,31 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.target(for: "exe").swiftTarget().compileArguments(), ["-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/Clibgit/module.modulemap", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
     }
 
+    func testCppModule() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.cpp",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+        let pkg = Package(
+            name: "Pkg",
+            targets: [
+                Target(name: "exe", dependencies: ["lib"]),
+            ]
+        )
+        let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+        let linkArgs = try result.buildProduct(for: "exe").linkArguments()
+
+      #if os(macOS)
+        XCTAssertTrue(linkArgs.contains("-lc++"))
+      #else
+        XCTAssertTrue(linkArgs.contains("-lstdc++"))
+      #endif
+    }
+
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
@@ -203,6 +228,7 @@ final class BuildPlanTests: XCTestCase {
         ("testCModule", testCModule),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
+        ("testCppModule", testCppModule),
     ]
 }
 
