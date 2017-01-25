@@ -212,7 +212,7 @@ public final class SwiftTargetDescription {
         args += buildParameters.toolchain.swiftPlatformArgs
         args += buildParameters.swiftCompilerFlags
         args += optimizationArguments
-        args += ["-j\(SwiftcTool.numThreads)", "-DSWIFT_PACKAGE"]
+        args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
         args += additionalFlags
         args += moduleCacheArgs
         return args
