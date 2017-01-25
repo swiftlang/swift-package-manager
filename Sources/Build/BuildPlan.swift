@@ -417,9 +417,28 @@ public class BuildPlan {
         for buildProduct in buildProducts {
             // FIXME: Ask this from package graph instead.
             let allModules = try! topologicalSort(buildProduct.product.modules, successors: { $0.dependencies })
-            // Add pkgConfig libs arguments.
-            for case let module as CModule in allModules {
-                buildProduct.additionalFlags += pkgConfig(for: module).libs
+            var linkCpp = false
+
+            for module in allModules {
+                switch module {
+                case let module as CModule:
+                    // Add pkgConfig libs arguments.
+                    buildProduct.additionalFlags += pkgConfig(for: module).libs
+                case let module as ClangModule:
+                    if module.containsCppFiles {
+                        linkCpp = true
+                    }
+                default: break
+                }
+            }
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            if linkCpp {
+              #if os(macOS)
+                buildProduct.additionalFlags += ["-lc++"]
+              #else
+                buildProduct.additionalFlags += ["-lstdc++"]
+              #endif
             }
         }
     }
