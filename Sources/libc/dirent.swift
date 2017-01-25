@@ -11,7 +11,7 @@
  This file defines a common type alias for the result of opendir().
 */
 
-#if os(Linux)
+#if os(Linux) || CYGWIN
 public typealias DirHandle = OpaquePointer
 #else
 public typealias DirHandle = UnsafeMutablePointer<DIR>

@@ -165,6 +165,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var cmd = [resources.swiftCompilerPath.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
+    #if CYGWIN
+        cmd += ["-D", "CYGWIN"]
+        cmd += ["-I", "/usr/include"]
+    #endif
         cmd += ["-I", resources.libraryPath.asString]
     
         // When running from Xcode, load PackageDescription.framework
