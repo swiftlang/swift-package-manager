@@ -211,23 +211,11 @@ public struct PackageBuilder {
     private let dependencies: [Package]
 
     /// All the modules of the dependency packages.
+    // FIXME: This needs to go away and modules will be depending on the products of the external packages.
     private func moduleDependencies() -> [Module] {
-        return dependencies.flatMap {
-             $0.modules.filter {
-                 guard !$0.isTest else { return false }
- 
-                 switch $0 {
-                 case let module as SwiftModule where module.type == .library:
-                     return true
-                 case let module as ClangModule where module.type == .library:
-                     return true
-                 case is CModule:
-                     return true
-                 default:
-                     return false
-                 }
-             }
-         }
+        return dependencies.flatMap{
+             $0.modules.filter{ !$0.isTest }
+        }
     }
 
     /// Create a builder for the given manifest and package `path`.
@@ -587,17 +575,10 @@ public struct PackageBuilder {
     ////// Implict products for ClangModules.
 
         for case let module as ClangModule in modules {
-            let type: ProductType
-            switch module.type {
-            case .executable:
-                type = .Executable
-            case .library:
-                type = .Library(.Dynamic)
-            case .systemModule:
-                fatalError("unexpected module type")
+            if module.type == .executable {
+                let product = Product(name: module.name, type: .Executable, modules: [module])
+                products.append(product)
             }
-            let product = Product(name: module.name, type: type, modules: [module])
-            products.append(product)
         }
 
     ////// auto-determine tests
