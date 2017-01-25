@@ -52,7 +52,7 @@ extension ProductType: CustomStringConvertible {
     }
 }
 
-public class Product {
+public class Product: ObjectIdentifierProtocol {
     /// The name of the product.
     public let name: String
 

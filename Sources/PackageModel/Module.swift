@@ -25,6 +25,41 @@ public class Module: ObjectIdentifierProtocol {
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
 
+    public enum Dependency: Hashable, CustomStringConvertible {
+        case module(Module)
+        case product(Product)
+
+        public var description: String {
+            switch self {
+                case .module(let module): return "<ModuleDependency: module(\(module.name))>"
+                case .product(let product): return "<ModuleDependency: Product(\(product.name))>"
+            }
+        }
+
+        public var hashValue: Int {
+            switch self {
+            case .module(let module): return module.hashValue
+            case .product(let product): return product.hashValue
+            }
+        }
+
+        public static func ==(lhs: Dependency, rhs: Dependency) -> Bool {
+            switch (lhs, rhs) {
+            case (.module(let lhs), .module(let rhs)):
+                return lhs == rhs
+            case (.product(let lhs), .product(let rhs)):
+                return lhs == rhs
+            case (.module, _):
+                return false
+            case (.product, _):
+                return false
+            }
+        }
+    }
+
+    /// The dependencies of this module, once loaded.
+    public var deps: [Dependency] = []
+
     /// The dependencies of this module, once loaded.
     public let dependencies: [Module]
 
