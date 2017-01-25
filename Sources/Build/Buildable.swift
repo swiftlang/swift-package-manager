@@ -38,6 +38,8 @@ extension Product: Buildable {
             return "<\(name).test>"
         case .library(.static):
             return "<\(name).a>"
+        case .library(.none):
+            fatalError("unexpected call")
         case .executable:
             return "<\(name).exe>"
         }

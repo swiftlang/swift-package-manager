@@ -283,6 +283,8 @@ public final class ProductBuildDescription {
         case .library(.static):
             // No arguments for static libraries.
             return []
+        case .library(.none):
+            fatalError("unexpected call")
         case .test:
             // Test products are bundle on macOS, executable on linux.
           #if os(macOS)

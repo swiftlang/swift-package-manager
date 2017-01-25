@@ -633,8 +633,7 @@ public struct PackageBuilder {
                 switch p.type {
                 case .static?: type = .library(.static)
                 case .dynamic?: type = .library(.dynamic)
-                // FIXME: For now infer nil as dylibs, we need to expand PackageModel.Product to store this information.
-                case nil: type = .library(.dynamic)
+                case nil: type = .library(.none)
                 }
                 products += [Product(name: p.name, type: type, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
             }

@@ -10,15 +10,29 @@
 
 import Basic
 
-public enum LibraryType {
-    case `static`
-    case `dynamic`
-}
-
+/// The type of product.
 public enum ProductType {
-    case test
-    case executable
+
+    /// The type of library.
+    public enum LibraryType {
+        /// Static library.
+        case `static`
+
+        /// Dynamic library.
+        case `dynamic`
+
+        /// The type of library is undefined.
+        case none
+    }
+
+    /// The library product type.
     case library(LibraryType)
+
+    /// The executable product type.
+    case executable
+
+    /// The test product type.
+    case test
 }
 
 extension ProductType: CustomStringConvertible {
@@ -32,6 +46,8 @@ extension ProductType: CustomStringConvertible {
             return "a"
         case .library(.dynamic):
             return "dylib"
+        case .library(.none):
+            return "none"
         }
     }
 }
@@ -64,6 +80,7 @@ public class Product {
         self.modules = modules
     }
 
+    // FIXME: Remove outname from here and move to build plan where its more appropriate.
     public var outname: RelativePath {
         switch type {
         case .executable:
@@ -72,6 +89,8 @@ public class Product {
             return RelativePath("lib\(name).a")
         case .library(.dynamic):
             return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
+        case .library(.none):
+            fatalError("Unimplemented")
         case .test:
             let base = "\(name).xctest"
             #if os(macOS)
