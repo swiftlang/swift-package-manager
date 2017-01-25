@@ -94,7 +94,7 @@ public struct LLbuildManifestGenerator {
     private func createLinkCommand(_ buildProduct: ProductBuildDescription) -> Command {
         let tool: ToolProtocol
         // Create archive tool for static library and shell tool for rest of the products.
-        if buildProduct.product.type == .Library(.Static) {
+        if buildProduct.product.type == .library(.static) {
             tool = ArchiveTool(inputs: buildProduct.objects.map{$0.asString}, outputs: [buildProduct.binary.asString])
         } else {
             tool = ShellTool(

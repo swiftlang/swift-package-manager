@@ -11,26 +11,26 @@
 import Basic
 
 public enum LibraryType {
-    case Static
-    case Dynamic
+    case `static`
+    case `dynamic`
 }
 
 public enum ProductType {
-    case Test
-    case Executable
-    case Library(LibraryType)
+    case test
+    case executable
+    case library(LibraryType)
 }
 
 extension ProductType: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .Test:
+        case .test:
             return "test"
-        case .Executable:
+        case .executable:
             return "exe"
-        case .Library(.Static):
+        case .library(.static):
             return "a"
-        case .Library(.Dynamic):
+        case .library(.dynamic):
             return "dylib"
         }
     }
@@ -51,7 +51,7 @@ public class Product {
 
     /// Path to the main file for test product on linux.
     public var linuxMainTest: AbsolutePath {
-        precondition(type == .Test, "This property is only valid for test product type")
+        precondition(type == .test, "This property is only valid for test product type")
         // FIXME: This is hacky, we should get this from package builder.
         let testDirectory = modules.first{$0.isTest}!.sources.root.parentDirectory
         return testDirectory.appending(component: "LinuxMain.swift")
@@ -66,13 +66,13 @@ public class Product {
 
     public var outname: RelativePath {
         switch type {
-        case .Executable:
+        case .executable:
             return RelativePath(name)
-        case .Library(.Static):
+        case .library(.static):
             return RelativePath("lib\(name).a")
-        case .Library(.Dynamic):
+        case .library(.dynamic):
             return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
-        case .Test:
+        case .test:
             let base = "\(name).xctest"
             #if os(macOS)
                 return RelativePath("\(base)/Contents/MacOS/\(name)")
@@ -95,7 +95,7 @@ extension Product: CustomStringConvertible {
     public var description: String {
         let base = outname.basename
         switch type {
-        case .Test:
+        case .test:
             return "\(base).xctest"
         default:
             return base
@@ -106,17 +106,17 @@ extension Product: CustomStringConvertible {
 extension ProductType: Equatable {}
 public func ==(lhs: ProductType, rhs: ProductType) -> Bool {
     switch (lhs, rhs) {
-    case (.Executable, .Executable):
+    case (.executable, .executable):
         return true
-    case (.Executable, _):
+    case (.executable, _):
         return false
-    case (.Test, .Test):
+    case (.test, .test):
         return true
-    case (.Test, _):
+    case (.test, _):
         return false
-    case (.Library(let lhsType), .Library(let rhsType)):
+    case (.library(let lhsType), .library(let rhsType)):
         return lhsType == rhsType
-    case (.Library(_), _):
+    case (.library(_), _):
         return false
     }
 }

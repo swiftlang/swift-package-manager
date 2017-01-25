@@ -280,19 +280,19 @@ public final class ProductBuildDescription {
         args += ["-module-name", product.name]
 
         switch product.type {
-        case .Library(.Static):
+        case .library(.static):
             // No arguments for static libraries.
             return []
-        case .Test:
+        case .test:
             // Test products are bundle on macOS, executable on linux.
           #if os(macOS)
             args += ["-Xlinker", "-bundle"]
           #else
             args += ["-emit-executable"]
           #endif
-        case .Library(.Dynamic):
+        case .library(.dynamic):
             args += ["-emit-library"]
-        case .Executable:
+        case .executable:
             args += ["-emit-executable"]
         }
         args += objects.map{$0.asString}
@@ -376,7 +376,7 @@ public class BuildPlan {
             var objects = allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
 
             // Add objects from main module, if product is an executable.
-            if product.type == .Executable {
+            if product.type == .executable {
                 // FIXME: This should come from product type enum instead of manual search.
                 let mainModule = product.modules.first{$0.type == .executable}!
                 objects += targetMap[mainModule]!.objects
@@ -386,7 +386,7 @@ public class BuildPlan {
             // FIXME: Create a module and target for LinuxMain file on linux.
             // This module just contains one source file (LinuxMain.swift) which acts as manifest to the tests on linux.
             // This will go away once it is possible to auto detect tests.
-            if product.type == .Test {
+            if product.type == .test {
                 let module = SwiftModule(linuxMain: product.linuxMainTest, name: product.name, dependencies: product.modules)
                 let target = SwiftTargetDescription(module: module, buildParameters: buildParameters)
                 targetMap[module] = .swift(target)
