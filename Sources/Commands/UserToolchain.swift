@@ -11,6 +11,7 @@
 import POSIX
 
 import Basic
+import Build
 import PackageLoading
 import protocol Build.Toolchain
 import Utility
@@ -39,36 +40,27 @@ public struct UserToolchain: Toolchain {
     /// Path of the `clang` compiler.
     public let clangCompiler: AbsolutePath
 
+    public let extraCCFlags: [String]
+
+    public let extraSwiftCFlags: [String]
+
+    public var extraCPPFlags: [String] {
+        return destination.extraCPPFlags
+    }
+
+    public var dynamicLibraryExtension: String {
+        return destination.dynamicLibraryExtension
+    }
+
     /// Path to llbuild.
     let llbuild: AbsolutePath
 
-    /// Path of the default SDK (a.k.a. "sysroot"), if any.
-    public let defaultSDK: AbsolutePath?
+    /// The compilation destination object.
+    let destination: Destination
 
-  #if os(macOS)
-    /// Path to the sdk platform framework path.
-    public let sdkPlatformFrameworksPath: AbsolutePath?
+    public init(destination: Destination) throws {
+        self.destination = destination
 
-    public var clangPlatformArgs: [String] {
-        var args = ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString]
-        if let sdkPlatformFrameworksPath = sdkPlatformFrameworksPath {
-            args += ["-F", sdkPlatformFrameworksPath.asString]
-        }
-        return args
-    }
-    public var swiftPlatformArgs: [String] {
-        var args = ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString]
-        if let sdkPlatformFrameworksPath = sdkPlatformFrameworksPath {
-            args += ["-F", sdkPlatformFrameworksPath.asString]
-        }
-        return args
-    }
-  #else
-    public let clangPlatformArgs: [String] = ["-fPIC"]
-    public let swiftPlatformArgs: [String] = []
-  #endif
-
-    public init(_ binDir: AbsolutePath) throws {
         // Get the search paths from PATH.
         let envSearchPaths = getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
@@ -78,6 +70,9 @@ public struct UserToolchain: Toolchain {
                 filename: getenv(fromEnv),
                 searchPaths: envSearchPaths)
         }
+
+        // Get the binDir from destination.
+        let binDir = destination.binDir
 
         // First look in env and then in bin dir.
         swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
@@ -110,45 +105,20 @@ public struct UserToolchain: Toolchain {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
 
-        // Find the default SDK (on macOS only).
-      #if os(macOS)
-        let sdk: AbsolutePath
+        self.extraSwiftCFlags = [
+            "-target", destination.target,
+            "-sdk", destination.sdk.asString
+        ] + destination.extraSwiftCFlags
 
-        if let value = lookupExecutablePath(filename: getenv("SYSROOT")) {
-            sdk = value
-        } else {
-            // No value in env, so search for it.
-            let foundPath = try Process.checkNonZeroExit(
-                args: "xcrun", "--sdk", "macosx", "--show-sdk-path").chomp()
-            guard !foundPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not find default SDK")
-            }
-            sdk = AbsolutePath(foundPath)
-        }
-
-        // Verify that the sdk exists and is a directory
-        guard localFileSystem.exists(sdk) && localFileSystem.isDirectory(sdk) else {
-            throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
-        }
-        defaultSDK = sdk
-
-        // Try to get the platform path.
-        let platformPath = try? Process.checkNonZeroExit(
-            args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path").chomp()
-        if let platformPath = platformPath, !platformPath.isEmpty {
-            sdkPlatformFrameworksPath = AbsolutePath(platformPath)
-                .appending(components: "Developer", "Library", "Frameworks")
-        } else {
-            sdkPlatformFrameworksPath = nil
-        }
-      #else
-        defaultSDK = nil
-      #endif
+        self.extraCCFlags = [
+            "-target", destination.target,
+            "--sysroot", destination.sdk.asString
+        ] + destination.extraCCFlags
 
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompiler,
             libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
-            sdkRoot: defaultSDK
+            sdkRoot: self.destination.sdk
         )
     }
 }

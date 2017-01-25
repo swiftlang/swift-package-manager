@@ -143,6 +143,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--version", kind: Bool.self),
             to: { $0.shouldPrintVersion = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--destination", kind: PathArgument.self),
+            to: { $0.customCompileDestination = $1.path })
+
         // FIXME: We need to allow -vv type options for this.
         binder.bind(
             option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
@@ -281,9 +285,9 @@ public class SwiftTool<Options: ToolOptions> {
         return graph
     }
 
-    /// Returns the user toolchain.
+    /// Returns the user toolchain to compile the actual product.
     func getToolchain() throws -> UserToolchain {
-        return try _toolchain.dematerialize()
+        return try _destinationToolchain.dematerialize()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
@@ -339,33 +343,30 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
-    /// Lazily compute the toolchain.
-    private lazy var _toolchain: Result<UserToolchain, AnyError> = {
+    /// Lazily compute the destination toolchain.
+    private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
+        // Create custom toolchain if present.
+        if let customDestination = self.options.customCompileDestination {
+            return Result(anyError: {
+                try UserToolchain(destination: Destination(fromFile: customDestination))
+            })
+        }
+        // Otherwise use the host toolchain.
+        return self._hostToolchain
+    }()
 
-      #if Xcode
-        // For Xcode, set bin directory to the build directory containing the fake
-        // toolchain created during bootstraping. This is obviously not production ready
-        // and only exists as a development utility right now.
-        //
-        // This also means that we should have bootstrapped with the same Swift toolchain
-        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
-        //
-        // FIXME: We may want to allow overriding this using an env variable but that
-        // doesn't seem urgent or extremely useful as of now.
-        let binDir = AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
-      #else
-        let binDir = AbsolutePath(
-            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
-      #endif
-
-        return Result(anyError: { try UserToolchain(binDir) })
+    /// Lazily compute the host toolchain used to compile the package description.
+    private lazy var _hostToolchain: Result<UserToolchain, AnyError> = {
+        return Result(anyError: {
+            try UserToolchain(destination: Destination.hostDestination())
+        })
     }()
 
     private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
         return Result(anyError: {
             try ManifestLoader(
-                resources: self.getToolchain().manifestResources,
+                // Always use the host toolchain's resources for parsing manifest.
+                resources: self._hostToolchain.dematerialize().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox
             )
         })
@@ -421,6 +422,8 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
         stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
         // For archive tool.
         stream <<< "    (regex #\"^\(directory.asString)/ar.*\")" <<< "\n"
+        // For autolink files.
+        stream <<< "    (regex #\"^\(directory.asString)/.*\\.swift-[0-9a-f]+\\.autolink\")" <<< "\n"
     }
     for directory in allowedDirectories {
         stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"

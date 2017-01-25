@@ -22,9 +22,18 @@ import PackageDescription4
 private struct MockToolchain: Toolchain {
     let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
     let clangCompiler = AbsolutePath("/fake/path/to/clang")
-    let defaultSDK: AbsolutePath? = nil
-    let swiftPlatformArgs: [String] = []
-    let clangPlatformArgs: [String] = []
+    let extraCCFlags: [String] = []
+    let extraSwiftCFlags: [String] = []
+    #if os(macOS)
+    let extraCPPFlags: [String] = ["-lc++"]
+    #else
+    let extraCPPFlags: [String] = ["-lstdc++"]
+    #endif
+  #if os(macOS)
+    let dynamicLibraryExtension = "dylib"
+  #else
+    let dynamicLibraryExtension = "so"
+  #endif
 }
 
 final class BuildPlanTests: XCTestCase {
@@ -289,7 +298,9 @@ final class BuildPlanTests: XCTestCase {
 
         let barLinkArgs = try result.buildProduct(for: "Bar").linkArguments()
         XCTAssertEqual(barLinkArgs,
-            ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/libBar.\(PackageModel.Product.dynamicLibraryExtension)", "-module-name", "Bar", "-emit-library", "/path/to/build/debug/Bar.build/source.swift.o"])
+            ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o",
+            "/path/to/build/debug/libBar.\(MockToolchain().dynamicLibraryExtension)",
+            "-module-name", "Bar", "-emit-library", "/path/to/build/debug/Bar.build/source.swift.o"])
     }
 
     static var allTests = [

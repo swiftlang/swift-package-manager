@@ -67,14 +67,6 @@ public class Product {
         self.targets = targets
         self.linuxMain = linuxMain 
     }
-
-    // FIXME: This needs to be come from a toolchain object, not the host
-    // configuration.
-#if os(macOS)
-    public static let dynamicLibraryExtension = "dylib"
-#else
-    public static let dynamicLibraryExtension = "so"
-#endif
 }
 
 extension Product: CustomStringConvertible {

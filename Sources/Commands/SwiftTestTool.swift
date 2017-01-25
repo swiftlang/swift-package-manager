@@ -219,7 +219,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         var env = ProcessInfo.processInfo.environment
         // Add the sdk platform path if we have it. If this is not present, we
         // might always end up failing.
-        if let sdkPlatformFrameworksPath = try getToolchain().sdkPlatformFrameworksPath {
+        if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPath() {
             env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.asString
         }
         try Process.checkNonZeroExit(arguments: args, environment: env)
