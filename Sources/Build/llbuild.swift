@@ -159,6 +159,8 @@ struct SwiftCompilerTool: ToolProtocol {
     /// The underlying Swift build target.
     let target: SwiftTargetDescription
 
+    static let numThreads = 8
+
     init(target: SwiftTargetDescription, inputs: [String]) {
         self.target = target
         self.inputs = inputs
@@ -178,6 +180,6 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    sources: " <<< Format.asJSON(target.module.sources.paths.map{ $0.asString }) <<< "\n"
         stream <<< "    is-library: " <<< Format.asJSON(target.module.type == .library) <<< "\n"
         stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
-        stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftcTool.numThreads)") <<< "\n"
+        stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
     }
 }
