@@ -471,13 +471,14 @@ public struct PackageBuilder {
                     deps.append(baseModule)
                 }
             }
-            /// Add inter-package dependencies.
-            deps += moduleDeps
             // Create the module.
-            let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps)
+            let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps + moduleDeps)
             // Add the created module to the map or print no sources warning.
             if let createdModule = module {
                 modules[createdModule.name] = createdModule
+                createdModule.deps = deps.map(Module.Dependency.module)
+                createdModule.deps += dependencies.flatMap{$0.products}.map(Module.Dependency.product)
+                print(createdModule.name, createdModule.deps)
             } else {
                 emptyModules.insert(potentialModule.name)
                 warningStream <<< "warning: module '\(potentialModule.name)' does not contain any sources.\n"
@@ -633,10 +634,18 @@ public struct PackageBuilder {
                 switch p.type {
                 case .static?: type = .library(.static)
                 case .dynamic?: type = .library(.dynamic)
-                // FIXME: For now infer nil as dylibs, we need to expand PackageModel.Product to store this information.
-                case nil: type = .library(.dynamic)
+                case nil: type = .library(.none)
                 }
                 products += [Product(name: p.name, type: type, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
+            }
+        }
+
+        // Create a product for the entire package if it doesn't explicitly defines its own products.
+        // This is to be done only when parsing the manifest in Swift 3 compatibility mode.
+        if manifest.package.products.isEmpty {
+            let libraryModules = modules.filter{ $0.type == .library }
+            if !libraryModules.isEmpty {
+                products += [Product(name: manifest.name, type: .library(.none), modules: libraryModules)]
             }
         }
 

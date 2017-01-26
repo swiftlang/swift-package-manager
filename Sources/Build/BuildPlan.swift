@@ -252,7 +252,7 @@ public final class ProductBuildDescription {
     }
 
     /// The objects in this product.
-    let objects: [AbsolutePath]
+    var objects: [AbsolutePath]
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
@@ -283,6 +283,8 @@ public final class ProductBuildDescription {
         case .library(.static):
             // No arguments for static libraries.
             return []
+        case .library(.none):
+            fatalError("unexpected call")
         case .test:
             // Test products are bundle on macOS, executable on linux.
           #if os(macOS)
@@ -367,10 +369,18 @@ public class BuildPlan {
         }
 
         // Create product description for each product we have in the package graph.
-        self.buildProducts = graph.products.map { product in
+        var productMap = [Product: ProductBuildDescription]()
+        for product in graph.products {
             // FIXME: Ask this from package graph instead.
-            let allModules = try! topologicalSort(product.modules, successors: { $0.dependencies })
-            assert(allModules.filter{$0.type != .systemModule}.map{targetMap[$0]}.filter{$0 == nil}.isEmpty, "All product modules not reachable by root modules.")
+
+            let allModules = try! topologicalSort(product.modules, successors: { 
+                return $0.deps.flatMap { dep in
+                    switch dep {
+                    case .module(let module): return module
+                    default: return nil
+                    }
+                }
+            })
 
             // Collect all library objects.
             var objects = allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
@@ -393,9 +403,31 @@ public class BuildPlan {
                 objects += target.objects
             }
           #endif
-            return ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
+            productMap[product] = ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
         }
 
+        for (product, buildProduct) in productMap {
+            let allProducts: [Product] = product.modules.flatMap{ $0.deps }.flatMap{ dep in
+                switch dep {
+                    case .product(let product): return product
+                    default: return nil
+                }
+            }
+            for product in allProducts {
+                switch product.type {
+                case .test:
+                    continue
+                case .executable:
+                    continue
+                case .library(.static), .library(.none):
+                    buildProduct.objects += allProducts.map{ productMap[$0]! }.flatMap{$0.objects}
+                case .library(.dynamic):
+                    fatalError()
+                }
+            }
+        }
+
+        self.buildProducts = productMap.values.map{$0}
         self.targetMap = targetMap
         // Finally plan these targets.
         plan()

@@ -67,7 +67,7 @@ public struct LLbuildManifestGenerator {
         }
 
         // Create command for all products in the plan.
-        for buildProduct in plan.buildProducts {
+        for buildProduct in plan.buildProducts where buildProduct.product.type != .library(.none) {
             targets.append(createLinkCommand(buildProduct), isTest: buildProduct.product.isTest)
         }
 
