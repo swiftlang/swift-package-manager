@@ -99,15 +99,9 @@ public protocol StringEnumArgument: ArgumentKind {
 }
 
 extension StringEnumArgument {
-
-    // FIXME: Hack because can not use init(arg:) in init(parser:)
-    static func createObject(_ arg: String) -> Self? {
-        return self.init(arg: arg)
-    }
-
     public init(parser: inout ArgumentParserProtocol) throws {
         let arg = try parser.associatedArgumentValue ?? parser.next()
-        guard let obj = Self.createObject(arg) else {
+        guard let obj = Self.init(arg: arg) else {
             throw ArgumentParserError.unknownValue(option: parser.currentArgument, value: arg)
         }
         self = obj
