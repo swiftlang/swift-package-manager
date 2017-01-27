@@ -14,28 +14,32 @@ import PackageModel
 /// A collection of packages.
 public struct PackageGraph {
     /// The root packages.
-    public let rootPackages: [Package]
+    public let rootPackages: [ResolvedPackage]
 
     /// The complete list of contained packages, in topological order starting
     /// with the root packages.
-    public let packages: [Package]
+    public let packages: [ResolvedPackage]
 
-    // FIXME: These are temporary.
-    public let modules: [Module]
-    public let externalModules: Set<Module>
+    /// Returns list of all modules (reachable from root packages) in the graph.
+    public let modules: [ResolvedModule]
+
+    /// Returns true if a given module is present in root packages.
+    public func isInRootPackages(_ module: ResolvedModule) -> Bool {
+        // FIXME: This can be easily cached.
+        return rootPackages.flatMap{$0.modules}.contains(module)
+    }
     
     /// Construct a package graph directly.
-    public init(rootPackages: [Package], modules: [Module], externalModules: Set<Module>) {
+    public init(rootPackages: [ResolvedPackage]) {
         self.rootPackages = rootPackages
-        self.modules = modules
-        self.externalModules = externalModules
         self.packages = try! topologicalSort(rootPackages, successors: { $0.dependencies })
+        self.modules = try! topologicalSort(rootPackages.flatMap{$0.modules}, successors: { $0.dependencies })
     }
 
     /// A sequence of all of the products in the graph.
     ///
     /// This yields all products in topological order starting with the root package.
-    public var products: AnySequence<Product> {
+    public var products: AnySequence<ResolvedProduct> {
         return AnySequence(packages.lazy.flatMap{ $0.products })
     }
 }

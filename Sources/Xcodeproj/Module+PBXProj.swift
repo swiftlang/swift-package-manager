@@ -27,7 +27,7 @@ import Basic
 import PackageModel
 import PackageLoading
 
-extension Module  {
+extension ResolvedModule  {
     
     var isLibrary: Bool {
         return type == .library

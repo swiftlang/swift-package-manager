@@ -25,7 +25,7 @@ public class Module: ObjectIdentifierProtocol {
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
 
-    /// The dependencies of this module, once loaded.
+    /// The dependencies of this module.
     public let dependencies: [Module]
 
     /// The language-level module name.
@@ -45,7 +45,7 @@ public class Module: ObjectIdentifierProtocol {
     /// The sources for the module.
     public let sources: Sources
 
-    public init(name: String, type: ModuleType, sources: Sources, isTest: Bool = false, dependencies: [Module]) {
+    fileprivate init(name: String, type: ModuleType, sources: Sources, isTest: Bool = false, dependencies: [Module]) {
         self.name = name
         self.type = type
         self.sources = sources
@@ -53,14 +53,6 @@ public class Module: ObjectIdentifierProtocol {
         self.c99name = self.name.mangledToC99ExtendedIdentifier()
         self.isTest = isTest
     }
-
-    /// The transitive closure of the module dependencies, in build order.
-    //
-    // FIXME: This should be cached, once we have an immutable model.
-    public var recursiveDependencies: [Module] {
-        return (try! topologicalSort(dependencies, successors: { $0.dependencies })).reversed()
-    }
-
 }
 
 public class SwiftModule: Module {

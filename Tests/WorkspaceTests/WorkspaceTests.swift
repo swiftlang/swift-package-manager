@@ -26,6 +26,12 @@ import TestSupport
 private let v1Range = Version("1.0.0") ..< Version("2.0.0")
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
+fileprivate extension ResolvedPackage {
+    var version: Version? {
+        return manifest.version
+    }
+}
+
 private class TestWorkspaceDelegate: WorkspaceDelegate {
     var fetched = [String]()
     var cloned = [String]()
@@ -1384,7 +1390,7 @@ final class WorkspaceTests: XCTestCase {
 
 extension PackageGraph {
     /// Finds the package matching the given name.
-    func lookup(_ name: String) -> PackageModel.Package {
+    func lookup(_ name: String) -> PackageModel.ResolvedPackage {
         return packages.first{ $0.name == name }!
     }
 }

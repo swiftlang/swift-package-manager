@@ -11,7 +11,7 @@
 import Basic
 import PackageModel
 
-func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
+func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode) {
     let dumper: DependenciesDumper
     switch mode {
     case .text:
@@ -26,13 +26,13 @@ func dumpDependenciesOf(rootPackage: Package, mode: ShowDependenciesMode) {
 
 
 private protocol DependenciesDumper {
-    func dump(dependenciesOf: Package)
+    func dump(dependenciesOf: ResolvedPackage)
 }
 
 
 private final class PlainTextDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: Package) {
-        func recursiveWalk(packages: [Package], prefix: String = "") {
+    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+        func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
             var hanger = prefix + "├── "
 
             for (index, package) in packages.enumerated() {
@@ -40,10 +40,10 @@ private final class PlainTextDumper: DependenciesDumper {
                     hanger = prefix + "└── "
                 }                
 
-                let pkgVersion = package.version?.description ?? "unspecified"
+                let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
 
-                print("\(hanger)\(package.name)<\(package.url)@\(pkgVersion)>") 
+                print("\(hanger)\(package.name)<\(package.manifest.url)@\(pkgVersion)>") 
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -64,12 +64,12 @@ private final class PlainTextDumper: DependenciesDumper {
 }
 
 private final class DotDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: Package) {
-        func recursiveWalk(rootpkg: Package) {
+    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+        func recursiveWalk(rootpkg: ResolvedPackage) {
             printNode(rootpkg)
             for dependency in rootpkg.dependencies {
                 printNode(dependency)
-                print("\"\(rootpkg.url)\" -> \"\(dependency.url)\"")
+                print("\"\(rootpkg.manifest.url)\" -> \"\(dependency.manifest.url)\"")
 
                 if !dependency.dependencies.isEmpty {
                     recursiveWalk(rootpkg: dependency)
@@ -77,9 +77,9 @@ private final class DotDumper: DependenciesDumper {
             }
         }
 
-        func printNode(_ package: Package) {
-            let pkgVersion = package.version?.description ?? "unspecified"
-            print("\"\(package.url)\"[label=\"\(package.name)\\n\(package.url)\\n\(pkgVersion)\"]")
+        func printNode(_ package: ResolvedPackage) {
+            let pkgVersion = package.manifest.version?.description ?? "unspecified"
+            print("\"\(package.manifest.url)\"[label=\"\(package.name)\\n\(package.manifest.url)\\n\(pkgVersion)\"]")
         }
 
         if !rootpkg.dependencies.isEmpty {
@@ -94,18 +94,18 @@ private final class DotDumper: DependenciesDumper {
 }
 
 private final class JSONDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: Package) {
-        func convert(_ package: Package) -> JSON {
+    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+        func convert(_ package: ResolvedPackage) -> JSON {
             return .dictionary([
                     "name": .string(package.name),
-                    "url": .string(package.url),
-                    "version": .string(package.version?.description ?? "unspecified"),
+                    "url": .string(package.manifest.url),
+                    "version": .string(package.manifest.version?.description ?? "unspecified"),
                     "path": .string(package.path.asString),
                     "dependencies": .array(package.dependencies.map(convert))
                 ])
         }
 
-        print(convert(rootpkg).toString())
+        print(convert(rootpkg).toString(prettyPrint: true))
     }
 }
 

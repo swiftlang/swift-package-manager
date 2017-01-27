@@ -104,7 +104,7 @@ class PackageGraphTests: XCTestCase {
 
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
-                targetResult.check(dependencies: ["Foo", "Bar"])
+                targetResult.check(dependencies: ["Bar", "Foo"])
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks"])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
@@ -129,13 +129,13 @@ class PackageGraphTests: XCTestCase {
           result.check(target: "swift") { targetResult in
               XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
                   "$(inherited)", "-Xcc",
-                  "-fmodule-map-file=$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap", 
-                  "-Xcc", "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap"
+                  "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
+                  "-Xcc", "-fmodule-map-file=$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap",
               ])
               XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                   "$(inherited)",
-                  "$(SRCROOT)/Sources/Sea/include",
                   "$(SRCROOT)/Sources/Sea2/include",
+                  "$(SRCROOT)/Sources/Sea/include",
                   "$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea"
               ])
           }
@@ -178,7 +178,7 @@ class PackageGraphTests: XCTestCase {
             }
             result.check(target: "LibraryTests") { targetResult in
                 targetResult.check(productType: .unitTest)
-                targetResult.check(dependencies: ["Library", "HelperTool"])
+                targetResult.check(dependencies: ["HelperTool", "Library"])
                 let linkPhases = targetResult.buildPhases.filter{ $0 is Xcode.FrameworksBuildPhase }
                 XCTAssertEqual(linkPhases.count, 1)
                 let linkedFiles = linkPhases.first!.files.map{ $0.fileRef!.path }
@@ -239,7 +239,7 @@ private class XcodeProjectResult {
         }
 
         func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(target.dependencies.map{$0.target.name}, dependencies, file: file, line: line)
+            XCTAssertEqual(target.dependencies.map{$0.target.name}.sorted(), dependencies, file: file, line: line)
         }
     }
 }
