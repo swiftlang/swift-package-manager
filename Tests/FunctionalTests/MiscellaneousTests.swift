@@ -491,6 +491,24 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
+    func testReportingErrorFromGitCommand() throws {
+        fixture(name: "Miscellaneous/MissingDependency") { prefix in
+            // This fixture has a setup that is intentionally missing a local dependency to induce a failure
+
+            // Launch swift-build.
+            let app = prefix.appending(component: "Bar")
+            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--chdir", app.asString)
+            try process.launch()
+
+            let result = try process.waitUntilExit()
+            let resultOutputString = try result.utf8Output()
+
+            // We should exited with a failure from the attempt to "git clone" something that doesn't exist
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+            XCTAssert(resultOutputString.contains("does not exist"), "Error from git was not propogated to process output: \(resultOutputString)")
+        }
+    }
+
     static var allTests = [
         ("testExecutableAsBuildOrderDependency", testExecutableAsBuildOrderDependency),
         ("testPrintsSelectedDependencyVersion", testPrintsSelectedDependencyVersion),
@@ -525,5 +543,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
+        ("testReportingErrorFromGitCommand", testReportingErrorFromGitCommand),
     ]
 }
