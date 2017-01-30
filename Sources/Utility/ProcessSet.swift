@@ -119,7 +119,7 @@ public final class ProcessSet {
     private func signalAll(_ signal: Int32) {
         serialQueue.sync {
             // Signal all active processes.
-            for process in self.processes where process.result == nil {
+            for process in self.processes {
                 process.signal(signal)
             }
         }
