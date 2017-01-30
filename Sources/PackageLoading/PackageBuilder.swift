@@ -640,23 +640,10 @@ public struct PackageBuilder {
             return productModules
         }
 
-        // Create products declared in the manifest.
-        for product in manifest.package.products {
-            switch product {
-            case .exe(let p):
-                // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
-                products += [Product(name: p.name, type: .Executable, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
-            case .lib(let p):
-                // Get the library type.
-                let type: ProductType
-                switch p.type {
-                case .static?: type = .Library(.Static)
-                case .dynamic?: type = .Library(.Dynamic)
-                // FIXME: For now infer nil as dylibs, we need to expand PackageModel.Product to store this information.
-                case nil: type = .Library(.Dynamic)
-                }
-                products += [Product(name: p.name, type: type, modules: try modulesFrom(targetNames: p.targets, product: p.name))]
-            }
+        for p in manifest.products {
+            let modules = try modulesFrom(targetNames: p.modules, product: p.name)
+            let product = Product(name: p.name, type: p.type, modules: modules)
+            products.append(product)
         }
 
         return products

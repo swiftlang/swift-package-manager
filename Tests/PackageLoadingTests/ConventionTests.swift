@@ -642,63 +642,6 @@ class ConventionTests: XCTestCase {
         }
     }
 
-    func testProducts() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exe/main.swift",
-            "/Sources/Foo/Foo.swift",
-            "/Sources/Bar/Bar.swift",
-            "/Sources/Tests/FooTests/Foo.swift",
-            "/Sources/Tests/BarTests/Bar.swift"
-        )
-
-        let package = PackageDescription.Package(
-            name: "pkg", 
-            products: [
-                .Library(name: "libpmS", type: .static, targets: ["Foo", "Bar"]),
-                .Library(name: "libpmD", type: .dynamic, targets: ["Foo", "Bar"]),
-                .Library(name: "libpmA", targets: ["Foo"]),
-                .Executable(name: "executable", targets: ["exe", "Foo"]),
-            ]
-        )
-
-        PackageBuilderTester(package, in: fs) { result in
-            result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .executable, isTest: false)
-                moduleResult.checkSources(root: "/Sources/exe", paths: "main.swift")
-            }
-
-            result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-            }
-
-            result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
-                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
-            }
-
-            result.checkProduct("libpmS") { productResult in
-                productResult.check(type: .Library(.Static), modules: ["Bar", "Foo"])
-            }
-
-            result.checkProduct("libpmD") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Bar", "Foo"])
-            }
-
-            result.checkProduct("libpmA") { productResult in
-                productResult.check(type: .Library(.Dynamic), modules: ["Foo"])
-            }
-
-            result.checkProduct("executable") { productResult in
-                productResult.check(type: .Executable, modules: ["Foo", "exe"])
-            }
-
-            result.checkProduct("exe") { productResult in
-                productResult.check(type: .Executable, modules: ["exe"])
-            }
-        }
-    }
-
     func testTestsProduct() throws {
         // Make sure product name and test module name are different in single module package.
         var fs = InMemoryFileSystem(emptyFiles:
@@ -752,28 +695,6 @@ class ConventionTests: XCTestCase {
             result.checkProduct("FooPackageTests") { productResult in
                 productResult.check(type: .Test, modules: ["BarTests", "FooTests"])
             }
-        }
-    }
-
-    func testBadProducts() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/Foo.swift"
-        )
-
-        let package = PackageDescription.Package(
-            name: "pkg", 
-            products: [
-                .Library(name: "libpm", type: .dynamic, targets: ["Foo", "Bar"]),
-            ]
-        )
-
-        PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("the product named libpm references a module that could not be found: Bar fix: reference only valid modules from the product")
-        }
-
-        package.products = [.Library(name: "libpm", type: .dynamic, targets: [])]
-        PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("the product named libpm doesn\'t reference any modules fix: reference one or more modules from the product")
         }
     }
 
@@ -1034,8 +955,6 @@ class ConventionTests: XCTestCase {
         ("testLooseSourceFileInTestsDir", testLooseSourceFileInTestsDir),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testModuleMapLayout", testModuleMapLayout),
-        ("testProducts", testProducts),
-        ("testBadProducts", testBadProducts),
         ("testVersionSpecificManifests", testVersionSpecificManifests),
         ("testTestsProduct", testTestsProduct),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
@@ -1155,7 +1074,7 @@ final class PackageBuilderTester {
             self.product = product
         }
 
-        func check(type: ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
+        func check(type: PackageModel.ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(product.type, type, file: file, line: line)
             XCTAssertEqual(product.modules.map{$0.name}.sorted(), modules.sorted(), file: file, line: line)
         }
