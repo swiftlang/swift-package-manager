@@ -21,6 +21,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PkgConfigTests.allTests),
         testCase(SerializationTests.allTests),
         testCase(PkgConfigWhitelistTests.allTests),
+        testCase(ToolsVersionTests.allTests),
     ]
 }
 #endif

@@ -75,6 +75,7 @@ extension Workspace {
             editablesPath: path.appending(component: "Packages"),
             pinsFile: path.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
+            toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             fileSystem: fileSystem,
             repositoryProvider: repositoryProvider)
@@ -1358,6 +1359,79 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testToolsVersionRootPackages() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/root0/foo.swift",
+            "/root1/foo.swift")
+
+        let roots: [AbsolutePath] = ["/root0", "/root1"].map(AbsolutePath.init)
+
+        func swiftVersion(for root: AbsolutePath) -> AbsolutePath {
+            return root.appending(component: ".swift-version")
+        }
+
+        var manifests: [MockManifestLoader.Key: Manifest] = [:]
+        for root in roots {
+            let rootManifest = Manifest(
+                path: AbsolutePath.root.appending(component: Manifest.filename),
+                url: root.asString,
+                package: PackageDescription.Package(name: root.asString),
+                version: nil
+            )
+            manifests[MockManifestLoader.Key(url: root.asString, version: nil)] = rootManifest
+        }
+        let manifestLoader = MockManifestLoader(manifests: manifests)
+
+        func createWorkspace(_ toolsVersion: ToolsVersion) throws -> Workspace {
+            let workspace = try Workspace(
+                dataPath: AbsolutePath.root.appending(component: ".build"),
+                editablesPath: AbsolutePath.root.appending(component: "Packages"),
+                pinsFile: AbsolutePath.root.appending(component: "Package.pins"),
+                manifestLoader: manifestLoader,
+                currentToolsVersion: toolsVersion,
+                delegate: TestWorkspaceDelegate(),
+                fileSystem: fs)
+            workspace.registerPackage(at: roots[0])
+            workspace.registerPackage(at: roots[1])
+            return workspace
+        }
+
+        // We should be able to load when no there is no swift-version.
+        do {
+            let workspace = try createWorkspace(ToolsVersion(string: "3.1.0"))
+            _ = try workspace.loadPackageGraph()
+        }
+
+        // Limit root0 to 3.1.0
+        try fs.writeFileContents(swiftVersion(for: roots[0]), bytes: "3.1.0")
+
+        // Test one root package having swift-version.
+        do {
+            let workspace = try createWorkspace(ToolsVersion(string: "4.0.0"))
+            _ = try workspace.loadPackageGraph()
+        }
+
+        // Limit root1 to 4.0.0
+        try fs.writeFileContents(swiftVersion(for: roots[1]), bytes: "4.0.0")
+
+        // Test both having swift-version but different.
+        do {
+            let workspace = try createWorkspace(ToolsVersion(string: "4.0.0"))
+            _ = try workspace.loadPackageGraph()
+        }
+
+        // Failing case.
+        do {
+            let workspace = try createWorkspace(ToolsVersion(string: "3.1.0"))
+            _ = try workspace.loadPackageGraph()
+            XCTFail()
+        } catch WorkspaceOperationError.incompatibleToolsVersion(let rootPackage, let required, let current) {
+            XCTAssertEqual(rootPackage, roots[1])
+            XCTAssertEqual(required.description, "4.0.0")
+            XCTAssertEqual(current.description, "3.1.0")
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testEditDependency", testEditDependency),
@@ -1379,6 +1453,7 @@ final class WorkspaceTests: XCTestCase {
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testWarnings", testWarnings),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
+        ("testToolsVersionRootPackages", testToolsVersionRootPackages),
     ]
 }
 
