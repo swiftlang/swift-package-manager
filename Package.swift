@@ -170,20 +170,32 @@ let package = Package(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
     ],
-    products: [
-        // Runtime Library: contains the package description API itself.
-        .Library(
-            name: "PackageDescription",
-            type: .dynamic,
-            targets: ["PackageDescription"]),
-
-        // SwiftPM Library: provides package management functionality to clients.
-        .Library(
-            name: "SwiftPM",
-            type: .dynamic,
-            targets: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Workspace"]),
-    ],
     exclude: [
         "Tests/PackageLoadingTests/Inputs",
     ]
+)
+
+
+// The executable products are automatically determined by SwiftPM; any module
+// that contains a `main.swift` source file results in an implicit executable
+// product.
+
+
+// Runtime Library -- contains the package description API itself
+products.append(
+    Product(
+        name: "PackageDescription",
+        type: .Library(.Dynamic),
+        modules: ["PackageDescription"]
+    )
+)
+
+
+// SwiftPM Library -- provides package management functionality to clients
+products.append(
+    Product(
+        name: "SwiftPM",
+        type: .Library(.Dynamic),
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Workspace"]
+    )
 )
