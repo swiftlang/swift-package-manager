@@ -69,6 +69,7 @@ extension Command {
             args += ["-module-name", product.name]
             // Link all the Clang Module's objects into XCTest executable.
             objects += product.modules.flatMap{ $0 as? ClangModule }.flatMap{ ClangModuleBuildMetadata(module: $0, prefix: prefix, otherArgs: []).objects }
+            args += product.clangModuleLinkArguments()
           #if os(macOS)
             args += ["-Xlinker", "-bundle"]
 

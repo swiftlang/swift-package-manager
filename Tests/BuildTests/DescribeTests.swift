@@ -88,20 +88,24 @@ final class DescribeTests: XCTestCase {
     func testClangModuleLinkArguments() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/swift/main.swift",
+            "/Pkg/Sources/lib/lib.swift",
             "/Pkg/Sources/cLib1/see.c",
             "/Pkg/Sources/cLib2/see.c",
-            "/Pkg/Sources/cLib3/see.c"
+            "/Pkg/Sources/cLib3/see.c",
+            "/Pkg/Tests/libTests/someTest.swift"
         )
         let pkg = PackageDescription.Package(
             name: "Pkg",
             targets: [
+                Target(name: "lib", dependencies: ["cLib2"]),
                 Target(name: "swift", dependencies: ["cLib1", "cLib2"]),
                 Target(name: "cLib2", dependencies: ["cLib3"]),
             ]
         )
         let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
-        let product = graph.products.first{ _ in return true }!
-        XCTAssertEqual(product.clangModuleLinkArguments().sorted(), ["-lcLib1", "-lcLib2", "-lcLib3"])
+        let products = Dictionary(items: graph.products.map{ ($0.name, $0) })
+        XCTAssertEqual(products["swift"]!.clangModuleLinkArguments().sorted(), ["-lcLib1", "-lcLib2", "-lcLib3"])
+        XCTAssertEqual(products["PkgPackageTests"]!.clangModuleLinkArguments().sorted(), ["-lcLib2", "-lcLib3"])
     }
 
     static var allTests = [
