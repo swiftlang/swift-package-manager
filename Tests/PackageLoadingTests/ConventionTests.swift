@@ -135,6 +135,7 @@ class ConventionTests: XCTestCase {
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
+                moduleResult.check(swiftCompatibleVersions: nil)
             }
         }
 
@@ -157,6 +158,36 @@ class ConventionTests: XCTestCase {
             result.checkModule("exec") { moduleResult in
                 moduleResult.check(c99name: "exec", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
+            }
+        }
+    }
+
+    func testCompatibleSwiftVersions() throws {
+        // Single swift executable module.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/foo/main.swift",
+            "/bar/bar.swift",
+            "/Tests/fooTests/bar.swift"
+            )
+
+        let package = PackageDescription.Package(name: "pkg", compatibleSwiftVersions: [3, 4])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(c99name: "foo", type: .executable, isTest: false)
+                moduleResult.checkSources(root: "/foo", paths: "main.swift")
+                moduleResult.check(swiftCompatibleVersions: [3, 4])
+            }
+
+            result.checkModule("fooTests") { moduleResult in
+                moduleResult.check(c99name: "fooTests", type: .library, isTest: true)
+                moduleResult.checkSources(root: "/Tests/fooTests", paths: "bar.swift")
+                moduleResult.check(swiftCompatibleVersions: [3, 4])
+            }
+
+            result.checkModule("bar") { moduleResult in
+                moduleResult.check(c99name: "bar", type: .library, isTest: false)
+                moduleResult.checkSources(root: "/bar", paths: "bar.swift")
+                moduleResult.check(swiftCompatibleVersions: [3, 4])
             }
         }
     }
@@ -915,6 +946,7 @@ class ConventionTests: XCTestCase {
 
     static var allTests = [
         ("testCInTests", testCInTests),
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ("testDotSwiftSuffixDirectory", testDotSwiftSuffixDirectory),
         ("testMixedSources", testMixedSources),
@@ -1094,6 +1126,20 @@ final class PackageBuilderTester {
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
+        }
+
+        func check(swiftCompatibleVersions versions: [Int]? = nil, file: StaticString = #file, line: UInt = #line) {
+            guard case let swiftModule as SwiftModule = module else {
+                return XCTFail("\(module) is not a swift module", file: file, line: line)
+            }
+            switch (swiftModule.compatibleSwiftVersions, versions) {
+            case (nil, nil):
+                break
+            case (let lhs?, let rhs?):
+                XCTAssertEqual(lhs, rhs, file: file, line: line)
+            default:
+                XCTFail("\(swiftModule.compatibleSwiftVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
+            }
         }
     }
 }

@@ -173,6 +173,33 @@ class ManifestTests: XCTestCase {
         } catch ManifestParseError.emptyManifestFile {}
     }
 
+    func testCompatibleSwiftVersions() throws {
+        var stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   compatibleSwiftVersions: [3, 4]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        var manifest = try loadManifest(stream.bytes)
+        XCTAssertEqual(manifest.package.compatibleSwiftVersions ?? [], [3, 4])
+
+        stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   compatibleSwiftVersions: []" <<< "\n"
+        stream <<< ")" <<< "\n"
+        manifest = try loadManifest(stream.bytes)
+        XCTAssertEqual(manifest.package.compatibleSwiftVersions!, [])
+
+        stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\")" <<< "\n"
+        manifest = try loadManifest(stream.bytes)
+        XCTAssert(manifest.package.compatibleSwiftVersions == nil)
+    }
+
     func testRuntimeManifestErrors() throws {
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
@@ -250,6 +277,7 @@ class ManifestTests: XCTestCase {
         ("testNonexistentBaseURL", testNonexistentBaseURL),
         ("testInvalidTargetName", testInvalidTargetName),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testRuntimeManifestErrors", testRuntimeManifestErrors),
         ("testProducts", testProducts),
         ("testSwiftInterpreterErrors", testSwiftInterpreterErrors),

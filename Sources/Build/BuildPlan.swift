@@ -335,6 +335,17 @@ public protocol BuildPlanDelegate: class {
 /// A build plan for a package graph.
 public class BuildPlan {
 
+    public enum Error: Swift.Error, Equatable {
+        case incompatibleToolsVersions(module: String)
+
+        static public func ==(lhs: Error, rhs: Error) -> Bool {
+            switch (lhs, rhs) {
+            case (.incompatibleToolsVersions(let lhs), .incompatibleToolsVersions(let rhs)):
+                return lhs == rhs
+            }
+        }
+    }
+
     /// The build parameters.
     public let buildParameters: BuildParameters
 
@@ -360,6 +371,9 @@ public class BuildPlan {
     /// Build plan delegate.
     public let delegate: BuildPlanDelegate?
 
+    /// The tools version for this build plan.
+    let toolsVersion: SwiftVersion
+
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -368,8 +382,11 @@ public class BuildPlan {
         buildParameters: BuildParameters,
         graph: PackageGraph,
         delegate: BuildPlanDelegate? = nil,
+        // FIXME: Use tools-version here after that PR is merged.
+        toolsVersion: SwiftVersion = Versioning.currentVersion,
         fileSystem: FileSystem = localFileSystem
     ) throws {
+        self.toolsVersion = toolsVersion
         self.fileSystem = fileSystem
         self.buildParameters = buildParameters
         self.graph = graph
@@ -412,16 +429,16 @@ public class BuildPlan {
         self.productMap = productMap
         self.targetMap = targetMap
         // Finally plan these targets.
-        plan()
+        try plan()
     }
 
     /// Plan the targets and products.
-    private func plan() {
+    private func plan() throws {
         // Plan targets.
         for buildTarget in targets {
             switch buildTarget {
             case .swift(let target):
-                plan(swiftTarget: target)
+                try plan(swiftTarget: target)
             case .clang(let target):
                 plan(clangTarget: target)
             }
@@ -549,7 +566,16 @@ public class BuildPlan {
     }
 
     /// Plan a Swift target.
-    private func plan(swiftTarget: SwiftTargetDescription) {
+    private func plan(swiftTarget: SwiftTargetDescription) throws {
+        // Ensure that the module sources are compatible with current version of tools.
+        // FIXME: We don't actually make use of the flag during compilation right now because
+        // of the compiler bug https://bugs.swift.org/browse/SR-3791.
+        if let compatibleSwiftVersions = swiftTarget.module.compatibleSwiftVersions {
+            guard compatibleSwiftVersions.contains(toolsVersion.major) else {
+                throw Error.incompatibleToolsVersions(module: swiftTarget.module.name)
+            }
+        }
+
         // We need to iterate recursive dependencies because Swift compiler needs to see all the modules a target depends on.
         for dependency in swiftTarget.module.recursiveDependencies {
             switch dependency.underlyingModule {

@@ -52,13 +52,25 @@ public class Module: ObjectIdentifierProtocol {
 
 public class SwiftModule: Module {
 
+    /// The list of swift versions, this module is compatible with.
+    // FIXME: This should be lifted to a build settings structure once we have that.
+    public let compatibleSwiftVersions: [Int]?
+
     /// Create an executable Swift module from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Module]) {
+        self.compatibleSwiftVersions = nil
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
 
-    public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
+    public init(
+        name: String,
+        isTest: Bool = false,
+        sources: Sources,
+        dependencies: [Module] = [],
+        compatibleSwiftVersions: [Int]? = nil
+    ) {
+        self.compatibleSwiftVersions = compatibleSwiftVersions
         let type: ModuleType = isTest ? .test : sources.computeModuleType()
         super.init(name: name, type: type, sources: sources, dependencies: dependencies)
     }

@@ -520,7 +520,8 @@ public struct PackageBuilder {
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
-                dependencies: moduleDependencies)
+                dependencies: moduleDependencies,
+                compatibleSwiftVersions: manifest.package.compatibleSwiftVersions)
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C module.
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(potentialModule.path.asString) }
