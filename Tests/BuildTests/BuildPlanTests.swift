@@ -243,7 +243,8 @@ final class BuildPlanTests: XCTestCase {
             "/Foo": .init(
                 name: "Foo",
                 targets: [.init(name: "Foo", dependencies: ["Bar"])],
-                dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+                dependencies: [.Package(url: "/Bar", majorVersion: 1)],
+                compatibleSwiftVersions: [2, ToolsVersion.currentToolsVersion.major]),
         ], root: "/Foo", in: fs)
 
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
@@ -259,15 +260,36 @@ final class BuildPlanTests: XCTestCase {
             ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/libBar.\(PackageModel.Product.dynamicLibraryExtension)", "-module-name", "Bar", "-emit-library", "/path/to/build/debug/Bar.build/source.swift.o"])
     }
 
+    func testCompatibleSwiftVersionFailure() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/main.swift"
+        )
+
+        let g = try loadMockPackageGraph4([
+            "/Foo": .init(
+                name: "Foo",
+                compatibleSwiftVersions: [2])
+        ], root: "/Foo", in: fs)
+
+        do {
+            let _ = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
+        } catch BuildPlan.Error.incompatibleToolsVersions(let target, let req, let cur) {
+            XCTAssertEqual(target, "Foo")
+            XCTAssertEqual(req, [2])
+            XCTAssertEqual(cur, ToolsVersion.currentToolsVersion.major)
+        }
+    }
+
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
         ("testCModule", testCModule),
+        ("testCompatibleSwiftVersionFailure", testCompatibleSwiftVersionFailure),
+        ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
-        ("testCppModule", testCppModule),
     ]
 }
 

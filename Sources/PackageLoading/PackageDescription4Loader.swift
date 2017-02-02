@@ -65,6 +65,15 @@ extension PackageDescription4.Package {
             dependencies = array.map { PackageDescription4.Package.Dependency.fromJSON($0, baseURL: baseURL) }
         }
 
+        // Parse the compatible swift versions.
+        var compatibleSwiftVersions: [Int]? = nil
+        if case .array(let array)? = package["compatibleSwiftVersions"] {
+            compatibleSwiftVersions = array.map{
+                guard case .int(let value) = $0 else { fatalError("compatibleSwiftVersions contains non int element") }
+                return value
+            }
+        }
+
         // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = package["exclude"] {
@@ -74,7 +83,15 @@ extension PackageDescription4.Package {
             }
         }
 
-        return PackageDescription4.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, products: products, dependencies: dependencies, exclude: exclude)
+        return PackageDescription4.Package(
+            name: name,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            targets: targets,
+            products: products,
+            dependencies: dependencies,
+            compatibleSwiftVersions: compatibleSwiftVersions,
+            exclude: exclude)
     }
 }
 

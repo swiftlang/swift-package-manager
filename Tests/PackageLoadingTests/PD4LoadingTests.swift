@@ -92,8 +92,42 @@ class PackageDescription4LoadingTests: XCTestCase {
       #endif
     }
 
+    func testCompatibleSwiftVersions() throws {
+      // FIXME: Need to select right PD version for Xcode.
+      #if !Xcode
+        var stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   compatibleSwiftVersions: [3, 4]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.package.compatibleSwiftVersions ?? [], [3, 4])
+        }
+
+        stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   compatibleSwiftVersions: []" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.package.compatibleSwiftVersions!, [])
+        }
+
+        stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            XCTAssert(manifest.package.compatibleSwiftVersions == nil)
+        }
+      #endif
+    }
+
     static var allTests = [
-        ("testTrivial", testTrivial),
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testTargetDependencies", testTargetDependencies),
+        ("testTrivial", testTrivial),
     ]
 }

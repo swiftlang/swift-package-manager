@@ -64,18 +64,25 @@ public class SwiftModule: Module {
 
     /// Create an executable Swift module from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Module]) {
+        self.compatibleSwiftVersions = nil
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
+
+    /// The list of swift versions, this module is compatible with.
+    // FIXME: This should be lifted to a build settings structure once we have that.
+    public let compatibleSwiftVersions: [Int]?
 
     public init(
         name: String,
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Module] = [],
-        productDependencies: [(name: String, package: String?)] = []
+        productDependencies: [(name: String, package: String?)] = [],
+        compatibleSwiftVersions: [Int]? = nil
     ) {
         let type: ModuleType = isTest ? .test : sources.computeModuleType()
+        self.compatibleSwiftVersions = compatibleSwiftVersions
         super.init(
             name: name,
             type: type,

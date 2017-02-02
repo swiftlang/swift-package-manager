@@ -161,6 +161,13 @@ extension Manifest.RawPackage {
             return package.providers
         }
     }
+
+    public var compatibleSwiftVersions: [Int]? {
+        switch self {
+        case .v3(let package): return package.compatibleSwiftVersions
+        case .v4(let package): return package.compatibleSwiftVersions
+        }
+    }
 }
 
 // MARK:- Version shim for PackageDescription4 -> PackageDescription.

@@ -46,12 +46,22 @@ public struct BuildParameters {
     public var linkerFlags: [String] {
         return self.flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
     }
+
+    /// The tools version to use.
+    public let toolsVersion: ToolsVersion
     
-    public init(dataPath: AbsolutePath, configuration: Configuration, toolchain: Toolchain, flags: BuildFlags) {
+    public init(
+        dataPath: AbsolutePath,
+        configuration: Configuration,
+        toolchain: Toolchain,
+        flags: BuildFlags,
+        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+    ) {
         self.dataPath = dataPath
         self.configuration = configuration
         self.toolchain = toolchain
         self.flags = flags
+        self.toolsVersion = toolsVersion
     }
 }
 
@@ -211,6 +221,11 @@ public final class SwiftTargetDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
+    /// The compatible swift versions for this target.
+    var compatibleSwiftVersions: [Int]? {
+        return (module.underlyingModule as! SwiftModule).compatibleSwiftVersions
+    }
+
     /// If this target is a test target.
     public let isTestTarget: Bool
 
@@ -335,6 +350,11 @@ public protocol BuildPlanDelegate: class {
 /// A build plan for a package graph.
 public class BuildPlan {
 
+    public enum Error: Swift.Error {
+        /// The tools version in use not compatible with target's sources.
+        case incompatibleToolsVersions(target: String, required: [Int], current: Int)
+    }
+
     /// The build parameters.
     public let buildParameters: BuildParameters
 
@@ -412,16 +432,16 @@ public class BuildPlan {
         self.productMap = productMap
         self.targetMap = targetMap
         // Finally plan these targets.
-        plan()
+        try plan()
     }
 
     /// Plan the targets and products.
-    private func plan() {
+    private func plan() throws {
         // Plan targets.
         for buildTarget in targets {
             switch buildTarget {
             case .swift(let target):
-                plan(swiftTarget: target)
+                try plan(swiftTarget: target)
             case .clang(let target):
                 plan(clangTarget: target)
             }
@@ -549,7 +569,19 @@ public class BuildPlan {
     }
 
     /// Plan a Swift target.
-    private func plan(swiftTarget: SwiftTargetDescription) {
+    private func plan(swiftTarget: SwiftTargetDescription) throws {
+
+        // Ensure that the module sources are compatible with current version of tools.
+        // Note that we don't actually make use of these flags during compilation because
+        // of the compiler bug https://bugs.swift.org/browse/SR-3791.
+        if let compatibleSwiftVersions = swiftTarget.compatibleSwiftVersions {
+            let majorToolsVersion = buildParameters.toolsVersion.major
+            guard compatibleSwiftVersions.contains(majorToolsVersion) else {
+                throw Error.incompatibleToolsVersions(
+                    target: swiftTarget.module.name, required: compatibleSwiftVersions, current: majorToolsVersion)
+            }
+        }
+
         // We need to iterate recursive dependencies because Swift compiler needs to see all the modules a target depends on.
         for dependency in swiftTarget.module.recursiveDependencies {
             switch dependency.underlyingModule {
