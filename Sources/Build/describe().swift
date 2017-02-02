@@ -18,7 +18,14 @@ import func POSIX.getenv
 /**
   - Returns: path to generated YAML for consumption by the llbuild based swift-build-tool
 */
-public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: PackageGraph, flags: BuildFlags, toolchain: Toolchain) throws -> AbsolutePath {
+public func describe(
+    _ prefix: AbsolutePath,
+    _ conf: Configuration,
+    _ graph: PackageGraph,
+    flags: BuildFlags,
+    toolchain: Toolchain,
+    toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+) throws -> AbsolutePath {
     guard graph.modules.count > 0 else {
         throw Error.noModules
     }
@@ -38,6 +45,17 @@ public func describe(_ prefix: AbsolutePath, _ conf: Configuration, _ graph: Pac
     for module in graph.modules {
         switch module {
         case let module as SwiftModule:
+
+            // Ensure that the module sources are compatible with current version of tools.
+            // Note that we don't actually make use of these flags during compilation because
+            // of the compiler bug https://bugs.swift.org/browse/SR-3791.
+            if let compatibleSwiftVersions = module.compatibleSwiftVersions {
+                guard compatibleSwiftVersions.contains(toolsVersion.major) else {
+                    throw Error.incompatibleToolsVersions(
+                        module: module.name, required: compatibleSwiftVersions, current: toolsVersion.major)
+                }
+            }
+
             let compile = try Command.compile(swiftModule: module, configuration: conf, prefix: prefix, otherArgs: toolchain.swiftPlatformArgs + swiftcArgs, compilerExec: toolchain.swiftCompiler)
             commands.append(compile)
             targets.append([compile], for: module)

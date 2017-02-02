@@ -8,12 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import protocol Basic.FixableError
+import Basic
 import struct PackageModel.Manifest
 
 public enum Error: Swift.Error {
     case noModules
     case onlyCModule(name: String)
+    case incompatibleToolsVersions(module: String, required: [Int], current: Int)
 }
 
 extension Error: FixableError {
@@ -23,6 +24,17 @@ extension Error: FixableError {
             return "no modules found"
         case .onlyCModule(let name):
             return "only system module package \(name) found"
+        case .incompatibleToolsVersions(let module, let required, let current):
+            let stream = BufferedOutputByteStream()
+            if required.isEmpty {
+                stream <<< "Target \(module)'s sources are not compatible with any compiler version."
+                stream <<< " Either set a compatible compiler version or keep it nil to use the default version."
+            } else {
+                let requiredVersions = required.map{String($0)}.joined(separator: ", ")
+                stream <<< "Target \(module)'s sources are compatible with compiler version(s): \(requiredVersions)."
+                stream <<< " Current tools major version is \(current)"
+            }
+            return stream.bytes.asString!
         }
     }
 
@@ -32,6 +44,8 @@ extension Error: FixableError {
                 return "define a module inside \(Manifest.filename)"
             case .onlyCModule:
                 return "to use this system module package, include it in another project"
+            case .incompatibleToolsVersions:
+                return nil
         }
     }
 }
