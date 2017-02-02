@@ -10,10 +10,12 @@
 
 import Basic
 import PackageModel
+import SourceControl
 
 import Utility
 import func POSIX.exit
 import enum PackageLoading.ManifestParseError
+
 import Workspace
 
 public enum Error: Swift.Error {
@@ -105,6 +107,10 @@ public func handle(error: Any) -> Never {
 
     case PackageToolOperationError.insufficientOptions(let usage):
         print(usage, to: &stderr)
+        
+    case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
+        print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
+        
     default:
         print(error: error)
     }

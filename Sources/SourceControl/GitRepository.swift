@@ -15,16 +15,8 @@ import Utility
 import func POSIX.getenv
 import enum POSIX.Error
 
-enum GitRepositoryProviderError: Swift.Error {
-    case gitCloneFailure(url: String, path: AbsolutePath)
-}
-extension GitRepositoryProviderError: CustomStringConvertible {
-    var description: String {
-        switch self {
-        case .gitCloneFailure(let url, let path):
-            return "Failed to clone \(url) to \(path)"
-        }
-    }
+public enum GitRepositoryProviderError: Swift.Error {
+    case gitCloneFailure(url: String, path: AbsolutePath, errorOutput: String)
 }
 
 /// A `git` repository provider.
@@ -60,7 +52,8 @@ public class GitRepositoryProvider: RepositoryProvider {
         processSet?.remove(process)
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
-            throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path)
+            let errorOutput = try result.utf8Output()
+            throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path, errorOutput: errorOutput)
         }
     }
 
