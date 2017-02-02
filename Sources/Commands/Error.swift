@@ -51,7 +51,14 @@ extension Error: FixableError {
     }
 }
 
-public func handle(error: Any) -> Never {
+public func handle(error receivedError: Any) -> Never {
+    // If we got AnyError, unwrap it.
+    let error: Any
+    if case let anyError as AnyError = receivedError {
+        error = anyError.underlyingError
+    } else {
+        error = receivedError
+    }
 
     switch error {
     case ArgumentParserError.unknownOption(let option):
