@@ -966,12 +966,6 @@ private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePa
     return try builder.construct(includingTestModules: true)
 }
 
-extension PackageModel.Package {
-    var allModules: [Module] {
-        return modules + testModules
-    }
-}
-
 final class PackageBuilderTester {
     private enum Result {
         case package(PackageModel.Package)
@@ -1005,7 +999,7 @@ final class PackageBuilderTester {
         do {
             let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
             result = .package(loadedPackage)
-            uncheckedModules = Set(loadedPackage.allModules)
+            uncheckedModules = Set(loadedPackage.modules)
         } catch {
             let errorStr = String(describing: error)
             result = .error(errorStr)
@@ -1040,7 +1034,7 @@ final class PackageBuilderTester {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
-        guard let module = package.allModules.first(where: {$0.name == name}) else {
+        guard let module = package.modules.first(where: {$0.name == name}) else {
             return XCTFail("Module: \(name) not found", file: file, line: line)
         }
         uncheckedModules.remove(module)

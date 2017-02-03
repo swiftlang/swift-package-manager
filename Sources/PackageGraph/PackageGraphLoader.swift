@@ -109,7 +109,7 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         let externalModuleDependencies = dependencies.flatMap{ $0.modules.filter{ !$0.isTest } }
 
         // Topologically Sort all the local modules in this package.
-        let modules = try! topologicalSort(package.modules + package.testModules, successors: { $0.dependencies })
+        let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
 
         // Make sure these module names are unique in the graph.
         if let duplicateModules = externalModuleDependencies.lazy.map({$0.name}).duplicates(modules.lazy.map{$0.name}) {

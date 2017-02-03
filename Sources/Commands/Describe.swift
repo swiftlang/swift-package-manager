@@ -35,7 +35,7 @@ extension Package: JSONSerializable {
         stream <<< "Name: " <<< name <<< "\n"
         stream <<< "Path: " <<< path.asString <<< "\n"
         stream <<< "Modules: " <<< "\n"
-        for module in modules + testModules {
+        for module in modules {
             module.describe(on: stream, indent: 4)
             stream <<< "\n"
         }
@@ -45,7 +45,7 @@ extension Package: JSONSerializable {
         return .dictionary([
             "name": .string(name),
             "path": .string(path.asString),
-            "modules": .array((modules + testModules).map{ $0.toJSON() }),
+            "modules": .array(modules.map{ $0.toJSON() }),
         ])
     }
 }
