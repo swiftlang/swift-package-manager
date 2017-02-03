@@ -208,27 +208,15 @@ public struct PackageBuilder {
     /// The stream to which warnings should be published.
     private let warningStream: OutputByteStream
 
-    /// The dependencies of the package.
-    private let dependencies: [Package]
-
-    /// All the modules of the dependency packages.
-    // FIXME: This needs to go away and modules will be depending on the products of the external packages.
-    private func moduleDependencies() -> [Module] {
-        return dependencies.flatMap{
-             $0.modules.filter{ !$0.isTest }
-        }
-    }
-
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
     ///   - path: The root path of the package.
-    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream, dependencies: [Package]) {
+    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
         self.warningStream = warningStream
-        self.dependencies = dependencies
     }
     
     /// Build a new package following the conventions.
@@ -239,7 +227,7 @@ public struct PackageBuilder {
         let (modules, testModules) = try constructModules().split { !$0.isTest }
         // FIXME: Lift includingTestModules into a higher module.
         let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
-        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products, dependencies: dependencies)
+        return Package(manifest: manifest, path: packagePath, modules: modules, testModules: includingTestModules ? testModules : [], products: products)
     }
 
     // MARK: Utility Predicates
@@ -357,7 +345,7 @@ public struct PackageBuilder {
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
             let sources = Sources(paths: [moduleMapPath], root: packagePath)
-            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers, dependencies: moduleDependencies())]
+            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers)]
         }
 
         // At this point the module can't be a system module, make sure manifest doesn't contain
@@ -417,16 +405,6 @@ public struct PackageBuilder {
             throw ModuleError.modulesNotFound(missingModules.map{$0})
         }
 
-        // Modules of the package dependency.
-        let moduleDeps = moduleDependencies()
-
-        // Find that the module names in this package are unique in its dependencies.
-        let dependencyModuleNames = Set(moduleDeps.map{$0.name})
-        let duplicateModules = dependencyModuleNames.intersection(potentialModulesName)
-        guard duplicateModules.isEmpty else {
-            throw ModuleError.duplicateModule(duplicateModules.first!)
-        }
-
         let targetMap = Dictionary(items: manifest.package.targets.map { ($0.name, $0) })
         let potentialModuleMap = Dictionary(items: potentialModules.map { ($0.name, $0) })
         let successors: (PotentialModule) -> [PotentialModule] = {
@@ -472,8 +450,6 @@ public struct PackageBuilder {
                     deps.append(baseModule)
                 }
             }
-            /// Add inter-package dependencies.
-            deps += moduleDeps
             // Create the module.
             let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps)
             // Add the created module to the map or print no sources warning.

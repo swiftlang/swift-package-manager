@@ -16,13 +16,13 @@ protocol Buildable {
     var isTest: Bool { get }
 }
 
-extension Module: Buildable {
+extension ResolvedModule: Buildable {
     var targetName: String {
         return "<\(name).module>"
     }
 }
 
-extension Product: Buildable {
+extension ResolvedProduct: Buildable {
     var isTest: Bool {
         if case .test = type {
             return true

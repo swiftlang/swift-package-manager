@@ -79,7 +79,12 @@ public enum TargetDescription {
 public final class ClangTargetDescription {
 
     /// The module described by this target.
-    public let module: ClangModule
+    public let module: ResolvedModule
+
+    /// The underlying clang module.
+    public var clangModule: ClangModule {
+        return module.underlyingModule as! ClangModule
+    }
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -104,7 +109,8 @@ public final class ClangTargetDescription {
     let fileSystem: FileSystem
     
     /// Create a new target description with module and build parameters.
-    init(module: ClangModule, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem) throws {
+    init(module: ResolvedModule, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem) throws {
+        assert(module.underlyingModule is ClangModule, "underlying module type mismatch \(module)")
         self.fileSystem = fileSystem
         self.module = module
         self.buildParameters = buildParameters 
@@ -131,7 +137,7 @@ public final class ClangTargetDescription {
         args += buildParameters.flags.cCompilerFlags
         args += optimizationArguments
         args += ["-fobjc-arc", "-fmodules", "-fmodule-name=" + module.c99name]
-        args += ["-I", module.includeDir.asString]
+        args += ["-I", clangModule.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs
         return args
@@ -152,11 +158,11 @@ public final class ClangTargetDescription {
     /// This function either returns path to user provided modulemap or tries to automatically generates it.
     private func computeModulemapPath() throws -> AbsolutePath {
         // If user provided the modulemap, we're done.
-        if localFileSystem.isFile(module.moduleMapPath) {
-            return module.moduleMapPath
+        if localFileSystem.isFile(clangModule.moduleMapPath) {
+            return clangModule.moduleMapPath
         } else {
             // Otherwise try to generate one.
-            var moduleMapGenerator = ModuleMapGenerator(for: module, fileSystem: fileSystem)
+            var moduleMapGenerator = ModuleMapGenerator(for: clangModule, fileSystem: fileSystem)
             // FIXME: We should probably only warn if we're unable to generate the modulemap
             // because the clang target is still a valid, it just can't be imported from Swift modules.
             try moduleMapGenerator.generateModuleMap(inDir: tempsPath)
@@ -177,7 +183,7 @@ public final class ClangTargetDescription {
 public final class SwiftTargetDescription {
 
     /// The module described by this target.
-    public let module: SwiftModule
+    public let module: ResolvedModule
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -201,7 +207,8 @@ public final class SwiftTargetDescription {
     fileprivate var additionalFlags: [String] = []
 
     /// Create a new target description with module and build parameters.
-    init(module: SwiftModule, buildParameters: BuildParameters) {
+    init(module: ResolvedModule, buildParameters: BuildParameters) {
+        assert(module.underlyingModule is SwiftModule, "underlying module type mismatch \(module)")
         self.module = module
         self.buildParameters = buildParameters
     }
@@ -241,7 +248,7 @@ public final class SwiftTargetDescription {
 public final class ProductBuildDescription {
 
     /// The reference to the product.
-    public let product: Product
+    public let product: ResolvedProduct
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -258,7 +265,7 @@ public final class ProductBuildDescription {
     fileprivate var additionalFlags: [String] = []
 
     /// Create a build description for a product.
-    init(product: Product, objects: [AbsolutePath], buildParameters: BuildParameters) {
+    init(product: ResolvedProduct, objects: [AbsolutePath], buildParameters: BuildParameters) {
         self.product = product
         self.buildParameters = buildParameters
         self.objects = objects
@@ -317,7 +324,7 @@ public class BuildPlan {
     public let graph: PackageGraph
 
     /// The target build description map.
-    public let targetMap: [Module: TargetDescription]
+    public let targetMap: [ResolvedModule: TargetDescription]
 
     /// The build targets.
     public var targets: AnySequence<TargetDescription> {
@@ -345,35 +352,26 @@ public class BuildPlan {
         self.graph = graph
         self.delegate = delegate
 
-        let rootModules = graph.rootPackages.flatMap{$0.modules + $0.testModules}
-        // FIXME: Ask this from package graph.
-        // Find the modules we need to build.
-        let modules = try! topologicalSort(rootModules, successors: { $0.dependencies })
-
         // Create build target description for each module which we need to plan.
-        var targetMap = [Module: TargetDescription]()
-        for module in modules {
-             switch module {
-             case let module as SwiftModule:
+        var targetMap = [ResolvedModule: TargetDescription]()
+        for module in graph.modules {
+             switch module.underlyingModule {
+             case is SwiftModule:
                  targetMap[module] = .swift(SwiftTargetDescription(module: module, buildParameters: buildParameters))
-             case let module as ClangModule:
+             case is ClangModule:
                  let target = try ClangTargetDescription(module: module, buildParameters: buildParameters, fileSystem: fileSystem)
                  targetMap[module] = .clang(target)
              case is CModule:
                  break
              default:
-                 fatalError("unhandled \(module)")
+                 fatalError("unhandled \(module.underlyingModule)")
              }
         }
 
         // Create product description for each product we have in the package graph.
         self.buildProducts = graph.products.map { product in
-            // FIXME: Ask this from package graph instead.
-            let allModules = try! topologicalSort(product.modules, successors: { $0.dependencies })
-            assert(allModules.filter{$0.type != .systemModule}.map{targetMap[$0]}.filter{$0 == nil}.isEmpty, "All product modules not reachable by root modules.")
-
             // Collect all library objects.
-            var objects = allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
+            var objects = product.allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
 
             // Add objects from main module, if product is an executable.
             if product.type == .executable {
@@ -387,9 +385,14 @@ public class BuildPlan {
             // This module just contains one source file (LinuxMain.swift) which acts as manifest to the tests on linux.
             // This will go away once it is possible to auto detect tests.
             if product.type == .test {
-                let module = SwiftModule(linuxMain: product.linuxMainTest, name: product.name, dependencies: product.modules)
-                let target = SwiftTargetDescription(module: module, buildParameters: buildParameters)
-                targetMap[module] = .swift(target)
+                let resolvedModule = ResolvedModule(
+                    module: SwiftModule(
+                        linuxMain: product.linuxMainTest,
+                        name: product.name,
+                        dependencies: product.underlyingProduct.modules),
+                    dependencies: product.modules)
+                let target = SwiftTargetDescription(module: resolvedModule, buildParameters: buildParameters)
+                targetMap[resolvedModule] = .swift(target)
                 objects += target.objects
             }
           #endif
@@ -415,12 +418,10 @@ public class BuildPlan {
 
         // Plan products.
         for buildProduct in buildProducts {
-            // FIXME: Ask this from package graph instead.
-            let allModules = try! topologicalSort(buildProduct.product.modules, successors: { $0.dependencies })
             var linkCpp = false
 
-            for module in allModules {
-                switch module {
+            for module in buildProduct.product.allModules {
+                switch module.underlyingModule {
                 case let module as CModule:
                     // Add pkgConfig libs arguments.
                     buildProduct.additionalFlags += pkgConfig(for: module).libs
@@ -446,12 +447,12 @@ public class BuildPlan {
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetDescription) {
         for dependency in clangTarget.module.dependencies {
-            switch dependency {
+            switch dependency.underlyingModule {
             case let module as ClangModule where module.type == .library:
                 // Setup search paths for C dependencies:
                 // Add `-iquote` for dependencies in the package (#include "...").
                 // Add `-I` for dependencies outside the package (#include <...>).
-                let includeFlag = graph.externalModules.contains(dependency) ? "-I" : "-iquote"
+                let includeFlag = graph.isInRootPackages(dependency) ? "-iquote" : "-I"
                 clangTarget.additionalFlags += [includeFlag, module.includeDir.asString]
             case let module as CModule:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(module.moduleMapPath.asString)"]
@@ -464,19 +465,17 @@ public class BuildPlan {
     /// Plan a Swift target.
     private func plan(swiftTarget: SwiftTargetDescription) {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the modules a target depends on.
-        // FIXME: Ask this from package graph.
-        let recursiveDependencies = try! topologicalSort(swiftTarget.module.dependencies, successors: { $0.dependencies })
-        for dependency in recursiveDependencies {
-            switch dependency {
+        for dependency in swiftTarget.module.recursiveDependencies {
+            switch dependency.underlyingModule {
             case let module as ClangModule where module.type == .library:
-                guard case let .clang(target)? = targetMap[module] else { fatalError("unexpected clang module \(module)") }
+                guard case let .clang(target)? = targetMap[dependency] else { fatalError("unexpected clang module \(module)") }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang modules have a modulemap
                 // but we may want to remove that requirement since it is valid for a module to exist without one. However,
                 // in that case it will not be importable in Swift modules. We may want to emit a warning in that case from here.
                 guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.additionalFlags += [
                     "-Xcc", "-fmodule-map-file=\(moduleMap.asString)",
-                    "-I", target.module.includeDir.asString
+                    "-I", target.clangModule.includeDir.asString
                 ]
             case let module as CModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]

@@ -78,55 +78,6 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
     }
 }
 
-// FIXME: Get rid of this extension once we move on to new Build code.
-extension Module {
-    /// Returns the pkgConfig flags (cFlags + libs) escaping the cflags with -Xcc.
-    //
-    // FIXME: This isn't correct. We need to scan both list of flags and escape
-    // the flags (using -Xcc and -Xlinker) which can't be passed directly to
-    // swift compiler.
-    public func pkgConfigSwiftcArgs() throws -> [String] {
-        let pkgArgs = try pkgConfigArgs()
-        return pkgArgs.cFlags.flatMap{ ["-Xcc", $0] } + pkgArgs.libs
-    }
-
-    /// Finds cFlags and link flags for all the CModule i.e. System Module
-    /// dependencies of a module for which a pkgConfigName is provided in the
-    /// manifest file. Also prints the help text in case the .pc file
-    /// for that System Module is not found.
-    /// Note: The flags are exactly what one would get from pkg-config without
-    /// any escaping like -Xcc or -Xlinker which is needed for swift compiler.
-    public func pkgConfigArgs() throws -> (cFlags: [String], libs: [String]) {
-        var cFlags = [String]()
-        var libs = [String]()
-        try recursiveDependencies.forEach { module in
-            guard case let module as CModule = module, let pkgConfigName = module.pkgConfig else {
-                return
-            }
-            var pkgConfigProviderSearchPaths = [AbsolutePath]()
-            if let providers = module.providers,
-                let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers),
-                let providerSearchPath = provider.pkgConfigSearchPath() {
-                pkgConfigProviderSearchPaths.append(providerSearchPath)
-            }
-            do {
-                let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: pkgConfigProviderSearchPaths)
-                cFlags += pkgConfig.cFlags
-                libs += pkgConfig.libs
-                try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
-            }
-            catch PkgConfigError.couldNotFindConfigFile {
-                if let providers = module.providers,
-                    let provider = SystemPackageProvider.providerForCurrentPlatform(providers: providers) {
-                    print("note: you may be able to install \(pkgConfigName) using your system-packager:\n")
-                    print(provider.installText)
-                }
-            }
-        }
-        return removeDefaultFlags(cFlags: cFlags, libs: libs)
-    }
-}
-
 extension SystemPackageProvider {
     public var installText: String {
         switch self {

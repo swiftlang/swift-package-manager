@@ -312,14 +312,12 @@ class ConventionTests: XCTestCase {
                     moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
                     moduleResult.checkSources(root: "/Tests/FooTests", paths: "FooTests.swift", "BarTests.swift")
                     moduleResult.check(dependencies: ["Foo"])
-                    moduleResult.check(recursiveDependencies: ["Foo"])
                 }
 
                 result.checkModule("BarTests") { moduleResult in
                     moduleResult.check(c99name: "BarTests", type: .library, isTest: true)
                     moduleResult.checkSources(root: "/Tests/BarTests", paths: "BazTests.swift")
                     moduleResult.check(dependencies: [])
-                    moduleResult.check(recursiveDependencies: [])
                 }
             }
         }
@@ -359,28 +357,24 @@ class ConventionTests: XCTestCase {
                moduleResult.check(c99name: "ATests", type: .library, isTest: true)
                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["A"])
-               moduleResult.check(recursiveDependencies: ["A"])
            }
 
            result.checkModule("BTests") { moduleResult in
                moduleResult.check(c99name: "BTests", type: .library, isTest: true)
                moduleResult.checkSources(root: "/Tests/BTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["B"])
-               moduleResult.check(recursiveDependencies: ["B"])
            }
 
            result.checkModule("DTests") { moduleResult in
                moduleResult.check(c99name: "DTests", type: .library, isTest: true)
                moduleResult.checkSources(root: "/Tests/DTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["D"])
-               moduleResult.check(recursiveDependencies: ["D"])
            }
 
            result.checkModule("ETests") { moduleResult in
                moduleResult.check(c99name: "ETests", type: .library, isTest: true)
                moduleResult.checkSources(root: "/Tests/ETests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["E"])
-               moduleResult.check(recursiveDependencies: ["E"])
            }
        }
     }
@@ -474,7 +468,6 @@ class ConventionTests: XCTestCase {
                 moduleResult.check(c99name: "Foo", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
-                moduleResult.check(recursiveDependencies: ["Bar"])
             }
 
             for module in ["Bar", "Baz"] {
@@ -494,14 +487,12 @@ class ConventionTests: XCTestCase {
                 moduleResult.check(c99name: "Foo", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
-                moduleResult.check(recursiveDependencies: ["Baz", "Bar"])
             }
 
             result.checkModule("Bar") { moduleResult in
                 moduleResult.check(c99name: "Bar", type: .library, isTest: false)
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
                 moduleResult.check(dependencies: ["Baz"])
-                moduleResult.check(recursiveDependencies: ["Baz"])
             }
 
             result.checkModule("Baz") { moduleResult in
@@ -534,7 +525,6 @@ class ConventionTests: XCTestCase {
                 moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
                 moduleResult.checkSources(root: "/Tests/FooTests", paths: "source.swift")
                 moduleResult.check(dependencies: ["Bar"])
-                moduleResult.check(recursiveDependencies: ["Bar"])
             }
         }
     }
@@ -972,7 +962,7 @@ class ConventionTests: XCTestCase {
 /// - Throws: ModuleError, ProductError
 private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
-    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, dependencies: [])
+    let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream)
     return try builder.construct(includingTestModules: true)
 }
 
@@ -1113,11 +1103,6 @@ final class PackageBuilderTester {
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
-        }
-
-        func check(recursiveDependencies: [String], file: StaticString = #file, line: UInt = #line) {
-            // We need to check in build order here.
-            XCTAssertEqual(module.recursiveDependencies.map { $0.name }, recursiveDependencies, file: file, line: line)
         }
     }
 }

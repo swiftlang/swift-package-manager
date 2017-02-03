@@ -61,16 +61,11 @@ public struct PackageGraphLoader {
             throw PackageGraphError.cycleDetected(cycle)
         }
         // Sort all manifests toplogically.
-        //
-        // This is important because we want to create packages bottom up, so we always have any dependent package.
         let allManifests = try! topologicalSort(rootManifests) { $0.package.dependencies.map{ manifestURLMap[$0.url]! } }
 
         // Create the packages and convert to modules.
-        var packages: [Package] = []
-        var map: [Package: [Module]] = [:]
-        // Mapping of package url (in manifest) to created package.
-        var packageURLMap: [String: Package] = [:]
-        for manifest in allManifests.lazy.reversed() {
+        var manifestToPackage: [Manifest: Package] = [:]
+        for manifest in allManifests {
             let isRootPackage = rootManifestSet.contains(manifest)
 
             // Derive the path to the package.
@@ -78,58 +73,75 @@ public struct PackageGraphLoader {
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
 
-            // Load all of the package dependencies.
-            // We will always have all of the dependent packages because we create packages bottom up.
-            let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
-
             // Create a package from the manifest and sources.
             //
             // FIXME: We should always load the tests, but just change which
             // tests we build based on higher-level logic. This would make it
             // easier to allow testing of external package tests.
-            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem, dependencies: dependencies)
+            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem)
             let package = try builder.construct(includingTestModules: isRootPackage)
-            packages.append(package)
+            manifestToPackage[manifest] = package
             
-            map[package] = package.modules + package.testModules
-            packageURLMap[package.manifest.url] = package
-
             // Throw if any of the non-root package is empty.
             if package.modules.isEmpty && !isRootPackage {
                 throw PackageGraphError.noModules(package)
             }
         }
-
-        let (rootPackages, externalPackages) = packages.split { rootManifests.contains($0.manifest) }
-
-        let modules = try recursiveDependencies(packages.flatMap{ map[$0] ?? [] })
-        let externalModules = try recursiveDependencies(externalPackages.flatMap{ map[$0] ?? [] })
-
-        return PackageGraph(rootPackages: rootPackages, modules: modules, externalModules: Set(externalModules))
+        // Resolve dependencies and create resolved packages.
+        let resolvedPackages = try createResolvedPackages(allManifests: allManifests, manifestToPackage: manifestToPackage)
+        // Filter out the root packages.
+        let resolvedRootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
+        return PackageGraph(rootPackages: resolvedRootPackages)
     }
 }
 
-private func recursiveDependencies(_ modules: [Module]) throws -> [Module] {
-    // FIXME: Refactor this to a common algorithm.
-    var stack = modules
-    var set = Set<Module>()
-    var rv = [Module]()
+/// Create resolved packages from the loaded packages.
+private func createResolvedPackages(allManifests: [Manifest], manifestToPackage: [Manifest: Package]) throws -> [ResolvedPackage] {
+    var packageURLMap: [String: ResolvedPackage] = [:]
+    // Resolve each package in reverse topological order of their manifest.
+    return try allManifests.lazy.reversed().map { manifest in
+        let package = manifestToPackage[manifest]!
 
-    while stack.count > 0 {
-        let top = stack.removeFirst()
-        if !set.contains(top) {
-            rv.append(top)
-            set.insert(top)
-            stack += top.dependencies
-        } else {
-            // See if the module in the set is actually the same.
-            guard let index = set.index(of: top),
-                  top.sources.root != set[index].sources.root else {
-                continue;
-            }
-            fatalError("This should have been caught by package builder.")
+        // Get all the external dependencies of this package.
+        let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
+
+        // FIXME: Temporary until we switch to product based dependencies.
+        let externalModuleDependencies = dependencies.flatMap{ $0.modules.filter{ !$0.isTest } }
+
+        // Topologically Sort all the local modules in this package.
+        let modules = try! topologicalSort(package.modules + package.testModules, successors: { $0.dependencies })
+
+        // Make sure these module names are unique in the graph.
+        if let duplicateModules = externalModuleDependencies.lazy.map({$0.name}).duplicates(modules.lazy.map{$0.name}) {
+            throw ModuleError.duplicateModule(duplicateModules.first!)
         }
-    }
 
-    return rv
+        // Resolve the modules.
+        var moduleToResolved = [Module: ResolvedModule]()
+        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map { module in
+            let moduleDependencies = module.dependencies.map{ moduleToResolved[$0]! }
+            let resolvedModule = ResolvedModule(module: module, dependencies: moduleDependencies + externalModuleDependencies)
+            moduleToResolved[module] = resolvedModule 
+            return resolvedModule
+        }
+
+        // Create resolved products.
+        let resolvedProducts = package.products.map { product in
+            return ResolvedProduct(product: product, modules: product.modules.map{ moduleToResolved[$0]! })
+        }
+        // Create resolved package.
+        let resolvedPackage = ResolvedPackage(
+            package: package, dependencies: dependencies, modules: resolvedModules, products: resolvedProducts)
+        packageURLMap[package.manifest.url] = resolvedPackage 
+        return resolvedPackage 
+    }
+}
+
+// FIXME: Possibly lift this to Basic.
+private extension Array where Element: Hashable {
+    // Returns the set of duplicate elements in two arrays, if any.
+    func duplicates(_ other: Array<Element>) -> Set<Element>? {
+        let dupes = Set(self).intersection(Set(other))
+        return dupes.isEmpty ? nil : dupes
+    }
 }

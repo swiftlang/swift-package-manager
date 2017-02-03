@@ -126,14 +126,14 @@ private class PackageGraphResult {
     }
 
     func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap {$0.modules.map {$0.name} }.sorted(), modules.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.flatMap{ $0.modules }.filter{ !$0.isTest }.map{ $0.name }.sorted(), modules.sorted(), file: file, line: line)
     }
 
     func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap {$0.testModules.map {$0.name} }.sorted(), testModules.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.flatMap{ $0.modules }.filter{ $0.isTest }.map{ $0.name }.sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    func find(module: String) -> Module? {
+    func find(module: String) -> ResolvedModule? {
         for pkg in graph.packages {
             if let module = pkg.modules.first(where: { $0.name == module }) {
                 return module

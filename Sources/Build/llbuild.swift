@@ -112,7 +112,7 @@ public struct LLbuildManifestGenerator {
         var inputs = target.module.sources.paths.map{ $0.asString }
         for dependency in target.module.dependencies {
             // Ignore C Modules.
-            if dependency is CModule { continue }
+            if dependency.underlyingModule is CModule { continue }
             switch plan.targetMap[dependency] {
             case .swift(let target)?:
                 inputs += [target.moduleOutputPath.asString]

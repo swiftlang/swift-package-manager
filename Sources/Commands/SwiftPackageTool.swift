@@ -169,7 +169,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .describe:
             let graph = try loadPackage()
-            describe(graph.rootPackages[0], in: options.describeMode, on: stdoutStream)
+            describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
             let manifest = try loadRootManifest(options)

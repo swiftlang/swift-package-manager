@@ -53,22 +53,6 @@ public final class Package {
     public var name: String {
         return manifest.package.name
     }        
-    
-    /// The URL the package was loaded from.
-    //
-    // FIXME: This probably doesn't belong here...
-    //
-    // FIXME: Eliminate this method forward.
-    public var url: String {
-        return manifest.url
-    }
-
-    /// The version this package was loaded from, if known.
-    //
-    // FIXME: Eliminate this method forward.
-    public var version: Version? {
-        return manifest.version
-    }
 
     /// The modules contained in the package.
     public let modules: [Module]
@@ -81,16 +65,12 @@ public final class Package {
     /// The products produced by the package.
     public let products: [Product]
 
-    /// The resolved dependencies of the package.
-    public let dependencies: [Package]
-
-    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product], dependencies: [Package]) {
+    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product]) {
         self.manifest = manifest
         self.path = path
         self.modules = modules
         self.testModules = testModules
         self.products = products
-        self.dependencies = dependencies 
     }
 
     public enum Error: Swift.Error, Equatable {
