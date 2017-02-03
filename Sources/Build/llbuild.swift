@@ -60,15 +60,15 @@ public struct LLbuildManifestGenerator {
         for buildTarget in plan.targets {
             switch buildTarget {
             case .swift(let target):
-                targets.append(createSwiftCommand(target), isTest: target.module.isTest)
+                targets.append(createSwiftCommand(target), isTest: target.module.type == .test)
             case .clang(let target):
-                targets.append(createClangCommands(target), isTest: target.module.isTest)
+                targets.append(createClangCommands(target), isTest: target.module.type == .test)
             }
         }
 
         // Create command for all products in the plan.
         for buildProduct in plan.buildProducts {
-            targets.append(createLinkCommand(buildProduct), isTest: buildProduct.product.isTest)
+            targets.append(createLinkCommand(buildProduct), isTest: buildProduct.product.type == .test)
         }
 
         // Write the manifest.
@@ -103,7 +103,7 @@ public struct LLbuildManifestGenerator {
                 outputs: [buildProduct.binary.asString],
                 args: buildProduct.linkArguments())
         }
-        return Command(name: buildProduct.product.targetName, tool: tool)
+        return Command(name: buildProduct.targetName, tool: tool)
     }
 
     /// Create command for Swift target description.
@@ -144,6 +144,27 @@ public struct LLbuildManifestGenerator {
     }
 }
 
+extension ResolvedModule {
+    var targetName: String {
+        return "<\(name).module>"
+    }
+}
+
+extension ProductBuildDescription {
+    public var targetName: String {
+        switch product.type {
+        case .library(.dynamic):
+            return "<\(product.name).dylib>"
+        case .test:
+            return "<\(product.name).test>"
+        case .library(.static):
+            return "<\(product.name).a>"
+        case .executable:
+            return "<\(product.name).exe>"
+        }
+    }
+}
+
 /// Swift compiler llbuild tool.
 // FIXME: Remove the old SwiftcTool once we completely shift to the new Build model.
 struct SwiftCompilerTool: ToolProtocol {
@@ -178,7 +199,7 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    objects: " <<< Format.asJSON(target.objects.map{ $0.asString }) <<< "\n"
         stream <<< "    other-args: " <<< Format.asJSON(target.compileArguments()) <<< "\n"
         stream <<< "    sources: " <<< Format.asJSON(target.module.sources.paths.map{ $0.asString }) <<< "\n"
-        stream <<< "    is-library: " <<< Format.asJSON(target.module.type == .library) <<< "\n"
+        stream <<< "    is-library: " <<< Format.asJSON(target.module.type == .library || target.module.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
         stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
     }

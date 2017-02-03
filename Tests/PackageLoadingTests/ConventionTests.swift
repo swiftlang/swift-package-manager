@@ -30,7 +30,7 @@ class ConventionTests: XCTestCase {
         let name = "DotFilesAreIgnored"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.swift")
             }
         }
@@ -43,7 +43,7 @@ class ConventionTests: XCTestCase {
         let name = "SingleSwiftModule"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.swift")
             }
         }
@@ -55,7 +55,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.swift", "Bar.swift")
             }
         }
@@ -67,7 +67,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("lib") { moduleResult in
-                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.swift", "Bar.swift")
             }
         }
@@ -80,8 +80,8 @@ class ConventionTests: XCTestCase {
         let name = "SystemModulePackage"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .systemModule, isTest: false)
-                moduleResult.checkSources(root: "/", paths: "module.modulemap")
+                moduleResult.check(c99name: name, type: .systemModule)
+                moduleResult.checkSources(root: "/")
             }
         }
     }
@@ -94,7 +94,7 @@ class ConventionTests: XCTestCase {
         let name = "SingleClangModule"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/", paths: "Foo.c")
             }
         }
@@ -106,7 +106,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.c")
             }
         }
@@ -118,7 +118,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("lib") { moduleResult in
-                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "Foo.c")
             }
         }
@@ -133,7 +133,7 @@ class ConventionTests: XCTestCase {
         let name = "SingleExecutable"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
             }
         }
@@ -144,7 +144,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift")
             }
         }
@@ -155,7 +155,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("exec") { moduleResult in
-                moduleResult.check(c99name: "exec", type: .executable, isTest: false)
+                moduleResult.check(c99name: "exec", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
             }
         }
@@ -170,7 +170,7 @@ class ConventionTests: XCTestCase {
         let name = "SingleExecutable"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.c", "Bar.c")
             }
         }
@@ -181,7 +181,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.cpp")
             }
         }
@@ -192,7 +192,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("c") { moduleResult in
-                moduleResult.check(c99name: "c", type: .executable, isTest: false)
+                moduleResult.check(c99name: "c", type: .executable)
                 moduleResult.checkSources(root: "/Sources/c", paths: "main.c")
             }
         }
@@ -209,7 +209,7 @@ class ConventionTests: XCTestCase {
         #if false
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
             }
         }
@@ -222,7 +222,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .executable, isTest: false)
+                moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift", "Bar.swift")
             }
         }
@@ -234,7 +234,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .executable, isTest: false)
+                moduleResult.check(c99name: "exe", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exe", paths: "main.swift", "Bar.swift")
             }
         }
@@ -249,17 +249,17 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("MultipleModules", in: fs) { result in
             result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .executable, isTest: false)
+                moduleResult.check(c99name: "A", type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.swift", "foo.swift")
             }
 
             result.checkModule("B") { moduleResult in
-                moduleResult.check(c99name: "B", type: .executable, isTest: false)
+                moduleResult.check(c99name: "B", type: .executable)
                 moduleResult.checkSources(root: "/Sources/B", paths: "main.swift")
             }
 
             result.checkModule("C") { moduleResult in
-                moduleResult.check(c99name: "C", type: .library, isTest: false)
+                moduleResult.check(c99name: "C", type: .library)
                 moduleResult.checkSources(root: "/Sources/C", paths: "Foo.swift")
             }
         }
@@ -277,17 +277,17 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("MultipleModules", in: fs) { result in
             result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .executable, isTest: false)
+                moduleResult.check(c99name: "A", type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.c", "foo.c")
             }
 
             result.checkModule("B") { moduleResult in
-                moduleResult.check(c99name: "B", type: .library, isTest: false)
+                moduleResult.check(c99name: "B", type: .library)
                 moduleResult.checkSources(root: "/Sources/B", paths: "foo.c", "bar.c")
             }
 
             result.checkModule("C") { moduleResult in
-                moduleResult.check(c99name: "C", type: .executable, isTest: false)
+                moduleResult.check(c99name: "C", type: .executable)
                 moduleResult.checkSources(root: "/Sources/C", paths: "main.cpp")
             }
         }
@@ -304,18 +304,18 @@ class ConventionTests: XCTestCase {
 
             PackageBuilderTester("Foo", in: fs) { result in
                 result.checkModule("Foo") { moduleResult in
-                    moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                    moduleResult.check(c99name: "Foo", type: .library)
                     moduleResult.checkSources(root: singleModuleSource.asString, paths: "Foo.swift")
                 }
 
                 result.checkModule("FooTests") { moduleResult in
-                    moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                    moduleResult.check(c99name: "FooTests", type: .test)
                     moduleResult.checkSources(root: "/Tests/FooTests", paths: "FooTests.swift", "BarTests.swift")
                     moduleResult.check(dependencies: ["Foo"])
                 }
 
                 result.checkModule("BarTests") { moduleResult in
-                    moduleResult.check(c99name: "BarTests", type: .library, isTest: true)
+                    moduleResult.check(c99name: "BarTests", type: .test)
                     moduleResult.checkSources(root: "/Tests/BarTests", paths: "BazTests.swift")
                     moduleResult.check(dependencies: [])
                 }
@@ -334,45 +334,45 @@ class ConventionTests: XCTestCase {
 
        PackageBuilderTester("Foo", in: fs) { result in
            result.checkModule("A") { moduleResult in
-               moduleResult.check(c99name: "A", type: .executable, isTest: false)
+               moduleResult.check(c99name: "A", type: .executable)
                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
            }
 
            result.checkModule("B") { moduleResult in
-               moduleResult.check(c99name: "B", type: .library, isTest: false)
+               moduleResult.check(c99name: "B", type: .library)
                moduleResult.checkSources(root: "/Sources/B", paths: "Foo.swift")
            }
 
            result.checkModule("D") { moduleResult in
-               moduleResult.check(c99name: "D", type: .library, isTest: false)
+               moduleResult.check(c99name: "D", type: .library)
                moduleResult.checkSources(root: "/Sources/D", paths: "Foo.c")
            }
 
            result.checkModule("E") { moduleResult in
-               moduleResult.check(c99name: "E", type: .executable, isTest: false)
+               moduleResult.check(c99name: "E", type: .executable)
                moduleResult.checkSources(root: "/Sources/E", paths: "main.c")
            }
 
            result.checkModule("ATests") { moduleResult in
-               moduleResult.check(c99name: "ATests", type: .library, isTest: true)
+               moduleResult.check(c99name: "ATests", type: .test)
                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["A"])
            }
 
            result.checkModule("BTests") { moduleResult in
-               moduleResult.check(c99name: "BTests", type: .library, isTest: true)
+               moduleResult.check(c99name: "BTests", type: .test)
                moduleResult.checkSources(root: "/Tests/BTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["B"])
            }
 
            result.checkModule("DTests") { moduleResult in
-               moduleResult.check(c99name: "DTests", type: .library, isTest: true)
+               moduleResult.check(c99name: "DTests", type: .test)
                moduleResult.checkSources(root: "/Tests/DTests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["D"])
            }
 
            result.checkModule("ETests") { moduleResult in
-               moduleResult.check(c99name: "ETests", type: .library, isTest: true)
+               moduleResult.check(c99name: "ETests", type: .test)
                moduleResult.checkSources(root: "/Tests/ETests", paths: "Foo.swift")
                moduleResult.check(dependencies: ["E"])
            }
@@ -403,12 +403,11 @@ class ConventionTests: XCTestCase {
         PackageBuilderTester("MixedLanguage", in: fs) { result in
             result.checkModule("ModuleA") { moduleResult in
                 moduleResult.check(c99name: "ModuleA", type: .executable)
-                moduleResult.check(isTest: false)
                 moduleResult.checkSources(root: "/Sources/ModuleA", paths: "main.swift")
             }
 
             result.checkModule("ModuleB") { moduleResult in
-                moduleResult.check(c99name: "ModuleB", type: .executable, isTest: false)
+                moduleResult.check(c99name: "ModuleB", type: .executable)
                 moduleResult.checkSources(root: "/Sources/ModuleB", paths: "main.c", "foo.c")
             }
         }
@@ -421,12 +420,12 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkModule("MyPackage") { moduleResult in
-                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.check(type: .executable)
                 moduleResult.checkSources(root: "/Sources", paths: "main.swift")
             }
 
             result.checkModule("MyPackageTests") { moduleResult in
-                moduleResult.check(type: .library, isTest: true)
+                moduleResult.check(type: .test)
                 moduleResult.checkSources(root: "/Tests/MyPackageTests", paths: "abc.c")
             }
 
@@ -449,7 +448,7 @@ class ConventionTests: XCTestCase {
         let name = "pkg"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.check(type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift")
             }
         }
@@ -465,14 +464,14 @@ class ConventionTests: XCTestCase {
         var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
 
             for module in ["Bar", "Baz"] {
                 result.checkModule(module) { moduleResult in
-                    moduleResult.check(c99name: module, type: .library, isTest: false)
+                    moduleResult.check(c99name: module, type: .library)
                     moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
                 }
             }
@@ -484,19 +483,19 @@ class ConventionTests: XCTestCase {
                                                            Target(name: "Bar", dependencies: ["Baz"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
 
             result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.check(c99name: "Bar", type: .library)
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
                 moduleResult.check(dependencies: ["Baz"])
             }
 
             result.checkModule("Baz") { moduleResult in
-                moduleResult.check(c99name: "Baz", type: .library, isTest: false)
+                moduleResult.check(c99name: "Baz", type: .library)
                 moduleResult.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
             }
         }
@@ -512,17 +511,17 @@ class ConventionTests: XCTestCase {
         let package = PackageDescription.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "source.swift")
             }
 
             result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.check(c99name: "Bar", type: .library)
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "source.swift")
             }
 
             result.checkModule("FooTests") { moduleResult in
-                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.check(c99name: "FooTests", type: .test)
                 moduleResult.checkSources(root: "/Tests/FooTests", paths: "source.swift")
                 moduleResult.check(dependencies: ["Bar"])
             }
@@ -608,12 +607,12 @@ class ConventionTests: XCTestCase {
         package = PackageDescription.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("exec") { moduleResult in
-                moduleResult.check(c99name: "exec", type: .executable, isTest: false)
+                moduleResult.check(c99name: "exec", type: .executable)
                 moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
             }
 
             result.checkModule("lib") { moduleResult in
-                moduleResult.check(c99name: "lib", type: .library, isTest: false)
+                moduleResult.check(c99name: "lib", type: .library)
                 moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
         }
@@ -626,7 +625,7 @@ class ConventionTests: XCTestCase {
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
             result.checkModule("pkg1") { moduleResult in
-                moduleResult.check(c99name: "pkg1", type: .library, isTest: false)
+                moduleResult.check(c99name: "pkg1", type: .library)
                 moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
             }
         }
@@ -640,12 +639,12 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("Foo", in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Foo.swift")
             }
 
             result.checkModule("FooTests") { moduleResult in
-                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.check(c99name: "FooTests", type: .test)
                 moduleResult.checkSources(root: "/Tests/FooTests", paths: "Bar.swift")
             }
 
@@ -663,22 +662,22 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("Foo", in: fs) { result in
             result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library, isTest: false)
+                moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
             }
 
             result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library, isTest: false)
+                moduleResult.check(c99name: "Bar", type: .library)
                 moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
             }
 
             result.checkModule("FooTests") { moduleResult in
-                moduleResult.check(c99name: "FooTests", type: .library, isTest: true)
+                moduleResult.check(c99name: "FooTests", type: .test)
                 moduleResult.checkSources(root: "/Tests/FooTests", paths: "Foo.swift")
             }
 
             result.checkModule("BarTests") { moduleResult in
-                moduleResult.check(c99name: "BarTests", type: .library, isTest: true)
+                moduleResult.check(c99name: "BarTests", type: .test)
                 moduleResult.checkSources(root: "/Tests/BarTests", paths: "Bar.swift")
             }
 
@@ -698,7 +697,7 @@ class ConventionTests: XCTestCase {
         let name = "Foo"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library, isTest: false)
+                moduleResult.check(c99name: name, type: .library)
                 moduleResult.checkSources(root: "/Sources", paths: "Package.swift", "Package@swift-1.swift")
             }
         }
@@ -834,7 +833,7 @@ class ConventionTests: XCTestCase {
 
         PackageBuilderTester("MyPackage", in: fs) { result in
             result.checkModule("clib") { moduleResult in
-                moduleResult.check(c99name: "clib", type: .library, isTest: false)
+                moduleResult.check(c99name: "clib", type: .library)
                 moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
             }
         }
@@ -888,7 +887,7 @@ class ConventionTests: XCTestCase {
         package = PackageDescription.Package(name: "pkg", exclude: ["Sources/A/foo.swift", "Sources/B"])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("A") { moduleResult in
-                moduleResult.check(type: .executable, isTest: false)
+                moduleResult.check(type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
             }
         }
@@ -1071,15 +1070,12 @@ final class PackageBuilderTester {
             self.module = module
         }
 
-        func check(c99name: String? = nil, type: ModuleType? = nil, isTest: Bool? = nil, file: StaticString = #file, line: UInt = #line) {
+        func check(c99name: String? = nil, type: ModuleType? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
                 XCTAssertEqual(module.c99name, c99name, file: file, line: line)
             }
             if let type = type {
                 XCTAssertEqual(module.type, type, file: file, line: line)
-            }
-            if let isTest = isTest {
-                XCTAssertEqual(module.isTest, isTest, file: file, line: line)
             }
         }
 

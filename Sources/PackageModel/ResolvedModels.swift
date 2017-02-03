@@ -34,11 +34,6 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
         return underlyingModule.c99name
     }
 
-    /// Whether this is a test module.
-    public var isTest: Bool {
-        return underlyingModule.isTest
-    }
-
     /// The "type" of module.
     public var type: ModuleType {
         return underlyingModule.type

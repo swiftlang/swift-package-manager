@@ -345,8 +345,11 @@ public struct PackageBuilder {
         let moduleMapPath = packagePath.appending(component: "module.modulemap")
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system module.
-            let sources = Sources(paths: [moduleMapPath], root: packagePath)
-            return [CModule(name: manifest.name, sources: sources, path: packagePath, pkgConfig: manifest.package.pkgConfig, providers: manifest.package.providers)]
+            return [CModule(
+                        name: manifest.name,
+                        path: packagePath,
+                        pkgConfig: manifest.package.pkgConfig,
+                        providers: manifest.package.providers)]
         }
 
         // At this point the module can't be a system module, make sure manifest doesn't contain
@@ -549,7 +552,7 @@ public struct PackageBuilder {
 
         // Collect all test modules.
         let testModules = modules.filter{ module in
-            guard module.isTest else { return false }
+            guard module.type == .test else { return false }
           #if os(Linux)
             // FIXME: Ignore C language test modules on linux for now.
             if module is ClangModule {

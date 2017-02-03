@@ -126,11 +126,21 @@ private class PackageGraphResult {
     }
 
     func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap{ $0.modules }.filter{ !$0.isTest }.map{ $0.name }.sorted(), modules.sorted(), file: file, line: line)
+        XCTAssertEqual(
+            graph.packages
+                .flatMap{ $0.modules }
+                .filter{ $0.type != .test }
+                .map{ $0.name }
+                .sorted(), modules.sorted(), file: file, line: line)
     }
 
     func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.flatMap{ $0.modules }.filter{ $0.isTest }.map{ $0.name }.sorted(), testModules.sorted(), file: file, line: line)
+        XCTAssertEqual(
+            graph.packages
+                .flatMap{ $0.modules }
+                .filter{ $0.type == .test }
+                .map{ $0.name }
+                .sorted(), testModules.sorted(), file: file, line: line)
     }
 
     func find(module: String) -> ResolvedModule? {

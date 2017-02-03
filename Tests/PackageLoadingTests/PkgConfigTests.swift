@@ -18,15 +18,11 @@ import TestSupport
 
 extension CModule {
     convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
-        let root = AbsolutePath("/fake")
-        let sources = Sources(paths: [root.appending(component: "module.modulemap")], root: root)
         self.init(
             name: "Foo",
-            sources: sources,
-            path: root,
+            path: AbsolutePath("/fake"),
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
-            providers: providers.isEmpty ? nil : providers,
-            dependencies: [])
+            providers: providers.isEmpty ? nil : providers)
     }
 }
 

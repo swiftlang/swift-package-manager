@@ -28,51 +28,59 @@ import PackageModel
 import PackageLoading
 
 extension ResolvedModule  {
-    
-    var isLibrary: Bool {
-        return type == .library
-    }
 
     var infoPlistFileName: String {
         return "\(c99name)_Info.plist"
     }
 
     var productType: String {
-        if isTest {
+        switch type {
+        case .test:
             return "com.apple.product-type.bundle.unit-test"
-        } else if isLibrary {
+        case .library:
             return "com.apple.product-type.framework"
-        } else {
+        case .executable:
             return "com.apple.product-type.tool"
+        case .systemModule:
+            fatalError()
         }
     }
 
     var explicitFileType: String {
-        if isTest {
+        switch type {
+        case .test:
             return "compiled.mach-o.wrapper.cfbundle"
-        } else if isLibrary {
+        case .library:
             return "wrapper.framework"
-        } else {
+        case .executable:
             return "compiled.mach-o.executable"
+        case .systemModule:
+            fatalError()
         }
     }
 
     var productPath: RelativePath {
-        if isTest {
+        switch type {
+        case .test:
             return RelativePath("\(c99name).xctest")
-        } else if isLibrary {
+        case .library:
             return RelativePath("\(c99name).framework")
-        } else {
+        case .executable:
             return RelativePath(name)
+        case .systemModule:
+            fatalError()
         }
     }
 
     var productName: String {
-        if isLibrary && !isTest {
+        switch type {
+        case .library:
             // you can go without a lib prefix, but something unexpected will break
             return "'lib$(TARGET_NAME)'"
-        } else {
+        case .test, .executable:
             return "'$(TARGET_NAME)'"
+        case .systemModule:
+            fatalError()
         }
     }
 }

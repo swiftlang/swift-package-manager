@@ -93,7 +93,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
         print("</plist>")
     }
 
-    for module in graph.modules where module.isLibrary {
+    for module in graph.modules where module.type == .library {
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
@@ -112,7 +112,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
             print("  <key>CFBundleName</key>")
             print("  <string>$(PRODUCT_NAME)</string>")
             print("  <key>CFBundlePackageType</key>")
-            if module.isTest {
+            if module.type == .test {
                 print("  <string>BNDL</string>")
             } else {
                 print("  <string>FMWK</string>")

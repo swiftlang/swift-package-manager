@@ -18,7 +18,7 @@ func xcscheme(container: String, graph: PackageGraph, enableCodeCoverage: Bool, 
     print("    <BuildActionEntries>")
 
     // Create buildable references for non-test modules.
-    for module in graph.modules where !module.isTest {
+    for module in graph.modules where module.type != .test {
         // Ignore system modules.
         //
         // FIXME: We shouldn't need to manually do this here, instead this
@@ -48,7 +48,7 @@ func xcscheme(container: String, graph: PackageGraph, enableCodeCoverage: Bool, 
     print("    <Testables>")
 
     // Create testable references.
-    for module in graph.modules where module.isTest {
+    for module in graph.modules where module.type == .test {
         print("    <TestableReference")
         print("      skipped = \"NO\">")
         print("      <BuildableReference")
