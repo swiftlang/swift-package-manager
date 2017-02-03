@@ -21,6 +21,8 @@ public struct PackageGraph {
     public let packages: [ResolvedPackage]
 
     /// Returns list of all modules (reachable from root packages) in the graph.
+    // FIXME: This can create inconsistency between what we compile and what we link.
+    // Clients should always get the products and then operate on that instead of asking for modules.
     public let modules: [ResolvedModule]
 
     /// Returns true if a given module is present in root packages.
@@ -39,7 +41,13 @@ public struct PackageGraph {
     /// A sequence of all of the products in the graph.
     ///
     /// This yields all products in topological order starting with the root package.
-    public var products: AnySequence<ResolvedProduct> {
-        return AnySequence(packages.lazy.flatMap{ $0.products })
+    public func products(includingExternalTestProducts: Bool = false) -> AnySequence<ResolvedProduct> {
+        return AnySequence(packages.lazy.flatMap{ package -> [ResolvedProduct] in
+            if self.rootPackages.contains(package) {
+                return package.products
+            } else {
+                return package.products.filter{ $0.type != .test }
+            }
+        })
     }
 }

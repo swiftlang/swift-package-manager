@@ -220,17 +220,13 @@ public struct PackageBuilder {
     }
     
     /// Build a new package following the conventions.
-    ///
-    /// - Parameters:
-    ///   - includingTestModules: Whether the package's test modules should be loaded.
-    public func construct(includingTestModules: Bool) throws -> Package {
-        let (modules, testModules) = try constructModules().split{ !$0.isTest }
-        // FIXME: Lift includingTestModules into a higher module.
-        let products = try constructProducts(modules, testModules: includingTestModules ? testModules : [])
+    public func construct() throws -> Package {
+        let modules = try constructModules()
+        let products = try constructProducts(modules)
         return Package(
             manifest: manifest,
             path: packagePath,
-            modules: modules + (includingTestModules ? testModules : []),
+            modules: modules,
             products: products
         )
     }
@@ -542,43 +538,31 @@ public struct PackageBuilder {
     }
 
     /// Collects the products defined by a package.
-    private func constructProducts(_ modules: [Module], testModules: [Module]) throws -> [Product] {
+    private func constructProducts(_ modules: [Module]) throws -> [Product] {
         var products = [Product]()
 
-    ////// first auto-determine executables
-
-        for case let module as SwiftModule in modules {
-            if module.type == .executable {
-                let product = Product(name: module.name, type: .executable, modules: [module])
-                products.append(product)
-            }
+        // Create executables.
+        for module in modules where module.type == .executable {
+            let product = Product(name: module.name, type: .executable, modules: [module])
+            products.append(product)
         }
 
-    ////// Implict products for ClangModules.
-
-        for case let module as ClangModule in modules {
-            if module.type == .executable {
-                let product = Product(name: module.name, type: .executable, modules: [module])
-                products.append(product)
-            }
-        }
-
-    ////// auto-determine tests
-        // FIXME: https://bugs.swift.org/browse/SR-3438
-        var testModules = testModules
-        // FIXME: Ignore C language test modules on linux for now.
-      #if os(Linux)
-        testModules = testModules.filter { module in
+        // Collect all test modules.
+        let testModules = modules.filter{ module in
+            guard module.isTest else { return false }
+          #if os(Linux)
+            // FIXME: Ignore C language test modules on linux for now.
             if module is ClangModule {
                 warningStream <<< "warning: Ignoring \(module.name) as C language in tests is not yet supported on Linux."
                 warningStream.flush()
                 return false
             }
+          #endif
             return true
         }
-      #endif
+
+        // Create a test product if we have any test module.
         if !testModules.isEmpty {
-            // TODO and then we should prefix all modules with their package probably.
             // Add suffix 'PackageTests' to test product so the module name of linux executable don't collide with
             // main package, if present.
             let product = Product(name: manifest.name + "PackageTests", type: .test, modules: testModules)

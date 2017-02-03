@@ -354,6 +354,8 @@ public class BuildPlan {
 
         // Create build target description for each module which we need to plan.
         var targetMap = [ResolvedModule: TargetDescription]()
+        // FIXME: Instead of operating on modules here, we should get all the products we want to build and
+        // then build up a list of modules from that.
         for module in graph.modules {
              switch module.underlyingModule {
              case is SwiftModule:
@@ -369,7 +371,7 @@ public class BuildPlan {
         }
 
         // Create product description for each product we have in the package graph.
-        self.buildProducts = graph.products.map { product in
+        self.buildProducts = graph.products().map { product in
             // Collect all library objects.
             var objects = product.allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
 
