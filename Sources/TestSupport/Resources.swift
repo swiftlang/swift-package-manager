@@ -10,6 +10,7 @@
 
 #if os(macOS)
 import Foundation.NSBundle
+import class Foundation.ProcessInfo
 #endif
 
 import Basic
@@ -27,6 +28,10 @@ private func bundleRoot() -> AbsolutePath {
 #endif
 
 public struct Resources: ManifestResourceProvider {
+
+    /// Shared resources instance.
+    public static let sharedResources = Resources()
+
 #if os(macOS)
   #if Xcode
     public let swiftCompilerPath: AbsolutePath = {
@@ -36,8 +41,17 @@ public struct Resources: ManifestResourceProvider {
         } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
             swiftc = AbsolutePath(override)
         } else {
-            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
+            // Add the toolchains override from build time logs if present.
+            // This lets us use toolchain selection from Xcode preferences menu.
+            var env = ProcessInfo.processInfo.environment
+            let toolchainsLog = bundleRoot().appending(component: "toolchains-build-time-value.log")
+            if localFileSystem.exists(toolchainsLog) {
+                env["TOOLCHAINS"] = try! localFileSystem.readFileContents(toolchainsLog).asString!
+            }
+            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"], environment: env).chuzzle() ?? "BADPATH")
         }
+        print("bundle: " + bundleRoot().asString)
+        print("Using swift: " + swiftc.asString)
         precondition(swiftc != AbsolutePath("/usr/bin/swiftc"))
         return swiftc
     }()
@@ -50,5 +64,5 @@ public struct Resources: ManifestResourceProvider {
     public let swiftCompilerPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
 #endif
 
-    public init() {}
+    private init() {}
 }

@@ -23,7 +23,7 @@ import TestSupport
 @testable import Utility
 
 class ManifestTests: XCTestCase {
-    let manifestLoader = ManifestLoader(resources: Resources())
+    let manifestLoader = ManifestLoader(resources: Resources.sharedResources)
 
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {

@@ -96,6 +96,11 @@ public enum SwiftPMProduct {
         // create special conditions in swift-build for swiftpm tests.
         environment["IS_SWIFTPM_TEST"] = "1"
 
+        // Add the path to swift compiler if its not manually overridden.
+        if environment["SWIFT_EXEC"] == nil {
+            environment["SWIFT_EXEC"] = Resources.sharedResources.swiftCompilerPath.asString
+        }
+
         var out = ""
         var completeArgs = [path.asString]
         // FIXME: Eliminate this when we switch to the new resolver.
