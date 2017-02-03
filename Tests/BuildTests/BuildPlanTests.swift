@@ -156,12 +156,7 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
         result.checkProductsCount(1)
-
-      #if os(macOS)
         result.checkTargetsCount(2)
-      #else
-        result.checkTargetsCount(3)
-      #endif
         
         let foo = try result.target(for: "Foo").swiftTarget().compileArguments()
         XCTAssertEqual(foo, ["-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
@@ -172,7 +167,7 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name", "PkgPackageTests", "-Xlinker", "-bundle", "/path/to/build/debug/FooTests.build/foo.swift.o", "/path/to/build/debug/Foo.build/foo.swift.o"])
       #else
-        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable", "/path/to/build/debug/FooTests.build/foo.swift.o", "/path/to/build/debug/Foo.build/foo.swift.o", "/path/to/build/debug/PkgPackageTests.build/LinuxMain.swift.o"])
+        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable", "/Pkg/Tests/LinuxMain.swift", "-I", "/path/to/build/debug", "/path/to/build/debug/FooTests.build/foo.swift.o", "/path/to/build/debug/Foo.build/foo.swift.o"])
       #endif
     }
 

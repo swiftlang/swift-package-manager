@@ -55,7 +55,6 @@ extension Module: JSONSerializable {
     func describe(on stream: OutputByteStream, indent: Int = 0) {
         stream <<< Format.asRepeating(string: " ", count: indent) <<< "Name: " <<< name <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent) <<< "C99name: " <<< c99name <<< "\n"
-        stream <<< Format.asRepeating(string: " ", count: indent) <<< "Test module: " <<< isTest.description <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent) <<< "Type: " <<< type.rawValue <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent) <<< "Module type: " <<< String(describing: type(of: self)) <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent) <<< "Path: " <<< sources.root.asString <<< "\n"
@@ -66,7 +65,6 @@ extension Module: JSONSerializable {
         return .dictionary([
             "name": .string(name),
             "c99name": .string(c99name),
-            "is_test": .bool(isTest),
             "type": type.toJSON(),
             "module_type": .string(String(describing: type(of: self))),
             "path": .string(sources.root.asString),

@@ -296,6 +296,11 @@ public final class ProductBuildDescription {
             args += ["-Xlinker", "-bundle"]
           #else
             args += ["-emit-executable"]
+            // FIXME: Insert the LinuxMain file on linux.
+            // This just contains one source file (LinuxMain.swift) which acts as manifest to the tests on linux.
+            // This will go away once it is possible to auto detect tests.
+            args += [product.linuxMainTest.asString]
+            args += ["-I", buildParameters.buildPath.asString]
           #endif
         case .library(.dynamic):
             args += ["-emit-library"]
@@ -373,7 +378,7 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph.
         self.buildProducts = graph.products().map { product in
             // Collect all library objects.
-            var objects = product.allModules.filter{ $0.type == .library }.flatMap{ targetMap[$0]!.objects }
+            var objects = product.allModules.filter{ $0.type == .library || $0.type == .test }.flatMap{ targetMap[$0]!.objects }
 
             // Add objects from main module, if product is an executable.
             if product.type == .executable {
@@ -382,22 +387,6 @@ public class BuildPlan {
                 objects += targetMap[mainModule]!.objects
             }
 
-          #if os(Linux)
-            // FIXME: Create a module and target for LinuxMain file on linux.
-            // This module just contains one source file (LinuxMain.swift) which acts as manifest to the tests on linux.
-            // This will go away once it is possible to auto detect tests.
-            if product.type == .test {
-                let resolvedModule = ResolvedModule(
-                    module: SwiftModule(
-                        linuxMain: product.linuxMainTest,
-                        name: product.name,
-                        dependencies: product.underlyingProduct.modules),
-                    dependencies: product.modules)
-                let target = SwiftTargetDescription(module: resolvedModule, buildParameters: buildParameters)
-                targetMap[resolvedModule] = .swift(target)
-                objects += target.objects
-            }
-          #endif
             return ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
         }
 

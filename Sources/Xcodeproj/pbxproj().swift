@@ -254,7 +254,7 @@ func xcodeProject(
         }
     }
 
-    let (rootModules, testModules) = graph.rootPackages[0].modules.split{ !$0.isTest }
+    let (rootModules, testModules) = graph.rootPackages[0].modules.split{ $0.type != .test }
     
     // Create a `Sources` group for the source modules in the root package.
     createSourceGroup(named: "Sources", for: rootModules, in: project.mainGroup)
@@ -286,7 +286,7 @@ func xcodeProject(
             }
             // Create the source group for all the modules in the package.
             // FIXME: Eliminate filtering test from here.
-            createSourceGroup(named: groupName, for: package.modules.filter{!$0.isTest}, in: dependenciesGroup)
+            createSourceGroup(named: groupName, for: package.modules.filter{$0.type != .test}, in: dependenciesGroup)
         }
     }
     
@@ -316,16 +316,19 @@ func xcodeProject(
         // Determine the appropriate product type based on the kind of module.
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
-        if module.isTest {
-            productType = .unitTest
-        } else if module.isLibrary {
-            productType = .framework
-        } else {
+        switch module.type {
+        case .executable:
             productType = .executable
+        case .library:
+            productType = .framework
+        case .test:
+            productType = .unitTest
+        case .systemModule:
+            fatalError()
         }
 
         // Warn if the module name is invalid.
-        if module.isLibrary && invalidXcodeModuleNames.contains(module.c99name) {
+        if module.type == .library && invalidXcodeModuleNames.contains(module.c99name) {
             warningStream <<< "warning: Target '\(module.name)' conflicts with required framework filenames, rename this target to avoid conflicts.\n"
             warningStream.flush()
         }
@@ -359,7 +362,7 @@ func xcodeProject(
             targetSettings.common.LIBRARY_SEARCH_PATHS = ["$(PROJECT_TEMP_DIR)/SymlinkLibs/"]
         }
         
-        if module.isTest {
+        if module.type == .test {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks"]
         }
@@ -370,7 +373,7 @@ func xcodeProject(
             // Note that this means that the built binaries are not suitable for
             // distribution, among other things.
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
-            if module.isLibrary {
+            if module.type == .library {
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"
                 targetSettings.common.PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)"
@@ -526,7 +529,7 @@ func xcodeProject(
             target.addDependency(on: otherTarget)
             
             // If it's a library, we also add want to link against its product.
-            if dependency.isLibrary {
+            if dependency.type == .library {
                 let _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
             }
             // For swift modules, if a clang dependency has a module map, add it via -fmodule-map-file.

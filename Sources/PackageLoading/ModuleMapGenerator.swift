@@ -80,15 +80,8 @@ public struct ModuleMapGenerator {
 
     /// Create the synthesized module map, if necessary.
     /// Note: modulemap is not generated for test modules.
-    //
-    // FIXME: We recompute the generated modulemap's path when building swift
-    // modules in `XccFlags(prefix: String)` there shouldn't be need to redo
-    // this there but is difficult in current architecture.
     public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
-        // Don't generate modulemap for a Test module.
-        guard !module.isTest else {
-            return
-        }
+        assert(module.type == .library)
 
         ///Return if module map is already present
         guard !fileSystem.isFile(module.moduleMapPath) else {

@@ -102,7 +102,7 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
 
         // FIXME: Temporary until we switch to product based dependencies.
-        let externalModuleDependencies = dependencies.flatMap{ $0.modules.filter{ !$0.isTest } }
+        let externalModuleDependencies = dependencies.flatMap{ $0.modules.filter{ $0.type != .test } }
 
         // Topologically Sort all the local modules in this package.
         let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
