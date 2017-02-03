@@ -74,12 +74,8 @@ public struct PackageGraphLoader {
             let packagePath = manifest.path.parentDirectory
 
             // Create a package from the manifest and sources.
-            //
-            // FIXME: We should always load the tests, but just change which
-            // tests we build based on higher-level logic. This would make it
-            // easier to allow testing of external package tests.
             let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem)
-            let package = try builder.construct(includingTestModules: isRootPackage)
+            let package = try builder.construct()
             manifestToPackage[manifest] = package
             
             // Throw if any of the non-root package is empty.

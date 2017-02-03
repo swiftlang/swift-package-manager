@@ -963,7 +963,7 @@ class ConventionTests: XCTestCase {
 private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
     let builder = PackageBuilder(manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream)
-    return try builder.construct(includingTestModules: true)
+    return try builder.construct()
 }
 
 final class PackageBuilderTester {

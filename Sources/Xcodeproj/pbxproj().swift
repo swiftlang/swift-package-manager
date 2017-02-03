@@ -285,7 +285,8 @@ func xcodeProject(
                 groupName += " " + version.description
             }
             // Create the source group for all the modules in the package.
-            createSourceGroup(named: groupName, for: package.modules, in: dependenciesGroup)
+            // FIXME: Eliminate filtering test from here.
+            createSourceGroup(named: groupName, for: package.modules.filter{!$0.isTest}, in: dependenciesGroup)
         }
     }
     

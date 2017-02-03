@@ -112,7 +112,7 @@ class ManifestTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageWithInvalidTargets") { (prefix: AbsolutePath) in
             do {
                 let manifest = try manifestLoader.loadFile(path: prefix.appending(component: "Package.swift"), baseURL: prefix.asString, version: nil)
-                _ = try PackageBuilder(manifest: manifest, path: prefix).construct(includingTestModules: false)
+                _ = try PackageBuilder(manifest: manifest, path: prefix).construct()
             } catch ModuleError.modulesNotFound(let moduleNames) {
                 XCTAssertEqual(Set(moduleNames), Set(["Bake", "Fake"]))
             } catch {

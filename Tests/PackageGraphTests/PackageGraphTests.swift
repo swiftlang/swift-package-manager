@@ -37,7 +37,7 @@ class PackageGraphTests: XCTestCase {
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
             result.check(modules: "Bar", "Foo", "Baz")
-            result.check(testModules: "BazTests")
+            result.check(testModules: "BazTests", "FooTests")
             result.check(dependencies: "Foo", module: "Bar")
             result.check(dependencies: "Bar", module: "Baz")
         }
@@ -80,7 +80,7 @@ class PackageGraphTests: XCTestCase {
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(modules: "Bar", "Foo")
-            result.check(testModules: "BarTests")
+            result.check(testModules: "BarTests", "SomeTests")
         }
     }
 
