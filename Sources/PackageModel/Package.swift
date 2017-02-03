@@ -57,19 +57,13 @@ public final class Package {
     /// The modules contained in the package.
     public let modules: [Module]
 
-    /// The test modules contained in the package.
-    //
-    // FIXME: Should these just be merged with the regular modules?
-    public let testModules: [Module]
-
     /// The products produced by the package.
     public let products: [Product]
 
-    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], testModules: [Module], products: [Product]) {
+    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], products: [Product]) {
         self.manifest = manifest
         self.path = path
         self.modules = modules
-        self.testModules = testModules
         self.products = products
     }
 
