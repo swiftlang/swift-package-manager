@@ -314,7 +314,6 @@ public final class ProductBuildDescription {
         }
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
-        args += ["-module-name", product.name]
         args += dylibs.map{ "-l" + $0.product.name }
 
         switch product.type {
@@ -324,6 +323,7 @@ public final class ProductBuildDescription {
             // No arguments for static libraries.
             return []
         case .test:
+            args += ["-module-name", product.name]
             // Test products are bundle on macOS, executable on linux.
           #if os(macOS)
             args += ["-Xlinker", "-bundle"]
@@ -333,6 +333,7 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
         case .executable:
+            args += ["-module-name", product.executableModule.c99name]
             args += ["-emit-executable"]
         }
         args += objects.map{$0.asString}
@@ -485,6 +486,11 @@ public class BuildPlan {
         buildProduct.dylibs = dependencies.dylibs.map{ productMap[$0]! }
         buildProduct.objects = dependencies.staticTargets.flatMap{ targetMap[$0]!.objects }
 
+        if buildProduct.product.type == .executable {
+            if case .swift(let swiftTarget)? = targetMap[buildProduct.product.executableModule] {
+                buildProduct.objects += [swiftTarget.moduleOutputPath]
+            }
+        }
     }
 
     /// Computes the dependencies of a product.
