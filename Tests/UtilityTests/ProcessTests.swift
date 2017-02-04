@@ -100,10 +100,35 @@ class ProcessTests: XCTestCase {
             XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
         }
     }
+    
+    func testThreadSafetyOnWaitUntilExit() throws {
+        let process = Process(args: "echo", "hello")
+        try process.launch()
+        
+        var result1: String = ""
+        var result2: String = ""
+        
+        let t1 = Thread {
+            result1 = try! process.waitUntilExit().utf8Output()
+        }
+        
+        let t2 = Thread {
+            result2 = try! process.waitUntilExit().utf8Output()
+        }
+        
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        
+        XCTAssertEqual(result1, "hello\n")
+        XCTAssertEqual(result2, "hello\n")
+    }
 
     static var allTests = [
         ("testBasics", testBasics),
         ("testPopen", testPopen),
         ("testSignals", testSignals),
+        ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),
     ]
 }
