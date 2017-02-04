@@ -24,7 +24,21 @@ struct ToolDefaults: ManifestResourceProvider {
     // this is not a production ready mode
 
     // FIXME: This isn't correct; we need to handle a missing SWIFT_EXEC.
-    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory)
+//    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory)
+    // FIXME: This probably isn't much better, but it does solve the issue no my machine.
+    static var SWIFT_EXEC: AbsolutePath {
+        if let env = getenv("SWIFT_EXEC") {
+            return AbsolutePath(env, relativeTo: currentWorkingDirectory)
+        } else {
+            do {
+                try setenv("SWIFT_EXEC", value:"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc")
+            } catch let error {
+                fatalError("getenv(\"SWIFT_EXEC\") returned nil, caught \(error) while calling setenv(\"SWIFT_EXEC\", value:\"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc\") so that subsequent calls to getenv(\"SWIFT_EXEC\") could return a value. The error is fatal because infinite loops are bad, mmmkay?")
+            }
+            return self.SWIFT_EXEC
+        }
+    }
+
     static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swift-build-tool")
     static let libdir = execBinDir
   #else

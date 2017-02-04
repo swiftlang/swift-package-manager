@@ -36,9 +36,13 @@ import func libc.sleep
 ///    assume that there's no feedback during the build)
 ///
 final class IncrementalBuildTests: XCTestCase {
-
+    override func setUp() {
+        super.setUp()
+        
+    }
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
+            print("prefix: \(prefix)")
             // Build it once and capture the log (this will be a full build).
             let fullLog = try executeSwiftBuild(prefix, printIfError: true)
             
@@ -52,9 +56,8 @@ final class IncrementalBuildTests: XCTestCase {
             // for it to detect.
             let sourceFile = prefix.appending(components: "Sources", "Foo.c")
             let stream = BufferedOutputByteStream()
-            stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
+            stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\nint i = 0;"
             try localFileSystem.writeFileContents(sourceFile, bytes: stream.bytes)
-            
             // Now build again.  This should be an incremental build.
             let log2 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
@@ -62,13 +65,67 @@ final class IncrementalBuildTests: XCTestCase {
             // Now build again without changing anything.  This should be a null
             // build.
             let log3 = try executeSwiftBuild(prefix, printIfError: true)
-            XCTAssertFalse(log3.contains("Compile CLibrarySources Foo.c"))
+            XCTAssertTrue(log3 == "")
+            
         }
     }
+    // These were all copy/pasted/tweaked from 
+    // testIncrementalSingleModuleCLibraryInSources()
+    // FIXME: These tests should probably be done with an InMemoryFileSystem, 
+    // but I couldn't figure out how to get them to interact with a shell.
+    func testFixture() {
+        fixture(name: "IncrementalBuildTests") { prefix in
+            print("**************TESTFIXTURE PREFIX: \(prefix.asString)")
+            
+        }
+    }
+    func testAddAndFixSourceCodeError() {
+//        fixture(name: "ClangModules/CLibrarySources") { prefix in
+//            print("prefix: \(prefix)")
+//            // Build it once and capture the log (this will be a full build).
+//            let fullLog = try executeSwiftBuild(prefix, printIfError: true)
+//            
+//            // Check various things that we expect to see in the full build log.
+//            // FIXME:  This is specific to the format of the log output, which
+//            // is quite unfortunate but not easily avoidable at the moment.
+//            XCTAssertTrue(fullLog.contains("Compile CLibrarySources Foo.c"))
+//            
+//            // Modify the source file in a way that changes its size so that the low-level
+//            // build system can detect the change. The timestamp change might be too less
+//            // for it to detect.
+//            let sourceFile = prefix.appending(components: "Sources", "Foo.c")
+//            let stream = BufferedOutputByteStream()
+//            stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\nint i = 0;"
+//            try localFileSystem.writeFileContents(sourceFile, bytes: stream.bytes)
+//            // Now build again.  This should be an incremental build.
+//            let log2 = try executeSwiftBuild(prefix, printIfError: true)
+//            XCTAssertTrue(log2.contains("Compile CLibrarySources Foo.c"))
+//            
+//            // Now build again without changing anything.  This should be a null
+//            // build.
+//            let log3 = try executeSwiftBuild(prefix, printIfError: true)
+//            XCTAssertTrue(log3 == "")
+//            
+//        }
+//        
+    }
+    func testAddAndFixPackageError() {
+        
+    }
+    func testAddAndRemoveTargets() {
+        
+    }
+    func testAddAndRemovePackageDependencies() {
+        
+    }
+    func testAddAndRemoveTargetDependencies() {
+        
+    }
+    func testAddAndRemoveSourceFiles() {
+        
+    }
     
-    // FIXME:  We should add a lot more test cases here; the one above is just
-    // a starter test.
-    
+
     static var allTests = [
         ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
     ]
