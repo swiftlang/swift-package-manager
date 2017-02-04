@@ -15,6 +15,5 @@ let package = Package(
     name: "Dependency",
     dependencies: [
     .Package(url: "../DependencyLib", majorVersion: 1),
-    .Package(url: "../DependencyHelper", majorVersion: 1),
     ]
 )

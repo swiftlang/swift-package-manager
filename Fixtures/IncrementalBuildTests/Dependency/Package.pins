@@ -2,12 +2,6 @@
   "autoPin": true,
   "pins": [
     {
-      "package": "DependencyHelper",
-      "reason": null,
-      "repositoryURL": "/Users/bigfreaky/devroot/swift-package-manager/Fixtures/IncrementalBuildTests/DependencyHelper",
-      "version": "1.0.0"
-    },
-    {
       "package": "DependencyLib",
       "reason": null,
       "repositoryURL": "/Users/bigfreaky/devroot/swift-package-manager/Fixtures/IncrementalBuildTests/DependencyLib",
