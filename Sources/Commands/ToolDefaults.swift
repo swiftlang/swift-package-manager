@@ -34,7 +34,7 @@ struct ToolDefaults: ManifestResourceProvider {
             do {
                 try setenv("SWIFT_EXEC", value:"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc")
             } catch let error {
-                fatalError("getenv(\"SWIFT_EXEC\") returned nil, and we then caught \(error) while calling setenv(\"SWIFT_EXEC\", value:\"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc\") so that subsequent calls to getenv(\"SWIFT_EXEC\") could return a value, so that we can have a path for SWIFT_EXEC. The error is fatal to prevent an infinite loop.")
+                fatalError("getenv(\"SWIFT_EXEC\") returned nil, and we then caught \"\(error)\" while calling setenv(\"SWIFT_EXEC\", value:\"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc\") so that subsequent calls to getenv(\"SWIFT_EXEC\") could return a value, so that we can have a path for SWIFT_EXEC. The error is fatal to prevent an infinite loop.")
             }
             return self.SWIFT_EXEC
         }
@@ -47,7 +47,7 @@ struct ToolDefaults: ManifestResourceProvider {
             do {
                 try setenv("SWIFT_EXEC", value:"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc")
             } catch let error {
-                fatalError("getenv(\"SWIFT_EXEC\") returned nil, and we then caught \(error) while calling setenv(\"SWIFT_EXEC\", value:\"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc\") so that subsequent calls to getenv(\"SWIFT_EXEC\") could return a value, so that we can have a path for llbuild. The error is fatal to prevent an infinite loop.")
+                fatalError("getenv(\"SWIFT_EXEC\") returned nil, and we then caught \"\(error)\" while calling setenv(\"SWIFT_EXEC\", value:\"/Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swiftc\") so that subsequent calls to getenv(\"SWIFT_EXEC\") could return a value, so that we can have a path for llbuild. The error is fatal to prevent an infinite loop.")
             }
             return self.llbuild
         }
