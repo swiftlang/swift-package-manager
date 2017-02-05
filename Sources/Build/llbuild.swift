@@ -97,9 +97,10 @@ public struct LLbuildManifestGenerator {
         if buildProduct.product.type == .library(.static) {
             tool = ArchiveTool(inputs: buildProduct.objects.map{$0.asString}, outputs: [buildProduct.binary.asString])
         } else {
+            let inputs = buildProduct.objects + buildProduct.dylibs.map{$0.binary}
             tool = ShellTool(
                 description: "Linking \(buildProduct.binary.prettyPath)",
-                inputs: buildProduct.objects.map{$0.asString},
+                inputs: inputs.map{$0.asString},
                 outputs: [buildProduct.binary.asString],
                 args: buildProduct.linkArguments())
         }
@@ -108,18 +109,41 @@ public struct LLbuildManifestGenerator {
 
     /// Create command for Swift target description.
     private func createSwiftCommand(_ target: SwiftTargetDescription) -> Command {
-        // Compute inputs.
+        // Compute inital inputs.
         var inputs = target.module.sources.paths.map{ $0.asString }
-        for dependency in target.module.dependencies {
+
+        func addStaticTargetInputs(_ target: ResolvedModule) {
             // Ignore C Modules.
-            if dependency.underlyingModule is CModule { continue }
-            switch plan.targetMap[dependency] {
+            if target.underlyingModule is CModule { return }
+            switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs += [target.moduleOutputPath.asString]
             case .clang(let target)?:
                 inputs += target.objects.map{$0.asString}
             case nil:
-                fatalError("unexpected: module \(dependency) not in target map \(plan.targetMap)")
+                fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
+            }
+        }
+
+        for dependency in target.module.dependencies {
+            switch dependency {
+            case .target(let target):
+                addStaticTargetInputs(target)
+
+            case .product(let product):
+                switch product.type {
+                case .executable, .library(.dynamic):
+                    // Establish a dependency on binary of the product.
+                    inputs += [plan.productMap[product]!.binary.asString]
+
+                // For automatic and static libraries, add their targets as static input.
+                case .library(.automatic), .library(.static):
+                    for target in product.modules {
+                        addStaticTargetInputs(target)
+                    }
+                case .test:
+                    break
+                }
             }
         }
 

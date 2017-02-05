@@ -208,11 +208,26 @@ public struct PackageBuilder {
     /// The stream to which warnings should be published.
     private let warningStream: OutputByteStream
 
+    /// Create a product for all of the package's library targets.
+    private let createImplicitProduct: Bool
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
+    ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
-    public init(manifest: Manifest, path: AbsolutePath, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
+    ///   - fileSystem: The file system on which the builder should be run.
+    ///   - warningStream: The stream on which warnings should be emitted.
+    ///   - createImplicitProduct: If there should be an implicit product 
+    ///         created for all of the package's library targets.
+    public init(
+        manifest: Manifest,
+        path: AbsolutePath,
+        fileSystem: FileSystem = localFileSystem,
+        warningStream: OutputByteStream = stdoutStream,
+        createImplicitProduct: Bool
+    ) {
+        self.createImplicitProduct = createImplicitProduct
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
@@ -595,6 +610,15 @@ public struct PackageBuilder {
             let modules = try modulesFrom(targetNames: p.modules, product: p.name)
             let product = Product(name: p.name, type: .init(p.type), modules: modules)
             products.append(product)
+        }
+
+        // Create a product for the entire package.
+        // FIXME: This is to be done only when parsing the manifest in Swift 3 mode.
+        if createImplicitProduct {
+            let libraryModules = modules.filter{ $0.type == .library }
+            if !libraryModules.isEmpty {
+                products += [Product(name: manifest.name, type: .library(.automatic), modules: libraryModules)]
+            }
         }
 
         return products

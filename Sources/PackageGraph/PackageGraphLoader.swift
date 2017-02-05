@@ -74,7 +74,8 @@ public struct PackageGraphLoader {
             let packagePath = manifest.path.parentDirectory
 
             // Create a package from the manifest and sources.
-            let builder = PackageBuilder(manifest: manifest, path: packagePath, fileSystem: fileSystem)
+            let builder = PackageBuilder(
+                manifest: manifest, path: packagePath, fileSystem: fileSystem, createImplicitProduct: !isRootPackage)
             let package = try builder.construct()
             manifestToPackage[manifest] = package
             
@@ -101,22 +102,32 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         // Get all the external dependencies of this package.
         let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
 
-        // FIXME: Temporary until we switch to product based dependencies.
-        let externalModuleDependencies = dependencies.flatMap{ $0.modules.filter{ $0.type != .test } }
-
         // Topologically Sort all the local modules in this package.
         let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
 
         // Make sure these module names are unique in the graph.
-        if let duplicateModules = externalModuleDependencies.lazy.map({$0.name}).duplicates(modules.lazy.map{$0.name}) {
+        let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.flatMap{ $0.name }
+        if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map{$0.name}) {
             throw ModuleError.duplicateModule(duplicateModules.first!)
         }
+
+        // Add system module dependencies directly to the target's dependencies because they are 
+        // not representable as a product.
+        let systemModulesDependencies = dependencies.flatMap{ $0.modules }
+            .filter{ $0.type == .systemModule }.map(ResolvedModule.Dependency.target)
+
+        // Get the product dependencies for targets in this package.
+        // Note: This needs to be derived from explicit decl in Swift 4 manifests.
+        let productDependencies = dependencies.flatMap{ $0.products }.filter{ $0.type != .test }.map(ResolvedModule.Dependency.product)
 
         // Resolve the modules.
         var moduleToResolved = [Module: ResolvedModule]()
         let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map { module in
-            let moduleDependencies = module.dependencies.map{ moduleToResolved[$0]! }
-            let resolvedModule = ResolvedModule(module: module, dependencies: moduleDependencies + externalModuleDependencies)
+            let moduleDependencies = module.dependencies.map{ moduleToResolved[$0]! }.map(ResolvedModule.Dependency.target)
+            let resolvedModule = ResolvedModule(
+                module: module,
+                dependencies: moduleDependencies + systemModulesDependencies + productDependencies
+            )
             moduleToResolved[module] = resolvedModule 
             return resolvedModule
         }
