@@ -12,5 +12,5 @@ import PackageDescription
 
 // For testing whether removing and readding a file incrementally builds correctly
 let package = Package(
-    name: "FileAddRemoveTests",
+    name: "FileAddRemoveTest"
 )
