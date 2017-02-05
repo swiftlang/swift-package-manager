@@ -26,7 +26,8 @@ struct ToolDefaults: ManifestResourceProvider {
     // FIXME: This isn't correct; we need to handle a missing SWIFT_EXEC.
 //    static let SWIFT_EXEC = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory)
 //    static let llbuild = AbsolutePath(getenv("SWIFT_EXEC")!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swift-build-tool")
-    // FIXME: This probably isn't much better, but it does solve the issue on my machine.
+    // FIXME: This probably isn't much better, but it seem to solve the issue
+    // on my machine.
     static var SWIFT_EXEC: AbsolutePath {
         if let env = getenv("SWIFT_EXEC") {
             return AbsolutePath(env, relativeTo: currentWorkingDirectory)

@@ -25,7 +25,56 @@ enum IncBuildErrorMessages {
     static let unexpectedBuildFailure = "Unexpected build failure"
     static let unexpectedBuildSuccess = "Unexpected build success"
 }
+/// returns an array of keys whose value is nil. Pass an array of keys to
+/// `allowableNils` if it's not an error for something to be nil.
+@discardableResult
+func checkForNils(_ logs: [String : String?], allowableNils: [String] = []) -> [String] {
+    return logs.keys.filter { logs[$0]! != (nil as String?) || allowableNils.contains($0) }
+}
 
+func getNumberOfLinkedModules(from: String?) -> Int {
+    let logLines = (from ?? "").components(separatedBy: "\n")
+    return logLines.filter {$0.hasPrefix("Linking")}.count
+}
+
+func tryBuild(_ prefix: AbsolutePath, body: () -> () = {}) -> String? {
+    body()
+    return try? executeSwiftBuild(prefix, printIfError: true)
+}
+
+typealias BuildLog = [String : String?]
+
+// Seems like this is too tied to the build's log format
+struct BuildResult {
+    let nilLog: Bool
+    let nullBuild: Bool
+    let modules: [(name: String, fileCount: Int)]
+    let linkedBinaries: [(path: String, name: String)]
+    var totalFileCount: Int { return modules.reduce(0) { $0 + $1.fileCount } }
+    
+    init(_ log: String?) {
+        if let log = log {
+            nilLog = false
+            nullBuild = log == ""
+            let logLines = log.components(separatedBy: "\n")
+            let compileLines = logLines.filter {$0.hasPrefix("Compile Swift Module") && $0.contains("(") && $0.hasSuffix(" sources)") }
+            modules = compileLines
+                .map { ($0.components(separatedBy: "\'")[1], Int($0.components(separatedBy: "(").last!.components(separatedBy: CharacterSet.whitespaces)[0])!) }
+            linkedBinaries = logLines
+                .filter { $0.hasPrefix("Linking ") && $0.contains("/") }
+                .map {
+                    let path = $0.substring(from: $0.range(of: " ")!.upperBound)
+                    let name = path.components(separatedBy: "/").last!
+                    return (path, name)
+            }
+        } else {
+            nilLog = true
+            nullBuild = false
+            modules = []
+            linkedBinaries = []
+        }
+    }
+}
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
 /// point, and because of the time they take, they need to be kept minimal.
 /// There are at least a couple of ways in which this could be improved to a
@@ -52,6 +101,14 @@ final class IncrementalBuildTests: XCTestCase {
     /// Can probably be set to `false`, as long as a test checks that building
     /// without changing anything doesn't do anything regardless of this value
     var alwaysDoRedundancyCheck = false
+    
+    /// Some common build names
+    let builds = (
+        initial: "Initial Full Build",
+        withError: "Build with an Error",
+        withErrorFixed: "Build with the Error Fixed",
+        null: "Null Build"
+    )
     
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
@@ -86,17 +143,17 @@ final class IncrementalBuildTests: XCTestCase {
     /// making any changes, doesn't actually do anything
     func testNullBuilds() {
         fixture(name: "IncrementalBuildTests/FileAddRemoveTest") { prefix in
-            let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
-            let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
+            let buildLogs = [
+                builds.initial : try? executeSwiftBuild(prefix, printIfError: true),
+                builds.null : try? executeSwiftBuild(prefix, printIfError: true)
+            ]
             
-            // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
+            checkForNils(buildLogs).forEach { XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)") }
             
             // Compare logs
-            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): builds 1 and 2")
-            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
+            XCTAssert(buildLogs[builds.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(buildLogs[builds.initial]! != buildLogs[builds.null]!, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): builds 1 and 2")
+            XCTAssert(buildLogs[builds.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
         }
     }
     
@@ -104,38 +161,45 @@ final class IncrementalBuildTests: XCTestCase {
         fixture(name: "IncrementalBuildTests/SourceCodeError") { prefix in
             let sourceFile = prefix.appending(components: "Sources", "SecondLine.swift")
             
+            var log = BuildLog()
             let preChange = BufferedOutputByteStream()
             let postChange = BufferedOutputByteStream()
             preChange <<< (try localFileSystem.readFileContents(sourceFile))
             postChange <<< preChange.bytes.asReadableString <<< "b\n"
 
-            let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
+            log[builds.initial] = tryBuild(prefix) //try? executeSwiftBuild(prefix, printIfError: true)
             // Introduce an error to one of the files, and try to compile
-            try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
-            let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
+//            try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
+//            log[builds.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            log[builds.withError] = tryBuild(prefix) {
+                try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
+            }
             // Fix the error in the file, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: preChange.bytes)
-            let buildLog3 = try? executeSwiftBuild(prefix, printIfError: true)
+            log[builds.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
             // Once more, to verify it doesn't do anything for no changes
-            let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            log[builds.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
-            // `buildLog2` *should* be nil, because we expect this build to fail
-            // Sometimes it ends up *not* being nil. However, in those cases, it
-            // doesn't try to link, either. So if it's not nil we check to see
-            // if the build log contains an entry from the linker. Oddly enough,
-            // this lack of complete failure seems to correct the issue with
-            // build 3 not being incremental
-            XCTAssert(buildLog2 == nil || buildLog2?.contains("Linking ./.") == false, "\(#function): \(IncBuildErrorMessages.unexpectedBuildSuccess): build 2 - \(buildLog2!)")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
+            checkForNils(log, allowableNils: [builds.withError]).forEach {
+                XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+            }
             
-            // build 3 should only compile the 1 edited file, but it seems to
-            // regularly compile all 3
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3 - \(buildLog1 ?? String())")
+            let buildStats: [String : BuildResult] = {
+                var dict = [String : BuildResult]()
+                log.forEach {
+                    dict[$0.key] = BuildResult($0.value)
+                }
+                return dict
+            }()
+            
+            let initialBuildFileCount = buildStats[builds.initial]!.totalFileCount
+            let incBuildFileCount = buildStats[builds.withErrorFixed]!.totalFileCount
+            print(buildStats[builds.initial]!.linkedBinaries)
+            print("loggy")
+            XCTAssert(initialBuildFileCount != incBuildFileCount, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): )")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(buildStats[builds.null]!.totalFileCount == 0, "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
