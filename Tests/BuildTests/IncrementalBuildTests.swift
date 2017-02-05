@@ -18,7 +18,8 @@ import func libc.sleep
 /// The common error messages.
 enum IncBuildErrorMessages {
     static let fullBuildSameAsIncrementalBuild = "A full build log was the same as an incremental build log"
-    static let buildsShouldBeDissimilar = "Two builds with different #s of files shouldn't have the same build log"
+    static let unexpectedSimilar = "Unexpectedly found two similar build logs"
+    static let unexpectedDissimilar = "Unexpectedly found two dissimilar build logs"
     static let unexpectedBuild = "Unexpected build"
     static let unexpectedNullBuild = "Unexpected null build"
     static let unexpectedBuildFailure = "Unexpected build failure"
@@ -86,13 +87,13 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
             
             // Compare logs
-            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild) for buildLog1")
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog2")
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): builds 1 and 2")
+            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
         }
     }
     
@@ -103,8 +104,8 @@ final class IncrementalBuildTests: XCTestCase {
             let preChange = BufferedOutputByteStream()
             let postChange = BufferedOutputByteStream()
             preChange <<< (try localFileSystem.readFileContents(sourceFile))
-            postChange <<< (try localFileSystem.readFileContents(sourceFile)) <<< "b"
-            
+            postChange <<< preChange.bytes.asReadableString <<< "b\n"
+
             let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
             // Introduce an error to one of the files, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
@@ -116,17 +117,16 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            // FIXME: `buildLog2` *should* be nil, and it used to be. I'm not
-            // sure why it isn't failing anymore.
-            XCTAssert(buildLog2 == nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildSuccess) for buildLog2: \(buildLog2!)")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            // `buildLog2` *should* be nil, because we expect this build to fail
+            XCTAssert(buildLog2 == nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildSuccess): build 2 - \(buildLog2!)")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
             
             // build 3 should only compile the 1 edited file
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
@@ -149,19 +149,19 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
 
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 == nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildSuccess) for buildLog2: \(buildLog2!)")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 == nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildSuccess): build 2 - \(buildLog2!)")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
 
-            // The initial build log should build everything, but the post-fix
-            // build log should only compile the 1 edited file
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
-            // There shouldn't be anything to build here, since only
-            // Package.swift was edited
-            XCTAssert(buildLog3 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog3")
+            // Check logs
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3")
+            // There shouldn't be anything to build here, since we only edited
+            // the Package.swift file
+            XCTAssert(buildLog3 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
@@ -185,21 +185,20 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
             
             // Check the logs
-            // Initial build... should *not* be empty
-            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild) for buildLog1")
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
             // 1st rebuild... there's nothing actually using the dependency, so
             // this should be a null build
-            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog2")
+            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
             // 2nd rebuild... should still be a null build
-            XCTAssert(buildLog3 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog3")
+            XCTAssert(buildLog3 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
@@ -230,24 +229,24 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
             
             // Check logs
-            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
-            XCTAssert(buildLog2 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            XCTAssert(buildLog3 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(buildLog2 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 2")
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): builds 1 and 2")
+            XCTAssert(buildLog3 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 3")
             // The file that got removed contains an extension that overrides
             // the default implementation of something in a protocol, which is
             // only referenced from main.swift. AFAIK, that means that we should
             // only actually be compiling main.swift and FileTesterExt. If that's
             // not the case, these two build logs should be equal
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild) for buildLogs 1 and 3")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
             
         }
     }
@@ -268,16 +267,19 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
             
-            // compare the logs
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            // Check the logs
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 1")
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): builds 1 and 2")
+            // FIXME: I'm not sure if this is intentional, or if it's just a quirk
+            XCTAssert(buildLog2 == buildLog3, "\(#function): \(IncBuildErrorMessages.unexpectedDissimilar): build 3")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
@@ -297,16 +299,20 @@ final class IncrementalBuildTests: XCTestCase {
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
 
             // Check for build failures
-            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
-            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
-            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
-            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
             
             // compare the logs
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(buildLog2 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 2")
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 2")
+            XCTAssert(buildLog3 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 3")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): builds 1 and 3")
+            XCTAssert(buildLog2 == buildLog3, "\(#function): \(IncBuildErrorMessages.unexpectedDissimilar): builds 2 and 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
         
     }
