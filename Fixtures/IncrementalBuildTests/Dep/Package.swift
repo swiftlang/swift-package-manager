@@ -10,16 +10,8 @@
 
 import PackageDescription
 
-// For testing whether removing/readding a target incrementally builds correctly
+// For testing whether adding/removing a target incrementally builds correctly
 let package = Package(
-    name: "StayOnTarget",
-    
-    targets: [
-        Target(
-            name: "T1",
-            dependencies: []),
-        Target(
-            name: "T2",
-            dependencies: []),
-        ]
+    name: "Dependency",
+    dependencies: [.Package(url: "Packages/DepLib", majorVersion: 0)]
 )

@@ -16,10 +16,11 @@ import Utility
 import func libc.sleep
 
 /// The common error messages.
-struct IncBuildErrorMessages {
-    static let fullBuildSameAsIncrementalBuild = "A full build was the same as an incremental build"
+enum IncBuildErrorMessages {
+    static let fullBuildSameAsIncrementalBuild = "A full build log was the same as an incremental build log"
     static let buildsShouldBeDissimilar = "Two builds with different #s of files shouldn't have the same build log"
     static let unexpectedBuild = "Unexpected build"
+    static let unexpectedNullBuild = "Unexpected null build"
     static let unexpectedBuildFailure = "Unexpected build failure"
     static let unexpectedBuildSuccess = "Unexpected build success"
 }
@@ -46,7 +47,7 @@ struct IncBuildErrorMessages {
 final class IncrementalBuildTests: XCTestCase {
     /// Can probably be set to `false`, as long as a test checks that building
     /// without changing anything doesn't do anything regardless of this value
-    var alwaysDoRedundancyCheck = true
+    var alwaysDoRedundancyCheck = false
     
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
@@ -74,9 +75,27 @@ final class IncrementalBuildTests: XCTestCase {
             // build.
             let log3 = try executeSwiftBuild(prefix, printIfError: true)
             XCTAssertTrue(log3 == "")
-            
         }
     }
+    
+    /// This is the test that'll always explicitly check that building twice
+    /// without making any changes doesn't do anything
+    func testNullBuilds() {
+        fixture(name: "IncrementalBuildTests/FileAddRemoveTest") { prefix in
+            let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
+            let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
+            
+            // Check for build failures
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
+            
+            // Compare logs
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild) for buildLog1")
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
+            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog2")
+        }
+    }
+    
     func testAddFixSourceCodeError() {
         fixture(name: "IncrementalBuildTests/SourceCodeError") { prefix in
             let sourceFile = prefix.appending(components: "Sources", "SecondLine.swift")
@@ -110,6 +129,7 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
         }
     }
+    
     func testAddFixPackageError() {
         fixture(name: "IncrementalBuildTests/PackageError") { prefix in
             let sourceFile = prefix.appending(component: "Package.swift")
@@ -144,45 +164,45 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
         }
     }
-    // FIXME: For some reason, git freaks out on this test and causes "$ swift build"
-    // to crash on this one. The error is: Failed to clone /private/var/folders/03/kpjxdjn53nv_l53s4l9kn5p40000gp/T/IncrementalBuildTests_Dependency.xEpVSf/DependencyLib to <AbsolutePath:"/private/var/folders/03/kpjxdjn53nv_l53s4l9kn5p40000gp/T/IncrementalBuildTests_Dependency.xEpVSf/IncrementalBuildTests_Dependency/.build/repositories/DependencyLib--5321191958938219742">
-    func testAddAndRemovePackageDependencies() {
-        fixture(name: "IncrementalBuildTests/Dependency") { prefix in
-            let depPkgPath = prefix.appending(components: "PackageFiles", "PkgDep.swift")
-            let noDepPkgPath = prefix.appending(components: "PackageFiles", "NoPkgDep.swift")
+    
+    func testAddRemovePackageDependencies() {
+        fixture(name: "IncrementalBuildTests/Dep") { prefix in
             let packagePath = prefix.appending(component: "Package.swift")
-            let depPkg = BufferedOutputByteStream()
-            let noDepPkg = BufferedOutputByteStream()
+            let packageDep = BufferedOutputByteStream()
+            let packageNoDep = BufferedOutputByteStream()
             
-            do { depPkg <<< (try localFileSystem.readFileContents(depPkgPath)) }
-            catch let error { XCTFail("caught: \(error) trying to read \(depPkgPath.asString)") }
-            
-            do { noDepPkg <<< (try localFileSystem.readFileContents(noDepPkgPath)) }
-            catch let error { XCTFail("caught: \(error) trying to read \(noDepPkgPath.asString)") }
-            
-            try localFileSystem.writeFileContents(packagePath, bytes: depPkg.bytes)
+            packageDep <<< (try localFileSystem.readFileContents(packagePath))
+            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "            dependencies: [.Package(url: \"Packages/DepLib\", majorVersion: 0)]\n", with: "")
+
             let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
             // remove the dependency
-            try localFileSystem.writeFileContents(packagePath, bytes: noDepPkg.bytes)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
             let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
             // put it back
-            try localFileSystem.writeFileContents(packagePath, bytes: depPkg.bytes)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
             let buildLog3 = try? executeSwiftBuild(prefix, printIfError: true)
             // Once more, to verify it doesn't do anything for no changes
             let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
+            // Check for build failures
             XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
             XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
             XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
             XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
             
-            // compare the logs
-            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            // Check the logs
+            // Initial build... should *not* be empty
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild) for buildLog1")
+            // 1st rebuild... there's nothing actually using the dependency, so
+            // this should be a null build
+            XCTAssert(buildLog2 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog2")
+            // 2nd rebuild... should still be a null build
+            XCTAssert(buildLog3 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog3")
             // There shouldn't be anything for build 4 to do
             XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
         }
     }
+    
     func testAddRemoveFiles() {
         fixture(name: "IncrementalBuildTests/FileAddRemoveTest") { prefix in
             let extraFilePath = prefix.appending(components: "Sources", "FileTesterExt.swift")
@@ -215,28 +235,101 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
             XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
             
-            // Compare logs
-            
+            // Check logs
+            XCTAssert(buildLog1 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(buildLog2 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
             XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
-            
+            XCTAssert(buildLog3 != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild)")
             // The file that got removed contains an extension that overrides
             // the default implementation of something in a protocol, which is
             // only referenced from main.swift. AFAIK, that means that we should
-            // only actually be compiling main.swift and FileTesterExt.
+            // only actually be compiling main.swift and FileTesterExt. If that's
+            // not the case, these two build logs should be equal
             XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild) for buildLogs 1 and 3")
             // There shouldn't be anything for build 4 to do
             XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
             
         }
     }
-    func testAddAndRemoveTargetDependencies() {
-        
+//    import PackageDescription
+//    
+//    let package = Package(
+//        name: "Foo",
+//        targets: [
+//            Target(name: "FooLib"),
+//            Target(name: "Foo2Lib", dependencies: ["FooLib"]),
+//            Target(name: "Foo_macOS", dependencies: ["FooLib"]),
+//            Target(name: "Foo_iOS", dependencies: ["Foo2Lib"]),
+//            ]
+//    )
+
+    func testAddRemoveTargetDependencies() {
+        fixture(name: "IncrementalBuildTests/TrgtDeps") { prefix in
+            let packagePath = prefix.appending(component: "Package.swift")
+            let packageDep = BufferedOutputByteStream()
+            let packageNoDep = BufferedOutputByteStream()
+            packageDep <<< (try localFileSystem.readFileContents(packagePath))
+            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "Target(name: \"Foo2Lib\", dependencies: [\"FooLib\"]),", with: "Target(name: \"Foo2Lib\"),")
+            
+            let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
+            let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
+            let buildLog3 = try? executeSwiftBuild(prefix, printIfError: true)
+            let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            
+            // Check for build failures
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            
+            // compare the logs
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            // There shouldn't be anything for build 4 to do
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+        }
     }
-    func testAddAndRemoveTargets() {
+    
+    func testAddRemoveTargets() {
+        fixture(name: "IncrementalBuildTests/TrgtDeps") { prefix in
+            let packagePath = prefix.appending(component: "Package.swift")
+            let packageDep = BufferedOutputByteStream()
+            let packageNoDep = BufferedOutputByteStream()
+            packageDep <<< (try localFileSystem.readFileContents(packagePath))
+            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "        Target(name: \"Foo3Lib\", dependencies: [\"FooLib\"]),\n", with: "")
+            
+            let buildLog1 = try? executeSwiftBuild(prefix, printIfError: true)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
+            let buildLog2 = try? executeSwiftBuild(prefix, printIfError: true)
+            try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
+            let buildLog3 = try? executeSwiftBuild(prefix, printIfError: true)
+            let buildLog4 = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+
+            // Check for build failures
+            XCTAssert(buildLog1 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog1")
+            XCTAssert(buildLog2 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog2")
+            XCTAssert(buildLog3 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog3")
+            XCTAssert(buildLog4 != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure) for buildLog4")
+            
+            // compare the logs
+            XCTAssert(buildLog1 != buildLog2, "\(#function): \(IncBuildErrorMessages.buildsShouldBeDissimilar)")
+            XCTAssert(buildLog1 != buildLog3, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            // There shouldn't be anything for build 4 to do
+            XCTAssert(buildLog4 == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild) for buildLog4")
+        }
         
     }
 
     static var allTests = [
-        ("testIncrementalSingleModuleCLibraryInSources", testIncrementalSingleModuleCLibraryInSources),
+        ("testIncrementalSingleModuleCLibraryInSources",testIncrementalSingleModuleCLibraryInSources),
+        ("testNullBuilds",                              testNullBuilds),
+        ("testAddFixPackageError",                      testAddFixPackageError),
+        ("testAddFixSourceCodeError",                   testAddFixSourceCodeError),
+        ("testAddRemoveFiles",                          testAddRemoveFiles),
+        ("testAddRemoveTargets",                        testAddRemoveTargets),
+        ("testAddRemovePackageDependencies",            testAddRemovePackageDependencies),
+        ("testAddRemoveTargetDependencies",             testAddRemoveTargetDependencies),
     ]
 }
