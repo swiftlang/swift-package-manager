@@ -297,6 +297,8 @@ public final class ProductBuildDescription {
         args += ["-module-name", product.name]
 
         switch product.type {
+        case .library(.automatic):
+            fatalError()
         case .library(.static):
             // No arguments for static libraries.
             return []

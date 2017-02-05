@@ -159,6 +159,8 @@ extension ProductBuildDescription {
             return "<\(product.name).test>"
         case .library(.static):
             return "<\(product.name).a>"
+        case .library(.automatic):
+            fatalError()
         case .executable:
             return "<\(product.name).exe>"
         }

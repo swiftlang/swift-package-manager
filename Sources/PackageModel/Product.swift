@@ -12,10 +12,18 @@ import Basic
 
 /// The type of product.
 public enum ProductType {
+
     /// The type of library.
     public enum LibraryType {
+
+        /// Static library.
         case `static`
+
+        /// Dynamic library.
         case `dynamic`
+
+        /// The type of library is unspecified and should be decided by package manager.
+        case automatic
     }
 
     /// A library product.
@@ -60,6 +68,8 @@ public class Product {
             return RelativePath("lib\(name).a")
         case .library(.dynamic):
             return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
+        case .library(.automatic):
+            fatalError()
         case .test:
             let base = "\(name).xctest"
             #if os(macOS)
