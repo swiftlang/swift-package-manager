@@ -141,7 +141,16 @@ public final class ResolvedProduct: CustomStringConvertible {
         return try! topologicalSort(self.modules, successors: { $0.dependencies })
     }()
 
+    /// The main executable module of product.
+    ///
+    /// Note: This property is only valid for executable products.
+    public var executableModule: ResolvedModule {
+        precondition(type == .executable, "This property should only be called for executable modules")
+        return modules.first{$0.type == .executable}!
+    }
+
     public init(product: Product, modules: [ResolvedModule]) {
+        assert(product.modules.count == modules.count && product.modules.map{$0.name} == modules.map{$0.name})
         self.underlyingProduct = product
         self.modules = modules
     }

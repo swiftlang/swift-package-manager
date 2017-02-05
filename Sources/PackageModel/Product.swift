@@ -10,33 +10,26 @@
 
 import Basic
 
-public enum LibraryType {
-    case `static`
-    case `dynamic`
-}
-
+/// The type of product.
 public enum ProductType {
-    case test
-    case executable
-    case library(LibraryType)
-}
-
-extension ProductType: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .test:
-            return "test"
-        case .executable:
-            return "exe"
-        case .library(.static):
-            return "a"
-        case .library(.dynamic):
-            return "dylib"
-        }
+    /// The type of library.
+    public enum LibraryType {
+        case `static`
+        case `dynamic`
     }
+
+    /// A library product.
+    case library(LibraryType)
+
+    /// An executable product.
+    case executable
+
+    /// A test product.
+    case test
 }
 
 public class Product {
+
     /// The name of the product.
     public let name: String
 
@@ -59,6 +52,9 @@ public class Product {
 
     public init(name: String, type: ProductType, modules: [Module]) {
         precondition(!modules.isEmpty)
+        if type == .executable {
+            assert(modules.filter{$0.type == .executable}.count == 1, "Executable products should have exactly one executable module.")
+        }
         self.name = name
         self.type = type
         self.modules = modules
@@ -103,20 +99,21 @@ extension Product: CustomStringConvertible {
     }
 }
 
-extension ProductType: Equatable {}
-public func ==(lhs: ProductType, rhs: ProductType) -> Bool {
-    switch (lhs, rhs) {
-    case (.executable, .executable):
-        return true
-    case (.executable, _):
-        return false
-    case (.test, .test):
-        return true
-    case (.test, _):
-        return false
-    case (.library(let lhsType), .library(let rhsType)):
-        return lhsType == rhsType
-    case (.library(_), _):
-        return false
+extension ProductType: Equatable {
+    public static func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+        switch (lhs, rhs) {
+        case (.executable, .executable):
+            return true
+        case (.executable, _):
+            return false
+        case (.test, .test):
+            return true
+        case (.test, _):
+            return false
+        case (.library(let lhsType), .library(let rhsType)):
+            return lhsType == rhsType
+        case (.library, _):
+            return false
+        }
     }
 }

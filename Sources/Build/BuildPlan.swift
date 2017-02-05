@@ -382,9 +382,8 @@ public class BuildPlan {
 
             // Add objects from main module, if product is an executable.
             if product.type == .executable {
-                // FIXME: This should come from product type enum instead of manual search.
-                let mainModule = product.modules.first{$0.type == .executable}!
-                objects += targetMap[mainModule]!.objects
+                let target = targetMap[product.executableModule]!
+                objects += target.objects
             }
 
             return ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
