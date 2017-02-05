@@ -131,7 +131,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         //
         // FIXME: We should also check if the package has any test
         // modules, which isn't trivial (yet).
-        let testProducts = graph.products().filter{
+        let testProducts = graph.products.filter{
             if case .test = $0.type {
                 return true
             } else {

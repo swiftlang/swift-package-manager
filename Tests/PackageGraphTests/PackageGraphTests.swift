@@ -21,7 +21,8 @@ class PackageGraphTests: XCTestCase {
 
     func testBasic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/source.swift",
+            "/Foo/Sources/Foo/source.swift",
+            "/Foo/Sources/FooDep/source.swift",
             "/Foo/Tests/FooTests/source.swift",
             "/Bar/source.swift",
             "/Baz/source.swift",
@@ -29,15 +30,16 @@ class PackageGraphTests: XCTestCase {
         )
 
         let g = try loadMockPackageGraph([
-            "/Foo": Package(name: "Foo"),
+            "/Foo": Package(name: "Foo", targets: [Target(name: "Foo", dependencies: ["FooDep"])]),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
         ], root: "/Baz", in: fs)
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
-            result.check(modules: "Bar", "Foo", "Baz")
+            result.check(modules: "Bar", "Foo", "Baz", "FooDep")
             result.check(testModules: "BazTests", "FooTests")
+            result.check(dependencies: "FooDep", module: "Foo")
             result.check(dependencies: "Foo", module: "Bar")
             result.check(dependencies: "Bar", module: "Baz")
         }
@@ -157,5 +159,16 @@ private class PackageGraphResult {
             return XCTFail("Module \(name) not found", file: file, line: line)
         }
         XCTAssertEqual(dependencies.sorted(), module.dependencies.map{$0.name}.sorted(), file: file, line: line)
+    }
+}
+
+extension ResolvedModule.Dependency {
+    var name: String {
+        switch self {
+        case .target(let target):
+            return target.name
+        case .product(let product):
+            return product.name
+        }
     }
 }

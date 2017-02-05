@@ -13,6 +13,16 @@ import Basic
 /// Represents a fully resolved module. All the dependencies for the module are resolved.
 public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProtocol {
 
+    /// Represents dependency of a resolved target.
+    public enum Dependency {
+
+        /// Direct dependency of the target. This target is in the same package and should be statically linked.
+        case target(ResolvedModule)
+
+        /// The target depends on this product.
+        case product(ResolvedProduct)
+    }
+
     /// The underlying module represented in this resolved module.
     public let underlyingModule: Module
 
@@ -21,12 +31,16 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
         return underlyingModule.name
     }
 
-    /// The direct dependencies of this module.
-    public let dependencies: [ResolvedModule]
+    /// The dependencies of this module.
+    public let dependencies: [Dependency]
 
-    /// The transitive closure of the module dependencies, in build order.
+    /// The transitive closure of the target dependencies. This will also include the
+    /// targets which needs to be dynamically linked.
     public lazy var recursiveDependencies: [ResolvedModule] = {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies })
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).flatMap {
+            guard case .target(let target) = $0 else { return nil }
+            return target
+        }
     }()
 
     /// The language-level module name.
@@ -45,7 +59,7 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
     }
 
     /// Create a module instance.
-    public init(module: Module, dependencies: [ResolvedModule]) {
+    public init(module: Module, dependencies: [Dependency]) {
         self.underlyingModule = module
         self.dependencies = dependencies
     }
@@ -97,7 +111,7 @@ public final class ResolvedPackage: CustomStringConvertible, ObjectIdentifierPro
     }
 }
 
-public final class ResolvedProduct: CustomStringConvertible {
+public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConvertible {
 
     /// The underlying product.
     public let underlyingProduct: Product
@@ -122,22 +136,17 @@ public final class ResolvedProduct: CustomStringConvertible {
     }
 
     /// Create an executable module for linux main test manifest file.
-    public func createLinuxMainModule() -> ResolvedModule {
-        precondition(type == .test, "This property is only valid for test product type")
+    public lazy var linuxMainModule: ResolvedModule = {
+        precondition(self.type == .test, "This property is only valid for test product type")
         // FIXME: This is hacky, we should get this from somewhere else.
-        let testDirectory = modules.first{ $0.type == .test }!.sources.root.parentDirectory
+        let testDirectory = self.modules.first{ $0.type == .test }!.sources.root.parentDirectory
         // Path to the main file for test product on linux.
         let linuxMain = testDirectory.appending(component: "LinuxMain.swift")
         // Create an exectutable resolved module with the linux main, adding product's modules as dependencies.
         let swiftModule = SwiftModule(
-            linuxMain: linuxMain, name: name, dependencies: underlyingProduct.modules)
+            linuxMain: linuxMain, name: self.name, dependencies: self.underlyingProduct.modules)
 
-        return ResolvedModule(module: swiftModule, dependencies: modules)
-    }
-
-    /// All reachable modules in this product.
-    public lazy var allModules: [ResolvedModule] = {
-        return try! topologicalSort(self.modules, successors: { $0.dependencies })
+        return ResolvedModule(module: swiftModule, dependencies: self.modules.map(ResolvedModule.Dependency.target))
     }()
 
     /// The main executable module of product.
@@ -156,5 +165,52 @@ public final class ResolvedProduct: CustomStringConvertible {
 
     public var description: String {
         return "<ResolvedProduct: \(name)>"
+    }
+}
+
+extension ResolvedModule.Dependency: Hashable, CustomStringConvertible {
+
+    /// Returns the dependencies of the underlying dependency.
+    public var dependencies: [ResolvedModule.Dependency] {
+        switch self {
+        case .target(let target):
+            return target.dependencies
+        case .product(let product):
+            return product.modules.map(ResolvedModule.Dependency.target)
+        }
+    }
+
+    // MARK:- Hashable, CustomStringConvertible conformance
+
+    public var hashValue: Int { 
+        switch self {
+            case .product(let p): return p.hashValue
+            case .target(let t): return t.hashValue
+        }
+    }
+
+    public static func ==(lhs: ResolvedModule.Dependency, rhs: ResolvedModule.Dependency) -> Bool {
+        switch (lhs, rhs) {
+        case (.product(let l), .product(let r)):
+            return l == r
+        case (.product, _):
+            return false
+        case (.target(let l), .target(let r)):
+            return l == r
+        case (.target, _):
+            return false
+        }
+    }
+
+    public var description: String {
+        var str = "<ResolvedModule.Dependency: "
+        switch self {
+        case .product(let p):
+            str += p.description
+        case .target(let t):
+            str += t.description
+        }
+        str += ">"
+        return str
     }
 }

@@ -59,8 +59,11 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(lib, ["-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
-             "-o", "/path/to/build/debug/exe", "-module-name", "exe", 
-             "-emit-executable", "/path/to/build/debug/lib.build/lib.swift.o", "/path/to/build/debug/exe.build/main.swift.o"])
+            "-o", "/path/to/build/debug/exe", "-module-name", "exe", 
+            "-emit-executable",
+            "/path/to/build/debug/exe.build/main.swift.o",
+            "/path/to/build/debug/lib.build/lib.swift.o",
+        ])
     }
 
     func testBasicReleasePackage() throws {
@@ -117,7 +120,10 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", 
-            "/path/to/build/debug/lib.build/lib.c.o", "/path/to/build/debug/extlib.build/extlib.c.o", "/path/to/build/debug/exe.build/main.c.o"])
+            "/path/to/build/debug/exe.build/main.c.o",
+            "/path/to/build/debug/lib.build/lib.c.o",
+            "/path/to/build/debug/extlib.build/extlib.c.o",
+        ])
     }
 
     func testSwiftCMixed() throws {
@@ -145,7 +151,11 @@ final class BuildPlanTests: XCTestCase {
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertEqual(exe, ["-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap", "-I", "/Pkg/Sources/lib/include", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "/path/to/build/debug/lib.build/lib.c.o", "/path/to/build/debug/exe.build/main.swift.o"])
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
+            "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable",
+            "/path/to/build/debug/exe.build/main.swift.o",
+            "/path/to/build/debug/lib.build/lib.c.o",
+        ])
     }
 
     func testTestModule() throws {
@@ -255,7 +265,7 @@ private struct BuildPlanResult {
     }
 
     func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(plan.buildProducts.count, count, file: file, line: line)
+        XCTAssertEqual(plan.productMap.count, count, file: file, line: line)
     }
 
     func target(for name: String) throws -> TargetDescription {
