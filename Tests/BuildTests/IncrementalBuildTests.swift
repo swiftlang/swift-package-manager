@@ -46,7 +46,8 @@ enum IncBuildErrorMessages {
 ///    assume that there's no feedback during the build)
 ///
 
-//TODO: Find a way to get actual exit codes, instead of checking if
+//TODO: Find a way to get actual exit codes, instead of just checking if
+// "executeSwiftBuild()" returns nil
 final class IncrementalBuildTests: XCTestCase {
     /// Can probably be set to `false`, as long as a test checks that building
     /// without changing anything doesn't do anything regardless of this value
