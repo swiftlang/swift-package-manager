@@ -20,7 +20,7 @@ func line(lineNum: Int = #line) -> String {
     return "line# \(lineNum)"
 }
 
-/// The common error messages.
+/// Some common error messages.
 enum IncBuildErrorMessages : String, CustomStringConvertible, Hashable {
     static func == (lhs: IncBuildErrorMessages, rhs: IncBuildErrorMessages) -> Bool { return lhs.rawValue == rhs.rawValue }
     var description: String { return self.rawValue }
@@ -33,6 +33,7 @@ enum IncBuildErrorMessages : String, CustomStringConvertible, Hashable {
     case unexpectedBuildFailure = "Unexpected build failure"
     case unexpectedBuildSuccess = "Unexpected build success"
     case builtTooMany = "The build log contains too many entries"
+    case builtProductsDiffer = "The ./build/debug/ directories are materially different"
 }
 
 /// Some common build names
@@ -52,41 +53,47 @@ enum Builds : String, CustomStringConvertible, Hashable {
     case withoutFile = "Build without a file"
 }
 
+/// Set to true to have every test do a "redudant" build that isn't expected
+/// to do anything. We have a test that explicitly checks regardless of this
+/// value, so it should be safe to leave it as false
+var alwaysDoRedundancyCheck = false
+
 /// returns an array of keys whose value is nil. Pass an array of keys to
-/// `allowableNils` if it's not an error for something to be nil.
+/// `allowableFailures` if it's not an error for something to be nil.
 @discardableResult
-func checkForNils(_ logs: BuildLog, allowableNils: [Builds] = []) -> [Builds] {
+func checkForNils(_ logs: BuildLog, allowableFailures: [Builds] = []) -> [Builds] {
     return logs.keys.filter {
-        logs[$0]! == (nil as String?) && !allowableNils.contains($0)
+        (logs[$0] == nil && !($0 == Builds.null && !alwaysDoRedundancyCheck)) || (logs[$0]!.logWasNil && !allowableFailures.contains($0))
     }
 }
 
-func getNumberOfLinkedModules(from: String?) -> Int {
-    let logLines = (from ?? "").components(separatedBy: "\n")
-    return logLines.filter {$0.hasPrefix("Linking")}.count
-}
-
-typealias BuildLog = [Builds : String?]
+typealias BuildLog = [Builds : BuildResult]
 
 // Seems like this is too tied to the build's log format
 struct BuildResult : Equatable {
     static func == (lhs: BuildResult, rhs: BuildResult) -> Bool {
         return
+            lhs.path == rhs.path &&
             lhs.logWasNil == rhs.logWasNil &&
             lhs.isNullBuild == rhs.isNullBuild &&
             lhs.modules.count == rhs.modules.count &&
             zip(lhs.modules, rhs.modules).reduce(true) { $0 && $1.0.fileCount == $1.1.fileCount && $1.0.name == $1.1.name } &&
             lhs.linkedBinaries.count == rhs.linkedBinaries.count &&
-            zip(lhs.linkedBinaries, rhs.linkedBinaries).reduce(true) { $0 && $1.0.path == $1.1.path && $1.0.name == $1.1.name }
+            zip(lhs.linkedBinaries, rhs.linkedBinaries).reduce(true) { $0 && $1.0.path == $1.1.path && $1.0.name == $1.1.name } &&
+            lhs.buildProducts == rhs.buildProducts
     }
-    
+
+    let path: AbsolutePath
     let logWasNil: Bool
     let isNullBuild: Bool
+    var isNotNullBuild: Bool { return !isNullBuild }
     let modules: [(name: String, fileCount: Int)]
     let linkedBinaries: [(path: String, name: String)]
     var totalFileCount: Int { return modules.reduce(0) { $0 + $1.fileCount } }
-    
-    init(_ log: String?) {
+    /// An array of the names/paths of files in ./build/debug/ right after a build
+    let buildProducts: [String]
+    init(_ log: String?, path: AbsolutePath) {
+        self.path = path
         if let log = log {
             logWasNil = false
             isNullBuild = log == ""
@@ -101,11 +108,34 @@ struct BuildResult : Equatable {
                     let name = path.components(separatedBy: "/").last!
                     return (path, name)
             }
+            
+            // So the idea here is to log everything in ".builds/debug/", except
+            // for "ModuleCache", because that doesn't seem relevant. We crash
+            // without the `&& !$0.hasSuffix(".dSYM")` part, probably because
+            // localFileSystem.isDirectory() seems to return true for .dSYM files?
+            var bp = try! localFileSystem.getDirectoryContents(path.appending(components: ".build", "debug"))
+                .filter { $0 != "ModuleCache" }
+            // Get the list of "files" that are actually directories...
+            var bpd = bp.filter { localFileSystem.isDirectory(path.appending(components: ".build", "debug", $0)) && !$0.hasSuffix(".dSYM") }
+            while bpd.count > 0 {
+                for dir in bpd {
+                    let dirIndex = bp.index(of: dir)!
+                    bp.remove(at: dirIndex)
+                    // ... for each directory, get of their files...
+                    bp.append(contentsOf: (try! localFileSystem.getDirectoryContents(path.appending(components: ".build", "debug", dir))
+                        .map {dir + "/" + $0} ))
+                }
+                //... and repeat
+                bpd = bp.filter { localFileSystem.isDirectory(path.appending(components: [".build", "debug"] + $0.components(separatedBy: "/"))) && !$0.hasSuffix(".dSYM") }
+            }
+            // FIXME: Not entirely sure we should be ignoring these
+            buildProducts = bp.filter { !$0.hasSuffix("~") }
         } else {
             logWasNil = true
             isNullBuild = false
             modules = []
             linkedBinaries = []
+            buildProducts = []
         }
     }
 }
@@ -132,10 +162,6 @@ struct BuildResult : Equatable {
 //TODO: Find a way to get actual exit codes, instead of just checking if
 // "executeSwiftBuild()" returns nil
 final class IncrementalBuildTests: XCTestCase {
-    /// Set to true to have every test do a "redudant" build that isn't expected
-    /// to do anything. We have a test that explicitly checks regardless of this
-    /// value, so it should be safe to leave it as false
-    var alwaysDoRedundancyCheck = false
     
     func testIncrementalSingleModuleCLibraryInSources() {
         fixture(name: "ClangModules/CLibrarySources") { prefix in
@@ -170,59 +196,52 @@ final class IncrementalBuildTests: XCTestCase {
     /// making any changes, doesn't actually do anything
     func testNullBuilds() {
         fixture(name: "IncrementalBuildTests/FileAddRemoveTest") { prefix in
-            let buildLogs = [
-                Builds.initial : try? executeSwiftBuild(prefix, printIfError: true),
-                Builds.null : try? executeSwiftBuild(prefix, printIfError: true)
+            let logs: BuildLog = [
+                Builds.initial : BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix),
+                Builds.null : BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             ]
             
-            checkForNils(buildLogs).forEach { XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)") }
+            checkForNils(logs).forEach { XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)") }
             
             // Compare logs
-            XCTAssert(buildLogs[Builds.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
-            XCTAssert(buildLogs[Builds.initial]! != buildLogs[Builds.null]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2")
-            XCTAssert(buildLogs[Builds.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
+            XCTAssert(logs[.initial]!.isNotNullBuild,                                           "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(logs[Builds.initial]! != logs[Builds.null]!,                              "\(line()): \(IncBuildErrorMessages.unexpectedSimilar)")
+            XCTAssert(logs[Builds.null]!.isNullBuild,                                           "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
+            XCTAssert(logs[Builds.initial]!.buildProducts == logs[Builds.null]!.buildProducts,  "\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
         }
     }
-    
+
     func testAddFixSourceCodeError() {
         fixture(name: "IncrementalBuildTests/SourceCodeError") { prefix in
             let sourceFile = prefix.appending(components: "Sources", "SecondLine.swift")
-            
-            var logs = BuildLog()
             let preChange = BufferedOutputByteStream()
             let postChange = BufferedOutputByteStream()
             preChange <<< (try localFileSystem.readFileContents(sourceFile))
             postChange <<< preChange.bytes.asReadableString <<< "b\n"
 
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            var logs = BuildLog()
+
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Introduce an error to one of the files, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withError] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Fix the error in the file, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: preChange.bytes)
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withErrorFixed] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Once more, to verify it doesn't do anything for no changes
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
             
-            // Check for build failures
-            checkForNils(logs, allowableNils: [.withError]).forEach {
+            // Check for unexpected build failures
+            checkForNils(logs, allowableFailures: [.withError]).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
-            
-            let buildResults: [Builds : BuildResult] = {
-                var br = [Builds : BuildResult]()
-                logs.forEach {
-                    br[$0.key] = BuildResult($0.value)
-                }
-                return br
-            }()
-            
-            XCTAssert(buildResults[.initial]!.totalFileCount != buildResults[.withErrorFixed]!.totalFileCount, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): \(logs[.initial]! ?? String())")
 
-            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
+            XCTAssert(logs[.initial]!.totalFileCount != logs[.withErrorFixed]!.totalFileCount,  "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withErrorFixed]!.buildProducts,    "\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                         "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
     
@@ -236,32 +255,33 @@ final class IncrementalBuildTests: XCTestCase {
             
             var logs = BuildLog()
             
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Introduce an error in the Package.swift file, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: postChange.bytes)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withError] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Fix the error, and try to compile
             try localFileSystem.writeFileContents(sourceFile, bytes: preChange.bytes)
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withErrorFixed] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             
             // Once more, to verify it doesn't do anything for no changes
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
 
-            // Check for build failures
-            checkForNils(logs, allowableNils: [.withError]).forEach {
+            // Check for unexpected build failures
+            checkForNils(logs, allowableFailures: [.withError]).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check logs
-            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
-            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): \"\(Builds.initial)\" and \"\(Builds.withErrorFixed)\"")
+            XCTAssert(logs[.initial]!.isNotNullBuild,                                       "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!,                            "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
             // There shouldn't be anything to build here, since we only edited
             // the Package.swift file
-            XCTAssert(logs[.withErrorFixed]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.withErrorFixed)")
+            XCTAssert(logs[.withErrorFixed]!.isNullBuild,                                   "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withErrorFixed]!.buildProducts,"\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                     "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
     
@@ -274,30 +294,32 @@ final class IncrementalBuildTests: XCTestCase {
             packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "            dependencies: [.Package(url: \"Packages/DepLib\", majorVersion: 0)]\n", with: "")
 
             var logs = BuildLog()
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             // remove the dependency
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             // put it back
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             // Once more, to verify it doesn't do anything for no changes
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
             
-            // Check for build failures
+            // Check for unexpected build failures
             checkForNils(logs).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check the logs
-            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(logs[.initial]!.isNotNullBuild,                                       "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
             // 1st rebuild... there's nothing actually using the dependency, so
             // this should be a null build
-            XCTAssert(logs[.withDependency]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 2")
+            XCTAssert(logs[.withoutDependency]!.isNullBuild,                                "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
             // 2nd rebuild... should still be a null build
-            XCTAssert(logs[.withoutDependency]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 3")
+            XCTAssert(logs[.withDependency]!.isNullBuild,                                   "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withDependency]!.buildProducts,"\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
+            
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                     "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
     
@@ -319,34 +341,35 @@ final class IncrementalBuildTests: XCTestCase {
             }
             
             var logs = BuildLog()
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             // Remove a file and recompile
             localFileSystem.removeFileTree(extraFilePath)
-            logs[.withoutFile] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutFile] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             try localFileSystem.writeFileContents(extraFilePath, bytes: extraFile.bytes)
             // Put the file back and recompile
-            logs[.withFile] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withFile] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             // Once more, to verify it doesn't do anything for no changes
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
             
-            // Check for build failures
+            // Check for unexpected build failures
             checkForNils(logs).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check logs
-            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
-            XCTAssert(logs[.withoutFile]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.withoutFile)")
-            XCTAssert(logs[.initial]! != logs[.withoutFile]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): \(logs[.initial]! ?? String())")
-            XCTAssert(logs[.withFile]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.withFile)")
+            XCTAssert(logs[.initial]!.isNotNullBuild,                                   "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(logs[.withoutFile]!.isNotNullBuild,                               "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(logs[.initial]! != logs[.withoutFile]!,                           "\(line()): \(IncBuildErrorMessages.unexpectedSimilar)")
+            XCTAssert(logs[.withFile]!.isNotNullBuild,                                  "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
             // The file that got removed contains an extension that overrides
             // the default implementation of something in a protocol, which is
             // only referenced from main.swift. AFAIK, that means that we should
             // only actually be compiling main.swift and FileTesterExt. If that's
             // not the case, these two build logs should be == insead of !=
-            XCTAssert(logs[.initial]! != logs[.withFile]!, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            XCTAssert(logs[.initial]! != logs[.withFile]!,                              "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withFile]!.buildProducts,  "\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                 "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
 
@@ -358,36 +381,31 @@ final class IncrementalBuildTests: XCTestCase {
             packageDep <<< (try localFileSystem.readFileContents(packagePath))
             packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "        Target(name: \"Foo_iOS\", dependencies: [\"Foo2Lib\"]),\n", with: "")
             var logs = BuildLog()
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.withDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
             
-            // Check for build failures
+            // Check for unexpected build failures
             checkForNils(logs).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
-            // Check the logs
-            let buildResults: [Builds : BuildResult] = {
-                var br = [Builds : BuildResult]()
-                logs.forEach { br[$0.key] = BuildResult($0.value) }
-                return br
-            }()
-            
             var correctNum: Int
             // Check the logs
-            XCTAssert(!buildResults[.initial]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
-            XCTAssert(buildResults[.initial]! != buildResults[.withoutDependency]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2 - \(logs[.initial]! ?? String())")
+            XCTAssert(logs[.initial]!.isNotNullBuild,                                       "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild)")
+            XCTAssert(logs[.initial]! != logs[.withoutDependency]!,                         "\(line()): \(IncBuildErrorMessages.unexpectedSimilar)")
             // FIXME: Verify that this is actually correct
             correctNum = 1
-            XCTAssert(buildResults[.withoutDependency]!.modules.count == correctNum, "\(line()): \(Builds.withoutDependency) built \(buildResults[.withoutDependency]!.modules.count) modules instead of \(correctNum)")
+            XCTAssert(logs[.withoutDependency]!.modules.count == correctNum,                "\(line()): \(Builds.withoutDependency) built \(logs[.withoutDependency]!.modules.count) modules instead of \(correctNum)")
             // FIXME: Verify that this is actually correct
             //correctNum is still 1
-            XCTAssert(buildResults[.withDependency]!.modules.count == correctNum, "\(line()): \(Builds.withDependency) built \(buildResults[.withDependency]!.modules.count) modules instead of \(correctNum)")
-            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(logs[.withDependency]!.modules.count == correctNum,                   "\(line()): \(Builds.withDependency) built \(logs[.withDependency]!.modules.count) modules instead of \(correctNum)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withDependency]!.buildProducts,"\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
+
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                     "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
     
@@ -400,56 +418,53 @@ final class IncrementalBuildTests: XCTestCase {
             packageDep <<< (try localFileSystem.readFileContents(packagePath))
             packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "            \"Foo2Lib\",\n", with: "")
             
-            logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.initial] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
-            logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
+            logs[.withDependency] = BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix)
+            logs[.null] = alwaysDoRedundancyCheck ? BuildResult(try? executeSwiftBuild(prefix, printIfError: true), path: prefix) : nil
 
-            // Check for build failures
+            // Check for unexpected build failures
             checkForNils(logs).forEach {
                 XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check the logs
-            let buildResults: [Builds : BuildResult] = {
-                var br = [Builds : BuildResult]()
-                logs.forEach { br[$0.key] = BuildResult($0.value) }
-                return br
-            }()
-            
+
+            // FIXME: Verify that this is actually correct
             var correctNum = 5
-            XCTAssert(buildResults[.initial]!.modules.count == correctNum, "\(line()): \(Builds.initial) built \(buildResults[.initial]!.modules.count) binaries instead of \(correctNum): \(logs[.initial]!!)")
+            XCTAssert(logs[.initial]!.modules.count == correctNum,                          "\(line()): \(Builds.initial) built \(logs[.initial]!.modules.count) binaries instead of \(correctNum)")
+            // FIXME: Verify that this is actually correct
             correctNum = 2
-            XCTAssert(buildResults[.initial]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.initial) linked \(buildResults[.initial]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.initial]!!)")
+            XCTAssert(logs[.initial]!.linkedBinaries.count == correctNum,                   "\(line()): \(Builds.initial) linked \(logs[.initial]!.linkedBinaries.count) binaries instead of \(correctNum)")
             
             // Removing a target doesn't need to recompile/rebuild anything, it
             // just removes a binary.
             // FIXME: Verify that this is actually correct
             correctNum = 0
-            XCTAssert(buildResults[.withoutDependency]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.withoutDependency) linked \(buildResults[.withoutDependency]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.withoutDependency]!!)")
+            XCTAssert(logs[.withoutDependency]!.linkedBinaries.count == correctNum,         "\(line()): \(Builds.withoutDependency) linked \(logs[.withoutDependency]!.linkedBinaries.count) binaries instead of \(correctNum)")
             // FIXME: Verify that this is actually correct
             correctNum = 1
-            XCTAssert(buildResults[.withoutDependency]!.modules.count == correctNum, "\(line()): \(Builds.withoutDependency) built \(buildResults[.withoutDependency]!.modules.count) modules instead of \(correctNum): \(logs[.withoutDependency]!!)")
+            XCTAssert(logs[.withoutDependency]!.modules.count == correctNum,                "\(line()): \(Builds.withoutDependency) built \(logs[.withoutDependency]!.modules.count) modules instead of \(correctNum))")
             
             // Adding the target back doesn't seem to do anything, either
             // FIXME: Verify that this is actually correct
             correctNum = 0
-            XCTAssert(buildResults[.withDependency]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.withDependency) linked \(buildResults[.withDependency]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.withDependency]!!)")
+            XCTAssert(logs[.withDependency]!.linkedBinaries.count == correctNum,            "\(line()): \(Builds.withDependency) linked \(logs[.withDependency]!.linkedBinaries.count) binaries instead of \(correctNum)")
             // FIXME: Verify that this is actually correct
             correctNum = 1
-            XCTAssert(buildResults[.withDependency]!.modules.count == correctNum, "\(line()): \(Builds.withDependency) built \(buildResults[.withDependency]!.modules.count) modules instead of \(correctNum): \(logs[.withDependency]!!)")
-            
-            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
+            XCTAssert(logs[.withDependency]!.modules.count == correctNum,                   "\(line()): \(Builds.withDependency) built \(logs[.withDependency]!.modules.count) modules instead of \(correctNum)")
+            XCTAssert(logs[.initial]!.buildProducts == logs[.withDependency]!.buildProducts,"\(line()): \(IncBuildErrorMessages.builtProductsDiffer)")
+            XCTAssert(logs[.null]?.isNullBuild ?? true,                                     "\(line()): \(IncBuildErrorMessages.unexpectedBuild)")
         }
     }
 
     static var allTests = [
         ("testIncrementalSingleModuleCLibraryInSources",testIncrementalSingleModuleCLibraryInSources),
         ("testNullBuilds",                              testNullBuilds),
-        ("testAddFixPackageError",                      testAddFixPackageError),
         ("testAddFixSourceCodeError",                   testAddFixSourceCodeError),
+        ("testAddFixPackageError",                      testAddFixPackageError),
         ("testAddRemoveFiles",                          testAddRemoveFiles),
         ("testAddRemoveTargets",                        testAddRemoveTargets),
         ("testAddRemovePackageDependencies",            testAddRemovePackageDependencies),
