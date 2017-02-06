@@ -13,5 +13,5 @@ import PackageDescription
 // For testing whether adding/removing a target incrementally builds correctly
 let package = Package(
     name: "Dependency",
-    dependencies: [.Package(url: "Packages/DepLib", majorVersion: 0)]
+    dependencies: [.Package(url: "./Packages/DepLib", majorVersion: 0)]
 )

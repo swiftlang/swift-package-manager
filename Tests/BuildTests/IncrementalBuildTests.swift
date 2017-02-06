@@ -15,15 +15,24 @@ import Basic
 import Utility
 import func libc.sleep
 
+/// returns "line# \\(#line)"
+func line(lineNum: Int = #line) -> String {
+    return "line# \(lineNum)"
+}
+
 /// The common error messages.
-enum IncBuildErrorMessages {
-    static let fullBuildSameAsIncrementalBuild = "A full build log was the same as an incremental build log"
-    static let unexpectedSimilar = "Unexpectedly found two similar build logs"
-    static let unexpectedDissimilar = "Unexpectedly found two dissimilar build logs"
-    static let unexpectedBuild = "Unexpected build"
-    static let unexpectedNullBuild = "Unexpected null build"
-    static let unexpectedBuildFailure = "Unexpected build failure"
-    static let unexpectedBuildSuccess = "Unexpected build success"
+enum IncBuildErrorMessages : String, CustomStringConvertible, Hashable {
+    static func == (lhs: IncBuildErrorMessages, rhs: IncBuildErrorMessages) -> Bool { return lhs.rawValue == rhs.rawValue }
+    var description: String { return self.rawValue }
+    var hashValue: Int { return self.rawValue.hashValue }
+    case fullBuildSameAsIncrementalBuild = "A full build log was the same as an incremental build log"
+    case unexpectedSimilar = "Unexpectedly found two similar build logs"
+    case unexpectedDissimilar = "Unexpectedly found two dissimilar build logs"
+    case unexpectedBuild = "Unexpected build"
+    case unexpectedNullBuild = "Unexpected null build"
+    case unexpectedBuildFailure = "Unexpected build failure"
+    case unexpectedBuildSuccess = "Unexpected build success"
+    case builtTooMany = "The build log contains too many entries"
 }
 
 /// Some common build names
@@ -35,6 +44,12 @@ enum Builds : String, CustomStringConvertible, Hashable {
     case withError = "Build with an Error"
     case withErrorFixed = "Build with the Error Fixed"
     case null = "Null Build"
+    case withDependency = "Build with a dependency"
+    case withoutDependency = "Build without a dependency"
+    case withTargetDependency = "Build with a target dependency"
+    case withoutTargetDependency = "Build without a target dependency"
+    case withFile = "Build with a file"
+    case withoutFile = "Build without a file"
 }
 
 /// returns an array of keys whose value is nil. Pass an array of keys to
@@ -54,17 +69,27 @@ func getNumberOfLinkedModules(from: String?) -> Int {
 typealias BuildLog = [Builds : String?]
 
 // Seems like this is too tied to the build's log format
-struct BuildResult {
-    let nilLog: Bool
-    let nullBuild: Bool
+struct BuildResult : Equatable {
+    static func == (lhs: BuildResult, rhs: BuildResult) -> Bool {
+        return
+            lhs.logWasNil == rhs.logWasNil &&
+            lhs.isNullBuild == rhs.isNullBuild &&
+            lhs.modules.count == rhs.modules.count &&
+            zip(lhs.modules, rhs.modules).reduce(true) { $0 && $1.0.fileCount == $1.1.fileCount && $1.0.name == $1.1.name } &&
+            lhs.linkedBinaries.count == rhs.linkedBinaries.count &&
+            zip(lhs.linkedBinaries, rhs.linkedBinaries).reduce(true) { $0 && $1.0.path == $1.1.path && $1.0.name == $1.1.name }
+    }
+    
+    let logWasNil: Bool
+    let isNullBuild: Bool
     let modules: [(name: String, fileCount: Int)]
     let linkedBinaries: [(path: String, name: String)]
     var totalFileCount: Int { return modules.reduce(0) { $0 + $1.fileCount } }
     
     init(_ log: String?) {
         if let log = log {
-            nilLog = false
-            nullBuild = log == ""
+            logWasNil = false
+            isNullBuild = log == ""
             let logLines = log.components(separatedBy: "\n")
             let compileLines = logLines.filter {$0.hasPrefix("Compile Swift Module") && $0.contains("(") && $0.hasSuffix(" sources)") }
             modules = compileLines
@@ -77,8 +102,8 @@ struct BuildResult {
                     return (path, name)
             }
         } else {
-            nilLog = true
-            nullBuild = false
+            logWasNil = true
+            isNullBuild = false
             modules = []
             linkedBinaries = []
         }
@@ -107,8 +132,9 @@ struct BuildResult {
 //TODO: Find a way to get actual exit codes, instead of just checking if
 // "executeSwiftBuild()" returns nil
 final class IncrementalBuildTests: XCTestCase {
-    /// Can probably be set to `false`, as long as a test checks that building
-    /// without changing anything doesn't do anything regardless of this value
+    /// Set to true to have every test do a "redudant" build that isn't expected
+    /// to do anything. We have a test that explicitly checks regardless of this
+    /// value, so it should be safe to leave it as false
     var alwaysDoRedundancyCheck = false
     
     func testIncrementalSingleModuleCLibraryInSources() {
@@ -149,12 +175,12 @@ final class IncrementalBuildTests: XCTestCase {
                 Builds.null : try? executeSwiftBuild(prefix, printIfError: true)
             ]
             
-            checkForNils(buildLogs).forEach { XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)") }
+            checkForNils(buildLogs).forEach { XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)") }
             
             // Compare logs
-            XCTAssert(buildLogs[Builds.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
-            XCTAssert(buildLogs[Builds.initial]! != buildLogs[Builds.null]!, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2")
-            XCTAssert(buildLogs[Builds.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
+            XCTAssert(buildLogs[Builds.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
+            XCTAssert(buildLogs[Builds.initial]! != buildLogs[Builds.null]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2")
+            XCTAssert(buildLogs[Builds.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
         }
     }
     
@@ -183,22 +209,20 @@ final class IncrementalBuildTests: XCTestCase {
             
             // Check for build failures
             checkForNils(logs, allowableNils: [.withError]).forEach {
-                XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
-            let buildStats: [Builds : BuildResult] = {
-                var dict = [Builds : BuildResult]()
+            let buildResults: [Builds : BuildResult] = {
+                var br = [Builds : BuildResult]()
                 logs.forEach {
-                    dict[$0.key] = BuildResult($0.value)
+                    br[$0.key] = BuildResult($0.value)
                 }
-                return dict
+                return br
             }()
             
-            let initialBuildFileCount = buildStats[.initial]!.totalFileCount
-            let incBuildFileCount = buildStats[.withErrorFixed]!.totalFileCount
-            XCTAssert(initialBuildFileCount != incBuildFileCount, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): )")
-            // There shouldn't be anything for build 4 to do
-            XCTAssert(buildStats[.null]!.totalFileCount == 0, "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(buildResults[.initial]!.totalFileCount != buildResults[.withErrorFixed]!.totalFileCount, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): \(logs[.initial]! ?? String())")
+
+            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
         }
     }
     
@@ -227,17 +251,17 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Check for build failures
             checkForNils(logs, allowableNils: [.withError]).forEach {
-                XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check logs
-            XCTAssert(logs[.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
-            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): Builds 1 and 3 - \(logs[.initial]! ?? String())")
+            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
+            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): \"\(Builds.initial)\" and \"\(Builds.withErrorFixed)\"")
             // There shouldn't be anything to build here, since we only edited
             // the Package.swift file
-            XCTAssert(logs[.withErrorFixed]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 3")
+            XCTAssert(logs[.withErrorFixed]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.withErrorFixed)")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
         }
     }
     
@@ -253,28 +277,27 @@ final class IncrementalBuildTests: XCTestCase {
             logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
             // remove the dependency
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             // put it back
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             // Once more, to verify it doesn't do anything for no changes
             logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(logs[.initial]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
-            XCTAssert(logs[.withError]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
-            XCTAssert(logs[.withErrorFixed]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
-            XCTAssert(logs[.null]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
+            checkForNils(logs).forEach {
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+            }
             
             // Check the logs
-            XCTAssert(logs[.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
+            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
             // 1st rebuild... there's nothing actually using the dependency, so
             // this should be a null build
-            XCTAssert(logs[.withError]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 2")
+            XCTAssert(logs[.withDependency]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 2")
             // 2nd rebuild... should still be a null build
-            XCTAssert(logs[.withErrorFixed]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 3")
+            XCTAssert(logs[.withoutDependency]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 3")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
@@ -290,107 +313,135 @@ final class IncrementalBuildTests: XCTestCase {
             do {
                 extraFile <<< (try localFileSystem.readFileContents(extraFilePath))
             } catch let error {
-                let message = "\(#function): caught \"\(error)\" trying to read \(extraFilePath.asString). Aborting test"
-                fatalError(message)
+                let message = "\(line())caught \"\(error)\" trying to read \(extraFilePath.asString). Aborting test"
+                XCTFail(message)
+                return
             }
             
             var logs = BuildLog()
             logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
             // Remove a file and recompile
             localFileSystem.removeFileTree(extraFilePath)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutFile] = try? executeSwiftBuild(prefix, printIfError: true)
             try localFileSystem.writeFileContents(extraFilePath, bytes: extraFile.bytes)
             // Put the file back and recompile
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withFile] = try? executeSwiftBuild(prefix, printIfError: true)
             // Once more, to verify it doesn't do anything for no changes
             logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(logs[.initial]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
-            XCTAssert(logs[.withError]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
-            XCTAssert(logs[.withErrorFixed]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
-            XCTAssert(logs[.null]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
+            checkForNils(logs).forEach {
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+            }
             
             // Check logs
-            XCTAssert(logs[.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
-            XCTAssert(logs[.withError]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 2")
-            XCTAssert(logs[.initial]! != logs[.withError]!, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2 - \(logs[.initial]! ?? String())")
-            XCTAssert(logs[.withErrorFixed]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 3")
+            XCTAssert(logs[.initial]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
+            XCTAssert(logs[.withoutFile]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.withoutFile)")
+            XCTAssert(logs[.initial]! != logs[.withoutFile]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): \(logs[.initial]! ?? String())")
+            XCTAssert(logs[.withFile]! != "", "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.withFile)")
             // The file that got removed contains an extension that overrides
             // the default implementation of something in a protocol, which is
             // only referenced from main.swift. AFAIK, that means that we should
             // only actually be compiling main.swift and FileTesterExt. If that's
-            // not the case, these two build logs should be equal
-            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): Builds 1 and 3 - \(logs[.initial]! ?? String())")
+            // not the case, these two build logs should be == insead of !=
+            XCTAssert(logs[.initial]! != logs[.withFile]!, "\(line()): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild)")
             // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
-            
+            XCTAssert(logs[.null]! == "", "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
 
-    func testAddRemoveTargetDependencies() {
+    func testAddRemoveTargets() {
         fixture(name: "IncrementalBuildTests/TrgtDeps") { prefix in
             let packagePath = prefix.appending(component: "Package.swift")
             let packageDep = BufferedOutputByteStream()
             let packageNoDep = BufferedOutputByteStream()
             packageDep <<< (try localFileSystem.readFileContents(packagePath))
-            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "Target(name: \"Foo2Lib\", dependencies: [\"FooLib\"]),", with: "Target(name: \"Foo2Lib\"),")
-            
+            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "        Target(name: \"Foo_iOS\", dependencies: [\"Foo2Lib\"]),\n", with: "")
             var logs = BuildLog()
             logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
             
             // Check for build failures
-            XCTAssert(logs[.initial]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 1")
-            XCTAssert(logs[.withError]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 2")
-            XCTAssert(logs[.withErrorFixed]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 3")
-            XCTAssert(logs[.null]! != nil, "\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): build 4")
+            checkForNils(logs).forEach {
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+            }
             
             // Check the logs
-            XCTAssert(logs[.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 1")
-            XCTAssert(logs[.initial]! != logs[.withError]!, "\(#function): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2 - \(logs[.initial]! ?? String())")
-            // FIXME: I'm not sure if this is intentional, or if it's just a quirk
-            XCTAssert(logs[.withError]! == logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.unexpectedDissimilar): build 3")
-            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): Builds 1 and 3 - \(logs[.initial]! ?? String())")
-            // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            let buildResults: [Builds : BuildResult] = {
+                var br = [Builds : BuildResult]()
+                logs.forEach { br[$0.key] = BuildResult($0.value) }
+                return br
+            }()
+            
+            var correctNum: Int
+            // Check the logs
+            XCTAssert(!buildResults[.initial]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedNullBuild): \(Builds.initial)")
+            XCTAssert(buildResults[.initial]! != buildResults[.withoutDependency]!, "\(line()): \(IncBuildErrorMessages.unexpectedSimilar): Builds 1 and 2 - \(logs[.initial]! ?? String())")
+            // FIXME: Verify that this is actually correct
+            correctNum = 1
+            XCTAssert(buildResults[.withoutDependency]!.modules.count == correctNum, "\(line()): \(Builds.withoutDependency) built \(buildResults[.withoutDependency]!.modules.count) modules instead of \(correctNum)")
+            // FIXME: Verify that this is actually correct
+            //correctNum is still 1
+            XCTAssert(buildResults[.withDependency]!.modules.count == correctNum, "\(line()): \(Builds.withDependency) built \(buildResults[.withDependency]!.modules.count) modules instead of \(correctNum)")
+            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): build 4")
         }
     }
     
-    func testAddRemoveTargets() {
+    func testAddRemoveTargetDependencies() {
         fixture(name: "IncrementalBuildTests/TrgtDeps") { prefix in
             var logs = BuildLog()
             let packagePath = prefix.appending(component: "Package.swift")
             let packageDep = BufferedOutputByteStream()
             let packageNoDep = BufferedOutputByteStream()
             packageDep <<< (try localFileSystem.readFileContents(packagePath))
-            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "        Target(name: \"Foo3Lib\", dependencies: [\"FooLib\"]),\n", with: "")
+            packageNoDep <<< packageDep.bytes.asReadableString.replacingOccurrences(of: "            \"Foo2Lib\",\n", with: "")
             
             logs[.initial] = try? executeSwiftBuild(prefix, printIfError: true)
             try localFileSystem.writeFileContents(packagePath, bytes: packageNoDep.bytes)
-            logs[.withError] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withoutDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             try localFileSystem.writeFileContents(packagePath, bytes: packageDep.bytes)
-            logs[.withErrorFixed] = try? executeSwiftBuild(prefix, printIfError: true)
+            logs[.withDependency] = try? executeSwiftBuild(prefix, printIfError: true)
             logs[.null] = alwaysDoRedundancyCheck ? try? executeSwiftBuild(prefix, printIfError: true) : ""
 
             // Check for build failures
             checkForNils(logs).forEach {
-                XCTFail("\(#function): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
+                XCTFail("\(line()): \(IncBuildErrorMessages.unexpectedBuildFailure): \($0)")
             }
             
             // Check the logs
-            XCTAssert(logs[.initial]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 1")
-            XCTAssert(logs[.withError]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 2")
-            XCTAssert(logs[.initial]! != logs[.withError]!, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): Builds 1 and 2 - \(logs[.initial]! ?? String())")
-            XCTAssert(logs[.withErrorFixed]! != "", "\(#function): \(IncBuildErrorMessages.unexpectedNullBuild): build 3")
-            XCTAssert(logs[.initial]! != logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.fullBuildSameAsIncrementalBuild): Builds 1 and 3 - \(logs[.initial]! ?? String())")
-            XCTAssert(logs[.withError]! == logs[.withErrorFixed]!, "\(#function): \(IncBuildErrorMessages.unexpectedDissimilar): Builds 2 and 3 - \(logs[.withError]! ?? String())")
-            // There shouldn't be anything for build 4 to do
-            XCTAssert(logs[.null]! == "", "\(#function): \(IncBuildErrorMessages.unexpectedBuild): build 4")
+            let buildResults: [Builds : BuildResult] = {
+                var br = [Builds : BuildResult]()
+                logs.forEach { br[$0.key] = BuildResult($0.value) }
+                return br
+            }()
+            
+            var correctNum = 5
+            XCTAssert(buildResults[.initial]!.modules.count == correctNum, "\(line()): \(Builds.initial) built \(buildResults[.initial]!.modules.count) binaries instead of \(correctNum): \(logs[.initial]!!)")
+            correctNum = 2
+            XCTAssert(buildResults[.initial]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.initial) linked \(buildResults[.initial]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.initial]!!)")
+            
+            // Removing a target doesn't need to recompile/rebuild anything, it
+            // just removes a binary.
+            // FIXME: Verify that this is actually correct
+            correctNum = 0
+            XCTAssert(buildResults[.withoutDependency]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.withoutDependency) linked \(buildResults[.withoutDependency]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.withoutDependency]!!)")
+            // FIXME: Verify that this is actually correct
+            correctNum = 1
+            XCTAssert(buildResults[.withoutDependency]!.modules.count == correctNum, "\(line()): \(Builds.withoutDependency) built \(buildResults[.withoutDependency]!.modules.count) modules instead of \(correctNum): \(logs[.withoutDependency]!!)")
+            
+            // Adding the target back doesn't seem to do anything, either
+            // FIXME: Verify that this is actually correct
+            correctNum = 0
+            XCTAssert(buildResults[.withDependency]!.linkedBinaries.count == correctNum, "\(line()): \(Builds.withDependency) linked \(buildResults[.withDependency]!.linkedBinaries.count) binaries instead of \(correctNum): \(logs[.withDependency]!!)")
+            // FIXME: Verify that this is actually correct
+            correctNum = 1
+            XCTAssert(buildResults[.withDependency]!.modules.count == correctNum, "\(line()): \(Builds.withDependency) built \(buildResults[.withDependency]!.modules.count) modules instead of \(correctNum): \(logs[.withDependency]!!)")
+            
+            XCTAssert(buildResults[.null]!.isNullBuild, "\(line()): \(IncBuildErrorMessages.unexpectedBuild): \(Builds.null)")
         }
     }
 
