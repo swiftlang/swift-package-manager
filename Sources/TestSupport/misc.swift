@@ -70,11 +70,7 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
                 let srcDir = fixtureDir.appending(component: fileName)
                 guard isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
-                do {
-                    try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
-                } catch let error {
-                    XCTFail("\(error)")
-                }
+                try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
                 initGitRepo(dstDir, tag: popVersion(), addFile: false)
             }
 
