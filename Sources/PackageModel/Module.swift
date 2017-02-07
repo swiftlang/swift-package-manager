@@ -52,6 +52,12 @@ public class Module: ObjectIdentifierProtocol {
 
 public class SwiftModule: Module {
 
+    /// Create an executable Swift module from linux main test manifest file.
+    init(linuxMain: AbsolutePath, name: String, dependencies: [Module]) {
+        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
+        super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
+    }
+
     public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
         let type: ModuleType = isTest ? .test : sources.computeModuleType()
         super.init(name: name, type: type, sources: sources, dependencies: dependencies)
