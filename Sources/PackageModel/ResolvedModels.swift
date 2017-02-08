@@ -51,12 +51,7 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
     }
 
     public var description: String {
-        var string = "<ResolvedModule: \(name)"
-        if !dependencies.isEmpty {
-            string += " deps: \(dependencies.map{$0.name}.joined(separator: ", "))"
-        }
-        string += ">"
-        return string
+        return "<ResolvedModule: \(name)>"
     }
 }
 
@@ -98,12 +93,7 @@ public final class ResolvedPackage: CustomStringConvertible, ObjectIdentifierPro
     }
 
     public var description: String {
-        var string = "<ResolvedPackage: \(name)"
-        if !dependencies.isEmpty {
-            string += " deps: \(dependencies.map{$0.name}.joined(separator: ", "))"
-        }
-        string += ">"
-        return string
+        return "<ResolvedPackage: \(name)>"
     }
 }
 
@@ -165,9 +155,6 @@ public final class ResolvedProduct: CustomStringConvertible {
     }
 
     public var description: String {
-        var string = "<ResolvedPackage: \(name)"
-        string += " modules: \(modules.map{$0.name}.joined(separator: ", "))"
-        string += ">"
-        return string
+        return "<ResolvedProduct: \(name)>"
     }
 }
