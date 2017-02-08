@@ -60,9 +60,9 @@ public struct LLbuildManifestGenerator {
         for buildTarget in plan.targets {
             switch buildTarget {
             case .swift(let target):
-                targets.append(createSwiftCommand(target), isTest: target.module.type == .test)
+                targets.append(createSwiftCommand(target), isTest: target.isTestTarget)
             case .clang(let target):
-                targets.append(createClangCommands(target), isTest: target.module.type == .test)
+                targets.append(createClangCommands(target), isTest: target.isTestTarget)
             }
         }
 

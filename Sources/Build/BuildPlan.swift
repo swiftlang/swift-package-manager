@@ -107,6 +107,11 @@ public final class ClangTargetDescription {
 
     /// The filesystem to operate on.
     let fileSystem: FileSystem
+
+    /// If this target is a test target.
+    public var isTestTarget: Bool {
+        return module.type == .test
+    }
     
     /// Create a new target description with module and build parameters.
     init(module: ResolvedModule, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem) throws {
@@ -206,11 +211,16 @@ public final class SwiftTargetDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
+    /// If this target is a test target.
+    public let isTestTarget: Bool
+
     /// Create a new target description with module and build parameters.
-    init(module: ResolvedModule, buildParameters: BuildParameters) {
+    init(module: ResolvedModule, buildParameters: BuildParameters, isTestTarget: Bool? = nil) {
         assert(module.underlyingModule is SwiftModule, "underlying module type mismatch \(module)")
         self.module = module
         self.buildParameters = buildParameters
+        // Unless mentioned explicitly, use the module type to determine if this is a test target.
+        self.isTestTarget = isTestTarget ?? (module.type == .test)
     }
 
     /// The arguments needed to compile this target.
@@ -296,11 +306,6 @@ public final class ProductBuildDescription {
             args += ["-Xlinker", "-bundle"]
           #else
             args += ["-emit-executable"]
-            // FIXME: Insert the LinuxMain file on linux.
-            // This just contains one source file (LinuxMain.swift) which acts as manifest to the tests on linux.
-            // This will go away once it is possible to auto detect tests.
-            args += [product.linuxMainTest.asString]
-            args += ["-I", buildParameters.buildPath.asString]
           #endif
         case .library(.dynamic):
             args += ["-emit-library"]
@@ -385,6 +390,17 @@ public class BuildPlan {
                 let target = targetMap[product.executableModule]!
                 objects += target.objects
             }
+
+          #if os(Linux)
+            // FIXME: Create a target for LinuxMain file on linux.
+            // This will go away once it is possible to auto detect tests.
+            if product.type == .test {
+                let linuxMainModule = product.createLinuxMainModule()
+                let target = SwiftTargetDescription(module: linuxMainModule, buildParameters: buildParameters, isTestTarget: true)
+                targetMap[linuxMainModule] = .swift(target)
+                objects += target.objects
+            }
+          #endif
 
             return ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
         }

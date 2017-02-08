@@ -42,14 +42,6 @@ public class Product {
     /// the product, but not necessarily their transitive dependencies.
     public let modules: [Module]
 
-    /// Path to the main file for test product on linux.
-    public var linuxMainTest: AbsolutePath {
-        precondition(type == .test, "This property is only valid for test product type")
-        // FIXME: This is hacky, we should get this from package builder.
-        let testDirectory = modules.first{ $0.type == .test }!.sources.root.parentDirectory
-        return testDirectory.appending(component: "LinuxMain.swift")
-    }
-
     public init(name: String, type: ProductType, modules: [Module]) {
         precondition(!modules.isEmpty)
         if type == .executable {

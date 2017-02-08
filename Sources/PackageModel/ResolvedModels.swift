@@ -131,9 +131,18 @@ public final class ResolvedProduct: CustomStringConvertible {
         return underlyingProduct.outname
     }
 
-    /// Path to the main file for test product on linux.
-    public var linuxMainTest: AbsolutePath {
-        return underlyingProduct.linuxMainTest
+    /// Create an executable module for linux main test manifest file.
+    public func createLinuxMainModule() -> ResolvedModule {
+        precondition(type == .test, "This property is only valid for test product type")
+        // FIXME: This is hacky, we should get this from somewhere else.
+        let testDirectory = modules.first{ $0.type == .test }!.sources.root.parentDirectory
+        // Path to the main file for test product on linux.
+        let linuxMain = testDirectory.appending(component: "LinuxMain.swift")
+        // Create an exectutable resolved module with the linux main, adding product's modules as dependencies.
+        let swiftModule = SwiftModule(
+            linuxMain: linuxMain, name: name, dependencies: underlyingProduct.modules)
+
+        return ResolvedModule(module: swiftModule, dependencies: modules)
     }
 
     /// All reachable modules in this product.
