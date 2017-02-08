@@ -278,7 +278,7 @@ public class SwiftTool<Options: ToolOptions> {
         )
         let yaml = buildPath.appending(component: config.dirname + ".yaml")
         // Create build plan.
-        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph)
+        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, delegate: self)
         // Generate llbuild manifest.
         let llbuild = LLbuildManifestGenerator(buildPlan)
         try llbuild.generateManifest(at: yaml)
@@ -297,6 +297,13 @@ public class SwiftTool<Options: ToolOptions> {
                 try removeFileTree(buildPath)
             }
         }
+    }
+}
+
+extension SwiftTool: BuildPlanDelegate {
+    public func warning(message: String) {
+        // FIXME: Coloring would be nice.
+        print("warning: " + message)
     }
 }
 
