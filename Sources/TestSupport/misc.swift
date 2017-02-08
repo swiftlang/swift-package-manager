@@ -77,6 +77,9 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
             // Invoke the block, passing it the path of the copied fixture.
             try body(tmpDir.path)
         }
+    } catch SwiftPMProductError.executionFailure(_, let output) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }
