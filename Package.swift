@@ -64,10 +64,6 @@ let package = Package(
         // MARK: Package Dependency Resolution
         
         Target(
-            /** Fetches Packages and their dependencies */
-            name: "Get",
-            dependencies: ["Basic", "PackageDescription", "PackageModel", "PackageLoading"]),
-        Target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
             dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
@@ -85,14 +81,14 @@ let package = Package(
         Target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj"]),
+            dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
         
         Target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["Basic", "Build", "Get", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace"]),
+            dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace"]),
         Target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -142,9 +138,6 @@ let package = Package(
         Target(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "TestSupport"]),
-        Target(
-            name: "GetTests",
-            dependencies: ["Get", "TestSupport"]),
         Target(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "TestSupport"]),
@@ -196,6 +189,6 @@ products.append(
     Product(
         name: "SwiftPM",
         type: .Library(.Dynamic),
-        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "Get", "PackageGraph", "Build", "Xcodeproj", "Workspace"]
+        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "PackageGraph", "Build", "Xcodeproj", "Workspace"]
     )
 )

@@ -54,7 +54,9 @@ class GitRepositoryTests: XCTestCase {
 
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
-            XCTAssertEqual(revision.identifier, try Git.runPopen([Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "1.2.3"]).chomp())
+            XCTAssertEqual(revision.identifier, 
+                try Process.popen(
+                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "1.2.3").utf8Output().chomp())
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
@@ -223,7 +225,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "initial")
-            let initialRevision = Git.Repo(path: testRepoPath)!.sha
+            let initialRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
@@ -231,7 +233,7 @@ class GitRepositoryTests: XCTestCase {
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
-            let currentRevision = Git.Repo(path: testRepoPath)!.sha
+            let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Fetch the repository using the provider.
             let testClonePath = path.appending(component: "clone")
@@ -254,10 +256,10 @@ class GitRepositoryTests: XCTestCase {
             for path in [checkoutPath, editsPath] {
                 let workingCopy = try provider.openCheckout(at: path)
                 try workingCopy.checkout(tag: "test-tag")
-                XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, currentRevision)
+                XCTAssertEqual(try workingCopy.getCurrentRevision(), currentRevision)
                 XCTAssert(localFileSystem.exists(path.appending(component: "test.txt")))
                 try workingCopy.checkout(tag: "initial")
-                XCTAssertEqual(try workingCopy.getCurrentRevision().identifier, initialRevision)
+                XCTAssertEqual(try workingCopy.getCurrentRevision(), initialRevision)
                 XCTAssert(!localFileSystem.exists(path.appending(component: "test.txt")))
             }
         }

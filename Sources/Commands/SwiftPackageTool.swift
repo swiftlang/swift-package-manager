@@ -51,18 +51,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try clean()
 
         case .reset:
-            if options.enableNewResolver {
-                try getActiveWorkspace().reset()
-            } else {
-                // Remove the checkouts directory.
-                if try exists(getCheckoutsDirectory()) {
-                    try removeFileTree(getCheckoutsDirectory())
-                }
-                // Remove the build directory.
-                if exists(buildPath) {
-                    try removeFileTree(buildPath)
-                }
-            }
+            try getActiveWorkspace().reset()
 
         case .resolve:
             // NOTE: This command is currently undocumented, and is for
@@ -73,36 +62,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             break
 
         case .update:
-            if options.enableNewResolver {
-                let workspace = try getActiveWorkspace()
-                // We repin either on explicit repin option or if autopin is enabled.
-                let repin = options.repin || workspace.pinsStore.autoPin
-                try workspace.updateDependencies(repin: repin)
-            } else {
-                let packagesDirectory = try getCheckoutsDirectory()
-                // Attempt to ensure that none of the repositories are modified.
-                if localFileSystem.exists(packagesDirectory) {
-                    for name in try localFileSystem.getDirectoryContents(packagesDirectory) {
-                        let item = packagesDirectory.appending(RelativePath(name))
-
-                        // Only look at repositories.
-                        guard exists(item.appending(component: ".git")) else { continue }
-
-                        // If there is a staged or unstaged diff, don't remove the
-                        // tree. This won't detect new untracked files, but it is
-                        // just a safety measure for now.
-                        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-                        do {
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
-                        } catch {
-                            throw Error.repositoryHasChanges(item.asString)
-                        }
-                    }
-                    try removeFileTree(packagesDirectory)
-                }
-                _ = try loadPackage()
-            }
+            let workspace = try getActiveWorkspace()
+            // We repin either on explicit repin option or if autopin is enabled.
+            let repin = options.repin || workspace.pinsStore.autoPin
+            try workspace.updateDependencies(repin: repin)
         case .fetch:
             _ = try loadPackage()
 
