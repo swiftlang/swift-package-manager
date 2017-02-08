@@ -48,21 +48,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try initPackage.writePackageStructure()
 
         case .clean:
-            try clean()
+            try getActiveWorkspace().clean()
 
         case .reset:
-            if options.enableNewResolver {
-                try getActiveWorkspace().reset()
-            } else {
-                // Remove the checkouts directory.
-                if try exists(getCheckoutsDirectory()) {
-                    try removeFileTree(getCheckoutsDirectory())
-                }
-                // Remove the build directory.
-                if exists(buildPath) {
-                    try removeFileTree(buildPath)
-                }
-            }
+            try getActiveWorkspace().reset()
 
         case .resolve:
             // NOTE: This command is currently undocumented, and is for
@@ -73,43 +62,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             break
 
         case .update:
-            if options.enableNewResolver {
-                let workspace = try getActiveWorkspace()
-                // We repin either on explicit repin option or if autopin is enabled.
-                let repin = options.repin || workspace.pinsStore.autoPin
-                try workspace.updateDependencies(repin: repin)
-            } else {
-                let packagesDirectory = try getCheckoutsDirectory()
-                // Attempt to ensure that none of the repositories are modified.
-                if localFileSystem.exists(packagesDirectory) {
-                    for name in try localFileSystem.getDirectoryContents(packagesDirectory) {
-                        let item = packagesDirectory.appending(RelativePath(name))
-
-                        // Only look at repositories.
-                        guard exists(item.appending(component: ".git")) else { continue }
-
-                        // If there is a staged or unstaged diff, don't remove the
-                        // tree. This won't detect new untracked files, but it is
-                        // just a safety measure for now.
-                        let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-                        do {
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff"] + diffArgs)
-                            _ = try Git.runPopen([Git.tool, "-C", item.asString, "diff", "--cached"] + diffArgs)
-                        } catch {
-                            throw Error.repositoryHasChanges(item.asString)
-                        }
-                    }
-                    try removeFileTree(packagesDirectory)
-                }
-                _ = try loadPackage()
-            }
+            let workspace = try getActiveWorkspace()
+            // We repin either on explicit repin option or if autopin is enabled.
+            let repin = options.repin || workspace.pinsStore.autoPin
+            try workspace.updateDependencies(repin: repin)
         case .fetch:
             _ = try loadPackage()
 
         case .edit:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             // Make sure we have all the options required for editing the package.
             guard let packageName = options.editOptions.packageName, (options.editOptions.revision != nil || options.editOptions.checkoutBranch != nil) else {
                 throw PackageToolOperationError.insufficientOptions(usage: editUsage)
@@ -128,9 +88,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editOptions.checkoutBranch)
 
         case .unedit:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             guard let packageName = options.editOptions.packageName else {
                 throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
             }
@@ -177,9 +134,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .help:
             parser.printUsage(on: stdoutStream)
         case .pin:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             // FIXME: It would be nice to have mutual exclusion pinning options.
             // Argument parser needs to provide that functionality.
 
@@ -218,9 +172,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 reason: options.pinOptions.message
             )
         case .unpin:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             guard let packageName = options.pinOptions.packageName else {
                 fatalError("Expected package name from parser")
             }

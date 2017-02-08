@@ -28,13 +28,8 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
-            if SwiftPMProduct.enableNewResolver {
-                XCTAssertTrue(output.contains("Resolving"))
-                XCTAssertTrue(output.contains("at 1.3.5"))
-            } else {
-                let lines = output.characters.split(separator: "\n").map(String.init)
-                XCTAssertTrue(lines.contains("Resolved version: 1.3.5"))
-            }
+            XCTAssertTrue(output.contains("Resolving"))
+            XCTAssertTrue(output.contains("at 1.3.5"))
         }
     }
 

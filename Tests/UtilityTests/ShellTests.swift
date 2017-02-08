@@ -19,11 +19,6 @@ class ShellTests: XCTestCase {
         XCTAssertEqual(try! popen(["echo", "foo"], environment: [:]), "foo\n")
     }
 
-    func testPopenWithBufferLargerThanThatAllocated() {
-        let path = AbsolutePath(#file).parentDirectory.parentDirectory.appending(components: "GetTests", "VersionGraphTests.swift")
-        XCTAssertGreaterThan(try! popen(["cat", path.asString]).characters.count, 4096)
-    }
-
     func testPopenWithBinaryOutput() {
         if (try? popen(["cat", "/bin/cat"], environment: [:])) != nil {
             XCTFail("popen succeeded but should have faileds")
@@ -32,7 +27,6 @@ class ShellTests: XCTestCase {
 
     static var allTests = [
         ("testPopen", testPopen),
-        ("testPopenWithBufferLargerThanThatAllocated", testPopenWithBufferLargerThanThatAllocated),
         ("testPopenWithBinaryOutput", testPopenWithBinaryOutput)
     ]
 }

@@ -15,7 +15,6 @@ public func allTests() -> [XCTestCaseEntry] {
     return [
         testCase(ArgumentParserTests.allTests),
         testCase(CollectionTests.allTests),
-        testCase(GitUtilityTests.allTests),
         testCase(InterruptHandlerTests.allTests),
         testCase(miscTests.allTests),
         testCase(PkgConfigParserTests.allTests),

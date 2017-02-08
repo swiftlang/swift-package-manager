@@ -10,7 +10,6 @@
 
 import Basic
 import Build
-import Get
 import PackageLoading
 import PackageGraph
 import PackageModel
@@ -132,10 +131,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.colorMode = $1 })
 
         binder.bind(
-            option: parser.add(option: "--enable-new-resolver", kind: Bool.self),
-            to: { $0.enableNewResolver = $1 })
-
-        binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
             usage: "Enable prefetching in resolver"),
             to: { $0.enableResolverPrefetching = $1 })
@@ -252,19 +247,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Fetch and load the complete package at the given path.
     func loadPackage() throws -> PackageGraph {
-        if options.enableNewResolver {
-            let workspace = try getActiveWorkspace()
-            // Fetch and load the package graph.
-            return try workspace.loadPackageGraph()
-        } else {
-            // Create the packages directory container.
-            let packagesDirectory = PackagesDirectory(root: try getPackageRoot(), manifestLoader: manifestLoader)
-
-            // Fetch and load the manifests.
-            let (rootManifest, externalManifests) = try packagesDirectory.loadManifests()
-        
-            return try PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests)
-        }
+        let workspace = try getActiveWorkspace()
+        // Fetch and load the package graph.
+        return try workspace.loadPackageGraph()
     }
 
     /// Build the package graph using swift-build-tool.
@@ -284,19 +269,6 @@ public class SwiftTool<Options: ToolOptions> {
         try llbuild.generateManifest(at: yaml)
         // Run the swift-build-tool with the generated manifest.
         try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil)
-    }
-
-    /// Cleans the build artefacts.
-    // FIXME: Move this to swift-package once its not needed in swift-build.
-    func clean() throws {
-        if options.enableNewResolver {
-            try getActiveWorkspace().clean()
-        } else {
-            // FIXME: This test is lame, `removeFileTree` shouldn't error on this.
-            if exists(buildPath) {
-                try removeFileTree(buildPath)
-            }
-        }
     }
 }
 

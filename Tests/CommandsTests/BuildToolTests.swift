@@ -26,34 +26,9 @@ final class BuildToolTests: XCTestCase {
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
-    func testBuildAndClean() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
-            
-            // Build it.
-            XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
-
-            // Clean, and check for removal of the build directory but not Packages.
-            let output = try execute(["--clean"], chdir: packageRoot)
-            XCTAssertTrue(output.contains("deprecated"))
-            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
-            // We don't delete the build folder in new resolver.
-            // FIXME: Eliminate this once we switch to new resolver.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
-                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
-            }
-
-            // Clean again to ensure we get no error.
-            _ = try execute(["--clean"], chdir: packageRoot)
-        }
-    }
 
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
-        ("testBuildAndClean", testBuildAndClean),
     ]
 }

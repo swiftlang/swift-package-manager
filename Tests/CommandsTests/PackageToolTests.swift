@@ -163,12 +163,12 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+                return try SwiftPMProduct.SwiftBuild.execute([], chdir: fooPath, printIfError: true)
             }
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
@@ -195,7 +195,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of uncommited changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -204,7 +204,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -212,7 +212,7 @@ final class PackageToolTests: XCTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver", "unedit", "bar"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath, printIfError: true)
         }
     }
 
@@ -228,13 +228,6 @@ final class PackageToolTests: XCTestCase {
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], chdir: packageRoot)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
-            // We don't delete the build folder in new resolver.
-            // FIXME: Eliminate this once we switch to new resolver.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
-                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
-            }
-
             // Clean again to ensure we get no error.
             _ = try execute(["clean"], chdir: packageRoot)
         }
@@ -248,51 +241,25 @@ final class PackageToolTests: XCTestCase {
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
-            // FIXME: Eliminate this.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
-            }
-
             // Clean, and check for removal of the build directory but not Packages.
 
-            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
+            _ = try execute(["clean"], chdir: packageRoot)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
-            // We don't delete the build folder in new resolver.
-            // FIXME: Eliminate this once we switch to new resolver.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
-                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
-            }
 
             // Fully clean.
             _ = try execute(["reset"], chdir: packageRoot)
             XCTAssertTrue(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
             // We preserve cache directories.
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
-            // FIXME: Eliminate this.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(!isDirectory(packageRoot.appending(component: "Packages")))
-            }
         }
     }
 
     func testPinning() throws {
-        // FIXME: Temporary method until we switch to new resolver permanently.
-        func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
-            let packagesPath = packageRoot.appending(components: ".build", "checkouts")
-            for name in try localFileSystem.getDirectoryContents(packagesPath) {
-                if name.hasPrefix(packageName) {
-                    return packagesPath.appending(RelativePath(name))
-                }
-            }
-            throw SwiftPMProductError.packagePathNotFound
-        }
-
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute(["--enable-new-resolver"], chdir: fooPath, printIfError: true)
+                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], chdir: fooPath, printIfError: true)
                 return buildOutput
             }
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
@@ -302,7 +269,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try popen(exec, environment: [:]).chomp(), "\(5)")
 
             // Get path to bar checkout.
-            let barPath = try packagePath(for: "bar", packageRoot: fooPath)
+            let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
@@ -330,7 +297,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute(["--enable-new-resolver"] + args, chdir: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, chdir: fooPath, printIfError: printError)
             }
             
             // Enable autopin.

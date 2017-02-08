@@ -37,10 +37,6 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             guard !graph.rootPackages[0].modules.isEmpty else { break }
             try build(graph: graph, includingTests: options.buildTests, config: options.config)
 
-        case .clean:
-            print("warning: swift build --clean is deprecated. Use 'swift package clean' instead. (SR-2082)")
-            try clean()
-
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
         }
@@ -50,10 +46,6 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
         binder.bind(
             option: parser.add(option: "--build-tests", kind: Bool.self),
             to: { $0.buildTests = $1 })
-
-        binder.bind(
-            option: parser.add(option: "--clean", kind: Bool.self),
-            to: { $0.clean = $1 })
 
         binder.bind(
             option: parser.add(option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
@@ -82,18 +74,12 @@ public class BuildToolOptions: ToolOptions {
         if printVersion {
             return .version
         }
-        if clean {
-            return .clean
-        }
         // Get the build configuration or assume debug.
         return .build
     }
 
     /// If the test should be built.
     var buildTests = false
-    
-    /// If should clean the build artefacts.
-    var clean = false
 
     /// Build configuration.
     var config: Build.Configuration = .debug
@@ -102,9 +88,6 @@ public class BuildToolOptions: ToolOptions {
 public enum BuildToolMode {
     /// Build the package.
     case build
-
-    /// Clean the build artefacts and exit.
-    case clean
 
     /// Print the version.
     case version
