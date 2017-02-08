@@ -270,12 +270,6 @@ public class SwiftTool<Options: ToolOptions> {
         // Run the swift-build-tool with the generated manifest.
         try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil)
     }
-
-    /// Cleans the build artefacts.
-    // FIXME: Move this to swift-package once its not needed in swift-build.
-    func clean() throws {
-        try getActiveWorkspace().clean()
-    }
 }
 
 extension SwiftTool: BuildPlanDelegate {

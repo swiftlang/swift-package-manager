@@ -243,7 +243,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
             // Clean, and check for removal of the build directory but not Packages.
 
-            _ = try SwiftPMProduct.SwiftBuild.execute(["--clean"], chdir: packageRoot, printIfError: true)
+            _ = try execute(["clean"], chdir: packageRoot)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
 

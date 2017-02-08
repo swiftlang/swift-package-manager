@@ -48,7 +48,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try initPackage.writePackageStructure()
 
         case .clean:
-            try clean()
+            try getActiveWorkspace().clean()
 
         case .reset:
             try getActiveWorkspace().reset()
