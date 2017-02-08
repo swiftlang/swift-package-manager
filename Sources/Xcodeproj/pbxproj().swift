@@ -353,15 +353,6 @@ func xcodeProject(
         let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
         
-        // Add default library search path to the directory where symlinks to
-        // framework binaries will be put with name `lib<library-name>.dylib`
-        // so that autolinking can proceed without providing another modulemap
-        // for Xcode projects.
-        // See: https://bugs.swift.org/browse/SR-2465
-        if module.recursiveDependencies.first(where: { $0.underlyingModule is ClangModule }) != nil {
-            targetSettings.common.LIBRARY_SEARCH_PATHS = ["$(PROJECT_TEMP_DIR)/SymlinkLibs/"]
-        }
-        
         if module.type == .test {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks"]
@@ -425,14 +416,6 @@ func xcodeProject(
         
         // Set that file reference as the target's product reference.
         target.productReference = productRef
-        
-        // Add a shell script build phase to create a symlink to the produced
-        // library in a shared location so other modules can find it.
-        if case let clangModule as ClangModule = module.underlyingModule, clangModule.type == .library {
-            let script = "mkdir -p \"${PROJECT_TEMP_DIR}/SymlinkLibs\"\n"
-                       + "ln -sf \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\" \"${PROJECT_TEMP_DIR}/SymlinkLibs/lib${EXECUTABLE_NAME}.dylib\"\n"
-            target.addShellScriptBuildPhase(script: script)
-        }
         
         // Add a compile build phase (which Xcode calls "Sources").
         let compilePhase = target.addSourcesBuildPhase()
