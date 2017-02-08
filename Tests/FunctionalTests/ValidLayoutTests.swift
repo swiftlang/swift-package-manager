@@ -77,9 +77,7 @@ class ValidLayoutsTests: XCTestCase {
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot, configurations: [.Debug])
 
-            // FIXME: Elminate this.
-            let deckOfPlayingCards = SwiftPMProduct.enableNewResolver ? "deck-of-playing-cards" : "DeckOfPlayingCards"
-            var path = try SwiftPMProduct.packagePath(for: deckOfPlayingCards, packageRoot: packageRoot)
+            var path = try SwiftPMProduct.packagePath(for: "deck-of-playing-cards", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3-beta5"])
 
             path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)

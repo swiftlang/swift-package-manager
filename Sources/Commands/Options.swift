@@ -24,9 +24,6 @@ public class ToolOptions {
     /// The color mode.
     public var colorMode: ColorWrap.Mode = .Auto
 
-    /// If the new resolver should be enabled.
-    public var enableNewResolver: Bool = true
-
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var enableResolverPrefetching = false
 

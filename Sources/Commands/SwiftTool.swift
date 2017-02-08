@@ -131,10 +131,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.colorMode = $1 })
 
         binder.bind(
-            option: parser.add(option: "--enable-new-resolver", kind: Bool.self),
-            to: { $0.enableNewResolver = $1 })
-
-        binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
             usage: "Enable prefetching in resolver"),
             to: { $0.enableResolverPrefetching = $1 })

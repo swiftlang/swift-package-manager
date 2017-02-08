@@ -62,17 +62,6 @@ public enum SwiftPMProduct {
         }
     }
 
-    /// Returns true if the product can accept the --enable-new-resolver flag.
-    var canAcceptNewResolverArg: Bool {
-        switch self {
-        case .SwiftBuild: fallthrough
-        case .SwiftPackage: fallthrough
-        case .SwiftTest: return true
-        case .XCTestHelper: fallthrough
-        case .TestSupportExecutable: return false
-        }
-    }
-
     /// Executes the product with specified arguments.
     ///
     /// - Parameters:
@@ -98,10 +87,6 @@ public enum SwiftPMProduct {
 
         var out = ""
         var completeArgs = [path.asString]
-        // FIXME: Eliminate this when we switch to the new resolver.
-        if SwiftPMProduct.enableNewResolver && canAcceptNewResolverArg {
-            completeArgs += ["--enable-new-resolver"]
-        }
         if let chdir = chdir {
             completeArgs += ["--chdir", chdir.asString]
         }
@@ -122,18 +107,10 @@ public enum SwiftPMProduct {
         }
     }
 
-    /// Set this to true to run tests with new resolver.
-    public static var enableNewResolver = true
-
     public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {
         // FIXME: The directory paths are hard coded right now and should be replaced by --get-package-path
         // whenever we design that. https://bugs.swift.org/browse/SR-2753
-        let packagesPath: AbsolutePath
-        if enableNewResolver {
-            packagesPath = packageRoot.appending(components: ".build", "checkouts")
-        } else {
-            packagesPath = packageRoot.appending(component: "Packages")
-        }
+        let packagesPath = packageRoot.appending(components: ".build", "checkouts")
         for name in try localFileSystem.getDirectoryContents(packagesPath) {
             if name.hasPrefix(packageName) {
                 return packagesPath.appending(RelativePath(name))

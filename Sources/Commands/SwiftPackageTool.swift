@@ -70,9 +70,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             _ = try loadPackage()
 
         case .edit:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             // Make sure we have all the options required for editing the package.
             guard let packageName = options.editOptions.packageName, (options.editOptions.revision != nil || options.editOptions.checkoutBranch != nil) else {
                 throw PackageToolOperationError.insufficientOptions(usage: editUsage)
@@ -91,9 +88,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editOptions.checkoutBranch)
 
         case .unedit:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             guard let packageName = options.editOptions.packageName else {
                 throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
             }
@@ -140,9 +134,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .help:
             parser.printUsage(on: stdoutStream)
         case .pin:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             // FIXME: It would be nice to have mutual exclusion pinning options.
             // Argument parser needs to provide that functionality.
 
@@ -181,9 +172,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 reason: options.pinOptions.message
             )
         case .unpin:
-            guard options.enableNewResolver else {
-                fatalError("This mode requires --enable-new-resolver")
-            }
             guard let packageName = options.pinOptions.packageName else {
                 fatalError("Expected package name from parser")
             }

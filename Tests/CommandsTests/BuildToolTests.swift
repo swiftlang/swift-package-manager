@@ -39,13 +39,6 @@ final class BuildToolTests: XCTestCase {
             let output = try execute(["--clean"], chdir: packageRoot)
             XCTAssertTrue(output.contains("deprecated"))
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
-            // We don't delete the build folder in new resolver.
-            // FIXME: Eliminate this once we switch to new resolver.
-            if !SwiftPMProduct.enableNewResolver {
-                XCTAssert(!isDirectory(packageRoot.appending(component: ".build")))
-                XCTAssert(isDirectory(packageRoot.appending(component: "Packages")))
-            }
-
             // Clean again to ensure we get no error.
             _ = try execute(["--clean"], chdir: packageRoot)
         }
