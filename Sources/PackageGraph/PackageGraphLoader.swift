@@ -134,9 +134,9 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
 }
 
 // FIXME: Possibly lift this to Basic.
-private extension Array where Element: Hashable {
+private extension Sequence where Iterator.Element: Hashable {
     // Returns the set of duplicate elements in two arrays, if any.
-    func duplicates(_ other: Array<Element>) -> Set<Element>? {
+    func duplicates(_ other: Array<Iterator.Element>) -> Set<Iterator.Element>? {
         let dupes = Set(self).intersection(Set(other))
         return dupes.isEmpty ? nil : dupes
     }
