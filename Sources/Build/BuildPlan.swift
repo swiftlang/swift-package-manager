@@ -269,16 +269,21 @@ public final class ProductBuildDescription {
     }
 
     /// The objects in this product.
-    let objects: [AbsolutePath]
+    // Computed during build planning.
+    fileprivate(set) var objects: [AbsolutePath] = []
 
-    /// Any addition flags to be added. These flags are expected to be computed during build planning.
+    /// The dynamic libraries this product needs to link with.
+    // Computed during build planning.
+    fileprivate(set) var dylibs: [ProductBuildDescription] = []
+
+    /// Any additional flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, objects: [AbsolutePath], buildParameters: BuildParameters) {
+    init(product: ResolvedProduct, buildParameters: BuildParameters) {
+        assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
         self.buildParameters = buildParameters
-        self.objects = objects
     }
 
     /// The arguments to link and create this product.
@@ -295,6 +300,7 @@ public final class ProductBuildDescription {
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
         args += ["-module-name", product.name]
+        args += dylibs.map{ "-l" + $0.product.name }
 
         switch product.type {
         case .library(.automatic):
@@ -338,13 +344,18 @@ public class BuildPlan {
     /// The target build description map.
     public let targetMap: [ResolvedModule: TargetDescription]
 
+    /// The product build description map.
+    public let productMap: [ResolvedProduct: ProductBuildDescription]
+
     /// The build targets.
     public var targets: AnySequence<TargetDescription> {
         return AnySequence(targetMap.values)
     }
 
     /// The products in this plan.
-    public let buildProducts: [ProductBuildDescription]
+    public var buildProducts: AnySequence<ProductBuildDescription> {
+        return AnySequence(productMap.values)
+    }
 
     /// Build plan delegate.
     public let delegate: BuildPlanDelegate?
@@ -366,8 +377,6 @@ public class BuildPlan {
 
         // Create build target description for each module which we need to plan.
         var targetMap = [ResolvedModule: TargetDescription]()
-        // FIXME: Instead of operating on modules here, we should get all the products we want to build and
-        // then build up a list of modules from that.
         for module in graph.modules {
              switch module.underlyingModule {
              case is SwiftModule:
@@ -383,30 +392,23 @@ public class BuildPlan {
         }
 
         // Create product description for each product we have in the package graph.
-        self.buildProducts = graph.products().map { product in
-            // Collect all library objects.
-            var objects = product.allModules.filter{ $0.type == .library || $0.type == .test }.flatMap{ targetMap[$0]!.objects }
-
-            // Add objects from main module, if product is an executable.
-            if product.type == .executable {
-                let target = targetMap[product.executableModule]!
-                objects += target.objects
-            }
-
+        var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
+        for product in graph.products where product.type != .library(.automatic) {
           #if os(Linux)
             // FIXME: Create a target for LinuxMain file on linux.
             // This will go away once it is possible to auto detect tests.
             if product.type == .test {
-                let linuxMainModule = product.createLinuxMainModule()
-                let target = SwiftTargetDescription(module: linuxMainModule, buildParameters: buildParameters, isTestTarget: true)
+                let linuxMainModule = product.linuxMainModule
+                let target = SwiftTargetDescription(
+                    module: linuxMainModule, buildParameters: buildParameters, isTestTarget: true)
                 targetMap[linuxMainModule] = .swift(target)
-                objects += target.objects
             }
           #endif
-
-            return ProductBuildDescription(product: product, objects: objects, buildParameters: buildParameters)
+            productMap[product] = ProductBuildDescription(
+                product: product, buildParameters: buildParameters)
         }
 
+        self.productMap = productMap
         self.targetMap = targetMap
         // Finally plan these targets.
         plan()
@@ -426,35 +428,110 @@ public class BuildPlan {
 
         // Plan products.
         for buildProduct in buildProducts {
-            var linkCpp = false
+            plan(buildProduct)
+        }
+        // FIXME: We need to find out if any product has a target on which it depends 
+        // both static and dynamically and then issue a suitable diagnostic or auto
+        // handle that situation.
+    }
 
-            for module in buildProduct.product.allModules {
-                switch module.underlyingModule {
-                case let module as CModule:
-                    // Add pkgConfig libs arguments.
-                    buildProduct.additionalFlags += pkgConfig(for: module).libs
-                case let module as ClangModule:
-                    if module.containsCppFiles {
-                        linkCpp = true
-                    }
-                default: break
-                }
+    /// Plan a product.
+    private func plan(_ buildProduct: ProductBuildDescription) {
+        // Compute the product's dependency.
+        let dependencies = computeDependencies(of: buildProduct.product)
+        // Add flags for system modules.
+        for systemModule in dependencies.systemModules {
+            guard case let module as CModule = systemModule.underlyingModule else {
+                precondition(false, "This should not be possible.")
             }
-            // Link C++ if needed.
-            // Note: This will come from build settings in future.
-            if linkCpp {
+            // Add pkgConfig libs arguments.
+            buildProduct.additionalFlags += pkgConfig(for: module).libs
+        }
+
+        // Link C++ if needed.
+        // Note: This will come from build settings in future.
+        for target in dependencies.staticTargets {
+            if case let module as ClangModule = target.underlyingModule, module.containsCppFiles {
               #if os(macOS)
                 buildProduct.additionalFlags += ["-lc++"]
               #else
                 buildProduct.additionalFlags += ["-lstdc++"]
               #endif
+                break
             }
         }
+
+        buildProduct.dylibs = dependencies.dylibs.map{ productMap[$0]! }
+        buildProduct.objects = dependencies.staticTargets.flatMap{ targetMap[$0]!.objects }
+
+    }
+
+    /// Computes the dependencies of a product.
+    private func computeDependencies(
+        of product: ResolvedProduct
+    ) -> (dylibs: [ResolvedProduct], staticTargets: [ResolvedModule], systemModules: [ResolvedModule]) {
+
+        // Sort the product targets in topological order.
+        let nodes = product.modules.map(ResolvedModule.Dependency.target)
+        let allTargets = try! topologicalSort(nodes, successors: { dependency in
+            switch dependency {
+            // Include all the depenencies of a target.
+            case .target(let target):
+                return target.dependencies
+
+            // For a product dependency, we only include its content only if we
+            // need to statically link it.
+            case .product(let product):
+                switch product.type {
+                case .library(.automatic), .library(.static):
+                    return product.modules.map(ResolvedModule.Dependency.target)
+                case .library(.dynamic), .test, .executable:
+                    return []
+                }
+            }
+        })
+
+        // Create empty arrays to collect our results.
+        var (linkLibraries, staticTargets, systemModules) = ([ResolvedProduct](), [ResolvedModule](), [ResolvedModule]())
+
+        for dependency in allTargets {
+            switch dependency {
+            case .target(let target):
+                switch target.type {
+                // Include executable and tests only if they're top level contents 
+                // of the product. Otherwise they are just build time dependency.
+                case .executable, .test:
+                    if product.modules.contains(target) {
+                        staticTargets.append(target)
+                    }
+                // Library targets should always be included.
+                case .library:
+                    staticTargets.append(target)
+                // Add system module targets to system modules array.
+                case .systemModule:
+                    systemModules.append(target)
+                }
+
+            case .product(let product):
+                // Add the dynamic products to array of libraries to link.
+                if product.type == .library(.dynamic) {
+                    linkLibraries.append(product)
+                }
+            }
+        }
+
+      #if os(Linux)
+        if product.type == .test {
+            staticTargets.append(product.linuxMainModule)
+        }
+      #endif
+
+        return (linkLibraries, staticTargets, systemModules)
     }
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetDescription) {
-        for dependency in clangTarget.module.dependencies {
+        for dependency in clangTarget.module.recursiveDependencies {
             switch dependency.underlyingModule {
             case let module as ClangModule where module.type == .library:
                 // Setup search paths for C dependencies:

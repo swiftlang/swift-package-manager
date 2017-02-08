@@ -18,7 +18,7 @@ private extension ResolvedModule {
         self.init(
             module: SwiftModule(
                 name: name, isTest: false, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: []),
-            dependencies: deps)
+            dependencies: deps.map(ResolvedModule.Dependency.target))
     }
 }
 
