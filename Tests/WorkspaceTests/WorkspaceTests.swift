@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageDescription
+import class PackageDescription.Package
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -19,11 +19,9 @@ import SourceControl
 import Utility
 import Workspace
 @testable import class Workspace.Workspace
-import struct TestSupport.MockManifestLoader
 
 import TestSupport
 
-private let v1Range = Version("1.0.0") ..< Version("2.0.0")
 private let sharedManifestLoader = ManifestLoader(resources: Resources())
 
 fileprivate extension ResolvedPackage {
@@ -1165,15 +1163,15 @@ final class WorkspaceTests: XCTestCase {
 
             var deps: [AbsolutePath: [PackageDescription.Package.Dependency]] = [:]
             deps[roots[0]] = [
-                .Package(url: repos["A"]!.asString, versions: v1Range),
-                .Package(url: repos["B"]!.asString, versions: v1Range),
+                .Package(url: repos["A"]!.asString, versions: "1.0.0"..<"2.0.0"),
+                .Package(url: repos["B"]!.asString, versions: "1.0.0"..<"2.0.0"),
             ]
             deps[roots[1]] = [
-                .Package(url: repos["C"]!.asString, versions: v1Range),
+                .Package(url: repos["C"]!.asString, versions: "1.0.0"..<"2.0.0"),
             ]
             deps[roots[2]] = [
                 .Package(url: repos["A"]!.asString, versions: "1.0.0"..<"1.5.0"),
-                .Package(url: repos["D"]!.asString, versions: v1Range),
+                .Package(url: repos["D"]!.asString, versions: "1.0.0"..<"2.0.0"),
             ]
 
             for root in roots {

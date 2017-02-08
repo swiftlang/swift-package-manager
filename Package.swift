@@ -43,8 +43,7 @@ let package = Package(
         Target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
-            dependencies: ["POSIX", "Basic", "PackageDescription"]),
-            // FIXME: We should kill the PackageDescription dependency above.
+            dependencies: ["POSIX", "Basic"]),
         Target(
             /** Source control operations */
             name: "SourceControl",

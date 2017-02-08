@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageDescription
+import class PackageDescription.Package
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -40,7 +40,7 @@ private class MockRepository: Repository {
     }
 
     func resolveRevision(tag: String) throws -> Revision {
-        assert(versions.index(forKey: Version(tag)!) != nil)
+        assert(versions.index(forKey: Version(string: tag)!) != nil)
         return Revision(identifier: tag)
     }
 
@@ -57,7 +57,7 @@ private class MockRepository: Repository {
     }
 
     func openFileView(revision: Revision) throws -> FileSystem {
-        assert(versions.index(forKey: Version(revision.identifier)!) != nil)
+        assert(versions.index(forKey: Version(string: revision.identifier)!) != nil)
         // This isn't actually used, see `MockManifestLoader`.
         return InMemoryFileSystem()
     }

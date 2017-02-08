@@ -52,7 +52,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
     public func load(
         packagePath path: Basic.AbsolutePath,
         baseURL: String,
-        version: PackageDescription.Version?,
+        version: Version?,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
         if let result = manifests[Key(url: baseURL, version: version)] {

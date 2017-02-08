@@ -24,12 +24,12 @@ public struct MockPackage {
     public let name: String
 
     /// The current available version of the package.
-    public let version: Version?
+    public let version: Utility.Version?
 
     /// The dependencies of the package.
     public let dependencies: [MockDependency]
 
-    public init(_ name: String, version: Version?, dependencies: [MockDependency] = []) {
+    public init(_ name: String, version: Utility.Version?, dependencies: [MockDependency] = []) {
         self.name = name
         self.version = version
         self.dependencies = dependencies
@@ -42,16 +42,16 @@ public struct MockDependency {
     public let name: String
 
     /// The allowed version range of this dependency.
-    public let version: Range<Version>
+    public let version: Range<Utility.Version>
 
-    public init(_ name: String, version: Range<Version>) {
+    public init(_ name: String, version: Range<Utility.Version>) {
         self.name = name
         self.version = version
     }
 
-    public init(_ name: String, version: Version) {
+    public init(_ name: String, version: Utility.Version) {
         self.name = name
-        self.version = version..<version.successor()
+        self.version = version..<Version(version.major, version.minor, version.patch + 1)
     }
 }
 
@@ -80,7 +80,7 @@ public struct MockManifestGraph {
     }
 
     /// Convinience accessor for external manifests.
-    public func manifest(_ package: String, version: Version) -> Manifest {
+    public func manifest(_ package: String, version: Utility.Version) -> Manifest {
         return manifests[MockManifestLoader.Key(url: repo(package).url, version: version)]!
     }
 
@@ -172,7 +172,20 @@ public struct MockManifestGraph {
     /// Maps MockDependencies into PackageDescription's Dependency array.
     private static func createDependencies(repos: [String: RepositorySpecifier], dependencies: [MockDependency]) -> [PackageDescription.Package.Dependency] {
         return dependencies.map { dependency in
-            return .Package(url: repos[dependency.name]?.url ?? "//\(dependency.name)", versions: dependency.version)
+            let version = dependency.version
+            let range: Range<PackageDescription.Version> = Version(version.lowerBound) ..< Version(version.upperBound)
+            return .Package(url: repos[dependency.name]?.url ?? "//\(dependency.name)", versions: range)
         }
+    }
+}
+
+fileprivate extension PackageDescription.Version {
+    init(_ version: Utility.Version) {
+        self.init(
+            version.major,
+            version.minor,
+            version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifier: version.buildMetadataIdentifier)
     }
 }
