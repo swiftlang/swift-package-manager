@@ -93,7 +93,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
         print("</plist>")
     }
 
-    for module in graph.modules where module.type == .library {
+    for module in graph.modules where module.type == .library || module.type == .test {
         ///// For framework targets, generate module.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
         let name = module.infoPlistFileName
