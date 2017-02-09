@@ -68,11 +68,6 @@ public class SwiftTool<Options: ToolOptions> {
         return packageRoot
     }
 
-    /// Path to directory of the checkouts.
-    func getCheckoutsDirectory() throws -> AbsolutePath {
-        return try getPackageRoot().appending(component: "Packages")
-    }
-
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
