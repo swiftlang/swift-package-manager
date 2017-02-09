@@ -19,6 +19,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(ModuleMapGeneration.allTests),
         testCase(PkgConfigTests.allTests),
         testCase(PkgConfigWhitelistTests.allTests),
+        testCase(ToolsVersionTests.allTests),
     ]
 }
 #endif
