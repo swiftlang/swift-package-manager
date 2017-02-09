@@ -98,10 +98,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
-    //
-    // FIXME: We should stop exposing this publicly, from a public perspective
-    // we should only ever load complete repositories.
-    public func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
+    func loadFile(path inputPath: AbsolutePath, baseURL: String, version: Version?, fileSystem: FileSystem? = nil) throws -> Manifest {
         // If we were given a file system, load via a temporary file.
         if let fileSystem = fileSystem {
             let contents: ByteString

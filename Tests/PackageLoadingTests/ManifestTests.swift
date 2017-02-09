@@ -11,16 +11,13 @@
 import XCTest
 
 import Basic
+import Utility
+
 import PackageDescription
 import PackageModel
-
-import func POSIX.getenv
-import func POSIX.popen
-
 import TestSupport
 
 @testable import PackageLoading
-@testable import Utility
 
 class ManifestTests: XCTestCase {
     let manifestLoader = ManifestLoader(resources: Resources())
