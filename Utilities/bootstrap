@@ -608,17 +608,11 @@ def writeTool(tool, node, description, inputs, outputs, args, output):
     print(file=output)
 
 
-def process_runtime_libraries(build_path, args, bootstrap=False):
-    if bootstrap:
-        module_input_path = os.path.join(
-            build_path, "modules", "PackageDescription.swiftmodule")
-        input_lib_path = os.path.join(
-            build_path, "lib", "PackageDescription.a")
-    else:
-        module_input_path = os.path.join(
-            build_path, "debug", "PackageDescription.swiftmodule")
-        input_lib_path = os.path.join(
-            build_path, "debug", "libPackageDescription.a")
+def process_runtime_libraries(build_path, args):
+    module_input_path = os.path.join(
+        build_path, "modules", "PackageDescription.swiftmodule")
+    input_lib_path = os.path.join(
+        build_path, "lib", "PackageDescription.a")
 
     lib_path = os.path.join(build_path, "lib", "swift", "pm")
     mkdir_p(lib_path)
@@ -857,7 +851,7 @@ def main():
     #
     # FIXME: Integrate this into the bootstrap build.
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
-        sandbox_path, args, bootstrap=True)
+        sandbox_path, args)
 
     libdir = os.path.join(build_path, "lib")
     bindir = os.path.join(build_path, conf)
