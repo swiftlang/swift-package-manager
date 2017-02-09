@@ -58,7 +58,6 @@ class ProcessSetTests: XCTestCase {
                 case .signalled: break
                 default: XCTFail("Expected to exit via signal")
                 }
-                processSet.remove(process)
             } catch {
                 XCTFail("Error \(String(describing: error))")
             }
