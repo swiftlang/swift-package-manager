@@ -202,7 +202,7 @@ extension PinsStore.Pin: Equatable {
         } else {
             self.reason = nil
         }
-        self.version = Version(version)!
+        self.version = Version(string: version)!
     }
 
     /// Convert the pin to JSON.

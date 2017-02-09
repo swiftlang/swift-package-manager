@@ -637,7 +637,8 @@ public class Workspace {
         for (externalManifest, managedDependency) in currentManifests.dependencies where managedDependency.isInEditableState {
             let specifier = RepositorySpecifier(url: externalManifest.url)
             let dependencies = externalManifest.package.dependencies.map{
-                RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+                RepositoryPackageConstraint(
+                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
             }
             updateConstraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
         }
@@ -739,7 +740,8 @@ public class Workspace {
     private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
         return rootManifests.flatMap{ rootManifest in
             rootManifest.package.dependencies.map{
-                RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+                RepositoryPackageConstraint(
+                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
             }
         } + (includePins ? pinsStore.createConstraints() : [])
     }
@@ -844,7 +846,8 @@ public class Workspace {
 
             if managedDependency.isInEditableState {
                 let dependencies = externalManifest.package.dependencies.map{
-                    RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+                    RepositoryPackageConstraint(
+                        container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
                 }
                 constraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
             } else if let version = managedDependency.currentVersion {
@@ -1027,7 +1030,7 @@ public class Workspace {
 extension Version {
     init?(json: JSON) {
         guard case .string(let str) = json else { return nil }
-        self.init(str)
+        self.init(string: str)
     }
 }
 

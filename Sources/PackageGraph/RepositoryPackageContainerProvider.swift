@@ -13,8 +13,6 @@ import PackageLoading
 import SourceControl
 import Utility
 
-import struct PackageDescription.Version
-
 /// Adaptor for exposing repositories as PackageContainerProvider instances.
 ///
 /// This is the root class for bridging the manifest & SCM systems into the
@@ -121,7 +119,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             let fs = try repository.openFileView(revision: revision)
             let manifest = try manifestLoader.load(packagePath: AbsolutePath.root, baseURL: identifier.url, version: version, fileSystem: fs)
             let result = manifest.package.dependencies.map{
-                RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+                RepositoryPackageConstraint(
+                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
             }
             dependenciesCache[version] = result
 

@@ -170,7 +170,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.pin(
                 dependency: dependency,
                 packageName: packageName,
-                at: try options.pinOptions.version.flatMap(Version.init(string:)) ?? dependency.currentVersion!,
+                at: options.pinOptions.version.flatMap(Version.init(string:)) ?? dependency.currentVersion!,
                 reason: options.pinOptions.message
             )
         case .unpin:

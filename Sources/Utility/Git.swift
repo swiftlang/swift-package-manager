@@ -13,7 +13,7 @@ import func POSIX.getenv
 extension Version {
     static func vprefix(_ string: String) -> Version? {
         if string.characters.first == "v" {
-            return Version(string.characters.dropFirst())
+            return Version(string: String(string.characters.dropFirst()))
         } else {
             return nil
         }
@@ -28,7 +28,7 @@ public class Git {
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
             for tag in tags where tag.hasSuffix(versionSpecificKey) {
                 let specifier = String(tag.characters.dropLast(versionSpecificKey.characters.count))
-                if let version = Version(specifier) ?? Version.vprefix(specifier) {
+                if let version = Version(string: specifier) ?? Version.vprefix(specifier) {
                     knownVersions[version] = tag
                 }
             }
@@ -41,7 +41,7 @@ public class Git {
             
         // Otherwise, look for normal tags.
         for tag in tags {
-            if let version = Version(tag) {
+            if let version = Version(string: tag) {
                 knownVersions[version] = tag
             }
         }

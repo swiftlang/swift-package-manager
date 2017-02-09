@@ -9,7 +9,6 @@
 */
 
 import Basic
-import PackageDescription
 import PackageModel
 import Utility
 

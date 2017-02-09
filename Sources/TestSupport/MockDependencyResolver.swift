@@ -34,11 +34,11 @@ extension VersionSetSpecifier {
             switch arr.count {
             case 1:
                 guard case let .string(str) = arr[0] else { fatalError() }
-                self = .exact(Version(str)!)
+                self = .exact(Version(string: str)!)
             case 2: 
                 let versions = arr.map { json -> Version in
                     guard case let .string(str) = json else { fatalError() }
-                    return Version(str)!
+                    return Version(string: str)!
                 }
                 self = .range(versions[0] ..< versions[1])
             default: fatalError()
@@ -101,7 +101,7 @@ extension MockPackageContainer {
         var depByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
             guard case let .array(depArray) = deps else { fatalError() }
-            depByVersion[Version(version)!] = depArray.map(PackageContainerConstraint.init(json:)).map { constraint in
+            depByVersion[Version(string: version)!] = depArray.map(PackageContainerConstraint.init(json:)).map { constraint in
                 switch constraint.requirement {
                 case .versionSet(let versionSet):
                     return (constraint.identifier, versionSet) 
@@ -174,7 +174,7 @@ public struct MockGraph {
 
         self.result = Dictionary(items: result.map { (container, version) in
             guard case let .string(str) = version else { fatalError() }
-            return (container, Version(str)!)
+            return (container, Version(string: str)!)
         })
         self.name = name
         self.constraints = constraints.map(PackageContainerConstraint.init(json:))
