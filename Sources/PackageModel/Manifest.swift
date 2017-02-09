@@ -15,7 +15,7 @@ import PackageDescription
  This contains the declarative specification loaded from package manifest
  files, and the tools for working with the manifest.
 */
-public struct Manifest {
+public final class Manifest: ObjectIdentifierProtocol {
     /// The standard filename for the manifest.
     public static var filename = basename + ".swift"
 
@@ -70,18 +70,5 @@ extension Manifest {
     public func jsonString() throws -> String {
         // FIXME: It is unfortunate to re-parse the JSON string.
         return try JSON(string: PackageDescription.jsonString(package: package)).toString(prettyPrint: true)
-    }
-}
-
-extension Manifest: Hashable {
-
-    public static func ==(lhs: Manifest, rhs: Manifest) -> Bool {
-        // FIXME: Maybe we should make PackageDescription.Package conform to Equatable.
-        return lhs.name == rhs.name &&
-               lhs.package === rhs.package
-    }
-
-    public var hashValue: Int {
-        return name.hashValue
     }
 }
