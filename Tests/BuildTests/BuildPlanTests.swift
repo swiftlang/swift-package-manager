@@ -231,10 +231,67 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testCompatibleSwiftVersions() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/main.swift",
+            "/Bar/Sources/bar.swift"
+        )
+        let foo = Package(
+            name: "Foo",
+            dependencies: [
+                .Package(url: "/Bar", majorVersion: 1),
+            ])
+        var version = Versioning.currentVersion
+
+        // Swift version not set.
+        do {
+            foo.compatibleSwiftVersions = nil
+            version.version = (4, 0, 0)
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, toolsVersion: version, fileSystem: fs))
+            result.checkProductsCount(1)
+            result.checkTargetsCount(2)
+        }
+
+        // Compatible Swift version present.
+        do {
+            foo.compatibleSwiftVersions = [3, 4, 5]
+            version.version = (4, 0, 0)
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, toolsVersion: version, fileSystem: fs))
+            result.checkProductsCount(1)
+            result.checkTargetsCount(2)
+        }
+
+        // Compatible Swift version not present.
+        do {
+            foo.compatibleSwiftVersions = [3, 5]
+            version.version = (4, 0, 0)
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            XCTAssertThrows(BuildPlan.Error.incompatibleToolsVersions(module: "Foo")) {
+                _ = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, toolsVersion: version, fileSystem: fs)
+            }
+        }
+
+        // Dependency not compatible.
+        do {
+            foo.compatibleSwiftVersions = nil
+            let bar = Package(
+                name: "Bar",
+                compatibleSwiftVersions: [3])
+            version.version = (4, 0, 0)
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": bar], root: "/Foo", in: fs)
+            XCTAssertThrows(BuildPlan.Error.incompatibleToolsVersions(module: "Bar")) {
+                _ = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, toolsVersion: version, fileSystem: fs)
+            }
+        }
+    }
+
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCModule", testCModule),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
