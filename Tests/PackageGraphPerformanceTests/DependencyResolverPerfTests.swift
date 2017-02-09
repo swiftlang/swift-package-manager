@@ -257,7 +257,8 @@ struct GitRepositoryResolutionHelper {
 
     var constraints: [RepositoryPackageConstraint] { 
         return manifestGraph.rootManifest.package.dependencies.map{
-            RepositoryPackageConstraint(container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange))
+            RepositoryPackageConstraint(
+                container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
         }
     }
 
