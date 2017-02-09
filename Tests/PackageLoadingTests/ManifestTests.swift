@@ -95,12 +95,20 @@ class ManifestTests: XCTestCase {
     }
 
     func testNonexistentBaseURL() {
-        let trivialManifest = ByteString(encodingAsUTF8: (
-                "import PackageDescription\n" +
-                "let package = Package(name: \"Trivial\")"))
-        loadManifest(trivialManifest, baseURL: "/non-existent-path") { manifest in
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "    name: \"Trivial\"," <<< "\n"
+        stream <<< "    targets: [" <<< "\n"
+        stream <<< "        Target(name: \"Foo\", dependencies: [\"Bar\"])" <<< "\n"
+        stream <<< "    ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes, baseURL: "/non-existent-path") { manifest in
             XCTAssertEqual(manifest.package.name, "Trivial")
-            XCTAssertEqual(manifest.package.targets, [])
+            XCTAssertEqual(manifest.package.targets.count, 1)
+            let foo = manifest.package.targets[0]
+            XCTAssertEqual(foo.name, "Foo")
+            XCTAssertEqual(foo.dependencies, ["Bar"])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
     }
