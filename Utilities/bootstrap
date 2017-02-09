@@ -624,7 +624,7 @@ def process_runtime_libraries(build_path, args, bootstrap=False):
     mkdir_p(lib_path)
     runtime_module_path = os.path.join(
         lib_path, "PackageDescription.swiftmodule")
-    cmd = ["cp", module_input_path, runtime_module_path]
+    cmd = ["rsync", "-a", module_input_path, runtime_module_path]
     subprocess.check_call(cmd)
     if platform.system() == 'Darwin':
         runtime_lib_path = os.path.join(lib_path, "libPackageDescription.dylib")
@@ -1078,7 +1078,7 @@ def main():
         # FIXME: We should handle what happens if it's a static library.
         src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
         dst_path = os.path.join(libswiftpm_library_dir, libswiftpm_product.product_name)
-        cmd = ["cp", src_path, dst_path]
+        cmd = ["rsync", "-a", src_path, dst_path]
         note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
         result = subprocess.call(cmd)
         if result != 0:
@@ -1117,7 +1117,7 @@ def main():
                 src_path = os.path.join(build_path, conf, target + suffix)
                 if os.path.exists(src_path):
                     dst_path = os.path.join(libswiftpm_modules_dir, target + suffix)
-                    cmd = ["cp", src_path, dst_path]
+                    cmd = ["rsync", "-a", src_path, dst_path]
                     note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
                 result = subprocess.call(cmd)
                 if result != 0:
