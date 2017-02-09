@@ -937,7 +937,7 @@ public class Workspace {
     }
 
     /// Loads and returns the root manifests.
-    private func loadRootManifests() throws -> [Manifest] {
+    public func loadRootManifests() throws -> [Manifest] {
         // Ensure we have at least one registered root package path.
         guard rootPackages.count > 0 else {
             throw WorkspaceOperationError.noRegisteredPackages

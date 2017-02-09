@@ -129,10 +129,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
-            let manifest = try loadRootManifest(options)
+            let manifest = try getActiveWorkspace().loadRootManifests()[0]
             print(try manifest.jsonString())
+
         case .help:
             parser.printUsage(on: stdoutStream)
+
         case .pin:
             // FIXME: It would be nice to have mutual exclusion pinning options.
             // Argument parser needs to provide that functionality.
@@ -180,12 +182,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         }
     }
 
-    /// Load the manifest for the root package
-    func loadRootManifest(_ options: PackageToolOptions) throws -> Manifest {
-        let root = try options.inputPath ?? getPackageRoot()
-        return try manifestLoader.loadFile(path: root, baseURL: root.asString, version: nil)
-    }
-    
     var editUsage: String {
         let stream = BufferedOutputByteStream()
         stream <<< "Expected package edit format:\n"
