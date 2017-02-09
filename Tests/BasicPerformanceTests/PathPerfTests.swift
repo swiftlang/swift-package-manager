@@ -11,10 +11,9 @@
 import XCTest
 
 import Basic
+import TestSupport
 
-#if ENABLE_PERF_TESTS
-
-class PathPerfTests: XCTestCase {
+class PathPerfTests: XCTestCasePerf {
     
     /// Tests creating very long AbsolutePaths by joining path components.
     func testJoinPerf_X100000() {
@@ -33,5 +32,3 @@ class PathPerfTests: XCTestCase {
     
     // FIXME: We will obviously want a lot more tests here.
 }
-    
-#endif

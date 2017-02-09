@@ -11,10 +11,9 @@
 import XCTest
 
 import Basic
+import TestSupport
 
-#if ENABLE_PERF_TESTS
-
-class StringConversionsPerfTests: XCTestCase {
+class StringConversionsPerfTests: XCTestCasePerf {
     func testLongString() {
         let string = Array(0..<2000).map{ _ in "hello world"}.joined(separator: " ")
         measure {
@@ -29,5 +28,3 @@ class StringConversionsPerfTests: XCTestCase {
         }
     }
 }
-
-#endif

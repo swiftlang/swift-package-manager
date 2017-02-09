@@ -13,9 +13,7 @@ import TestSupport
 import Basic
 import Utility
 
-#if ENABLE_PERF_TESTS
-
-class BuildPerfTests: XCTestCase {
+class BuildPerfTests: XCTestCasePerf {
     let resources = Resources()
 
     @discardableResult
@@ -69,5 +67,3 @@ class BuildPerfTests: XCTestCase {
         }
     }
 }
-
-#endif

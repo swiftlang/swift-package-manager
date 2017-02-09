@@ -18,12 +18,10 @@ import struct Utility.Version
 
 import TestSupport
 
-#if ENABLE_PERF_TESTS
-
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-class DependencyResolverPerfTests: XCTestCase {
+class DependencyResolverPerfTests: XCTestCasePerf {
 
     func testTrivalResolution_X1000() {
         let N = 1000
@@ -143,7 +141,7 @@ class DependencyResolverPerfTests: XCTestCase {
     }
 }
 
-class DependencyResolverRealWorldPerfTests: XCTestCase {
+class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
     func testKitura_X100() throws {
         try runPackageTest(name: "kitura.json", N: 100)
@@ -283,5 +281,3 @@ struct GitRepositoryResolutionHelper {
         }
     }
 }
-
-#endif

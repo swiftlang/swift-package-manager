@@ -11,8 +11,8 @@
 import XCTest
 
 import Basic
+import TestSupport
 
-#if ENABLE_PERF_TESTS
 
 struct ByteSequence: Sequence {
     let bytes16 = [UInt8](repeating: 0, count: 1 << 4)
@@ -36,7 +36,7 @@ struct ByteSequenceIterator: IteratorProtocol {
     }
 }
 
-class OutputByteStreamPerfTests: XCTestCase {
+class OutputByteStreamPerfTests: XCTestCasePerf {
 
     func test1MBOfSequence_X10() {
         let sequence = ByteSequence()
@@ -217,5 +217,3 @@ class OutputByteStreamPerfTests: XCTestCase {
         }
     }
 }
-
-#endif
