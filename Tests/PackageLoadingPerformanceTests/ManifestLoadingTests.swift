@@ -23,7 +23,7 @@ class ManifestLoadingPerfTests: XCTestCase {
         mktmpdir { path in
             let manifestFile = path.appending(component: "Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: bytes)
-            body(manifestFile)
+            body(path)
         }
     }
 
@@ -35,7 +35,7 @@ class ManifestLoadingPerfTests: XCTestCase {
         write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.loadFile(path: path, baseURL: AbsolutePath.root.asString, version: nil)
+                    let manifest = try! self.manifestLoader.load(packagePath: path, baseURL: "/", version: nil)
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
             }
@@ -61,7 +61,7 @@ class ManifestLoadingPerfTests: XCTestCase {
         write(manifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.loadFile(path: path, baseURL: AbsolutePath.root.asString, version: nil)
+                    let manifest = try! self.manifestLoader.load(packagePath: path, baseURL: "/", version: nil)
                     XCTAssertEqual(manifest.name, "Foo")
                 }
             }
