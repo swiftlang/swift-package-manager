@@ -169,7 +169,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // When running from Xcode, load PackageDescription.framework
         // else load the dylib version of it
     #if Xcode
-        print(resources.libraryPath)
         cmd += ["-F", resources.libraryPath.asString]
         cmd += ["-framework", "PackageDescription"]
     #else
