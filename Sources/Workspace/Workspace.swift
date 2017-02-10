@@ -784,7 +784,10 @@ public class Workspace {
                 // FIXME: Nevertheless, we should handle this failure explicitly.
                 //
                 // FIXME: We should have a cache for this.
-                let manifest: Manifest = try! manifestLoader.load(packagePath: packagePathBase.appending(managedDependency.subpath), baseURL: managedDependency.repository.url, version: managedDependency.currentVersion)
+                let manifest: Manifest = try! manifestLoader.load(
+                    package: packagePathBase.appending(managedDependency.subpath),
+                    baseURL: managedDependency.repository.url,
+                    version: managedDependency.currentVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }
@@ -882,7 +885,7 @@ public class Workspace {
             switch state {
             case .added(let version):
                 let path = try clone(specifier: specifier, version: version)
-                let manifest = try! manifestLoader.load(packagePath: path, baseURL: specifier.url, version: version)
+                let manifest = try! manifestLoader.load(package: path, baseURL: specifier.url, version: version)
                 externalManifests.append(manifest)
             case .updated(_):
                 // FIXME: Issue suitable diagnostics for cases where an
@@ -946,7 +949,7 @@ public class Workspace {
             throw WorkspaceOperationError.noRegisteredPackages
         }
         return try rootPackages.map {
-            try manifestLoader.load(packagePath: $0, baseURL: $0.asString, version: nil)
+            try manifestLoader.load(package: $0, baseURL: $0.asString)
         }
     }
     

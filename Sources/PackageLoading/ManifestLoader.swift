@@ -59,8 +59,14 @@ extension ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
-    public func load(packagePath path: AbsolutePath, baseURL: String, version: Version?) throws -> Manifest {
-        return try load(packagePath: path, baseURL: baseURL, version: version, fileSystem: nil)
+    ///   - fileSystem: The file system to load from.
+    public func load(
+        package path: AbsolutePath,
+        baseURL: String,
+        version: Version? = nil,
+        fileSystem: FileSystem? = nil
+    ) throws -> Manifest {
+        return try load(packagePath: path, baseURL: baseURL, version: version, fileSystem: fileSystem)
     }
 }
 
