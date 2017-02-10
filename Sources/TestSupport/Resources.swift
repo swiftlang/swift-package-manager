@@ -44,11 +44,15 @@ public struct Resources: ManifestResourceProvider {
   #else
     public let swiftCompilerPath = bundleRoot().appending(component: "swiftc")
   #endif
-    public let libraryPath = bundleRoot()
+    public let baselibPath = bundleRoot()
 #else
-    public let libraryPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
+    public let baselibPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
     public let swiftCompilerPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
 #endif
+
+    public var libraryPath: AbsolutePath {
+        return baselibPath.parentDirectory.appending(components: "lib", "swift", "pm")
+    }
 
     public init() {}
 }

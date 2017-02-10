@@ -157,19 +157,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Eventually, we should have two loading processes, one that loads only the
         // the declarative package specification using the Swift compiler directly
         // and validates it.
+
+        // Hardcoded path to v3 for now.
+        let runtimePath = resources.libraryPath.appending(component: "3").asString
     
         var cmd = [resources.swiftCompilerPath.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
-        cmd += ["-I", resources.libraryPath.asString]
+        cmd += ["-I", runtimePath]
     
         // When running from Xcode, load PackageDescription.framework
         // else load the dylib version of it
     #if Xcode
+        print(resources.libraryPath)
         cmd += ["-F", resources.libraryPath.asString]
         cmd += ["-framework", "PackageDescription"]
     #else
-        cmd += ["-L", resources.libraryPath.asString, "-lPackageDescription"] 
+        cmd += ["-L", runtimePath, "-lPackageDescription"] 
     #endif
     
     #if os(macOS)

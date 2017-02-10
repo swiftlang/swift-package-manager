@@ -32,6 +32,7 @@ except ImportError:
     from io import StringIO
 import argparse
 import codecs
+import copy
 import errno
 import json
 import os
@@ -458,7 +459,6 @@ class llbuild(object):
         cmd = [self.args.sbt_path, "-f", self.output_file]
         if self.args.verbose:
             cmd.append("-v")
-        note("building stage1: %s" % ' '.join(cmd))
         result = subprocess.call(cmd)
         if result != 0:
             error("build failed with exit status %d" % (result,))
@@ -609,6 +609,24 @@ class llbuild(object):
         if tool == "shell":
             print("    args: %s" % json.dumps(args), file=output)
         print(file=output)
+
+def build_runtimes(targets, sandbox_path, args):
+    target_map = dict((t.name, t) for t in targets)
+    runtimes = {}
+    runtimes['3'] = target_map['PackageDescription']
+    runtimes['4'] = target_map['PackageDescription4']
+
+    built_runtimes = {}
+    for version, target in runtimes.items():
+        note("building runtime v%s target: %s: " % (version, target.name))
+        target_copy = copy.copy(target)
+        target_copy.name = 'PackageDescription'
+        build = llbuild(
+                os.path.join(sandbox_path, "runtimes", version), [target_copy], args)
+        build.create_manifest()
+        build.run()
+        built_runtimes[version] = build
+    return built_runtimes
 
 def process_runtime_libraries(build, args, lib_path):
     module_input_path = os.path.join(
@@ -837,16 +855,22 @@ def main():
         args.sbt_path or get_swift_build_tool_path())
 
     # Run the stage1 build.
+    note("building stage1")
     stage1 = llbuild(sandbox_path, targets, args)
     stage1.create_manifest()
     stage1.run()
 
-    # Path where runtime library will be copied from sandbox.
-    lib_path = os.path.join(sandbox_path, "lib", "swift", "pm")
+    # Build runtime libraries.
+    built_runtimes = build_runtimes(targets, sandbox_path, args)
 
-    # Stage the stage1 runtime library.
-    runtime_module_path, runtime_lib_path = process_runtime_libraries(
-        stage1, args, lib_path)
+    processed_runtimes = {}
+    for version, build in built_runtimes.items():
+        # Path where runtime library will be copied from sandbox.
+        lib_path = os.path.join(sandbox_path, "lib", "swift", "pm", version)
+
+        # Stage the stage1 runtime library.
+        processed_runtimes[version] = process_runtime_libraries(
+                build, args, lib_path)
 
     libdir = os.path.join(build_path, "lib")
     bindir = os.path.join(build_path, conf)
@@ -988,6 +1012,7 @@ def main():
 
             # Install a binary file at the install path.
             def installBinary(binary_path, install_path, add_rpath=None):
+                mkdir_p(install_path)
                 cmd = ["install", binary_path, install_path]
                 note("installing %s: %s" % (
                     os.path.basename(binary_path), ' '.join(cmd)))
@@ -1043,17 +1068,22 @@ def main():
                                  swift_test_path]:
                 installBinary(product_path, bin_install_path)
 
-            # Install the PackageDescription runtime library.
-            installBinary(runtime_lib_path, lib_install_path)
+            # Install the runtimes.
+            for version, runtime in processed_runtimes.items():
+                runtime_module_path, runtime_lib_path = runtime
+                install_path = os.path.join(lib_install_path, version)
 
-            # Install the PackageDescription module.
-            cmd = ["install", "-m", "0644",
-                   runtime_module_path, lib_install_path]
-            note("installing %s: %s" % (
-                os.path.basename(runtime_module_path), ' '.join(cmd)))
-            result = subprocess.call(cmd)
-            if result != 0:
-                error("install failed with exit status %d" % (result,))
+                # Install library.
+                installBinary(runtime_lib_path, install_path)
+
+                # Install module.
+                cmd = ["install", "-m", "0644",
+                       runtime_module_path, install_path]
+                note("installing %s: %s" % (
+                    os.path.basename(runtime_module_path), ' '.join(cmd)))
+                result = subprocess.call(cmd)
+                if result != 0:
+                    error("install failed with exit status %d" % (result,))
     
     # Copy the libSwiftPM library to a directory, if we've been asked to do so.
     if args.libswiftpm_library_dir:
