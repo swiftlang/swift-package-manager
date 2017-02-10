@@ -14,9 +14,7 @@ import Basic
 import TestSupport
 import PackageLoading
 
-#if ENABLE_PERF_TESTS
-
-class ManifestLoadingPerfTests: XCTestCase {
+class ManifestLoadingPerfTests: XCTestCasePerf {
     let manifestLoader = ManifestLoader(resources: Resources())
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) {
@@ -68,5 +66,3 @@ class ManifestLoadingPerfTests: XCTestCase {
         }
     }
 }
-
-#endif

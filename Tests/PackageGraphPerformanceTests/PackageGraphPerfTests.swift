@@ -16,9 +16,7 @@ import PackageDescription
 import PackageModel
 import TestSupport
 
-#if ENABLE_PERF_TESTS
-
-class PackageGraphPerfTests: XCTestCase {
+class PackageGraphPerfTests: XCTestCasePerf {
 
     func testLoading100Packages() throws {
         let N = 100
@@ -58,5 +56,3 @@ class PackageGraphPerfTests: XCTestCase {
         }
     }
 }
-
-#endif
