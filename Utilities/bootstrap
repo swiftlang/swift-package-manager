@@ -99,6 +99,10 @@ def write_file_if_changed(path, data):
     if old_data == data:
         return
 
+    # Create directory if needed.
+    mkdir_p(os.path.dirname(path))
+
+    # Write the contents.
     with open(path, "w") as f:
         f.write(data)
 
@@ -438,6 +442,13 @@ module VersionInfo [extern_c] {
 
 
 def create_bootstrap_files(sandbox_path, args):
+
+    # Compute output directories paths.
+    inc_dir = os.path.join(sandbox_path, "inc")
+    lib_dir = os.path.join(sandbox_path, "lib")
+    bin_dir = os.path.join(sandbox_path, "bin")
+    module_dir = os.path.join(sandbox_path, "modules")
+
     # Write out the build file.
     output = StringIO()
 
@@ -452,9 +463,6 @@ def create_bootstrap_files(sandbox_path, args):
     print("tools: {}", file=output)
     print(file=output)
 
-    # Compute the list of active targets.
-    active_targets = targets
-
     # Write out the targets list.
     #
     # We support 'all' (build all targets) and an individual name for each
@@ -463,29 +471,14 @@ def create_bootstrap_files(sandbox_path, args):
     # FIXME: Need support for default target.
     print("targets:", file=output)
     print("  \"\": %s" % (json.dumps(
-        [target.virtual_node for target in active_targets]),), file=output)
+        [target.virtual_node for target in targets]),), file=output)
     print("  all: %s" % (json.dumps(
-        [target.virtual_node for target in active_targets]),), file=output)
-    for target in active_targets:
+        [target.virtual_node for target in targets]),), file=output)
+    for target in targets:
         print("  %s: %s" % (
             target.name, json.dumps([target.virtual_node])), file=output)
     print(file=output)
 
-    # Create the shared include dir.
-    inc_dir = os.path.join(sandbox_path, "inc")
-    mkdir_p(inc_dir)
-    
-    # Create the shared lib dir.
-    lib_dir = os.path.join(sandbox_path, "lib")
-    mkdir_p(lib_dir)
-
-    # Create the shared bin dir.
-    bin_dir = os.path.join(sandbox_path, "bin")
-    mkdir_p(bin_dir)
-
-    # Create the shared module dir.
-    module_dir = os.path.join(sandbox_path, "modules")
-    mkdir_p(module_dir)
 
     print("commands:", file=output)
     for target in targets:
