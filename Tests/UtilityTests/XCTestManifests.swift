@@ -20,7 +20,6 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PkgConfigParserTests.allTests),
         testCase(ProcessSetTests.allTests),
         testCase(ProgressBarTests.allTests),
-        testCase(ShellTests.allTests),
         testCase(StringTests.allTests),
         testCase(StringConversionTests.allTests),
         testCase(URLTests.allTests),

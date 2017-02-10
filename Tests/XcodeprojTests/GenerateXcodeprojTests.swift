@@ -33,7 +33,8 @@ class GenerateXcodeprojTests: XCTestCase {
 
             // We can only validate this on OS X.
             // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-            let output = try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.asString]).chomp()
+            let output = try Process.checkNonZeroExit(
+                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.asString).chomp()
 
             let expectedOutput = "Information about project \"DummyProjectName\":\n    Targets:\n        DummyModuleName\n\n    Build Configurations:\n        Debug\n        Release\n\n    If no build configuration is specified and -scheme is not passed then \"Debug\" is used.\n\n    Schemes:\n        DummyProjectName\n".chomp()
 

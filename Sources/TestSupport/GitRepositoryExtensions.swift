@@ -17,7 +17,8 @@ public extension GitRepository {
 
     /// Returns current branch name. If HEAD is on a detached state, this returns HEAD.
     func currentBranch() throws -> String {
-        return try popen([Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp()
+        return try Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.asString, "rev-parse", "--abbrev-ref", "HEAD").chomp()
     }
 
     /// Stage a file.

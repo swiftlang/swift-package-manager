@@ -113,7 +113,7 @@ public func handle(error receivedError: Any) -> Never {
         print(error: errorString)
 
     case PackageToolOperationError.insufficientOptions(let usage):
-        print(usage, to: &stderr)
+        stderrStream <<< usage <<< "\n"
         
     case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
         print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
@@ -126,18 +126,23 @@ public func handle(error receivedError: Any) -> Never {
 }
 
 private func print(error: Any) {
-    if ColorWrap.isAllowed(for: .stdErr) {
-        print(ColorWrap.wrap("error:", with: .Red, for: .stdErr), error, to: &stderr)
+    // FIXME: We should generalize this.
+    if let stdStream = stderrStream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
+        term.write("error: ", inColor: .red, bold: true)
     } else {
-        let cmd = AbsolutePath(CommandLine.arguments.first!, relativeTo:currentWorkingDirectory).basename
-        print("\(cmd): error:", error, to: &stderr)
+        stderrStream <<< "error: "
     }
+    stderrStream <<< "\(error)" <<< "\n"
+    stderrStream.flush()
 }
 
 private func print(fix: String) {
-    if ColorWrap.isAllowed(for: .stdErr) {
-        print(ColorWrap.wrap("fix:", with: .Yellow, for: .stdErr), fix, to: &stderr)
+    // FIXME: We should generalize this.
+    if let stdStream = stderrStream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
+        term.write("fix: ", inColor: .yellow, bold: true)
     } else {
-        print("fix:", fix, to: &stderr)
+        stderrStream <<< "fix: "
     }
+    stderrStream <<< fix <<< "\n"
+    stderrStream.flush()
 }

@@ -12,14 +12,22 @@ import Basic
 import Utility
 
 // Builds the default target in the llbuild manifest unless specified.
-public func build(yamlPath: AbsolutePath, target: String? = nil) throws {
+public func build(yamlPath: AbsolutePath, target: String? = nil, processSet: ProcessSet) throws {
     do {
         var args = [ToolDefaults.llbuild.asString, "-f", yamlPath.asString]
         if let target = target {
             args += [target]
         }
         if verbosity != .concise { args.append("-v") }
-        try system(args)
+
+        // Run llbuild and print output to standard streams.
+        let process = Process(arguments: args, redirectOutput: false)
+        try process.launch()
+        try processSet.add(process)
+        let result = try process.waitUntilExit() 
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
     } catch {
 
         // we only check for these error conditions here

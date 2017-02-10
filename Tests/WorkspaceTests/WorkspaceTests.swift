@@ -1176,7 +1176,8 @@ final class WorkspaceTests: XCTestCase {
 
             for root in roots {
                 try makeDirectories(root)
-                try system(["touch", root.appending(component: "foo.swift").asString])
+                try Process.checkNonZeroExit(
+                    args: "touch", root.appending(component: "foo.swift").asString)
                 let rootManifest = Manifest(
                     path: root.appending(component: Manifest.filename),
                     url: root.asString,

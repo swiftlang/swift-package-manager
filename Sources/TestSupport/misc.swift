@@ -152,7 +152,7 @@ public func systemQuietly(_ args: [String]) throws {
     // Discard the output, by default.
     //
     // FIXME: Find a better default behavior here.
-    let _ = try POSIX.popen(args, redirectStandardError: true)
+    try Process.checkNonZeroExit(arguments: args)
 }
 
 public func systemQuietly(_ args: String...) throws {

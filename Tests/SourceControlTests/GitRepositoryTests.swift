@@ -138,7 +138,8 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(repoPath)
             initGitRepo(repoPath)
 
-            try system(Git.tool, "-C", repoPath.asString, "submodule", "add", testRepoPath.asString)
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", repoPath.asString, "submodule", "add", testRepoPath.asString)
             let repo = GitRepository(path: repoPath)
             try repo.stageEverything()
             try repo.commit()
@@ -364,7 +365,7 @@ class GitRepositoryTests: XCTestCase {
             do {
                 try repo.setURL(remote: "fake", url: "../bar")
                 XCTFail("unexpected success")
-            } catch POSIX.Error.exitStatus(_, _) {}
+            } catch ProcessResult.Error.nonZeroExit {}
         }
     }
 

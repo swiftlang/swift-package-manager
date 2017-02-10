@@ -21,9 +21,6 @@ public class ToolOptions {
     /// The custom working directory that the tool should operate in.
     public var chdir: AbsolutePath?
 
-    /// The color mode.
-    public var colorMode: ColorWrap.Mode = .Auto
-
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var enableResolverPrefetching = false
 
@@ -40,6 +37,3 @@ public class ToolOptions {
         return AbsolutePath(path, relativeTo: currentWorkingDirectory)
     }
 }
-
-/// Parser conformance for ColorWrap.
-extension ColorWrap.Mode: StringEnumArgument {}
