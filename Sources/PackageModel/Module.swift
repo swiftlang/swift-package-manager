@@ -10,7 +10,7 @@
 
 import Basic
 
-@_exported import enum PackageDescription.SystemPackageProvider
+@_exported import enum PackageDescription4.SystemPackageProvider
 
 public enum ModuleType: String {
     case executable

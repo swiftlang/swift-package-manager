@@ -157,12 +157,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     v1: Manifest(
                         path: AbsolutePath("/Package.swift"),
                         url: "A",
-                        package: PackageDescription.Package(
+                        package: .v3(PackageDescription.Package(
                             name: "Foo",
                             dependencies: [
                                 .Package(url: "B", majorVersion: 2)
                             ]
-                        ),
+                        )),
                         version: v1
                     )
                 ])
@@ -172,8 +172,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     v2: Manifest(
                         path: AbsolutePath("/Package.swift"),
                         url: "B",
-                        package: PackageDescription.Package(
-                            name: "Bar"),
+                        package: .v3(PackageDescription.Package(
+                            name: "Bar")),
                         version: v2
                     )
                 ])

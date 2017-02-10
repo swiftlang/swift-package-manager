@@ -960,7 +960,7 @@ class ConventionTests: XCTestCase {
 ///
 /// - Throws: ModuleError, ProductError
 private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: .v3(package), version: nil)
     let builder = PackageBuilder(
         manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, createImplicitProduct: false)
     return try builder.construct()
