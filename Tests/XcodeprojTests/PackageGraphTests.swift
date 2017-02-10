@@ -105,7 +105,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
                 targetResult.check(dependencies: ["Bar", "Foo"])
-                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks"])
+                XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks", "@loader_path/Frameworks"])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
         }
