@@ -201,11 +201,9 @@ final class InitPackage {
             stream <<< "    }\n"
             stream <<< "\n"
             stream <<< "\n"
-            stream <<< "    static var allTests : [(String, (\(moduleName)Tests) -> () throws -> Void)] {\n"
-            stream <<< "        return [\n"
-            stream <<< "            (\"testExample\", testExample),\n"
-            stream <<< "        ]\n"
-            stream <<< "    }\n"
+            stream <<< "    static var allTests = [\n"
+            stream <<< "        (\"testExample\", testExample),\n"
+            stream <<< "    ]\n"
             stream <<< "}\n"
         }
     }
