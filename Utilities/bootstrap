@@ -842,7 +842,7 @@ def main():
     stage1.run()
 
     # Path where runtime library will be copied from sandbox.
-    lib_path = os.path.join(build_path, "lib", "swift", "pm")
+    lib_path = os.path.join(sandbox_path, "lib", "swift", "pm")
 
     # Stage the stage1 runtime library.
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
