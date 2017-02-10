@@ -173,11 +173,11 @@ class Target(object):
 
     def write_compile_commands(self, args, target_build_dir,
                                      module_dir, include_dir, output, objects,
-                                     link_input_nodes, predecessor_node):
+                                     link_input_nodes, predecessor_node, target_map):
         if self.is_swift:
             self.write_swift_compile_commands(args, target_build_dir, module_dir,
                                               include_dir, output, objects, link_input_nodes,
-                                              predecessor_node)
+                                              predecessor_node, target_map)
         elif self.is_c:
             self.write_c_compile_commands(args, target_build_dir, module_dir,
                                               include_dir, output, objects, link_input_nodes,
@@ -186,7 +186,7 @@ class Target(object):
 
     def write_swift_compile_commands(self, args, target_build_dir,
                                      module_dir, include_dir, output, objects,
-                                     link_input_nodes, predecessor_node):
+                                     link_input_nodes, predecessor_node, target_map):
         # Compute the derived paths.
         module_path = os.path.join(module_dir, "%s.swiftmodule" % (self.name,))
 
@@ -403,7 +403,6 @@ g_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 g_source_root = os.path.join(g_project_root, "Sources")
 g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport"]
 (targets, products) = parse_manifest()
-target_map = dict((t.name, t) for t in targets)
 product_map = dict((p.name, p) for p in products)
 
 
@@ -440,169 +439,183 @@ module VersionInfo [extern_c] {
 """
     write_file_if_changed(os.path.join(include_path, "module.map"), contents)
 
+class llbuild(object):
 
-def create_bootstrap_files(sandbox_path, args):
+    def __init__(self, sandbox_path, targets, args):
 
-    # Compute output directories paths.
-    inc_dir = os.path.join(sandbox_path, "inc")
-    lib_dir = os.path.join(sandbox_path, "lib")
-    bin_dir = os.path.join(sandbox_path, "bin")
-    module_dir = os.path.join(sandbox_path, "modules")
+        # Compute output directories paths.
+        self.output_file = os.path.join(sandbox_path, "build.yaml")
+        self.inc_dir = os.path.join(sandbox_path, "inc")
+        self.lib_dir = os.path.join(sandbox_path, "lib")
+        self.bin_dir = os.path.join(sandbox_path, "bin")
+        self.module_dir = os.path.join(sandbox_path, "modules")
+        self.targets = targets
+        self.target_map = dict((t.name, t) for t in targets)
+        self.sandbox_path = sandbox_path
+        self.args = args
 
-    # Write out the build file.
-    output = StringIO()
+    def run(self):
+        cmd = [self.args.sbt_path, "-f", self.output_file]
+        if self.args.verbose:
+            cmd.append("-v")
+        note("building stage1: %s" % ' '.join(cmd))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("build failed with exit status %d" % (result,))
 
-    # Write out the task file header.
-    print("client:", file=output)
-    print("  name: swift-build", file=output)
-    print(file=output)
+    def create_manifest(self):
 
-    # Write out the tools section.
-    #
-    # FIXME: Not yet defined.
-    print("tools: {}", file=output)
-    print(file=output)
+        # Write out the build file.
+        output = StringIO()
 
-    # Write out the targets list.
-    #
-    # We support 'all' (build all targets) and an individual name for each
-    # target.
-    #
-    # FIXME: Need support for default target.
-    print("targets:", file=output)
-    print("  \"\": %s" % (json.dumps(
-        [target.virtual_node for target in targets]),), file=output)
-    print("  all: %s" % (json.dumps(
-        [target.virtual_node for target in targets]),), file=output)
-    for target in targets:
-        print("  %s: %s" % (
-            target.name, json.dumps([target.virtual_node])), file=output)
-    print(file=output)
-
-
-    print("commands:", file=output)
-    for target in targets:
-        print("  # Target Commands: %r" % (target.name,), file=output)
-        target_build_dir = os.path.join(sandbox_path, target.name + ".build")
-        mkdir_p(target_build_dir)
-
-        predecessor_node = "<entry-%s>" % (target.name,)
-        objects = []
-        link_input_nodes = [predecessor_node]
-
-        # Write out the predecessor node used to order w.r.t. other targets.
-        print("  %s:" % json.dumps(predecessor_node), file=output)
-        print("    tool: phony", file=output)
-        print("    inputs: %s" % json.dumps(
-            [target_map[name].virtual_node for name in target.dependencies]),
-            file=output)
-        print("    outputs: %s" % json.dumps([predecessor_node]), file=output)
+        # Write out the task file header.
+        print("client:", file=output)
+        print("  name: swift-build", file=output)
         print(file=output)
 
-        # Write out the target build commands (we just name the command and node
-        # the same).
-
-        # Write the compile commands, if used.
-        if target.sources:
-            target.write_compile_commands(
-                args, target_build_dir, module_dir, inc_dir, output, objects,
-                link_input_nodes, predecessor_node)
-
-
-        # llbuild tool to use for this command.
-        tool = "shell"
-
-        # Form the command line to link.
-        linked_libraries = []
-        if target.is_swift and target.is_library:
-            tool = "archive"
-            link_output_path = os.path.join(lib_dir, "%s.a" % (target.name,))
-            link_command = [] # Archive tool auto infers objects from inputs.
-        elif target.is_c and target.is_library:
-            # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
-            link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
-            link_command = ['clang']
-            link_command.extend(objects)
-            link_command.extend(['-shared', '-o', link_output_path])
-        elif target.is_c and not target.is_library:
-            error("Executable C target not supported by bootstrap yet")
-        elif target.is_swift and not target.is_library:
-            link_output_path = os.path.join(bin_dir, target.name)
-
-            link_command = [args.swiftc_path,
-                            '-o', link_output_path]
-            if args.sysroot:
-                link_command.extend(["-sdk", args.sysroot])
-            if platform.system() == 'Darwin':
-                link_command.extend(["-target", "x86_64-apple-macosx10.10"])
-            link_command.extend(objects)
-            for dependency in target.dependencies:
-                dep_target = target_map[dependency]
-                if dep_target.is_swift:
-                    dependency_lib_path = os.path.join(lib_dir, "%s.a" % dependency)
-                else:
-                    dependency_lib_path = os.path.join(lib_dir, dependency + g_shared_lib_ext)
-                link_command.append(dependency_lib_path)
-                linked_libraries.append(dependency_lib_path)
-            if platform.system() == 'Darwin':
-                link_command.extend(["-Xlinker", "-all_load"])
-            for lib in target.extra_libs:
-                link_command.extend(["-Xlinker", "-l%s" % (lib,)])
-            if platform.system() == 'Linux':
-                link_command.extend(
-                    ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
-            if args.foundation_path:
-                link_command.extend(["-L", args.foundation_path])
-            if args.libdispatch_build_dir:
-                link_command.extend(["-L", os.path.join(args.libdispatch_build_dir, "src", ".libs")])
-
-        # Write out the link command.
-        if target.is_library:
-            description = "Link %s" % target.name
-        else:
-            description = "Link %s" % link_output_path
-        writeTool(
-            tool,
-            target.linked_virtual_node,
-            description,
-            link_input_nodes + objects + linked_libraries,
-            [target.linked_virtual_node, link_output_path],
-            link_command,
-            output)
-
-        # Write the top-level target group command.
-        print("  %s:" % json.dumps(target.virtual_node), file=output)
-        print("    tool: phony", file=output)
-        print("    inputs: %s" % json.dumps(
-            [target.linked_virtual_node]), file=output)
-        print("    outputs: %s" % json.dumps([target.virtual_node]),
-              file=output)
+        # Write out the tools section.
+        #
+        # FIXME: Not yet defined.
+        print("tools: {}", file=output)
         print(file=output)
 
-    # Write the output file.
-    write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
-                          output.getvalue())
+        # Write out the targets list.
+        #
+        # We support 'all' (build all targets) and an individual name for each
+        # target.
+        #
+        # FIXME: Need support for default target.
+        print("targets:", file=output)
+        print("  \"\": %s" % (json.dumps(
+            [target.virtual_node for target in self.targets]),), file=output)
+        print("  all: %s" % (json.dumps(
+            [target.virtual_node for target in self.targets]),), file=output)
+        for target in self.targets:
+            print("  %s: %s" % (
+                target.name, json.dumps([target.virtual_node])), file=output)
+        print(file=output)
 
-# Write out the tool into output buffer.
-# Supported tools: shell and archive. args is ignored for archive tool.
-def writeTool(tool, node, description, inputs, outputs, args, output):
-    print("  %s:" % json.dumps(node), file=output)
-    print("    tool: %s" % tool, file=output)
-    print("    description: %s" % description, file=output)
-    print("    inputs: %s" % json.dumps(inputs), file=output)
-    print("    outputs: %s" % json.dumps(outputs), file=output)
-    if tool == "shell":
-        print("    args: %s" % json.dumps(args), file=output)
-    print(file=output)
+        print("commands:", file=output)
+        for target in self.targets:
+            print("  # Target Commands: %r" % (target.name,), file=output)
+            target_build_dir = os.path.join(self.sandbox_path, target.name + ".build")
+            mkdir_p(target_build_dir)
+
+            predecessor_node = "<entry-%s>" % (target.name,)
+            objects = []
+            link_input_nodes = [predecessor_node]
+
+            # Write out the predecessor node used to order w.r.t. other targets.
+            print("  %s:" % json.dumps(predecessor_node), file=output)
+            print("    tool: phony", file=output)
+            print("    inputs: %s" % json.dumps(
+                [self.target_map[name].virtual_node for name in target.dependencies]),
+                file=output)
+            print("    outputs: %s" % json.dumps([predecessor_node]), file=output)
+            print(file=output)
+
+            # Write out the target build commands (we just name the command and node
+            # the same).
+
+            # Write the compile commands, if used.
+            if target.sources:
+                target.write_compile_commands(
+                    self.args, target_build_dir, self.module_dir, self.inc_dir, output, objects,
+                    link_input_nodes, predecessor_node, self.target_map)
 
 
-def process_runtime_libraries(build_path, args):
+            # llbuild tool to use for this command.
+            tool = "shell"
+
+            # Form the command line to link.
+            linked_libraries = []
+            if target.is_swift and target.is_library:
+                tool = "archive"
+                link_output_path = os.path.join(self.lib_dir, "%s.a" % (target.name,))
+                link_command = [] # Archive tool auto infers objects from inputs.
+            elif target.is_c and target.is_library:
+                # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
+                link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
+                link_command = ['clang']
+                link_command.extend(objects)
+                link_command.extend(['-shared', '-o', link_output_path])
+            elif target.is_c and not target.is_library:
+                error("Executable C target not supported by bootstrap yet")
+            elif target.is_swift and not target.is_library:
+                link_output_path = os.path.join(self.bin_dir, target.name)
+    
+                link_command = [self.args.swiftc_path,
+                                '-o', link_output_path]
+                if self.args.sysroot:
+                    link_command.extend(["-sdk", self.args.sysroot])
+                if platform.system() == 'Darwin':
+                    link_command.extend(["-target", "x86_64-apple-macosx10.10"])
+                link_command.extend(objects)
+                for dependency in target.dependencies:
+                    dep_target = self.target_map[dependency]
+                    if dep_target.is_swift:
+                        dependency_lib_path = os.path.join(self.lib_dir, "%s.a" % dependency)
+                    else:
+                        dependency_lib_path = os.path.join(self.lib_dir, dependency + g_shared_lib_ext)
+                    link_command.append(dependency_lib_path)
+                    linked_libraries.append(dependency_lib_path)
+                if platform.system() == 'Darwin':
+                    link_command.extend(["-Xlinker", "-all_load"])
+                for lib in target.extra_libs:
+                    link_command.extend(["-Xlinker", "-l%s" % (lib,)])
+                if platform.system() == 'Linux':
+                    link_command.extend(
+                        ["-Xlinker", "-rpath=$ORIGIN/../lib/swift/linux"])
+                if self.args.foundation_path:
+                    link_command.extend(["-L", self.args.foundation_path])
+                if self.args.libdispatch_build_dir:
+                    link_command.extend(["-L", os.path.join(self.args.libdispatch_build_dir, "src", ".libs")])
+
+            # Write out the link command.
+            if target.is_library:
+                description = "Link %s" % target.name
+            else:
+                description = "Link %s" % link_output_path
+            self.writeTool(
+                tool,
+                target.linked_virtual_node,
+                description,
+                link_input_nodes + objects + linked_libraries,
+                [target.linked_virtual_node, link_output_path],
+                link_command,
+                output)
+
+            # Write the top-level target group command.
+            print("  %s:" % json.dumps(target.virtual_node), file=output)
+            print("    tool: phony", file=output)
+            print("    inputs: %s" % json.dumps(
+                [target.linked_virtual_node]), file=output)
+            print("    outputs: %s" % json.dumps([target.virtual_node]),
+                  file=output)
+            print(file=output)
+
+        # Write the output file.
+        write_file_if_changed(
+                self.output_file, output.getvalue())
+
+    # Write out the tool into output buffer.
+    # Supported tools: shell and archive. args is ignored for archive tool.
+    def writeTool(self, tool, node, description, inputs, outputs, args, output):
+        print("  %s:" % json.dumps(node), file=output)
+        print("    tool: %s" % tool, file=output)
+        print("    description: %s" % description, file=output)
+        print("    inputs: %s" % json.dumps(inputs), file=output)
+        print("    outputs: %s" % json.dumps(outputs), file=output)
+        if tool == "shell":
+            print("    args: %s" % json.dumps(args), file=output)
+        print(file=output)
+
+def process_runtime_libraries(build, args, lib_path):
     module_input_path = os.path.join(
-        build_path, "modules", "PackageDescription.swiftmodule")
+        build.module_dir, "PackageDescription.swiftmodule")
     input_lib_path = os.path.join(
-        build_path, "lib", "PackageDescription.a")
+        build.lib_dir, "PackageDescription.a")
 
-    lib_path = os.path.join(build_path, "lib", "swift", "pm")
     mkdir_p(lib_path)
     runtime_module_path = os.path.join(
         lib_path, "PackageDescription.swiftmodule")
@@ -823,23 +836,17 @@ def main():
     args.sbt_path = os.path.abspath(
         args.sbt_path or get_swift_build_tool_path())
 
-    # Create or update the bootstrap files.
-    create_bootstrap_files(sandbox_path, args)
-
     # Run the stage1 build.
-    cmd = [args.sbt_path, "-f", os.path.join(sandbox_path, "build.swift-build")]
-    if args.verbose:
-        cmd.append("-v")
-    note("building stage1: %s" % ' '.join(cmd))
-    result = subprocess.call(cmd)
-    if result != 0:
-        error("build failed with exit status %d" % (result,))
+    stage1 = llbuild(sandbox_path, targets, args)
+    stage1.create_manifest()
+    stage1.run()
+
+    # Path where runtime library will be copied from sandbox.
+    lib_path = os.path.join(build_path, "lib", "swift", "pm")
 
     # Stage the stage1 runtime library.
-    #
-    # FIXME: Integrate this into the bootstrap build.
     runtime_module_path, runtime_lib_path = process_runtime_libraries(
-        sandbox_path, args)
+        stage1, args, lib_path)
 
     libdir = os.path.join(build_path, "lib")
     bindir = os.path.join(build_path, conf)
