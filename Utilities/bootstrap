@@ -582,13 +582,6 @@ def create_bootstrap_files(sandbox_path, args):
     # Write the output file.
     write_file_if_changed(os.path.join(sandbox_path, "build.swift-build"),
                           output.getvalue())
-    
-    # Write out the version info header and module map file, if appropriate.
-    if args.vendor_name or args.build_identifier:
-        if not args.vendor_name or not args.build_identifier:
-            error("--build-identifier is required with --vendor-name")
-        write_bootstrap_version_info(inc_dir, args.vendor_name,
-                                     args.build_identifier)
 
 # Write out the tool into output buffer.
 # Supported tools: shell and archive. args is ignored for archive tool.
@@ -890,9 +883,16 @@ def main():
     if args.verbose:
         build_flags.append("-v")
 
-    # If appropriate, add flags for a custom version string:
+    # If appropriate, write out the version info header and module map file,
+    # and add flags for a custom version string:
     if args.vendor_name or args.build_identifier:
+        if not args.vendor_name or not args.build_identifier:
+            error("--build-identifier is required with --vendor-name")
+
         incdir = os.path.join(sandbox_path, "inc")
+        write_bootstrap_version_info(
+                incdir, args.vendor_name, args.build_identifier)
+
         build_flags.extend(["-Xswiftc", "-I{}".format(incdir)])
         build_flags.extend(["-Xswiftc", "-DHasCustomVersionString"])
     
