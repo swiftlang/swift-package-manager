@@ -133,7 +133,6 @@ class Target(object):
     def __init__(self, name, dependencies=[], swiftflags=[], extra_libs=[],
                  subpath=None):
         self.name = name
-        self.module_name = self.name.replace("-", "_")
         self.dependencies = list(dependencies)
         self.swiftflags = list(swiftflags)
         self.extra_libs = list(extra_libs)
@@ -164,6 +163,9 @@ class Target(object):
             error("Target %s contains mixed C and Swift sources which is unsupported." % (self.name))
 
         self.sources.sort()
+
+    def module_name(self):
+        return self.name.replace("-", "_")
 
     def write_compile_commands(self, args, target_build_dir,
                                      module_dir, include_dir, output, objects,
@@ -218,7 +220,7 @@ class Target(object):
             [predecessor_node] + self.sources), file=output)
         print("    outputs: %s" % json.dumps(
             [compile_swift_node, module_path] + swift_objects), file=output)
-        print("    module-name: %s" % json.dumps(self.module_name), file=output)
+        print("    module-name: %s" % json.dumps(self.module_name()), file=output)
         print("    module-output-path: %s" % json.dumps(module_path),
               file=output)
         print("    sources: %s" % json.dumps(self.sources), file=output)
@@ -258,7 +260,7 @@ class Target(object):
                                      module_dir, include_dir, output, objects,
                                      link_input_nodes, predecessor_node):
 
-        common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name]
+        common_args = ["-fobjc-arc", "-fmodule-name=%s" % self.module_name()]
         if platform.system() == 'Darwin':
             common_args.extend(["-arch", "x86_64", "-mmacosx-version-min=10.10"])
 
