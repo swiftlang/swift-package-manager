@@ -51,7 +51,13 @@ public struct Resources: ManifestResourceProvider {
 #endif
 
     public var libraryPath: AbsolutePath {
+      #if Xcode
+        // FIXME: This needs to select right version package description in Xcode.
+        // But we can't do that from Xcode, we should just use the bootstrapped fake toolchain.
+        return baselibPath
+      #else
         return baselibPath.parentDirectory.appending(components: "lib", "swift", "pm")
+      #endif
     }
 
     public init() {}
