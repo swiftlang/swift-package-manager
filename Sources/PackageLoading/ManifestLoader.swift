@@ -94,6 +94,10 @@ extension ManifestLoaderProtocol {
 public final class ManifestLoader: ManifestLoaderProtocol {
     let resources: ManifestResourceProvider
 
+    /// If set, will override the manifest version.
+    /// This is temporary until we have the related proposals implemented.
+    static public var overrideManifestVersion: ManifestVersion?
+
     public init(resources: ManifestResourceProvider) {
         self.resources = resources
     }
@@ -172,7 +176,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let json = try JSON(string: jsonString)
 
         // Load the correct version from JSON.
-        switch manifestVersion {
+        switch ManifestLoader.overrideManifestVersion ?? manifestVersion {
         case .three:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
             return Manifest(path: path, url: baseURL, package: .v3(pd.package), legacyProducts: pd.products, version: version)
