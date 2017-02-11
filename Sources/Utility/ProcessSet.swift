@@ -63,25 +63,11 @@ public final class ProcessSet {
         }
     }
 
-    /// Remove the process from process set.
-    public func remove(_ process: Process) {
-        serialQueue.sync {
-            self.processes.remove(process) 
-            // If all processes terminated and we're cancelled, unblock the killing thread.
-            if cancelled && self.processes.isEmpty {
-                killingCondition.whileLocked {
-                    shouldKill = true
-                    killingCondition.signal()
-                }
-            }
-        }
-    }
-
     /// Terminate all the processes. This method blocks until all processes in the set are terminated.
     ///
     /// A process set cannot be used once it has been asked to terminate.
     public func terminate() {
-        // Mark as process set as cancelled.
+        // Mark a process set as cancelled.
         serialQueue.sync {
             cancelled = true
         }
@@ -93,7 +79,7 @@ public final class ProcessSet {
         let thread = Basic.Thread {
             // Compute the timeout date.
             let timeout = Date() + self.killTimeout
-            // Block until we timeout or notification.
+            // Block until we timeout.
             self.killingCondition.whileLocked {
                 while !self.shouldKill {
                     // Block until timeout expires.
@@ -107,12 +93,12 @@ public final class ProcessSet {
             // Send kill signal to all processes.
             self.signalAll(SIGKILL)
         }
-
+        
         thread.start()
-        // FIXME: If Process class was thread safe, we could call waitUntilExit() here
-        // and then we wouldn't need clients to call remove() method to indicate
-        // that the process has terminated. This would be a nice thing to eventually add.
-        thread.join()
+        // Wait until all processes terminate
+        for process in self.processes {
+            try? process.waitUntilExit()
+        }
     }
 
     /// Sends signal to all processes in the set.
