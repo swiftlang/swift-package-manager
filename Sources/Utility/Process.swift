@@ -21,6 +21,9 @@ public struct ProcessResult {
     public enum Error: Swift.Error {
         /// The output is not a valid UTF8 sequence.
         case illegalUTF8Sequence
+
+        /// The process had a non zero exit.
+        case nonZeroExit(ProcessResult)
     }
 
     public enum ExitStatus {
@@ -326,14 +329,40 @@ extension Process {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     /// - Returns: The process result.
+    @discardableResult
     static public func popen(arguments: [String], environment: [String: String] = env()) throws -> ProcessResult {
         let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
         try process.launch()
         return try process.waitUntilExit()
     }
 
+    @discardableResult
     static public func popen(args: String..., environment: [String: String] = env()) throws -> ProcessResult {
         return try Process.popen(arguments: args, environment: environment)
+    }
+
+    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    /// - Returns: The process output (stdout + stderr).
+    @discardableResult
+    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env()) throws -> String {
+        let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
+        try process.launch()
+        let result = try process.waitUntilExit()
+        // Throw if there was a non zero termination.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
+        return try result.utf8Output()
+    }
+
+    @discardableResult
+    static public func checkNonZeroExit(args: String..., environment: [String: String] = env()) throws -> String {
+        return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
     public convenience init(args: String..., environment: [String: String] = env(), redirectOutput: Bool = true) {

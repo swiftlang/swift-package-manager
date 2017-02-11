@@ -52,6 +52,20 @@ class ProcessTests: XCTestCase {
         XCTAssert(outputCount == count)
     }
 
+    func testCheckNonZeroExit() throws {
+        do {
+            let output = try Process.checkNonZeroExit(args: "echo", "hello")
+            XCTAssertEqual(output, "hello\n")
+        }
+
+        do {
+            let output = try Process.checkNonZeroExit(args: script("exit4"))
+            XCTFail("Unexpected success \(output)")
+        } catch ProcessResult.Error.nonZeroExit(let result) {
+            XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+        }
+    }
+
     func testSignals() throws {
 
         // Test sigint terminates the script.
@@ -127,6 +141,7 @@ class ProcessTests: XCTestCase {
 
     static var allTests = [
         ("testBasics", testBasics),
+        ("testCheckNonZeroExit", testCheckNonZeroExit),
         ("testPopen", testPopen),
         ("testSignals", testSignals),
         ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),
