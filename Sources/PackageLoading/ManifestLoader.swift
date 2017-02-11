@@ -169,6 +169,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Validate that the file exists.
         guard isFile(path) else { throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description) }
 
+        let manifestVersion = ManifestLoader.overrideManifestVersion ?? manifestVersion
+
         // Get the json from manifest.
         guard let jsonString = try parse(path: path, manifestVersion: manifestVersion) else {
             throw ManifestParseError.emptyManifestFile
@@ -176,7 +178,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let json = try JSON(string: jsonString)
 
         // Load the correct version from JSON.
-        switch ManifestLoader.overrideManifestVersion ?? manifestVersion {
+        switch manifestVersion {
         case .three:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
             return Manifest(path: path, url: baseURL, package: .v3(pd.package), legacyProducts: pd.products, version: version)
