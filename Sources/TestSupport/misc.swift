@@ -179,7 +179,7 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
         let manifest = Manifest(
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
-            package: package,
+            package: .v3(package),
             version: "1.0.0"
         )
         if url == root {

@@ -10,6 +10,7 @@
 
 import Basic
 import PackageDescription
+import PackageDescription4
 
 /**
  This contains the declarative specification loaded from package manifest
@@ -34,10 +35,17 @@ public final class Manifest: ObjectIdentifierProtocol {
     // to the repository state, it shouldn't matter where it is.
     public let url: String
 
-    /// The raw package description.
-    public let package: PackageDescription.Package
+    /// The raw package description representation from manifest API targets.
+    /// We support v3 and v4 right now.
+    public enum RawPackage {
+        case v3(PackageDescription.Package)
+        case v4(PackageDescription4.Package)
+    }
 
-    /// The raw product descriptions.
+    /// The raw package description.
+    public let package: RawPackage
+
+    /// The legacy product descriptions.
     public let legacyProducts: [PackageDescription.Product]
 
     /// The version this package was loaded from, if known.
@@ -51,10 +59,13 @@ public final class Manifest: ObjectIdentifierProtocol {
     public init(
         path: AbsolutePath,
         url: String,
-        package: PackageDescription.Package,
+        package: RawPackage,
         legacyProducts: [PackageDescription.Product] = [],
         version: Version?
     ) {
+        if case .v4 = package {
+            precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manfiest.")
+        }
         self.path = path
         self.url = url
         self.package = package
@@ -69,6 +80,104 @@ extension Manifest {
     // but this can be expanded to include the details about manifest too.
     public func jsonString() throws -> String {
         // FIXME: It is unfortunate to re-parse the JSON string.
-        return try JSON(string: PackageDescription.jsonString(package: package)).toString(prettyPrint: true)
+        return try JSON(string:  package.jsonString).toString(prettyPrint: true)
+    }
+}
+
+// Common Raw Package properties exposed in terms of PackageDescription4 models.
+// This way the high level code doesn't need to concern itself with conversion.
+extension Manifest.RawPackage {
+
+    var jsonString: String {
+        switch self {
+            case .v3(let package): return PackageDescription.jsonString(package: package)
+            case .v4(let package): return PackageDescription4.jsonString(package: package)
+        }
+    }
+
+    public var name: String {
+        switch self {
+            case .v3(let package): return package.name
+            case .v4(let package): return package.name
+        }
+    }
+
+    public var exclude: [String] {
+        switch self {
+            case .v3(let package): return package.exclude
+            case .v4(let package): return package.exclude
+        }
+    }
+
+    public var pkgConfig: String? {
+        switch self {
+            case .v3(let package): return package.pkgConfig
+            case .v4(let package): return package.pkgConfig
+        }
+    }
+
+    public var targets: [PackageDescription4.Target] {
+        switch self {
+        case .v3(let package):
+            return package.targets.map { target in
+                let dependencies: [PackageDescription4.Target.Dependency]
+                dependencies = target.dependencies.map { dependency in
+                    switch dependency {
+                    case .Target(let name):
+                        return .Target(name: name)
+                    }
+                }
+                return Target(name: target.name, dependencies: dependencies)
+            }
+
+            case .v4(let package):
+                return package.targets
+        }
+    }
+
+    public var dependencies: [PackageDescription4.Package.Dependency] {
+        switch self {
+        case .v3(let package):
+            return package.dependencies.map {
+                .Package(url: $0.url, versions: $0.versionRange.asPD4Version)
+            }
+
+        case .v4(let package):
+            return package.dependencies
+        }
+    }
+
+    public var providers: [PackageDescription4.SystemPackageProvider]? {
+        switch self {
+        case .v3(let package):
+            return package.providers?.map {
+                switch $0 {
+                case .Brew(let name): return .Brew(name)
+                case .Apt(let name): return .Apt(name)
+                }
+            }
+
+        case .v4(let package):
+            return package.providers
+        }
+    }
+}
+
+// MARK:- Version shim for PackageDescription4 -> PackageDescription.
+
+extension PackageDescription4.Version {
+    fileprivate init(pdVersion version: PackageDescription.Version) {
+        self.init(
+            version.major,
+            version.minor,
+            version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifier: version.buildMetadataIdentifier)
+    }
+}
+
+extension Range where Bound == PackageDescription.Version {
+    fileprivate var asPD4Version: Range<PackageDescription4.Version> {
+        return PackageDescription4.Version(pdVersion: lowerBound) ..< PackageDescription4.Version(pdVersion: upperBound)
     }
 }

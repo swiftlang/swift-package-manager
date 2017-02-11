@@ -9,11 +9,11 @@
 */
 
 import Utility
-import PackageDescription
+import PackageDescription4
 
 extension Utility.Version {
     /// Create Utility.Version object from PackageDescription.Version object.
-    public init(pdVersion version: PackageDescription.Version) {
+    public init(pdVersion version: PackageDescription4.Version) {
         self.init(
             version.major,
             version.minor,
@@ -23,7 +23,7 @@ extension Utility.Version {
     }
 }
 
-extension Range where Bound == PackageDescription.Version {
+extension Range where Bound == PackageDescription4.Version {
     /// Converts PackageDescription.Version Range to Utility.Version Range.
     public var asUtilityVersion: Range<Utility.Version> {
         return Utility.Version(pdVersion: lowerBound) ..< Utility.Version(pdVersion: upperBound)

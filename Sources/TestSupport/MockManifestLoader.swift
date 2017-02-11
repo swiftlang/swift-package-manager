@@ -53,6 +53,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         packagePath path: Basic.AbsolutePath,
         baseURL: String,
         version: Version?,
+        manifestVersion: ManifestVersion,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
         if let result = manifests[Key(url: baseURL, version: version)] {

@@ -143,9 +143,9 @@ public struct MockManifestGraph {
         rootManifest = Manifest(
             path: path.appending(component: Manifest.filename),
             url: path.asString,
-            package: PackageDescription.Package(
+            package: .v3(PackageDescription.Package(
                 name: "Root",
-                dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps)),
+                dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps))),
             version: nil
         )
 
@@ -155,9 +155,9 @@ public struct MockManifestGraph {
             let manifest = Manifest(
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
-                package: PackageDescription.Package(
+                package: .v3(PackageDescription.Package(
                     name: package.name,
-                    dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)),
+                    dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies))),
                 version: package.version)
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
         })

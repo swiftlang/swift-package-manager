@@ -10,27 +10,26 @@
 
 import Basic
 import Utility
-import PackageDescription
+import PackageDescription4
 
-/// Load PackageDescription models from the given JSON. The JSON is expected to be completely valid.
+/// Load PackageDescription4 models from the given JSON. The JSON is expected to be completely valid.
 /// The base url is used to resolve any relative paths in the dependency declarations.
-func loadPackageDescription(
+func loadPackageDescription4(
    _ json: JSON,
    baseURL: String
-) throws -> (package: PackageDescription.Package, products: [PackageDescription.Product]) {
+) throws -> PackageDescription4.Package {
     // Construct objects from JSON.
-    let package = PackageDescription.Package.fromJSON(json, baseURL: baseURL)
-    let products = PackageDescription.Product.fromJSON(json)
+    let package = PackageDescription4.Package.fromJSON(json, baseURL: baseURL)
     let errors = parseErrors(json)
     guard errors.isEmpty else {
         throw ManifestParseError.runtimeManifestErrors(errors)
     }
-    return (package, products)
+    return package
 }
 
 // All of these methods are file private and are unit tested using manifest loader.
-extension PackageDescription.Package {
-    fileprivate static func fromJSON(_ json: JSON, baseURL: String? = nil) -> PackageDescription.Package {
+extension PackageDescription4.Package {
+    fileprivate static func fromJSON(_ json: JSON, baseURL: String? = nil) -> PackageDescription4.Package {
         // This is a private API, currently, so we do not currently try and
         // validate the input.
         guard case .dictionary(let topLevelDict) = json else { fatalError("unexpected item") }
@@ -44,20 +43,20 @@ extension PackageDescription.Package {
         }
 
         // Parse the targets.
-        var targets: [PackageDescription.Target] = []
+        var targets: [PackageDescription4.Target] = []
         if case .array(let array)? = package["targets"] {
-            targets = array.map(PackageDescription.Target.fromJSON)
+            targets = array.map(PackageDescription4.Target.fromJSON)
         }
 
-        var providers: [PackageDescription.SystemPackageProvider]? = nil
+        var providers: [PackageDescription4.SystemPackageProvider]? = nil
         if case .array(let array)? = package["providers"] {
-            providers = array.map(PackageDescription.SystemPackageProvider.fromJSON)
+            providers = array.map(PackageDescription4.SystemPackageProvider.fromJSON)
         }
 
         // Parse the dependencies.
-        var dependencies: [PackageDescription.Package.Dependency] = []
+        var dependencies: [PackageDescription4.Package.Dependency] = []
         if case .array(let array)? = package["dependencies"] {
-            dependencies = array.map { PackageDescription.Package.Dependency.fromJSON($0, baseURL: baseURL) }
+            dependencies = array.map { PackageDescription4.Package.Dependency.fromJSON($0, baseURL: baseURL) }
         }
 
         // Parse the exclude folders.
@@ -69,12 +68,12 @@ extension PackageDescription.Package {
             }
         }
 
-        return PackageDescription.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, exclude: exclude)
+        return PackageDescription4.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, exclude: exclude)
     }
 }
 
-extension PackageDescription.Package.Dependency {
-    fileprivate static func fromJSON(_ json: JSON, baseURL: String?) -> PackageDescription.Package.Dependency {
+extension PackageDescription4.Package.Dependency {
+    fileprivate static func fromJSON(_ json: JSON, baseURL: String?) -> PackageDescription4.Package.Dependency {
         guard case .dictionary(let dict) = json else { fatalError("Unexpected item") }
 
         guard case .string(let url)? = dict["url"],
@@ -95,12 +94,12 @@ extension PackageDescription.Package.Dependency {
             }
         }
 
-        return PackageDescription.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
+        return PackageDescription4.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
     }
 }
 
-extension PackageDescription.SystemPackageProvider {
-    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription.SystemPackageProvider {
+extension PackageDescription4.SystemPackageProvider {
+    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.SystemPackageProvider {
         guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
         guard case .string(let name)? = dict["name"] else { fatalError("missing name") }
         guard case .string(let value)? = dict["value"] else { fatalError("missing value") }
@@ -115,63 +114,24 @@ extension PackageDescription.SystemPackageProvider {
     }
 }
 
-extension PackageDescription.Target {
-    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription.Target {
+extension PackageDescription4.Target {
+    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.Target {
         guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
         guard case .string(let name)? = dict["name"] else { fatalError("missing name") }
 
-        var dependencies: [PackageDescription.Target.Dependency] = []
+        var dependencies: [PackageDescription4.Target.Dependency] = []
         if case .array(let array)? = dict["dependencies"] {
-            dependencies = array.map(PackageDescription.Target.Dependency.fromJSON)
+            dependencies = array.map(PackageDescription4.Target.Dependency.fromJSON)
         }
 
-        return PackageDescription.Target(name: name, dependencies: dependencies)
+        return PackageDescription4.Target(name: name, dependencies: dependencies)
     }
 }
 
-extension PackageDescription.Target.Dependency {
-    fileprivate static func fromJSON(_ item: JSON) -> PackageDescription.Target.Dependency {
+extension PackageDescription4.Target.Dependency {
+    fileprivate static func fromJSON(_ item: JSON) -> PackageDescription4.Target.Dependency {
         guard case .string(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
-    }
-}
-
-extension PackageDescription.Product {
-
-    fileprivate static func fromJSON(_ json: JSON) -> [PackageDescription.Product] {
-        guard case .dictionary(let topLevelDict) = json else { fatalError("unexpected item") }
-        guard case .array(let array)? = topLevelDict["products"] else { fatalError("unexpected item") }
-        return array.map(Product.init)
-    }
-
-    private init(_ json: JSON) {
-        guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
-        guard case .string(let name)? = dict["name"] else { fatalError("missing item") }
-        guard case .string(let productType)? = dict["type"] else { fatalError("missing item") }
-        guard case .array(let targetsJSON)? = dict["modules"] else { fatalError("missing item") }
-
-        let targets: [String] = targetsJSON.map {
-            guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
-            return string
-        }
-        self.init(name: name, type: ProductType(productType), modules: targets)
-    }
-}
-
-extension PackageDescription.ProductType {
-    fileprivate init(_ string: String) {
-        switch string {
-        case "exe":
-            self = .Executable		
-        case "a":
-            self = .Library(.Static)
-        case "dylib":
-            self = .Library(.Dynamic)
-        case "test":
-            self = .Test
-        default:
-            fatalError("invalid string \(string)")
-        }
     }
 }
 
