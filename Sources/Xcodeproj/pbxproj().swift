@@ -355,7 +355,7 @@ func xcodeProject(
         
         if module.type == .test {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
-            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks"]
+            targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks", "@loader_path/Frameworks"]
         }
         else {
             // We currently force a search path to the toolchain, since we can't
