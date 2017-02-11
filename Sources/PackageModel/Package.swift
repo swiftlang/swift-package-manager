@@ -51,7 +51,7 @@ public final class Package {
 
     /// The name of the package.
     public var name: String {
-        return manifest.package.name
+        return manifest.name
     }        
 
     /// The modules contained in the package.

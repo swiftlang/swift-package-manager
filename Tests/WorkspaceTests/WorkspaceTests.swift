@@ -185,16 +185,14 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the "current" manifests.
             let manifests = try workspace.loadDependencyManifests()
-            XCTAssertEqual(manifests.roots[0].package, graph.rootManifest.package)
+            XCTAssertEqual(manifests.roots[0], graph.rootManifest)
             // B should be missing.
             XCTAssertEqual(manifests.missingURLs(), ["//B"])
             XCTAssertEqual(manifests.dependencies.map{$0.manifest.name}.sorted(), ["A", "AA"])
             let aManifest = graph.manifest("A", version: v1)
-            XCTAssertEqual(manifests.lookup(manifest: "A")?.package, aManifest.package)
-            XCTAssertEqual(manifests.lookup(manifest: "A")?.version, aManifest.version)
+            XCTAssertEqual(manifests.lookup(manifest: "A"), aManifest)
             let aaManifest = graph.manifest("AA", version: v1)
-            XCTAssertEqual(manifests.lookup(manifest: "AA")?.package, aaManifest.package)
-            XCTAssertEqual(manifests.lookup(manifest: "AA")?.version, aaManifest.version)
+            XCTAssertEqual(manifests.lookup(manifest: "AA"), aaManifest)
         }
     }
 
