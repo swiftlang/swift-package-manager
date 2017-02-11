@@ -58,11 +58,11 @@ let package = Package(
         Target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["Basic", "PackageDescription", "Utility"]),
+            dependencies: ["Basic", "PackageDescription", "PackageDescription4", "Utility"]),
         Target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["Basic", "PackageDescription", "PackageModel"]),
+            dependencies: ["Basic", "PackageDescription", "PackageDescription4", "PackageModel", "Utility"]),
 
         // MARK: Package Dependency Resolution
         
@@ -192,6 +192,20 @@ products.append(
     Product(
         name: "SwiftPM",
         type: .Library(.Dynamic),
-        modules: ["libc", "POSIX", "Basic", "Utility", "SourceControl", "PackageDescription", "PackageModel", "PackageLoading", "PackageGraph", "Build", "Xcodeproj", "Workspace"]
+        modules: [
+            "libc",
+            "POSIX",
+            "Basic",
+            "Utility",
+            "SourceControl",
+            "PackageDescription",
+            "PackageDescription4",
+            "PackageModel",
+            "PackageLoading",
+            "PackageGraph",
+            "Build",
+            "Xcodeproj",
+            "Workspace"
+        ]
     )
 )
