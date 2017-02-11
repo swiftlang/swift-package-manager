@@ -8,72 +8,125 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public struct Product {
-    public let name: String
-    public let type: ProductType
-    public let modules: [String]
 
-    public init(name: String, type: ProductType, modules: String...) {
-        self.init(name: name, type: type, modules: modules)
+/// Defines a product in the package.
+public enum Product {
+
+    /// An exectuable product.
+    public struct ExecutableProduct {
+
+        /// The name of the executable product.
+        public let name: String
+
+        /// The names of targets in the product.
+        public let targets: [String]
     }
 
-    public init(name: String, type: ProductType, modules: [String]) {
-        self.name = name
-        self.type = type
-        self.modules = modules
-    }
-}
+    /// A library product.
+    public struct LibraryProduct {
 
-public enum LibraryType {
-    case Static
-    case Dynamic
-}
-
-public enum ProductType {
-    case Test
-    case Executable
-    case Library(LibraryType)
-}
-
-extension ProductType: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .Test:
-            return "test"
-        case .Executable:
-            return "exe"
-        case .Library(.Static):
-            return "a"
-        case .Library(.Dynamic):
-            return "dylib"
+        /// The type of library products.
+        public enum LibraryType: String {
+            case `static`
+            case `dynamic`
         }
+
+        /// The name of the library product.
+        public let name: String
+
+        /// The type of the library.
+        ///
+        /// If the type is unspecified, package manager will automatically choose a type.
+        public let type: LibraryType?
+
+        /// The names of targets in the product.
+        public let targets: [String]
+    }
+
+    /// Executable product.
+    case exe(ExecutableProduct)
+
+    /// Library product.
+    case lib(LibraryProduct)
+
+    /// Create an executable product.
+    public static func Executable(name: String, targets: [String]) -> Product {
+        return .exe(ExecutableProduct(name: name, targets: targets))
+    }
+
+    /// Create a library product.
+    public static func Library(name: String, type: LibraryProduct.LibraryType? = nil, targets: [String]) -> Product {
+        return .lib(LibraryProduct(name: name, type: type, targets: targets))
+    }
+
+    /// Name of the product.
+    public var name: String {
+        switch self {
+        case .exe(let p): return p.name
+        case .lib(let p): return p.name
+        }
+    }
+}
+
+extension Product.ExecutableProduct {
+    func toJSON() -> [String: JSON] {
+        return [
+            "name": .string(name),
+            "targets": .array(targets.map(JSON.string)),
+        ]
+    }
+}
+
+extension Product.LibraryProduct {
+    func toJSON() -> [String: JSON] {
+        return [
+            "name": .string(name),
+            "type": type.map{ JSON.string($0.rawValue) } ?? .null,
+            "targets": .array(targets.map(JSON.string)),
+        ]
     }
 }
 
 extension Product {
     func toJSON() -> JSON {
-        var dict: [String: JSON] = [:]
-        dict["name"] = .string(name)
-        dict["type"] = .string(type.description)
-        dict["modules"] = .array(modules.map(JSON.string))
-        return .dictionary(dict)
+        switch self {
+        case .exe(let product):
+            var dict = product.toJSON()
+            dict["product_type"] = .string("exe")
+            return .dictionary(dict)
+        case .lib(let product):
+            var dict = product.toJSON()
+            dict["product_type"] = .string("lib")
+            return .dictionary(dict)
+        }
     }
 }
 
-extension ProductType: Equatable {
-    public static func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+extension Product.ExecutableProduct: Equatable {
+    public static func ==(lhs: Product.ExecutableProduct, rhs: Product.ExecutableProduct) -> Bool {
+        return lhs.name == rhs.name &&
+               lhs.targets == rhs.targets
+    }
+}
+
+extension Product.LibraryProduct: Equatable {
+    public static func ==(lhs: Product.LibraryProduct, rhs: Product.LibraryProduct) -> Bool {
+        return lhs.name == rhs.name &&
+               lhs.type == rhs.type &&
+               lhs.targets == rhs.targets
+    }
+}
+
+extension Product: Equatable {
+    public static func ==(lhs: Product, rhs: Product) -> Bool {
         switch (lhs, rhs) {
-        case (.Executable, .Executable):
-            return true
-        case (.Executable, _):
+        case (.exe(let a), .exe(let b)):
+            return a == b
+        case (.exe, _):
             return false
-        case (.Test, .Test):
-            return true
-        case (.Test, _):
-            return false
-        case (.Library(let lhsType), .Library(let rhsType)):
-            return lhsType == rhsType
-        case (.Library, _):
+        case (.lib(let a), .lib(let b)):
+            return a == b
+        case (.lib, _):
             return false
         }
     }

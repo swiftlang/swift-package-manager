@@ -12,7 +12,6 @@ import Basic
 import PackageModel
 import Utility
 
-import class PackageDescription.Target
 import enum PackageDescription.ProductType
 
 /// An error in the structure or layout of a package.
@@ -559,12 +558,6 @@ public struct PackageBuilder {
     private func constructProducts(_ modules: [Module]) throws -> [Product] {
         var products = [Product]()
 
-        // Create executables.
-        for module in modules where module.type == .executable {
-            let product = Product(name: module.name, type: .executable, modules: [module])
-            products.append(product)
-        }
-
         // Collect all test modules.
         let testModules = modules.filter{ module in
             guard module.type == .test else { return false }
@@ -612,12 +605,51 @@ public struct PackageBuilder {
             products.append(product)
         }
 
+        // Create executables.
+        func createExecutables() {
+            for module in modules where module.type == .executable {
+                let product = Product(name: module.name, type: .executable, modules: [module])
+                products.append(product)
+            }
+        }
+
         // Create a product for the entire package.
-        // FIXME: This is to be done only when parsing the manifest in Swift 3 mode.
-        if createImplicitProduct {
-            let libraryModules = modules.filter{ $0.type == .library }
-            if !libraryModules.isEmpty {
-                products += [Product(name: manifest.name, type: .library(.automatic), modules: libraryModules)]
+        switch manifest.package {
+        case .v3:
+            // Always create all executables in v3.
+            createExecutables()
+
+            if createImplicitProduct {
+                let libraryModules = modules.filter{ $0.type == .library }
+                if !libraryModules.isEmpty {
+                    products += [Product(name: manifest.name, type: .library(.automatic), modules: libraryModules)]
+                }
+            }
+
+        case .v4(let package):
+
+            // Only create implicit executables for root packages in v4.
+            if !createImplicitProduct {
+                createExecutables()
+            }
+
+            for product in package.products {
+                switch product {
+                case .exe(let p):
+                    // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
+                    let modules = try modulesFrom(targetNames: p.targets, product: p.name)
+                    products.append(Product(name: p.name, type: .executable, modules: modules))
+                case .lib(let p):
+                    // Get the library type.
+                    let type: PackageModel.ProductType
+                    switch p.type {
+                    case .static?: type = .library(.static)
+                    case .dynamic?: type = .library(.dynamic)
+                    case nil: type = .library(.automatic)
+                    }
+                    let modules = try modulesFrom(targetNames: p.targets, product: p.name)
+                    products.append(Product(name: p.name, type: type, modules: modules))
+                }
             }
         }
 
