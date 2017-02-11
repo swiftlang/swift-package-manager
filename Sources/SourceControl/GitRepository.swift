@@ -48,8 +48,6 @@ public class GitRepositoryProvider: RepositoryProvider {
         try process.launch()
         // Block until cloning completes.
         let result = try process.waitUntilExit()
-        // Remove from process set after completion.
-        processSet?.remove(process)
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
             let errorOutput = try result.utf8Output()
