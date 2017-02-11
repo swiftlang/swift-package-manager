@@ -191,16 +191,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Pass the fd in arguments.
         cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
-        // FIXME: Move this to the new Process class once we have that.
-        var output = ""
-        do {
-            try popen(cmd, redirectStandardError: true) { output += $0 }
-        } catch {
-            output += String(describing: error)
-        }
+        // Run the command.
+        let output = try Process.popen(arguments: cmd).utf8Output().chuzzle()
+
         // We expect output from interpreter to be empty, if something was emitted
         // throw and report it.
-        guard output.isEmpty else {
+        if let output = output {
             throw ManifestParseError.invalidManifestFormat(output)
         }
     

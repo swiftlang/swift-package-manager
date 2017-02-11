@@ -107,12 +107,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .run(let specifier):
             let testPath = try buildTestsIfNeeded(options)
-            let success: Bool = TestRunner(path: testPath, xctestArg: specifier).test()
+            let success: Bool = TestRunner(path: testPath, xctestArg: specifier, processSet: processSet).test()
             exit(success ? 0 : 1)
 
         case .runInParallel:
             let testPath = try buildTestsIfNeeded(options)
-            let runner = ParallelTestRunner(testPath: testPath)
+            let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run()
             exit(runner.success ? 0 : 1)
         }
@@ -213,12 +213,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
         var env = ProcessInfo.processInfo.environment
         env["DYLD_FRAMEWORK_PATH"] = try platformFrameworksPath().asString
-        try system(args, environment: env)
+        try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
         let data = try fopen(tempFile.path).readFileContents()
       #else
         let args = [path.asString, "--dump-tests-json"]
-        let data = try popen(args)
+        let data = try Process.checkNonZeroExit(arguments: args)
       #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
@@ -236,14 +236,17 @@ final class TestRunner {
     /// Arguments to pass to XCTest if any.
     private let xctestArg: String?
 
+    private let processSet: ProcessSet
+
     /// Creates an instance of TestRunner.
     ///
     /// - Parameters:
     ///     - path: Path to valid XCTest binary.
     ///     - xctestArg: Arguments to pass to XCTest.
-    init(path: AbsolutePath, xctestArg: String? = nil) {
+    init(path: AbsolutePath, xctestArg: String? = nil, processSet: ProcessSet) {
         self.path = path
         self.xctestArg = xctestArg
+        self.processSet = processSet
     }
 
     /// Constructs arguments to execute XCTest.
@@ -272,9 +275,9 @@ final class TestRunner {
         var output = ""
         var success = true
         do {
-            try popen(args(), redirectStandardError: true) { line in
-                output += line
-            }
+            let result = try Process.popen(arguments: args())
+            output = try result.utf8Output().chuzzle() ?? ""
+            success = result.exitStatus == .terminated(code: 0)
         } catch {
             success = false
         }
@@ -283,8 +286,15 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
-        let result: Void? = try? system(args())
-        return result != nil
+        do {
+            let process = Process(arguments: args(), redirectOutput: false)
+            try processSet.add(process)
+            try process.launch()
+            let result = try process.waitUntilExit()
+            return result.exitStatus == .terminated(code: 0)
+        } catch {
+            return false
+        }
     }
 }
 
@@ -337,8 +347,11 @@ final class ParallelTestRunner {
     /// True if all tests executed successfully.
     private(set) var success: Bool = true
 
-    init(testPath: AbsolutePath) {
+    let processSet: ProcessSet
+
+    init(testPath: AbsolutePath, processSet: ProcessSet) {
         self.testPath = testPath
+        self.processSet = processSet
         progressBar = createProgressBar(forStream: stdoutStream, header: "Tests")
     }
 
@@ -380,7 +393,8 @@ final class ParallelTestRunner {
             let thread = Thread {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
-                    let testRunner = TestRunner(path: self.testPath, xctestArg: test.specifier)
+                    let testRunner = TestRunner(
+                        path: self.testPath, xctestArg: test.specifier, processSet: self.processSet)
                     let (success, output) = testRunner.test()
                     if success {
                         self.finishedTests.enqueue(.success(test))

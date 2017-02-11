@@ -16,7 +16,7 @@ import Basic
 import Dispatch
 
 /// Process result data which is available after process termination.
-public struct ProcessResult {
+public struct ProcessResult: CustomStringConvertible {
 
     public enum Error: Swift.Error {
         /// The output is not a valid UTF8 sequence.
@@ -62,6 +62,14 @@ public struct ProcessResult {
             return output
         }
         throw Error.illegalUTF8Sequence
+    }
+
+    public var description: String {
+        var str = "<ProcessResult: "
+        str += "exit: \(exitStatus), "
+        str += "output:\n \((try? utf8Output()) ?? "")\n"
+        str += ">"
+        return str
     }
 }
 
@@ -172,15 +180,6 @@ public final class Process: ObjectIdentifierProtocol {
         // Set the attribute flags.
         var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
         flags |= POSIX_SPAWN_SETPGROUP
-
-        // Close all other files by default.
-        //
-        // FIXME: Note that this is an Apple-specific extension, and we will have to
-        // do something else on other platforms (and unfortunately, there isn't
-        // really an easy answer other than using a stub executable).
-      #if os(macOS)
-        flags |= POSIX_SPAWN_CLOEXEC_DEFAULT
-      #endif
 
         posix_spawnattr_setflags(&attributes, Int16(flags))
 

@@ -55,9 +55,9 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
     private func checkClangVersion() {
         // We only care about this on Ubuntu 14.04
-        guard let uname = try? popen(["lsb_release", "-r"]).chomp(),
+        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").chomp(),
               uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? popen(["clang", "--version"]).chomp(),
+              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").chomp(),
               let clang = getClangVersion(versionOutput: clangVersionOutput) else {
             return
         }

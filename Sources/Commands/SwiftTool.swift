@@ -121,11 +121,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.chdir = $1.path })
 
         binder.bind(
-            option: parser.add(option: "--color", kind: ColorWrap.Mode.self,
-                usage: "Specify color mode (auto|always|never) [default: auto]"),
-            to: { $0.colorMode = $1 })
-
-        binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
             usage: "Enable prefetching in resolver"),
             to: { $0.enableResolverPrefetching = $1 })
@@ -227,7 +222,6 @@ public class SwiftTool<Options: ToolOptions> {
         do {
             // Setup the globals.
             verbosity = Verbosity(rawValue: options.verbosity)
-            colorMode = options.colorMode
             // Call the implementation.
             try runImpl()
         } catch {
@@ -263,7 +257,7 @@ public class SwiftTool<Options: ToolOptions> {
         let llbuild = LLbuildManifestGenerator(buildPlan)
         try llbuild.generateManifest(at: yaml)
         // Run the swift-build-tool with the generated manifest.
-        try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil)
+        try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil, processSet: processSet)
     }
 }
 

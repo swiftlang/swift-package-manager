@@ -70,8 +70,8 @@ public class GitRepositoryProvider: RepositoryProvider {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
-            try system(
-                    Git.tool, "clone", sourcePath.asString, destinationPath.asString, message: nil)
+            try Process.checkNonZeroExit(args:
+                    Git.tool, "clone", sourcePath.asString, destinationPath.asString)
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
@@ -89,8 +89,8 @@ public class GitRepositoryProvider: RepositoryProvider {
             // re-resolve such that the objects in this repository changed, we would
             // only ever expect to get back a revision that remains present in the
             // object storage.
-            try system(
-                    Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString, message: nil)
+            try Process.checkNonZeroExit(args:
+                    Git.tool, "clone", "--shared", sourcePath.asString, destinationPath.asString)
         }
     }
 
@@ -220,7 +220,8 @@ public class GitRepository: Repository, WorkingCheckout {
         self.path = path
         self.isWorkingRepo = isWorkingRepo
         do {
-            let isBareRepo = try popen([Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository"]).chomp() == "true"
+            let isBareRepo = try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.asString, "rev-parse", "--is-bare-repository").chomp() == "true"
             assert(isBareRepo != isWorkingRepo)
         } catch {
             // Ignore if we couldn't run popen for some reason.
@@ -233,7 +234,11 @@ public class GitRepository: Repository, WorkingCheckout {
     ///   - remote: The name of the remote to operate on. It should already be present.
     ///   - url: The new url of the remote.
     func setURL(remote: String, url: String) throws {
-        try runCommandQuietly([Git.tool, "-C", path.asString, "remote", "set-url", remote, url])
+        try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "remote", "set-url", remote, url)
+            return
+        }
     }
 
     /// Gets the current list of remotes of the repository.
@@ -242,11 +247,13 @@ public class GitRepository: Repository, WorkingCheckout {
     public func remotes() throws -> [(name: String, url: String)] {
         return try queue.sync {
             // Get the remote names.
-            let remoteNamesOutput = try popen([Git.tool, "-C", path.asString, "remote"]).chomp()
+            let remoteNamesOutput = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "remote").chomp()
             let remoteNames = remoteNamesOutput.characters.split(separator: "\n").map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
-                let url = try popen([Git.tool, "-C", path.asString, "config", "--get", "remote.\(name).url"]).chomp()
+                let url = try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.asString, "config", "--get", "remote.\(name).url").chomp()
                 return (name, url)
             }
         }
@@ -272,7 +279,8 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Returns the tags present in repository.
     private func getTags() -> [String] {
         // FIXME: Error handling.
-        let tagList = try! popen([Git.tool, "-C", path.asString, "tag", "-l"])
+        let tagList = try! Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.asString, "tag", "-l").chomp()
         return tagList.characters.split(separator: "\n").map(String.init)
     }
 
@@ -281,7 +289,9 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch() throws {
-        try runCommandQuietly([Git.tool, "-C", path.asString, "fetch", "--tags"]) {
+        try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "fetch", "--tags")
             self.tagsCache = nil
         }
     }
@@ -293,14 +303,15 @@ public class GitRepository: Repository, WorkingCheckout {
             // Detect if there is a staged or unstaged diff.
             // This won't detect new untracked files, but it is
             // just a safety measure for now.
-            let diffArgs = ["--no-ext-diff", "--quiet", "--exit-code"]
-            do {
-                try system(args: [Git.tool, "-C", path.asString, "diff"] + diffArgs, quietly: true)
-                try system(args: [Git.tool, "-C", path.asString, "diff", "--cached"] + diffArgs, quietly: true)
-            } catch {
-                return true
+            let args = [Git.tool, "-C", path.asString, "diff", "--no-ext-diff", "--quiet", "--exit-code"]
+            var nonZeroExit = false
+
+            for args in [args, args + ["--cached"]] {
+                let result = try? Process.popen(arguments: args)
+                nonZeroExit = nonZeroExit || result?.exitStatus != .terminated(code: 0)
             }
-            return false
+
+            return nonZeroExit
         }
     }
 
@@ -311,19 +322,27 @@ public class GitRepository: Repository, WorkingCheckout {
     // MARK: Working Checkout Interface
 
     public func hasUnpushedCommits() throws -> Bool {
-        let hasOutput = try runPopen([Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes"]).chomp().isEmpty
-        return !hasOutput
+        return try queue.sync {
+            let hasOutput = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes").chomp().isEmpty
+            return !hasOutput
+        }
     }
 
     public func getCurrentRevision() throws -> Revision {
-        return Revision(identifier: try runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD"]).chomp())
+        return try queue.sync {
+            return try Revision(
+                identifier: Process.checkNonZeroExit(
+                    args: Git.tool, "-C", path.asString, "rev-parse", "--verify", "HEAD").chomp())
+        }
     }
 
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         try queue.sync {
-            try system(args: [Git.tool, "-C", path.asString, "reset", "--hard", tag])
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "reset", "--hard", tag)
             try self.updateSubmoduleAndClean()
         }
     }
@@ -332,30 +351,36 @@ public class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         try queue.sync {
-            try system(args: [Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier])
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "checkout", "-f", revision.identifier)
             try self.updateSubmoduleAndClean()
         }
     }
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndClean() throws {
-        try system(args: [Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive"])
-        try system(args: [Git.tool, "-C", path.asString, "clean", "-ffd"])
+        try Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive")
+        try Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.asString, "clean", "-ffd")
     }
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
-        do {
-           _ = try runCommandQuietly([Git.tool, "-C", path.asString, "rev-parse", "--verify", revision.identifier])
-        } catch {
-            return false
+        return queue.sync {
+            let result = try? Process.popen(
+                args: Git.tool, "-C", path.asString, "rev-parse", "--verify", revision.identifier)
+            return result?.exitStatus == .terminated(code: 0)
         }
-        return true
     }
 
     public func checkout(newBranch: String) throws {
         precondition(isWorkingRepo, "This operation should run in a working repo.")
-        try runCommandQuietly([Git.tool, "-C", path.asString, "checkout", "-b", newBranch])
+        try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "checkout", "-b", newBranch)
+            return
+        }
     }
 
     // MARK: Git Operations
@@ -371,7 +396,10 @@ public class GitRepository: Repository, WorkingCheckout {
         } else {
             specifier = treeish
         }
-        let response = try runPopen([Git.tool, "-C", path.asString, "rev-parse", "--verify", specifier]).chomp()
+        let response = try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "rev-parse", "--verify", specifier).chomp()
+        }
         if let hash = Hash(response) {
             return hash
         } else {
@@ -390,7 +418,10 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
-        let treeInfo = try runPopen([Git.tool, "-C", path.asString, "ls-tree", hash.bytes.asString!])
+        let treeInfo = try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "ls-tree", hash.bytes.asString!)
+        }
 
         var contents: [Tree.Entry] = []
         for line in treeInfo.components(separatedBy: "\n") {
@@ -437,25 +468,13 @@ public class GitRepository: Repository, WorkingCheckout {
 
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
-        // Get the contents using `cat-file`.
-        //
-        // FIXME: We need to get the raw bytes back, not a String.
-        let output = try runPopen([Git.tool, "-C", path.asString, "cat-file", "-p", hash.bytes.asString!])
-        return ByteString(encodingAsUTF8: output)
-    }
-
-    /// Runs the command in the serial queue and runs the completion closure if present.
-    private func runCommandQuietly(_ command: [String], completion: (() -> Void)? = nil) throws {
-        try queue.sync {
-            try system(args: command, quietly: true)
-            completion?()
-        }
-    }
-
-    /// Executes popen in the serial queue.
-    private func runPopen(_ command: [String]) throws -> String {
         return try queue.sync {
-            return try popen(command)
+            // Get the contents using `cat-file`.
+            //
+            // FIXME: We need to get the raw bytes back, not a String.
+            let output = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "cat-file", "-p", hash.bytes.asString!)
+            return ByteString(encodingAsUTF8: output)
         }
     }
 }

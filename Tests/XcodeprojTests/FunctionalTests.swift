@@ -109,15 +109,8 @@ class FunctionalTests: XCTestCase {
         try! write(path: AbsolutePath("/tmp/fake.c")) { stream in
             stream <<< "const char * GetFakeString(void) { return \"abc\"; }\n"
         }
-        var out = ""
-        do {
-            try popen(["env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib"], redirectStandardError: true) {
-                out += $0
-            }
-        } catch {
-            print("output:", out)
-            XCTFail("Failed to create test library:\n\n\(error)\n")
-        }
+        try! Process.checkNonZeroExit(
+            args: "env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib")
         // Now we use a fixture for both the system library wrapper and the text executable.
         fixture(name: "Miscellaneous/SystemModules") { prefix in
             XCTAssertBuilds(prefix.appending(component: "TestExec"), Xld: ["-L/tmp/"])
@@ -149,13 +142,10 @@ func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {
 }
 
 func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
-    var out = ""
     do {
-        try popen(["env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project.asString, "-alltargets"], redirectStandardError: true) {
-            out += $0
-        }
+        try Process.checkNonZeroExit(
+            args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project.asString, "-alltargets")
     } catch {
-        print("output:", out)
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
     }
 }

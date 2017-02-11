@@ -16,6 +16,8 @@ import PackageModel
 import SourceControl
 import Utility
 
+typealias Process = Utility.Process
+
 /// Asserts if a directory (recursively) contains a file.
 private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String, file: StaticString = #file, line: UInt = #line) {
     do {
@@ -50,9 +52,9 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "SeaExec"))
-            var output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
+            var output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
             XCTAssertEqual(output, "a = 5\n")
-            output = try popen([debugPath.appending(component: "CExec").asString], environment: [:])
+            output = try Process.checkNonZeroExit(args: debugPath.appending(component: "CExec").asString)
             XCTAssertEqual(output, "5")
         }
 
@@ -61,7 +63,7 @@ class ClangModulesTestCase: XCTestCase {
         fixture(name: "ClangModules/SwiftCMixed2") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
-            let output = try popen([debugPath.appending(component: "SeaExec").asString], environment: [:])
+            let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "SeaExec").asString)
             XCTAssertEqual(output, "a = 5\n")
         }
     }
@@ -103,7 +105,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             XCTAssertFileExists(debugPath.appending(component: "CExecutable"))
-            let output = try popen([debugPath.appending(component: "CExecutable").asString], environment: [:])
+            let output = try Process.checkNonZeroExit(args: debugPath.appending(component: "CExecutable").asString)
             XCTAssertEqual(output, "hello 5")
         }
     }
