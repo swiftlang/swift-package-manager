@@ -48,6 +48,12 @@ extension PackageDescription4.Package {
             targets = array.map(PackageDescription4.Target.fromJSON)
         }
 
+        // Parse the products.
+        var products: [PackageDescription4.Product] = []
+        if case .array(let array)? = package["products"] {
+            products = array.map(PackageDescription4.Product.fromJSON)
+        }
+
         var providers: [PackageDescription4.SystemPackageProvider]? = nil
         if case .array(let array)? = package["providers"] {
             providers = array.map(PackageDescription4.SystemPackageProvider.fromJSON)
@@ -68,7 +74,7 @@ extension PackageDescription4.Package {
             }
         }
 
-        return PackageDescription4.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, dependencies: dependencies, exclude: exclude)
+        return PackageDescription4.Package(name: name, pkgConfig: pkgConfig, providers: providers, targets: targets, products: products, dependencies: dependencies, exclude: exclude)
     }
 }
 
@@ -132,6 +138,39 @@ extension PackageDescription4.Target.Dependency {
     fileprivate static func fromJSON(_ item: JSON) -> PackageDescription4.Target.Dependency {
         guard case .string(let name) = item else { fatalError("unexpected item") }
         return .Target(name: name)
+    }
+}
+
+extension PackageDescription4.Product {
+    fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.Product {
+        guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
+        guard case .string(let name)? = dict["name"] else { fatalError("missing item") }
+        guard case .string(let productType)? = dict["product_type"] else { fatalError("missing item") }
+        guard case .array(let targetsJSON)? = dict["targets"] else { fatalError("missing item") }
+
+        let targets: [String] = targetsJSON.map {
+            guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
+            return string
+        }
+
+        switch productType {
+        case "exe":
+            return PackageDescription4.Product.Executable(name: name, targets: targets)
+        case "lib":
+            let type: PackageDescription4.Product.LibraryProduct.LibraryType?
+            switch dict["type"] {
+            case .string("static")?:
+                type = .static
+            case .string("dynamic")?:
+                type = .dynamic
+            case .null?:
+                type = nil
+            default: fatalError("unexpected item")
+            }
+            return PackageDescription4.Product.Library(name: name, type: type, targets: targets)
+        default:
+            fatalError("unexpected item")
+        }
     }
 }
 

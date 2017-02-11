@@ -60,6 +60,9 @@ public final class Package {
     /// The list of targets.
     public var targets: [Target]
 
+    /// The list of products vended by this package.
+    public var products: [Product]
+
     /// The list of dependencies.
     public var dependencies: [Dependency]
 
@@ -72,6 +75,7 @@ public final class Package {
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         targets: [Target] = [],
+        products: [Product] = [],
         dependencies: [Dependency] = [],
         exclude: [String] = []
     ) {
@@ -79,6 +83,7 @@ public final class Package {
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.targets = targets
+        self.products = products
         self.dependencies = dependencies
         self.exclude = exclude
 
@@ -162,6 +167,7 @@ extension Package {
         dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
         dict["exclude"] = .array(exclude.map { .string($0) })
         dict["targets"] = .array(targets.map { $0.toJSON() })
+        dict["products"] = .array(products.map { $0.toJSON() })
         if let providers = self.providers {
             dict["providers"] = .array(providers.map { $0.toJSON() })
         }
