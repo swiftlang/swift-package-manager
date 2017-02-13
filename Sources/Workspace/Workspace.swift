@@ -40,6 +40,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// The given path is not a registered root package.
     case pathNotRegistered(path: AbsolutePath)
+
+    /// The root package has incompatible tools version.
+    case incompatibleToolsVersion(rootPackage: AbsolutePath, required: ToolsVersion, current: ToolsVersion)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -251,6 +254,12 @@ public class Workspace {
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
 
+    /// The tools version currently in use.
+    let currentToolsVersion: ToolsVersion
+
+    /// The manifest loader to use.
+    let toolsVersionLoader: ToolsVersionLoaderProtocol
+
     /// The repository manager.
     private let repositoryManager: RepositoryManager
 
@@ -287,6 +296,8 @@ public class Workspace {
         editablesPath: AbsolutePath,
         pinsFile: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
+        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
@@ -297,6 +308,8 @@ public class Workspace {
         self.dataPath = dataPath
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
         self.enableResolverPrefetching = enableResolverPrefetching 
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
@@ -304,7 +317,7 @@ public class Workspace {
             path: repositoriesPath, provider: repositoryProvider, delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate), fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager, manifestLoader: manifestLoader)
+            repositoryManager: repositoryManager, manifestLoader: manifestLoader, toolsVersionLoader: toolsVersionLoader)
         self.fileSystem = fileSystem
 
         // Initialize the default state.
@@ -943,7 +956,11 @@ public class Workspace {
             throw WorkspaceOperationError.noRegisteredPackages
         }
         return try rootPackages.map {
-            try manifestLoader.load(packagePath: $0, baseURL: $0.asString, version: nil)
+            let toolsVersion = try toolsVersionLoader.load(at: $0, fileSystem: fileSystem)
+            guard currentToolsVersion >= toolsVersion else {
+                throw WorkspaceOperationError.incompatibleToolsVersion(rootPackage: $0, required: toolsVersion, current: currentToolsVersion)
+            }
+            return try manifestLoader.load(packagePath: $0, baseURL: $0.asString, version: nil)
         }
     }
     

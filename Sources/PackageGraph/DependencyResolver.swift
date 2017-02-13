@@ -134,16 +134,10 @@ public protocol PackageContainer {
 
     /// Get the list of versions which are available for the package.
     ///
-    /// The list will be returned in sorted order, with the latest version last.
-    ///
-    /// This property is expected to be efficient to access, and cached by the
-    /// client if necessary.
-    //
-    // FIXME: It is possible this protocol could one day be more efficient if it
-    // returned versions more lazily, e.g., if we could fetch them iteratively
-    // from the server. This might mean we wouldn't need to pull down as much
-    // content.
-    var versions: [Version] { get }
+    /// The list will be returned in sorted order, with the latest version *first*.
+    /// All versions will not be requested at once. Resolver will request the next one only 
+    /// if the previous one did not satisfy all constraints.
+    var versions: AnySequence<Version> { get }
 
     /// Fetch the declared dependencies for a particular version.
     ///
@@ -747,17 +741,11 @@ public class DependencyResolver<
         subjectTo allConstraints: ConstraintSet,
         excluding allExclusions: [Identifier: Set<Version>]
     ) -> AnySequence<AssignmentSet> {
-        func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnyIterator<Version> {
+        func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
-            var it = container.versions.reversed().makeIterator()
-            return AnyIterator{ () -> Version? in
-                    while let version = it.next() {
-                        if versionSet.contains(version) && !exclusions.contains(version) {
-                            return version
-                    }
-                }
-                return nil
-            }
+            return AnySequence(container.versions.lazy.filter {
+                versionSet.contains($0) && !exclusions.contains($0)
+            })
         }
 
         // Helper method to abstract passing common parameters to merge().
@@ -783,8 +771,14 @@ public class DependencyResolver<
             return merge(constraints: constraints, binding: .unversioned)
 
         case .versionSet(let versionSet):
+            // The previous valid version that was picked.
+            var previousVersion: Version? = nil
+
             // Attempt to select each valid version in the preferred order.
             return AnySequence(validVersions(container, in: versionSet).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
+                assert(previousVersion != nil ? previousVersion! > version : true, "container versions are improperly ordered")
+                previousVersion = version
+
                 // If we had encountered any error, return early.
                 guard self.error == nil else { return AnySequence([]) }
 
@@ -928,10 +922,6 @@ public class DependencyResolver<
         // Get the container synchronously from provider.
         let container = try await { provider.getContainer(for: identifier, completion: $0) }
         containers[identifier] = container
-
-        // Validate the versions in the container.
-        let versions = container.versions
-        assert(versions.sorted() == versions, "container versions are improperly ordered")
 
         // Inform the delegate we are considering a new container.
         delegate.added(container: identifier)
