@@ -9,12 +9,12 @@
 */
 
 import Basic
+import PackageLoading
 import PackageModel
 import SourceControl
 
 import Utility
 import func POSIX.exit
-import enum PackageLoading.ManifestParseError
 
 import Workspace
 
@@ -61,6 +61,12 @@ public func handle(error receivedError: Any) -> Never {
     }
 
     switch error {
+    case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
+        print(error: "The version specifier '\(versionSpecifier)' is not valid")
+
+    case WorkspaceOperationError.incompatibleToolsVersion(_, let required, let current):
+        print(error: "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)")
+
     case ArgumentParserError.unknownOption(let option):
         print(error: "Unknown option \(option). Use --help to list available options")
 
