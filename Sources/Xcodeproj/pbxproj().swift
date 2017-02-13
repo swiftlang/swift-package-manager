@@ -357,6 +357,7 @@ func xcodeProject(
         }
         
         if module.isTest {
+            targetSettings.common.CLANG_ENABLE_MODULES = "YES"
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks", "@loader_path/Frameworks"]
         }
