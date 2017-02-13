@@ -64,7 +64,7 @@ public final class InMemoryGitRepository {
     fileprivate var isDirty = false
 
     /// The path at which this repository is located.
-    private let path: AbsolutePath
+    fileprivate let path: AbsolutePath
 
     /// The file system in which this repository should be installed.
     private let fs: InMemoryFileSystem
@@ -223,7 +223,8 @@ extension InMemoryGitRepository: Repository {
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
-        return history[revision.identifier]!.fileSystem
+        var fs: FileSystem = history[revision.identifier]!.fileSystem
+        return RerootedFileSystemView(&fs, rootedAt: path)
     }
 }
 
