@@ -43,20 +43,31 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // FIXME: We don't need the entire file, just the first line.
         let contents = try fileSystem.readFileContents(file)
 
-        // Get the version specifier string from first line.
-        guard let firstLine = ByteString(contents.contents.prefix(while: { $0 != UInt8(ascii: "\n") })).asString, 
-              let match = ToolsVersionLoader.regex.firstMatch(
-                  in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.characters.count)),
-              match.numberOfRanges >= 2 else {
+        // Get the version specifier string from tools version file.
+        guard let versionSpecifier = ToolsVersionLoader.split(contents).versionSpecifier else {
             return ToolsVersion.defaultToolsVersion
         }
 
-        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 1))
         // Ensure we can construct the version from the specifier.
         guard let version = ToolsVersion(string: versionSpecifier) else {
             throw Error.malformed(specifier: versionSpecifier, file: path)
         }
         return version
+    }
+
+    /// Splits the bytes to the version specifier (if present) and rest of the contents.
+    public static func split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8]) {
+        let splitted = bytes.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
+        // Try to match our regex and see if a valid specifier line.
+        guard let firstLine = ByteString(splitted[0]).asString,
+              let match = ToolsVersionLoader.regex.firstMatch(
+                  in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.characters.count)),
+              match.numberOfRanges >= 2 else {
+            return (nil, bytes.contents)
+        }
+        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 1))
+        // FIXME: We can probably optimize here and return array slice.
+        return (versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
     }
 
     // The regex to match swift tools version specification:
