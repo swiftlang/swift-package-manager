@@ -288,6 +288,13 @@ public struct Xcode {
         init(fileRef: FileReference) {
             self.fileRef = fileRef
         }
+
+        var settings = Settings()
+
+        /// A set of file settings.
+        public struct Settings {
+            var ATTRIBUTES: [String]?
+        }
     }
     
     /// A table of build settings, which for the sake of simplicity consists

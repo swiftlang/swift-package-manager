@@ -268,6 +268,13 @@ extension Xcode.BuildFile: PropertyListSerializable {
         if let fileRef = fileRef {
             dict["fileRef"] = .identifier(serializer.id(of: fileRef))
         }
+        var settingsDict = [String: PropertyList]()
+        if let attributes = settings.ATTRIBUTES?.map(PropertyList.string) {
+            settingsDict["ATTRIBUTES"] = .array(attributes)
+        }
+        if !settingsDict.isEmpty {
+            dict["settings"] = .dictionary(settingsDict)
+        }
         return dict
     }
 }
