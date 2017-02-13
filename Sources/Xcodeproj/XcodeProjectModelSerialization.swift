@@ -286,12 +286,9 @@ extension Xcode.BuildFile: PropertyListSerializable {
         if let fileRef = fileRef {
             dict["fileRef"] = .identifier(serializer.id(of: fileRef))
         }
-        var settingsDict = [String: PropertyList]()
-        if let attributes = settings.ATTRIBUTES?.map(PropertyList.string) {
-            settingsDict["ATTRIBUTES"] = .array(attributes)
-        }
+        let settingsDict = settings.asPropertyList()
         if !settingsDict.isEmpty {
-            dict["settings"] = .dictionary(settingsDict)
+            dict["settings"] = settingsDict
         }
         return dict
     }
@@ -366,8 +363,11 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
     }
 }
 
-extension Xcode.BuildSettingsTable.BuildSettings {
+protocol PropertyListDictionaryConvertible {
+    func asPropertyList() -> PropertyList
+}
 
+extension PropertyListDictionaryConvertible {
     /// Returns a property list representation of the build settings, in which
     /// every struct field is represented as a dictionary entry.  Fields of
     /// type `String` are represented as `PropertyList.string` values; fields
@@ -391,7 +391,7 @@ extension Xcode.BuildSettingsTable.BuildSettings {
         let mirror = Mirror(reflecting: self)
         for child in mirror.children {
             guard let name = child.label else {
-                preconditionFailure("unnamed build settings are not supported")
+                preconditionFailure("unnamed settings are not supported")
             }
             switch child.value {
               case nil:
@@ -416,6 +416,9 @@ extension Xcode.BuildSettingsTable.BuildSettings {
         return .dictionary(dict)
     }
 }
+
+extension Xcode.BuildFile.Settings: PropertyListDictionaryConvertible {}
+extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConvertible {}
 
 /// Private helper function that combines a base property list and an overlay
 /// property list, respecting the semantics of `$(inherited)` as we go.
@@ -647,5 +650,16 @@ fileprivate func generatePlistRepresentation(plist: PropertyList, indentation: I
 extension PropertyList: CustomStringConvertible {
     public var description: String {
         return generatePlistRepresentation(plist: self, indentation: Indentation())
+    }
+}
+
+extension PropertyList {
+    var isEmpty: Bool {
+        switch self {
+        case let .identifier(string): return string.isEmpty
+        case let .string(string): return string.isEmpty
+        case let .array(array): return array.isEmpty
+        case let .dictionary(dictionary): return dictionary.isEmpty
+        }
     }
 }
