@@ -321,6 +321,7 @@ public struct Xcode {
             // Note: although some of these build settings sound like booleans,
             // they are all either strings or arrays of strings, because even
             // a boolean may be a macro reference expression.
+            var CLANG_ENABLE_MODULES: String?
             var CLANG_ENABLE_OBJC_ARC: String?
             var COMBINE_HIDPI_IMAGES: String?
             var COPY_PHASE_STRIP: String?
