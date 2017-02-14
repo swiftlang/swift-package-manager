@@ -13,6 +13,7 @@ import Foundation
 import TestSupport
 import Basic
 import Commands
+import PackageModel
 import Workspace
 @testable import struct Workspace.PinsStore
 import SourceControl
@@ -139,7 +140,13 @@ final class PackageToolTests: XCTestCase {
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["-C", path.asString, "init", "--type", "executable"])
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+
+            let manifest = path.appending(component: "Package.swift")
+            let contents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+
+            XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
