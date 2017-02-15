@@ -136,8 +136,27 @@ extension PackageDescription4.Target {
 
 extension PackageDescription4.Target.Dependency {
     fileprivate static func fromJSON(_ item: JSON) -> PackageDescription4.Target.Dependency {
-        guard case .string(let name) = item else { fatalError("unexpected item") }
-        return .Target(name: name)
+        guard case .dictionary(let dict) = item else { fatalError("unexpected item") }
+        guard case .string(let type)? = dict["type"] else { fatalError("unexpected item") }
+        switch type {
+        case "target":
+            guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
+            return .Target(name: name)
+        case "product":
+            guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
+            guard let package = dict["package"] else { fatalError("unexpected item") }
+            let pkg: String?
+            switch package {
+            case .string(let str): pkg = str
+            case .null: pkg = nil
+            default: fatalError("unexpected item")
+            }
+            return .Product(name: name, package: pkg)
+        case "byname":
+            guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
+            return .ByName(name: name)
+        default: fatalError("unexpected item")
+        }
     }
 }
 

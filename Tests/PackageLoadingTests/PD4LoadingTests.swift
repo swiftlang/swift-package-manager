@@ -40,6 +40,9 @@ class PackageDescription4LoadingTests: XCTestCase {
                 return XCTFail("Invalid manfiest version")
             }
             body(m)
+        } catch ManifestParseError.invalidManifestFormat(let error) {
+            print(error)
+            XCTFail(file: #file, line: line)
         } catch {
             XCTFail("Unexpected error: \(error)", file: #file, line: line)
         }
@@ -59,7 +62,35 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testTargetDependencies() {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription\n"
+        stream <<< "let package = Package("
+        stream <<< "    name: \"Trivial\","
+        stream <<< "    targets: ["
+        stream <<< "        Target("
+        stream <<< "            name: \"foo\","
+        stream <<< "            dependencies: ["
+        stream <<< "                \"dep1\","
+        stream <<< "                .Target(name: \"dep2\"),"
+        stream <<< "                .Product(name: \"dep3\", package: \"Pkg\"),"
+        stream <<< "            ]),"
+        stream <<< "    ]"
+        stream <<< ")"
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "Trivial")
+            let foo = manifest.package.targets[0]
+            XCTAssertEqual(foo.name, "foo")
+
+            let expectedDependencies: [PackageDescription4.Target.Dependency]
+            expectedDependencies = [.ByName(name: "dep1"), .Target(name: "dep2"), .Product(name: "dep3", package: "Pkg")]
+            XCTAssertEqual(foo.dependencies, expectedDependencies)
+        }
+    }
+
     static var allTests = [
         ("testTrivial", testTrivial),
+        ("testTargetDependencies", testTargetDependencies),
     ]
 }

@@ -501,6 +501,38 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testTargetDependencies2() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.swift",
+            "/Sources/Bar/Bar.swift",
+            "/Sources/Baz/Baz.swift")
+
+        // We create a manifest which uses byName target dependencies.
+        let package = PackageDescription4.Package(
+            name: "pkg",
+            targets: [
+                Target(
+                    name: "Foo",
+                    dependencies: ["Bar", "Baz", "Bam"]),
+            ])
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["Bar", "Baz"])
+                moduleResult.check(productDeps: [(name: "Bam", package: nil)])
+            }
+
+            for module in ["Bar", "Baz"] {
+                result.checkModule(module) { moduleResult in
+                    moduleResult.check(c99name: module, type: .library)
+                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+                }
+            }
+        }
+    }
+
     func testTestTargetDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/source.swift",
@@ -1094,6 +1126,18 @@ final class PackageBuilderTester {
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
+        }
+
+        func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
+            guard depsToCheck.count == module.productDependencies.count else {
+                return XCTFail("Incorrect product dependencies", file: file, line: line)
+            }
+            for (idx, element) in depsToCheck.enumerated() {
+                let rhs = module.productDependencies[idx]
+                guard element.name == rhs.name && element.package == rhs.package else {
+                    return XCTFail("Incorrect product dependencies", file: file, line: line)
+                }
+            }
         }
     }
 }

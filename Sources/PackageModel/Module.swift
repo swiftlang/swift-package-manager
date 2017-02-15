@@ -29,6 +29,9 @@ public class Module: ObjectIdentifierProtocol {
     /// The dependencies of this module.
     public let dependencies: [Module]
 
+    /// The product dependencies of this module.
+    public let productDependencies: [(name: String, package: String?)]
+
     /// The language-level module name.
     public let c99name: String
 
@@ -41,11 +44,18 @@ public class Module: ObjectIdentifierProtocol {
     /// The sources for the module.
     public let sources: Sources
 
-    fileprivate init(name: String, type: ModuleType, sources: Sources, dependencies: [Module]) {
+    fileprivate init(
+        name: String,
+        type: ModuleType,
+        sources: Sources,
+        dependencies: [Module],
+        productDependencies: [(name: String, package: String?)] = []
+    ) {
         self.name = name
         self.type = type
         self.sources = sources
         self.dependencies = dependencies
+        self.productDependencies = productDependencies 
         self.c99name = self.name.mangledToC99ExtendedIdentifier()
     }
 }
@@ -58,9 +68,20 @@ public class SwiftModule: Module {
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
 
-    public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
+    public init(
+        name: String,
+        isTest: Bool = false,
+        sources: Sources,
+        dependencies: [Module] = [],
+        productDependencies: [(name: String, package: String?)] = []
+    ) {
         let type: ModuleType = isTest ? .test : sources.computeModuleType()
-        super.init(name: name, type: type, sources: sources, dependencies: dependencies)
+        super.init(
+            name: name,
+            type: type,
+            sources: sources,
+            dependencies: dependencies,
+            productDependencies: productDependencies)
     }
 }
 
@@ -96,9 +117,20 @@ public class ClangModule: Module {
         return sources.root.appending(component: "include")
     }
 
-    public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
+    public init(
+        name: String,
+        isTest: Bool = false,
+        sources: Sources,
+        dependencies: [Module] = [],
+        productDependencies: [(name: String, package: String?)] = []
+    ) {
         let type: ModuleType = isTest ? .test : sources.computeModuleType()
-        super.init(name: name, type: type, sources: sources, dependencies: dependencies)
+        super.init(
+            name: name,
+            type: type,
+            sources: sources,
+            dependencies: dependencies,
+            productDependencies: productDependencies)
     }
 }
 
