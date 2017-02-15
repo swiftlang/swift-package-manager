@@ -13,6 +13,7 @@ import XCTest
 import Basic
 import Utility
 import TestSupport
+import PackageModel
 
 @testable import Build
 import PackageDescription
@@ -231,11 +232,39 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testDynamicProducts() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/main.swift",
+            "/Bar/source.swift"
+        )
+
+        let g = try loadMockPackageGraph4([
+            "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", type: .dynamic, targets: ["Bar"])]),
+            "/Foo": .init(
+                name: "Foo",
+                targets: [.init(name: "Foo", dependencies: ["Bar"])],
+                dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+        ], root: "/Foo", in: fs)
+
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(2)
+
+        let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
+        XCTAssertEqual(fooLinkArgs,
+            ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/Foo", "-module-name", "Foo", "-lBar", "-emit-executable", "/path/to/build/debug/Foo.build/main.swift.o"])
+
+        let barLinkArgs = try result.buildProduct(for: "Bar").linkArguments()
+        XCTAssertEqual(barLinkArgs,
+            ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/libBar.\(PackageModel.Product.dynamicLibraryExtension)", "-module-name", "Bar", "-emit-library", "/path/to/build/debug/Bar.build/source.swift.o"])
+    }
+
     static var allTests = [
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
         ("testCModule", testCModule),
+        ("testDynamicProducts", testDynamicProducts),
         ("testSwiftCMixed", testSwiftCMixed),
         ("testTestModule", testTestModule),
         ("testCppModule", testCppModule),
