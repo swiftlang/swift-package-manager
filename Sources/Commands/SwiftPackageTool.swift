@@ -11,6 +11,7 @@
 import Basic
 import Build
 import PackageModel
+import PackageLoading
 import SourceControl
 import Utility
 import Xcodeproj
@@ -145,6 +146,31 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .showDependencies:
             let graph = try loadPackage()
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: options.showDepsMode)
+
+        case .toolsVersion:
+            let pkg = try getPackageRoot()
+
+            switch options.toolsVersionMode {
+            case .display:
+                let toolsVersionLoader = ToolsVersionLoader()
+                let version = try toolsVersionLoader.load(at: pkg, fileSystem: localFileSystem)
+                print("\(version)")
+
+            case .set(let value):
+                guard let toolsVersion = ToolsVersion(string: value) else {
+                    // FIXME: Probably lift this error defination to ToolsVersion.
+                    throw ToolsVersionLoader.Error.malformed(specifier: value, file: pkg)
+                }
+                try writeToolsVersion(at: pkg, version: toolsVersion, fs: &localFileSystem)
+
+            case .setCurrent:
+                // Write the tools version with current version but with patch set to zero.
+                // We do this to avoid adding unnecessary constraints to patch versions, if
+                // the package really needs it, they can do it using --set option.
+                try writeToolsVersion(
+                    at: pkg, version: ToolsVersion.currentToolsVersion.zeroedPatch, fs: &localFileSystem)
+            }
+
         case .generateXcodeproj:
             let graph = try loadPackage()
 
@@ -332,6 +358,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { 
                 $0.showDepsMode = $1})
 
+        let toolsVersionParser = parser.add(subparser: PackageMode.toolsVersion.rawValue, overview: "Manipulate tools version of the current package")
+        binder.bind(
+            option: toolsVersionParser.add(
+                option: "--set", kind: String.self,
+                usage: "Set tools version of package to the given value"),
+            to: { $0.toolsVersionMode = .set($1) })
+
+        binder.bind(
+            option: toolsVersionParser.add(
+                option: "--set-current", kind: Bool.self,
+                usage: "Set tools version of package to the current tools version in use"),
+            to: { if $1 { $0.toolsVersionMode = .setCurrent } })
+
         let generateXcodeParser = parser.add(subparser: PackageMode.generateXcodeproj.rawValue, overview: "Generates an Xcode project")
         binder.bind(
             generateXcodeParser.add(
@@ -430,6 +469,13 @@ public class PackageToolOptions: ToolOptions {
         case json
     }
     var resolveToolMode: ResolveToolMode = .text
+
+    enum ToolsVersionMode {
+        case display
+        case set(String)
+        case setCurrent
+    }
+    var toolsVersionMode: ToolsVersionMode = .display
 }
 
 public enum PackageMode: String, StringEnumArgument {
@@ -444,6 +490,7 @@ public enum PackageMode: String, StringEnumArgument {
     case reset
     case resolve
     case showDependencies = "show-dependencies"
+    case toolsVersion = "tools-version"
     case unedit
     case unpin
     case update

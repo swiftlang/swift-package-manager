@@ -121,10 +121,12 @@ class ToolsVersionLoaderTests: XCTestCase {
         assertFailure("// swift-tools-version:3.1hello", "3.1hello")
     }
 
-    func assertFailure(_ bytes: ByteString, _ theSpecifier: String) {
+    func assertFailure(_ bytes: ByteString, _ theSpecifier: String, file: StaticString = #file, line: UInt = #line) {
         do {
-            try load(bytes)
-            XCTFail("unexpected success")
+            try load(bytes) {
+                XCTFail("unexpected success - \($0)", file: file, line: line)
+            }
+            XCTFail("unexpected success", file: file, line: line)
         } catch ToolsVersionLoader.Error.malformed(let specifier, let path) {
             XCTAssertEqual(specifier, theSpecifier)
             XCTAssertEqual(path, AbsolutePath("/pkg"))
