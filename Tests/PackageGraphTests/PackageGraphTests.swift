@@ -45,6 +45,27 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testProductDependencies() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Bar/source.swift"
+        )
+
+        let g = try loadMockPackageGraph4([
+            "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", targets: ["Bar"])]),
+            "/Foo": .init(
+                name: "Foo",
+                targets: [.init(name: "Foo", dependencies: ["Bar"])],
+                dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+        ], root: "/Foo", in: fs)
+
+        PackageGraphTester(g) { result in
+            result.check(packages: "Bar", "Foo")
+            result.check(modules: "Bar", "Foo")
+            result.check(dependencies: "Bar", module: "Foo")
+        }
+    }
+
     func testCycle() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/source.swift",
@@ -108,6 +129,7 @@ class PackageGraphTests: XCTestCase {
         ("testBasic", testBasic),
         ("testDuplicateModules", testDuplicateModules),
         ("testCycle", testCycle),
+        ("testProductDependencies", testProductDependencies),
         ("testTestTargetDeclInExternalPackage", testTestTargetDeclInExternalPackage),
     ]
 }

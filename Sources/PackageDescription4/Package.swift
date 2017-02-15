@@ -186,10 +186,20 @@ extension Target {
 
 extension Target.Dependency {
     func toJSON() -> JSON {
+        var dict = [String: JSON]()
         switch self {
         case .Target(let name):
-            return .string(name)
+            dict["name"] = .string(name)
+            dict["type"] = .string("target")
+        case .Product(let name, let package):
+            dict["name"] = .string(name)
+            dict["type"] = .string("product")
+            dict["package"] = package.map(JSON.string) ?? .null
+        case .ByName(let name):
+            dict["name"] = .string(name)
+            dict["type"] = .string("byname")
         }
+        return .dictionary(dict)
     }
 }
 

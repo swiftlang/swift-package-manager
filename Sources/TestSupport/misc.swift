@@ -13,6 +13,7 @@ import class Foundation.NSDate
 
 import Basic
 import PackageDescription
+import PackageDescription4
 import PackageGraph
 import PackageModel
 import POSIX
@@ -180,6 +181,25 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
             path: AbsolutePath(url).appending(component: Manifest.filename),
             url: url,
             package: .v3(package),
+            version: "1.0.0"
+        )
+        if url == root {
+            rootManifest = manifest
+        } else {
+            externalManifests.append(manifest)
+        }
+    }
+    return try PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, fileSystem: fs)
+}
+
+public func loadMockPackageGraph4(_ packageMap: [String: PackageDescription4.Package], root: String, in fs: FileSystem) throws -> PackageGraph {
+    var externalManifests = [Manifest]()
+    var rootManifest: Manifest!
+    for (url, package) in packageMap {
+        let manifest = Manifest(
+            path: AbsolutePath(url).appending(component: Manifest.filename),
+            url: url,
+            package: .v4(package),
             version: "1.0.0"
         )
         if url == root {

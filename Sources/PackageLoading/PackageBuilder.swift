@@ -428,10 +428,18 @@ public struct PackageBuilder {
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this module in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
-            return target.dependencies.map {
+            return target.dependencies.flatMap {
                 switch $0 {
                 case .Target(let name):
+                    // Since we already checked above that all referenced targets
+                    // has to present, we always expect this target to be present in 
+                    // potentialModules dictionary.
                     return potentialModuleMap[name]!
+                case .Product:
+                    return nil
+                case .ByName(let name):
+                    // By name dependency may or may not be a target dependency.
+                    return potentialModuleMap[name]
                 }
             }
         }
@@ -456,20 +464,44 @@ public struct PackageBuilder {
                 $0.dependencies.flatMap {
                     switch $0 {
                     case .Target(let name):
-                        // If this is a module with no sources, we don't have a module object.
+                        // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         return modules[name]!
+
+                    case .ByName(let name):
+                        // We don't create an object for targets which have no sources.
+                        if emptyModules.contains(name) { return nil }
+                        return modules[name]
+
+                    case .Product: return nil
                     }
                 }
             } ?? []
+
             // For test modules, add dependencies to its base module, if it has no explicit dependency.
             if potentialModule.isTest && deps.isEmpty {
                 if let baseModule = modules[potentialModule.basename] {
                     deps.append(baseModule)
                 }
             }
+
+            // Figure out the product dependencies.
+            let productDeps: [(String, String?)]
+            productDeps = targetMap[potentialModule.name]?.dependencies.flatMap{
+                switch $0 {
+                case .Target:
+                    return nil
+                case .ByName(let name):
+                    // If this dependency was not found locally, it is a product dependency.
+                    return potentialModuleMap[name] == nil ? (name, nil) : nil
+                case .Product(let name, let package):
+                    return (name, package)
+                }
+            } ?? []
+
             // Create the module.
-            let module = try createModule(potentialModule: potentialModule, moduleDependencies: deps)
+            let module = try createModule(
+                potentialModule: potentialModule, moduleDependencies: deps, productDeps: productDeps)
             // Add the created module to the map or print no sources warning.
             if let createdModule = module {
                 modules[createdModule.name] = createdModule
@@ -497,7 +529,11 @@ public struct PackageBuilder {
     }
     
     /// Private function that constructs a single Module object for the potential module.
-    private func createModule(potentialModule: PotentialModule, moduleDependencies: [Module]) throws -> Module? {
+    private func createModule(
+        potentialModule: PotentialModule,
+        moduleDependencies: [Module],
+        productDeps: [(name: String, package: String?)]
+    ) throws -> Module? {
         
         // Find all the files under the module path.
         let walked = try walk(potentialModule.path, fileSystem: fileSystem, recursing: shouldConsiderDirectory).map{ $0 }
@@ -519,7 +555,8 @@ public struct PackageBuilder {
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: swiftSources, root: potentialModule.path),
-                dependencies: moduleDependencies)
+                dependencies: moduleDependencies,
+                productDependencies: productDeps)
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C module.
             guard swiftSources.isEmpty else { throw Module.Error.mixedSources(potentialModule.path.asString) }
@@ -527,7 +564,8 @@ public struct PackageBuilder {
                 name: potentialModule.name,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: cSources, root: potentialModule.path),
-                dependencies: moduleDependencies)
+                dependencies: moduleDependencies,
+                productDependencies: productDeps)
         }
     }
 
@@ -694,10 +732,12 @@ private extension Manifest {
     /// Returns the names of all the referenced modules in the manifest.
     func allReferencedModules() -> Set<String> {
         let names = package.targets.flatMap { target in
-            [target.name] + target.dependencies.map {
+            [target.name] + target.dependencies.flatMap {
                 switch $0 {
                 case .Target(let name):
                     return name
+                case .ByName, .Product:
+                    return nil
                 }
             }
         }

@@ -22,6 +22,12 @@ enum PackageGraphError: Swift.Error {
 
     /// The package dependency declaration has cycle in it.
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
+
+    /// The product dependency not found.
+    case productDependencyNotFound(name: String, package: String?)
+
+    /// The product dependency was found but the package name did not match.
+    case productDependencyIncorrectPackage(name: String, package: String)
 }
 
 extension PackageGraphError: FixableError {
@@ -29,18 +35,25 @@ extension PackageGraphError: FixableError {
         switch self {
         case .noModules(let package):
             return "the package \(package) contains no modules"
+
         case .cycleDetected(let cycle):
             return "found cyclic dependency declaration: " +
                 (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
+
+        case .productDependencyNotFound(let name, _):
+            return "The product dependency '\(name)' was not found."
+
+        case .productDependencyIncorrectPackage(let name, let package):
+            return "The product dependency '\(name)' on package '\(package)' was not found."
         }
     }
 
     var fix: String? {
         switch self {
-        case .noModules(_):
+        case .noModules:
             return "create at least one module"
-        case .cycleDetected(_):
+        case .cycleDetected, .productDependencyNotFound, .productDependencyIncorrectPackage:
             return nil
         }
     }
@@ -116,17 +129,41 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         let systemModulesDependencies = dependencies.flatMap{ $0.modules }
             .filter{ $0.type == .systemModule }.map(ResolvedModule.Dependency.target)
 
-        // Get the product dependencies for targets in this package.
-        // Note: This needs to be derived from explicit decl in Swift 4 manifests.
-        let productDependencies = dependencies.flatMap{ $0.products }.filter{ $0.type != .test }.map(ResolvedModule.Dependency.product)
+        let allProducts = dependencies.flatMap{ $0.products }.filter{ $0.type != .test }
+        let allProductsMap = Dictionary(items: allProducts.map{($0.name, $0)})
 
         // Resolve the modules.
         var moduleToResolved = [Module: ResolvedModule]()
-        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map { module in
+        let resolvedModules: [ResolvedModule] = try modules.lazy.reversed().map { module in
+
+            // Get the product dependencies for targets in this package.
+            let productDependencies: [ResolvedProduct]
+            switch manifest.package {
+            case .v3:
+                productDependencies = allProducts
+            case .v4:
+                productDependencies = try module.productDependencies.map{ 
+                    // Find the product in this package's dependency products.
+                    guard let product = allProductsMap[$0.name] else {
+                        throw PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package)
+                    }
+                    // If package name is mentioned, ensure it is valid.
+                    if let packageName = $0.package {
+                        // Find the declared package and check that it contains the product we found above.
+                        guard let package = dependencies.first(where: { $0.name == packageName }),
+                              package.products.contains(product) else {
+                            throw PackageGraphError.productDependencyIncorrectPackage(
+                                name: $0.name, package: packageName)
+                        }
+                    }
+                    return product
+                }
+            }
+
             let moduleDependencies = module.dependencies.map{ moduleToResolved[$0]! }.map(ResolvedModule.Dependency.target)
             let resolvedModule = ResolvedModule(
                 module: module,
-                dependencies: moduleDependencies + systemModulesDependencies + productDependencies
+                dependencies: moduleDependencies + systemModulesDependencies + productDependencies.map(ResolvedModule.Dependency.product)
             )
             moduleToResolved[module] = resolvedModule 
             return resolvedModule

@@ -10,16 +10,24 @@
 
 /// The description for an individual target.
 public final class Target {
-    /// The description for an individual target or package dependency.
+
+    /// Represents a target's dependency on another entity.
     public enum Dependency {
-        /// A dependency on a target in the same project.
+        /// A dependency on a target in the same package.
         case Target(name: String)
+
+        /// A dependency on a product from a package dependency.
+        /// The package name match the name of one of the packages named in a `.Package()` directive.
+        case Product(name: String, package: String?)
+
+        /// A by-name dependency that resolves to either a target or a product, as above, after the package graph has been loaded.
+        case ByName(name: String)
     }
 
     /// The name of the target.
     public let name: String
 
-    /// The list of dependencies.
+    /// Dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
 
     /// Construct a target.
@@ -33,15 +41,15 @@ public final class Target {
 
 extension Target.Dependency : ExpressibleByStringLiteral {
   public init(unicodeScalarLiteral value: String) {
-    self = .Target(name: value)
+    self = .ByName(name: value)
   }
   
   public init(extendedGraphemeClusterLiteral value: String) {
-    self = .Target(name: value)
+    self = .ByName(name: value)
   }
 
   public init(stringLiteral value: String) {
-    self = .Target(name: value)
+    self = .ByName(name: value)
   } 
 }
 
@@ -58,5 +66,15 @@ public func ==(lhs: Target.Dependency, rhs: Target.Dependency) -> Bool {
     switch (lhs, rhs) {
     case (.Target(let a), .Target(let b)):
         return a == b
+    case (.Target, _):
+        return false
+    case (.Product(let an, let ap), .Product(let bn, let bp)):
+        return an == bn && ap == bp
+    case (.Product, _):
+        return false
+    case (.ByName(let a), .ByName(let b)):
+        return a == b
+    case (.ByName, _):
+        return false
     }
 }

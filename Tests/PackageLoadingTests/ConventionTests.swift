@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import PackageDescription
+import PackageDescription4
 import PackageModel
 import Utility
 
@@ -461,7 +461,7 @@ class ConventionTests: XCTestCase {
             "/Sources/Baz/Baz.swift")
 
         // Direct.
-        var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
+        var package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
@@ -478,7 +478,7 @@ class ConventionTests: XCTestCase {
         }
 
         // Transitive.
-        package = PackageDescription.Package(name: "pkg",
+        package = PackageDescription4.Package(name: "pkg",
                                                  targets: [Target(name: "Foo", dependencies: ["Bar"]),
                                                            Target(name: "Bar", dependencies: ["Baz"])])
         PackageBuilderTester(package, in: fs) { result in
@@ -501,6 +501,38 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testTargetDependencies2() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.swift",
+            "/Sources/Bar/Bar.swift",
+            "/Sources/Baz/Baz.swift")
+
+        // We create a manifest which uses byName target dependencies.
+        let package = PackageDescription4.Package(
+            name: "pkg",
+            targets: [
+                Target(
+                    name: "Foo",
+                    dependencies: ["Bar", "Baz", "Bam"]),
+            ])
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["Bar", "Baz"])
+                moduleResult.check(productDeps: [(name: "Bam", package: nil)])
+            }
+
+            for module in ["Bar", "Baz"] {
+                result.checkModule(module) { moduleResult in
+                    moduleResult.check(c99name: module, type: .library)
+                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+                }
+            }
+        }
+    }
+
     func testTestTargetDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/source.swift",
@@ -508,7 +540,7 @@ class ConventionTests: XCTestCase {
             "/Tests/FooTests/source.swift"
         )
 
-        let package = PackageDescription.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
+        let package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
@@ -559,19 +591,19 @@ class ConventionTests: XCTestCase {
         // Reference a target which doesn't exist.
         var fs = InMemoryFileSystem(emptyFiles:
             "/Foo.swift")
-        var package = PackageDescription.Package(name: "pkg", targets: [Target(name: "Random")])
+        var package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
         }
 
         // Reference an invalid dependency.
-        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["Foo"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: [.Target(name: "Foo")])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
         }
 
         // Reference self in dependencies.
-        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["pkg"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["pkg"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("found cyclic dependency declaration: pkg -> pkg")
         }
@@ -582,7 +614,7 @@ class ConventionTests: XCTestCase {
             "/Sources/pkg3/Foo.swift"
         )
         // Cyclic dependency.
-        package = PackageDescription.Package(name: "pkg", targets: [
+        package = PackageDescription4.Package(name: "pkg", targets: [
             Target(name: "pkg1", dependencies: ["pkg2"]),
             Target(name: "pkg2", dependencies: ["pkg3"]),
             Target(name: "pkg3", dependencies: ["pkg1"]),
@@ -591,7 +623,7 @@ class ConventionTests: XCTestCase {
             result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg1")
         }
 
-        package = PackageDescription.Package(name: "pkg", targets: [
+        package = PackageDescription4.Package(name: "pkg", targets: [
             Target(name: "pkg1", dependencies: ["pkg2"]),
             Target(name: "pkg2", dependencies: ["pkg3"]),
             Target(name: "pkg3", dependencies: ["pkg2"]),
@@ -604,7 +636,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec/main.swift",
             "/Sources/lib/lib.swift")
-        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("exec") { moduleResult in
                 moduleResult.check(c99name: "exec", type: .executable)
@@ -621,7 +653,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/pkg1/Foo.swift",
             "/Sources/pkg2/readme.txt")
-        package = PackageDescription.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
             result.checkModule("pkg1") { moduleResult in
@@ -880,11 +912,11 @@ class ConventionTests: XCTestCase {
         )
 
         // Excluding everything.
-        var package = PackageDescription.Package(name: "pkg", exclude: ["."])
+        var package = PackageDescription4.Package(name: "pkg", exclude: ["."])
         PackageBuilderTester(package, in: fs) { _ in }
 
         // Test excluding a file and a directory.
-        package = PackageDescription.Package(name: "pkg", exclude: ["Sources/A/foo.swift", "Sources/B"])
+        package = PackageDescription4.Package(name: "pkg", exclude: ["Sources/A/foo.swift", "Sources/B"])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("A") { moduleResult in
                 moduleResult.check(type: .executable)
@@ -897,7 +929,7 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem(emptyFiles:
             "/Sources/main.swift"
         )
-        var package = PackageDescription.Package(name: "pkg", pkgConfig: "foo")
+        var package = PackageDescription4.Package(name: "pkg", pkgConfig: "foo")
 
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("invalid configuration in 'pkg': pkgConfig should only be used with a System Module Package")
@@ -906,7 +938,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/main.c"
         )
-        package = PackageDescription.Package(name: "pkg", providers: [.Brew("foo")])
+        package = PackageDescription4.Package(name: "pkg", providers: [.Brew("foo")])
 
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")
@@ -959,8 +991,8 @@ class ConventionTests: XCTestCase {
 ///     - warningStream: OutputByteStream to be passed to package builder.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: PackageDescription.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: .v3(package), version: nil)
+private func loadPackage(_ package: PackageDescription4.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: .v4(package), version: nil)
     let builder = PackageBuilder(
         manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, createImplicitProduct: false)
     return try builder.construct()
@@ -994,7 +1026,7 @@ final class PackageBuilderTester {
     }
 
     @discardableResult
-    init(_ package: PackageDescription.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
+    init(_ package: PackageDescription4.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
         let warningStream = BufferedOutputByteStream()
         do {
             let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
@@ -1094,6 +1126,18 @@ final class PackageBuilderTester {
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
+        }
+
+        func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
+            guard depsToCheck.count == module.productDependencies.count else {
+                return XCTFail("Incorrect product dependencies", file: file, line: line)
+            }
+            for (idx, element) in depsToCheck.enumerated() {
+                let rhs = module.productDependencies[idx]
+                guard element.name == rhs.name && element.package == rhs.package else {
+                    return XCTFail("Incorrect product dependencies", file: file, line: line)
+                }
+            }
         }
     }
 }
