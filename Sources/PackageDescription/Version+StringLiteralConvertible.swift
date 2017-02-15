@@ -50,7 +50,8 @@ extension Version {
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
         let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
-        let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false).map{ String($0) }.flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let requiredStringComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+        let requiredComponents = requiredStringComponents.flatMap{ Int($0) }.filter{ $0 >= 0 }
 
         guard requiredComponents.count == 3 else {
             return nil
