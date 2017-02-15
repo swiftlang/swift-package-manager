@@ -64,7 +64,18 @@ public class Module: ObjectIdentifierProtocol {
 }
 
 public class SwiftModule: Module {
-    public init(name: String, isTest: Bool = false, sources: Sources, dependencies: [Module] = []) {
+
+    /// The list of swift versions, this module is compatible with.
+    // FIXME: This should be lifted to a build settings structure once we have that.
+    public let compatibleSwiftVersions: [Int]?
+
+    public init(
+        name: String,
+        isTest: Bool = false,
+        sources: Sources,
+        dependencies: [Module] = [],
+        compatibleSwiftVersions: [Int]? = nil
+    ) {
         // Compute the module type.
         let isLibrary = !sources.relativePaths.contains { path in
             let file = path.basename.lowercased()
@@ -72,7 +83,7 @@ public class SwiftModule: Module {
             return file.hasPrefix("main.") && file.characters.filter({$0 == "."}).count == 1
         }
         let type: ModuleType = isLibrary ? .library : .executable
-        
+        self.compatibleSwiftVersions = compatibleSwiftVersions
         super.init(name: name, type: type, sources: sources, isTest: isTest, dependencies: dependencies)
     }
 }
