@@ -200,7 +200,71 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         }
     }
 
+    func testVersions() throws {
+        let fs = InMemoryFileSystem()
+
+        let repoPath = AbsolutePath.root.appending(component: "some-repo")
+        let filePath = repoPath.appending(component: "Package.swift")
+
+        let specifier = RepositorySpecifier(url: repoPath.asString)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+
+        try repo.createDirectory(repoPath, recursive: true)
+
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:3.1")
+        repo.commit()
+        try repo.tag(name: "1.0.0")
+
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:3.1.0;hello\n")
+        repo.commit()
+        try repo.tag(name: "1.0.1")
+
+        try repo.writeFileContents(filePath, bytes: "// swift-tools-version:4.0.0\n")
+        repo.commit()
+        try repo.tag(name: "1.0.2")
+
+        let inMemRepoProvider = InMemoryGitRepositoryProvider()
+        inMemRepoProvider.add(specifier: specifier, repository: repo)
+
+        let p = AbsolutePath.root.appending(component: "repoManager")
+        try fs.createDirectory(p, recursive: true)
+        let repositoryManager = RepositoryManager(
+            path: p,
+            provider: inMemRepoProvider, 
+            delegate: MockResolverDelegate(),
+            fileSystem: fs)
+
+        func createProvider(_ currentToolsVersion: ToolsVersion) -> RepositoryPackageContainerProvider {
+            return RepositoryPackageContainerProvider(
+                repositoryManager: repositoryManager,
+                manifestLoader: MockManifestLoader(manifests: [:]),
+                currentToolsVersion: currentToolsVersion)
+        }
+
+        do {
+            let provider = createProvider(ToolsVersion(version: "3.1.0"))
+            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let v = container.versions.map{$0}
+            XCTAssertEqual(v, ["1.0.1", "1.0.0"])
+        }
+
+        do {
+            let provider = createProvider(ToolsVersion(version: "4.0.0"))
+            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let v = container.versions.map{$0}
+            XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
+        }
+
+        do {
+            let provider = createProvider(ToolsVersion(version: "3.0.0"))
+            let container = try await { provider.getContainer(for: specifier, completion: $0) }
+            let v = container.versions.map{$0}
+            XCTAssertEqual(v, [])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testVersions", testVersions),
     ]
 }

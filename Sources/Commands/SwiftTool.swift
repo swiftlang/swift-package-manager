@@ -223,6 +223,7 @@ public class SwiftTool<Options: ToolOptions> {
             editablesPath: rootPackage.appending(component: "Packages"),
             pinsFile: rootPackage.appending(component: "Package.pins"),
             manifestLoader: manifestLoader,
+            toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             repositoryProvider: provider,
             enableResolverPrefetching: options.enableResolverPrefetching
