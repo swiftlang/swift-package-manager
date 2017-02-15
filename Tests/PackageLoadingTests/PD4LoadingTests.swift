@@ -63,6 +63,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testTargetDependencies() {
+      // FIXME: Need to select right PD version for Xcode.
+      #if !Xcode
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription\n"
         stream <<< "let package = Package("
@@ -87,6 +89,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             expectedDependencies = [.ByName(name: "dep1"), .Target(name: "dep2"), .Product(name: "dep3", package: "Pkg")]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
         }
+      #endif
     }
 
     static var allTests = [
