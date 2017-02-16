@@ -238,7 +238,7 @@ public final class PositionalArgument<Kind>: ArgumentProtocol {
 /// A type-erased argument.
 ///
 /// Note: Only used for argument parsing purpose.
-internal final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
+final class AnyArgument: ArgumentProtocol, CustomStringConvertible {
     typealias ArgumentKindTy = Any
 
     let name: String
@@ -365,11 +365,11 @@ public final class ArgumentParser {
     }
 
     /// The mapping of subparsers to their subcommand.
-    internal var subparsers: [String: ArgumentParser] = [:]
+    private(set) var subparsers: [String: ArgumentParser] = [:]
 
     /// List of arguments added to this parser.
-    internal var options = [AnyArgument]()
-    internal var positionalArgs = [AnyArgument]()
+    private(set) var options = [AnyArgument]()
+    private(set) var positionalArgs = [AnyArgument]()
 
     // If provided, will be substituted instead of arg0 in usage text.
     let commandName: String?
