@@ -90,7 +90,7 @@ class JSONTests: XCTestCase {
             "    2"                       + "\n" +
             "  ],"                        + "\n" +
             "  \"last\": \"doe\""         + "\n" +
-            "}"
+            "}"                           + "\n"
 
         XCTAssertEqual(person.toString(prettyPrint: true), str)
     }
