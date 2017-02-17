@@ -260,23 +260,81 @@ final class BuildPlanTests: XCTestCase {
             ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/libBar.\(PackageModel.Product.dynamicLibraryExtension)", "-module-name", "Bar", "-emit-library", "/path/to/build/debug/Bar.build/source.swift.o"])
     }
 
-    func testCompatibleSwiftVersionFailure() throws {
+    func testCompatibleSwiftVersions() throws {
+
+        func mockBuildParameters(_ toolsVersion: ToolsVersion) -> BuildParameters {
+            return BuildParameters(
+                dataPath: AbsolutePath("/path/to/build"),
+                configuration: .debug,
+                toolchain: MockToolchain(),
+                flags: BuildFlags(),
+                toolsVersion: toolsVersion)
+        }
+
+
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/main.swift"
+            "/Foo/Sources/main.swift",
+            "/Bar/Sources/bar.swift"
         )
+        let foo = Package(
+            name: "Foo",
+            dependencies: [
+                .Package(url: "/Bar", majorVersion: 1),
+            ])
 
-        let g = try loadMockPackageGraph4([
-            "/Foo": .init(
-                name: "Foo",
-                compatibleSwiftVersions: [2])
-        ], root: "/Foo", in: fs)
-
+        // Tools version not set.
         do {
-            let _ = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
-        } catch BuildPlan.Error.incompatibleToolsVersions(let target, let req, let cur) {
-            XCTAssertEqual(target, "Foo")
-            XCTAssertEqual(req, [2])
-            XCTAssertEqual(cur, ToolsVersion.currentToolsVersion.major)
+            foo.compatibleSwiftVersions = nil
+            let version = ToolsVersion(version: "4.0.0")
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let result = BuildPlanResult(plan:
+                try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs))
+            result.checkProductsCount(1)
+            result.checkTargetsCount(2)
+        }
+
+        // Compatible Swift version present.
+        do {
+            foo.compatibleSwiftVersions = [3, 4, 5]
+            let version = ToolsVersion(version: "4.0.0")
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let result = BuildPlanResult(plan:
+                try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs))
+            result.checkProductsCount(1)
+            result.checkTargetsCount(2)
+        }
+
+        // Compatible Swift version not present.
+        do {
+            foo.compatibleSwiftVersions = [3, 5]
+            let version = ToolsVersion(version: "4.0.0")
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+
+            do {
+                _ = try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs)
+            } catch BuildPlan.Error.incompatibleToolsVersions(let target, let req, let cur) {
+                XCTAssertEqual(target, "Foo")
+                XCTAssertEqual(req, [3, 5])
+                XCTAssertEqual(cur, 4)
+            }
+        }
+
+        // Dependency not compatible.
+        do {
+            foo.compatibleSwiftVersions = nil
+            let bar = Package(
+                name: "Bar",
+                compatibleSwiftVersions: [3])
+            let version = ToolsVersion(version: "4.0.0")
+            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": bar], root: "/Foo", in: fs)
+
+            do {
+                _ = try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs)
+            } catch BuildPlan.Error.incompatibleToolsVersions(let target, let req, let cur) {
+                XCTAssertEqual(target, "Bar")
+                XCTAssertEqual(req, [3])
+                XCTAssertEqual(cur, 4)
+            }
         }
     }
 
@@ -284,8 +342,8 @@ final class BuildPlanTests: XCTestCase {
         ("testBasicClangPackage", testBasicClangPackage),
         ("testBasicReleasePackage", testBasicReleasePackage),
         ("testBasicSwiftPackage", testBasicSwiftPackage),
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCModule", testCModule),
-        ("testCompatibleSwiftVersionFailure", testCompatibleSwiftVersionFailure),
         ("testCppModule", testCppModule),
         ("testDynamicProducts", testDynamicProducts),
         ("testSwiftCMixed", testSwiftCMixed),
