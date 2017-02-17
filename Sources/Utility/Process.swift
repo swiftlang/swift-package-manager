@@ -34,6 +34,9 @@ public struct ProcessResult: CustomStringConvertible {
         case signalled(signal: Int32)
     }
 
+    /// The arguments with which the process was launched.
+    public let arguments: [String]
+
     /// The exit status of the process.
     public let exitStatus: ExitStatus
 
@@ -41,7 +44,8 @@ public struct ProcessResult: CustomStringConvertible {
     public let output: Result<[Int8], AnyError>
 
     /// Create an instance using the process exit code and output result.
-    fileprivate init(exitStatus: Int32, output: Result<[Int8], AnyError>) {
+    fileprivate init(arguments: [String], exitStatus: Int32, output: Result<[Int8], AnyError>) {
+        self.arguments = arguments
         self.output = output
         if WIFSIGNALED(exitStatus) {
             self.exitStatus = .signalled(signal: WTERMSIG(exitStatus))
@@ -273,7 +277,7 @@ public final class Process: ObjectIdentifierProtocol {
             
             // Construct the result.
             let outputResult = readOutputError.map(Result.init) ?? Result(output)
-            let executionResult = ProcessResult(exitStatus: exitStatus, output: outputResult)
+            let executionResult = ProcessResult(arguments: arguments, exitStatus: exitStatus, output: outputResult)
             self._result = executionResult
             return executionResult
         }

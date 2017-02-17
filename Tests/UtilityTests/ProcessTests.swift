@@ -28,6 +28,7 @@ class ProcessTests: XCTestCase {
             let result = try process.waitUntilExit()
             XCTAssertEqual(try result.utf8Output(), "hello\n")
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+            XCTAssertEqual(result.arguments, process.arguments)
         }
 
         do {
