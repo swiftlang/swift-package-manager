@@ -171,7 +171,18 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             let tag = knownVersions[version]!
             let revision = try repository.resolveRevision(tag: tag)
             let fs = try repository.openFileView(revision: revision)
-            let manifest = try manifestLoader.load(package: AbsolutePath.root, baseURL: identifier.url, version: version, fileSystem: fs)
+
+            // Load the tools version.
+            let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+
+            // Load the manifest.
+            let manifest = try manifestLoader.load(
+                package: AbsolutePath.root,
+                baseURL: identifier.url,
+                version: version,
+                manifestVersion: toolsVersion.manifestVersion,
+                fileSystem: fs)
+
             let result = manifest.package.dependencies.map{
                 RepositoryPackageConstraint(
                     container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))

@@ -48,6 +48,26 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testManiestVersionToToolsVersion() {
+        let threeVersions = [
+            "3.0.0", "3.0.1", "3.0.10", "3.1.0", "3.1.100", "3.5", "3.9.9999",
+        ]
+
+        for version in threeVersions {
+            let toolsVersion = ToolsVersion(string: version)!
+            XCTAssertEqual(toolsVersion.manifestVersion, .three)
+        }
+
+        let fourVersions = [
+            "2.0.0", "4.0.0", "4.0.10", "5.1.0", "6.1.100", "4.3",
+        ]
+
+        for version in fourVersions {
+            let toolsVersion = ToolsVersion(string: version)!
+            XCTAssertEqual(toolsVersion.manifestVersion, .four)
+        }
+    }
+
     func testTrivial() {
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
