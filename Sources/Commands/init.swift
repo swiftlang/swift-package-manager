@@ -84,12 +84,21 @@ final class InitPackage {
         }
 
         try writePackageFile(manifest) { stream in
-            stream <<< "import PackageDescription\n"
+            stream <<< "\nimport PackageDescription\n"
             stream <<< "\n"
             stream <<< "let package = Package(\n"
             stream <<< "    name: \"\(pkgname)\"\n"
             stream <<< ")\n"
         }
+
+        // Create a tools version with current version but with patch set to zero.
+        // We do this to avoid adding unnecessary constraints to patch versions, if
+        // the package really needs it, they should add it manually.
+        let version = ToolsVersion.currentToolsVersion.zeroedPatch
+
+        // Write the current tools version.
+        try writeToolsVersion(
+            at: manifest.parentDirectory, version: version, fs: &localFileSystem)
     }
     
     private func writeGitIgnore() throws {

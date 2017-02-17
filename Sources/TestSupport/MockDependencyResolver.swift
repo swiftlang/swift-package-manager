@@ -75,8 +75,8 @@ public final class MockPackageContainer: PackageContainer {
         return name
     }
 
-    public var versions: [Version] {
-        return dependenciesByVersion.keys.sorted()
+    public var versions: AnySequence<Version> {
+        return AnySequence(dependenciesByVersion.keys.sorted().reversed())
     }
 
     public func getDependencies(at version: Version) -> [MockPackageConstraint] {

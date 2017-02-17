@@ -21,6 +21,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(PkgConfigTests.allTests),
         testCase(PkgConfigWhitelistTests.allTests),
         testCase(VersionShimTests.allTests),
+        testCase(ToolsVersionLoaderTests.allTests),
     ]
 }
 #endif
