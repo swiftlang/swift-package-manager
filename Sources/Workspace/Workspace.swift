@@ -787,8 +787,14 @@ public class Workspace {
                     return nil
                 }
 
-                // Select the right base path for the dependency.
+                // Construct the package path for the dependency.
                 let packagePathBase = managedDependency.isInEditableState ? editablesPath : checkoutsPath
+                let packagePath = packagePathBase.appending(managedDependency.subpath)
+
+                // Load the tools version for the package.
+                let toolsVersion = try! toolsVersionLoader.load(
+                    at: packagePath, fileSystem: localFileSystem)
+
                 // If so, load its manifest.
                 //
                 // This should *never* fail, because we should only have ever
@@ -798,9 +804,10 @@ public class Workspace {
                 //
                 // FIXME: We should have a cache for this.
                 let manifest: Manifest = try! manifestLoader.load(
-                    package: packagePathBase.appending(managedDependency.subpath),
+                    package: packagePath,
                     baseURL: managedDependency.repository.url,
-                    version: managedDependency.currentVersion)
+                    version: managedDependency.currentVersion,
+                    manifestVersion: toolsVersion.manifestVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
             }
@@ -898,7 +905,12 @@ public class Workspace {
             switch state {
             case .added(let version):
                 let path = try clone(specifier: specifier, version: version)
-                let manifest = try! manifestLoader.load(package: path, baseURL: specifier.url, version: version)
+
+                // Load the manifest.
+                let toolsVersion = try! toolsVersionLoader.load(at: path, fileSystem: localFileSystem)
+                let manifest = try! manifestLoader.load(
+                    package: path, baseURL: specifier.url, version: version, manifestVersion: toolsVersion.manifestVersion)
+
                 externalManifests.append(manifest)
             case .updated(_):
                 // FIXME: Issue suitable diagnostics for cases where an
@@ -966,7 +978,8 @@ public class Workspace {
             guard currentToolsVersion >= toolsVersion else {
                 throw WorkspaceOperationError.incompatibleToolsVersion(rootPackage: $0, required: toolsVersion, current: currentToolsVersion)
             }
-            return try manifestLoader.load(package: $0, baseURL: $0.asString)
+            return try manifestLoader.load(
+                package: $0, baseURL: $0.asString, manifestVersion: toolsVersion.manifestVersion)
         }
     }
     

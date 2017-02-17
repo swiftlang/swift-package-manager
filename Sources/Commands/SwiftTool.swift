@@ -133,7 +133,7 @@ public class SwiftTool<Options: ToolOptions> {
         // This is temporary and will go away when the compiler bumps its major version to 4.
         binder.bind(
             option: parser.add(option: "--experimental-use-v4-manifest", kind: Bool.self),
-            to: { _ in ManifestLoader.overrideManifestVersion = .four })
+            to: { _, on in Versioning.simulateVersionFour = on })
 
         // FIXME: We need to allow -vv type options for this.
         binder.bind(

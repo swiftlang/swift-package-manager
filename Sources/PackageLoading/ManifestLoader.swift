@@ -46,6 +46,13 @@ public enum ManifestVersion: Int {
     case four
 }
 
+extension ToolsVersion {
+    /// Returns the manifest version for this tools version.
+    public var manifestVersion: ManifestVersion {
+        return major == 3 ? .three : .four
+    }
+}
+
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
@@ -77,7 +84,7 @@ extension ManifestLoaderProtocol {
         package path: AbsolutePath,
         baseURL: String,
         version: Version? = nil,
-        manifestVersion: ManifestVersion = .three,
+        manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         return try load(packagePath: path, baseURL: baseURL, version: version, manifestVersion: manifestVersion, fileSystem: fileSystem)
@@ -93,10 +100,6 @@ extension ManifestLoaderProtocol {
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
     let resources: ManifestResourceProvider
-
-    /// If set, will override the manifest version.
-    /// This is temporary until we have the related proposals implemented.
-    static public var overrideManifestVersion: ManifestVersion?
 
     public init(resources: ManifestResourceProvider) {
         self.resources = resources
@@ -168,8 +171,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Validate that the file exists.
         guard isFile(path) else { throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description) }
-
-        let manifestVersion = ManifestLoader.overrideManifestVersion ?? manifestVersion
 
         // Get the json from manifest.
         guard let jsonString = try parse(path: path, manifestVersion: manifestVersion) else {

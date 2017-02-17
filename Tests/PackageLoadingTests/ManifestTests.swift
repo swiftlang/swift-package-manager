@@ -171,7 +171,7 @@ class ManifestTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: root.asString, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: root.asString, manifestVersion: .three, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
