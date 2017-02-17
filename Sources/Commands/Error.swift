@@ -123,6 +123,19 @@ public func handle(error receivedError: Any) -> Never {
         
     case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
         print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
+
+    case ProcessResult.Error.nonZeroExit(let result):
+        let stream = BufferedOutputByteStream()
+
+        switch result.exitStatus {
+        case .terminated(let code):
+            stream <<< "terminated(\(code)): "
+
+        case .signalled(let signal):
+            stream <<< "signalled(\(signal)): "
+        }
+        stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
+        print(error: stream.bytes.asString!)
         
     default:
         print(error: error)
