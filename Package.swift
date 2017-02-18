@@ -114,7 +114,7 @@ let package = Package(
         Target(
             /** Test support library */
             name: "TestSupport",
-            dependencies: ["Basic", "POSIX", "PackageGraph", "PackageLoading", "SourceControl", "Utility"]),
+            dependencies: ["Basic", "POSIX", "PackageGraph", "PackageLoading", "SourceControl", "Utility", "Commands"]),
         Target(
             /** Test support executable */
             name: "TestSupportExecutable",

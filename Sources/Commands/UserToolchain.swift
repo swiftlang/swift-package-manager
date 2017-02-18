@@ -21,38 +21,38 @@ import Utility
     private let whichClangArgs = ["which", "clang"]
 #endif
 
-struct UserToolchain: Toolchain, ManifestResourceProvider {
+public struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path of the `swiftc` compiler.
-    let swiftCompiler: AbsolutePath
+    public let swiftCompiler: AbsolutePath
     
     /// Path of the `clang` compiler.
-    let clangCompiler: AbsolutePath
+    public let clangCompiler: AbsolutePath
 
     /// Path to llbuild.
     let llbuild: AbsolutePath
 
     /// Path to SwiftPM library directory containing runtime libraries.
-    let libDir: AbsolutePath
+    public let libDir: AbsolutePath
     
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
-    let defaultSDK: AbsolutePath?
+    public let defaultSDK: AbsolutePath?
 
   #if os(macOS)
     /// Path to the sdk platform framework path.
-    let sdkPlatformFrameworksPath: AbsolutePath
+    public let sdkPlatformFrameworksPath: AbsolutePath
 
-    var clangPlatformArgs: [String] {
+    public var clangPlatformArgs: [String] {
         return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
-    var swiftPlatformArgs: [String] {
+    public var swiftPlatformArgs: [String] {
         return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
   #else
-    let clangPlatformArgs: [String] = ["-fPIC"]
-    let swiftPlatformArgs: [String] = []
+    public let clangPlatformArgs: [String] = ["-fPIC"]
+    public let swiftPlatformArgs: [String] = []
   #endif
 
-    init() throws {
+    public init(_ binDir: AbsolutePath) throws {
         // Get the search paths from PATH.
         let envSearchPaths = UserToolchain.getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
@@ -62,23 +62,6 @@ struct UserToolchain: Toolchain, ManifestResourceProvider {
                 inEnvValue: getenv(env),
                 searchPaths: envSearchPaths)
         }
-
-      #if Xcode
-        // For Xcode, set bin directory to the build directory containing the fake
-        // toolchain created during bootstraping. This is obviously not production ready
-        // and only exists as a development utility right now.
-        //
-        // This also means that we should have bootstrapped with the same Swift toolchain
-        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
-        //
-        // FIXME: We may want to allow overriding this using an env variable but that
-        // doesn't seem urgent or extremely useful as of now.
-        let binDir = AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
-      #else
-        let binDir = AbsolutePath(
-            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
-      #endif
 
         libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
 

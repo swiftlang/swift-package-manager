@@ -208,15 +208,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
         cmd += ["-I", runtimePath]
-    
-        // When running from Xcode, load PackageDescription.framework
-        // else load the dylib version of it
-    #if Xcode
-        cmd += ["-F", resources.libDir.asString]
-        cmd += ["-framework", "PackageDescription"]
-    #else
         cmd += ["-L", runtimePath, "-lPackageDescription"] 
-    #endif
     
     #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]

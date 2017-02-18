@@ -8,14 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(macOS)
-import Foundation.NSBundle
-#endif
 
 import Basic
-import POSIX
-import Utility
-
+import Foundation
+import Commands
 import PackageLoading
 
 #if os(macOS)
@@ -27,39 +23,31 @@ private func bundleRoot() -> AbsolutePath {
 }
 #endif
 
-public struct Resources: ManifestResourceProvider {
-#if os(macOS)
-  #if Xcode
-    public let swiftCompiler: AbsolutePath = {
-        let swiftc: AbsolutePath
-        if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
-            swiftc = AbsolutePath(base).appending(components: "usr", "bin", "swiftc")
-        } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
-            swiftc = AbsolutePath(override)
-        } else {
-            swiftc = try! AbsolutePath(Process.checkNonZeroExit(args: "xcrun", "--find", "swiftc").chuzzle() ?? "BADPATH")
-        }
-        precondition(swiftc != AbsolutePath("/usr/bin/swiftc"))
-        return swiftc
-    }()
-  #else
-    public let swiftCompiler = bundleRoot().appending(component: "swiftc")
-  #endif
-    public let baselibPath = bundleRoot()
-#else
-    public let baselibPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
-    public let swiftCompiler = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
-#endif
+public class Resources: ManifestResourceProvider {
 
-    public var libDir: AbsolutePath {
-      #if Xcode
-        // FIXME: This needs to select right version package description in Xcode.
-        // But we can't do that from Xcode, we should just use the bootstrapped fake toolchain.
-        return baselibPath
-      #else
-        return baselibPath.parentDirectory.appending(components: "lib", "swift", "pm")
-      #endif
+    public var swiftCompiler: AbsolutePath {
+        return toolchain.swiftCompiler
     }
 
-    public init() {}
+    public var libDir: AbsolutePath {
+        return toolchain.libDir
+    }
+
+    let toolchain: UserToolchain
+
+    public static let `default` = Resources()
+
+    private init() {
+        let binDir: AbsolutePath
+      #if Xcode
+        // Always point to fake toolchain when in Xcode.
+        binDir = AbsolutePath(#file).parentDirectory
+            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+      #elseif os(macOS)
+        binDir = bundleRoot().parentDirectory
+      #else
+        binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+      #endif
+        toolchain = try! UserToolchain(binDir)
+    }
 }

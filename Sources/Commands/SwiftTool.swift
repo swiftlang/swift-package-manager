@@ -275,7 +275,25 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// Lazily compute the toolchain.
     private lazy var _toolchain: Result<UserToolchain, AnyError> = {
-        return Result(anyError: { try UserToolchain() })
+
+      #if Xcode
+        // For Xcode, set bin directory to the build directory containing the fake
+        // toolchain created during bootstraping. This is obviously not production ready
+        // and only exists as a development utility right now.
+        //
+        // This also means that we should have bootstrapped with the same Swift toolchain
+        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
+        //
+        // FIXME: We may want to allow overriding this using an env variable but that
+        // doesn't seem urgent or extremely useful as of now.
+        let binDir = AbsolutePath(#file).parentDirectory
+            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+      #else
+        let binDir = AbsolutePath(
+            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+      #endif
+
+        return Result(anyError: { try UserToolchain(binDir) })
     }()
 
     private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
