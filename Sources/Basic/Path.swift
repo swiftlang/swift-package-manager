@@ -162,10 +162,18 @@ public struct AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(components names: String...) -> AbsolutePath {
+        return appending(components: names)
+    }
+    /// Returns the absolute path with additional literal components appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(components names: [String]) -> AbsolutePath {
         // FIXME: This doesn't seem a particularly efficient way to do this.
         return names.reduce(self, { path, name in
-                path.appending(component: name)
-            })
+            path.appending(component: name)
+        })
     }
 
     /// NOTE: We will most likely want to add other `appending()` methods, such

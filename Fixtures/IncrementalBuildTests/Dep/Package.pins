@@ -1,0 +1,12 @@
+{
+  "autoPin": true,
+  "pins": [
+    {
+      "package": "DependencyLib",
+      "reason": null,
+      "repositoryURL": "/Users/bigfreaky/devroot/swift-package-manager/Fixtures/IncrementalBuildTests/Dep/Packages/DepLib",
+      "version": "0.1.0"
+    }
+  ],
+  "version": 1
+}
