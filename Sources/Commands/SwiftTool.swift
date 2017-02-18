@@ -248,13 +248,18 @@ public class SwiftTool<Options: ToolOptions> {
         return try workspace.loadPackageGraph()
     }
 
+    /// Returns the user toolchain.
+    func getToolchain() throws -> UserToolchain {
+        return try _toolchain.dematerialize()
+    }
+
     /// Build the package graph using swift-build-tool.
     func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
         // Create build parameters.
         let buildParameters = BuildParameters(
             dataPath: buildPath,
             configuration: config,
-            toolchain: try UserToolchain(),
+            toolchain: try getToolchain(),
             flags: options.buildFlags
         )
         let yaml = buildPath.appending(component: config.dirname + ".yaml")
@@ -266,6 +271,11 @@ public class SwiftTool<Options: ToolOptions> {
         // Run the swift-build-tool with the generated manifest.
         try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil, processSet: processSet)
     }
+
+    /// Lazily compute the toolchain.
+    private lazy var _toolchain: Result<UserToolchain, AnyError> = {
+        return Result(anyError: { try UserToolchain() })
+    }()
 }
 
 extension SwiftTool: BuildPlanDelegate {

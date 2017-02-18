@@ -35,14 +35,3 @@ public enum Platform {
         return nil
     }
 }
-
-public func platformFrameworksPath() throws -> AbsolutePath {
-    // Lazily compute the platform the first time it is needed.
-    struct Static {
-        static let value = { try? Process.checkNonZeroExit(args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path") }()
-    }
-    guard let popened = Static.value, let chuzzled = popened.chuzzle() else {
-        throw Error.invalidPlatformPath
-    }
-    return AbsolutePath(chuzzled).appending(components: "Developer", "Library", "Frameworks")
-}
