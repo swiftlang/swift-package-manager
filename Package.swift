@@ -131,16 +131,16 @@ let package = Package(
             dependencies: ["Build", "TestSupport"]),
         Target(
             name: "CommandsTests",
-            dependencies: ["Commands", "Workspace", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "Commands", "Workspace", "TestSupport"]),
         Target(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "TestSupport"]),
         Target(
             name: "FunctionalTests",
-            dependencies: ["Basic", "Utility", "PackageModel", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "Basic", "Utility", "PackageModel", "TestSupport"]),
         Target(
             name: "FunctionalPerformanceTests",
-            dependencies: ["swift-build", "swift-package", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-build", "swift-package", "TestSupport"]),
         Target(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "TestSupport"]),

@@ -33,6 +33,12 @@ public class Resources: ManifestResourceProvider {
         return toolchain.libDir
     }
 
+  #if os(macOS)
+    public var sdkPlatformFrameworksPath: AbsolutePath {
+        return toolchain.sdkPlatformFrameworksPath
+    }
+  #endif
+
     let toolchain: UserToolchain
 
     public static let `default` = Resources()
@@ -44,7 +50,7 @@ public class Resources: ManifestResourceProvider {
         binDir = AbsolutePath(#file).parentDirectory
             .parentDirectory.parentDirectory.appending(components: ".build", "debug")
       #elseif os(macOS)
-        binDir = bundleRoot().parentDirectory
+        binDir = bundleRoot()
       #else
         binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
       #endif
