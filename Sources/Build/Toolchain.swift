@@ -9,7 +9,6 @@
 */
 
 import Basic
-import Utility
 import PackageModel
 
 public protocol Toolchain {
