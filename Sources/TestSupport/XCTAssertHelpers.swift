@@ -45,10 +45,10 @@ public func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file
 
     } catch SwiftPMProductError.executionFailure(let error, _) {
         switch error {
-        case POSIX.Error.exitStatus(let status, _) where status == 1: break
-            // noop
+        case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
+            break
         default:
-        XCTFail("`swift build' failed in an unexpected manner")
+            XCTFail("`swift build' failed in an unexpected manner")
         }
     } catch {
         XCTFail("`swift build' failed in an unexpected manner")

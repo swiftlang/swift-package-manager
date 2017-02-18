@@ -16,8 +16,6 @@ import Utility
 import libc
 import class Foundation.ProcessInfo
 
-import enum POSIX.Error
-import func POSIX.popen
 typealias ProcessID = Utility.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
@@ -155,11 +153,10 @@ class MiscellaneousTestCase: XCTestCase {
             try executeSwiftBuild(AbsolutePath("/"))
         } catch SwiftPMProductError.executionFailure(let error, _) {
             switch error {
-            case POSIX.Error.exitStatus(let code, _):
-
-            // if our code crashes we'll get an exit code of 256
-            XCTAssertEqual(code, Int32(1))
-            foo = true
+            case ProcessResult.Error.nonZeroExit(let result):
+                // if our code crashes we'll get an exit code of 256
+                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
+                foo = true
             default:
                 XCTFail()
             }
@@ -176,9 +173,9 @@ class MiscellaneousTestCase: XCTestCase {
                 try executeSwiftBuild(prefix)
             } catch SwiftPMProductError.executionFailure(let error, _) {
                 switch error {
-                case POSIX.Error.exitStatus(let code, _):
+                case ProcessResult.Error.nonZeroExit(let result):
                     // if our code crashes we'll get an exit code of 256
-                    XCTAssertEqual(code, Int32(1))
+                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
                     foo = true
                 default:
                     XCTFail()
@@ -249,10 +246,10 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = [prefix.appending(components: ".build", "debug", "Foo").asString]
+            let execpath = prefix.appending(components: ".build", "debug", "Foo").asString
 
             XCTAssertBuilds(prefix)
-            var output = try popen(execpath, environment: [:])
+            var output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "Hello\n")
 
             // we need to sleep at least one second otherwise
@@ -262,7 +259,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(prefix.appending(components: "Bar", "Bar.swift"), bytes: "public let bar = \"Goodbye\"\n")
 
             XCTAssertBuilds(prefix)
-            output = try popen(execpath, environment: [:])
+            output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "Goodbye\n")
         }
     }
@@ -273,11 +270,11 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = [prefix.appending(components: "app", ".build", "debug", "Dealer").asString]
+            let execpath = prefix.appending(components: "app", ".build", "debug", "Dealer").asString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
-            var output = try popen(execpath, environment: [:])
+            var output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
 
             // we need to sleep at least one second otherwise
@@ -288,7 +285,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix.appending(component: "app"))
-            output = try popen(execpath, environment: [:])
+            output = try Process.checkNonZeroExit(args: execpath)
             XCTAssertEqual(output, "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
     }
@@ -303,7 +300,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
-            var output = try popen(execpath, environment: [:])
+            var output = try Process.checkNonZeroExit(arguments: execpath)
             XCTAssertEqual(output, "Hello\n")
 
             // we need to sleep at least one second otherwise
@@ -314,7 +311,7 @@ class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix.appending(component: "root"))
-            output = try popen(execpath, environment: [:])
+            output = try Process.checkNonZeroExit(arguments: execpath)
             XCTAssertEqual(output, "Goodbye\n")
         }
     }

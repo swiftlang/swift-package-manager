@@ -9,12 +9,8 @@
  */
 
 import Basic
-import PackageModel
 import PackageLoading
-import Utility
-
-// FIXME: This doesn't belong here.
-import func POSIX.exit
+import PackageModel
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.

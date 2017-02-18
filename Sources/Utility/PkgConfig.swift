@@ -11,7 +11,6 @@
 import Basic
 import Foundation
 import func POSIX.getenv
-import func POSIX.popen
 
 public enum PkgConfigError: Swift.Error {
     case couldNotFindConfigFile
@@ -24,7 +23,8 @@ public enum PkgConfigError: Swift.Error {
 /// This is needed because on Linux machines, the search paths can be different
 /// from the standard locations that we are currently searching.
 private let pkgConfigSearchPaths: [AbsolutePath] = {
-    let searchPaths = try? POSIX.popen(["pkg-config", "--variable", "pc_path", "pkg-config"]).chomp()
+    let searchPaths = try? Process.checkNonZeroExit(
+        args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
     return searchPaths?.characters.split(separator: ":").map{ AbsolutePath(String($0)) } ?? []
 }()
 

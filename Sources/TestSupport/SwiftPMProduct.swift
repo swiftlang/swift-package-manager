@@ -71,6 +71,7 @@ public enum SwiftPMProduct {
     ///         - printIfError: Print the output on non-zero exit.
     ///
     /// - Returns: The output of the process.
+    @discardableResult
     public func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String]? = nil, printIfError: Bool = false) throws -> String {
         var environment = ProcessInfo.processInfo.environment
         for (key, value) in (env ?? [:]) {
@@ -85,26 +86,25 @@ public enum SwiftPMProduct {
         // create special conditions in swift-build for swiftpm tests.
         environment["IS_SWIFTPM_TEST"] = "1"
 
-        var out = ""
         var completeArgs = [path.asString]
         if let chdir = chdir {
             completeArgs += ["--chdir", chdir.asString]
         }
         completeArgs += args
-        do {
-            try POSIX.popen(completeArgs, redirectStandardError: true, environment: environment) {
-                out += $0
-            }
-            return out
-        } catch {
-            if printIfError {
-                print("**** FAILURE EXECUTING SUBPROCESS ****")
-                print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
-                print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
-                print("output:", out)
-            }
-            throw SwiftPMProductError.executionFailure(error: error, output: out)
+
+        let result = try Process.popen(arguments: completeArgs, environment: environment)
+        let output = try result.utf8Output()
+
+        if result.exitStatus == .terminated(code: 0) {
+            return output
         }
+        if printIfError {
+            print("**** FAILURE EXECUTING SUBPROCESS ****")
+            print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
+            print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
+            print("output:", output)
+        }
+        throw SwiftPMProductError.executionFailure(error: ProcessResult.Error.nonZeroExit(result), output: output)
     }
 
     public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {

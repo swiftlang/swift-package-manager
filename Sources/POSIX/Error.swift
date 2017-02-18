@@ -39,7 +39,6 @@ import func libc.strerror_r
 import var libc.EINVAL
 import var libc.ERANGE
 
-
 extension SystemError: CustomStringConvertible {
     public var description: String {
         func strerror(_ errno: Int32) -> String {
@@ -111,29 +110,6 @@ extension SystemError: CustomStringConvertible {
             return "waitpid error: \(strerror(errno))"
         case .usleep(let errno):
             return "usleep error: \(strerror(errno))"
-        }
-    }
-}
-
-
-public enum Error: Swift.Error {
-    case exitStatus(Int32, [String])
-    case exitSignal
-}
-
-public enum ShellError: Swift.Error {
-    case system(arguments: [String], SystemError)
-    case popen(arguments: [String], SystemError)
-}
-
-extension Error: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .exitStatus(let code, let args):
-            return "exit(\(code)): \(prettyArguments(args))"
-
-        case .exitSignal:
-            return "Child process exited with signal"
         }
     }
 }
