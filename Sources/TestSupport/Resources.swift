@@ -14,6 +14,7 @@ import Foundation.NSBundle
 
 import Basic
 import POSIX
+import Utility
 
 import PackageLoading
 
@@ -36,7 +37,7 @@ public struct Resources: ManifestResourceProvider {
         } else if let override = getenv("SWIFT_EXEC")?.chuzzle() {
             swiftc = AbsolutePath(override)
         } else {
-            swiftc = try! AbsolutePath(popen(["xcrun", "--find", "swiftc"]).chuzzle() ?? "BADPATH")
+            swiftc = try! AbsolutePath(Process.checkNonZeroExit(args: "xcrun", "--find", "swiftc").chuzzle() ?? "BADPATH")
         }
         precondition(swiftc != AbsolutePath("/usr/bin/swiftc"))
         return swiftc
