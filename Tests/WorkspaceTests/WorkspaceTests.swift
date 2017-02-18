@@ -22,7 +22,7 @@ import Workspace
 
 import TestSupport
 
-private let sharedManifestLoader = ManifestLoader(resources: Resources())
+private let sharedManifestLoader = ManifestLoader(resources: Resources.default)
 
 fileprivate extension ResolvedPackage {
     var version: Version? {

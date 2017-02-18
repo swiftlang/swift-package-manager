@@ -95,7 +95,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .listTests:
             let testPath = try buildTestsIfNeeded(options)
-            let testSuites = try SwiftTestTool.getTestSuites(path: testPath)
+            let testSuites = try getTestSuites(path: testPath)
             // Print the tests.
             for testSuite in testSuites {
                 for testCase in testSuite.tests {
@@ -112,8 +112,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runInParallel:
             let testPath = try buildTestsIfNeeded(options)
+            let testSuites = try getTestSuites(path: testPath)
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
-            try runner.run()
+            try runner.run(testSuites)
             exit(runner.success ? 0 : 1)
         }
     }
@@ -206,13 +207,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Throws: TestError, SystemError, Utility.Errror
     ///
     /// - Returns: Array of TestSuite
-    fileprivate static func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
+    fileprivate func getTestSuites(path: AbsolutePath) throws -> [TestSuite] {
         // Run the correct tool.
       #if os(macOS)
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
         var env = ProcessInfo.processInfo.environment
-        env["DYLD_FRAMEWORK_PATH"] = try platformFrameworksPath().asString
+        env["DYLD_FRAMEWORK_PATH"] = try getToolchain().sdkPlatformFrameworksPath.asString
         try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
         let data = try fopen(tempFile.path).readFileContents()
@@ -361,9 +362,7 @@ final class ParallelTestRunner {
         progressBar.update(percent: 100*numCurrentTest/numTests, text: test.specifier)
     }
 
-    func enqueueTests() throws {
-        // Find all the test suites present in the test binary.
-        let testSuites = try SwiftTestTool.getTestSuites(path: testPath)
+    func enqueueTests(_ testSuites: [TestSuite]) throws {
         // FIXME: Add a count property in SynchronizedQueue.
         var numTests = 0
         // Enqueue all the tests.
@@ -384,9 +383,9 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run() throws {
+    func run(_ testSuites: [TestSuite]) throws {
         // Enqueue all the tests.
-        try enqueueTests()
+        try enqueueTests(testSuites)
 
         // Create the worker threads.
         let workers: [Thread] = (0..<numJobs).map { _ in

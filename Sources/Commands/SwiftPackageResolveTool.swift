@@ -37,7 +37,7 @@ extension SwiftPackageTool {
 
         // Create the container provider interface.
         let provider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager, manifestLoader: manifestLoader)
+            repositoryManager: repositoryManager, manifestLoader: try getManifestLoader())
 
         // Create the resolver.
         let resolver = DependencyResolver(provider, delegate)

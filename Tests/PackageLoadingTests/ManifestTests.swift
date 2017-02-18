@@ -22,7 +22,7 @@ import TestSupport
 // FIXME: Rename to PackageDescription (v3) loading tests.
 
 class ManifestTests: XCTestCase {
-    let manifestLoader = ManifestLoader(resources: Resources())
+    let manifestLoader = ManifestLoader(resources: Resources.default)
 
     private func loadManifest(_ inputName: String, line: UInt = #line, body: (Manifest) -> Void) {
         do {

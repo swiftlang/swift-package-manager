@@ -12,9 +12,9 @@ import Basic
 import Utility
 
 // Builds the default target in the llbuild manifest unless specified.
-public func build(yamlPath: AbsolutePath, target: String? = nil, processSet: ProcessSet) throws {
+public func build(yamlPath: AbsolutePath, llbuild: AbsolutePath, target: String? = nil, processSet: ProcessSet) throws {
     do {
-        var args = [ToolDefaults.llbuild.asString, "-f", yamlPath.asString]
+        var args = [llbuild.asString, "-f", yamlPath.asString]
         if let target = target {
             args += [target]
         }

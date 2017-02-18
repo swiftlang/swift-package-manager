@@ -11,40 +11,148 @@
 import POSIX
 
 import Basic
+import PackageLoading
 import protocol Build.Toolchain
 import Utility
 
 #if os(macOS)
     private let whichClangArgs = ["xcrun", "--find", "clang"]
-    private let whichDefaultSDKArgs = ["xcrun", "--sdk", "macosx", "--show-sdk-path"]
 #else
     private let whichClangArgs = ["which", "clang"]
 #endif
 
-struct UserToolchain: Toolchain {
+public struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path of the `swiftc` compiler.
-    let swiftCompiler: AbsolutePath
+    public let swiftCompiler: AbsolutePath
     
     /// Path of the `clang` compiler.
-    let clangCompiler: AbsolutePath
+    public let clangCompiler: AbsolutePath
+
+    /// Path to llbuild.
+    let llbuild: AbsolutePath
+
+    /// Path to SwiftPM library directory containing runtime libraries.
+    public let libDir: AbsolutePath
     
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
-    let defaultSDK: AbsolutePath?
+    public let defaultSDK: AbsolutePath?
 
-#if os(macOS)
+  #if os(macOS)
     /// Path to the sdk platform framework path.
-    let sdkPlatformFrameworksPath: AbsolutePath
+    public let sdkPlatformFrameworksPath: AbsolutePath
 
-    var clangPlatformArgs: [String] {
+    public var clangPlatformArgs: [String] {
         return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
-    var swiftPlatformArgs: [String] {
+    public var swiftPlatformArgs: [String] {
         return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
     }
-#else
-    let clangPlatformArgs: [String] = ["-fPIC"]
-    let swiftPlatformArgs: [String] = []
-#endif
+  #else
+    public let clangPlatformArgs: [String] = ["-fPIC"]
+    public let swiftPlatformArgs: [String] = []
+  #endif
+
+    public init(_ binDir: AbsolutePath) throws {
+        // Get the search paths from PATH.
+        let envSearchPaths = UserToolchain.getEnvSearchPaths(
+            pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
+
+        func lookup(env: String) -> AbsolutePath? {
+            return UserToolchain.lookupExecutablePath(
+                inEnvValue: getenv(env),
+                searchPaths: envSearchPaths)
+        }
+
+        libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+
+        // First look in env and then in bin dir.
+        swiftCompiler = lookup(env: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
+        
+        // Check that it's valid in the file system.
+        // FIXME: We should also check that it resolves to an executable file
+        //        (it could be a symlink to such as file).
+        guard localFileSystem.exists(swiftCompiler) else {
+            throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
+        }
+
+        // Look for llbuild in bin dir.
+        llbuild = binDir.appending(component: "swift-build-tool")
+        guard localFileSystem.exists(llbuild) else {
+            throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
+        }
+
+        // Find the Clang compiler, looking first in the environment.
+        if let value = lookup(env: "CC") {
+            clangCompiler = value
+        } else {
+            // No value in env, so search for `clang`.
+            let foundPath = try Process.checkNonZeroExit(arguments: whichClangArgs).chomp()
+            guard !foundPath.isEmpty else {
+                throw Error.invalidToolchain(problem: "could not find `clang`")
+            }
+            clangCompiler = AbsolutePath(foundPath)
+        }
+        
+        // Check that it's valid in the file system.
+        // FIXME: We should also check that it resolves to an executable file
+        //        (it could be a symlink to such as file).
+        guard localFileSystem.exists(clangCompiler) else {
+            throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
+        }
+        
+        // Find the default SDK (on macOS only).
+      #if os(macOS)
+        let sdk: AbsolutePath
+
+        if let value = UserToolchain.lookupExecutablePath(inEnvValue: getenv("SYSROOT")) {
+            sdk = value
+        } else {
+            // No value in env, so search for it.
+            let foundPath = try Process.checkNonZeroExit(
+                args: "xcrun", "--sdk", "macosx", "--show-sdk-path").chomp()
+            guard !foundPath.isEmpty else {
+                throw Error.invalidToolchain(problem: "could not find default SDK")
+            }
+            sdk = AbsolutePath(foundPath)
+        }
+        
+        // FIXME: We should probably also check that it is a directory, etc.
+        guard localFileSystem.exists(sdk) else {
+            throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
+        }
+        defaultSDK = sdk
+
+        let platformPath = try Process.checkNonZeroExit(
+            args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path").chomp()
+        guard !platformPath.isEmpty else {
+                throw Error.invalidToolchain(problem: "could not get sdk platform path")
+        }
+        sdkPlatformFrameworksPath = AbsolutePath(platformPath).appending(components: "Developer", "Library", "Frameworks")
+      #else
+        defaultSDK = nil
+      #endif
+    }
+
+    /// Computes search paths from PATH variable.
+    ///
+    /// - Parameters:
+    ///   - pathString: The path string to parse.
+    ///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths based on this path.
+    /// - Returns: List of search paths.
+    static func getEnvSearchPaths(
+        pathString: String?,
+        currentWorkingDirectory cwd: AbsolutePath
+    ) -> [AbsolutePath] {
+        // Compute search paths from PATH variable.
+        return (pathString ?? "").characters.split(separator: ":").map(String.init).map { pathString in
+            // If this is an absolute path, we're done.
+            if pathString.characters.first == "/" {
+                return AbsolutePath(pathString)
+            }
+            // Otherwise convert it into absolute path relative to the working directory.
+            return AbsolutePath(pathString, relativeTo: cwd)
+        }
+    }
 
     /// Lookup an executable path from environment variable value. This method searches in the following order:
     /// * If env value is a valid absolute path, return it.
@@ -56,7 +164,11 @@ struct UserToolchain: Toolchain {
     ///   - cwd: The current working directory to look in.
     ///   - searchPath: The additional search path to look in if not found in cwd.
     /// - Returns: Valid path to executable if present, otherwise nil.
-    static func lookupExecutablePath(inEnvValue value: String?, currentWorkingDirectory cwd: AbsolutePath, searchPaths: [AbsolutePath]) -> AbsolutePath? {
+    static func lookupExecutablePath(
+        inEnvValue value: String?,
+        currentWorkingDirectory cwd: AbsolutePath = currentWorkingDirectory,
+        searchPaths: [AbsolutePath] = []
+    ) -> AbsolutePath? {
         // We should have a value to continue.
         guard let value = value, !value.isEmpty else {
             return nil
@@ -78,93 +190,5 @@ struct UserToolchain: Toolchain {
             }
         }
         return nil
-    }
-
-    /// Computes search paths from PATH variable.
-    ///
-    /// - Parameters:
-    ///   - pathString: The path string to parse.
-    ///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths based on this path.
-    /// - Returns: List of search paths.
-    static func getEnvSearchPaths(pathString: String?, currentWorkingDirectory cwd: AbsolutePath) -> [AbsolutePath] {
-        // Compute search paths from PATH variable.
-        return (pathString ?? "").characters.split(separator: ":").map(String.init).map { pathString in
-            // If this is an absolute path, we're done.
-            if pathString.characters.first == "/" {
-                return AbsolutePath(pathString)
-            }
-            // Otherwise convert it into absolute path relative to the working directory.
-            return AbsolutePath(pathString, relativeTo: cwd)
-        }
-    }
-
-    init() throws {
-        // Get the search paths from PATH.
-        let envSearchPaths = UserToolchain.getEnvSearchPaths(pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
-
-        func lookup(env: String) -> AbsolutePath? {
-            return UserToolchain.lookupExecutablePath(inEnvValue: getenv(env), currentWorkingDirectory: currentWorkingDirectory, searchPaths: envSearchPaths)
-        }
-
-        // Find the Swift compiler, looking first in the environment.
-        if let value = lookup(env: "SWIFT_EXEC") {
-            swiftCompiler = value
-        }
-        else {
-            // No value in env, so look for `swiftc` alongside our own binary.
-            swiftCompiler = AbsolutePath(CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
-        }
-        
-        // Check that it's valid in the file system.
-        // FIXME: We should also check that it resolves to an executable file
-        //        (it could be a symlink to such as file).
-        guard localFileSystem.exists(swiftCompiler) else {
-            throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
-        }
-        
-        // Find the Clang compiler, looking first in the environment.
-        if let value = lookup(env: "CC") {
-            clangCompiler = value
-        }
-        else {
-            // No value in env, so search for `clang`.
-            guard let foundPath = try? Process.checkNonZeroExit(arguments: whichClangArgs).chomp(), !foundPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not find `clang`")
-            }
-            clangCompiler = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
-        }
-        
-        // Check that it's valid in the file system.
-        // FIXME: We should also check that it resolves to an executable file
-        //        (it could be a symlink to such as file).
-        guard localFileSystem.exists(clangCompiler) else {
-            throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
-        }
-        
-        // Find the default SDK (on macOS only).
-      #if os(macOS)
-        if let value = UserToolchain.lookupExecutablePath(inEnvValue: getenv("SYSROOT"), currentWorkingDirectory: currentWorkingDirectory, searchPaths: []) {
-            defaultSDK = value
-        }
-        else {
-            // No value in env, so search for it.
-            guard let foundPath = try? Process.checkNonZeroExit(arguments: whichDefaultSDKArgs).chomp(), !foundPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not find default SDK")
-            }
-            defaultSDK = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
-        }
-        
-        // If we have an SDK, we check that it's valid in the file system.
-        if let sdk = defaultSDK {
-            // FIXME: We should probably also check that it is a directory, etc.
-            guard localFileSystem.exists(sdk) else {
-                throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
-            }
-        }
-
-        self.sdkPlatformFrameworksPath = try platformFrameworksPath()
-      #else
-        defaultSDK = nil
-      #endif
     }
 }

@@ -1198,29 +1198,5 @@ def main():
         if args.enable_perf_tests:
             shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "PerformanceTests.xcscheme"), "SwiftPM.xcodeproj/xcshareddata/xcschemes/PerformanceTests.xcscheme")
                 
-        # Pretty hacky: insert SWIFT_EXEC into the scheme. We may want to
-        # add an option to the `generate-xcodeproj` subcommand to allow a
-        # user to specify env variable/value pairs to generate into the
-        # scheme, but that seems a bit too arbitrary at this point.
-        cmd = ["sed", "-i", "",
-            "-e", "s|shouldUseLaunchSchemeArgsEnv = \"YES\"|"
-                    "shouldUseLaunchSchemeArgsEnv = \"NO\"|",
-            "-e", "s|</TestAction>|"
-                    "<EnvironmentVariables>"
-                      "<EnvironmentVariable"
-                        " key=" + make_xml_string_literal("SWIFT_EXEC") +
-                        " value=" + make_xml_string_literal(args.swiftc_path) +
-                        " isEnabled=\"YES\">"
-                      "</EnvironmentVariable>"
-                    "</EnvironmentVariables>&|",
-            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-        subprocess.call(cmd)
-        # sed(1) doesn't tell us if it can't do the subsitution, so we check
-        cmd = ["fgrep", "-q", "SWIFT_EXEC",
-            "SwiftPM.xcodeproj/xcshareddata/xcschemes/SwiftPM.xcscheme"]
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("xcscheme modification failed; couldn't set SWIFT_EXEC")
-
 if __name__ == '__main__':
     main()

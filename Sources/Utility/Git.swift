@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func POSIX.getenv
-
 extension Version {
     static func vprefix(_ string: String) -> Version? {
         if string.characters.first == "v" {
@@ -60,6 +58,6 @@ public class Git {
     }
 
     public class var tool: String {
-        return getenv("SWIFT_GIT") ?? "git"
+        return "git"
     }
 }

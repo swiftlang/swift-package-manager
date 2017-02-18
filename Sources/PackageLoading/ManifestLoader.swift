@@ -34,10 +34,10 @@ public enum ManifestParseError: Swift.Error {
 /// using the package manager with alternate toolchains in the future.
 public protocol ManifestResourceProvider {
     /// The path of the swift compiler.
-    var swiftCompilerPath: AbsolutePath { get }
+    var swiftCompiler: AbsolutePath { get }
 
     /// The path of the library resources.
-    var libraryPath: AbsolutePath { get }
+    var libDir: AbsolutePath { get }
 }
 
 /// The supported manifest versions.
@@ -202,21 +202,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // and validates it.
 
         // Compute the path to runtime we need to load.
-        let runtimePath = resources.libraryPath.appending(component: String(manifestVersion.rawValue)).asString
+        let runtimePath = resources.libDir.appending(component: String(manifestVersion.rawValue)).asString
     
-        var cmd = [resources.swiftCompilerPath.asString]
+        var cmd = [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
         cmd += ["-I", runtimePath]
-    
-        // When running from Xcode, load PackageDescription.framework
-        // else load the dylib version of it
-    #if Xcode
-        cmd += ["-F", resources.libraryPath.asString]
-        cmd += ["-framework", "PackageDescription"]
-    #else
         cmd += ["-L", runtimePath, "-lPackageDescription"] 
-    #endif
     
     #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]

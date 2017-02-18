@@ -20,7 +20,7 @@ import TestSupport
 import PackageLoading
 
 class PackageDescription4LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(resources: Resources())
+    let manifestLoader = ManifestLoader(resources: Resources.default)
 
     private func loadManifest(
         _ contents: ByteString,
@@ -83,8 +83,6 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testTargetDependencies() {
-      // FIXME: Need to select right PD version for Xcode.
-      #if !Xcode
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription\n"
         stream <<< "let package = Package("
@@ -109,12 +107,9 @@ class PackageDescription4LoadingTests: XCTestCase {
             expectedDependencies = [.ByName(name: "dep1"), .Target(name: "dep2"), .Product(name: "dep3", package: "Pkg")]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
         }
-      #endif
     }
 
     func testCompatibleSwiftVersions() throws {
-      // FIXME: Need to select right PD version for Xcode.
-      #if !Xcode
         var stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
@@ -142,7 +137,6 @@ class PackageDescription4LoadingTests: XCTestCase {
         loadManifest(stream.bytes) { manifest in
             XCTAssert(manifest.package.compatibleSwiftVersions == nil)
         }
-      #endif
     }
 
     static var allTests = [

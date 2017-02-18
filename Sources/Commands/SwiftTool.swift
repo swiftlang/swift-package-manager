@@ -54,9 +54,6 @@ public class SwiftTool<Options: ToolOptions> {
     /// The options of this tool.
     let options: Options
 
-    /// The package graph loader.
-    let manifestLoader = ManifestLoader(resources: ToolDefaults())
-
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
 
@@ -213,7 +210,7 @@ public class SwiftTool<Options: ToolOptions> {
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
             pinsFile: rootPackage.appending(component: "Package.pins"),
-            manifestLoader: manifestLoader,
+            manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             repositoryProvider: provider,
@@ -248,13 +245,22 @@ public class SwiftTool<Options: ToolOptions> {
         return try workspace.loadPackageGraph()
     }
 
+    /// Returns the user toolchain.
+    func getToolchain() throws -> UserToolchain {
+        return try _toolchain.dematerialize()
+    }
+
+    func getManifestLoader() throws -> ManifestLoader {
+        return try _manifestLoader.dematerialize()
+    }
+
     /// Build the package graph using swift-build-tool.
     func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
         // Create build parameters.
         let buildParameters = BuildParameters(
             dataPath: buildPath,
             configuration: config,
-            toolchain: try UserToolchain(),
+            toolchain: try getToolchain(),
             flags: options.buildFlags
         )
         let yaml = buildPath.appending(component: config.dirname + ".yaml")
@@ -264,8 +270,35 @@ public class SwiftTool<Options: ToolOptions> {
         let llbuild = LLbuildManifestGenerator(buildPlan)
         try llbuild.generateManifest(at: yaml)
         // Run the swift-build-tool with the generated manifest.
-        try Commands.build(yamlPath: yaml, target: includingTests ? "test" : nil, processSet: processSet)
+        try Commands.build(yamlPath: yaml, llbuild: getToolchain().llbuild, target: includingTests ? "test" : nil, processSet: processSet)
     }
+
+    /// Lazily compute the toolchain.
+    private lazy var _toolchain: Result<UserToolchain, AnyError> = {
+
+      #if Xcode
+        // For Xcode, set bin directory to the build directory containing the fake
+        // toolchain created during bootstraping. This is obviously not production ready
+        // and only exists as a development utility right now.
+        //
+        // This also means that we should have bootstrapped with the same Swift toolchain
+        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
+        //
+        // FIXME: We may want to allow overriding this using an env variable but that
+        // doesn't seem urgent or extremely useful as of now.
+        let binDir = AbsolutePath(#file).parentDirectory
+            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+      #else
+        let binDir = AbsolutePath(
+            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+      #endif
+
+        return Result(anyError: { try UserToolchain(binDir) })
+    }()
+
+    private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
+        return Result(anyError: { try ManifestLoader(resources: self.getToolchain()) })
+    }()
 }
 
 extension SwiftTool: BuildPlanDelegate {
