@@ -14,8 +14,6 @@ import TestSupport
 import Basic
 import Utility
 
-import func POSIX.popen
-
 #if os(macOS)
 private let dylib = "dylib"
 #else
@@ -46,9 +44,9 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let debugout = try popen([prefix.appending(RelativePath("App/.build/debug/App")).asString], environment: [:])
+            let debugout = try Process.checkNonZeroExit(args: prefix.appending(RelativePath("App/.build/debug/App")).asString)
             XCTAssertEqual(debugout, "123\n")
-            let releaseout = try popen([prefix.appending(RelativePath("App/.build/release/App")).asString], environment: [:])
+            let releaseout = try Process.checkNonZeroExit(args: prefix.appending(RelativePath("App/.build/release/App")).asString)
             XCTAssertEqual(releaseout, "123\n")
         }
     }
@@ -60,7 +58,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
                 let expectedOutput = "calling Y.bar()\nY.bar() called\nX.foo() called\n123\n"
-                let out = try popen([prefix.appending(components: "packageA", ".build", conf, "packageA").asString], environment: [:])
+                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", conf, "packageA").asString)
                 XCTAssertEqual(out, expectedOutput)
             }
 

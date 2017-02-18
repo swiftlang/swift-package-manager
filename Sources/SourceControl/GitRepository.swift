@@ -12,9 +12,6 @@ import Basic
 import Dispatch
 import Utility
 
-import func POSIX.getenv
-import enum POSIX.Error
-
 public enum GitRepositoryProviderError: Swift.Error {
     case gitCloneFailure(url: String, path: AbsolutePath, errorOutput: String)
 }

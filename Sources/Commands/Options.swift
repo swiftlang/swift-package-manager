@@ -31,9 +31,4 @@ public class ToolOptions {
     public var verbosity: Int = 0
 
     public required init() {}
-
-    func absolutePathRelativeToWorkingDir(_ path: String?) -> AbsolutePath? {
-        guard let path = path else { return nil }
-        return AbsolutePath(path, relativeTo: currentWorkingDirectory)
-    }
 }

@@ -16,7 +16,6 @@ import Utility
 import SourceControl
 
 import func POSIX.rename
-import func POSIX.popen
 
 class ValidLayoutsTests: XCTestCase {
 
@@ -59,7 +58,7 @@ class ValidLayoutsTests: XCTestCase {
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")
             for x in ["Bar", "Baz", "Foo"] {
-                let output = try popen([debugPath.appending(component: x).asString], environment: [:])
+                let output = try Process.checkNonZeroExit(args: debugPath.appending(component: x).asString)
                 XCTAssertEqual(output, "\(x)\n")
             }
         }

@@ -13,7 +13,6 @@ import XCTest
 import Basic
 import SourceControl
 import Utility
-import enum POSIX.Error
 
 import TestSupport
 

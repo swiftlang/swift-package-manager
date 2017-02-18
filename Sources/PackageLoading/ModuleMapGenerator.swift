@@ -9,7 +9,6 @@
  */
 
 import Basic
-import Utility
 import PackageModel
 
 public let moduleMapFilename = "module.modulemap"

@@ -10,15 +10,15 @@
 
 import XCTest
 import Foundation
-import TestSupport
+
 import Basic
 import Commands
 import PackageModel
+import SourceControl
+import TestSupport
+import Utility
 import Workspace
 @testable import struct Workspace.PinsStore
-import SourceControl
-import func POSIX.popen
-import class Utility.Git
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
@@ -195,7 +195,7 @@ final class PackageToolTests: XCTestCase {
 
             XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
             // We should be able to see that modification now.
-            XCTAssertEqual(try popen(exec, environment: [:]), "88888\n")
+            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
             let editsRepo = GitRepository(path: editsPath)
             XCTAssertEqual(try editsRepo.currentBranch(), "bugfix")
@@ -273,7 +273,7 @@ final class PackageToolTests: XCTestCase {
 
             // Build and sanity check.
             _ = try build()
-            XCTAssertEqual(try popen(exec, environment: [:]).chomp(), "\(5)")
+            XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec).chomp(), "\(5)")
 
             // Get path to bar checkout.
             let barPath = try SwiftPMProduct.packagePath(for: "bar", packageRoot: fooPath)
