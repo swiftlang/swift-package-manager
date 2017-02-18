@@ -279,7 +279,7 @@ public class SwiftTool<Options: ToolOptions> {
     }()
 
     private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
-        return Result(anyError: { try ManifestLoader(resources: ToolDefaults(self.getToolchain())) })
+        return Result(anyError: { try ManifestLoader(resources: self.getToolchain()) })
     }()
 }
 

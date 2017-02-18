@@ -30,7 +30,7 @@ private func bundleRoot() -> AbsolutePath {
 public struct Resources: ManifestResourceProvider {
 #if os(macOS)
   #if Xcode
-    public let swiftCompilerPath: AbsolutePath = {
+    public let swiftCompiler: AbsolutePath = {
         let swiftc: AbsolutePath
         if let base = getenv("XCODE_DEFAULT_TOOLCHAIN_OVERRIDE")?.chuzzle() {
             swiftc = AbsolutePath(base).appending(components: "usr", "bin", "swiftc")
@@ -43,15 +43,15 @@ public struct Resources: ManifestResourceProvider {
         return swiftc
     }()
   #else
-    public let swiftCompilerPath = bundleRoot().appending(component: "swiftc")
+    public let swiftCompiler = bundleRoot().appending(component: "swiftc")
   #endif
     public let baselibPath = bundleRoot()
 #else
     public let baselibPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
-    public let swiftCompilerPath = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
+    public let swiftCompiler = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(component: "swiftc")
 #endif
 
-    public var libraryPath: AbsolutePath {
+    public var libDir: AbsolutePath {
       #if Xcode
         // FIXME: This needs to select right version package description in Xcode.
         // But we can't do that from Xcode, we should just use the bootstrapped fake toolchain.

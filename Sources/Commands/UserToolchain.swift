@@ -11,6 +11,7 @@
 import POSIX
 
 import Basic
+import PackageLoading
 import protocol Build.Toolchain
 import Utility
 
@@ -20,7 +21,7 @@ import Utility
     private let whichClangArgs = ["which", "clang"]
 #endif
 
-struct UserToolchain: Toolchain {
+struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path of the `swiftc` compiler.
     let swiftCompiler: AbsolutePath
     
