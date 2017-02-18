@@ -26,6 +26,12 @@ struct UserToolchain: Toolchain {
     
     /// Path of the `clang` compiler.
     let clangCompiler: AbsolutePath
+
+    /// Path to llbuild.
+    let llbuild: AbsolutePath
+
+    /// Path to SwiftPM library directory containing runtime libraries.
+    let libDir: AbsolutePath
     
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
     let defaultSDK: AbsolutePath?
@@ -56,16 +62,39 @@ struct UserToolchain: Toolchain {
                 searchPaths: envSearchPaths)
         }
 
-        // First look in env and then alongside our own binary.
-        swiftCompiler = lookup(env: "SWIFT_EXEC") ?? AbsolutePath(
-            CommandLine.arguments[0], relativeTo: currentWorkingDirectory)
-            .parentDirectory.appending(component: "swiftc")
+      #if Xcode
+        // For Xcode, set bin directory to the build directory containing the fake
+        // toolchain created during bootstraping. This is obviously not production ready
+        // and only exists as a development utility right now.
+        //
+        // This also means that we should have bootstrapped with the same Swift toolchain
+        // we're using inside Xcode otherwise we will not be able to load the runtime libraries.
+        //
+        // FIXME: We may want to allow overriding this using an env variable but that
+        // doesn't seem urgent or extremely useful as of now.
+        let binDir = AbsolutePath(#file).parentDirectory
+            .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+      #else
+        let binDir = AbsolutePath(
+            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+      #endif
+
+        libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+
+        // First look in env and then in bin dir.
+        swiftCompiler = lookup(env: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
         
         // Check that it's valid in the file system.
         // FIXME: We should also check that it resolves to an executable file
         //        (it could be a symlink to such as file).
         guard localFileSystem.exists(swiftCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
+        }
+
+        // Look for llbuild in bin dir.
+        llbuild = binDir.appending(component: "swift-build-tool")
+        guard localFileSystem.exists(llbuild) else {
+            throw Error.invalidToolchain(problem: "could not find `llbuild` at expected path \(llbuild.asString)")
         }
 
         // Find the Clang compiler, looking first in the environment.
@@ -77,7 +106,7 @@ struct UserToolchain: Toolchain {
             guard !foundPath.isEmpty else {
                 throw Error.invalidToolchain(problem: "could not find `clang`")
             }
-            clangCompiler = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
+            clangCompiler = AbsolutePath(foundPath)
         }
         
         // Check that it's valid in the file system.
@@ -100,7 +129,7 @@ struct UserToolchain: Toolchain {
             guard !foundPath.isEmpty else {
                 throw Error.invalidToolchain(problem: "could not find default SDK")
             }
-            sdk = AbsolutePath(foundPath, relativeTo: currentWorkingDirectory)
+            sdk = AbsolutePath(foundPath)
         }
         
         // FIXME: We should probably also check that it is a directory, etc.
