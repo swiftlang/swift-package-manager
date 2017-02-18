@@ -12,14 +12,6 @@
 import XCTest
 
 class CollectionTests: XCTestCase {
-    func testPick() {
-        let body = { (num: Int) -> Bool in num > 5 }
-        
-        XCTAssertNil([].pick(body))
-        XCTAssertNil([3, 4].pick(body))
-        XCTAssertEqual([3, 7].pick(body), 7)
-        XCTAssertEqual([3, 8, 7].pick(body), 8)
-    }
     
     func testSplitAround() {
         
@@ -66,7 +58,6 @@ class CollectionTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testPick", testPick),
         ("testSplitAround", testSplitAround),
         ("testSplitisMatching", testSplitisMatching),
     ]

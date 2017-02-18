@@ -8,15 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-extension Collection {
-    public func pick(_ body: (Iterator.Element) -> Bool) -> Iterator.Element? {
-        for x in self where body(x) {
-            return x
-        }
-        return nil
-    }
-}
-
 extension Collection where Iterator.Element : Equatable {
     /// Split around a delimiting subsequence with maximum number of splits == 2
     func split(around delimiter: [Iterator.Element]) -> ([Iterator.Element], [Iterator.Element]?) {
