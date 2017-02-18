@@ -94,6 +94,9 @@ extension JSON {
     public func toBytes(prettyPrint: Bool = false) -> ByteString {
         let stream = BufferedOutputByteStream()
         write(to: stream, indent: prettyPrint ? 0 : nil)
+        if prettyPrint {
+            stream.write("\n")
+        }
         return stream.bytes
     }
     
