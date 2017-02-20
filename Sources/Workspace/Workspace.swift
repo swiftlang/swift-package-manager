@@ -776,9 +776,6 @@ public class Workspace {
         // Load the root manifests.
         let rootManifests = try loadRootManifests()
 
-        // Validate that edited dependencies are still present.
-        try validateEditedPackages()
-
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
@@ -846,6 +843,10 @@ public class Workspace {
     /// - Throws: Rethrows errors from dependency resolution (if required) and package graph loading.
     @discardableResult
     public func loadPackageGraph() throws -> PackageGraph {
+
+        // Validate that edited dependencies are still present.
+        try validateEditedPackages()
+
         // First, load the active manifest sets.
         let currentManifests = try loadDependencyManifests()
 

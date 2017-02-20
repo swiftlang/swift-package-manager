@@ -97,6 +97,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
             }
             let workspace = try getActiveWorkspace()
+            try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
             // Look for the package's manifest.
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
