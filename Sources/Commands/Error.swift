@@ -51,14 +51,23 @@ extension Error: FixableError {
     }
 }
 
-public func handle(error receivedError: Any) -> Never {
-    // If we got AnyError, unwrap it.
-    let error: Any
-    if case let anyError as AnyError = receivedError {
-        error = anyError.underlyingError
-    } else {
-        error = receivedError
+public func handle(error: Any) -> Never {
+
+    switch error {
+
+    // If we got instance of any error, handle the underlying error.
+    case let anyError as AnyError:
+        handle(error: anyError.underlyingError)
+
+    default:
+        handle(error)
     }
+
+    // Exit with non zero exit-code.
+    exit(1)
+}
+
+private func handle(_ error: Any) {
 
     switch error {
     case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
@@ -140,8 +149,6 @@ public func handle(error receivedError: Any) -> Never {
     default:
         print(error: error)
     }
-
-    exit(1)
 }
 
 private func print(error: Any) {
