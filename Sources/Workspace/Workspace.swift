@@ -488,7 +488,7 @@ public class Workspace {
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
         let constraints = computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
-                        + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository }) as [RepositoryPackageConstraint]
+                        + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
                         + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
