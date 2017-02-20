@@ -238,11 +238,16 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implmented by subclasses")
     }
 
-    /// Fetch and load the complete package at the given path.
-    func loadPackage() throws -> PackageGraph {
+    /// Fetch and load the complete package graph.
+    @discardableResult
+    func loadPackageGraph() throws -> PackageGraph {
         let workspace = try getActiveWorkspace()
         // Fetch and load the package graph.
-        return try workspace.loadPackageGraph()
+        let graph = workspace.loadPackageGraph()
+        guard graph.errors.isEmpty else {
+            throw Errors(graph.errors)
+        }
+        return graph
     }
 
     /// Returns the user toolchain.

@@ -71,17 +71,21 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // We repin either on explicit repin option or if autopin is enabled.
             let repin = options.repin || workspace.pinsStore.autoPin
             try workspace.updateDependencies(repin: repin)
+
         case .fetch:
-            _ = try loadPackage()
+            try loadPackageGraph()
 
         case .edit:
             // Make sure we have all the options required for editing the package.
             guard let packageName = options.editOptions.packageName, (options.editOptions.revision != nil || options.editOptions.checkoutBranch != nil) else {
                 throw PackageToolOperationError.insufficientOptions(usage: editUsage)
             }
+
+            // Load the package graph.
+            try loadPackageGraph()
+
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
-            try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Look for the package's manifest.
             guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
@@ -96,8 +100,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             guard let packageName = options.editOptions.packageName else {
                 throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
             }
+
+            // Load the package graph.
+            try loadPackageGraph()
+
             let workspace = try getActiveWorkspace()
-            try workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Look for the package's manifest.
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
@@ -106,7 +113,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.unedit(dependency: editedDependency, forceRemove: options.editOptions.forceRemove)
 
         case .showDependencies:
-            let graph = try loadPackage()
+            let graph = try loadPackageGraph()
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: options.showDepsMode)
 
         case .toolsVersion:
@@ -134,7 +141,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
 
         case .generateXcodeproj:
-            let graph = try loadPackage()
+            let graph = try loadPackageGraph()
 
             let projectName: String
             let dstdir: AbsolutePath
@@ -156,7 +163,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print("generated:", outpath.prettyPath)
 
         case .describe:
-            let graph = try loadPackage()
+            let graph = try loadPackageGraph()
             describe(graph.rootPackages[0].underlyingPackage, in: options.describeMode, on: stdoutStream)
 
         case .dumpPackage:
@@ -175,18 +182,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 let workspace = try getActiveWorkspace()
                 return try workspace.pinsStore.setAutoPin(on: enableAutoPin)
             }
+
+            // Load the package graph.
+            try loadPackageGraph()
+
             // Pin all dependencies if requested.
             if options.pinOptions.pinAll {
-                let workspace = try getActiveWorkspace()
-                return try workspace.pinAll()
+                return try getActiveWorkspace().pinAll()
             }
             // Ensure we have the package name at this point.
             guard let packageName = options.pinOptions.packageName else {
                 throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
             }
             let workspace = try getActiveWorkspace()
-            // Load the package graph.
-            try workspace.loadPackageGraph()
             // Load the dependencies.
             let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Lookup the dependency to pin.
@@ -204,6 +212,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 at: options.pinOptions.version.flatMap(Version.init(string:)) ?? dependency.currentVersion!,
                 reason: options.pinOptions.message
             )
+
         case .unpin:
             guard let packageName = options.pinOptions.packageName else {
                 fatalError("Expected package name from parser")

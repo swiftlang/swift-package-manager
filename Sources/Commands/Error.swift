@@ -52,7 +52,6 @@ extension Error: FixableError {
 }
 
 public func handle(error: Any) -> Never {
-
     switch error {
 
     // If we got instance of any error, handle the underlying error.
@@ -66,14 +65,15 @@ public func handle(error: Any) -> Never {
         }
 
     default:
-        handle(error)
+        _handle(error)
     }
 
     // Exit with non zero exit-code.
     exit(1)
 }
 
-private func handle(_ error: Any) {
+// The name has underscore because of SR-4015.
+private func _handle(_ error: Any) {
 
     switch error {
     case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):

@@ -31,7 +31,7 @@ class PackageGraphTests: XCTestCase {
           "/Overrides.xcconfig"
       )
 
-        let g = try loadMockPackageGraph([
+        let g = loadMockPackageGraph([
             "/Foo": Package(name: "Foo"),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", in: fs)
@@ -120,7 +120,7 @@ class PackageGraphTests: XCTestCase {
           "/Bar/Sources/Sea2/Sea2.c",
           "/Bar/Sources/swift/main.swift"
       )
-      let g = try loadMockPackageGraph([
+      let g = loadMockPackageGraph([
           "/Bar": Package(name: "Bar", targets: [Target(name: "swift", dependencies: ["Sea", "Sea2"])]),
       ], root: "/Bar", in: fs)
       let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
@@ -152,7 +152,7 @@ class PackageGraphTests: XCTestCase {
             "/Pkg/Tests/LibraryTests/aTest.swift"
         )
         
-        let g = try loadMockPackageGraph([
+        let g = loadMockPackageGraph([
             "/Pkg": Package(name: "Pkg", targets: [Target(name: "LibraryTests", dependencies: ["Library", "HelperTool"])]),
             ], root: "/Pkg", in: fs)
         

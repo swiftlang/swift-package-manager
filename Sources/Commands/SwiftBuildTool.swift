@@ -32,7 +32,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
             checkClangVersion()
           #endif
-            let graph = try loadPackage()
+
+            let graph = try loadPackageGraph()
             // If we don't have any modules in root package, we're done.
             guard !graph.rootPackages[0].modules.isEmpty else { break }
             try build(graph: graph, includingTests: options.buildTests, config: options.config)

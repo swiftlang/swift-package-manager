@@ -29,7 +29,7 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Tests/BazTests/source.swift"
         )
 
-        let g = try loadMockPackageGraph([
+        let g = loadMockPackageGraph([
             "/Foo": Package(name: "Foo", targets: [Target(name: "Foo", dependencies: ["FooDep"])]),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
@@ -51,7 +51,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar/source.swift"
         )
 
-        let g = try loadMockPackageGraph4([
+        let g = loadMockPackageGraph4([
             "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", targets: ["Bar"])]),
             "/Foo": .init(
                 name: "Foo",
@@ -73,15 +73,17 @@ class PackageGraphTests: XCTestCase {
             "/Baz/source.swift"
         )
 
-        do {
-            _ = try loadMockPackageGraph([
-                "/Foo": Package(name: "Foo", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
-                "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Baz", majorVersion: 1)]),
-                "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
-            ], root: "/Foo", in: fs)
-        } catch PackageGraphError.cycleDetected(let cycle) {
+        let graph = loadMockPackageGraph([
+            "/Foo": Package(name: "Foo", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+            "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Baz", majorVersion: 1)]),
+            "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+        ], root: "/Foo", in: fs)
+
+        switch graph.errors[0] {
+        case PackageGraphError.cycleDetected(let cycle):
             XCTAssertEqual(cycle.path.map {$0.name}, ["Foo"])
             XCTAssertEqual(cycle.cycle.map {$0.name}.sorted(), ["Bar", "Baz"])
+        default: XCTFail()
         }
     }
 
@@ -95,7 +97,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Tests/BarTests/source.swift"
         )
 
-        let g = try loadMockPackageGraph([
+        let g = loadMockPackageGraph([
             "/Foo": Package(name: "Foo", targets: [Target(name: "SomeTests", dependencies: ["Foo"])]),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", in: fs)
@@ -113,16 +115,17 @@ class PackageGraphTests: XCTestCase {
             "/Bar/source.swift"
         )
 
-        do {
-            let g = try loadMockPackageGraph([
-                "/Foo": Package(name: "Foo"),
-                "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
-            ], root: "/Bar", in: fs)
-            XCTFail("Unexpected graph \(g)")
-        } catch ModuleError.duplicateModule(let module) {
-            XCTAssertEqual(module, "Bar")
-        }
+        let g = loadMockPackageGraph([
+            "/Foo": Package(name: "Foo"),
+            "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
+        ], root: "/Bar", in: fs)
 
+        switch g.errors[0] {
+        case ModuleError.duplicateModule(let module):
+            XCTAssertEqual(module, "Bar")
+        default:
+            XCTFail("Unexpected graph \(g)")
+        }
     }
 
     static var allTests = [

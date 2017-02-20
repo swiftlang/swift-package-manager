@@ -33,8 +33,12 @@ public struct PackageGraph {
         return rootPackages.flatMap{$0.modules}.contains(module)
     }
 
+    /// The errors encountered while loading the package graph.
+    public let errors: [Swift.Error]
+
     /// Construct a package graph directly.
-    public init(rootPackages: [ResolvedPackage]) {
+    public init(rootPackages: [ResolvedPackage], errors: [Swift.Error] = []) {
+        self.errors = errors
         self.rootPackages = rootPackages
         self.packages = try! topologicalSort(rootPackages, successors: { $0.dependencies })
 

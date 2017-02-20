@@ -552,8 +552,6 @@ public class Workspace {
         if reset {
             try pinsStore.unpinAll()
         }
-        // Load the package graph
-        _ = try loadPackageGraph()
         // Load the dependencies.
         let dependencyManifests = try loadDependencyManifests(loadRootManifests())
         // Start pinning each dependency.
@@ -736,8 +734,16 @@ public class Workspace {
         }
     }
 
-    /// Updates the current working checkouts i.e. clone or remove based on the provided dependency resolution result.
-    private func updateCheckouts(with updateResults: [(RepositorySpecifier, BoundVersion)]) throws {
+    /// Updates the current working checkouts i.e. clone or remove based on the
+    /// provided dependency resolution result.
+    ///
+    /// - Parameters:
+    ///   - updateResults: The updated results from dependency resolution.
+    ///   - ignoreRemovals: Do not remove any checkouts.
+    private func updateCheckouts(
+        with updateResults: [(RepositorySpecifier, BoundVersion)],
+        ignoreRemovals: Bool = false
+    ) throws {
         // Get the update package states from resolved results.
         let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults)
         // Update or clone new packages.
@@ -747,7 +753,10 @@ public class Workspace {
                 _ = try clone(specifier: specifier, version: version)
             case .updated(_, let version):
                 _ = try clone(specifier: specifier, version: version)
-            case .removed: try remove(specifier: specifier)
+            case .removed: 
+                if !ignoreRemovals {
+                    try remove(specifier: specifier)
+                }
             case .unchanged: break
             }
         }
@@ -869,6 +878,7 @@ public class Workspace {
         }
     }
 
+
     /// Fetch and load the complete package at the given path.
     ///
     /// This will implicitly cause any dependencies not yet present in the
@@ -881,15 +891,21 @@ public class Workspace {
     /// consistent command line development experience.
     ///
     /// - Returns: The loaded package graph.
-    /// - Throws: Rethrows errors from dependency resolution (if required) and package graph loading.
     @discardableResult
-    public func loadPackageGraph() throws -> PackageGraph {
+    public func loadPackageGraph() -> PackageGraph {
 
-        // Validate that edited dependencies are still present.
-        try validateEditedPackages()
+        var errors: [Swift.Error] = []
+
+        do {
+            // Validate that edited dependencies are still present.
+            try validateEditedPackages()
+        } catch {
+            errors.append(error)
+        }
 
         // Load the root manifests.
-        let rootManifests = try loadRootManifests()
+        let (rootManifests, rootManifestErrors) = loadRootManifestsSafely()
+        errors += rootManifestErrors
 
         // Load the active manifest sets.
         let currentManifests = loadDependencyManifests(rootManifests)
@@ -898,7 +914,12 @@ public class Workspace {
         let missingURLs = currentManifests.missingURLs()
         if missingURLs.isEmpty {
             // If not, we are done.
-            return try PackageGraphLoader().load(rootManifests: currentManifests.roots, externalManifests: currentManifests.dependencies.map{$0.manifest}, fileSystem: fileSystem)
+            return PackageGraphLoader().load(
+                rootManifests: currentManifests.roots,
+                externalManifests: currentManifests.dependencies.map{$0.manifest},
+                errors: errors,
+                fileSystem: fileSystem
+            )
         }
 
         // If so, we need to resolve and fetch them. Start by informing the
@@ -909,22 +930,34 @@ public class Workspace {
         let constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
                         + currentManifests.createConstraints(pinsStore: pinsStore)
 
-        // Perform dependency resolution.
-        let result = try resolveDependencies(constraints: constraints)
+        do {
+            // Perform dependency resolution.
+            let result = try resolveDependencies(constraints: constraints)
 
-        // Update the checkouts with dependency resolution result.
-        try updateCheckouts(with: result)
+            // Update the checkouts with dependency resolution result.
+            //
+            // We ignore the removals if errors are not empty because otherwise
+            // we might end up removing checkouts due to missing constraints.
+            try updateCheckouts(with: result, ignoreRemovals: !errors.isEmpty)
 
-        // If autopin is enabled, reset and pin everything.
-        if pinsStore.autoPin {
-            try pinAll(reset: true)
+            // If autopin is enabled, reset and pin everything.
+            if pinsStore.autoPin {
+                try pinAll(reset: true)
+            }
+        } catch {
+            errors.append(error)
         }
 
         // Load the updated manifests.
         let externalManifests = loadDependencyManifests(rootManifests).dependencies.map{$0.manifest}
 
         // We've loaded the complete set of manifests, load the graph.
-        return try PackageGraphLoader().load(rootManifests: currentManifests.roots, externalManifests: externalManifests, fileSystem: fileSystem)
+        return PackageGraphLoader().load(
+            rootManifests: currentManifests.roots,
+            externalManifests: externalManifests,
+            errors: errors,
+            fileSystem: fileSystem
+        )
     }
 
     /// Removes the clone and checkout of the provided specifier.

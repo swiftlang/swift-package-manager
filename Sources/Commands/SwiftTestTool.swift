@@ -123,7 +123,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackage()
+        let graph = try loadPackageGraph()
         if options.buildTests {
             try build(graph: graph, includingTests: true, config: options.config)
         }
