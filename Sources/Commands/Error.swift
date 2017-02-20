@@ -59,6 +59,12 @@ public func handle(error: Any) -> Never {
     case let anyError as AnyError:
         handle(error: anyError.underlyingError)
 
+    // Handle each of the error from Errors structure.
+    case let errors as Errors:
+        for error in errors.errors {
+            handle(error: error)
+        }
+
     default:
         handle(error)
     }

@@ -224,6 +224,51 @@ public class Workspace {
             return lookup(package: name)?.manifest
         }
 
+        /// Returns constraints based on the dependencies.
+        ///
+        /// Versioned constraints are not added for dependencies present in the pins store.
+        func createConstraints(pinsStore: PinsStore) -> [RepositoryPackageConstraint] {
+            var constraints: [RepositoryPackageConstraint] = []
+            for (externalManifest, managedDependency) in dependencies {
+                let specifier = RepositorySpecifier(url: externalManifest.url)
+
+                if managedDependency.isInEditableState {
+                    // Create unversioned constraints for editable dependencies.
+                    let dependencies = externalManifest.package.dependencies.map{
+                        RepositoryPackageConstraint(
+                            container: RepositorySpecifier(url: $0.url),
+                            versionRequirement: .range($0.versionRange.asUtilityVersion))
+                    }
+
+                    constraints.append(
+                        RepositoryPackageConstraint(
+                            container: specifier, requirement: .unversioned(dependencies)))
+
+                } else if let version = managedDependency.currentVersion {
+                    // If this specifier is pinned, we should already have it
+                    // checked out at that version. We also don't need to add
+                    // the constraint again.
+                    if let pin = pinsStore.pinsMap[externalManifest.name] {
+                        assert(version == pin.version)
+                        continue
+                    }
+                    // If we know the manifest is at a particular version, use that.
+                    //
+                    // FIXME: This backfires in certain cases when the
+                    // graph is resolvable but this constraint makes the
+                    // resolution unsatisfiable.
+                    constraints.append(
+                        RepositoryPackageConstraint(
+                            container: specifier, versionRequirement: .exact(version)))
+                } else {
+                    // FIXME: Otherwise, we need to be able to constraint
+                    // precisely to the revision we have.
+                    fatalError("FIXME: Unimplemented.")
+                }
+            }
+            return constraints
+        }
+
         init(roots: [Manifest], dependencies: [(Manifest, ManagedDependency)]) {
             self.roots = roots
             self.dependencies = dependencies
@@ -510,7 +555,7 @@ public class Workspace {
         // Load the package graph
         _ = try loadPackageGraph()
         // Load the dependencies.
-        let dependencyManifests = try loadDependencyManifests()
+        let dependencyManifests = try loadDependencyManifests(loadRootManifests())
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
             // Get package name.
@@ -641,7 +686,7 @@ public class Workspace {
 
     /// Updates the current dependencies.
     public func updateDependencies(repin: Bool = false) throws {
-        let currentManifests = try loadDependencyManifests()
+        let currentManifests = try loadDependencyManifests(loadRootManifests())
 
         // Create constraints based on root manifest and pins for the update resolution.
         var updateConstraints = computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
@@ -770,11 +815,7 @@ public class Workspace {
     ///
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
-    ///
-    /// Throws: If the root manifest could not be loaded.
-    public func loadDependencyManifests() throws -> DependencyManifests {
-        // Load the root manifests.
-        let rootManifests = try loadRootManifests()
+    public func loadDependencyManifests(_ rootManifests: [Manifest]) -> DependencyManifests {
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
@@ -847,8 +888,11 @@ public class Workspace {
         // Validate that edited dependencies are still present.
         try validateEditedPackages()
 
-        // First, load the active manifest sets.
-        let currentManifests = try loadDependencyManifests()
+        // Load the root manifests.
+        let rootManifests = try loadRootManifests()
+
+        // Load the active manifest sets.
+        let currentManifests = loadDependencyManifests(rootManifests)
 
         // Look for any missing URLs.
         let missingURLs = currentManifests.missingURLs()
@@ -861,71 +905,23 @@ public class Workspace {
         // delegate of what is happening.
         delegate.fetchingMissingRepositories(missingURLs)
 
-        // First, add the root package constraints.
-        var constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
+        // Add constraints from the root packages and the current manifests.
+        let constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
+                        + currentManifests.createConstraints(pinsStore: pinsStore)
 
-        // Add constraints to pin to *exactly* all the checkouts we have.
-        for (externalManifest, managedDependency) in currentManifests.dependencies {
-            let specifier = RepositorySpecifier(url: externalManifest.url)
-
-            if managedDependency.isInEditableState {
-                let dependencies = externalManifest.package.dependencies.map{
-                    RepositoryPackageConstraint(
-                        container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
-                }
-                constraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
-            } else if let version = managedDependency.currentVersion {
-                // If this specifier is pinned, we should already have it checked out at that version.
-                // We also don't need to add the constraint again.
-                if let pin = pinsStore.pinsMap[externalManifest.name] {
-                    assert(version == pin.version)
-                    continue
-                }
-                // If we know the manifest is at a particular version, use that.
-                // FIXME: This backfires in certain cases when the graph is resolvable but this constraint makes the resolution unsatisfiable.
-                constraints.append(RepositoryPackageConstraint(container: specifier, versionRequirement: .exact(version)))
-            } else {
-                // FIXME: Otherwise, we need to be able to constraint precisely to the revision we have.
-                fatalError("FIXME: Unimplemented.")
-            }
-        }
-
-        // Perform dependency resolution using the constraint set induced by the active checkouts.
+        // Perform dependency resolution.
         let result = try resolveDependencies(constraints: constraints)
-        let packageStateChanges = computePackageStateChanges(resolvedDependencies: result)
 
-        // Create a checkout for each of the resolved versions.
-        //
-        // FIXME: We are not validating that the resulting solution includes
-        // everything we already have... this can't be the case given the way we
-        // currently provide constraints, but if we provided only the root and
-        // then the restrictions (to the current assignment) it would be
-        // possible.
-        var externalManifests = currentManifests.dependencies.map{$0.manifest}
-        for (specifier, state) in packageStateChanges {
-            switch state {
-            case .added(let version):
-                let path = try clone(specifier: specifier, version: version)
-
-                // Load the manifest.
-                let toolsVersion = try! toolsVersionLoader.load(at: path, fileSystem: localFileSystem)
-                let manifest = try! manifestLoader.load(
-                    package: path, baseURL: specifier.url, version: version, manifestVersion: toolsVersion.manifestVersion)
-
-                externalManifests.append(manifest)
-            case .updated(_):
-                // FIXME: Issue suitable diagnostics for cases where an
-                // update is needed, or cases where the range is invalid.
-                fatalError("unexpected dependency resolution result")
-            case .removed: try remove(specifier: specifier)
-            case .unchanged: break
-            }
-        }
+        // Update the checkouts with dependency resolution result.
+        try updateCheckouts(with: result)
 
         // If autopin is enabled, reset and pin everything.
         if pinsStore.autoPin {
             try pinAll(reset: true)
         }
+
+        // Load the updated manifests.
+        let externalManifests = loadDependencyManifests(rootManifests).dependencies.map{$0.manifest}
 
         // We've loaded the complete set of manifests, load the graph.
         return try PackageGraphLoader().load(rootManifests: currentManifests.roots, externalManifests: externalManifests, fileSystem: fileSystem)
@@ -968,13 +964,22 @@ public class Workspace {
         try saveState()
     }
 
-    /// Loads and returns the root manifests.
+    /// Loads and returns the root manifests, if all manifests are loaded successfully.
     public func loadRootManifests() throws -> [Manifest] {
+        let (manifests, errors) = loadRootManifestsSafely()
+        guard errors.isEmpty else {
+            throw Errors(errors)
+        }
+        return manifests
+    }
+
+    /// Loads root manifests and returns the manifests and errors encountered during loading.
+    public func loadRootManifestsSafely() -> (manifests: [Manifest], errors: [Swift.Error]) {
         // Ensure we have at least one registered root package path.
         guard rootPackages.count > 0 else {
-            throw WorkspaceOperationError.noRegisteredPackages
+            return ([], [WorkspaceOperationError.noRegisteredPackages])
         }
-        return try rootPackages.map {
+        return rootPackages.safeMap {
             let toolsVersion = try toolsVersionLoader.load(at: $0, fileSystem: fileSystem)
             guard currentToolsVersion >= toolsVersion else {
                 throw WorkspaceOperationError.incompatibleToolsVersion(rootPackage: $0, required: toolsVersion, current: currentToolsVersion)
@@ -1072,5 +1077,42 @@ extension Revision {
     init?(json: JSON) {
         guard case .string(let str) = json else { return nil }
         self.init(identifier: str)
+    }
+}
+
+// FIXME: Lift these to Basic once proven useful.
+
+/// A wrapper for holding multiple errors.
+public struct Errors: Swift.Error {
+
+    /// The errors contained in this structure.
+    public let errors: [Swift.Error]
+
+    /// Create an instance with given array of errors.
+    public init(_ errors: [Swift.Error]) {
+        self.errors = errors
+    }
+}
+
+extension Collection {
+
+    /// Transform each element with the given transform closure and collects
+    /// any errors thrown while transforming.
+    ///
+    /// - Parameter transform: The transformation closure that will be applied to each element.
+    /// - Returns: A tuple containing transformed elements and errors encountered during 
+    ///     transformation.
+    func safeMap<T>(_ transform: (Iterator.Element) throws -> T) -> ([T], [Swift.Error]) {
+        var result: [T] = []
+        var errors: [Swift.Error] = []
+
+        for item in self {
+            do {
+                try result.append(transform(item))
+            } catch {
+                errors.append(error)
+            }
+        }
+        return (result, errors)
     }
 }

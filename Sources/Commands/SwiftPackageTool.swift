@@ -82,7 +82,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
             try workspace.loadPackageGraph()
-            let manifests = try workspace.loadDependencyManifests()
+            let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Look for the package's manifest.
             guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
@@ -98,7 +98,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
             let workspace = try getActiveWorkspace()
             try workspace.loadPackageGraph()
-            let manifests = try workspace.loadDependencyManifests()
+            let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Look for the package's manifest.
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
                 throw PackageToolOperationError.packageNotFound
@@ -186,9 +186,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
             let workspace = try getActiveWorkspace()
             // Load the package graph.
-            _ = try workspace.loadPackageGraph()
+            try workspace.loadPackageGraph()
             // Load the dependencies.
-            let manifests = try workspace.loadDependencyManifests()
+            let manifests = try workspace.loadDependencyManifests(workspace.loadRootManifests())
             // Lookup the dependency to pin.
             guard let (_, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound

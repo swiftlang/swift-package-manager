@@ -63,14 +63,11 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 }
 
 extension Workspace {
-    static func createWith(rootPackage path: AbsolutePath) throws -> Workspace {
-        return try createWith(rootPackage: path, manifestLoader: sharedManifestLoader, delegate: TestWorkspaceDelegate())
-    }
 
     static func createWith(
         rootPackage path: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol,
-        delegate: WorkspaceDelegate,
+        manifestLoader: ManifestLoaderProtocol = sharedManifestLoader,
+        delegate: WorkspaceDelegate = TestWorkspaceDelegate(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider()
     ) throws -> Workspace {
@@ -85,6 +82,10 @@ extension Workspace {
             repositoryProvider: repositoryProvider)
         workspace.registerPackage(at: path)
         return workspace
+    }
+
+    func loadDependencyManifests() throws -> DependencyManifests {
+        return try loadDependencyManifests(loadRootManifests())
     }
 }
 
@@ -1212,13 +1213,23 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = try createWorkspace()
                 _ = try workspace.loadDependencyManifests()
                 XCTFail("unexpected success")
-            } catch WorkspaceOperationError.noRegisteredPackages {}
+            } catch let errors as Errors {
+                switch errors.errors[0] {
+                case WorkspaceOperationError.noRegisteredPackages: break
+                default: XCTFail()
+                }
+            }
 
             do {
                 let workspace = try createWorkspace()
                 _ = try workspace.loadPackageGraph()
                 XCTFail("unexpected success")
-            } catch WorkspaceOperationError.noRegisteredPackages {}
+            } catch let errors as Errors {
+                switch errors.errors[0] {
+                case WorkspaceOperationError.noRegisteredPackages: break
+                default: XCTFail()
+                }
+            }
 
             // Throw if we try to unregister a path which doesn't exists in workspace.
             let fakePath = path.appending(component: "fake")
@@ -1434,10 +1445,36 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
             _ = try workspace.loadPackageGraph()
             XCTFail()
-        } catch WorkspaceOperationError.incompatibleToolsVersion(let rootPackage, let required, let current) {
-            XCTAssertEqual(rootPackage, roots[1])
-            XCTAssertEqual(required.description, "4.0.0")
-            XCTAssertEqual(current.description, "3.1.0")
+        } catch let errors as Errors {
+            switch errors.errors[0] {
+            case WorkspaceOperationError.incompatibleToolsVersion(let rootPackage, let required, let current):
+                XCTAssertEqual(rootPackage, roots[1])
+                XCTAssertEqual(required.description, "4.0.0")
+                XCTAssertEqual(current.description, "3.1.0")
+            default: XCTFail()
+            }
+        }
+    }
+
+    func testLoadingRootManifests() {
+        mktmpdir{ path in
+            let roots: [AbsolutePath] = ["root0", "root1", "root2"].map(path.appending(component:))
+            for root in roots {
+                try localFileSystem.createDirectory(root)
+            }
+
+            try localFileSystem.writeFileContents(roots[2].appending(components: Manifest.filename)) { stream in
+                stream <<< "import PackageDescription" <<< "\n"
+                stream <<< "let package = Package(name: \"root0\")"
+            }
+
+            let workspace = try Workspace.createWith(rootPackage: roots[0])
+            workspace.registerPackage(at: roots[1])
+            workspace.registerPackage(at: roots[2])
+
+            let (manifests, errors) = workspace.loadRootManifestsSafely()
+            XCTAssertEqual(manifests.count, 1)
+            XCTAssertEqual(errors.count, 2)
         }
     }
 
@@ -1463,6 +1500,7 @@ final class WorkspaceTests: XCTestCase {
         ("testWarnings", testWarnings),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
+        ("testLoadingRootManifests", testLoadingRootManifests),
     ]
 }
 
