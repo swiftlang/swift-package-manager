@@ -23,7 +23,8 @@ class GenerateXcodeprojTests: XCTestCase {
         mktmpdir { dstdir in
             let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/DummyModuleName/source.swift")
 
-            let graph = try loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", in: fileSystem)
+            let graph = loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", in: fileSystem)
+            XCTAssertTrue(graph.errors.isEmpty)
 
             let projectName = "DummyProjectName"
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
@@ -47,7 +48,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
     func testXcconfigOverrideValidatesPath() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
-        let graph = try loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
+        let graph = loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
@@ -65,7 +66,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let moduleName = "Modules"
         let warningStream = BufferedOutputByteStream()
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/\(moduleName)/example.swift")
-        let graph = try loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", in: fileSystem)
+        let graph = loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", in: fileSystem)
 
         _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                              graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem,

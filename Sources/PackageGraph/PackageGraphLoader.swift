@@ -61,16 +61,26 @@ public struct PackageGraphLoader {
     public init() { }
 
     /// Load the package graph for the given package path.
-    public func load(rootManifests: [Manifest], externalManifests: [Manifest], fileSystem: FileSystem = localFileSystem) throws -> PackageGraph {
+    public func load(
+        rootManifests: [Manifest],
+        externalManifests: [Manifest],
+        errors: [Swift.Error] = [],
+        fileSystem: FileSystem = localFileSystem
+    ) -> PackageGraph {
+        var errors = errors
+
+        let allManifests: [Manifest]
         let rootManifestSet = Set(rootManifests)
         // Manifest url to manifest map.
         let manifestURLMap: [String: Manifest] = Dictionary(items: (externalManifests + rootManifests).map { ($0.url, $0) })
         // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(rootManifests, successors: { $0.package.dependencies.map{ manifestURLMap[$0.url]! } }) {
-            throw PackageGraphError.cycleDetected(cycle)
+        if let cycle = findCycle(rootManifests, successors: { $0.package.dependencies.flatMap{ manifestURLMap[$0.url] } }) {
+            errors.append(PackageGraphError.cycleDetected(cycle))
+            allManifests = rootManifests
+        } else {
+            // Sort all manifests toplogically.
+            allManifests = try! topologicalSort(rootManifests) { $0.package.dependencies.flatMap{ manifestURLMap[$0.url] } }
         }
-        // Sort all manifests toplogically.
-        let allManifests = try! topologicalSort(rootManifests) { $0.package.dependencies.map{ manifestURLMap[$0.url]! } }
 
         // Create the packages and convert to modules.
         var manifestToPackage: [Manifest: Package] = [:]
@@ -85,31 +95,54 @@ public struct PackageGraphLoader {
             // Create a package from the manifest and sources.
             let builder = PackageBuilder(
                 manifest: manifest, path: packagePath, fileSystem: fileSystem, createImplicitProduct: !isRootPackage)
-            let package = try builder.construct()
-            manifestToPackage[manifest] = package
-            
-            // Throw if any of the non-root package is empty.
-            if package.modules.isEmpty && !isRootPackage {
-                throw PackageGraphError.noModules(package)
+
+            do {
+                let package = try builder.construct()
+                manifestToPackage[manifest] = package
+                
+                // Throw if any of the non-root package is empty.
+                if package.modules.isEmpty && !isRootPackage {
+                    throw PackageGraphError.noModules(package)
+                }
+            } catch {
+                errors.append(error)
             }
         }
+
         // Resolve dependencies and create resolved packages.
-        let resolvedPackages = try createResolvedPackages(allManifests: allManifests, manifestToPackage: manifestToPackage)
+        let (resolvedPackages, resolvingErrors) = createResolvedPackages(
+            allManifests: allManifests, manifestToPackage: manifestToPackage)
+
+        errors += resolvingErrors
+
         // Filter out the root packages.
         let resolvedRootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-        return PackageGraph(rootPackages: resolvedRootPackages)
+        return PackageGraph(rootPackages: resolvedRootPackages, errors: errors)
     }
 }
 
 /// Create resolved packages from the loaded packages.
-private func createResolvedPackages(allManifests: [Manifest], manifestToPackage: [Manifest: Package]) throws -> [ResolvedPackage] {
-    var packageURLMap: [String: ResolvedPackage] = [:]
-    // Resolve each package in reverse topological order of their manifest.
-    return try allManifests.lazy.reversed().map { manifest in
-        let package = manifestToPackage[manifest]!
+private func createResolvedPackages(
+    allManifests: [Manifest],
+    manifestToPackage: [Manifest: Package]
+) -> (resolvedPackages: [ResolvedPackage], errors: [Swift.Error]) {
 
-        // Get all the external dependencies of this package.
-        let dependencies = manifest.package.dependencies.map{ packageURLMap[$0.url]! }
+    var packageURLMap: [String: ResolvedPackage] = [:]
+
+    var resolvedPackages: [ResolvedPackage] = []
+    var errors: [Swift.Error] = []
+
+    // Resolve each package in reverse topological order of their manifest.
+    for manifest in allManifests.lazy.reversed() {
+        // We might not have a package for this manifest because we couldn't
+        // load it.  So, just skip it.
+        guard let package = manifestToPackage[manifest] else {
+            continue
+        }
+
+        // Get all the external dependencies of this package, ignoring any
+        // dependency we couldn't load.
+        let dependencies = manifest.package.dependencies.flatMap{ packageURLMap[$0.url] }
 
         // Topologically Sort all the local modules in this package.
         let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
@@ -117,7 +150,7 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         // Make sure these module names are unique in the graph.
         let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.flatMap{ $0.name }
         if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map{$0.name}) {
-            throw ModuleError.duplicateModule(duplicateModules.first!)
+            errors.append(ModuleError.duplicateModule(duplicateModules.first!))
         }
 
         // Add system module dependencies directly to the target's dependencies because they are 
@@ -130,7 +163,7 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
 
         // Resolve the modules.
         var moduleToResolved = [Module: ResolvedModule]()
-        let resolvedModules: [ResolvedModule] = try modules.lazy.reversed().map { module in
+        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map { module in
 
             // Get the product dependencies for targets in this package.
             let productDependencies: [ResolvedProduct]
@@ -138,18 +171,20 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
             case .v3:
                 productDependencies = allProducts
             case .v4:
-                productDependencies = try module.productDependencies.map{ 
+                productDependencies = module.productDependencies.flatMap{ 
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
-                        throw PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package)
+                        errors.append(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
+                        return nil
                     }
                     // If package name is mentioned, ensure it is valid.
                     if let packageName = $0.package {
                         // Find the declared package and check that it contains the product we found above.
                         guard let package = dependencies.first(where: { $0.name == packageName }),
                               package.products.contains(product) else {
-                            throw PackageGraphError.productDependencyIncorrectPackage(
-                                name: $0.name, package: packageName)
+                            errors.append(PackageGraphError.productDependencyIncorrectPackage(
+                                name: $0.name, package: packageName))
+                            return nil
                         }
                     }
                     return product
@@ -173,8 +208,9 @@ private func createResolvedPackages(allManifests: [Manifest], manifestToPackage:
         let resolvedPackage = ResolvedPackage(
             package: package, dependencies: dependencies, modules: resolvedModules, products: resolvedProducts)
         packageURLMap[package.manifest.url] = resolvedPackage 
-        return resolvedPackage 
+        resolvedPackages.append(resolvedPackage)
     }
+    return (resolvedPackages, errors)
 }
 
 // FIXME: Possibly lift this to Basic.

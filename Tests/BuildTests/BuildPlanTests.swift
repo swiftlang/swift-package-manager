@@ -47,7 +47,7 @@ final class BuildPlanTests: XCTestCase {
                 Target(name: "exe", dependencies: ["lib"]),
             ]
         )
-        let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph))
  
         result.checkProductsCount(1)
@@ -71,7 +71,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift"
         )
-        let graph = try loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: .release), graph: graph))
 
         result.checkProductsCount(1)
@@ -100,7 +100,7 @@ final class BuildPlanTests: XCTestCase {
                 .Package(url: "/ExtPkg", majorVersion: 1),
             ]
         )
-        let graph = try loadMockPackageGraph(["/Pkg": pkg, "/ExtPkg": Package(name: "ExtPkg")], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": pkg, "/ExtPkg": Package(name: "ExtPkg")], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
  
         result.checkProductsCount(1)
@@ -139,7 +139,7 @@ final class BuildPlanTests: XCTestCase {
                 Target(name: "exe", dependencies: ["lib"]),
             ]
         )
-        let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -164,7 +164,7 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/Foo/foo.swift",
             "/Pkg/Tests/FooTests/foo.swift"
         )
-        let graph = try loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
         result.checkProductsCount(1)
       #if os(macOS)
@@ -198,7 +198,7 @@ final class BuildPlanTests: XCTestCase {
                 .Package(url: "/Clibgit", majorVersion: 1),
             ]
         )
-        let graph = try loadMockPackageGraph(["/Pkg": pkg, "/Clibgit": Package(name: "Clinbgit")], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": pkg, "/Clibgit": Package(name: "Clinbgit")], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
@@ -219,7 +219,7 @@ final class BuildPlanTests: XCTestCase {
                 Target(name: "exe", dependencies: ["lib"]),
             ]
         )
-        let graph = try loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -238,7 +238,7 @@ final class BuildPlanTests: XCTestCase {
             "/Bar/source.swift"
         )
 
-        let g = try loadMockPackageGraph4([
+        let g = loadMockPackageGraph4([
             "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", type: .dynamic, targets: ["Bar"])]),
             "/Foo": .init(
                 name: "Foo",
@@ -286,7 +286,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             foo.compatibleSwiftVersions = nil
             let version = ToolsVersion(version: "4.0.0")
-            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
             let result = BuildPlanResult(plan:
                 try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs))
             result.checkProductsCount(1)
@@ -297,7 +297,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             foo.compatibleSwiftVersions = [3, 4, 5]
             let version = ToolsVersion(version: "4.0.0")
-            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
             let result = BuildPlanResult(plan:
                 try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs))
             result.checkProductsCount(1)
@@ -308,7 +308,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             foo.compatibleSwiftVersions = [3, 5]
             let version = ToolsVersion(version: "4.0.0")
-            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
+            let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
 
             do {
                 _ = try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs)
@@ -326,7 +326,7 @@ final class BuildPlanTests: XCTestCase {
                 name: "Bar",
                 compatibleSwiftVersions: [3])
             let version = ToolsVersion(version: "4.0.0")
-            let graph = try loadMockPackageGraph(["/Foo": foo, "/Bar": bar], root: "/Foo", in: fs)
+            let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": bar], root: "/Foo", in: fs)
 
             do {
                 _ = try BuildPlan(buildParameters: mockBuildParameters(version), graph: graph, fileSystem: fs)
