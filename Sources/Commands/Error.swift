@@ -134,7 +134,7 @@ private func _handle(_ error: Any) {
         print(error: errorString)
 
     case PackageToolOperationError.insufficientOptions(let usage):
-        stderrStream <<< usage <<< "\n"
+        print(error: usage)
         
     case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
         print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
