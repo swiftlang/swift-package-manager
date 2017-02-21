@@ -84,7 +84,7 @@ let package = Package(
         Target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "Xcodeproj"]),
+            dependencies: ["Basic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
         

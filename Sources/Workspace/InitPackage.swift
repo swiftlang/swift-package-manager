@@ -1,68 +1,64 @@
 /*
  This source file is part of the Swift.org open source project
-
+ 
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
-
+ 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basic
 import PackageModel
 
-private extension FileSystem {
-    /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
-        let contents = BufferedOutputByteStream()
-        body(contents)
-        try createDirectory(path.parentDirectory, recursive: true)
-        try writeFileContents(path, bytes: contents.bytes)
-    }
-}
-
-private enum InitError: Swift.Error {
-    case manifestAlreadyExists
-}
-
-extension InitError: CustomStringConvertible {
-    var description: String {
-        switch self {
-        case .manifestAlreadyExists:
-            return "a manifest file already exists in this directory"
+/// Create an initial template package.
+public final class InitPackage {
+    /// Represents a package type for the purposes of initialization.
+    public enum PackageType: String, CustomStringConvertible {
+        case empty = "empty"
+        case library = "library"
+        case executable = "executable"
+        case systemModule = "system-module"
+        
+        public var description: String {
+            return rawValue
         }
     }
-}
-
-/// Create an initial template package.
-final class InitPackage {
-    let rootd = currentWorkingDirectory
-
-    /// The mode in use.
-    let mode: InitMode
-
-    /// The name of the example package to create.
+    
+    /// A block that will be called to report progress during package creation
+    public var progressReporter: ((String) -> Void)?
+    
+    /// Where to crerate the new package
+    let destinationPath: AbsolutePath
+    
+    /// The type of package to create.
+    let packageType: PackageType
+    
+    /// The name of the package to create.
     let pkgname: String
-
-    /// The name of the example module to create.
+    
+    /// The name of the module to create.
     var moduleName: String
-
-    /// The name of the example type to create (within the package).
+    
+    /// The name of the type to create (within the package).
     var typeName: String {
         return moduleName
     }
     
-    init(mode: InitMode) throws {
-        self.mode = mode
-        let dirname = rootd.basename
+    /// Create an instance that can create a package of the given packageType at the given destinationPath
+    public init(destinationPath: AbsolutePath, packageType: PackageType) throws {
+        self.packageType = packageType
+        self.destinationPath = destinationPath
+        let dirname = destinationPath.basename
         assert(!dirname.isEmpty)  // a base name is never empty
         self.pkgname = dirname
         self.moduleName = dirname.mangledToC99ExtendedIdentifier()
     }
-    
-    func writePackageStructure() throws {
-        print("Creating \(mode) package: \(pkgname)")
 
+    /// Actually creates the new package at the destinationPath
+    public func writePackageStructure() throws {
+        progressReporter?("Creating \(packageType) package: \(pkgname)")
+        
         // FIXME: We should form everything we want to write, then validate that
         // none of it exists, and then act.
         try writeManifestFile()
@@ -71,18 +67,18 @@ final class InitPackage {
         try writeModuleMap()
         try writeTests()
     }
-
+    
     private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
-        print("Creating \(path.relative(to: rootd).asString)")
+        progressReporter?("Creating \(path.relative(to: destinationPath).asString)")
         try localFileSystem.writeFileContents(path, body: body)
     }
     
     private func writeManifestFile() throws {
-        let manifest = rootd.appending(component: Manifest.filename)
+        let manifest = destinationPath.appending(component: Manifest.filename)
         guard exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
-
+        
         try writePackageFile(manifest) { stream in
             stream <<< "\nimport PackageDescription\n"
             stream <<< "\n"
@@ -90,23 +86,23 @@ final class InitPackage {
             stream <<< "    name: \"\(pkgname)\"\n"
             stream <<< ")\n"
         }
-
+        
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
         let version = ToolsVersion.currentToolsVersion.zeroedPatch
-
+        
         // Write the current tools version.
         try writeToolsVersion(
             at: manifest.parentDirectory, version: version, fs: &localFileSystem)
     }
     
     private func writeGitIgnore() throws {
-        let gitignore = rootd.appending(component: ".gitignore")
+        let gitignore = destinationPath.appending(component: ".gitignore")
         guard exists(gitignore) == false else {
             return
-        } 
-    
+        }
+        
         try writePackageFile(gitignore) { stream in
             stream <<< ".DS_Store\n"
             stream <<< "/.build\n"
@@ -116,25 +112,25 @@ final class InitPackage {
     }
     
     private func writeSources() throws {
-        if mode == .systemModule {
+        if packageType == .systemModule {
             return
         }
-        let sources = rootd.appending(component: "Sources")
+        let sources = destinationPath.appending(component: "Sources")
         guard exists(sources) == false else {
             return
         }
-        print("Creating \(sources.relative(to: rootd).asString)/")
+        progressReporter?("Creating \(sources.relative(to: destinationPath).asString)/")
         try makeDirectories(sources)
-
-        if mode == .empty {
+        
+        if packageType == .empty {
             return
         }
-
-        let sourceFileName = (mode == .executable) ? "main.swift" : "\(typeName).swift"
+        
+        let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
-
+        
         try writePackageFile(sourceFile) { stream in
-            switch mode {
+            switch packageType {
             case .library:
                 stream <<< "struct \(typeName) {\n\n"
                 stream <<< "    var text = \"Hello, World!\"\n"
@@ -148,10 +144,10 @@ final class InitPackage {
     }
     
     private func writeModuleMap() throws {
-        if mode != .systemModule {
+        if packageType != .systemModule {
             return
         }
-        let modulemap = rootd.appending(component: "module.modulemap")
+        let modulemap = destinationPath.appending(component: "module.modulemap")
         guard exists(modulemap) == false else {
             return
         }
@@ -166,18 +162,18 @@ final class InitPackage {
     }
     
     private func writeTests() throws {
-        if mode == .systemModule {
+        if packageType == .systemModule {
             return
         }
-        let tests = rootd.appending(component: "Tests")
+        let tests = destinationPath.appending(component: "Tests")
         guard exists(tests) == false else {
             return
         }
-        print("Creating \(tests.relative(to: rootd).asString)/")
+        progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
         try makeDirectories(tests)
-
+        
         // Only libraries are testable for now.
-        if mode == .library {
+        if packageType == .library {
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
@@ -195,7 +191,7 @@ final class InitPackage {
     
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = testsPath.appending(RelativePath(pkgname + Module.testModuleNameSuffix))
-        print("Creating \(testModule.relative(to: rootd).asString)/")
+        progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
         try makeDirectories(testModule)
         
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
@@ -216,33 +212,30 @@ final class InitPackage {
             stream <<< "}\n"
         }
     }
+
 }
 
-/// Represents a package type for the purposes of initialization.
-enum InitMode: CustomStringConvertible {
-    case empty, library, executable, systemModule
+// Private helpers
 
-    init?(rawValue: String) {
-        switch rawValue.lowercased() {
-        case "empty":
-            self = .empty
-        case "library":
-            self = .library
-        case "executable":
-            self = .executable
-        case "system-module":
-            self = .systemModule
-        default:
-            return nil
-        }
+private extension FileSystem {
+    /// Write to a file from a stream producer.
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+        let contents = BufferedOutputByteStream()
+        body(contents)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
     }
+}
 
+private enum InitError: Swift.Error {
+    case manifestAlreadyExists
+}
+
+extension InitError: CustomStringConvertible {
     var description: String {
         switch self {
-            case .empty: return "empty"
-            case .library: return "library"
-            case .executable: return "executable"
-            case .systemModule: return "system-module"
+        case .manifestAlreadyExists:
+            return "a manifest file already exists in this directory"
         }
     }
 }
