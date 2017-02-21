@@ -15,6 +15,7 @@ import PackageLoading
 import SourceControl
 import Utility
 import Xcodeproj
+import Workspace
 
 /// Errors encountered duing the package tool operations.
 enum PackageToolOperationError: Swift.Error {
@@ -45,7 +46,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             print(Versioning.currentVersion.completeDisplayString)
 
         case .initPackage:
-            let initPackage = try InitPackage(mode: options.initMode)
+            let initPackage = try InitPackage(destinationPath: currentWorkingDirectory, packageType: options.initMode)
+            initPackage.progressReporter = { message in
+                print(message)
+            }
             try initPackage.writePackageStructure()
 
         case .clean:
@@ -281,7 +285,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let initPackageParser = parser.add(subparser: PackageMode.initPackage.rawValue, overview: "Initialize a new package")
         binder.bind(
             option: initPackageParser.add(
-                option: "--type", kind: InitMode.self,
+                option: "--type", kind: InitPackage.PackageType.self,
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
 
@@ -382,7 +386,7 @@ public class PackageToolOptions: ToolOptions {
     var mode: PackageMode = .help
 
     var describeMode: DescribeMode = .text
-    var initMode: InitMode = .library
+    var initMode: InitPackage.PackageType = .library
 
     var inputPath: AbsolutePath?
     var showDepsMode: ShowDependenciesMode = .text
@@ -445,6 +449,6 @@ public enum PackageMode: String, StringEnumArgument {
     case help
 }
 
-extension InitMode: StringEnumArgument {}
+extension InitPackage.PackageType: StringEnumArgument {}
 extension ShowDependenciesMode: StringEnumArgument {}
 extension DescribeMode: StringEnumArgument {}

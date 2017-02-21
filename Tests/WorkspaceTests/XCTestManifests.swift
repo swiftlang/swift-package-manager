@@ -13,7 +13,9 @@ import XCTest
 #if !os(macOS)
 public func allTests() -> [XCTestCaseEntry] {
     return [
+        testCase(InitTests.allTests),
         testCase(PinsStoreTests.allTests),
+        testCase(ToolsVersionWriterTests.allTests),
         testCase(WorkspaceTests.allTests),
     ]
 }

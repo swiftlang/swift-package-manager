@@ -39,10 +39,10 @@ public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: 
     try fs.writeFileContents(file, bytes: stream.bytes)
 }
 
-extension ToolsVersion {
+public extension ToolsVersion {
 
     /// Returns the tools version with zeroed patch number.
-    var zeroedPatch: ToolsVersion {
+    public var zeroedPatch: ToolsVersion {
         return ToolsVersion(version: Version(major, minor, 0))
     }
 }

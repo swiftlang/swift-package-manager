@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import PackageModel
-@testable import Commands
+import Workspace
 
 class ToolsVersionWriterTests: XCTestCase {
 
@@ -21,7 +21,7 @@ class ToolsVersionWriterTests: XCTestCase {
         var stream = BufferedOutputByteStream()
         stream <<< ""
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
         }
 
@@ -29,7 +29,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "\n"
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
         }
 
@@ -37,7 +37,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "let package = ... " <<< "\n"
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
         }
 
@@ -46,7 +46,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -55,7 +55,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersion(stream, version: ToolsVersion(version: "2.1.0")) { result in
+        writeToolsVersionCover(stream, version: ToolsVersion(version: "2.1.0")) { result in
             XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
         }
 
@@ -64,7 +64,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tool-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
         }
 
@@ -73,7 +73,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -82,7 +82,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2;hello\n"
         stream <<< "..."
 
-        writeToolsVersion(stream) { result in
+        writeToolsVersionCover(stream) { result in
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
@@ -94,7 +94,7 @@ class ToolsVersionWriterTests: XCTestCase {
         XCTAssertEqual(ToolsVersion(version: "6.0.129").zeroedPatch.description, "6.0.0")
     }
 
-    func writeToolsVersion(
+    func writeToolsVersionCover(
         _ stream: BufferedOutputByteStream,
         version: ToolsVersion = ToolsVersion(version: "4.1.2"),
         _ result: (ByteString) -> Void
@@ -107,7 +107,7 @@ class ToolsVersionWriterTests: XCTestCase {
             try fs.createDirectory(file.parentDirectory, recursive: true)
             try fs.writeFileContents(file, bytes: stream.bytes)
 
-            try Commands.writeToolsVersion(
+            try writeToolsVersion(
                 at: file.parentDirectory, version: version, fs: &fs)
 
             result(try fs.readFileContents(file))

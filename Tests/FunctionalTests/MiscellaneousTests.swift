@@ -346,22 +346,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testInitPackageNonc99Directory() throws {
-        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
-        XCTAssertTrue(localFileSystem.isDirectory(tempDir.path))
-
-        // Create a directory with non c99name.
-        let packageRoot = tempDir.path.appending(component: "some-package")
-        try localFileSystem.createDirectory(packageRoot)
-        XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
-
-        // Run package init.
-        _ = try SwiftPMProduct.SwiftPackage.execute(["init"], chdir: packageRoot, printIfError: true)
-        // Try building it.
-        XCTAssertBuilds(packageRoot)
-        XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "some_package.swiftmodule"))
-    }
-
     func testSecondBuildIsNullInModulemapGen() throws {
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
@@ -531,7 +515,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSpaces", testSpaces),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testSwiftTestParallel", testSwiftTestParallel),
-        ("testInitPackageNonc99Directory", testInitPackageNonc99Directory),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),
