@@ -160,18 +160,6 @@ public func systemQuietly(_ args: String...) throws {
     try systemQuietly(args)
 }
 
-public extension FileSystem {
-    /// Write to a file from a stream producer.
-    //
-    // FIXME: This is copy-paste from Commands/init.swift, maybe it is reasonable to lift it to Basic?
-    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
-        let contents = BufferedOutputByteStream()
-        body(contents)
-        try createDirectory(path.parentDirectory, recursive: true)
-        try writeFileContents(path, bytes: contents.bytes)
-    }
-}
-
 /// Loads a mock package graph based on package packageMap dictionary provided where key is path to a package.
 public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Package], root: String, in fs: FileSystem) throws -> PackageGraph {
     var externalManifests = [Manifest]()

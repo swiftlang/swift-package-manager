@@ -217,16 +217,6 @@ public final class InitPackage {
 
 // Private helpers
 
-private extension FileSystem {
-    /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
-        let contents = BufferedOutputByteStream()
-        body(contents)
-        try createDirectory(path.parentDirectory, recursive: true)
-        try writeFileContents(path, bytes: contents.bytes)
-    }
-}
-
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
 }

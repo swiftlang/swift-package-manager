@@ -143,6 +143,14 @@ public extension FileSystem {
     mutating func createDirectory(_ path: AbsolutePath) throws {
         try createDirectory(path, recursive: false)
     }
+
+    /// Write to a file from a stream producer.
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+        let contents = BufferedOutputByteStream()
+        body(contents)
+        try createDirectory(path.parentDirectory, recursive: true)
+        try writeFileContents(path, bytes: contents.bytes)
+    }
 }
 
 /// Concrete FileSystem implementation which communicates with the local file system.
