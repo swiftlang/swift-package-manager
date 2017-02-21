@@ -76,11 +76,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try loadPackageGraph()
 
         case .edit:
-            // Make sure we have all the options required for editing the package.
-            guard let packageName = options.editOptions.packageName, (options.editOptions.revision != nil || options.editOptions.checkoutBranch != nil) else {
-                throw PackageToolOperationError.insufficientOptions(usage: editUsage)
-            }
-
+            let packageName = options.editOptions.packageName!
             // Load the package graph.
             try loadPackageGraph()
 
@@ -97,9 +93,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editOptions.checkoutBranch)
 
         case .unedit:
-            guard let packageName = options.editOptions.packageName else {
-                throw PackageToolOperationError.insufficientOptions(usage: uneditUsage)
-            }
+            let packageName = options.editOptions.packageName!
 
             // Load the package graph.
             try loadPackageGraph()
@@ -222,21 +216,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         }
     }
 
-    var editUsage: String {
-        let stream = BufferedOutputByteStream()
-        stream <<< "Expected package edit format:\n"
-        stream <<< "swift package edit <packageName> (--revision <revision> | --branch <newBranch>)\n"
-        stream <<< "Note: Either revision or branch name is required."
-        return stream.bytes.asString!
-    }
-
-    var uneditUsage: String {
-        let stream = BufferedOutputByteStream()
-        stream <<< "Expected package unedit format:\n"
-        stream <<< "swift package unedit --name <packageName> [--force]"
-        return stream.bytes.asString!
-    }
-    
     var pinUsage: String {
         let stream = BufferedOutputByteStream()
         stream <<< "Expected package pin format:\n"
@@ -257,7 +236,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
 
-        let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode (either --revision or --branch option is required)")
+        let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
             positional: editParser.add(
                 positional: "name", kind: String.self,
