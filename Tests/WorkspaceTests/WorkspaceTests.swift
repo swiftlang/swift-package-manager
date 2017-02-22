@@ -474,13 +474,13 @@ final class WorkspaceTests: XCTestCase {
             // Get the dependency for package A.
             let dependency = getDependency(aManifest)
             // It should not be in edit mode.
-            XCTAssert(!dependency.isInEditableState)
+            XCTAssert(dependency.state == .checkout)
             // Put the dependency in edit mode at its current revision.
             try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name)
 
             let editedDependency = getDependency(aManifest)
             // It should be in edit mode.
-            XCTAssert(editedDependency.isInEditableState)
+            XCTAssert(editedDependency.state == .edited)
             // Check the based on data.
             XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
             XCTAssertEqual(editedDependency.basedOn?.currentVersion, dependency.currentVersion)
@@ -507,12 +507,12 @@ final class WorkspaceTests: XCTestCase {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
                 let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
-                XCTAssert(dependency.isInEditableState)
+                XCTAssert(dependency.state == .edited)
             }
 
             // We should be able to unedit the dependency.
             try workspace.unedit(dependency: editedDependency, forceRemove: false)
-            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+            XCTAssertEqual(getDependency(aManifest).state, .checkout)
             XCTAssertFalse(exists(editRepoPath))
             XCTAssertFalse(exists(workspace.editablesPath))
         }
@@ -546,7 +546,7 @@ final class WorkspaceTests: XCTestCase {
             // Put the dependency in edit mode at its current revision on a new branch.
             try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name, checkoutBranch: "BugFix")
             let editedDependency = getDependency(aManifest)
-            XCTAssert(editedDependency.isInEditableState)
+            XCTAssert(editedDependency.state == .edited)
 
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
             let editRepo = GitRepository(path: editRepoPath)
@@ -554,7 +554,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try editRepo.currentBranch(), "BugFix")
             // Unedit it.
             try workspace.unedit(dependency: editedDependency, forceRemove: false)
-            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+            XCTAssertEqual(getDependency(aManifest).state, .checkout)
 
             do {
                 try workspace.edit(dependency: dependency, at: dependency.currentRevision!, packageName: aManifest.name, checkoutBranch: "master")
@@ -617,7 +617,7 @@ final class WorkspaceTests: XCTestCase {
             }
             // Force remove.
             try workspace.unedit(dependency: editedDependency, forceRemove: true)
-            XCTAssertEqual(getDependency(aManifest).isInEditableState, false)
+            XCTAssertEqual(getDependency(aManifest).state, .checkout)
             XCTAssertFalse(exists(editRepoPath))
             XCTAssertFalse(exists(workspace.editablesPath))
         }
@@ -1394,7 +1394,7 @@ final class WorkspaceTests: XCTestCase {
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.currentVersion, "1.0.1")
                 XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.version, "1.0.1")
-                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.isInEditableState)
+                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited)
                 XCTAssertEqual(workspace.pinsStore.pinsMap["B"]?.version, v1)
             }
         }

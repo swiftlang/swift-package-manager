@@ -196,7 +196,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 throw PackageToolOperationError.packageNotFound
             }
             // We can't pin something which is in editable mode.
-            guard !dependency.isInEditableState else {
+            guard dependency.state == .checkout else {
                 throw PackageToolOperationError.packageInEditableState
             }
             // Pin the dependency.

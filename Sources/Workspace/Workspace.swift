@@ -104,20 +104,27 @@ public class Workspace {
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
     public final class ManagedDependency {
+
+        /// Represents the state of the managed dependency.
+        public enum State: String {
+            /// The dependency is a managed checkout.
+            case checkout
+
+            /// The dependency is in edited state.
+            case edited
+        }
+
         /// The specifier for the dependency.
         public let repository: RepositorySpecifier
+
+        /// The state of the managed dependency.
+        public let state: State
 
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
 
         /// The current version of the dependency, if known.
         public let currentVersion: Version?
-
-        /// The dependency is in editable state i.e. user is expected to modify the sources of the dependency.
-        /// The version of the dependency will not be considered during dependency resolution.
-        public var isInEditableState: Bool {
-            return basedOn != nil
-        }
 
         /// A dependency which in editable state is based on a dependency from which it edited from.
         /// This information is useful so it can be restored when users unedit a package.
@@ -132,26 +139,33 @@ public class Workspace {
         /// resolved).
         public let currentRevision: Revision?
 
-        fileprivate init(repository: RepositorySpecifier, subpath: RelativePath, currentVersion: Version?, currentRevision: Revision) {
+        fileprivate init(
+            repository: RepositorySpecifier,
+            subpath: RelativePath,
+            currentVersion: Version?,
+            currentRevision: Revision
+        ) {
             self.repository = repository
-            self.subpath = subpath
             self.currentVersion = currentVersion
             self.currentRevision = currentRevision
             self.basedOn = nil
+            self.subpath = subpath
+            self.state = .checkout
         }
 
-        private init(basedOn dependency: ManagedDependency, subpath: RelativePath) {
-            assert(!dependency.isInEditableState)
+        private init(basedOn dependency: ManagedDependency, subpath: RelativePath, state: State) {
+            assert(dependency.state == .checkout)
             self.basedOn = dependency
             self.repository = dependency.repository
             self.subpath = subpath
             self.currentRevision = nil
             self.currentVersion = nil
+            self.state = state
         }
 
         /// Create an editable managed dependency based on a dependency which was *not* in edit state.
         func makingEditable(subpath: RelativePath) -> ManagedDependency {
-            return ManagedDependency(basedOn: self, subpath: subpath)
+            return ManagedDependency(basedOn: self, subpath: subpath, state: .edited)
         }
 
         // MARK: Persistence
@@ -161,6 +175,7 @@ public class Workspace {
             guard case let .dictionary(contents) = data,
                   case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(subpathString)? = contents["subpath"],
+                  case let .string(state)? = contents["state"],
                   let currentVersionData = contents["currentVersion"],
                   let basedOnData = contents["basedOn"],
                   let currentRevisionString = contents["currentRevision"] else {
@@ -171,6 +186,7 @@ public class Workspace {
             self.currentVersion = Version(json: currentVersionData)
             self.currentRevision = Revision(json: currentRevisionString)
             self.basedOn = ManagedDependency(json: basedOnData) ?? nil
+            self.state = State(rawValue: state)!
         }
 
         fileprivate func toJSON() -> JSON {
@@ -180,6 +196,7 @@ public class Workspace {
                     "currentVersion":  currentVersion.flatMap { JSON.string(String(describing: $0)) } ?? .null,
                     "currentRevision": currentRevision.flatMap { JSON.string($0.identifier) } ?? .null,
                     "basedOn": basedOn?.toJSON() ?? .null,
+                    "state": .string(state.rawValue),
                 ])
         }
     }
@@ -231,8 +248,10 @@ public class Workspace {
             var constraints: [RepositoryPackageConstraint] = []
             for (externalManifest, managedDependency) in dependencies {
                 let specifier = RepositorySpecifier(url: externalManifest.url)
+                let constraint: RepositoryPackageConstraint
 
-                if managedDependency.isInEditableState {
+                switch managedDependency.state {
+                case .edited:
                     // Create unversioned constraints for editable dependencies.
                     let dependencies = externalManifest.package.dependencies.map{
                         RepositoryPackageConstraint(
@@ -240,11 +259,11 @@ public class Workspace {
                             versionRequirement: .range($0.versionRange.asUtilityVersion))
                     }
 
-                    constraints.append(
-                        RepositoryPackageConstraint(
-                            container: specifier, requirement: .unversioned(dependencies)))
+                    constraint = RepositoryPackageConstraint(
+                        container: specifier, requirement: .unversioned(dependencies))
 
-                } else if let version = managedDependency.currentVersion {
+                case .checkout:
+                    let version = managedDependency.currentVersion!
                     // If this specifier is pinned, we should already have it
                     // checked out at that version. We also don't need to add
                     // the constraint again.
@@ -257,15 +276,13 @@ public class Workspace {
                     // FIXME: This backfires in certain cases when the
                     // graph is resolvable but this constraint makes the
                     // resolution unsatisfiable.
-                    constraints.append(
-                        RepositoryPackageConstraint(
-                            container: specifier, versionRequirement: .exact(version)))
-                } else {
-                    // FIXME: Otherwise, we need to be able to constraint
-                    // precisely to the revision we have.
-                    fatalError("FIXME: Unimplemented.")
+                    constraint = RepositoryPackageConstraint(
+                        container: specifier, versionRequirement: .exact(version))
                 }
+
+                constraints.append(constraint)
             }
+
             return constraints
         }
 
@@ -444,9 +461,10 @@ public class Workspace {
     ///
     /// - throws: WorkspaceOperationError
     public func edit(dependency: ManagedDependency, at revision: Revision?, packageName: String, checkoutBranch: String? = nil) throws {
-        // Ensure that the dependency is not already in edit mode.
-        guard !dependency.isInEditableState else {
-            throw WorkspaceOperationError.dependencyAlreadyInEditMode
+        // Check if we can edit this dependency.
+        switch dependency.state {
+        case .checkout: break
+        case .edited: throw WorkspaceOperationError.dependencyAlreadyInEditMode
         }
 
         // Compute new path for the dependency.
@@ -524,7 +542,7 @@ public class Workspace {
     ///   - reason: The optional reason for pinning.
     /// - Throws: WorkspaceOperationError, PinOperationError
     public func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
-        assert(!dependency.isInEditableState, "Can not pin a dependency which is in being edited.")
+        assert(dependency.state == .checkout, "Can not pin a dependency which is in being edited.")
         // Compute constaints with the new pin and try to resolve dependencies. We only commit the pin if the
         // dependencies can be resolved with new constraints.
         //
@@ -563,7 +581,9 @@ public class Workspace {
             var dependency = dependencyManifest.dependency
 
             // For editable dependencies, pin the underlying dependency if we have them.
-            if dependency.isInEditableState {
+            switch dependency.state {
+            case .checkout: break
+            case .edited:
                 if let basedOn = dependency.basedOn {
                     dependency = basedOn
                 } else {
@@ -690,7 +710,11 @@ public class Workspace {
         var updateConstraints = computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
 
         // Add unversioned constraint for edited packages.
-        for (externalManifest, managedDependency) in currentManifests.dependencies where managedDependency.isInEditableState {
+        for (externalManifest, managedDependency) in currentManifests.dependencies {
+            switch managedDependency.state {
+            case .checkout: continue
+            case .edited: break
+            }
             let specifier = RepositorySpecifier(url: externalManifest.url)
             let dependencies = externalManifest.package.dependencies.map{
                 RepositoryPackageConstraint(
@@ -772,7 +796,7 @@ public class Workspace {
                 fatalError("Unexpected excluded binding")
             case .unversioned:
                 // Right not it is only possible to get unversioned binding if a dependency is in editable state.
-                assert(dependencyMap[specifier]?.isInEditableState ?? false)
+                assert(dependencyMap[specifier]?.state != .checkout)
                 packageStateChanges[specifier] = .unchanged
             case .version(let version):
                 if let currentDependency = dependencyMap[specifier] {
@@ -835,8 +859,13 @@ public class Workspace {
                 }
 
                 // Construct the package path for the dependency.
-                let packagePathBase = managedDependency.isInEditableState ? editablesPath : checkoutsPath
-                let packagePath = packagePathBase.appending(managedDependency.subpath)
+                let packagePath: AbsolutePath
+                switch managedDependency.state {
+                case .checkout: 
+                    packagePath = checkoutsPath.appending(managedDependency.subpath)
+                case .edited:
+                    packagePath = editablesPath.appending(managedDependency.subpath)
+                }
 
                 // Load the tools version for the package.
                 let toolsVersion = try! toolsVersionLoader.load(
@@ -867,7 +896,11 @@ public class Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func validateEditedPackages() throws {
-        for dependency in dependencies where dependency.isInEditableState {
+        for dependency in dependencies {
+            switch dependency.state {
+            case .checkout: continue
+            case .edited: break
+            }
             // If some edited dependency has been removed, mark it as unedited.
             let dependencyPath = editablesPath.appending(dependency.subpath)
             if !fileSystem.exists(dependencyPath) {
