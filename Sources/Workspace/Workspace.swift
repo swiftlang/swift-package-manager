@@ -473,7 +473,7 @@ public class Workspace {
     ///     - dependency: The dependency to put in edit mode.
     ///     - packageName: The name of the package corresponding to the
     ///         dependency. This is used for the checkout directory name.
-    ///     - path:
+    ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///         should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be

@@ -262,7 +262,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         binder.bind(
             option: editParser.add(
                 option: "--path", kind: PathArgument.self,
-                usage: "ToT"),
+                usage: "Create or use the checkout at this path"),
             to: { $0.editOptions.path = $1.path })
 
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
