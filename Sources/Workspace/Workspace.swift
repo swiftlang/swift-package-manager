@@ -43,6 +43,9 @@ public enum WorkspaceOperationError: Swift.Error {
 
     /// The root package has incompatible tools version.
     case incompatibleToolsVersion(rootPackage: AbsolutePath, required: ToolsVersion, current: ToolsVersion)
+
+    /// The package at edit destination is not the one user is trying to edit.
+    case mismatchingDestinationPackage(path: AbsolutePath, destPackage: String, expectedPackage: String)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -106,12 +109,19 @@ public class Workspace {
     public final class ManagedDependency {
 
         /// Represents the state of the managed dependency.
-        public enum State: String {
+        public enum State: Equatable {
+
             /// The dependency is a managed checkout.
             case checkout
 
             /// The dependency is in edited state.
             case edited
+
+            /// The dependency is managed by a user and is located at the path.
+            /// 
+            /// In other words, this dependency is being used for top of the
+            /// tree style development.
+            case unmanaged(path: AbsolutePath)
         }
 
         /// The specifier for the dependency.
@@ -126,8 +136,11 @@ public class Workspace {
         /// The current version of the dependency, if known.
         public let currentVersion: Version?
 
-        /// A dependency which in editable state is based on a dependency from which it edited from.
-        /// This information is useful so it can be restored when users unedit a package.
+        /// A dependency which in editable state is based on a dependency from
+        /// which it edited from.
+        ///
+        /// This information is useful so it can be restored when users 
+        /// unedit a package.
         let basedOn: ManagedDependency?
 
         /// The current revision of the dependency.
@@ -155,6 +168,7 @@ public class Workspace {
 
         private init(basedOn dependency: ManagedDependency, subpath: RelativePath, state: State) {
             assert(dependency.state == .checkout)
+            assert(state != .checkout)
             self.basedOn = dependency
             self.repository = dependency.repository
             self.subpath = subpath
@@ -163,9 +177,10 @@ public class Workspace {
             self.state = state
         }
 
-        /// Create an editable managed dependency based on a dependency which was *not* in edit state.
-        func makingEditable(subpath: RelativePath) -> ManagedDependency {
-            return ManagedDependency(basedOn: self, subpath: subpath, state: .edited)
+        /// Create an editable managed dependency based on a dependency which
+        /// was *not* in edit state.
+        func makingEditable(subpath: RelativePath, state: State) -> ManagedDependency {
+            return ManagedDependency(basedOn: self, subpath: subpath, state: state)
         }
 
         // MARK: Persistence
@@ -175,7 +190,8 @@ public class Workspace {
             guard case let .dictionary(contents) = data,
                   case let .string(repositoryURL)? = contents["repositoryURL"],
                   case let .string(subpathString)? = contents["subpath"],
-                  case let .string(state)? = contents["state"],
+                  let state = contents["state"],
+                  let stateData = State(state),
                   let currentVersionData = contents["currentVersion"],
                   let basedOnData = contents["basedOn"],
                   let currentRevisionString = contents["currentRevision"] else {
@@ -186,7 +202,7 @@ public class Workspace {
             self.currentVersion = Version(json: currentVersionData)
             self.currentRevision = Revision(json: currentRevisionString)
             self.basedOn = ManagedDependency(json: basedOnData) ?? nil
-            self.state = State(rawValue: state)!
+            self.state = stateData
         }
 
         fileprivate func toJSON() -> JSON {
@@ -196,7 +212,7 @@ public class Workspace {
                     "currentVersion":  currentVersion.flatMap { JSON.string(String(describing: $0)) } ?? .null,
                     "currentRevision": currentRevision.flatMap { JSON.string($0.identifier) } ?? .null,
                     "basedOn": basedOn?.toJSON() ?? .null,
-                    "state": .string(state.rawValue),
+                    "state": state.toJSON(),
                 ])
         }
     }
@@ -251,7 +267,7 @@ public class Workspace {
                 let constraint: RepositoryPackageConstraint
 
                 switch managedDependency.state {
-                case .edited:
+                case .unmanaged, .edited:
                     // Create unversioned constraints for editable dependencies.
                     let dependencies = externalManifest.package.dependencies.map{
                         RepositoryPackageConstraint(
@@ -455,41 +471,94 @@ public class Workspace {
     ///
     /// - Parameters:
     ///     - dependency: The dependency to put in edit mode.
-    ///     - revision:   If provided, the revision at which the dependency should be checked out to otherwise current revision.
-    ///     - packageName: The name of the package corresponding to the dependency. This is used for the checkout directory name.
-    ///     - checkoutBranch: If provided, a new branch with this name will be created from the revision provided.
-    ///
+    ///     - packageName: The name of the package corresponding to the
+    ///         dependency. This is used for the checkout directory name.
+    ///     - path:
+    ///     - revision: If provided, the revision at which the dependency
+    ///         should be checked out to otherwise current revision.
+    ///     - checkoutBranch: If provided, a new branch with this name will be
+    ///         created from the revision provided.
     /// - throws: WorkspaceOperationError
-    public func edit(dependency: ManagedDependency, at revision: Revision?, packageName: String, checkoutBranch: String? = nil) throws {
+    public func edit(
+        dependency: ManagedDependency,
+        packageName: String,
+        path: AbsolutePath? = nil,
+        revision: Revision?,
+        checkoutBranch: String? = nil
+    ) throws {
         // Check if we can edit this dependency.
         switch dependency.state {
         case .checkout: break
-        case .edited: throw WorkspaceOperationError.dependencyAlreadyInEditMode
+        case .unmanaged, .edited:
+            throw WorkspaceOperationError.dependencyAlreadyInEditMode
         }
 
-        // Compute new path for the dependency.
-        let path = editablesPath.appending(component: packageName)
-        // Get handle to the repository.
-        let handle = try repositoryManager.lookupSynchronously(repository: dependency.repository)
+        let destination: AbsolutePath
+        let state: ManagedDependency.State
 
-        // If a branch is provided, make sure it isn't already present in the repository.
-        if let branch = checkoutBranch {
-            let repo = try handle.open()
-            guard !repo.exists(revision: Revision(identifier: branch)) else {
-                throw WorkspaceOperationError.branchAlreadyExists
+        // If a path is provided then we make this dependency unmanaged (Top of
+        // the tree). Otherwise, it is an edited dependency inside editables
+        // directory.
+        if let path = path {
+            destination = path
+            state = .unmanaged(path: destination)
+        } else {
+            destination = editablesPath.appending(component: packageName)
+            state = .edited
+        }
+
+        // If there is something present at the destination, we confirm it has
+        // a valid manifest with name same as the package we are trying to edit.
+        if fileSystem.exists(destination) {
+            // Get tools version and try to load the manifest.
+            let toolsVersion = try toolsVersionLoader.load(
+                at: destination, fileSystem: fileSystem)
+
+            let manifest = try manifestLoader.load(
+                package: destination,
+                baseURL: dependency.repository.url,
+                manifestVersion: toolsVersion.manifestVersion)
+
+            guard manifest.name == packageName else {
+                throw WorkspaceOperationError.mismatchingDestinationPackage(
+                    path: destination, destPackage: manifest.name, expectedPackage: packageName)
+            }
+        } else {
+            // Otherwise, create a checkout at the destination from our repository store.
+            //
+            // Get handle to the repository.
+            let handle = try repositoryManager.lookupSynchronously(repository: dependency.repository)
+
+            // If a branch is provided, make sure it isn't already present in the repository.
+            if let branch = checkoutBranch {
+                let repo = try handle.open()
+                guard !repo.exists(revision: Revision(identifier: branch)) else {
+                    throw WorkspaceOperationError.branchAlreadyExists
+                }
+            }
+
+            try handle.cloneCheckout(to: destination, editable: true)
+            let workingRepo = try repositoryManager.provider.openCheckout(at: destination)
+            try workingRepo.checkout(revision: revision ?? dependency.currentRevision!)
+            // Checkout to the new branch if provided.
+            if let branch = checkoutBranch {
+                try workingRepo.checkout(newBranch: branch)
             }
         }
 
-        try handle.cloneCheckout(to: path, editable: true)
-        let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-        try workingRepo.checkout(revision: revision ?? dependency.currentRevision!)
-        // Checkout to the new branch if provided.
-        if let branch = checkoutBranch {
-            try workingRepo.checkout(newBranch: branch)
+        // For unmanaged dependencies, create the symlink under editables dir.
+        if case let .unmanaged(path) = state {
+            try fileSystem.createDirectory(editablesPath)
+            // FIXME: We need this to work with InMem file system too.
+            try createSymlink(
+                    editablesPath.appending(component: packageName),
+                    pointingAt: path,
+                    relative: false)
         }
 
         // Change its stated to edited.
-        dependencyMap[dependency.repository] = dependency.makingEditable(subpath: path.relative(to: editablesPath))
+        dependencyMap[dependency.repository] = dependency.makingEditable(
+            subpath: RelativePath(packageName), state: state)
         // Save the state.
         try saveState()
     }
@@ -503,10 +572,21 @@ public class Workspace {
     ///
     /// - throws: WorkspaceOperationError
     public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+        var forceRemove = forceRemove
+
+        switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
-        guard let basedOn = dependency.basedOn else {
+        case .checkout: 
             throw WorkspaceOperationError.dependencyNotInEditMode
+        case .edited:
+            break
+        case .unmanaged:
+            // Set force remove to true for unmanaged dependencies.  Note that
+            // this only removes the symlink under the editable directory and
+            // not the actual unmanaged package.
+            forceRemove = true
         }
+
         // Form the edit working repo path.
         let path = editablesPath.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
@@ -528,7 +608,7 @@ public class Workspace {
             fileSystem.removeFileTree(editablesPath)
         }
         // Restore the dependency state.
-        dependencyMap[dependency.repository] = basedOn
+        dependencyMap[dependency.repository] = dependency.basedOn
         // Save the state.
         try saveState()
     }
@@ -583,7 +663,7 @@ public class Workspace {
             // For editable dependencies, pin the underlying dependency if we have them.
             switch dependency.state {
             case .checkout: break
-            case .edited:
+            case .unmanaged, .edited:
                 if let basedOn = dependency.basedOn {
                     dependency = basedOn
                 } else {
@@ -713,7 +793,7 @@ public class Workspace {
         for (externalManifest, managedDependency) in currentManifests.dependencies {
             switch managedDependency.state {
             case .checkout: continue
-            case .edited: break
+            case .unmanaged, .edited: break
             }
             let specifier = RepositorySpecifier(url: externalManifest.url)
             let dependencies = externalManifest.package.dependencies.map{
@@ -865,6 +945,8 @@ public class Workspace {
                     packagePath = checkoutsPath.appending(managedDependency.subpath)
                 case .edited:
                     packagePath = editablesPath.appending(managedDependency.subpath)
+                case .unmanaged(let path):
+                    packagePath = path
                 }
 
                 // Load the tools version for the package.
@@ -897,12 +979,18 @@ public class Workspace {
     /// fallback on the original checkout.
     private func validateEditedPackages() throws {
         for dependency in dependencies {
+
+            let dependencyPath: AbsolutePath
+
             switch dependency.state {
             case .checkout: continue
-            case .edited: break
+            case .edited:
+                dependencyPath = editablesPath.appending(dependency.subpath)
+            case .unmanaged(let path):
+                dependencyPath = path
             }
+
             // If some edited dependency has been removed, mark it as unedited.
-            let dependencyPath = editablesPath.appending(dependency.subpath)
             if !fileSystem.exists(dependencyPath) {
                 try unedit(dependency: dependency, forceRemove: true)
                 // FIXME: Use diagnosics engine when we have that.
@@ -1143,6 +1231,63 @@ extension Revision {
     init?(json: JSON) {
         guard case .string(let str) = json else { return nil }
         self.init(identifier: str)
+    }
+}
+
+extension Workspace.ManagedDependency.State {
+
+    public static func ==(lhs: Workspace.ManagedDependency.State, rhs: Workspace.ManagedDependency.State) -> Bool {
+        switch (lhs, rhs) {
+        case (.checkout, .checkout):
+            return true
+        case (.checkout, _):
+            return false
+        case (.edited, .edited):
+            return true
+        case (.edited, _):
+            return false
+        case (.unmanaged(let lhs), .unmanaged(let rhs)):
+            return lhs == rhs
+        case (.unmanaged, _):
+            return false
+        }
+    }
+
+    func toJSON() -> JSON {
+        switch self {
+        case .checkout:
+            return .dictionary([
+                    "name": .string("checkout"),
+                ])
+        case .edited:
+            return .dictionary([
+                    "name": .string("edited"),
+                ])
+        case .unmanaged(let path):
+            return .dictionary([
+                    "name": .string("unmanaged"),
+                    "path": .string(path.asString),
+                ])
+        }
+    }
+
+    init?(_ json: JSON) {
+        guard case let .dictionary(contents) = json,
+              case let .string(name)? = contents["name"] else {
+            return nil
+        }
+        switch name {
+        case "checkout":
+            self = .checkout
+        case "edited":
+            self = .edited
+        case "unmanaged":
+            guard case let .string(path)? = contents["path"] else {
+                return nil
+            }
+            self = .unmanaged(path: AbsolutePath(path))
+        default: return nil
+        }
     }
 }
 

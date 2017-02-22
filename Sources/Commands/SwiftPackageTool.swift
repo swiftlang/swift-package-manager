@@ -90,7 +90,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap { Revision(identifier: $0) }
             // Put the dependency in edit mode.
-            try workspace.edit(dependency: dependency, at: revision, packageName: manifest.name, checkoutBranch: options.editOptions.checkoutBranch)
+            try workspace.edit(
+                dependency: dependency,
+                packageName: manifest.name,
+                path: options.editOptions.path,
+                revision: revision,
+                checkoutBranch: options.editOptions.checkoutBranch
+            )
 
         case .unedit:
             let packageName = options.editOptions.packageName!
@@ -253,6 +259,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.editOptions.revision = $1 
                 $0.editOptions.checkoutBranch = $2})
 
+        binder.bind(
+            option: editParser.add(
+                option: "--path", kind: PathArgument.self,
+                usage: "ToT"),
+            to: { $0.editOptions.path = $1.path })
+
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "Fetch package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
@@ -384,6 +396,7 @@ public class PackageToolOptions: ToolOptions {
         var packageName: String?
         var revision: String?
         var checkoutBranch: String?
+        var path: AbsolutePath?
         var forceRemove = false
     }
 
