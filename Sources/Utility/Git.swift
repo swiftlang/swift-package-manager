@@ -57,7 +57,6 @@ public class Git {
         return knownVersions
     }
 
-    public class var tool: String {
-        return "git"
-    }
+    /// A shell command to run for Git. Can be either a name or a path.
+    public static var tool: String = "git"
 }
