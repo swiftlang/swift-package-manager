@@ -220,6 +220,28 @@ final class PackageToolTests: XCTestCase {
 
             // We should be able to unedit now.
             _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath, printIfError: true)
+
+            // Test editing with a path i.e. ToT development.
+            let bazTot = prefix.appending(component: "tot")
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], chdir: fooPath, printIfError: true)
+            XCTAssertTrue(exists(bazTot))
+            XCTAssertTrue(isSymlink(bazEditsPath))
+
+            // Edit a file in baz ToT checkout.
+            let bazTotPackageFile = bazTot.appending(component: "Package.swift")
+            let stream = BufferedOutputByteStream()
+            stream <<< (try localFileSystem.readFileContents(bazTotPackageFile)) <<< "\n// Edited."
+            try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
+
+            // Unediting baz will remove the symlink but not the checked out package.
+            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], chdir: fooPath, printIfError: true)
+            XCTAssertTrue(exists(bazTot))
+            XCTAssertFalse(isSymlink(bazEditsPath))
+
+            // Check that on re-editing with path, we don't make a new clone.
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], chdir: fooPath, printIfError: true)
+            XCTAssertTrue(isSymlink(bazEditsPath))
+            XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
         }
     }
 
