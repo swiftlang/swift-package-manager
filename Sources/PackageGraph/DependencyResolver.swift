@@ -11,9 +11,25 @@
 import Basic
 import struct Utility.Version
 
-public enum DependencyResolverError: Error {
+public enum DependencyResolverError: Error, Equatable {
     /// The resolver was unable to find a solution to the input constraints.
     case unsatisfiable
+
+    /// The resolver encountered a versioned container which has a revision dependency.
+    case revisionConstraints(dependency: AnyPackageContainerIdentifier, revisions: [(AnyPackageContainerIdentifier, String)])
+
+    public static func ==(lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
+        switch (lhs, rhs) {
+        case (.unsatisfiable, .unsatisfiable):
+            return true
+        case (.unsatisfiable, _):
+            return false
+        case (.revisionConstraints(let lDependency, let lRevisions), .revisionConstraints(let rDependency, let rRevisions)):
+            return lDependency == rDependency && lRevisions == rRevisions
+        case (.revisionConstraints, _):
+            return false
+        }
+    }
 }
 
 /// An abstract definition for a set of versions.
@@ -106,6 +122,26 @@ public func ==(_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
 /// encoding dependencies across packages.
 public protocol PackageContainerIdentifier: Hashable { }
 
+/// A type-erased package container identifier.
+public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
+
+    /// The underlying identifier, represented as AnyHashable.
+    public let identifier: AnyHashable
+
+    /// Creates a type-erased identifier that wraps up the given instance.
+    init<T: PackageContainerIdentifier>(_ identifier: T) {
+        self.identifier = AnyHashable(identifier)
+    }
+
+    public var hashValue: Int {
+        return identifier.hashValue
+    }
+
+    public static func ==(lhs: AnyPackageContainerIdentifier, rhs: AnyPackageContainerIdentifier) -> Bool {
+        return lhs.identifier == rhs.identifier
+    }
+}
+
 /// A container of packages.
 ///
 /// This is the top-level unit of package resolution, i.e. the unit at which
@@ -180,6 +216,16 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
         /// The requirement is specified by the version set.
         case versionSet(VersionSetSpecifier)
 
+        /// The requirement is specified by the revision.
+        ///
+        /// The revision string (identifier) should be valid and present in the
+        /// container. Only one revision requirement per container is possible
+        /// i.e. two revision requirements for same container will lead to
+        /// unsatisfiable resolution. The revision requirement can either come
+        /// from initial set of constraints or from dependencies of a revision
+        /// requirement.
+        case revision(String)
+
         /// Un-versioned requirement i.e. a version should not resolved.
         case unversioned([PackageContainerConstraint<Identifier>])
 
@@ -188,6 +234,10 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
             case (.unversioned(let lhs), .unversioned(let rhs)):
                 return lhs == rhs
             case (.unversioned, _):
+                return false
+            case (.revision(let lhs), .revision(let rhs)):
+                return lhs == rhs
+            case (.revision, _):
                 return false
             case (.versionSet(let lhs), .versionSet(let rhs)):
                 return lhs == rhs
@@ -250,6 +300,9 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
     /// The package assignment is unversioned.
     case unversioned
 
+    /// The package assignment is this revision.
+    case revision(String)
+
     public var description: String {
         switch self {
         case .excluded:
@@ -258,6 +311,8 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
             return version.description
         case .unversioned:
             return "unversioned"
+        case .revision(let identifier):
+            return identifier
         }
     }
 }
@@ -270,6 +325,10 @@ public func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
     case (.version(let lhs), .version(let rhs)):
         return lhs == rhs
     case (.version, _):
+        return false
+    case (.revision(let lhs), .revision(let rhs)):
+        return lhs == rhs
+    case (.revision, _):
         return false
     case (.unversioned, .unversioned):
         return true
@@ -353,8 +412,26 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         case (_, .unversioned):
             // Unversioned requirements always *wins*.
             return self
+
+        // The revision cases are deliberately placed below the unversioned
+        // cases because unversioned has more priority.
+        case (.revision(let lhs), .revision(let rhs)):
+            // We can merge two revisions if they have the same identifier.
+            if lhs == rhs { return self }
+            return nil
+
+        case (.revision, _):
+            // The revision requirement *wins*.
+            var result = self
+            result.constraints[identifier] = requirement
+            return result
+
+        case (_, .revision):
+            // The revision requirement *wins*.
+            return self
+
         default:
-            fatalError("Unreachable")
+            fatalError("Unreachable \(requirement) \(self[identifier])")
         }
     }
 
@@ -497,11 +574,26 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
     var constraints: PackageContainerConstraintSet<Container> {
         // Collect all of the constraints.
         var result = PackageContainerConstraintSet<Container>()
+
+        /// Merge the provided constraints into result.
+        func merge(constraints: [PackageContainerConstraint<Identifier>]) {
+            for constraint in constraints {
+                guard let merged = result.merging(constraint) else {
+                    preconditionFailure("unsatisfiable constraint set")
+                }
+                result = merged
+            }
+        }
+
         for (_, (container: container, binding: binding)) in assignments {
             switch binding {
             case .unversioned, .excluded:
                 // If the package is unversioned or excluded, it doesn't contribute.
                 continue
+
+            case .revision(let identifier):
+                // FIXME: Need caching and error handling here. See the FIXME below.
+                merge(constraints: try! container.getDependencies(at: identifier))
 
             case .version(let version):
                 // If we have a version, add the constraints from that package version.
@@ -511,12 +603,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
                 //
                 // FIXME: Error handling, except that we probably shouldn't have
                 // needed to refetch the dependencies at this point.
-                for constraint in try! container.getDependencies(at: version) {
-                    guard let merged = result.merging(constraint) else {
-                        preconditionFailure("unsatisfiable constraint set")
-                    }
-                    result = merged
-                }
+                merge(constraints: try! container.getDependencies(at: version))
             }
         }
         return result
@@ -540,6 +627,17 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
             }
             return false
 
+        case .revision(let identifier):
+            // If we already have a revision constraint, it should be same as
+            // the one we're trying to set.
+            if case .revision(let existingRevision) = constraints[container.identifier] {
+                return existingRevision == identifier
+            }
+            // Otherwise, it is always valid to set a revision binding. Note
+            // that there are rules that prevents versioned constraints from
+            // having revision constraints, but that is handled by the resolver.
+            return true
+
         case .unversioned:
             // An unversioned binding is always valid.
             return true
@@ -559,7 +657,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         for identifier in constraints.containerIdentifiers {
             // Verify we have a non-excluded entry for this key.
             switch assignments[identifier]?.binding {
-            case .unversioned?, .version?:
+            case .unversioned?, .version?, .revision?:
                 continue
             case .excluded?, nil:
                 return false
@@ -779,6 +877,12 @@ public class DependencyResolver<
             // Merge the dependencies of unversioned constraint into the assignment.
             return merge(constraints: constraints, binding: .unversioned)
 
+        case .revision(let identifier):
+            guard let constraints = self.safely({ try container.getDependencies(at: identifier) }) else {
+                return AnySequence([])
+            }
+            return merge(constraints: constraints, binding: .revision(identifier))
+
         case .versionSet(let versionSet):
             // The previous valid version that was picked.
             var previousVersion: Version? = nil
@@ -796,6 +900,24 @@ public class DependencyResolver<
                 guard let constraints = self.safely({ try container.getDependencies(at: version) }) else {
                     return AnySequence([])
                 }
+
+                // Since this is a versioned container, none of its
+                // dependencies can have a revision constraints.
+                let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
+                revisionConstraints = constraints.flatMap{
+                    if case .revision(let revision) = $0.requirement {
+                        return (AnyPackageContainerIdentifier($0.identifier), revision)
+                    }
+                    return nil
+                }
+                // If we have any revision constraints, set the error and abort.
+                guard revisionConstraints.isEmpty else {
+                    self.error = DependencyResolverError.revisionConstraints(
+                        dependency: AnyPackageContainerIdentifier(container.identifier),
+                        revisions: revisionConstraints)
+                    return AnySequence([])
+                }
+
                 return merge(constraints: constraints, binding: .version(version))
             })
         }
