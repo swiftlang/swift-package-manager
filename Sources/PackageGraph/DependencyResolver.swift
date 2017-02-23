@@ -151,6 +151,15 @@ public protocol PackageContainer {
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
     func getDependencies(at version: Version) throws -> [PackageContainerConstraint<Identifier>]
+
+    /// Fetch the declared dependencies for a particular revision.
+    ///
+    /// This property is expected to be efficient to access, and cached by the
+    /// client if necessary.
+    ///
+    /// - Throws: If the revision could not be resolved; this will abort
+    ///   dependency resolution completely.
+    func getDependencies(at revision: String) throws -> [PackageContainerConstraint<Identifier>]
 }
 
 /// An interface for resolving package containers.

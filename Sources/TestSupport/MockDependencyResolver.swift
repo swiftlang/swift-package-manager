@@ -12,6 +12,7 @@ import Dispatch
 
 import Basic
 import PackageGraph
+import SourceControl
 
 import struct Utility.Version
 
@@ -64,9 +65,11 @@ public enum MockLoadingError: Error {
 public final class MockPackageContainer: PackageContainer {
     public typealias Identifier = String
 
+    public typealias Dependency = (container: Identifier, requirement: MockPackageConstraint.Requirement)
+
     let name: Identifier
 
-    let dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+    let dependencies: [String: [Dependency]]
 
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
     public var requestedVersions: Set<Version> = []
@@ -75,20 +78,40 @@ public final class MockPackageContainer: PackageContainer {
         return name
     }
 
-    public var versions: AnySequence<Version> {
-        return AnySequence(dependenciesByVersion.keys.sorted().reversed())
-    }
+    public let versions: AnySequence<Version>
 
     public func getDependencies(at version: Version) -> [MockPackageConstraint] {
         requestedVersions.insert(version)
-        return dependenciesByVersion[version]!.map{ (name, versions) in
-            return MockPackageConstraint(container: name, versionRequirement: versions)
+        return getDependencies(at: version.description)
+    }
+
+    public func getDependencies(at revision: String) -> [MockPackageConstraint] {
+        return dependencies[revision]!.map{ (name, requirement) in
+            return MockPackageConstraint(container: name, requirement: requirement)
         }
     }
 
-    public init(name: Identifier, dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]) {
+    public convenience init(
+        name: Identifier,
+        dependenciesByVersion: [Version: [(container: Identifier, versionRequirement: VersionSetSpecifier)]]
+    ) {
+        var dependencies: [String: [Dependency]] = [:]
+        for (version, deps) in dependenciesByVersion {
+            dependencies[version.description] = deps.map{
+                ($0.container, .versionSet($0.versionRequirement))
+            }
+        }
+        self.init(name: name, dependencies: dependencies)
+    }
+
+    public init(
+        name: Identifier,
+        dependencies: [String: [Dependency]] = [:]
+    ) {
         self.name = name
-        self.dependenciesByVersion = dependenciesByVersion
+        let versions = dependencies.keys.flatMap(Version.init(string:))
+        self.versions = AnySequence(versions.sorted().reversed())
+        self.dependencies = dependencies
     }
 }
 

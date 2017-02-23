@@ -174,7 +174,7 @@ public protocol WorkingCheckout {
 }
 
 /// A single repository revision.
-public struct Revision: Equatable {
+public struct Revision: Hashable {
     /// A precise identifier for a single repository revision, in a repository-specified manner.
     ///
     /// This string is intended to be opaque to the client, but understandable
@@ -185,7 +185,12 @@ public struct Revision: Equatable {
     public init(identifier: String) {
         self.identifier = identifier
     }
-}
-public func ==(lhs: Revision, rhs: Revision) -> Bool {
-    return lhs.identifier == rhs.identifier
+
+    public var hashValue: Int {
+        return identifier.hashValue
+    }
+
+    public static func ==(lhs: Revision, rhs: Revision) -> Bool {
+        return lhs.identifier == rhs.identifier
+    }
 }

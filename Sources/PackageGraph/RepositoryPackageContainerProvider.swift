@@ -117,7 +117,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     let reversedVersions: [Version]
 
     /// The cached dependency information.
-    private var dependenciesCache: [Version: [RepositoryPackageConstraint]] = [:]
+    private var dependenciesCache: [Revision: [RepositoryPackageConstraint]] = [:]
     private var dependenciesCacheLock = Lock()
     
     init(
@@ -161,15 +161,23 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
+        // FIXME: We should have a persistent cache for these.
+        let tag = knownVersions[version]!
+        let revision = try repository.resolveRevision(tag: tag)
+        return try getDependencies(at: revision, version: version)
+    }
+
+    public func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
+        return try getDependencies(at: Revision(identifier: revision))
+    }
+
+    /// Returns dependencies of a container at the given revision.
+    private func getDependencies(at revision: Revision, version: Version? = nil) throws -> [RepositoryPackageConstraint] {
         // FIXME: Get a caching helper for this.
         return try dependenciesCacheLock.withLock{
-            if let result = dependenciesCache[version] {
+            if let result = dependenciesCache[revision] {
                 return result
             }
-
-            // FIXME: We should have a persistent cache for these.
-            let tag = knownVersions[version]!
-            let revision = try repository.resolveRevision(tag: tag)
             let fs = try repository.openFileView(revision: revision)
 
             // Load the tools version.
@@ -187,7 +195,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 RepositoryPackageConstraint(
                     container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
             }
-            dependenciesCache[version] = result
+            dependenciesCache[revision] = result
 
             return result
         }
