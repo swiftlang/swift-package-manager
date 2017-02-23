@@ -91,7 +91,7 @@ struct SwiftcTool: ToolProtocol {
         stream <<< "    executable: " <<< Format.asJSON(executable) <<< "\n"
         stream <<< "    module-name: " <<< Format.asJSON(moduleName) <<< "\n"
         stream <<< "    module-output-path: " <<< Format.asJSON(moduleOutputPath.asString) <<< "\n"
-        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs.sorted()) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
         stream <<< "    import-paths: " <<< Format.asJSON(importPaths.map{ $0.asString }) <<< "\n"
         stream <<< "    temps-path: " <<< Format.asJSON(tempsPath.asString) <<< "\n"
@@ -126,7 +126,7 @@ struct ClangTool: ToolProtocol {
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: clang\n"
         stream <<< "    description: " <<< Format.asJSON(desc) <<< "\n"
-        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    inputs: " <<< Format.asJSON(inputs.sorted()) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
         stream <<< "    args: " <<< Format.asJSON(args) <<< "\n"
         if let deps = deps {
