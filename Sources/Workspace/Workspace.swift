@@ -152,15 +152,24 @@ public class Workspace {
         /// resolved).
         public let currentRevision: Revision?
 
+        /// The current branch of the dependency.
+        ///
+        /// This is only set if dependency should be managed at a branch
+        /// instead of at a version.
+        public let currentBranch: String?
+
         fileprivate init(
             repository: RepositorySpecifier,
             subpath: RelativePath,
             currentVersion: Version?,
-            currentRevision: Revision
+            currentRevision: Revision,
+            currentBranch: String?
         ) {
+            assert(currentVersion == nil || currentBranch == nil, "Can't set both branch and version.")
             self.repository = repository
             self.currentVersion = currentVersion
             self.currentRevision = currentRevision
+            self.currentBranch = currentBranch
             self.basedOn = nil
             self.subpath = subpath
             self.state = .checkout
@@ -174,6 +183,7 @@ public class Workspace {
             self.subpath = subpath
             self.currentRevision = nil
             self.currentVersion = nil
+            self.currentBranch = nil
             self.state = state
         }
 
@@ -203,6 +213,11 @@ public class Workspace {
             self.currentRevision = Revision(json: currentRevisionString)
             self.basedOn = ManagedDependency(json: basedOnData) ?? nil
             self.state = stateData
+
+            self.currentBranch = contents["currentBranch"].flatMap {
+                if case .string(let branch) = $0 { return branch }
+                return nil
+            }
         }
 
         fileprivate func toJSON() -> JSON {
@@ -211,6 +226,7 @@ public class Workspace {
                     "subpath": .string(subpath.asString),
                     "currentVersion":  currentVersion.flatMap { JSON.string(String(describing: $0)) } ?? .null,
                     "currentRevision": currentRevision.flatMap { JSON.string($0.identifier) } ?? .null,
+                    "currentBranch": currentBranch.flatMap { JSON.string($0) } ?? .null,
                     "basedOn": basedOn?.toJSON() ?? .null,
                     "state": state.toJSON(),
                 ])
@@ -730,7 +746,12 @@ public class Workspace {
     //
     // FIXME: We are probably going to need a delegate interface so we have a
     // mechanism for observing the actions.
-    func clone(repository: RepositorySpecifier, at revision: Revision, for version: Version? = nil) throws -> AbsolutePath {
+    func clone(
+        repository: RepositorySpecifier,
+        at revision: Revision,
+        version: Version? = nil,
+        branch: String? = nil
+    ) throws -> AbsolutePath {
         // Get the repository.
         let path = try fetch(repository: repository)
 
@@ -743,30 +764,47 @@ public class Workspace {
         // Write the state record.
         dependencyMap[repository] = ManagedDependency(
                 repository: repository, subpath: path.relative(to: checkoutsPath),
-                currentVersion: version, currentRevision: revision)
+                currentVersion: version, currentRevision: revision, currentBranch: branch)
         try saveState()
 
         return path
     }
 
-    // FIXME: Eliminate this helper method which gets revision by loading container again.
-    func clone(specifier: RepositorySpecifier, version: Version) throws -> AbsolutePath {
+    func clone(specifier: RepositorySpecifier, requirement: PackageStateChange.Requirement) throws -> AbsolutePath {
         // FIXME: We need to get the revision here, and we don't have a
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
         let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
-        guard let tag = container.getTag(for: version) else {
-            fatalError("Resolved version: \(version) not found for \(specifier).")
+
+        switch requirement {
+        case .version(let version):
+            let tag = container.getTag(for: version)!
+            let revision = try container.getRevision(forTag: tag)
+            return try self.clone(repository: specifier, at: revision, version: version)
+
+        case .revision(let identifier):
+            let revision = try container.getRevision(forIdentifier: identifier)
+            // Find out if this identifier is a branch or a commit hash.
+            // FIXME: This feels kind of weird, maybe we should ask the container instead.
+            let branch = revision.identifier == identifier ? nil : identifier
+            return try self.clone(repository: specifier, at: revision, branch: branch)
         }
-        let revision = try container.getRevision(forTag: tag)
-        return try self.clone(repository: specifier, at: revision, for: version)
     }
 
     /// This enum represents state of an external package.
     enum PackageStateChange {
-        /// A new package added.
-        case added(Version)
+        /// The requirement imposed by the the state.
+        enum Requirement {
+            /// A version requirement.
+            case version(Version)
+
+            /// A revision requirement.
+            case revision(String)
+        }
+
+        /// The package is added.
+        case added(Requirement)
 
         /// The package is removed.
         case removed
@@ -774,8 +812,8 @@ public class Workspace {
         /// The package is unchanged.
         case unchanged
 
-        /// The package is updated to a new version.
-        case updated(old: Version, new: Version)
+        /// The package is updated.
+        case updated(Requirement)
     }
 
     /// Updates the current dependencies.
@@ -842,14 +880,14 @@ public class Workspace {
         ignoreRemovals: Bool = false
     ) throws {
         // Get the update package states from resolved results.
-        let packageStateChanges = computePackageStateChanges(resolvedDependencies: updateResults)
+        let packageStateChanges = try computePackageStateChanges(resolvedDependencies: updateResults)
         // Update or clone new packages.
         for (specifier, state) in packageStateChanges {
             switch state {
-            case .added(let version):
-                _ = try clone(specifier: specifier, version: version)
-            case .updated(_, let version):
-                _ = try clone(specifier: specifier, version: version)
+            case .added(let requirement):
+                _ = try clone(specifier: specifier, requirement: requirement)
+            case .updated(let requirement):
+                _ = try clone(specifier: specifier, requirement: requirement)
             case .removed: 
                 if !ignoreRemovals {
                     try remove(specifier: specifier)
@@ -860,33 +898,62 @@ public class Workspace {
     }
 
     /// Computes states of the packages based on last stored state.
-    private func computePackageStateChanges(resolvedDependencies: [(RepositorySpecifier, BoundVersion)]) -> [RepositorySpecifier: PackageStateChange] {
+    private func computePackageStateChanges(
+        resolvedDependencies: [(RepositorySpecifier, BoundVersion)]
+    ) throws -> [RepositorySpecifier: PackageStateChange] {
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         // Set the states from resolved dependencies results.
         for (specifier, binding) in resolvedDependencies {
             switch binding {
             case .excluded:
                 fatalError("Unexpected excluded binding")
+
             case .unversioned:
-                // Right not it is only possible to get unversioned binding if a dependency is in editable state.
+                // Right not it is only possible to get unversioned binding if
+                // a dependency is in editable state.
                 assert(dependencyMap[specifier]?.state != .checkout)
                 packageStateChanges[specifier] = .unchanged
-            case .revision:
-                fatalError()
-            case .version(let version):
+
+            case .revision(let identifier):
+                // First check if we have this dependency.
                 if let currentDependency = dependencyMap[specifier] {
-                    // FIXME: PackageStateChange needs to get richer API for updating packages 
-                    // which are pinned to a revision, whenever we have that feature.
-                    guard let currentVersion = currentDependency.currentVersion else {
-                        continue
-                    }
-                    if currentVersion == version {
+                    // If this dependency is on a branch and it is the current revision.
+                    if currentDependency.currentBranch == identifier {
+                        // Get the latest revision from the container.
+                        let container = try await { containerProvider.getContainer(for: currentDependency.repository, completion: $0) }
+                        let currentRevision = try container.getRevision(forIdentifier: identifier)
+                        // If that revision is being used, then nothing has
+                        // changed, otherwise we need to update this
+                        // dependency.
+                        if currentRevision == currentDependency.currentRevision {
+                            packageStateChanges[specifier] = .unchanged
+                        } else {
+                            packageStateChanges[specifier] = .updated(.revision(identifier))
+                        }
+                    } else if
+                        currentDependency.currentRevision?.identifier == identifier &&
+                        currentDependency.currentVersion == nil &&
+                        currentDependency.currentBranch == nil {
+                        // If this identifier is the current revision, then
+                        // check that this is exactly the revision we're need.
                         packageStateChanges[specifier] = .unchanged
                     } else {
-                        packageStateChanges[specifier] = .updated(old: currentVersion, new: version)
+                        // Otherwise, we need to update this dependency to this revision.
+                        packageStateChanges[specifier] = .updated(.revision(identifier))
                     }
                 } else {
-                    packageStateChanges[specifier] = .added(version)
+                    packageStateChanges[specifier] = .added(.revision(identifier))
+                }
+
+            case .version(let version):
+                if let currentDependency = dependencyMap[specifier] {
+                    if currentDependency.currentVersion == version {
+                        packageStateChanges[specifier] = .unchanged
+                    } else {
+                        packageStateChanges[specifier] = .updated(.version(version))
+                    }
+                } else {
+                    packageStateChanges[specifier] = .added(.version(version))
                 }
             }
         }

@@ -33,7 +33,7 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         public let url: String
         public let version: Version?
 
-        public init(url: String, version: Version?) {
+        public init(url: String, version: Version? = nil) {
             self.url = url
             self.version = version
         }

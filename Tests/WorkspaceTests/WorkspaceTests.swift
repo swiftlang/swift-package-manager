@@ -87,6 +87,10 @@ extension Workspace {
     func loadDependencyManifests() throws -> DependencyManifests {
         return try loadDependencyManifests(loadRootManifests())
     }
+
+    func getDependency(for url: AbsolutePath) -> Workspace.ManagedDependency {
+        return dependencyMap[RepositorySpecifier(url: url.asString)]!
+    }
 }
 
 private let v1: Version = "1.0.0"
@@ -182,7 +186,7 @@ final class WorkspaceTests: XCTestCase {
             // Ensure we have checkouts for A & AA.
             for name in ["A", "AA"] {
                 let revision = try GitRepository(path: AbsolutePath(graph.repo(name).url)).getCurrentRevision()
-                _ = try workspace.clone(repository: graph.repo(name), at: revision, for: v1)
+                _ = try workspace.clone(repository: graph.repo(name), at: revision, version: v1)
             }
 
             // Load the "current" manifests.
@@ -220,7 +224,7 @@ final class WorkspaceTests: XCTestCase {
             // Ensure we have a checkout for A.
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
-                _ = try workspace.clone(repository: manifestGraph.repo(name), at: revision, for: v1)
+                _ = try workspace.clone(repository: manifestGraph.repo(name), at: revision, version: v1)
             }
 
             // Load the package graph.
@@ -288,7 +292,7 @@ final class WorkspaceTests: XCTestCase {
             // Ensure we have a checkout for A.
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
-                _ = try workspace.clone(repository: manifestGraph.repo(name), at: revision, for: v1)
+                _ = try workspace.clone(repository: manifestGraph.repo(name), at: revision, version: v1)
             }
 
             // Load the package graph.
@@ -1153,6 +1157,113 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testBranchAndRevision() throws {
+        mktmpdir { path in
+            let root = path.appending(component: "root")
+            let dep1 = path.appending(component: "dep")
+            let dep2 = path.appending(component: "dep2")
+            let dep1File = dep1.appending(component: "develop.swift")
+            let dep2File = dep2.appending(component: "develop.swift")
+
+            var manifests: [MockManifestLoader.Key: Manifest] = [:] 
+
+            for dep in [dep1, dep2] {
+                try makeDirectories(dep)
+                initGitRepo(dep)
+                let name = dep.basename
+                let manifest = Manifest(
+                    path: dep.appending(component: Manifest.filename),
+                    url: dep.asString,
+                    package: .v4(.init(name: name, products: [.Library(name: name, targets: [name])])),
+                    version: nil)
+                manifests[MockManifestLoader.Key(url: dep.asString)] = manifest
+            }
+
+            let repo1 = GitRepository(path: dep1)
+            try repo1.checkout(newBranch: "develop")
+            try localFileSystem.writeFileContents(dep1File, bytes: "")
+            try repo1.stageEverything()
+            try repo1.commit()
+
+            let repo2 = GitRepository(path: dep2)
+            try localFileSystem.writeFileContents(dep2File, bytes: "")
+            try repo2.stageEverything()
+            try repo2.commit()
+            let dep2Revision = try repo2.getCurrentRevision()
+
+            do {
+                try makeDirectories(root)
+                initGitRepo(root)
+                let manifest = Manifest(
+                    path: root.appending(component: Manifest.filename),
+                    url: root.asString,
+                    package: .v4(.init(
+                        name: "root",
+                        targets: [.init(name: "root", dependencies: ["dep"])],
+                        dependencies: [
+                            .package(url: dep1.asString, branch: "develop"),
+                            .package(url: dep2.asString, revision: dep2Revision.identifier),
+                        ])
+                    ),
+                    version: nil)
+                manifests[MockManifestLoader.Key(url: root.asString)] = manifest
+            }
+
+
+            func getWorkspace() -> Workspace {
+                return try! Workspace.createWith(
+                    rootPackage: root,
+                    manifestLoader: MockManifestLoader(manifests: manifests))
+            }
+
+            do { 
+                let graph = getWorkspace().loadPackageGraph()
+                XCTAssertTrue(graph.errors.isEmpty, "Found errors \(graph.errors)")
+            }
+
+            // Check dep1.
+            do {
+                let workspace = getWorkspace()
+                let dependency = workspace.getDependency(for: dep1)
+                let revision = try repo1.getCurrentRevision()
+                XCTAssertNil(dependency.currentVersion)
+                XCTAssertEqual(dependency.currentBranch, "develop")
+                XCTAssertEqual(dependency.currentRevision, revision)
+                XCTAssertEqual(revision, 
+                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
+
+            }
+
+            // Check dep2.
+            do {
+                let workspace = getWorkspace()
+                let dependency = workspace.getDependency(for: dep2)
+                XCTAssertNil(dependency.currentVersion)
+                XCTAssertNil(dependency.currentBranch)
+                XCTAssertEqual(dependency.currentRevision, dep2Revision)
+                XCTAssertEqual(dep2Revision, 
+                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
+            }
+
+            // Add a commit in the branch and check if update fetches it.
+            try localFileSystem.writeFileContents(dep1File, bytes: "// update")
+            try repo1.stageEverything()
+            try repo1.commit()
+
+            do {
+                let workspace = getWorkspace()
+                let _ = try workspace.updateDependencies()
+                let dependency = workspace.getDependency(for: dep1)
+                let revision = try repo1.getCurrentRevision()
+                XCTAssertNil(dependency.currentVersion)
+                XCTAssertEqual(dependency.currentBranch, "develop")
+                XCTAssertEqual(dependency.currentRevision, revision)
+                XCTAssertEqual(revision, 
+                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
+            }
+        }
+    }
+
     func testMultipleRootPackages() throws {
         mktmpdir { path in
             var repos = [String: AbsolutePath]()
@@ -1573,6 +1684,7 @@ final class WorkspaceTests: XCTestCase {
 
     static var allTests = [
         ("testBasics", testBasics),
+        ("testBranchAndRevision", testBranchAndRevision),
         ("testEditDependency", testEditDependency),
         ("testEditDependencyOnNewBranch", testEditDependencyOnNewBranch),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
