@@ -168,7 +168,9 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
-        return try getDependencies(at: Revision(identifier: revision))
+        // Resolve the revision identifier and return its dependencies.
+        let revision = try repository.resolveRevision(identifier: revision)
+        return try getDependencies(at: revision)
     }
 
     /// Returns dependencies of a container at the given revision.
