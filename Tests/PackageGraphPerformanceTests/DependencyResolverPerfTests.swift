@@ -254,10 +254,7 @@ struct GitRepositoryResolutionHelper {
     }
 
     var constraints: [RepositoryPackageConstraint] { 
-        return manifestGraph.rootManifest.package.dependencies.map{
-            RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
-        }
+        return manifestGraph.rootManifest.package.dependencyConstraints()
     }
 
     func resolve(enablePrefetching: Bool = false) -> [(container: RepositorySpecifier, binding: BoundVersion)] {

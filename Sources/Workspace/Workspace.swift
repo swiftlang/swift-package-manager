@@ -269,11 +269,7 @@ public class Workspace {
                 switch managedDependency.state {
                 case .unmanaged, .edited:
                     // Create unversioned constraints for editable dependencies.
-                    let dependencies = externalManifest.package.dependencies.map{
-                        RepositoryPackageConstraint(
-                            container: RepositorySpecifier(url: $0.url),
-                            versionRequirement: .range($0.versionRange.asUtilityVersion))
-                    }
+                    let dependencies = externalManifest.package.dependencyConstraints()
 
                     constraint = RepositoryPackageConstraint(
                         container: specifier, requirement: .unversioned(dependencies))
@@ -796,10 +792,7 @@ public class Workspace {
             case .unmanaged, .edited: break
             }
             let specifier = RepositorySpecifier(url: externalManifest.url)
-            let dependencies = externalManifest.package.dependencies.map{
-                RepositoryPackageConstraint(
-                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
-            }
+            let dependencies = externalManifest.package.dependencyConstraints()
             updateConstraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
         }
 
@@ -911,11 +904,8 @@ public class Workspace {
     ///   - includePins: If the constraints from pins should be included.
     /// - Returns: Array of constraints.
     private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
-        return rootManifests.flatMap{ rootManifest in
-            rootManifest.package.dependencies.map{
-                RepositoryPackageConstraint(
-                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
-            }
+        return rootManifests.flatMap{ 
+            $0.package.dependencyConstraints() 
         } + (includePins ? pinsStore.createConstraints() : [])
     }
 

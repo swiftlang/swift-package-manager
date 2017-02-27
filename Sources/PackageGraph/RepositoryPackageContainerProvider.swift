@@ -191,10 +191,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 manifestVersion: toolsVersion.manifestVersion,
                 fileSystem: fs)
 
-            let result = manifest.package.dependencies.map{
-                RepositoryPackageConstraint(
-                    container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion))
-            }
+            let result = manifest.package.dependencyConstraints()
             dependenciesCache[revision] = result
 
             return result
