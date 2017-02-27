@@ -530,6 +530,29 @@ func xcodeProject(
             }
         }
     }
+    
+    // Create an aggregate target for every product for which there isn't already
+    // a target with the same name.
+    let targetNames: Set<String> = Set(modulesToTargets.values.map{ $0.name })
+    for product in graph.products {
+        // Go on to next product if we already have a target with the same name.
+        if targetNames.contains(product.name) { continue }
+        // Otherwise, create an aggreate target.
+        let target = project.addTarget(productType: nil, name: product.name)
+        // Add dependencies on the targets created for each of the dependencies.
+        for module in product.modules {
+            // Find the target that corresponds to the module.  There might not
+            // be one, since we don't create targets for every kind of module
+            // (such as system modules).
+            // TODO: We will need to decide how this should best be handled; it
+            // would make sense to at least emit a warning.
+            guard let depTarget = modulesToTargets[module] else {
+                continue
+            }
+            // Add a dependency on the dependency target.
+            target.addDependency(on: depTarget)
+        }
+    }
 
     return project
 }

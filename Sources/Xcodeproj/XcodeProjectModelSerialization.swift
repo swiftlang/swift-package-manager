@@ -130,9 +130,10 @@ extension Xcode.Target: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the Target.
     fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
-        // Create a `PBXNativeTarget` plist dictionary.
+        // Create either a `PBXNativeTarget` or an `PBXAggregateTarget` plist
+        // dictionary (depending on whether or not we have a product type).
         var dict = [String: PropertyList]()
-        dict["isa"] = .string("PBXNativeTarget")
+        dict["isa"] = .string(productType == nil ? "PBXAggregateTarget" : "PBXNativeTarget")
         dict["name"] = .string(name)
         // Build settings are a bit tricky; in Xcode, each is stored in a named
         // XCBuildConfiguration object, and the list of build configurations is
@@ -169,7 +170,9 @@ extension Xcode.Target: PropertyListSerializable {
             .identifier(serializer.serialize(object: TargetDependency(target: dep.target)))
         })
         dict["productName"] = .string(productName)
-        dict["productType"] = .string(productType.asString)
+        if let productType = productType {
+            dict["productType"] = .string(productType.asString)
+        }
         if let productReference = productReference {
             dict["productReference"] = .identifier(serializer.id(of: productReference))
         }
