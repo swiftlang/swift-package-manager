@@ -285,6 +285,10 @@ public class GitRepository: Repository, WorkingCheckout {
         return try Revision(identifier: resolveHash(treeish: tag, type: "commit").bytes.asString!)
     }
 
+    public func resolveRevision(identifier: String) throws -> Revision {
+        return try Revision(identifier: resolveHash(treeish: identifier, type: "commit").bytes.asString!)
+    }
+
     public func fetch() throws {
         try queue.sync {
             try Process.checkNonZeroExit(

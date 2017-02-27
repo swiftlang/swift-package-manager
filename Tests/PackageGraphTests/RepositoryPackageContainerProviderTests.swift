@@ -44,6 +44,10 @@ private class MockRepository: Repository {
         return Revision(identifier: tag)
     }
 
+    func resolveRevision(identifier: String) throws -> Revision {
+        fatalError("Unexpected API call")
+    }
+
     func fetch() throws {
         fatalError("Unexpected API call")
     }

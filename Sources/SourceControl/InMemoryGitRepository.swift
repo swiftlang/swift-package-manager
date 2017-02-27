@@ -218,6 +218,10 @@ extension InMemoryGitRepository: Repository {
         return Revision(identifier: tagsMap[tag]!)
     }
 
+    public func resolveRevision(identifier: String) throws -> Revision {
+        fatalError("unimplemented")
+    }
+
     public func exists(revision: Revision) -> Bool {
         return history[revision.identifier] != nil
     }

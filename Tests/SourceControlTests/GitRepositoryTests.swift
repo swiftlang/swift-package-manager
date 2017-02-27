@@ -59,6 +59,21 @@ class GitRepositoryTests: XCTestCase {
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
+
+            let master = try repository.resolveRevision(identifier: "master")
+
+            XCTAssertEqual(master.identifier,
+                try Process.checkNonZeroExit(
+                    args: Git.tool, "-C", testRepoPath.asString, "rev-parse", "--verify", "master").chomp())
+
+            // Check that git hashes resolve to themselves.
+            let masterIdentifier = try repository.resolveRevision(identifier: master.identifier)
+            XCTAssertEqual(master.identifier, masterIdentifier.identifier)
+
+            // Check that invalid identifier doesn't resolve.
+            if let revision = try? repository.resolveRevision(identifier: "invalid") {
+                XCTFail("unexpected resolution of invalid identifier to \(revision)")
+            }
         }
     }
 

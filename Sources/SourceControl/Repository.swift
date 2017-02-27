@@ -112,6 +112,13 @@ public protocol Repository {
     /// - Throws: If a error occurs accessing the named tag.
     func resolveRevision(tag: String) throws -> Revision
 
+    /// Resolve the revision for an identifier.
+    ///
+    /// The identifier can be a branch name or a revision identifier.
+    ///
+    /// - Throws: If the identifier can not be resolved.
+    func resolveRevision(identifier: String) throws -> Revision
+
     /// Fetch and update the repository from its remote.
     ///
     /// - Throws: If an error occurs while performing the fetch operation.
