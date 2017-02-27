@@ -59,4 +59,14 @@ public class Git {
 
     /// A shell command to run for Git. Can be either a name or a path.
     public static var tool: String = "git"
+
+    /// Returns true if the git reference name is well formed.
+    public static func checkRefFormat(ref: String) -> Bool {
+        do {
+            let result = try Process.popen(args: "git", "check-ref-format", "--allow-onelevel", ref)
+            return result.exitStatus == .terminated(code: 0)
+        } catch {
+            return false
+        }
+    }
 }

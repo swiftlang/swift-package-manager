@@ -139,9 +139,27 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testRevision() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   dependencies: [" <<< "\n"
+        stream <<< "       .package(url: \"/foo\", branch: \"master\")," <<< "\n"
+        stream <<< "       .package(url: \"/bar\", revision: \"58e9de4e7b79e67c72a46e164158e3542e570ab6\")," <<< "\n"
+        stream <<< "   ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo"], .package(url: "/foo", branch: "master"))
+            XCTAssertEqual(deps["/bar"], .package(url: "/bar", revision: "58e9de4e7b79e67c72a46e164158e3542e570ab6"))
+        }
+    }
+
     static var allTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testTargetDependencies", testTargetDependencies),
         ("testTrivial", testTrivial),
+        ("testRevision", testRevision),
     ]
 }

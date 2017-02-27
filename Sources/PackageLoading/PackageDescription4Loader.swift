@@ -98,14 +98,31 @@ extension PackageDescription4.Package {
 extension PackageDescription4.Package.Dependency {
     fileprivate static func fromJSON(_ json: JSON, baseURL: String?) -> PackageDescription4.Package.Dependency {
         guard case .dictionary(let dict) = json else { fatalError("Unexpected item") }
-
         guard case .string(let url)? = dict["url"],
-              case .dictionary(let versionDict)? = dict["version"],
-              case .string(let vv1)? = versionDict["lowerBound"],
-              case .string(let vv2)? = versionDict["upperBound"],
-              let v1 = Version(vv1), let v2 = Version(vv2)
-        else {
+              case .dictionary(let requirementDict)? = dict["requirement"] else {
             fatalError("Unexpected item")
+        }
+
+        let requirement: Package.Dependency.Requirement
+
+        switch requirementDict["type"] {
+        case .string("branch")?:
+            guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
+            requirement = .branch(identifier)
+
+        case .string("revision")?:
+            guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
+            requirement = .revision(identifier)
+
+        case .string("range")?:
+            guard case .string(let vv1)? = requirementDict["lowerBound"],
+                  case .string(let vv2)? = requirementDict["upperBound"],
+                  let v1 = Version(vv1), let v2 = Version(vv2) else {
+                fatalError()
+            }
+            requirement = .range(v1..<v2)
+
+        default: fatalError()
         }
 
         func fixURL() -> String {
@@ -117,7 +134,7 @@ extension PackageDescription4.Package.Dependency {
             }
         }
 
-        return PackageDescription4.Package.Dependency.Package(url: fixURL(), versions: v1..<v2)
+        return PackageDescription4.Package.Dependency(url: fixURL(), requirement: requirement)
     }
 }
 

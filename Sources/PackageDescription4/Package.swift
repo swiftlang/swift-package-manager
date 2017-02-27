@@ -18,12 +18,26 @@ import Darwin.C
 public final class Package {
     /// The description for a package dependency.
     public class Dependency {
-        public let versionRange: Range<Version>
+
+        public enum Requirement {
+            case range(Range<Version>)
+
+            case revision(String)
+
+            case branch(String)
+        }
+
+        public let requirement: Requirement
         public let url: String
 
         init(_ url: String, _ versionRange: Range<Version>) {
             self.url = url
-            self.versionRange = versionRange
+            self.requirement = .range(versionRange)
+        }
+
+        public init(url: String, requirement: Requirement) {
+            self.url = url
+            self.requirement = requirement
         }
 
         convenience init(_ url: String, _ versionRange: ClosedRange<Version>) {
@@ -44,6 +58,14 @@ public final class Package {
         }
         public class func Package(url: String, _ version: Version) -> Dependency {
             return Dependency(url, version...version)
+        }
+
+        public class func package(url: String, branch: String) -> Dependency {
+            return Dependency(url: url, requirement: .branch(branch))
+        }
+
+        public class func package(url: String, revision: String) -> Dependency {
+            return Dependency(url: url, requirement: .revision(revision))
         }
     }
     
@@ -126,17 +148,38 @@ extension SystemPackageProvider {
     }
 }
 
-// MARK: Equatable
-extension Package : Equatable { }
-public func ==(lhs: Package, rhs: Package) -> Bool {
-    return (lhs.name == rhs.name &&
-        lhs.targets == rhs.targets &&
-        lhs.dependencies == rhs.dependencies)
+extension Package: Equatable {
+    public static func ==(lhs: Package, rhs: Package) -> Bool {
+        return lhs === rhs
+    }
 }
 
-extension Package.Dependency : Equatable { }
-public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-    return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
+extension Package.Dependency.Requirement: Equatable {
+    public static func ==(
+        lhs: Package.Dependency.Requirement,
+        rhs: Package.Dependency.Requirement
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (.range(let lhs), .range(let rhs)):
+            return lhs == rhs
+        case (.range, _):
+            return false
+        case (.revision(let lhs), .revision(let rhs)):
+            return lhs == rhs
+        case (.revision, _):
+            return false
+        case (.branch(let lhs), .branch(let rhs)):
+            return lhs == rhs
+        case (.branch, _):
+            return false
+        }
+    }
+}
+
+extension Package.Dependency: Equatable {
+    public static func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
+        return lhs.url == rhs.url && lhs.requirement == rhs.requirement
+    }
 }
 
 // MARK: Package JSON serialization
@@ -150,14 +193,34 @@ extension SystemPackageProvider {
     }
 }
 
+extension Package.Dependency.Requirement {
+    func toJSON() -> JSON {
+        switch self {
+        case .range(let range):
+            return .dictionary([
+                "type": .string("range"),
+                "lowerBound": .string(range.lowerBound.description),
+                "upperBound": .string(range.upperBound.description),
+            ])
+        case .branch(let identifier):
+            return .dictionary([
+                "type": .string("branch"),
+                "identifier": .string(identifier),
+            ])
+        case .revision(let identifier):
+            return .dictionary([
+                "type": .string("revision"),
+                "identifier": .string(identifier),
+            ])
+        }
+    }
+}
+
 extension Package.Dependency {
     func toJSON() -> JSON {
         return .dictionary([
             "url": .string(url),
-            "version": .dictionary([
-                "lowerBound": .string(versionRange.lowerBound.description),
-                "upperBound": .string(versionRange.upperBound.description)
-            ])
+            "requirement": requirement.toJSON(),
         ])
     }
 }
