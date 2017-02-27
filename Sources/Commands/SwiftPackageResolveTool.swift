@@ -43,9 +43,7 @@ extension SwiftPackageTool {
         let resolver = DependencyResolver(provider, delegate)
 
         // Resolve the dependencies using the manifest constraints.
-        let constraints = manifest.package.dependencies.map{
-            RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url), versionRequirement: .range($0.versionRange.asUtilityVersion)) }
+        let constraints = manifest.package.dependencyConstraints()
         let result = try resolver.resolve(constraints: constraints)
 
         switch opts.resolveToolMode {
