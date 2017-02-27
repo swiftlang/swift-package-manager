@@ -759,7 +759,7 @@ public class Workspace {
         guard let tag = container.getTag(for: version) else {
             fatalError("Resolved version: \(version) not found for \(specifier).")
         }
-        let revision = try container.getRevision(for: tag)
+        let revision = try container.getRevision(forTag: tag)
         return try self.clone(repository: specifier, at: revision, for: version)
     }
 

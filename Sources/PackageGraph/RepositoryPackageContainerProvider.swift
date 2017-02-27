@@ -148,8 +148,14 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         return knownVersions[version]
     }
 
-    public func getRevision(for tag: String) throws -> Revision {
+    /// Returns revision for the given tag.
+    public func getRevision(forTag tag: String) throws -> Revision {
         return try repository.resolveRevision(tag: tag)
+    }
+
+    /// Returns revision for the given identifier.
+    public func getRevision(forIdentifier identifier: String) throws -> Revision {
+        return try repository.resolveRevision(identifier: identifier)
     }
 
     /// Returns the tools version of the given version of the package.
