@@ -82,6 +82,9 @@ extension PackageContainerConstraint where T == RepositorySpecifier {
             requirement = versionSet.toJSON()
         case .unversioned:
             requirement = .string("unversioned")
+        case .revision:
+            // FIXME: This needs to be represented properly in a dictionary.
+            requirement = .string("revision")
         }
         return .dictionary([
             "identifier": .string(identifier.url),

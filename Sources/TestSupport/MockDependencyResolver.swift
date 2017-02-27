@@ -130,6 +130,8 @@ extension MockPackageContainer {
                     return (constraint.identifier, versionSet) 
                 case .unversioned: 
                     fatalError()
+                case .revision: 
+                    fatalError()
                 }
             }
         }

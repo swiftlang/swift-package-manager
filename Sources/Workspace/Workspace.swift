@@ -623,7 +623,7 @@ public class Workspace {
     /// - Throws: WorkspaceOperationError, PinOperationError
     public func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
         assert(dependency.state == .checkout, "Can not pin a dependency which is in being edited.")
-        // Compute constaints with the new pin and try to resolve dependencies. We only commit the pin if the
+        // Compute constraints with the new pin and try to resolve dependencies. We only commit the pin if the
         // dependencies can be resolved with new constraints.
         //
         // The constraints consist of three things:
@@ -878,6 +878,8 @@ public class Workspace {
                 // Right not it is only possible to get unversioned binding if a dependency is in editable state.
                 assert(dependencyMap[specifier]?.state != .checkout)
                 packageStateChanges[specifier] = .unchanged
+            case .revision:
+                fatalError()
             case .version(let version):
                 if let currentDependency = dependencyMap[specifier] {
                     // FIXME: PackageStateChange needs to get richer API for updating packages 
