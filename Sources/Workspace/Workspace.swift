@@ -935,7 +935,7 @@ public class Workspace {
                         currentDependency.currentVersion == nil &&
                         currentDependency.currentBranch == nil {
                         // If this identifier is the current revision, then
-                        // check that this is exactly the revision we're need.
+                        // check that this is exactly the revision that we need.
                         packageStateChanges[specifier] = .unchanged
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
