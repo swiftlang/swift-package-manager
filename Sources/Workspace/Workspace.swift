@@ -291,21 +291,29 @@ public class Workspace {
                         container: specifier, requirement: .unversioned(dependencies))
 
                 case .checkout:
-                    let version = managedDependency.currentVersion!
-                    // If this specifier is pinned, we should already have it
-                    // checked out at that version. We also don't need to add
-                    // the constraint again.
-                    if let pin = pinsStore.pinsMap[externalManifest.name] {
-                        assert(version == pin.version)
+                    // If this specifier is pinned, don't add a constraint for
+                    // it as we'll get it from the pin.
+                    guard pinsStore.pinsMap[externalManifest.name] == nil else {
                         continue
                     }
-                    // If we know the manifest is at a particular version, use that.
+
+                    // If we know the manifest is at a particular revision, use that.
                     //
                     // FIXME: This backfires in certain cases when the
                     // graph is resolvable but this constraint makes the
                     // resolution unsatisfiable.
+                    let requirement: RepositoryPackageConstraint.Requirement
+
+                    if let version = managedDependency.currentVersion {
+                        requirement = .versionSet(.exact(version))
+                    } else if let branch = managedDependency.currentBranch {
+                        requirement = .revision(branch)
+                    } else {
+                        requirement = .revision(managedDependency.currentRevision!.identifier)
+                    }
+
                     constraint = RepositoryPackageConstraint(
-                        container: specifier, versionRequirement: .exact(version))
+                        container: specifier, requirement: requirement)
                 }
 
                 constraints.append(constraint)
@@ -647,10 +655,18 @@ public class Workspace {
                         + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
-        // Add the record in pins store.
-        try pinsStore.pin(package: packageName, repository: dependency.repository, at: version, reason: reason)
+
         // Update the checkouts based on new dependency resolution.
         try updateCheckouts(with: results)
+
+        // Get the updated dependency.
+        let newDependency = dependencyMap[dependency.repository]!
+
+        // Add the record in pins store.
+        try pin(
+            dependency: newDependency,
+            package: packageName,
+            reason: reason)
     }
 
     /// Pins all of the dependencies to the loaded version.
@@ -664,39 +680,38 @@ public class Workspace {
         }
         // Load the dependencies.
         let dependencyManifests = try loadDependencyManifests(loadRootManifests())
+
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
-            // Get package name.
-            let package = dependencyManifest.manifest.name
-
-            // Get the managed dependency.
-            var dependency = dependencyManifest.dependency
-
-            // For editable dependencies, pin the underlying dependency if we have them.
-            switch dependency.state {
-            case .checkout: break
-            case .unmanaged, .edited:
-                if let basedOn = dependency.basedOn {
-                    dependency = basedOn
-                } else {
-                    delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
-                    continue
-                }
-            }
-
-            // We should have a version loaded to pin. This will never happen right now
-            // because we can't have dependencies checked out to a git ref.
-            guard let version = dependency.currentVersion else {
-                delegate.warning(message: "not pinning \(package) because doesn't have a version loaded.")
-                continue
-            }
-            // Commit the pin.
-            try pinsStore.pin(
-                package: package,
-                repository: dependency.repository,
-                at: version,
+            try pin(
+                dependency: dependencyManifest.dependency,
+                package: dependencyManifest.manifest.name,
                 reason: reason)
         }
+    }
+
+    /// Pins the managed dependency.
+    private func pin(dependency: ManagedDependency, package: String, reason: String?) throws {
+        var dependency = dependency
+
+        switch dependency.state {
+        case .checkout: break
+        case .unmanaged, .edited:
+            // For editable dependencies, pin the underlying dependency if we have them.
+            if let basedOn = dependency.basedOn {
+                dependency = basedOn
+            } else {
+                return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
+            }
+        }
+        // Commit the pin.
+        try pinsStore.pin(
+            package: package,
+            repository: dependency.repository,
+            revision: dependency.currentRevision!,
+            version: dependency.currentVersion,
+            branch: dependency.currentBranch,
+            reason: reason)
     }
 
     // MARK: Low-level Operations
@@ -783,11 +798,7 @@ public class Workspace {
             let revision = try container.getRevision(forTag: tag)
             return try self.clone(repository: specifier, at: revision, version: version)
 
-        case .revision(let identifier):
-            let revision = try container.getRevision(forIdentifier: identifier)
-            // Find out if this identifier is a branch or a commit hash.
-            // FIXME: This feels kind of weird, maybe we should ask the container instead.
-            let branch = revision.identifier == identifier ? nil : identifier
+        case .revision(let revision, let branch):
             return try self.clone(repository: specifier, at: revision, branch: branch)
         }
     }
@@ -800,7 +811,7 @@ public class Workspace {
             case version(Version)
 
             /// A revision requirement.
-            case revision(String)
+            case revision(Revision, branch: String?)
         }
 
         /// The package is added.
@@ -837,35 +848,36 @@ public class Workspace {
         // Resolve the dependencies.
         let updateResults = try resolveDependencies(constraints: updateConstraints)
         // Update the checkouts based on new dependency resolution.
-        try updateCheckouts(with: updateResults)
+        try updateCheckouts(with: updateResults, updateBranches: true)
         // If we're repinning, update the pins store.
         if repin {
-            try repinPackages(with: updateResults)
+            try repinPackages()
         }
     }
 
-    /// Repin the packages with dependency resolution result.
-    private func repinPackages(with updateResults: [(RepositorySpecifier, BoundVersion)]) throws {
+    /// Repin the packages.
+    ///
+    /// This methods pins all packages if auto pinning is on.
+    /// Otherwise, only currently pinned packages are repinned.
+    private func repinPackages() throws {
         // If autopin is on, pin everything and return.
         if pinsStore.autoPin {
             return try pinAll(reset: true)
         }
-        // Otherwise we need to repin only the previous pins.
-        // Create a dictionary of result for fast lookup.
-        let updateResultsMap = Dictionary(items: updateResults)
+
+        // Otherwise, we need to repin only the previous pins.
         for pin in pinsStore.pins {
-            guard let newBinding = updateResultsMap[pin.repository] else {
-                // This is a stray pin as it is not present in updated results.
+            // Check if this is a stray pin.
+            guard let dependency = dependencyMap[pin.repository] else {
                 // FIXME: Use diagnosics engine when we have that.
-                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.version) but the dependency is not present.")
+                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.description) but the dependency is not present.")
                 continue
             }
-            // We can only pin the version bindings.
-            guard case .version(let newVersion) = newBinding else { continue }
-            // We don't need to repin if its version did not change.
-            guard newVersion != pin.version else { continue }
-            // Repin this dependency.
-            try pinsStore.pin(package: pin.package, repository: pin.repository, at: newVersion, reason: pin.reason)
+            // Pin this dependency.
+            try self.pin(
+                dependency: dependency,
+                package: pin.package,
+                reason: pin.reason)
         }
     }
 
@@ -875,12 +887,15 @@ public class Workspace {
     /// - Parameters:
     ///   - updateResults: The updated results from dependency resolution.
     ///   - ignoreRemovals: Do not remove any checkouts.
+    ///   - updateBranches: If the branches should be updated in case they're pinned.
     private func updateCheckouts(
         with updateResults: [(RepositorySpecifier, BoundVersion)],
-        ignoreRemovals: Bool = false
+        ignoreRemovals: Bool = false,
+        updateBranches: Bool = false
     ) throws {
         // Get the update package states from resolved results.
-        let packageStateChanges = try computePackageStateChanges(resolvedDependencies: updateResults)
+        let packageStateChanges = try computePackageStateChanges(
+            resolvedDependencies: updateResults, updateBranches: updateBranches)
         // Update or clone new packages.
         for (specifier, state) in packageStateChanges {
             switch state {
@@ -899,7 +914,8 @@ public class Workspace {
 
     /// Computes states of the packages based on last stored state.
     private func computePackageStateChanges(
-        resolvedDependencies: [(RepositorySpecifier, BoundVersion)]
+        resolvedDependencies: [(RepositorySpecifier, BoundVersion)],
+        updateBranches: Bool
     ) throws -> [RepositorySpecifier: PackageStateChange] {
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         // Set the states from resolved dependencies results.
@@ -915,23 +931,33 @@ public class Workspace {
                 packageStateChanges[specifier] = .unchanged
 
             case .revision(let identifier):
+                // Get the latest revision from the container.
+                let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+                var revision = try container.getRevision(forIdentifier: identifier)
+                let branch = identifier == revision.identifier ? nil : identifier
+
+                // If we have a branch and we shouldn't be updating the
+                // branches, use the revision from pin instead (if present).
+                if branch != nil {
+                    if let pin = pinsStore.pins.first(where: { $0.repository == specifier }), !updateBranches {
+                        revision = pin.revision
+                    }
+                }
+
                 // First check if we have this dependency.
                 if let currentDependency = dependencyMap[specifier] {
-                    // If this dependency is on a branch and it is the current revision.
-                    if currentDependency.currentBranch == identifier {
-                        // Get the latest revision from the container.
-                        let container = try await { containerProvider.getContainer(for: currentDependency.repository, completion: $0) }
-                        let currentRevision = try container.getRevision(forIdentifier: identifier)
+
+                    if currentDependency.currentBranch == branch {
                         // If that revision is being used, then nothing has
                         // changed, otherwise we need to update this
                         // dependency.
-                        if currentRevision == currentDependency.currentRevision {
+                        if revision == currentDependency.currentRevision {
                             packageStateChanges[specifier] = .unchanged
                         } else {
-                            packageStateChanges[specifier] = .updated(.revision(identifier))
+                            packageStateChanges[specifier] = .updated(.revision(revision, branch: branch))
                         }
                     } else if
-                        currentDependency.currentRevision?.identifier == identifier &&
+                        currentDependency.currentRevision == revision &&
                         currentDependency.currentVersion == nil &&
                         currentDependency.currentBranch == nil {
                         // If this identifier is the current revision, then
@@ -939,10 +965,10 @@ public class Workspace {
                         packageStateChanges[specifier] = .unchanged
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
-                        packageStateChanges[specifier] = .updated(.revision(identifier))
+                        packageStateChanges[specifier] = .updated(.revision(revision, branch: branch))
                     }
                 } else {
-                    packageStateChanges[specifier] = .added(.revision(identifier))
+                    packageStateChanges[specifier] = .added(.revision(revision, branch: branch))
                 }
 
             case .version(let version):

@@ -1184,6 +1184,7 @@ final class WorkspaceTests: XCTestCase {
             try localFileSystem.writeFileContents(dep1File, bytes: "")
             try repo1.stageEverything()
             try repo1.commit()
+            let dep1Revision = try repo1.getCurrentRevision()
 
             let repo2 = GitRepository(path: dep2)
             try localFileSystem.writeFileContents(dep2File, bytes: "")
@@ -1225,11 +1226,10 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let workspace = getWorkspace()
                 let dependency = workspace.getDependency(for: dep1)
-                let revision = try repo1.getCurrentRevision()
                 XCTAssertNil(dependency.currentVersion)
                 XCTAssertEqual(dependency.currentBranch, "develop")
-                XCTAssertEqual(dependency.currentRevision, revision)
-                XCTAssertEqual(revision, 
+                XCTAssertEqual(dependency.currentRevision, dep1Revision)
+                XCTAssertEqual(dep1Revision, 
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
 
             }
@@ -1245,11 +1245,43 @@ final class WorkspaceTests: XCTestCase {
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
             }
 
+            // Check pins.
+            do {
+                let workspace = getWorkspace()
+                let dep1Pin = workspace.pinsStore.pinsMap["dep"]!
+                XCTAssertNil(dep1Pin.version)
+                XCTAssertEqual(dep1Pin.revision, dep1Revision)
+                XCTAssertEqual(dep1Pin.branch, "develop")
+
+                let dep2Pin = workspace.pinsStore.pinsMap["dep2"]!
+                XCTAssertNil(dep2Pin.version)
+                XCTAssertNil(dep2Pin.branch)
+                XCTAssertEqual(dep2Pin.revision, dep2Revision)
+            }
+
             // Add a commit in the branch and check if update fetches it.
             try localFileSystem.writeFileContents(dep1File, bytes: "// update")
             try repo1.stageEverything()
             try repo1.commit()
 
+            // Reset workspace.
+            try getWorkspace().reset()
+
+            // Loading package graph shouldn't update the branches because of pin.
+            do {
+                let workspace = getWorkspace()
+                let graph = workspace.loadPackageGraph()
+                XCTAssertTrue(graph.errors.isEmpty, "Found errors \(graph.errors)")
+
+                let dependency = workspace.getDependency(for: dep1)
+                XCTAssertNil(dependency.currentVersion)
+                XCTAssertEqual(dependency.currentBranch, "develop")
+                XCTAssertEqual(dependency.currentRevision, dep1Revision)
+                XCTAssertEqual(dep1Revision, 
+                    try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
+            }
+
+            // Do an update and check if branch is updated.
             do {
                 let workspace = getWorkspace()
                 let _ = try workspace.updateDependencies()
