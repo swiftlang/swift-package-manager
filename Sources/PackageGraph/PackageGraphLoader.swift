@@ -148,7 +148,7 @@ private func createResolvedPackages(
         let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
 
         // Make sure these module names are unique in the graph.
-        let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.flatMap{ $0.name }
+        let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.map{ $0.name }
         if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map{$0.name}) {
             errors.append(ModuleError.duplicateModule(duplicateModules.first!))
         }
