@@ -10,7 +10,7 @@
 
 import Basic
 import struct Utility.Version
-import struct SourceControl.RepositorySpecifier
+import SourceControl
 import typealias PackageGraph.RepositoryPackageConstraint
 
 public enum PinOperationError: Swift.Error {
@@ -26,17 +26,45 @@ public struct PinsStore {
         /// The repository specifier of the pinned dependency.
         public let repository: RepositorySpecifier
 
-        /// The pinned version.
-        public let version: Version
+        /// The pinned revision.
+        public let revision: Revision
+
+        /// The pinned version, if known.
+        public let version: Version?
+
+        /// The pinned branch name, if known.
+        public let branch: String?
 
         /// The reason text for pinning this dependency.
         public let reason: String?
 
-        init(package: String, repository: RepositorySpecifier, version: Version, reason: String? = nil) {
+        init(
+            package: String,
+            repository: RepositorySpecifier,
+            revision: Revision,
+            version: Version? = nil,
+            branch: String? = nil,
+            reason: String? = nil
+        ) {
+            assert(version == nil || branch == nil, "Can't set both branch and version.")
             self.package = package 
             self.repository = repository 
+            self.revision = revision
             self.version = version
+            self.branch = branch
             self.reason = reason
+        }
+
+        /// Returns the description of the pin which can be used in user
+        /// viewable diagnostics. It returns one the pin information available.
+        /// Search order: version, branch, revision.
+        public var description: String {
+            if let version = version {
+                return version.description
+            } else if let branch = branch {
+                return branch
+            }
+            return revision.identifier
         }
     }
 
@@ -78,14 +106,32 @@ public struct PinsStore {
 
     /// Pin a repository at a version.
     ///
+    /// - precodition: Both branch and version can't be provided.
     /// - Parameters:
     ///   - package: The name of the package to pin.
-    ///   - version: The version to pin at.
+    ///   - revision: The version to pin at.
+    ///   - version: The version of the revision, if known.
+    ///   - branch: The branch name, if known.
     ///   - reason: The optional reason for pinning.
     /// - Throws: PinOperationError
-    public mutating func pin(package: String, repository: RepositorySpecifier, at version: Version, reason: String? = nil) throws {
+    public mutating func pin(
+        package: String,
+        repository: RepositorySpecifier,
+        revision: Revision,
+        version: Version? = nil,
+        branch: String? = nil,
+        reason: String? = nil
+    ) throws {
+        precondition(version == nil || branch == nil, "Can't set both branch and version.")
         // Add pin and save the state.
-        pinsMap[package] = Pin(package: package, repository: repository, version: version, reason: reason)
+        pinsMap[package] = Pin(
+            package: package,
+            repository: repository,
+            revision: revision,
+            version: version,
+            branch: branch,
+            reason: reason
+        )
         try saveState()
     }
 
@@ -119,8 +165,16 @@ public struct PinsStore {
 
     /// Creates constraints based on the pins in the store.
     public func createConstraints() -> [RepositoryPackageConstraint] {
-        return pins.map {
-            RepositoryPackageConstraint(container: $0.repository, versionRequirement: .exact($0.version))
+        return pins.map { pin in
+            let requirement: RepositoryPackageConstraint.Requirement
+            if let version = pin.version {
+                requirement = .versionSet(.exact(version))
+            } else if let branch = pin.branch {
+                requirement = .revision(branch)
+            } else {
+                requirement = .revision(pin.revision.identifier)
+            }
+            return RepositoryPackageConstraint(container: pin.repository, requirement: requirement)
         }
     }
 }
@@ -190,19 +244,25 @@ extension PinsStore.Pin: Equatable {
     init?(json data: JSON) {
         guard case let .dictionary(contents) = data,
               case let .string(package)? = contents["package"],
-              case let .string(version)? = contents["version"],
               case let .string(repositoryURL)? = contents["repositoryURL"],
-              let reasonData = contents["reason"] else {
+              case let .string(revision)? = contents["revision"] else {
             return nil
         }
         self.package = package
         self.repository = RepositorySpecifier(url: repositoryURL)
-        if case .string(let reason) = reasonData { 
-            self.reason = reason
-        } else {
-            self.reason = nil
+        self.reason = contents["reason"].flatMap{
+            if case .string(let reason) = $0 { return reason }
+            return nil
         }
-        self.version = Version(string: version)!
+        self.revision = Revision(identifier: revision)
+        self.version = contents["version"].flatMap{
+            if case .string(let versionString) = $0 { return Version(string: versionString)! }
+            return nil
+        }
+        self.branch = contents["branch"].flatMap{
+            if case .string(let branch) = $0 { return branch }
+            return nil
+        }
     }
 
     /// Convert the pin to JSON.
@@ -210,7 +270,9 @@ extension PinsStore.Pin: Equatable {
         return .dictionary([
                 "package": .string(package),
                 "repositoryURL": .string(repository.url),
-                "version": .string(String(describing: version)),
+                "revision": .string(revision.identifier),
+                "version": version.flatMap{ JSON.string(String(describing: $0)) } ?? .null,
+                "branch": branch.flatMap(JSON.string) ?? .null,
                 "reason": reason.flatMap(JSON.string) ?? .null,
             ])
     }
@@ -218,6 +280,8 @@ extension PinsStore.Pin: Equatable {
     public static func ==(lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
         return lhs.package == rhs.package &&
                lhs.repository == rhs.repository &&
-               lhs.version == rhs.version
+               lhs.revision == rhs.revision &&
+               lhs.version == rhs.version &&
+               lhs.branch == rhs.branch
     }
 }
