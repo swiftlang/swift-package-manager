@@ -62,7 +62,7 @@ func run() throws {
                 var methodName = test.description.characters.split(whereSeparator: splitSet.contains).map(String.init)[2]
                 // Unmangle names for Swift test cases which throw.
                 if methodName.hasSuffix("AndReturnError") {
-                    methodName = methodName[methodName.startIndex..<methodName.index(methodName.endIndex, offsetBy: -14)]
+                    methodName = String(methodName[methodName.startIndex..<methodName.index(methodName.endIndex, offsetBy: -14)])
                 }
                 return ["name": methodName]
             }

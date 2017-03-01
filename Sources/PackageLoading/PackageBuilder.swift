@@ -715,7 +715,7 @@ private struct PotentialModule: Hashable {
             fatalError("\(type(of: self)) should be a test module to access basename.")
         }
         precondition(name.hasSuffix(Module.testModuleNameSuffix))
-        return name[name.startIndex..<name.index(name.endIndex, offsetBy: -Module.testModuleNameSuffix.characters.count)]
+        return String(name[name.startIndex..<name.index(name.endIndex, offsetBy: -Module.testModuleNameSuffix.characters.count)])
     }
 
     var hashValue: Int {
