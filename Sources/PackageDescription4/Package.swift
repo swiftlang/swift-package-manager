@@ -89,7 +89,7 @@ public final class Package {
     public var dependencies: [Dependency]
 
     /// The list of swift versions, this package is compatible with.
-    public var compatibleSwiftVersions: [Int]?
+    public var swiftLanguageVersions: [Int]?
 
     /// The list of folders to exclude.
     public var exclude: [String]
@@ -102,7 +102,7 @@ public final class Package {
         targets: [Target] = [],
         products: [Product] = [],
         dependencies: [Dependency] = [],
-        compatibleSwiftVersions: [Int]? = nil,
+        swiftLanguageVersions: [Int]? = nil,
         exclude: [String] = []
     ) {
         self.name = name
@@ -111,7 +111,7 @@ public final class Package {
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
-        self.compatibleSwiftVersions = compatibleSwiftVersions
+        self.swiftLanguageVersions = swiftLanguageVersions
         self.exclude = exclude
 
         // Add custom exit handler to cause package to be dumped at exit, if requested.
@@ -239,8 +239,8 @@ extension Package {
         if let providers = self.providers {
             dict["providers"] = .array(providers.map { $0.toJSON() })
         }
-        if let compatibleSwiftVersions = self.compatibleSwiftVersions {
-            dict["compatibleSwiftVersions"] = .array(compatibleSwiftVersions.map(JSON.int))
+        if let swiftLanguageVersions = self.swiftLanguageVersions {
+            dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.int))
         }
         return .dictionary(dict)
     }

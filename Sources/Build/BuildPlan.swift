@@ -222,8 +222,8 @@ public final class SwiftTargetDescription {
     fileprivate var additionalFlags: [String] = []
 
     /// The compatible swift versions for this target.
-    var compatibleSwiftVersions: [Int]? {
-        return (module.underlyingModule as! SwiftModule).compatibleSwiftVersions
+    var swiftLanguageVersions: [Int]? {
+        return (module.underlyingModule as! SwiftModule).swiftLanguageVersions
     }
 
     /// If this target is a test target.
@@ -574,11 +574,11 @@ public class BuildPlan {
         // Ensure that the module sources are compatible with current version of tools.
         // Note that we don't actually make use of these flags during compilation because
         // of the compiler bug https://bugs.swift.org/browse/SR-3791.
-        if let compatibleSwiftVersions = swiftTarget.compatibleSwiftVersions {
+        if let swiftLanguageVersions = swiftTarget.swiftLanguageVersions {
             let majorToolsVersion = buildParameters.toolsVersion.major
-            guard compatibleSwiftVersions.contains(majorToolsVersion) else {
+            guard swiftLanguageVersions.contains(majorToolsVersion) else {
                 throw Error.incompatibleToolsVersions(
-                    target: swiftTarget.module.name, required: compatibleSwiftVersions, current: majorToolsVersion)
+                    target: swiftTarget.module.name, required: swiftLanguageVersions, current: majorToolsVersion)
             }
         }
 

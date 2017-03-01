@@ -114,20 +114,20 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
-        stream <<< "   compatibleSwiftVersions: [3, 4]" <<< "\n"
+        stream <<< "   swiftLanguageVersions: [3, 4]" <<< "\n"
         stream <<< ")" <<< "\n"
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.compatibleSwiftVersions ?? [], [3, 4])
+            XCTAssertEqual(manifest.package.swiftLanguageVersions ?? [], [3, 4])
         }
 
         stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
-        stream <<< "   compatibleSwiftVersions: []" <<< "\n"
+        stream <<< "   swiftLanguageVersions: []" <<< "\n"
         stream <<< ")" <<< "\n"
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.package.compatibleSwiftVersions!, [])
+            XCTAssertEqual(manifest.package.swiftLanguageVersions!, [])
         }
 
         stream = BufferedOutputByteStream()
@@ -135,7 +135,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\")" <<< "\n"
         loadManifest(stream.bytes) { manifest in
-            XCTAssert(manifest.package.compatibleSwiftVersions == nil)
+            XCTAssert(manifest.package.swiftLanguageVersions == nil)
         }
     }
 

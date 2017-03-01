@@ -244,7 +244,7 @@ final class BuildPlanTests: XCTestCase {
                 name: "Foo",
                 targets: [.init(name: "Foo", dependencies: ["Bar"])],
                 dependencies: [.Package(url: "/Bar", majorVersion: 1)],
-                compatibleSwiftVersions: [2, ToolsVersion.currentToolsVersion.major]),
+                swiftLanguageVersions: [2, ToolsVersion.currentToolsVersion.major]),
         ], root: "/Foo", in: fs)
 
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: g, fileSystem: fs))
@@ -284,7 +284,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Tools version not set.
         do {
-            foo.compatibleSwiftVersions = nil
+            foo.swiftLanguageVersions = nil
             let version = ToolsVersion(version: "4.0.0")
             let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
             let result = BuildPlanResult(plan:
@@ -295,7 +295,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Compatible Swift version present.
         do {
-            foo.compatibleSwiftVersions = [3, 4, 5]
+            foo.swiftLanguageVersions = [3, 4, 5]
             let version = ToolsVersion(version: "4.0.0")
             let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
             let result = BuildPlanResult(plan:
@@ -306,7 +306,7 @@ final class BuildPlanTests: XCTestCase {
 
         // Compatible Swift version not present.
         do {
-            foo.compatibleSwiftVersions = [3, 5]
+            foo.swiftLanguageVersions = [3, 5]
             let version = ToolsVersion(version: "4.0.0")
             let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": Package(name: "Bar")], root: "/Foo", in: fs)
 
@@ -321,10 +321,10 @@ final class BuildPlanTests: XCTestCase {
 
         // Dependency not compatible.
         do {
-            foo.compatibleSwiftVersions = nil
+            foo.swiftLanguageVersions = nil
             let bar = Package(
                 name: "Bar",
-                compatibleSwiftVersions: [3])
+                swiftLanguageVersions: [3])
             let version = ToolsVersion(version: "4.0.0")
             let graph = loadMockPackageGraph(["/Foo": foo, "/Bar": bar], root: "/Foo", in: fs)
 

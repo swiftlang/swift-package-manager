@@ -195,26 +195,26 @@ class ManifestTests: XCTestCase {
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
-        stream <<< "   compatibleSwiftVersions: [3, 4]" <<< "\n"
+        stream <<< "   swiftLanguageVersions: [3, 4]" <<< "\n"
         stream <<< ")" <<< "\n"
         var manifest = try loadManifest(stream.bytes)
-        XCTAssertEqual(manifest.package.compatibleSwiftVersions ?? [], [3, 4])
+        XCTAssertEqual(manifest.package.swiftLanguageVersions ?? [], [3, 4])
 
         stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
-        stream <<< "   compatibleSwiftVersions: []" <<< "\n"
+        stream <<< "   swiftLanguageVersions: []" <<< "\n"
         stream <<< ")" <<< "\n"
         manifest = try loadManifest(stream.bytes)
-        XCTAssertEqual(manifest.package.compatibleSwiftVersions!, [])
+        XCTAssertEqual(manifest.package.swiftLanguageVersions!, [])
 
         stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\")" <<< "\n"
         manifest = try loadManifest(stream.bytes)
-        XCTAssert(manifest.package.compatibleSwiftVersions == nil)
+        XCTAssert(manifest.package.swiftLanguageVersions == nil)
     }
 
     func testRuntimeManifestErrors() throws {
