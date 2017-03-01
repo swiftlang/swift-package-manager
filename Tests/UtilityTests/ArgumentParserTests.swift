@@ -66,6 +66,7 @@ class ArgumentParserTests: XCTestCase {
         XCTAssert(usage.contains("USAGE: SomeBinary sample parser"))
         XCTAssert(usage.contains("  package name of the year\n                          The name of the package"))
         XCTAssert(usage.contains(" -Xld                    The xld arguments"))
+        XCTAssert(usage.contains("--help"))
     }
 
     func testErrors() throws {
@@ -223,6 +224,7 @@ class ArgumentParserTests: XCTestCase {
         XCTAssert(usage.contains("  --foo   The foo option"))
         XCTAssert(usage.contains("SUBCOMMANDS:"))
         XCTAssert(usage.contains("  b       B!"))
+        XCTAssert(usage.contains("--help"))
 
         stream = BufferedOutputByteStream()
         parserA.printUsage(on: stream)
@@ -232,6 +234,7 @@ class ArgumentParserTests: XCTestCase {
         XCTAssert(!usage.contains("USAGE:"))
         XCTAssert(usage.contains("OPTIONS:"))
         XCTAssert(usage.contains("  --branch   The branch to use"))
+        XCTAssertFalse(usage.contains("--help"))
 
         stream = BufferedOutputByteStream()
         parserB.printUsage(on: stream)

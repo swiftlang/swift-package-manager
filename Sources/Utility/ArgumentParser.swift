@@ -561,6 +561,11 @@ public final class ArgumentParser {
                 let name = [argument.name, argument.shortName].flatMap{$0}.joined(separator: ", ")
                 print(formatted: name, usage: usage, on: stream)
             }
+
+            // Print help option, if this is a top level command.
+            if !isSubparser {
+                print(formatted: "--help", usage: "Display available options", on: stream)
+            }
         }
 
         if subparsers.keys.count > 0 {
