@@ -49,10 +49,10 @@ public func describe(
             // Ensure that the module sources are compatible with current version of tools.
             // Note that we don't actually make use of these flags during compilation because
             // of the compiler bug https://bugs.swift.org/browse/SR-3791.
-            if let compatibleSwiftVersions = module.compatibleSwiftVersions {
-                guard compatibleSwiftVersions.contains(toolsVersion.major) else {
+            if let swiftLanguageVersions = module.swiftLanguageVersions {
+                guard swiftLanguageVersions.contains(toolsVersion.major) else {
                     throw Error.incompatibleToolsVersions(
-                        module: module.name, required: compatibleSwiftVersions, current: toolsVersion.major)
+                        module: module.name, required: swiftLanguageVersions, current: toolsVersion.major)
                 }
             }
 

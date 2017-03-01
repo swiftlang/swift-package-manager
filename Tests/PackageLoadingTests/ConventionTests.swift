@@ -170,7 +170,7 @@ class ConventionTests: XCTestCase {
             "/Tests/fooTests/bar.swift"
             )
 
-        let package = PackageDescription.Package(name: "pkg", compatibleSwiftVersions: [3, 4])
+        let package = PackageDescription.Package(name: "pkg", swiftLanguageVersions: [3, 4])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
                 moduleResult.check(c99name: "foo", type: .executable, isTest: false)
@@ -1151,13 +1151,13 @@ final class PackageBuilderTester {
             guard case let swiftModule as SwiftModule = module else {
                 return XCTFail("\(module) is not a swift module", file: file, line: line)
             }
-            switch (swiftModule.compatibleSwiftVersions, versions) {
+            switch (swiftModule.swiftLanguageVersions, versions) {
             case (nil, nil):
                 break
             case (let lhs?, let rhs?):
                 XCTAssertEqual(lhs, rhs, file: file, line: line)
             default:
-                XCTFail("\(swiftModule.compatibleSwiftVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
+                XCTFail("\(swiftModule.swiftLanguageVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
             }
         }
 
