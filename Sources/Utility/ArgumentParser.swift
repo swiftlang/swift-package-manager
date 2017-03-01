@@ -445,7 +445,7 @@ public final class ArgumentParser {
 
         while let arg = argumentsIterator.next() {
             // If argument is help then just print usage and exit.
-            if arg == "-h" || arg == "--help" {
+            if arg == "-h" || arg == "-help" || arg == "--help" {
                 printUsage(on: stdoutStream)
                 exit(0)
             } else if isPositional(argument: arg) {

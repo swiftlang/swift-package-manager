@@ -20,7 +20,7 @@ final class BuildToolTests: XCTestCase {
     }
     
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).contains("USAGE: swift build"))
+        XCTAssert(try execute(["-help"]).contains("USAGE: swift build"))
     }
 
     func testVersion() throws {
