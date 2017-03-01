@@ -87,7 +87,7 @@ class ToolsVersionTests: XCTestCase {
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
                 $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)], "
-                $0 <<< "compatibleSwiftVersions: [1000])"
+                $0 <<< "swiftLanguageVersions: [1000])"
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set-current"], chdir: primaryPath).chomp()
@@ -102,7 +102,7 @@ class ToolsVersionTests: XCTestCase {
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
                 $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)], "
-                $0 <<< "compatibleSwiftVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])"
+                $0 <<< "swiftLanguageVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])"
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set-current"], chdir: primaryPath).chomp()

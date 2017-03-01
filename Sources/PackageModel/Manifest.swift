@@ -162,10 +162,10 @@ extension Manifest.RawPackage {
         }
     }
 
-    public var compatibleSwiftVersions: [Int]? {
+    public var swiftLanguageVersions: [Int]? {
         switch self {
-        case .v3(let package): return package.compatibleSwiftVersions
-        case .v4(let package): return package.compatibleSwiftVersions
+        case .v3(let package): return package.swiftLanguageVersions
+        case .v4(let package): return package.swiftLanguageVersions
         }
     }
 }
