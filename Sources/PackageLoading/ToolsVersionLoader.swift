@@ -86,13 +86,3 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     // * The text between the above string and `;` or string end becomes the tools version specifier.
     static let regex = try! NSRegularExpression(pattern: "^// swift-tools-version:(.*?)(?:;.*|$)", options: [.caseInsensitive])
 }
-
-#if os(macOS)
-// Compatibility shim.
-// <rdar://problem/30488747> NSTextCheckingResult doesn't have range(at:) method
-extension NSTextCheckingResult {
-    fileprivate func range(at idx: Int) -> NSRange {
-        return rangeAt(idx)
-    }
-}
-#endif

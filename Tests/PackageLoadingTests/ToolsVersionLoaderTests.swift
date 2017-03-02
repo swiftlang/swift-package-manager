@@ -33,7 +33,9 @@ class ToolsVersionLoaderTests: XCTestCase {
 
         let validVersions = [
             "// swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
+            "// swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
             "// swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
+            "// swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
             "// swift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
             "// swift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
             "// swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),

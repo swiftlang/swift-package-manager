@@ -8,6 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+
+import Foundation
 import Utility
 
 /// Tools version represents version of the Swift toolchain.
@@ -22,6 +25,11 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(
         string: "\(Versioning.currentVersion.major).\(Versioning.currentVersion.minor).\(Versioning.currentVersion.patch)")!
+
+    /// Regex pattern to parse tools version. The format is SemVer 2.0 with an
+    /// addition that specifying the patch version is optional.
+    static let toolsVersionRegex = try! NSRegularExpression(
+        pattern: "^(\\d+)\\.(\\d+)(?:\\.(\\d+))?(\\-[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*)?(\\+[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*)?$", options: [])
 
     /// The major version number.
     public var major: Int {
@@ -43,24 +51,25 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
 
     /// Create an instance of tools version from a given string.
     public init?(string: String) {
-        let requiredComponents = string.characters.split(separator: ".", maxSplits: 2).map(String.init)
-        // We only support Major.Minor or Major.Minor.Patch
-        guard requiredComponents.count == 2 || requiredComponents.count == 3 else {
+        guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
+            in: string, options: [], range: NSRange(location: 0, length: string.characters.count)) else {
             return nil
         }
-        let intComponents = requiredComponents.flatMap(Int.init).filter{ $0>=0 }
-        // All components should be integers greater than equal to zero.
-        guard requiredComponents.count == intComponents.count else {
-            return nil
-        }
-        _version = Version(intComponents[0], intComponents[1], intComponents.count == 3 ? intComponents[2] : 0)
+        // The regex succeeded, compute individual components.
+        assert(match.numberOfRanges == 6)
+        let string = NSString(string: string)
+        let major = Int(string.substring(with: match.range(at: 1)))!
+        let minor = Int(string.substring(with: match.range(at: 2)))!
+        let patchRange = match.range(at: 3)
+        let patch = patchRange.location != NSNotFound ? Int(string.substring(with: patchRange))! : 0
+        // We ignore storing pre-release and build identifiers for now.
+        _version = Version(major, minor, patch)
     }
 
     /// Create instance of tools version from a given version.
     ///
     /// - precondition: prereleaseIdentifiers and buildMetadataIdentifier should not be present.
     public init(version: Version) {
-        precondition(version.prereleaseIdentifiers == [] && version.buildMetadataIdentifier == nil)
         _version = version
     }
 
