@@ -84,38 +84,21 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
         }
 
-        try load("//swift-tool-version:6.1.0\n") { toolsVersion in
+        try load("// \n// swift-tools-version:6.1.0\n") { toolsVersion in
             XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
         }
 
-        try load("//  swift-tool-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
+        assertFailure("//swift-tools-:6.1.0\n", "//swift-tools-:6.1.0")
+        assertFailure("//swift-tool-version:6.1.0\n", "//swift-tool-version:6.1.0")
+        assertFailure("//  swift-tool-version:6.1.0\n", "//  swift-tool-version:6.1.0")
+        assertFailure("// swift-tool-version:6.1.0\n", "// swift-tool-version:6.1.0")
+        assertFailure("noway// swift-tools-version:6.1.0\n", "noway// swift-tools-version:6.1.0")
+        assertFailure("// swift-tool-version:2.1.0\n// swift-tools-version:6.1.0\n", "// swift-tool-version:2.1.0")
 
-        try load("// swift-tool-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
-        try load("// swift-tools-version 6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
-        try load("//// swift-tools-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
-        try load("// haha swift-tools-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
-        try load("noway// swift-tools-version:6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
-        try load("// swift-tools-version 6.1.0\n") { toolsVersion in
-            XCTAssertEqual(toolsVersion, ToolsVersion.defaultToolsVersion)
-        }
-
+        assertFailure("// haha swift-tools-version:6.1.0\n", "// haha swift-tools-version:6.1.0")
+        assertFailure("//// swift-tools-version:6.1.0\n", "//// swift-tools-version:6.1.0")
+        assertFailure("// swift-tools-version 6.1.0\n", "// swift-tools-version 6.1.0")
+        assertFailure("// swift-tOols-Version 6.1.0\n", "// swift-tOols-Version 6.1.0")
         assertFailure("// swift-tools-version:6.1.2.0\n", "6.1.2.0")
         assertFailure("// swift-tools-version:-1.1.2\n", "-1.1.2")
         assertFailure("// swift-tools-version:3.1hello", "3.1hello")
@@ -128,8 +111,8 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
             XCTFail("unexpected success", file: file, line: line)
         } catch ToolsVersionLoader.Error.malformed(let specifier, let path) {
-            XCTAssertEqual(specifier, theSpecifier)
-            XCTAssertEqual(path, AbsolutePath("/pkg"))
+            XCTAssertEqual(specifier, theSpecifier, file: file, line: line)
+            XCTAssertEqual(path, AbsolutePath("/pkg"), file: file, line: line)
         } catch {
             XCTFail("Failed with error \(error)")
         }
