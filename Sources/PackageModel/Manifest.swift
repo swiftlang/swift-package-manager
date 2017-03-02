@@ -64,7 +64,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         version: Version?
     ) {
         if case .v4 = package {
-            precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manfiest.")
+            precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manifest.")
         }
         self.path = path
         self.url = url
