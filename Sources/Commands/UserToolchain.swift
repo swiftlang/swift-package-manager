@@ -54,11 +54,11 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
 
     public init(_ binDir: AbsolutePath) throws {
         // Get the search paths from PATH.
-        let envSearchPaths = UserToolchain.getEnvSearchPaths(
+        let envSearchPaths = Utility.getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
 
         func lookup(env: String) -> AbsolutePath? {
-            return UserToolchain.lookupExecutablePath(
+            return Utility.lookupExecutablePath(
                 inEnvValue: getenv(env),
                 searchPaths: envSearchPaths)
         }
@@ -104,7 +104,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
       #if os(macOS)
         let sdk: AbsolutePath
 
-        if let value = UserToolchain.lookupExecutablePath(inEnvValue: getenv("SYSROOT")) {
+        if let value = Utility.lookupExecutablePath(inEnvValue: getenv("SYSROOT")) {
             sdk = value
         } else {
             // No value in env, so search for it.
@@ -133,62 +133,4 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
       #endif
     }
 
-    /// Computes search paths from PATH variable.
-    ///
-    /// - Parameters:
-    ///   - pathString: The path string to parse.
-    ///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths based on this path.
-    /// - Returns: List of search paths.
-    static func getEnvSearchPaths(
-        pathString: String?,
-        currentWorkingDirectory cwd: AbsolutePath
-    ) -> [AbsolutePath] {
-        // Compute search paths from PATH variable.
-        return (pathString ?? "").characters.split(separator: ":").map(String.init).map { pathString in
-            // If this is an absolute path, we're done.
-            if pathString.characters.first == "/" {
-                return AbsolutePath(pathString)
-            }
-            // Otherwise convert it into absolute path relative to the working directory.
-            return AbsolutePath(pathString, relativeTo: cwd)
-        }
-    }
-
-    /// Lookup an executable path from environment variable value. This method searches in the following order:
-    /// * If env value is a valid absolute path, return it.
-    /// * If env value is relative path, first try to locate it in current working directory.
-    /// * Otherwise, in provided search paths.
-    ///
-    /// - Parameters:
-    ///   - value: The value from environment variable.
-    ///   - cwd: The current working directory to look in.
-    ///   - searchPath: The additional search path to look in if not found in cwd.
-    /// - Returns: Valid path to executable if present, otherwise nil.
-    static func lookupExecutablePath(
-        inEnvValue value: String?,
-        currentWorkingDirectory cwd: AbsolutePath = currentWorkingDirectory,
-        searchPaths: [AbsolutePath] = []
-    ) -> AbsolutePath? {
-        // We should have a value to continue.
-        guard let value = value, !value.isEmpty else {
-            return nil
-        }
-        // We have a value, but it could be an absolute or a relative path.
-        let path = AbsolutePath(value, relativeTo: cwd)
-        if exists(path) {
-            return path
-        }
-        // Ensure the value is not a path.
-        guard !value.characters.contains("/") else {
-            return nil
-        }
-        // Try to locate in search paths.
-        for path in searchPaths {
-            let exec = path.appending(component: value)
-            if exists(exec) {
-                return exec
-            }
-        }
-        return nil
-    }
 }
