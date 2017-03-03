@@ -45,6 +45,16 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
         // Get the version specifier string from tools version file.
         guard let versionSpecifier = ToolsVersionLoader.split(contents).versionSpecifier else {
+            // Try to diagnose if there is a misspelling of the swift-tools-version comment.
+            let splitted = contents.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
+            let misspellings = [
+                "swift-tool", "tool-version",
+            ]
+            if let firstLine = ByteString(splitted[0]).asString,
+               misspellings.first(where: firstLine.lowercased().contains) != nil {
+                throw Error.malformed(specifier: firstLine, file: path)
+            }
+            // Otherwise assume the default.
             return ToolsVersion.defaultToolsVersion
         }
 
