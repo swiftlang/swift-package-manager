@@ -169,14 +169,17 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
 
-            // Add a couple files and a directory.
+            // Add a few files and a directory.
             let test1FileContents: ByteString = "Hello, world!"
             let test2FileContents: ByteString = "Hello, happy world!"
+            let test3FileContents: ByteString = "#!/bin/sh\nset -e\nexit 0\n"
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-1.txt"), bytes: test1FileContents)
             try localFileSystem.createDirectory(testRepoPath.appending(component: "subdir"))
             try localFileSystem.writeFileContents(testRepoPath.appending(components: "subdir", "test-file-2.txt"), bytes: test2FileContents)
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "test-file-3.sh"), bytes: test3FileContents)
+            try! Process.checkNonZeroExit(args: "chmod", "+x", testRepoPath.appending(component: "test-file-3.sh").asString)
             let testRepo = GitRepository(path: testRepoPath)
-            try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt")
+            try testRepo.stage(files: "test-file-1.txt", "subdir/test-file-2.txt", "test-file-3.sh")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
 
@@ -198,9 +201,11 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(!view.exists(AbsolutePath("/does-not-exist")))
             XCTAssert(view.isFile(AbsolutePath("/test-file-1.txt")))
             XCTAssert(!view.isSymlink(AbsolutePath("/test-file-1.txt")))
+            XCTAssert(!view.isExecutableFile(AbsolutePath("/does-not-exist")))
+            XCTAssert(view.isExecutableFile(AbsolutePath("/test-file-3.sh")))
 
             // Check read of a directory.
-            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt"])
+            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
             XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/subdir")).sorted(), ["test-file-2.txt"])
             XCTAssertThrows(FileSystemError.isDirectory) {
                 _ = try view.readFileContents(AbsolutePath("/subdir"))

@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import POSIX
+import Utility
 
 import TestSupport
 
@@ -41,6 +42,19 @@ class FileSystemTests: XCTestCase {
         XCTAssertTrue(fs.isSymlink(sym))
         XCTAssertTrue(fs.isFile(sym))
         XCTAssertFalse(fs.isDirectory(sym))
+
+        // isExecutableFile
+        let executable = tempDir.path.appending(component: "exec-foo")
+        let stream = BufferedOutputByteStream()
+        stream <<< "#!/bin/sh" <<< "\n"
+        stream <<< "set -e" <<< "\n"
+        stream <<< "exit" <<< "\n"
+        try! localFileSystem.writeFileContents(executable, bytes: stream.bytes)
+        try! Process.checkNonZeroExit(args: "chmod", "+x", executable.asString)
+        XCTAssertTrue(fs.isExecutableFile(executable))
+        XCTAssertFalse(fs.isExecutableFile(sym))
+        XCTAssertFalse(fs.isExecutableFile(file.path))
+        XCTAssertFalse(fs.isExecutableFile(AbsolutePath("/does-not-exist")))
 
         // isDirectory()
         XCTAssert(fs.isDirectory(AbsolutePath("/")))

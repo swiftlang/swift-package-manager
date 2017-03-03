@@ -102,6 +102,9 @@ public protocol FileSystem {
     /// Check whether the given path is accessible and a file.
     func isFile(_ path: AbsolutePath) -> Bool
 
+    /// Check whether the given path is an accessible and executable file.
+    func isExecutableFile(_ path: AbsolutePath) -> Bool
+
     /// Check whether the given path is accessible and is a symbolic link.
     func isSymlink(_ path: AbsolutePath) -> Bool
 
@@ -155,6 +158,14 @@ public extension FileSystem {
 
 /// Concrete FileSystem implementation which communicates with the local file system.
 private class LocalFileSystem: FileSystem {
+
+    func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        guard let filestat = try? POSIX.stat(path.asString) else {
+            return false
+        }
+        return filestat.st_mode & libc.S_IXUSR != 0
+    }
+
     func exists(_ path: AbsolutePath) -> Bool {
         return Basic.exists(path)
     }
@@ -417,11 +428,17 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func isSymlink(_ path: AbsolutePath) -> Bool {
-        // FIXME: Always return false until in memory implementation
+        // FIXME: Always return false until in-memory implementation
         // gets symbolic link semantics.
         return false
     }
     
+    public func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        // FIXME: Always return false until in-memory implementation
+        // gets permission semantics.
+        return false
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
             throw FileSystemError.noEntry
@@ -587,6 +604,10 @@ public struct RerootedFileSystemView: FileSystem {
 
     public func isSymlink(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isSymlink(formUnderlyingPath(path))
+    }
+
+    public func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        return underlyingFileSystem.isExecutableFile(formUnderlyingPath(path))
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
