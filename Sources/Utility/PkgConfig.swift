@@ -132,7 +132,7 @@ struct PkgConfigParser {
     mutating func parse() throws {
         func removeComment(line: String) -> String {
             if let commentIndex = line.characters.index(of: "#") {
-                return line[line.characters.startIndex..<commentIndex]
+                return String(line[line.characters.startIndex..<commentIndex])
             }
             return line
         }
@@ -237,38 +237,38 @@ struct PkgConfigParser {
     /// linearly in the string and if found, lookup the value of the variable in
     /// our dictionary and replace the variable name with its value.
     private func resolveVariables(_ line: String) throws -> String {
-        typealias StringIndex = String.CharacterView.Index
-        
+        typealias Fragment = String.CharacterView
         // Returns variable name, start index and end index of a variable in a string if present.
         // We make sure it of form ${name} otherwise it is not a variable.
-        func findVariable(_ fragment: String) -> (name: String, startIndex: StringIndex, endIndex: StringIndex)? {
-            guard let dollar = fragment.characters.index(of: "$") else { return nil }
-            guard dollar != fragment.endIndex && fragment.characters[fragment.index(after: dollar)] == "{" else { return nil }
-            guard let variableEndIndex = fragment.characters.index(of: "}") else { return nil }
-            return (fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex], dollar, variableEndIndex)
+        func findVariable(_ fragment: Fragment) -> (name: String, startIndex: Fragment.Index, endIndex: Fragment.Index)? {
+            guard let dollar = fragment.index(of: "$"),
+                  dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
+                  let variableEndIndex = fragment.index(of: "}")
+            else { return nil }
+            return (String(fragment[fragment.index(dollar, offsetBy: 2)..<variableEndIndex]), dollar, variableEndIndex)
         }
 
-        var result = ""
-        var fragment = line
+        var result = "".characters
+        var fragment = line.characters
         while !fragment.isEmpty {
             // Look for a variable in our current fragment.
             if let variable = findVariable(fragment) {
                 // Append the contents before the variable.
-                result += fragment[fragment.characters.startIndex..<variable.startIndex]
+                result += fragment[fragment.startIndex..<variable.startIndex]
                 guard let variableValue = variables[variable.name] else {
                     throw PkgConfigError.parsingError("Expected variable in \(pcFile)")
                 }
                 // Append the value of the variable.
-                result += variableValue
+                result += variableValue.characters
                 // Update the fragment with post variable string.
-                fragment = fragment[fragment.index(after: variable.endIndex)..<fragment.characters.endIndex]
+                fragment = fragment[fragment.index(after: variable.endIndex)..<fragment.endIndex]
             } else {
                 // No variable found, just append rest of the fragment to result.
                 result += fragment
-                fragment = ""
+                fragment = "".characters
             }
         }
-        return result
+        return String(result)
     }
     
     /// Split line on unescaped spaces.

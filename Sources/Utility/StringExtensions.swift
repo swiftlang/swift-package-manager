@@ -17,10 +17,10 @@ extension String {
     public func chomp(separator: String? = nil) -> String {
         func scrub(_ separator: String) -> String {
             var E = endIndex
-            while self[startIndex..<E].hasSuffix(separator) && E > startIndex {
+            while String(self[startIndex..<E]).hasSuffix(separator) && E > startIndex {
                 E = index(before: E)
             }
-            return self[startIndex..<E]
+            return String(self[startIndex..<E])
         }
 
         if let separator = separator {
