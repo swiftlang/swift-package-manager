@@ -113,14 +113,8 @@ public final class Process: ObjectIdentifierProtocol {
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
     
-    /// The thread to read the output from the process, if redirected.
-    private var readOutputThread: Thread? = nil
-
-    /// Error encountered during reading of redirected output.
-    private var readOutputError: Swift.Error? = nil
-
-    /// The output read from the process, if redirected.
-    private var output: [Int8] = []
+    /// If redirected, stdout result and reference to the thread reading the output.
+    private var stdout: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
     
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
@@ -242,10 +236,10 @@ public final class Process: ObjectIdentifierProtocol {
             }
             // Create a thread and start reading the output on it.
             let thread = Thread {
-                self.readOutput(onFD: outputPipe[0])
+                self.stdout.result = self.readOutput(onFD: outputPipe[0])
             }
             thread.start()
-            readOutputThread = thread
+            self.stdout.thread = thread
         }
     }
 
@@ -261,7 +255,7 @@ public final class Process: ObjectIdentifierProtocol {
             }
         
             // If we're reading output, make sure that is finished.
-            if let thread = readOutputThread {
+            if let thread = stdout.thread {
                 assert(redirectOutput)
                 thread.join()
             }
@@ -276,16 +270,20 @@ public final class Process: ObjectIdentifierProtocol {
             }
             
             // Construct the result.
-            let outputResult = readOutputError.map(Result.init) ?? Result(output)
-            let executionResult = ProcessResult(arguments: arguments, exitStatus: exitStatus, output: outputResult)
+            let executionResult = ProcessResult(
+                arguments: arguments,
+                exitStatus: exitStatus,
+                output: stdout.result
+            )
             self._result = executionResult
             return executionResult
         }
     }
 
-    /// Reads the output from the passed fd and writes in the output variable
-    /// after reading all of the data.
-    private func readOutput(onFD fd: Int32) {
+    /// Reads the given fd and returns its result.
+    ///
+    /// Closes the fd before returning.
+    private func readOutput(onFD fd: Int32) -> Result<[Int8], AnyError> {
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [Int8](repeating: 0, count: N + 1)
@@ -308,11 +306,10 @@ public final class Process: ObjectIdentifierProtocol {
                 out += buf[0..<n]
             }
         }
-
-        output = out
-        readOutputError = error
         // Close the read end of the output pipe.
         close(fd)
+        // Construct the output result.
+        return error.map(Result.init) ?? Result(out)
     }
 
     /// Send a signal to the process.
