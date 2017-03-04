@@ -79,8 +79,8 @@ class ToolsVersionTests: XCTestCase {
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
                 XCTFail()
-            } catch SwiftPMProductError.executionFailure(_, let output) {
-                XCTAssertTrue(output.hasPrefix("error: Package requires minimum Swift tools version 10000.1.0."))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssertTrue(stderr.hasPrefix("error: Package requires minimum Swift tools version 10000.1.0."))
             }
 
             // Write the manifest with incompatible sources.
@@ -95,8 +95,8 @@ class ToolsVersionTests: XCTestCase {
             do {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
                 XCTFail()
-            } catch SwiftPMProductError.executionFailure(_, let output) {
-                XCTAssertTrue(output.hasPrefix("error: incompatibleToolsVersions"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssertTrue(stderr.hasPrefix("error: incompatibleToolsVersions"))
             }
 
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {

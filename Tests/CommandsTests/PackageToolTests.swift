@@ -395,8 +395,8 @@ final class PackageToolTests: XCTestCase {
                 do {
                     try execute("pin", "bar", printError: false)
                     XCTFail("This should have been an error")
-                } catch SwiftPMProductError.executionFailure(_, let output) {
-                    XCTAssertEqual(output, "error: The provided package is in editable state\n")
+                } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                    XCTAssertEqual(stderr, "error: The provided package is in editable state\n")
                 }
                 try execute("unedit", "bar")
             }

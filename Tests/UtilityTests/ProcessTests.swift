@@ -15,6 +15,7 @@ import Utility
 import TestSupport
 
 typealias ProcessID = Utility.Process.ProcessID
+typealias Process = Utility.Process
 
 class ProcessTests: XCTestCase {
     func script(_ name: String) -> String {
@@ -140,11 +141,37 @@ class ProcessTests: XCTestCase {
         XCTAssertEqual(result2, "hello\n")
     }
 
+    func testStdoutStdErr() throws {
+        // A simple script to check that stdout and stderr are captured separatly.
+        do {
+            let result = try Process.popen(args: script("simple-stdout-stderr"))
+            XCTAssertEqual(try result.utf8Output(), "simple output\n")
+            XCTAssertEqual(try result.utf8stderrOutput(), "simple error")
+        }
+
+        // A long stdout and stderr output.
+        do {
+            let result = try Process.popen(args: script("long-stdout-stderr"))
+            let count = 16 * 1024
+            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
+            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+        }
+
+        // This script will block if the streams are not read.
+        do {
+            let result = try Process.popen(args: script("deadlock-if-blocking-io"))
+            let count = 16 * 1024
+            XCTAssertEqual(try result.utf8Output(), String(repeating: "1", count: count))
+            XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testCheckNonZeroExit", testCheckNonZeroExit),
         ("testPopen", testPopen),
         ("testSignals", testSignals),
         ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),
+        ("testStdoutStdErr", testStdoutStdErr),
     ]
 }

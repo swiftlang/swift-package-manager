@@ -43,7 +43,7 @@ public func XCTAssertBuildFails(_ path: AbsolutePath, file: StaticString = #file
 
         XCTFail("`swift build' succeeded but should have failed", file: file, line: line)
 
-    } catch SwiftPMProductError.executionFailure(let error, _) {
+    } catch SwiftPMProductError.executionFailure(let error, _, _) {
         switch error {
         case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
             break
