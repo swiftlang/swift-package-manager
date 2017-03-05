@@ -600,6 +600,13 @@ private class GitFileSystemView: FileSystem {
         }
     }
     
+    func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        if let entry = try? getEntry(path), entry?.type == .executableBlob {
+            return true
+        }
+        return false
+    }
+    
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry

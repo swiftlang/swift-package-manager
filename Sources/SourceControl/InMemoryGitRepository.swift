@@ -191,6 +191,10 @@ extension InMemoryGitRepository: FileSystem {
         return head.fileSystem.isSymlink(path)
     }
 
+    public func isExecutableFile(_ path: AbsolutePath) -> Bool {
+        return head.fileSystem.isExecutableFile(path)
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try head.fileSystem.getDirectoryContents(path)
     }
