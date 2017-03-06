@@ -94,4 +94,9 @@ public enum BuildToolMode {
     case version
 }
 
-extension Build.Configuration: StringEnumArgument {}
+extension Build.Configuration: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (debug.rawValue, "build with DEBUG configuration"),
+        (release.rawValue, "build with RELEASE configuration")
+    ])
+}
