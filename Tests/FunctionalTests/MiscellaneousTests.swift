@@ -151,7 +151,7 @@ class MiscellaneousTestCase: XCTestCase {
         var foo = false
         do {
             try executeSwiftBuild(AbsolutePath("/"))
-        } catch SwiftPMProductError.executionFailure(let error, _) {
+        } catch SwiftPMProductError.executionFailure(let error, _, _) {
             switch error {
             case ProcessResult.Error.nonZeroExit(let result):
                 // if our code crashes we'll get an exit code of 256
@@ -171,7 +171,7 @@ class MiscellaneousTestCase: XCTestCase {
             var foo = false
             do {
                 try executeSwiftBuild(prefix)
-            } catch SwiftPMProductError.executionFailure(let error, _) {
+            } catch SwiftPMProductError.executionFailure(let error, _, _) {
                 switch error {
                 case ProcessResult.Error.nonZeroExit(let result):
                     // if our code crashes we'll get an exit code of 256
@@ -469,7 +469,8 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testReportingErrorFromGitCommand() throws {
         fixture(name: "Miscellaneous/MissingDependency") { prefix in
-            // This fixture has a setup that is intentionally missing a local dependency to induce a failure
+            // This fixture has a setup that is intentionally missing a local
+            // dependency to induce a failure.
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
@@ -477,11 +478,11 @@ class MiscellaneousTestCase: XCTestCase {
             try process.launch()
 
             let result = try process.waitUntilExit()
-            let resultOutputString = try result.utf8Output()
-
-            // We should exited with a failure from the attempt to "git clone" something that doesn't exist
+            // We should exited with a failure from the attempt to "git clone"
+            // something that doesn't exist.
             XCTAssert(result.exitStatus != .terminated(code: 0))
-            XCTAssert(resultOutputString.contains("does not exist"), "Error from git was not propogated to process output: \(resultOutputString)")
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("does not exist"), "Error from git was not propogated to process output: \(output)")
         }
     }
 

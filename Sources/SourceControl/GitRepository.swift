@@ -47,7 +47,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         let result = try process.waitUntilExit()
         // Throw if cloning failed.
         guard result.exitStatus == .terminated(code: 0) else {
-            let errorOutput = try result.utf8Output()
+            let errorOutput = try result.utf8Output() + result.utf8stderrOutput()
             throw GitRepositoryProviderError.gitCloneFailure(url: repository.url, path: path, errorOutput: errorOutput)
         }
     }

@@ -21,7 +21,7 @@ import class Foundation.Bundle
 
 public enum SwiftPMProductError: Swift.Error {
     case packagePathNotFound
-    case executionFailure(error: Swift.Error, output: String)
+    case executionFailure(error: Swift.Error, output: String, stderr: String)
 }
 
 /// Defines the executables used by SwiftPM.
@@ -94,9 +94,11 @@ public enum SwiftPMProduct {
 
         let result = try Process.popen(arguments: completeArgs, environment: environment)
         let output = try result.utf8Output()
+        let stderr = try result.utf8stderrOutput()
 
         if result.exitStatus == .terminated(code: 0) {
-            return output
+            // FIXME: We should return stderr separately.
+            return output + stderr
         }
         if printIfError {
             print("**** FAILURE EXECUTING SUBPROCESS ****")
@@ -104,7 +106,11 @@ public enum SwiftPMProduct {
             print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
             print("output:", output)
         }
-        throw SwiftPMProductError.executionFailure(error: ProcessResult.Error.nonZeroExit(result), output: output)
+        throw SwiftPMProductError.executionFailure(
+            error: ProcessResult.Error.nonZeroExit(result),
+            output: output,
+            stderr: stderr
+        )
     }
 
     public static func packagePath(for packageName: String, packageRoot: AbsolutePath) throws -> AbsolutePath {

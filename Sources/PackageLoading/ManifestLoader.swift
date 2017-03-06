@@ -221,7 +221,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-fileno", "\(file.fileHandle.fileDescriptor)"]
 
         // Run the command.
-        let output = try Process.popen(arguments: cmd).utf8Output().chuzzle()
+        let result = try Process.popen(arguments: cmd)
+        let output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle()
 
         // We expect output from interpreter to be empty, if something was emitted
         // throw and report it.

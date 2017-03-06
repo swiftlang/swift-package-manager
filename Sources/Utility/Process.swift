@@ -40,13 +40,24 @@ public struct ProcessResult: CustomStringConvertible {
     /// The exit status of the process.
     public let exitStatus: ExitStatus
 
-    /// The output bytes of the process. Available only if the process was asked to redirect its output.
+    /// The output bytes of the process. Available only if the process was
+    /// asked to redirect its output.
     public let output: Result<[Int8], AnyError>
 
+    /// The output bytes of the process. Available only if the process was
+    /// asked to redirect its output.
+    public let stderrOutput: Result<[Int8], AnyError>
+
     /// Create an instance using the process exit code and output result.
-    fileprivate init(arguments: [String], exitStatus: Int32, output: Result<[Int8], AnyError>) {
+    fileprivate init(
+        arguments: [String],
+        exitStatus: Int32,
+        output: Result<[Int8], AnyError>,
+        stderrOutput: Result<[Int8], AnyError>
+    ) {
         self.arguments = arguments
         self.output = output
+        self.stderrOutput = stderrOutput
         if WIFSIGNALED(exitStatus) {
             self.exitStatus = .signalled(signal: WTERMSIG(exitStatus))
         } else {
@@ -55,11 +66,23 @@ public struct ProcessResult: CustomStringConvertible {
         }
     }
 
-    /// Converts output bytes to string, assuming they're UTF8.
+    /// Converts stdout output bytes to string, assuming they're UTF8.
     ///
     /// - Throws: Error while reading the process output or if output is not a valid UTF8 sequence.
     public func utf8Output() throws -> String {
-        var bytes = try output.dematerialize()
+        return try utf8Result(output)
+    }
+
+    /// Converts stderr output bytes to string, assuming they're UTF8.
+    ///
+    /// - Throws: Error while reading the process output or if output is not a valid UTF8 sequence.
+    public func utf8stderrOutput() throws -> String {
+        return try utf8Result(stderrOutput)
+    }
+
+    /// Returns UTF8 string from given result or throw.
+    private func utf8Result(_ result: Result<[Int8], AnyError>) throws -> String {
+        var bytes = try result.dematerialize()
         // Null terminate it.
         bytes.append(0)
         if let output = String(validatingUTF8: bytes) {
@@ -115,6 +138,9 @@ public final class Process: ObjectIdentifierProtocol {
     
     /// If redirected, stdout result and reference to the thread reading the output.
     private var stdout: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
+
+    /// If redirected, stderr result and reference to the thread reading the output.
+    private var stderr: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
     
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
@@ -196,18 +222,21 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawn_file_actions_addopen(&fileActions, 0, devNull, O_RDONLY, 0)
 
         var outputPipe: [Int32] = [0, 0]
+        var stderrPipe: [Int32] = [0, 0]
         if redirectOutput {
-            let rv = libc.pipe(&outputPipe)
-            guard rv == 0 else {
-                throw SystemError.pipe(rv)
-            }
+            // Open the pipes.
+            try open(pipe: &outputPipe)
+            try open(pipe: &stderrPipe)
+
             // Open the write end of the pipe as stdout and stderr, if desired.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
-            posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 2)
+            posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
 
             // Close the other ends of the pipe.
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
-            posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
+            for pipe in [outputPipe, stderrPipe] {
+                posix_spawn_file_actions_addclose(&fileActions, pipe[0])
+                posix_spawn_file_actions_addclose(&fileActions, pipe[1])
+            }
         } else {
             posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
             posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
@@ -230,16 +259,24 @@ public final class Process: ObjectIdentifierProtocol {
 
         if redirectOutput {
             // Close the write end of the output pipe.
-            let rv = close(outputPipe[1])
-            guard rv == 0 else {
-                throw SystemError.close(rv)
-            }
+            try close(fd: &outputPipe[1])
+
             // Create a thread and start reading the output on it.
-            let thread = Thread {
+            var thread = Thread {
                 self.stdout.result = self.readOutput(onFD: outputPipe[0])
             }
             thread.start()
             self.stdout.thread = thread
+
+            // Close the write end of the stderr pipe.
+            try close(fd: &stderrPipe[1])
+
+            // Create a thread and start reading the stderr output on it.
+            thread = Thread {
+                self.stderr.result = self.readOutput(onFD: stderrPipe[0])
+            }
+            thread.start()
+            self.stderr.thread = thread
         }
     }
 
@@ -255,10 +292,9 @@ public final class Process: ObjectIdentifierProtocol {
             }
         
             // If we're reading output, make sure that is finished.
-            if let thread = stdout.thread {
-                assert(redirectOutput)
-                thread.join()
-            }
+            stdout.thread?.join()
+            stderr.thread?.join()
+
             // Wait until process finishes execution.
             var exitStatus: Int32 = 0
             var result = waitpid(processID, &exitStatus, 0)
@@ -273,7 +309,8 @@ public final class Process: ObjectIdentifierProtocol {
             let executionResult = ProcessResult(
                 arguments: arguments,
                 exitStatus: exitStatus,
-                output: stdout.result
+                output: stdout.result,
+                stderrOutput: stderr.result
             )
             self._result = executionResult
             return executionResult
@@ -415,5 +452,21 @@ extension ProcessResult.ExitStatus: Equatable {
         case (.signalled(_), _):
             return false
         }
+    }
+}
+
+/// Open the given pipe.
+private func open(pipe: inout [Int32]) throws {
+    let rv = libc.pipe(&pipe)
+    guard rv == 0 else {
+        throw SystemError.pipe(rv)
+    }
+}
+
+/// Close the given fd.
+private func close(fd: inout Int32) throws {
+    let rv = libc.close(fd)
+    guard rv == 0 else {
+        throw SystemError.close(rv)
     }
 }

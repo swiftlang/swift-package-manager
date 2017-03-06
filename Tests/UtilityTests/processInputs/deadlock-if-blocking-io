@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+
+import sys
+
+kb = 1024
+
+for i in range(0,16 * kb):
+    sys.stdout.write("1")
+    sys.stdout.flush()
+
+for i in range(0,16 * kb):
+    sys.stderr.write("2")
+    sys.stderr.flush()
