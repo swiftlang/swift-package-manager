@@ -456,27 +456,33 @@ public enum PackageMode: String, StringEnumArgument {
 }
 
 extension InitPackage.PackageType: StringEnumArgument {
-    public static var completion: ShellCompletion = .values([
-        (empty.description, "generates an empty project"),
-        (library.description, "generates project for a dynamic library"),
-        (executable.description, "generates a project for a cli executable"),
-        (systemModule.description, "generates a project for a system module")
-    ])
+    public static var completion: ShellCompletion {
+        return .values([
+            (empty.description, "generates an empty project"),
+            (library.description, "generates project for a dynamic library"),
+            (executable.description, "generates a project for a cli executable"),
+            (systemModule.description, "generates a project for a system module")
+        ])
+    }
 }
 
 extension ShowDependenciesMode: StringEnumArgument {
-    public static var completion: ShellCompletion = .values([
-        (text.description, "list dependencies using text format"),
-        (dot.description, "list dependencies using dot format"),
-        (json.description, "list dependencies using JSON format")
-    ])
+    public static var completion: ShellCompletion {
+        return .values([
+            (text.description, "list dependencies using text format"),
+            (dot.description, "list dependencies using dot format"),
+            (json.description, "list dependencies using JSON format")
+        ])
+    }
 }
 
 extension DescribeMode: StringEnumArgument {
-    public static var completion: ShellCompletion = .values([
-        (text.rawValue, "describe using text format"),
-        (json.rawValue, "describe using JSON format")
-    ])
+    public static var completion: ShellCompletion {
+        return .values([
+            (text.rawValue, "describe using text format"),
+            (json.rawValue, "describe using JSON format")
+        ])
+    }
 }
 
 extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
