@@ -35,6 +35,9 @@ public enum WorkspaceOperationError: Swift.Error {
     /// The branch already exists in repository.
     case branchAlreadyExists
 
+    /// The revision doesn't exists in repository.
+    case nonExistentRevision
+
     /// There are no registered root package paths.
     case noRegisteredPackages
 
@@ -555,13 +558,14 @@ public class Workspace {
             //
             // Get handle to the repository.
             let handle = try repositoryManager.lookupSynchronously(repository: dependency.repository)
+            let repo = try handle.open()
 
-            // If a branch is provided, make sure it isn't already present in the repository.
-            if let branch = checkoutBranch {
-                let repo = try handle.open()
-                guard !repo.exists(revision: Revision(identifier: branch)) else {
-                    throw WorkspaceOperationError.branchAlreadyExists
-                }
+            // Do preliminary checks on branch and revision, if provided.
+            if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
+                throw WorkspaceOperationError.branchAlreadyExists
+            }
+            if let revision = revision, !repo.exists(revision: revision) {
+                throw WorkspaceOperationError.nonExistentRevision
             }
 
             try handle.cloneCheckout(to: destination, editable: true)
