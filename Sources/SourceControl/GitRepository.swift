@@ -38,7 +38,8 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
-        let process = Process(args: Git.tool, "clone", "--mirror", repository.url, path.asString)
+        let process = Process(
+            args: Git.tool, "clone", "--mirror", repository.url, path.asString, environment: Git.environment)
         // Add to process set.
         try processSet?.add(process)
         // Launch the process.
@@ -292,7 +293,7 @@ public class GitRepository: Repository, WorkingCheckout {
     public func fetch() throws {
         try queue.sync {
             try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.asString, "remote", "update", "-p")
+                args: Git.tool, "-C", path.asString, "remote", "update", "-p", environment: Git.environment)
             self.tagsCache = nil
         }
     }
@@ -361,7 +362,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndClean() throws {
         try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive")
+            args: Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive", environment: Git.environment)
         try Process.checkNonZeroExit(
             args: Git.tool, "-C", path.asString, "clean", "-ffdx")
     }
