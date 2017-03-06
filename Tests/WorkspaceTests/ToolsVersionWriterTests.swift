@@ -86,6 +86,12 @@ class ToolsVersionWriterTests: XCTestCase {
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
+
+        // Try to write a version with prerelease and build meta data.
+        let toolsVersion = ToolsVersion(version: "4.1.2-alpha.beta+sha.1234")
+        writeToolsVersionCover(stream, version: toolsVersion) { result in
+            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
+        }
     }
 
     func testZeroedPatchVersion() {

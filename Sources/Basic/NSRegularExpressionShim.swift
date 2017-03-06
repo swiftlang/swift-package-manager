@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
+import Foundation
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
-    return [
-        testCase(ModuleDependencyTests.allTests),
-        testCase(ToolsVersionTests.allTests),
-    ]
+#if os(macOS)
+// Compatibility shim.
+// <rdar://problem/30488747> NSTextCheckingResult doesn't have range(at:) method
+extension NSTextCheckingResult {
+    public func range(at idx: Int) -> NSRange {
+        return rangeAt(idx)
+    }
 }
 #endif
