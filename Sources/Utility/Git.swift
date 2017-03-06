@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import class Foundation.ProcessInfo
+
 extension Version {
     static func vprefix(_ string: String) -> Version? {
         if string.characters.first == "v" {
@@ -68,5 +70,17 @@ public class Git {
         } catch {
             return false
         }
+    }
+
+    /// Returns the environment variables for launching the git subprocess.
+    ///
+    /// This contains the current environment with custom overrides for using
+    /// git from swift build.
+    public static var environment: [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        // Disable terminal prompts in git. This will make git error out and return
+        // when it needs a user/pass etc instead of hanging the terminal (SR-3981).
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        return env
     }
 }
