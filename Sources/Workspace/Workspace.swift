@@ -543,6 +543,13 @@ public class Workspace {
                 throw WorkspaceOperationError.mismatchingDestinationPackage(
                     path: destination, destPackage: manifest.name, expectedPackage: packageName)
             }
+            // Emit warnings for branch and revision, if they're present.
+            if let checkoutBranch = checkoutBranch {
+                delegate.warning(message: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
+            }
+            if let revision = revision {
+                delegate.warning(message: "not using revsion '\(revision.identifier)' for dependency '\(packageName)'")
+            }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
             //
