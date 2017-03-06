@@ -547,6 +547,13 @@ final class WorkspaceTests: XCTestCase {
             }
             // Get the dependency for package A.
             let dependency = getDependency(aManifest)
+
+            // We should error out if we try to edit on a non existent revision.
+            do {
+                try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: Revision(identifier: "non-existent-revision"))
+                XCTFail()
+            } catch WorkspaceOperationError.nonExistentRevision{}
+
             // Put the dependency in edit mode at its current revision on a new branch.
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.currentRevision!, checkoutBranch: "BugFix")
             let editedDependency = getDependency(aManifest)
