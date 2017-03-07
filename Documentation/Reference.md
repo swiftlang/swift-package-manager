@@ -284,10 +284,11 @@ compiler. For e.g. if Swift language version is set to `[3]`, both Swift 3 and
 Swift 3 compiler will select '3' and Swift 4 compiler will select '4'.
 
 If a package does not specify any Swift language versions, the language version
-to be used will match the major version of the package's Swift tools version.
-For e.g.: A Swift tools version with a major version of '3' will imply a
-default Swift language version of '3', and a Swift tools version with a major
-version of '4' will imply a default Swift language version of '4'.
+to be used will match the major version of the package's [Swift tools
+version](Usage.md#swift-tools-version).  For e.g.: A Swift tools version with a
+major version of '3' will imply a default Swift language version of '3', and a
+Swift tools version with a major version of '4' will imply a default Swift
+language version of '4'.
 
 #### exclude
 
