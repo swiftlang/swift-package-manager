@@ -10,10 +10,10 @@
   * [Define Dependencies](#define-dependencies)
   * [Publish a package](#publish-a-package)
   * [Require System Libraries](#require-system-libraries)
-  * [Working on Apps and Packages Side-by-Side](#working-on-apps-and-packages-side-by-side-top-of-the-tree-development)
   * [Packaging legacy code](#packaging-legacy-code)
   * [Handling version-specific logic](#handling-version-specific-logic)
   * [Editable Packages](#editable-packages)
+  * [Top of Tree Development](#top-of-tree-development)
   * [Package Pinning](#package-pinning)
   * [Prefetching Dependencies](#prefetching-dependencies)
 * [Reference](Reference.md)
@@ -362,47 +362,6 @@ compiled with `xz` support, but it is not required. To provide a package that
 uses libarchive with xz you must make a `CArchive+CXz` package that depends on
 `CXz` and provides `CArchive`.
 
-
-## Working on Apps and Packages Side-by-Side (Top of the tree development)
-
-If you are developing an app that consumes a package and you need to work on
-that package simultaneously then you can use editable packages as a workaround
-until we have dedicated tooling for it.
-
-Consider you have a package `foo` which depends on `bar`.
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "foo",
-    dependencies: [
-        .Package(url: "http://url/to/bar", majorVersion: 1),
-    ]
-)
-```
-
-If you want to develop on `bar` as well as `foo`, navigate to `foo` directory
-and put `bar` in edit mode:
-
-    $ cd foo
-    $ swift package edit bar --revision master
-
-Then remove the `bar` directory created in `Packages/` and instead create a
-symbolic link to the path of `bar` package on your filesystem. This will make
-sure the package manager uses the sources in your local `bar`, and does not try
-and resolve `bar` based on the version specification in the manifest.
-
-    $ cd Packages
-    $ rm -r bar
-    $ ln -s /path/to/bar bar
-
-Now go ahead and make changes in `bar`, building `foo` will pick `bar` sources
-from the local copy of `bar` package. Once you're done editing you can unedit
-the package:
-
-    $ swift package unedit bar #--force
-
 ## Packaging legacy code
 
 You may be working with code that builds both as a package and not. For
@@ -541,6 +500,38 @@ pushed to the remote repository. If you want to discard these changes and
 unedit, you can use the `--force` option:
 
     $ swift package unedit Foo --force
+
+
+## Top of Tree Development
+
+This feature allows overriding a dependency with a local checkout on the
+filesystem. This checkout is completely unmanaged by the package manager and
+will be used as-is. The only requirement is — the package name in the
+overridden checkout should not change. This is extremely useful when developing
+multiple packages in tandem or when working on packages alongside an
+application.
+
+The command to attach (or create) a local checkout is:
+
+    $ swift package edit <package name> --path <path/to/dependency>
+
+For e.g., if `Foo` depends on `Bar` and you have a checkout of `Bar` at
+`/workspace/bar`:
+
+    foo$ swift package edit Bar --path /workspace/bar
+
+A checkout of `Bar` will be created if it doesn't exist at the given path. If
+checkout a exists, package manager will validate the package name at the given
+path and attach to it.
+
+The package manager will also create a symlink in `Packages/` directory to the
+checkout path.
+
+Use unedit command to stop using the local checkout:
+
+    $ swift package unedit <package name>
+    # Example:
+    $ swift package unedit Bar
 
 ## Package Pinning
 
