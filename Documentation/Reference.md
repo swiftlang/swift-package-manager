@@ -170,6 +170,57 @@ This is the minimal requirement for a manifest to be valid. When the sources
 are located directly under `Sources/` directory, there is only one target and
 the target name will be the same as the package name.
 
+#### pkgConfig
+
+This property should only be used for System Module Packages. It defines the
+name of the pkg-config (.pc) file that should be searched and read to get the
+additional flags like include search path, linker search path, system libraries
+to link etc.
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "CGtk3",
+    pkgConfig: "gtk+-3.0"
+)
+```
+
+Here `gtk+-3.0.pc` will be searched in standard locations for the current
+system. Users can provide their own paths for location of pc files using the
+environment variable, `PKG_CONFIG_PATH`, which will be searched before the
+standard locations.
+
+_NOTE: This feature does not require pkg-config to be installed. However, if
+installed it will used to find additional platform specific pc file locations
+which might be unknown to SwiftPM._
+
+#### providers
+
+This property should only be used for system module packages. It can be used to
+provide _hints_ for other users to install a System Module using
+a system package manager like homebrew, apt-get etc.
+
+_NOTE: SwiftPM will *never* execute the command and only suggest the users to
+run it._
+
+```swift
+import PackageDescription
+
+let package = Package(
+    name: "CGtk3",
+    pkgConfig: "gtk+-3.0",
+    providers: [
+        .Brew("gtk+3"),
+        .Apt("gtk3")
+    ]
+)
+```
+
+In this case if SwiftPM determines that GTK 3 package is not installed, it will
+output an appropriate hint depending on which platform the user is on i.e.
+macOS, Ubuntu, etc.
+
 #### targets
 
 The targets property is required when you have more than one target in your
@@ -233,57 +284,6 @@ let package = Package(
 
 This is helpful when you want to place files like resources or fixtures that
 should not be considered by the convention system as possible sources.
-
-#### pkgConfig
-
-This property should only be used for System Module Packages. It defines the
-name of the pkg-config (.pc) file that should be searched and read to get the
-additional flags like include search path, linker search path, system libraries
-to link etc.
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "CGtk3",
-    pkgConfig: "gtk+-3.0"
-)
-```
-
-Here `gtk+-3.0.pc` will be searched in standard locations for the current
-system. Users can provide their own paths for location of pc files using the
-environment variable, `PKG_CONFIG_PATH`, which will be searched before the
-standard locations.
-
-_NOTE: This feature does not require pkg-config to be installed. However, if
-installed it will used to find additional platform specific pc file locations
-which might be unknown to SwiftPM._
-
-#### providers
-
-This property should only be used for system module packages. It can be used to
-provide _hints_ for other users to install a System Module using
-a system package manager like homebrew, apt-get etc.
-
-_NOTE: SwiftPM will *never* execute the command and only suggest the users to
-run it._
-
-```swift
-import PackageDescription
-
-let package = Package(
-    name: "CGtk3",
-    pkgConfig: "gtk+-3.0",
-    providers: [
-        .Brew("gtk+3"),
-        .Apt("gtk3")
-    ]
-)
-```
-
-In this case if SwiftPM determines that GTK 3 package is not installed, it will
-output an appropriate hint depending on which platform the user is on i.e.
-macOS, Ubuntu, etc.
 
 ### Package Dependency
 
