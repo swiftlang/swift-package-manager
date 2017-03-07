@@ -35,7 +35,7 @@ A library package contains code which other packages can use and depend on. To g
     $ swift build
     $ swift test
 
-This will create the directory structure needed for a library package with a module and the corresponding test module to write unit tests. A library package can contain multiple modules as explained in [Module Format Reference](Reference.md#module-format-reference).
+This will create the directory structure needed for a library package with a target and the corresponding test target to write unit tests. A library package can contain multiple targets as explained in [Target Format Reference](Reference.md#target-format-reference).
 
 ### Create an executable package
 
@@ -48,7 +48,7 @@ SwiftPM can create native binary which can be executed from command line. To get
     $ .build/debug/MyExecutable
     Hello, World!
 
-This creates the directory structure needed for executable modules. Any module can be turned into a executable module if there is a `main.swift` present in its sources. Complete reference for layout is [here](Reference.md#module-format-reference).
+This creates the directory structure needed for executable targets. Any target can be turned into a executable target if there is a `main.swift` present in its sources. Complete reference for layout is [here](Reference.md#target-format-reference).
 
 ## Define Dependencies
 
