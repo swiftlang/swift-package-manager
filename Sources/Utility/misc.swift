@@ -62,12 +62,12 @@ public func getEnvSearchPaths(
 /// * Otherwise, in provided search paths.
 ///
 /// - Parameters:
-///   - value: The value from environment variable.
+///   - filename: The name of the file to find.
 ///   - cwd: The current working directory to look in.
-///   - searchPath: The additional search path to look in if not found in cwd.
+///   - searchPaths: The additional search paths to look in if not found in cwd.
 /// - Returns: Valid path to executable if present, otherwise nil.
 public func lookupExecutablePath(
-    inEnvValue value: String?,
+    filename value: String?,
     currentWorkingDirectory cwd: AbsolutePath = currentWorkingDirectory,
     searchPaths: [AbsolutePath] = []
     ) -> AbsolutePath? {
