@@ -139,6 +139,7 @@ Package(
     providers: [SystemPackageProvider]? = nil,
     targets: [Target] = [],
     dependencies: [Package.Dependency] = [],
+    swiftLanguageVersions: [Int]? = nil,
     exclude: [String] = []
 )
 ```
@@ -150,6 +151,8 @@ additional flags for system modules.
 modules.  
 \- [targets](#targets): Additional information on each target.  
 \- [dependencies](#dependencies): Declare dependencies on external packages.  
+\- [swiftLanguageVersions](#swiftlanguageversions): Specifies the set of
+supported Swift language versions.  
 \- [exclude](#exclude): Exclude files and directories from package sources.  
 
 Creates a new package instance. There should only be one package declared per
@@ -268,6 +271,23 @@ let package = Package(
 
 This is a list of `Package.Dependency` instances, see [Package
 Dependency](#package-dependency) for available options.
+
+#### swiftLanguageVersions
+
+This property is used to specify the set of supported Swift language versions.
+
+The package manager will select the Swift language version that is most close
+to (but not exceeding) the major version of the Swift compiler in use.  It is
+an error if a package does not support any version compatible with the current
+compiler. For e.g. if Swift language version is set to `[3]`, both Swift 3 and
+4 compilers will select '3', and if Swift language version is set to `[3, 4]`,
+Swift 3 compiler will select '3' and Swift 4 compiler will select '4'.
+
+If a package does not specify any Swift language versions, the language version
+to be used will match the major version of the package's Swift tools version.
+For e.g.: A Swift tools version with a major version of '3' will imply a
+default Swift language version of '3', and a Swift tools version with a major
+version of '4' will imply a default Swift language version of '4'.
 
 #### exclude
 
