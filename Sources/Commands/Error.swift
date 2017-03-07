@@ -151,7 +151,10 @@ private func _handle(_ error: Any) {
         }
         stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
         print(error: stream.bytes.asString!)
-        
+
+    case Process.Error.missingExecutableProgram(let program):
+        print(error: "Unable to find an executable \(program)")
+
     default:
         print(error: error)
     }
