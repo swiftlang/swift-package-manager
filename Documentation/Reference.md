@@ -362,8 +362,8 @@ format:
 
 ``` "major.minor.patch[-prereleaseIdentifiers][+buildMetadata]" ```
 
-where `prereleaseIdentifiers` and `buildMetadata` are optional. _NOTE:
-prereleaseIdentifiers are separated by dot (.)._
+where `prereleaseIdentifiers` and `buildMetadata` are optional.  
+_NOTE: prereleaseIdentifiers are separated by dot (.)._
 
 ### Customizing Builds
 
