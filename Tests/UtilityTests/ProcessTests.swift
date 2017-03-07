@@ -54,6 +54,33 @@ class ProcessTests: XCTestCase {
         XCTAssert(outputCount == count)
     }
 
+    func testEmptyArguments() throws {
+        do {
+            let output = try Process.checkNonZeroExit(args: "")
+            XCTFail("Unexpected success for empty arguments\(output)")
+        } catch Process.Error.missingArguments {
+            XCTAssertTrue(true)
+        }
+    }
+
+    func testEmptyArgumentArray() throws {
+        do {
+            let output = try Process.checkNonZeroExit(arguments: [String]())
+            XCTFail("Unexpected success for empty arguments\(output)")
+        } catch Process.Error.missingArguments {
+            XCTAssertTrue(true)
+        }
+    }
+
+    func testMissingArguments() throws {
+        do {
+            let output = try Process.checkNonZeroExit()
+            XCTFail("Unexpected success for empty arguments\(output)")
+        } catch Process.Error.missingArguments {
+            XCTAssertTrue(true)
+        }
+    }
+
     func testCheckNonZeroExit() throws {
         do {
             let output = try Process.checkNonZeroExit(args: "echo", "hello")
@@ -169,6 +196,9 @@ class ProcessTests: XCTestCase {
     static var allTests = [
         ("testBasics", testBasics),
         ("testCheckNonZeroExit", testCheckNonZeroExit),
+        ("testMissingArguments", testMissingArguments),
+        ("testEmptyArguments", testEmptyArguments),
+        ("testEmptyArgumentArray", testEmptyArgumentArray),
         ("testPopen", testPopen),
         ("testSignals", testSignals),
         ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),

@@ -105,6 +105,12 @@ public struct ProcessResult: CustomStringConvertible {
 /// Note: This class is thread safe.
 public final class Process: ObjectIdentifierProtocol {
 
+    /// Errors when attempting to invoke a process
+    public enum Error: Swift.Error {
+        /// Missing arguments to invoke a process
+        case missingArguments
+    }
+
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
 
@@ -163,6 +169,10 @@ public final class Process: ObjectIdentifierProtocol {
     public func launch() throws {
         precondition(!launched, "It is not allowed to launch the same process object again.")
         launched = true
+
+        guard arguments.count > 0, !arguments[0].isEmpty else {
+            throw Error.missingArguments
+        }
 
         // Initialize the spawn attributes.
       #if os(macOS)
