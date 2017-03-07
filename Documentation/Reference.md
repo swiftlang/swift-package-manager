@@ -7,17 +7,18 @@
 * [**Reference**](Reference.md)
   * [Target Format Reference](#target-format-reference)
     * [Source Layouts](#source-layouts)
+    * [Test Target Layouts](#test-target-layouts)
     * [Other Rules](#other-rules)
   * [Package Manifest File Format Reference](#package-manifest-file-format-reference)
     * [Package Declaration](#package-declaration)
     * [Package](#package)
     * [Package Dependency](#package-dependency)
-    * [Version](#version)
-    * [Customizing Builds](#customizing-builds)
-    * [Build Configurations](#build-configurations)
-        * [Debug](#debug)
-        * [Release](#release)
-    * [Depending on Apple Modules](#depending-on-apple-modules)
+  * [Version](#version)
+  * [Customizing Builds](#customizing-builds)
+  * [Build Configurations](#build-configurations)
+    * [Debug](#debug)
+    * [Release](#release)
+  * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
 * [Resources](Resources.md)
 
@@ -331,7 +332,7 @@ inclues all versions of a major and minor version.
 \- *url*: URL or local path to a Package.  
 \- *version*: The exact [Version](#version) which is required.  
 
-### Version
+## Version
 
 A struct representing a [semantic version](http://semver.org).
 
@@ -380,11 +381,11 @@ package.targets.append(target)
 #endif
 ```
 
-### Build Configurations
+## Build Configurations
 
 SwiftPM allows two build configurations: Debug (default) and Release.
 
-#### Debug
+### Debug
 
 By default, running `swift build` will build in debug configuration.
 Alternatively, you can also use `swift build -c debug`. The build artifacts are
@@ -400,7 +401,7 @@ A C language target is build with following flags in debug mode:
 * `-O0`: Compile without any optimization.
 * `-g`: Generate debug information.
 
-#### Release
+### Release
 
 To build in release mode, type: `swift build -c release`. The build artifacts
 are located in directory called `release` under build folder.  A Swift target
@@ -414,7 +415,7 @@ A C language target is build with following flags in release mode:
 
 * `-O2`: Compile with optimizations.
 
-### Depending on Apple Modules
+## Depending on Apple Modules
 
 At this time there is no explicit support for depending on UIKit, AppKit,
 etc, though importing these modules should work if they are present in the
