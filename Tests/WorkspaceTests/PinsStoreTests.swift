@@ -34,7 +34,8 @@ final class PinsStoreTests: XCTestCase {
         
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
-        var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        var store = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssert(!store.hasError)
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
@@ -45,24 +46,28 @@ final class PinsStoreTests: XCTestCase {
 
         // Test autopin toggle and persistence.
         do {
-            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            var store = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssert(!store.hasError)
             XCTAssert(store.autoPin)
             try store.setAutoPin(on: false)
             XCTAssertFalse(store.autoPin)
         }
         do {
-            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            var store = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssert(!store.hasError)
             XCTAssertFalse(store.autoPin)
             try store.setAutoPin(on: true)
             XCTAssert(store.autoPin)
         }
         do {
-            let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            let store = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            XCTAssert(!store.hasError)
             XCTAssert(store.autoPin)
         }
 
         // Load the store again from disk.
-        let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        let store2 = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssert(!store.hasError)
         XCTAssert(store2.autoPin)
         // Test basics on the store.
         for s in [store, store2] {
@@ -114,6 +119,19 @@ final class PinsStoreTests: XCTestCase {
             XCTAssertEqual(barPin.state.revision, revision)
             XCTAssertEqual(barPin.state.description, revision.identifier)
         }
+    }
+    
+    func testErrors() throws {
+        // Create a broken pinfile.
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+        try fs.writeFileContents(pinsFile, bytes: ByteString(encodingAsUTF8: "this pinfile is malformed"))
+        
+        // Try to instantiate a `PinsStore` from it.
+        let store = PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssert(store.hasError)
+        
+        // We should go on to check the nature of the error here, and that it can be resolved.
     }
 
     func testLoadingV1() throws {

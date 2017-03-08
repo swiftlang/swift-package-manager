@@ -312,7 +312,8 @@ final class PackageToolTests: XCTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssert(pinsStore.autoPin)
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
@@ -332,21 +333,24 @@ final class PackageToolTests: XCTestCase {
             // Enable autopin.
             do {
                 try execute("pin", "--enable-autopin")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssert(pinsStore.autoPin)
             }
 
             // Disable autopin.
             do {
                 try execute("pin", "--disable-autopin")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssertFalse(pinsStore.autoPin)
             }
 
             // Try to pin bar.
             do {
                 try execute("pin", "bar")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
             }
 
@@ -375,7 +379,8 @@ final class PackageToolTests: XCTestCase {
             // We should be able to revert to a older version.
             do {
                 try execute("pin", "bar", "--version", "1.2.3", "--message", "bad deppy")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.reason, "bad deppy")
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
                 try checkBar(5)
@@ -385,7 +390,9 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("unpin", "bar")
                 try execute("update")
-                XCTAssertEqual(try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem).pinsMap["bar"], nil)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssertEqual(pinsStore.pinsMap["bar"], nil)
+                XCTAssert(!pinsStore.hasError)
                 try checkBar(6)
             }
 
@@ -404,7 +411,8 @@ final class PackageToolTests: XCTestCase {
             // Try pinning all the dependencies.
             do {
                 try execute("pin", "--all")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                XCTAssert(!pinsStore.hasError)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.4")
                 XCTAssertEqual(pinsStore.pinsMap["baz"]!.state.version, "1.2.3")
             }

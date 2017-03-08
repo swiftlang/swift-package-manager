@@ -13,9 +13,29 @@ import struct Utility.Version
 import SourceControl
 import typealias PackageGraph.RepositoryPackageConstraint
 
-public enum PinOperationError: Swift.Error {
+public enum PinOperationError: Swift.Error, Equatable {
     case notPinned
     case autoPinEnabled
+    case hasPriorError(error: Swift.Error)
+    
+    public static func ==(lhs: PinOperationError, rhs: PinOperationError) -> Bool {
+        switch (lhs, rhs) {
+        case (.notPinned, .notPinned):
+            return true
+        case (.notPinned, _):
+            return false
+        case (.autoPinEnabled, .autoPinEnabled):
+            return true
+        case (.autoPinEnabled, _):
+            return false
+        case (.hasPriorError(_), .hasPriorError(_)):
+            // should we also compare the error somehow?
+            return true
+        case (.hasPriorError, _):
+            return false
+        }
+    }
+
 }
 
 public struct PinsStore {
@@ -61,27 +81,45 @@ public struct PinsStore {
     public var pins: AnySequence<Pin> {
         return AnySequence<Pin>(pinsMap.values)
     }
+    
+    /// Most recent error, if any.
+    /// FIXME: This needs to be an array of diagnostics, or perhaps a structured
+    /// log of what-all went on while trying to instantiate the PinStore.
+    public var error: Error?
+    
+    /// Returns true if and only iff there are any errors; when this property is
+    /// true, mutating PinStore operations are disallowed and will throw errors.
+    /// FIXME: We should have a protocol for "things that can hold errors", and
+    /// then the `hasErrors` property should be a convenience implementation so
+    /// it doesn't need to be implemented in every adopter of the protocol.
+    public var hasError: Bool { return error != nil }
 
-    /// Create a new pins store.
+    /// Create a new pins store. This never fails; even if the file is malformed
+    /// the PinStore will be created, but will be in an error state.  Operations
+    /// that can modify the PinStore are disallowed (i.e. throw `hasPriorError`
+    /// errors) in the presence of prior errors.
     ///
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem) throws {
+    public init(pinsFile: AbsolutePath, fileSystem: FileSystem) {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
-        pinsMap = [:]
-        autoPin = true
-        try restoreState()
+        self.pinsMap = [:]
+        self.autoPin = true
+        restoreState()
     }
 
-    /// Update the autopin setting. Writes the setting to pins file.
+    /// Update the autopin setting. Writes the setting to pins file. Throws an
+    /// error if the PinStore is in an error state (if there was an error trying
+    /// to originally load it).
     public mutating func setAutoPin(on value: Bool) throws {
         autoPin = value
         try saveState()
     }
 
-    /// Pin a repository at a version.
+    /// Pin a repository at a version. Throws an error if the PinStore is in an
+    /// error state (if there was an error trying to originally load it).
     ///
     /// - precodition: Both branch and version can't be provided.
     /// - Parameters:
@@ -96,6 +134,10 @@ public struct PinsStore {
         state: CheckoutState,
         reason: String? = nil
     ) throws {
+        // If we have an error, we can go no further.
+        if let error = self.error {
+            throw PinOperationError.hasPriorError(error: error)
+        }
         // Add pin and save the state.
         pinsMap[package] = Pin(
             package: package,
@@ -114,6 +156,10 @@ public struct PinsStore {
     /// - Throws: PinOperationError
     @discardableResult
     public mutating func unpin(package: String) throws -> Pin {
+        // If we have an error, we can go no further.
+        if let error = self.error {
+            throw PinOperationError.hasPriorError(error: error)
+        }
         // Ensure autopin is not on.
         guard !autoPin else {
             throw PinOperationError.autoPinEnabled
@@ -128,6 +174,10 @@ public struct PinsStore {
 
     /// Unpin all of the currently pinnned dependencies.
     public mutating func unpinAll() throws {
+        // If we have an error, we can go no further.
+        if let error = self.error {
+            throw PinOperationError.hasPriorError(error: error)
+        }
         // Reset the pins map.
         pinsMap = [:]
         // Save the state.
@@ -135,7 +185,11 @@ public struct PinsStore {
     }
 
     /// Creates constraints based on the pins in the store.
-    public func createConstraints() -> [RepositoryPackageConstraint] {
+    public func createConstraints() throws -> [RepositoryPackageConstraint] {
+        // If we have an error, we can go no further.
+        if let error = self.error {
+            throw PinOperationError.hasPriorError(error: error)
+        }
         return pins.map { pin in
             return RepositoryPackageConstraint(
                 container: pin.repository, requirement: pin.state.requirement())
@@ -157,42 +211,54 @@ extension PinsStore {
     /// The current schema version for the persisted information.
     private static let currentSchemaVersion = 1
     
-    fileprivate mutating func restoreState() throws {
-        if !fileSystem.exists(pinsFile) {
+    fileprivate mutating func restoreState() {
+        // If the pin file doesn't exist, don't even try to go further.
+        guard fileSystem.exists(pinsFile) else {
+            // FIXME: Should we also clear out the error here?
             return
         }
-        // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(pinsFile))
+        
+        do {
+            // Load the state.
+            let json = try JSON(bytes: try fileSystem.readFileContents(pinsFile))
 
-        // Load the state from JSON.
-        guard case let .dictionary(contents) = json,
-        case let .int(version)? = contents["version"] else {
-            throw PersistenceError.unexpectedData
-        }
-        // FIXME: We will need migration support when we update pins schema.
-        guard version == PinsStore.currentSchemaVersion else {
-            fatalError("Migration not supported yet")
-        }
-        guard case let .bool(autoPin)? = contents["autoPin"],
-              case let .array(pinsData)? = contents["pins"] else {
-            throw PersistenceError.unexpectedData
-        }
-
-        // Load the pins.
-        var pins = [String: Pin]()
-        for pinData in pinsData {
-            guard let pin = Pin(json: pinData) else {
+            // Load the state from JSON.
+            guard case let .dictionary(contents) = json,
+            case let .int(version)? = contents["version"] else {
                 throw PersistenceError.unexpectedData
             }
-            pins[pin.package] = pin
-        }
+            // FIXME: We will need migration support when we update pins schema.
+            guard version == PinsStore.currentSchemaVersion else {
+                fatalError("Migration not supported yet")
+            }
+            guard case let .bool(autoPin)? = contents["autoPin"],
+                  case let .array(pinsData)? = contents["pins"] else {
+                throw PersistenceError.unexpectedData
+            }
 
-        self.autoPin = autoPin
-        self.pinsMap = pins 
+            // Load the pins.
+            var pins = [String: Pin]()
+            for pinData in pinsData {
+                guard let pin = Pin(json: pinData) else {
+                    throw PersistenceError.unexpectedData
+                }
+                pins[pin.package] = pin
+            }
+            self.autoPin = autoPin
+            self.pinsMap = pins
+        }
+        catch {
+            // An error occurred, so save it for future reporting.  Because we have an error, operations on the PinStore will throw errors, preventing overwriting of the broken file, and operations that try to use it can report the error to the user.
+            self.error = error
+        }
     }
 
     /// Saves the current state of pins.
     fileprivate mutating func saveState() throws {
+        // If we have an error, we can go no further.
+        if let error = self.error { throw error }
+        
+        // Otherwise, create a JSON dictionary.
         var data = [String: JSON]()
         data["version"] = .int(PinsStore.currentSchemaVersion)
         data["pins"] = .array(pins.sorted{ $0.package < $1.package  }.map{ $0.toJSON() })

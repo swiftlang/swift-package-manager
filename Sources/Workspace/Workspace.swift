@@ -383,7 +383,7 @@ public class Workspace {
         // Initialize the default state.
         self.dependencyMap = [:]
 
-        self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
+        self.pinsStore = PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
 
         // Ensure the cache path exists.
         try createCacheDirectories()
@@ -618,7 +618,7 @@ public class Workspace {
         // * Root manifest contraints without pins.
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
-        let constraints = computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
+        let constraints = try computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
                         + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
                         + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
         // Resolve the dependencies.
@@ -800,7 +800,7 @@ public class Workspace {
         let currentManifests = try loadDependencyManifests(loadRootManifests())
 
         // Create constraints based on root manifest and pins for the update resolution.
-        var updateConstraints = computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
+        var updateConstraints = try computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
 
         // Add unversioned constraint for edited packages.
         for (externalManifest, managedDependency) in currentManifests.dependencies {
@@ -952,8 +952,8 @@ public class Workspace {
     ///   - rootManifests: The root manifests.
     ///   - includePins: If the constraints from pins should be included.
     /// - Returns: Array of constraints.
-    private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
-        return rootManifests.flatMap{ 
+    private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) throws -> [RepositoryPackageConstraint] {
+        return try rootManifests.flatMap{
             $0.package.dependencyConstraints() 
         } + (includePins ? pinsStore.createConstraints() : [])
     }
@@ -1094,11 +1094,11 @@ public class Workspace {
         // delegate of what is happening.
         delegate.fetchingMissingRepositories(missingURLs)
 
-        // Add constraints from the root packages and the current manifests.
-        let constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
+        do {
+            // Add constraints from the root packages and the current manifests.
+            let constraints = try computeRootPackagesConstraints(currentManifests.roots, includePins: true)
                         + currentManifests.createConstraints(pinsStore: pinsStore)
 
-        do {
             // Perform dependency resolution.
             let result = try resolveDependencies(constraints: constraints)
 
