@@ -27,7 +27,8 @@ final class PinsStoreTests: XCTestCase {
         let barRepo = RepositorySpecifier(url: "/bar")
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
 
-        let pin = PinsStore.Pin(package: foo, repository: fooRepo, revision: revision, version: v1, reason: "bad")
+        let state = CheckoutState(revision: revision, version: v1)
+        let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         // We should be able to round trip from JSON.
         XCTAssertEqual(PinsStore.Pin(json: pin.toJSON()), pin)
         
@@ -39,7 +40,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(store.pins.map{$0}.isEmpty)
         XCTAssert(store.autoPin)
 
-        try store.pin(package: foo, repository: fooRepo, revision: revision, version: v1, reason: "bad")
+        try store.pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         XCTAssert(fs.exists(pinsFile))
 
         // Test autopin toggle and persistence.
@@ -69,15 +70,15 @@ final class PinsStoreTests: XCTestCase {
             XCTAssertEqual(s.pinsMap[bar], nil)
             let fooPin = s.pinsMap[foo]!
             XCTAssertEqual(fooPin.package, foo)
-            XCTAssertEqual(fooPin.version, v1)
-            XCTAssertEqual(fooPin.revision, revision)
+            XCTAssertEqual(fooPin.state.version, v1)
+            XCTAssertEqual(fooPin.state.revision, revision)
             XCTAssertEqual(fooPin.reason, "bad")
-            XCTAssertEqual(fooPin.description, v1.description)
+            XCTAssertEqual(fooPin.state.description, v1.description)
         }
         
         // We should be able to pin again.
-        try store.pin(package: foo, repository: fooRepo, revision: revision, version: v1)
-        try store.pin(package: foo, repository: fooRepo, revision: revision, version: "1.0.2")
+        try store.pin(package: foo, repository: fooRepo, state: state)
+        try store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
 
         XCTAssertThrows(PinOperationError.autoPinEnabled) {
             try store.unpin(package: bar)
@@ -88,7 +89,7 @@ final class PinsStoreTests: XCTestCase {
             try store.unpin(package: bar)
         }
 
-        try store.pin(package: bar, repository: barRepo, revision: revision, version: v1)
+        try store.pin(package: bar, repository: barRepo, state: state)
         XCTAssert(store.pins.map{$0}.count == 2)
         try store.unpin(package: foo)
         try store.unpin(package: bar)
@@ -96,22 +97,22 @@ final class PinsStoreTests: XCTestCase {
 
         // Test branch pin.
         do {
-            try store.pin(package: bar, repository: barRepo, revision: revision, branch: "develop")
+            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
             let barPin = store.pinsMap[bar]!
-            XCTAssertEqual(barPin.branch, "develop")
-            XCTAssertEqual(barPin.version, nil)
-            XCTAssertEqual(barPin.revision, revision)
-            XCTAssertEqual(barPin.description, "develop")
+            XCTAssertEqual(barPin.state.branch, "develop")
+            XCTAssertEqual(barPin.state.version, nil)
+            XCTAssertEqual(barPin.state.revision, revision)
+            XCTAssertEqual(barPin.state.description, "develop")
         }
 
         // Test revision pin.
         do {
-            try store.pin(package: bar, repository: barRepo, revision: revision)
+            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
             let barPin = store.pinsMap[bar]!
-            XCTAssertEqual(barPin.branch, nil)
-            XCTAssertEqual(barPin.version, nil)
-            XCTAssertEqual(barPin.revision, revision)
-            XCTAssertEqual(barPin.description, revision.identifier)
+            XCTAssertEqual(barPin.state.branch, nil)
+            XCTAssertEqual(barPin.state.version, nil)
+            XCTAssertEqual(barPin.state.revision, revision)
+            XCTAssertEqual(barPin.state.description, revision.identifier)
         }
     }
 

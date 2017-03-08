@@ -319,7 +319,7 @@ final class PackageToolTests: XCTestCase {
                     let pin = pinsStore.pinsMap[pkg]!
                     XCTAssertEqual(pin.package, pkg)
                     XCTAssert(pin.repository.url.hasSuffix(pkg))
-                    XCTAssertEqual(pin.version, "1.2.3")
+                    XCTAssertEqual(pin.state.version, "1.2.3")
                     XCTAssertEqual(pin.reason, nil)
                 }
             }
@@ -347,7 +347,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("pin", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.version, "1.2.3")
+                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
             }
 
             // Update bar repo.
@@ -377,7 +377,7 @@ final class PackageToolTests: XCTestCase {
                 try execute("pin", "bar", "--version", "1.2.3", "--message", "bad deppy")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.reason, "bad deppy")
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.version, "1.2.3")
+                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
                 try checkBar(5)
             }
 
@@ -405,8 +405,8 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("pin", "--all")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.version, "1.2.4")
-                XCTAssertEqual(pinsStore.pinsMap["baz"]!.version, "1.2.3")
+                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.4")
+                XCTAssertEqual(pinsStore.pinsMap["baz"]!.state.version, "1.2.3")
             }
         }
     }

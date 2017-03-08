@@ -202,14 +202,15 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 throw PackageToolOperationError.packageNotFound
             }
             // We can't pin something which is in editable mode.
-            guard dependency.state == .checkout else {
+            guard case .checkout(let checkoutState) = dependency.state else {
                 throw PackageToolOperationError.packageInEditableState
             }
+
             // Pin the dependency.
             try workspace.pin(
                 dependency: dependency,
                 packageName: packageName,
-                at: options.pinOptions.version.flatMap(Version.init(string:)) ?? dependency.currentVersion!,
+                at: options.pinOptions.version.flatMap(Version.init(string:)) ?? checkoutState.version!,
                 reason: options.pinOptions.message
             )
 
