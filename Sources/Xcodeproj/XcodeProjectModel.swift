@@ -75,7 +75,7 @@ public struct Xcode {
         
         /// Creates and adds a new target (which does not initially have any
         /// build phases).
-        public func addTarget(productType: Target.ProductType, name: String) -> Target {
+        public func addTarget(productType: Target.ProductType?, name: String) -> Target {
             let target = Target(productType: productType, name: name)
             targets.append(target)
             return target
@@ -153,7 +153,7 @@ public struct Xcode {
     public class Target {
         var name: String
         var productName: String
-        var productType: ProductType
+        var productType: ProductType?
         var buildSettings: BuildSettingsTable
         var buildPhases: [BuildPhase]
         var productReference: FileReference?
@@ -167,7 +167,7 @@ public struct Xcode {
             case unitTest = "com.apple.product-type.bundle.unit-test"
             var asString: String { return rawValue }
         }
-        init(productType: ProductType, name: String) {
+        init(productType: ProductType?, name: String) {
             self.name = name
             self.productType = productType
             self.productName = name

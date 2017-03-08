@@ -111,6 +111,29 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testAggregateTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift"
+        )
+        let g = loadMockPackageGraph4([
+            "/Foo": .init(
+                name: "Foo",
+                targets: [.init(name: "Foo")],
+                products: [.Library(name: "Bar", type: .dynamic, targets: ["Foo"])]),
+        ], root: "/Foo", in: fs)
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
+        XcodeProjectTester(project) { result in
+            result.check(target: "Foo") { targetResult in
+                targetResult.check(productType: .framework)
+                targetResult.check(dependencies: [])
+            }
+            result.check(target: "Bar") { targetResult in
+                targetResult.check(productType: nil)
+                targetResult.check(dependencies: ["Foo"])
+            }
+        }
+    }
+    
     func testModulemap() throws {
       let fs = InMemoryFileSystem(emptyFiles:
           "/Bar/Sources/Sea/include/Sea.h",
@@ -234,7 +257,7 @@ private class XcodeProjectResult {
             self.target = target
         }
 
-        func check(productType: Xcode.Target.ProductType, file: StaticString = #file, line: UInt = #line) {
+        func check(productType: Xcode.Target.ProductType?, file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(target.productType, productType, file: file, line: line)
         }
 
