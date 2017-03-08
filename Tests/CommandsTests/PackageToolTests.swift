@@ -284,6 +284,50 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testPinningBranchAndRevision() throws {
+        fixture(name: "Miscellaneous/PackageEdit") { prefix in
+            let fooPath = prefix.appending(component: "foo")
+
+            @discardableResult
+            func execute(_ args: String..., printError: Bool = true) throws -> String {
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, chdir: fooPath, printIfError: printError)
+            }
+
+            try execute("update")
+
+            let pinsFile = fooPath.appending(component: "Package.pins")
+            XCTAssert(exists(pinsFile))
+
+            // Update bar repo.
+            let barPath = prefix.appending(component: "bar")
+            let barRepo = GitRepository(path: barPath)
+            try barRepo.checkout(newBranch: "YOLO")
+            let yoloRevision = try barRepo.getCurrentRevision()
+
+            // Try to pin bar at a branch.
+            do {
+                try execute("pin", "bar", "--branch", "YOLO")
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let state = CheckoutState(revision: yoloRevision, branch: "YOLO") 
+                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
+            }
+
+            // Try to pin bar at a revision.
+            do {
+                try execute("pin", "bar", "--revision", yoloRevision.identifier)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let state = CheckoutState(revision: yoloRevision) 
+                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
+            }
+
+            // Try to pin bar at a bad revision.
+            do {
+                try execute("pin", "bar", "--revision", "xxxxx")
+                XCTFail()
+            } catch {}
+        }
+    }
+
     func testPinning() throws {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
@@ -426,5 +470,6 @@ final class PackageToolTests: XCTestCase {
         ("testPackageEditAndUnedit", testPackageEditAndUnedit),
         ("testPackageReset", testPackageReset),
         ("testPinning", testPinning),
+        ("testPinningBranchAndRevision", testPinningBranchAndRevision),
     ]
 }

@@ -601,18 +601,46 @@ public class Workspace {
         try saveState()
     }
 
-    /// Pins a package at a given version.
+    /// Pins a package at a given state.
+    ///
+    /// Only one of version, branch and revision will be used and in the same
+    /// order. If none of these is provided, the dependency will be pinned at
+    /// the current checkout state.
     ///
     /// - Parameters:
     ///   - dependency: The dependency to pin.
     ///   - packageName: The name of the package which is being pinned.
     ///   - version: The version to pin at.
+    ///   - branch: The branch to pin at.
+    ///   - revision: The revision to pin at.
     ///   - reason: The optional reason for pinning.
     /// - Throws: WorkspaceOperationError, PinOperationError
-    public func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
+    public func pin(
+        dependency: ManagedDependency,
+        packageName: String,
+        version: Version? = nil,
+        branch: String? = nil,
+        revision: String? = nil,
+        reason: String? = nil
+    ) throws {
         assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
-        // Compute constraints with the new pin and try to resolve dependencies. We only commit the pin if the
-        // dependencies can be resolved with new constraints.
+        guard case .checkout(let currentState) = dependency.state else { fatalError() }
+
+        // Compute the requirement.
+        let requirement: RepositoryPackageConstraint.Requirement
+        if let version = version {
+            requirement = .versionSet(.exact(version))
+        } else if let branch = branch {
+            requirement = .revision(branch)
+        } else if let revision = revision {
+            requirement = .revision(revision)
+        } else {
+            requirement = currentState.requirement()
+        }
+
+        // Compute constraints with the new pin and try to resolve
+        // dependencies. We only commit the pin if the dependencies can be
+        // resolved with new constraints.
         //
         // The constraints consist of three things:
         // * Root manifest contraints without pins.
@@ -620,7 +648,7 @@ public class Workspace {
         // * The constraint for the new pin we're trying to add.
         let constraints = computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
                         + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
-                        + [RepositoryPackageConstraint(container: dependency.repository, versionRequirement: .exact(version))]
+                        + [RepositoryPackageConstraint(container: dependency.repository, requirement: requirement)]
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
 
@@ -629,6 +657,13 @@ public class Workspace {
 
         // Get the updated dependency.
         let newDependency = dependencyMap[dependency.repository]!
+
+        // Assert that the dependency is at the pinned checkout state now.
+        if case .checkout(let checkoutState) = newDependency.state {
+            assert(checkoutState.requirement() == requirement)
+        } else {
+            assertionFailure()
+        }
 
         // Add the record in pins store.
         try pin(

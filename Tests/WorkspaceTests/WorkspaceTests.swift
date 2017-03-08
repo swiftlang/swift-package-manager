@@ -735,7 +735,7 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", at: v1)
+            try workspace.pin(dependency: dep, packageName: "A", version: v1)
             let graph = workspace.loadPackageGraph()
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == v1)
@@ -793,7 +793,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertThrows(PinOperationError.notPinned) {
                 try workspace.pinsStore.unpin(package: "A")
             }
-            try workspace.pin(dependency: dep, packageName: "A", at: v1)
+            try workspace.pin(dependency: dep, packageName: "A", version: v1)
         }
 
         // Turn off autopin.
@@ -1032,7 +1032,7 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", at: version)
+            try workspace.pin(dependency: dep, packageName: "A", version: version)
         }
 
         // Pinning at v1 should work.
@@ -1140,7 +1140,7 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "B") else {
                 return XCTFail("Expected manifest for package B not found")
             }
-            try workspace.pin(dependency: dep, packageName: "B", at: v1)
+            try workspace.pin(dependency: dep, packageName: "B", version: v1)
             try workspace.reset()
         }
 

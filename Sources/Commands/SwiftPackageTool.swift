@@ -12,6 +12,7 @@ import Basic
 import Build
 import PackageModel
 import PackageLoading
+import PackageGraph
 import SourceControl
 import Utility
 import Xcodeproj
@@ -183,15 +184,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 return try workspace.pinsStore.setAutoPin(on: enableAutoPin)
             }
 
+            // Get the pin options.
+            // FIXME: We should validate these options here and throw or warn appropriately.
+            let pinOptions = options.pinOptions
+
             // Load the package graph.
             try loadPackageGraph()
 
             // Pin all dependencies if requested.
-            if options.pinOptions.pinAll {
+            if pinOptions.pinAll {
                 return try getActiveWorkspace().pinAll()
             }
             // Ensure we have the package name at this point.
-            guard let packageName = options.pinOptions.packageName else {
+            guard let packageName = pinOptions.packageName else {
                 throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
             }
             let workspace = try getActiveWorkspace()
@@ -202,7 +207,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 throw PackageToolOperationError.packageNotFound
             }
             // We can't pin something which is in editable mode.
-            guard case .checkout(let checkoutState) = dependency.state else {
+            guard case .checkout = dependency.state else {
                 throw PackageToolOperationError.packageInEditableState
             }
 
@@ -210,7 +215,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.pin(
                 dependency: dependency,
                 packageName: packageName,
-                at: options.pinOptions.version.flatMap(Version.init(string:)) ?? checkoutState.version!,
+                version: pinOptions.version.flatMap(Version.init(string:)),
+                branch: pinOptions.branch,
+                revision: pinOptions.revision,
                 reason: options.pinOptions.message
             )
 
@@ -363,13 +370,24 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             pinParser.add(
                 option: "--message", kind: String.self,
                 usage: "The reason for pinning"),
+            to: {
+                $0.pinOptions.pinAll = $1 ?? false
+                $0.pinOptions.message = $2 })
+
+        binder.bind(
             pinParser.add(
                 option: "--version", kind: String.self,
                 usage: "The version to pin at"),
+            pinParser.add(
+                option: "--branch", kind: String.self,
+                usage: "The branch to pin at"),
+            pinParser.add(
+                option: "--revision", kind: String.self,
+                usage: "The revision to pin at"),
             to: {
-                $0.pinOptions.pinAll = $1 ?? false
-                $0.pinOptions.message = $2
-                $0.pinOptions.version = $3 })
+                $0.pinOptions.version = $1
+                $0.pinOptions.branch = $2
+                $0.pinOptions.revision = $3 })
 
         let unpinParser = parser.add(subparser: PackageMode.unpin.rawValue, overview: "Unpin a package. Note: This can only be used when auto-pinning is disabled.")
         binder.bind(
@@ -412,6 +430,8 @@ public class PackageToolOptions: ToolOptions {
         var message: String?
         var packageName: String?
         var version: String?
+        var revision: String?
+        var branch: String?
     }
     var pinOptions = PinOptions()
 
