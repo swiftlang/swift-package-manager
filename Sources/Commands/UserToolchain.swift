@@ -39,13 +39,21 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
 
   #if os(macOS)
     /// Path to the sdk platform framework path.
-    public let sdkPlatformFrameworksPath: AbsolutePath
+    public let sdkPlatformFrameworksPath: AbsolutePath?
 
     public var clangPlatformArgs: [String] {
-        return ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
+        var args = ["-arch", "x86_64", "-mmacosx-version-min=10.10", "-isysroot", defaultSDK!.asString]
+        if let sdkPlatformFrameworksPath = sdkPlatformFrameworksPath {
+            args += ["-F", sdkPlatformFrameworksPath.asString]
+        }
+        return args
     }
     public var swiftPlatformArgs: [String] {
-        return ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString, "-F", sdkPlatformFrameworksPath.asString]
+        var args = ["-target", "x86_64-apple-macosx10.10", "-sdk", defaultSDK!.asString]
+        if let sdkPlatformFrameworksPath = sdkPlatformFrameworksPath {
+            args += ["-F", sdkPlatformFrameworksPath.asString]
+        }
+        return args
     }
   #else
     public let clangPlatformArgs: [String] = ["-fPIC"]
@@ -122,12 +130,14 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         }
         defaultSDK = sdk
 
-        let platformPath = try Process.checkNonZeroExit(
+        // Try to get the platform path.
+        let platformPath = try? Process.checkNonZeroExit(
             args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path").chomp()
-        guard !platformPath.isEmpty else {
-                throw Error.invalidToolchain(problem: "could not get sdk platform path")
+        if let platformPath = platformPath, !platformPath.isEmpty {
+            sdkPlatformFrameworksPath = AbsolutePath(platformPath).appending(components: "Developer", "Library", "Frameworks")
+        } else {
+            sdkPlatformFrameworksPath = nil
         }
-        sdkPlatformFrameworksPath = AbsolutePath(platformPath).appending(components: "Developer", "Library", "Frameworks")
       #else
         defaultSDK = nil
       #endif

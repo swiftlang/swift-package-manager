@@ -213,7 +213,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         let tempFile = try TemporaryFile()
         let args = [SwiftTestTool.xctestHelperPath().asString, path.asString, tempFile.path.asString]
         var env = ProcessInfo.processInfo.environment
-        env["DYLD_FRAMEWORK_PATH"] = try getToolchain().sdkPlatformFrameworksPath.asString
+        // Add the sdk platform path if we have it. If this is not present, we
+        // might always end up failing.
+        if let sdkPlatformFrameworksPath = try getToolchain().sdkPlatformFrameworksPath {
+            env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.asString
+        }
         try Process.checkNonZeroExit(arguments: args, environment: env)
         // Read the temporary file's content.
         let data = try fopen(tempFile.path).readFileContents()
