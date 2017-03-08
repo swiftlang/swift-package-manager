@@ -35,7 +35,7 @@ public class Resources: ManifestResourceProvider {
 
   #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
-        return toolchain.sdkPlatformFrameworksPath
+        return toolchain.sdkPlatformFrameworksPath!
     }
   #endif
 
