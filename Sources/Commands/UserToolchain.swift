@@ -65,21 +65,19 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         let envSearchPaths = Utility.getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
 
-        func lookup(env: String) -> AbsolutePath? {
+        func lookup(fromEnv: String) -> AbsolutePath? {
             return Utility.lookupExecutablePath(
-                inEnvValue: getenv(env),
+                filename: getenv(fromEnv),
                 searchPaths: envSearchPaths)
         }
 
         libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
 
         // First look in env and then in bin dir.
-        swiftCompiler = lookup(env: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
+        swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
         
         // Check that it's valid in the file system.
-        // FIXME: We should also check that it resolves to an executable file
-        //        (it could be a symlink to such as file).
-        guard localFileSystem.exists(swiftCompiler) else {
+        guard localFileSystem.isExecutableFile(swiftCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
         }
 
@@ -90,7 +88,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         }
 
         // Find the Clang compiler, looking first in the environment.
-        if let value = lookup(env: "CC") {
+        if let value = lookup(fromEnv: "CC") {
             clangCompiler = value
         } else {
             // No value in env, so search for `clang`.
@@ -102,9 +100,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         }
         
         // Check that it's valid in the file system.
-        // FIXME: We should also check that it resolves to an executable file
-        //        (it could be a symlink to such as file).
-        guard localFileSystem.exists(clangCompiler) else {
+        guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
         
@@ -112,7 +108,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
       #if os(macOS)
         let sdk: AbsolutePath
 
-        if let value = Utility.lookupExecutablePath(inEnvValue: getenv("SYSROOT")) {
+        if let value = Utility.lookupExecutablePath(filename: getenv("SYSROOT")) {
             sdk = value
         } else {
             // No value in env, so search for it.
@@ -124,8 +120,8 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
             sdk = AbsolutePath(foundPath)
         }
         
-        // FIXME: We should probably also check that it is a directory, etc.
-        guard localFileSystem.exists(sdk) else {
+        // Verify that the sdk exists and is a directory
+        guard localFileSystem.exists(sdk) && localFileSystem.isDirectory(sdk) else {
             throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
         }
         defaultSDK = sdk
