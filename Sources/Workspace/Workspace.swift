@@ -115,7 +115,7 @@ public class Workspace {
         public enum State: Equatable {
 
             /// The dependency is a managed checkout.
-            case checkout
+            case checkout(CheckoutState)
 
             /// The dependency is in edited state.
             case edited
@@ -125,6 +125,12 @@ public class Workspace {
             /// In other words, this dependency is being used for top of the
             /// tree style development.
             case unmanaged(path: AbsolutePath)
+
+            /// Returns true if state is checkout.
+            var isCheckout: Bool {
+                if case .checkout = self { return true }
+                return false
+            }
         }
 
         /// The specifier for the dependency.
@@ -136,9 +142,6 @@ public class Workspace {
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
 
-        /// The current version of the dependency, if known.
-        public let currentVersion: Version?
-
         /// A dependency which in editable state is based on a dependency from
         /// which it edited from.
         ///
@@ -146,47 +149,23 @@ public class Workspace {
         /// unedit a package.
         let basedOn: ManagedDependency?
 
-        /// The current revision of the dependency.
-        ///
-        /// This should always be a revision corresponding to the version in the
-        /// repository, but in certain circumstances it may not be the *current*
-        /// one (e.g., if this data is accessed with a different version of the
-        /// package manager, which would cause an alternate version to be
-        /// resolved).
-        public let currentRevision: Revision?
-
-        /// The current branch of the dependency.
-        ///
-        /// This is only set if dependency should be managed at a branch
-        /// instead of at a version.
-        public let currentBranch: String?
-
         fileprivate init(
             repository: RepositorySpecifier,
             subpath: RelativePath,
-            currentVersion: Version?,
-            currentRevision: Revision,
-            currentBranch: String?
+            checkoutState: CheckoutState
         ) {
-            assert(currentVersion == nil || currentBranch == nil, "Can't set both branch and version.")
             self.repository = repository
-            self.currentVersion = currentVersion
-            self.currentRevision = currentRevision
-            self.currentBranch = currentBranch
+            self.state = .checkout(checkoutState)
             self.basedOn = nil
             self.subpath = subpath
-            self.state = .checkout
         }
 
         private init(basedOn dependency: ManagedDependency, subpath: RelativePath, state: State) {
-            assert(dependency.state == .checkout)
-            assert(state != .checkout)
+            assert(dependency.state.isCheckout)
+            assert(!state.isCheckout)
             self.basedOn = dependency
             self.repository = dependency.repository
             self.subpath = subpath
-            self.currentRevision = nil
-            self.currentVersion = nil
-            self.currentBranch = nil
             self.state = state
         }
 
@@ -205,31 +184,19 @@ public class Workspace {
                   case let .string(subpathString)? = contents["subpath"],
                   let state = contents["state"],
                   let stateData = State(state),
-                  let currentVersionData = contents["currentVersion"],
-                  let basedOnData = contents["basedOn"],
-                  let currentRevisionString = contents["currentRevision"] else {
+                  let basedOnData = contents["basedOn"] else {
                 return nil
             }
             self.repository = RepositorySpecifier(url: repositoryURL)
             self.subpath = RelativePath(subpathString)
-            self.currentVersion = Version(json: currentVersionData)
-            self.currentRevision = Revision(json: currentRevisionString)
             self.basedOn = ManagedDependency(json: basedOnData) ?? nil
             self.state = stateData
-
-            self.currentBranch = contents["currentBranch"].flatMap {
-                if case .string(let branch) = $0 { return branch }
-                return nil
-            }
         }
 
         fileprivate func toJSON() -> JSON {
             return .dictionary([
                     "repositoryURL": .string(repository.url),
                     "subpath": .string(subpath.asString),
-                    "currentVersion":  currentVersion.flatMap { JSON.string(String(describing: $0)) } ?? .null,
-                    "currentRevision": currentRevision.flatMap { JSON.string($0.identifier) } ?? .null,
-                    "currentBranch": currentBranch.flatMap { JSON.string($0) } ?? .null,
                     "basedOn": basedOn?.toJSON() ?? .null,
                     "state": state.toJSON(),
                 ])
@@ -293,27 +260,19 @@ public class Workspace {
                     constraint = RepositoryPackageConstraint(
                         container: specifier, requirement: .unversioned(dependencies))
 
-                case .checkout:
+                case .checkout(let checkoutState):
                     // If this specifier is pinned, don't add a constraint for
                     // it as we'll get it from the pin.
                     guard pinsStore.pinsMap[externalManifest.name] == nil else {
                         continue
                     }
 
-                    // If we know the manifest is at a particular revision, use that.
+                    // If we know the manifest is at a particular state, use that.
                     //
                     // FIXME: This backfires in certain cases when the
                     // graph is resolvable but this constraint makes the
                     // resolution unsatisfiable.
-                    let requirement: RepositoryPackageConstraint.Requirement
-
-                    if let version = managedDependency.currentVersion {
-                        requirement = .versionSet(.exact(version))
-                    } else if let branch = managedDependency.currentBranch {
-                        requirement = .revision(branch)
-                    } else {
-                        requirement = .revision(managedDependency.currentRevision!.identifier)
-                    }
+                    let requirement = checkoutState.requirement()
 
                     constraint = RepositoryPackageConstraint(
                         container: specifier, requirement: requirement)
@@ -510,9 +469,7 @@ public class Workspace {
         checkoutBranch: String? = nil
     ) throws {
         // Check if we can edit this dependency.
-        switch dependency.state {
-        case .checkout: break
-        case .unmanaged, .edited:
+        guard case .checkout(let checkoutState) = dependency.state else {
             throw WorkspaceOperationError.dependencyAlreadyInEditMode
         }
 
@@ -570,7 +527,7 @@ public class Workspace {
 
             try handle.cloneCheckout(to: destination, editable: true)
             let workingRepo = try repositoryManager.provider.openCheckout(at: destination)
-            try workingRepo.checkout(revision: revision ?? dependency.currentRevision!)
+            try workingRepo.checkout(revision: revision ?? checkoutState.revision)
             // Checkout to the new branch if provided.
             if let branch = checkoutBranch {
                 try workingRepo.checkout(newBranch: branch)
@@ -653,7 +610,7 @@ public class Workspace {
     ///   - reason: The optional reason for pinning.
     /// - Throws: WorkspaceOperationError, PinOperationError
     public func pin(dependency: ManagedDependency, packageName: String, at version: Version, reason: String? = nil) throws {
-        assert(dependency.state == .checkout, "Can not pin a dependency which is in being edited.")
+        assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
         // Compute constraints with the new pin and try to resolve dependencies. We only commit the pin if the
         // dependencies can be resolved with new constraints.
         //
@@ -703,14 +660,15 @@ public class Workspace {
 
     /// Pins the managed dependency.
     private func pin(dependency: ManagedDependency, package: String, reason: String?) throws {
-        var dependency = dependency
+        let checkoutState: CheckoutState
 
         switch dependency.state {
-        case .checkout: break
+        case .checkout(let state):
+            checkoutState = state
         case .unmanaged, .edited:
             // For editable dependencies, pin the underlying dependency if we have them.
-            if let basedOn = dependency.basedOn {
-                dependency = basedOn
+            if let basedOn = dependency.basedOn, case .checkout(let state) = basedOn.state {
+                checkoutState = state
             } else {
                 return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
             }
@@ -719,9 +677,7 @@ public class Workspace {
         try pinsStore.pin(
             package: package,
             repository: dependency.repository,
-            revision: dependency.currentRevision!,
-            version: dependency.currentVersion,
-            branch: dependency.currentBranch,
+            state: checkoutState,
             reason: reason)
     }
 
@@ -774,9 +730,7 @@ public class Workspace {
     // mechanism for observing the actions.
     func clone(
         repository: RepositorySpecifier,
-        at revision: Revision,
-        version: Version? = nil,
-        branch: String? = nil
+        at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
         // Get the repository.
         let path = try fetch(repository: repository)
@@ -784,13 +738,13 @@ public class Workspace {
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         // Inform the delegate.
-        delegate.checkingOut(repository: repository.url, at: version?.description ?? revision.identifier)
-        try workingRepo.checkout(revision: revision)
+        delegate.checkingOut(repository: repository.url, at: checkoutState.description)
+        try workingRepo.checkout(revision: checkoutState.revision)
 
         // Write the state record.
         dependencyMap[repository] = ManagedDependency(
                 repository: repository, subpath: path.relative(to: checkoutsPath),
-                currentVersion: version, currentRevision: revision, currentBranch: branch)
+                checkoutState: checkoutState)
         try saveState()
 
         return path
@@ -802,16 +756,19 @@ public class Workspace {
         // annoying. Maybe we should make an SPI on the provider for
         // this?
         let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+        let checkoutState: CheckoutState
 
         switch requirement {
         case .version(let version):
             let tag = container.getTag(for: version)!
             let revision = try container.getRevision(forTag: tag)
-            return try self.clone(repository: specifier, at: revision, version: version)
+            checkoutState = CheckoutState(revision: revision, version: version)
 
         case .revision(let revision, let branch):
-            return try self.clone(repository: specifier, at: revision, branch: branch)
+            checkoutState = CheckoutState(revision: revision, branch: branch)
         }
+
+        return try self.clone(repository: specifier, at: checkoutState)
     }
 
     /// This enum represents state of an external package.
@@ -881,7 +838,7 @@ public class Workspace {
             // Check if this is a stray pin.
             guard let dependency = dependencyMap[pin.repository] else {
                 // FIXME: Use diagnosics engine when we have that.
-                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.description) but the dependency is not present.")
+                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.state.description) but the dependency is not present.")
                 continue
             }
             // Pin this dependency.
@@ -938,7 +895,7 @@ public class Workspace {
             case .unversioned:
                 // Right not it is only possible to get unversioned binding if
                 // a dependency is in editable state.
-                assert(dependencyMap[specifier]?.state != .checkout)
+                assert(dependencyMap[specifier]?.state.isCheckout == false)
                 packageStateChanges[specifier] = .unchanged
 
             case .revision(let identifier):
@@ -951,28 +908,16 @@ public class Workspace {
                 // branches, use the revision from pin instead (if present).
                 if branch != nil {
                     if let pin = pinsStore.pins.first(where: { $0.repository == specifier }), !updateBranches {
-                        revision = pin.revision
+                        revision = pin.state.revision
                     }
                 }
 
                 // First check if we have this dependency.
                 if let currentDependency = dependencyMap[specifier] {
-
-                    if currentDependency.currentBranch == branch {
-                        // If that revision is being used, then nothing has
-                        // changed, otherwise we need to update this
-                        // dependency.
-                        if revision == currentDependency.currentRevision {
-                            packageStateChanges[specifier] = .unchanged
-                        } else {
-                            packageStateChanges[specifier] = .updated(.revision(revision, branch: branch))
-                        }
-                    } else if
-                        currentDependency.currentRevision == revision &&
-                        currentDependency.currentVersion == nil &&
-                        currentDependency.currentBranch == nil {
-                        // If this identifier is the current revision, then
-                        // check that this is exactly the revision that we need.
+                    // If current state and new state are equal, we don't need
+                    // to do anything.
+                    let newState = CheckoutState(revision: revision, branch: branch)
+                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
                         packageStateChanges[specifier] = .unchanged
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
@@ -984,7 +929,7 @@ public class Workspace {
 
             case .version(let version):
                 if let currentDependency = dependencyMap[specifier] {
-                    if currentDependency.currentVersion == version {
+                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState.version == version {
                         packageStateChanges[specifier] = .unchanged
                     } else {
                         packageStateChanges[specifier] = .updated(.version(version))
@@ -1034,15 +979,21 @@ public class Workspace {
                     return nil
                 }
 
-                // Construct the package path for the dependency.
+                // The version, if known.
+                let version: Version?
                 let packagePath: AbsolutePath
+
+                // Construct the package path for the dependency.
                 switch managedDependency.state {
-                case .checkout: 
+                case .checkout(let checkoutState):
                     packagePath = checkoutsPath.appending(managedDependency.subpath)
+                    version = checkoutState.version
                 case .edited:
                     packagePath = editablesPath.appending(managedDependency.subpath)
+                    version = nil
                 case .unmanaged(let path):
                     packagePath = path
+                    version = nil
                 }
 
                 // Load the tools version for the package.
@@ -1060,7 +1011,7 @@ public class Workspace {
                 let manifest: Manifest = try! manifestLoader.load(
                     package: packagePath,
                     baseURL: managedDependency.repository.url,
-                    version: managedDependency.currentVersion,
+                    version: version,
                     manifestVersion: toolsVersion.manifestVersion)
 
                 return KeyedPair(manifest, key: manifest.url)
@@ -1316,26 +1267,12 @@ public class Workspace {
     }
 }
 
-extension Version {
-    init?(json: JSON) {
-        guard case .string(let str) = json else { return nil }
-        self.init(string: str)
-    }
-}
-
-extension Revision {
-    init?(json: JSON) {
-        guard case .string(let str) = json else { return nil }
-        self.init(identifier: str)
-    }
-}
-
 extension Workspace.ManagedDependency.State {
 
     public static func ==(lhs: Workspace.ManagedDependency.State, rhs: Workspace.ManagedDependency.State) -> Bool {
         switch (lhs, rhs) {
-        case (.checkout, .checkout):
-            return true
+        case (.checkout(let lhs), .checkout(let rhs)):
+            return lhs == rhs
         case (.checkout, _):
             return false
         case (.edited, .edited):
@@ -1351,9 +1288,10 @@ extension Workspace.ManagedDependency.State {
 
     func toJSON() -> JSON {
         switch self {
-        case .checkout:
+        case .checkout(let checkoutState):
             return .dictionary([
                     "name": .string("checkout"),
+                    "checkoutState": checkoutState.toJSON()
                 ])
         case .edited:
             return .dictionary([
@@ -1374,9 +1312,15 @@ extension Workspace.ManagedDependency.State {
         }
         switch name {
         case "checkout":
-            self = .checkout
+            guard let checkoutStateData = contents["checkoutState"],
+                  let checkoutState = CheckoutState(json: checkoutStateData) else { 
+                return nil 
+            }
+            self = .checkout(checkoutState)
+
         case "edited":
             self = .edited
+
         case "unmanaged":
             guard case let .string(path)? = contents["path"] else {
                 return nil
