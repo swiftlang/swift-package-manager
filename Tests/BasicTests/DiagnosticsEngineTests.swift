@@ -43,8 +43,8 @@ class DiagnosticsEngineTests: XCTestCase {
     func testBasics() {
         let engine = DiagnosticsEngine() 
         engine.emit(
-            location: FooLocation(name: "foo loc"),
-            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2)
+            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
+            location: FooLocation(name: "foo loc")
         )
         let diag = engine.diagnostics[0]
 

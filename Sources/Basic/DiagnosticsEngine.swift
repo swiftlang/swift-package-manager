@@ -263,7 +263,7 @@ public class DiagnosticsEngine {
     public init() {
     }
 
-    public func emit<T: DiagnosticData>(location: DiagnosticLocation, data: T) {
+    public func emit<T: DiagnosticData>(data: T, location: DiagnosticLocation) {
         diagnostics.append(Diagnostic(id: T.id, location: location, data: data))
     }
 }
