@@ -15,33 +15,26 @@ final class PkgConfigWhitelistTests: XCTestCase {
     func testSimpleFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"]
         let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"]
-        do {
-            try whitelist(pcFile: "dummy", flags: (cFlags, libs))
-        } catch {
-            XCTFail("Unexpected failure \(error)")
-        }
+        let filtered = whitelist(pcFile: "dummy", flags: (cFlags, libs))
+        XCTAssertEqual(filtered.cFlags, cFlags)
+        XCTAssertEqual(filtered.libs, libs)
     }
 
     func testFlagsWithInvalidFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
         let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name"]
-        do {
-            try whitelist(pcFile: "dummy", flags: (cFlags, libs))
-        } catch {
-           let errorString = "nonWhitelistedFlags(\"Non whitelisted flags found: [\\\"-L/hello\\\", \\\"-module-name\\\", \\\"name\\\"] in pc file dummy\")"
-           XCTAssertEqual("\(error)", errorString)
-        }
+        let filtered = whitelist(pcFile: "dummy", flags: (cFlags, libs))
+        XCTAssertEqual(filtered.cFlags, ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"])
+        XCTAssertEqual(filtered.libs, ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3"])
     }
 
     func testFlagsWithValueInNextFlag() {
         let cFlags = ["-I/usr/local", "-I", "/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
         let libs = ["-L", "/usr/lib", "-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"]
-        do {
-            try whitelist(pcFile: "dummy", flags: (cFlags, libs))
-        } catch {
-           let errorString = "nonWhitelistedFlags(\"Non whitelisted flags found: [\\\"-L/hello\\\", \\\"-module-name\\\", \\\"ok\\\", \\\"name\\\"] in pc file dummy\")"
-           XCTAssertEqual("\(error)", errorString)
-        }
+
+        let filtered = whitelist(pcFile: "dummy", flags: (cFlags, libs))
+        XCTAssertEqual(filtered.cFlags, ["-I/usr/local", "-I", "/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"])
+        XCTAssertEqual(filtered.libs, ["-L", "/usr/lib", "-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-lcool"])
     }
 
     func testRemoveDefaultFlags() {
