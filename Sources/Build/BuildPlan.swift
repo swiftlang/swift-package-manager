@@ -151,7 +151,11 @@ public final class ClangTargetDescription {
         args += buildParameters.toolchain.clangPlatformArgs
         args += buildParameters.flags.cCompilerFlags
         args += optimizationArguments
-        args += ["-fobjc-arc", "-fmodules", "-fmodule-name=" + module.c99name]
+        // Only enable ARC on macOS.
+      #if os(macOS)
+        args += ["-fobjc-arc"]
+      #endif
+        args += ["-fmodules", "-fmodule-name=" + module.c99name]
         args += ["-I", clangModule.includeDir.asString]
         args += additionalFlags
         args += moduleCacheArgs

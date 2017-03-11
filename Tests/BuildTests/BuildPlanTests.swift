@@ -107,15 +107,25 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
 
         let ext = try result.target(for: "extlib").clangTarget()
-        XCTAssertEqual(ext.basicArguments(), ["-g", "-O0", "-fobjc-arc", "-fmodules", "-fmodule-name=extlib",
-            "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        var args = ["-g", "-O0"]
+      #if os(macOS)
+        args += ["-fobjc-arc"]
+      #endif
+        args += ["-fmodules", "-fmodule-name=extlib",
+            "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        XCTAssertEqual(ext.basicArguments(), args)
         XCTAssertEqual(ext.objects, [AbsolutePath("/path/to/build/debug/extlib.build/extlib.c.o")])
         XCTAssertEqual(ext.moduleMap, AbsolutePath("/path/to/build/debug/extlib.build/module.modulemap"))
 
         let exe = try result.target(for: "exe").clangTarget()
-        XCTAssertEqual(exe.basicArguments(), ["-g", "-O0", "-fobjc-arc", "-fmodules", "-fmodule-name=exe",
+        args = ["-g", "-O0"]
+      #if os(macOS)
+        args += ["-fobjc-arc"]
+      #endif
+        args += ["-fmodules", "-fmodule-name=exe",
             "-I", "/Pkg/Sources/exe/include", "-iquote", "/Pkg/Sources/lib/include", "-I", "/ExtPkg/Sources/extlib/include",
-            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        XCTAssertEqual(exe.basicArguments(), args)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
@@ -145,7 +155,13 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
         
         let lib = try result.target(for: "lib").clangTarget()
-        XCTAssertEqual(lib.basicArguments(), ["-g", "-O0", "-fobjc-arc", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        var args = ["-g", "-O0"]
+      #if os(macOS)
+        args += ["-fobjc-arc"]
+      #endif
+        args += ["-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
