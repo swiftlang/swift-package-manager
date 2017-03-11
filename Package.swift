@@ -176,17 +176,6 @@ let package = Package(
 // that contains a `main.swift` source file results in an implicit executable
 // product.
 
-
-// Runtime Library -- contains the package description API itself
-products.append(
-    Product(
-        name: "PackageDescription",
-        type: .Library(.Dynamic),
-        modules: ["PackageDescription"]
-    )
-)
-
-
 // SwiftPM Library -- provides package management functionality to clients
 products.append(
     Product(
