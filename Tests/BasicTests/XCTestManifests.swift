@@ -23,6 +23,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(FileSystemTests.allTests),
         testCase(GraphAlgorithmsTests.allTests),
         testCase(JSONTests.allTests),
+        testCase(JSONMapperTests.allTests),
         testCase(KeyedPairTests.allTests),
         testCase(LazyCacheTests.allTests),
         testCase(LockTests.allTests),
