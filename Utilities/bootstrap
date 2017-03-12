@@ -786,6 +786,8 @@ def main():
                         help="Build stage 2 for release")
     parser.add_argument("--generate-xcodeproj", action="store_true",
                         help="Also generate an Xcode project for SwiftPM")
+    parser.add_argument("--test-parallel", action="store_true",
+                        help="Run tests in parallel")
     parser.add_argument("--enable-perf-tests", action="store_true",
                         help="Enables performance tests in the generated Xcode project")
     parser.add_argument("--vendor-name", dest="vendor_name",
@@ -990,6 +992,8 @@ def main():
     if "test" in build_actions:
         # Construct the test environment.
         cmd = env_cmd + [swift_test_path] + build_flags
+        if args.test_parallel:
+            cmd.append("--parallel")
         note("testing with command: %s" % (
             ' '.join(cmd),))
         result = subprocess.call(cmd, cwd=g_project_root)
