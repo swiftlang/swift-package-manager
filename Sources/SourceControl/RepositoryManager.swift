@@ -346,9 +346,8 @@ public class RepositoryManager {
         guard try json.get("version") == RepositoryManager.schemaVersion else {
             throw PersistenceError.invalidVersion
         }
-        let repositories: [JSON] = try json.get("repositories")
         // Load the repositories.
-        self.repositories = try Dictionary(items: repositories.map{ 
+        self.repositories = try Dictionary(items: json.get("repositories").map{
             try ($0.get("key"), RepositoryHandle(manager: self, json: $0.get("handle")))
         })
 

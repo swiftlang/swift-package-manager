@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+
 /// A struct representing a semver version.
 public struct Version {
 
@@ -183,5 +185,21 @@ extension Version: ExpressibleByStringLiteral {
 
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
+    }
+}
+
+extension Version: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .string(let string) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
+        }
+        guard let version = Version(string: string) else {
+            throw JSON.MapError.custom(key: nil, message: "Invalid version string \(string)")
+        }
+        self.init(
+            version.major, version.minor, version.patch,
+            prereleaseIdentifiers: version.prereleaseIdentifiers,
+            buildMetadataIdentifier: version.buildMetadataIdentifier
+        )
     }
 }

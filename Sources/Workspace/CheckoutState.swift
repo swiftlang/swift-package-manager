@@ -74,16 +74,13 @@ extension CheckoutState {
 
 // MARK:- JSON
 
-extension CheckoutState {
-    init?(json data: JSON) {
-       guard case let .dictionary(contents) = data,
-             case let .string(revisionIdentifier)? = contents["revision"] else {
-           return nil
-       }
-       let revision = Revision(identifier: revisionIdentifier)
-       let version = JSON.getOptional(contents["version"]).flatMap(Version.init(string:))
-       let branch = JSON.getOptional(contents["branch"])
-       self.init(revision: revision, version: version, branch: branch)
+extension CheckoutState: JSONMappable {
+    public init(json: JSON) throws {
+       self.init(
+           revision: try json.get("revision"),
+           version: json.get("version"),
+           branch: json.get("branch")
+        )
     }
 
     func toJSON() -> JSON {
@@ -92,18 +89,5 @@ extension CheckoutState {
                "version": version.flatMap{ JSON.string($0.description) } ?? .null,
                "branch": branch.flatMap(JSON.string) ?? .null,
            ])
-    }
-}
-
-// FIXME: Move to Utility or Basic?
-extension JSON {
-    /// Returns string value from the given json, if present.
-    static func getOptional(_ json: JSON?) -> String? {
-        return json.flatMap{
-            if case .string(let string) = $0 {
-                return string
-            }
-            return nil
-        }
     }
 }

@@ -210,3 +210,12 @@ public struct Revision: Hashable {
         return lhs.identifier == rhs.identifier
     }
 }
+
+extension Revision: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .string(let identifier) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
+        }
+        self.init(identifier: identifier)
+    }
+}
