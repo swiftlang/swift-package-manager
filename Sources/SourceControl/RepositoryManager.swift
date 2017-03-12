@@ -77,18 +77,11 @@ public class RepositoryManager {
         }
 
         /// Create a handle from JSON data.
-        fileprivate init?(manager: RepositoryManager, json data: JSON) {
-            guard case let .dictionary(contents) = data,
-                  case let .string(subpath)? = contents["subpath"],
-                  case let .string(repositoryURL)? = contents["repositoryURL"],
-                  case let .string(statusString)? = contents["status"],
-                  let status = Status(rawValue: statusString) else {
-                return nil
-            }
+        fileprivate init(manager: RepositoryManager, json: JSON) throws {
             self.manager = manager
-            self.repository = RepositorySpecifier(url: repositoryURL)
-            self.subpath = RelativePath(subpath)
-            self.status = status
+            self.repository = try json.get("repositoryURL")
+            self.subpath = try RelativePath(json.get("subpath"))
+            self.status = try Status(rawValue: json.get("status"))!
             self.needsFetch = true
         }
         
@@ -350,35 +343,18 @@ public class RepositoryManager {
         let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
 
         // Load the state from JSON.
-        guard case let .dictionary(contents) = json,
-              case let .int(version)? = contents["version"] else {
-            throw PersistenceError.unexpectedData
-        }
-        guard version == RepositoryManager.schemaVersion else {
+        guard try json.get("version") == RepositoryManager.schemaVersion else {
             throw PersistenceError.invalidVersion
         }
-        guard case let .array(repositoriesData)? = contents["repositories"] else {
-            throw PersistenceError.unexpectedData
-        }
-
+        let repositories: [JSON] = try json.get("repositories")
         // Load the repositories.
-        var repositories = [String: RepositoryHandle]()
-        for repositoryData in repositoriesData {
-            guard case let .dictionary(contents) = repositoryData,
-                  case let .string(key)? = contents["key"],
-                  case let handleData? = contents["handle"],
-                  case let handle = RepositoryHandle(manager: self, json: handleData) else {
-                throw PersistenceError.unexpectedData
-            }
-            repositories[key] = handle
+        self.repositories = try Dictionary(items: repositories.map{ 
+            try ($0.get("key"), RepositoryHandle(manager: self, json: $0.get("handle")))
+        })
 
-            // FIXME: We may need to validate the integrity of this
-            // repository. However, we might want to recover from that on
-            // the common path too, so it might prove unnecessary...
-        }
-
-        self.repositories = repositories
-
+        // FIXME: We may need to validate the integrity of this
+        // repository. However, we might want to recover from that on
+        // the common path too, so it might prove unnecessary...
         return true
     }
     
