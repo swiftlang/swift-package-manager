@@ -44,6 +44,15 @@ public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
     return lhs.url == rhs.url
 }
 
+extension RepositorySpecifier: JSONMappable {
+    public init(json: JSON) throws {
+        guard case .string(let url) = json else {
+            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
+        }
+        self.url = url
+    }
+}
+
 /// A repository provider.
 ///
 /// This protocol defines the lower level interface used to to access

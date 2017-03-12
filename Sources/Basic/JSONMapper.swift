@@ -30,7 +30,7 @@ extension JSON {
 
     /// Returns a JSON mappable object from a given key.
     public func get<T: JSONMappable>(_ key: String) throws -> T {
-        let object = try getObject(key)
+        let object: JSON = try get(key)
         return try T(json: object)
     }
 
@@ -41,16 +41,13 @@ extension JSON {
 
     /// Returns a JSON mappable array from a given key.
     public func get<T: JSONMappable>(_ key: String) throws -> [T] {
-        let object = try getObject(key)
-        guard case .array(let array) = object else {
-            throw MapError.typeMismatch(key: key, expected: Array<JSON>.self, json: object)
-        }
+        let array: [JSON] = try get(key)
         return try array.map(T.init(json:))
     }
 
     /// Returns a JSON mappable dictionary from a given key.
     public func get<T: JSONMappable>(_ key: String) throws -> [String: T] {
-        let object = try getObject(key)
+        let object: JSON = try get(key)
         guard case .dictionary(let value) = object else {
             throw MapError.typeMismatch(
                 key: key, expected: Dictionary<String, JSON>.self, json: object)
@@ -59,7 +56,7 @@ extension JSON {
     }
 
     /// Returns JSON entry in the dictionary from a given key.
-    private func getObject(_ key: String) throws -> JSON {
+    public func get(_ key: String) throws -> JSON {
         guard case .dictionary(let dict) = self else {
             throw MapError.typeMismatch(
                 key: key, expected: Dictionary<String, JSON>.self, json: self)
@@ -68,6 +65,15 @@ extension JSON {
             throw MapError.missingKey(key)
         }
         return object
+    }
+
+    /// Returns JSON array entry in the dictionary from a given key.
+    public func get(_ key: String) throws -> [JSON] {
+		let object: JSON = try get(key)
+        guard case .array(let array) = object else {
+            throw MapError.typeMismatch(key: key, expected: Array<JSON>.self, json: object)
+        }
+        return array
     }
 }
 
