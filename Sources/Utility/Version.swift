@@ -188,7 +188,7 @@ extension Version: ExpressibleByStringLiteral {
     }
 }
 
-extension Version: JSONMappable {
+extension Version: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         guard case .string(let string) = json else {
             throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
@@ -201,5 +201,9 @@ extension Version: JSONMappable {
             prereleaseIdentifiers: version.prereleaseIdentifiers,
             buildMetadataIdentifier: version.buildMetadataIdentifier
         )
+    }
+
+    public func toJSON() -> JSON {
+        return .string(description)
     }
 }

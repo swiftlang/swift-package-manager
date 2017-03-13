@@ -105,11 +105,11 @@ public class RepositoryManager {
         // MARK: Persistence
 
         fileprivate func toJSON() -> JSON {
-            return .dictionary([
-                    "status": .string(status.rawValue),
-                    "repositoryURL": .string(repository.url),
-                    "subpath": .string(subpath.asString)
-                ])
+            return .init([
+                "status": status.rawValue,
+                "repositoryURL": repository,
+                "subpath": subpath,
+            ])
         }
     }
 

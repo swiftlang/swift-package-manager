@@ -74,7 +74,7 @@ extension CheckoutState {
 
 // MARK:- JSON
 
-extension CheckoutState: JSONMappable {
+extension CheckoutState: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
        self.init(
            revision: try json.get("revision"),
@@ -83,11 +83,11 @@ extension CheckoutState: JSONMappable {
         )
     }
 
-    func toJSON() -> JSON {
-       return .dictionary([
-               "revision": JSON.string(revision.identifier),
-               "version": version.flatMap{ JSON.string($0.description) } ?? .null,
-               "branch": branch.flatMap(JSON.string) ?? .null,
-           ])
+    public func toJSON() -> JSON {
+       return .init([
+           "revision": revision.identifier,
+           "version": version.toJSON(),
+           "branch": branch.toJSON(),
+       ])
     }
 }

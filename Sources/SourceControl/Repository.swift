@@ -44,12 +44,16 @@ public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
     return lhs.url == rhs.url
 }
 
-extension RepositorySpecifier: JSONMappable {
+extension RepositorySpecifier: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         guard case .string(let url) = json else {
             throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
         }
         self.url = url
+    }
+
+    public func toJSON() -> JSON {
+        return .string(url)
     }
 }
 

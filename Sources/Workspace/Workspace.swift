@@ -109,7 +109,7 @@ public class Workspace {
     ///
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
-    public final class ManagedDependency: JSONMappable {
+    public final class ManagedDependency: JSONMappable, JSONSerializable {
 
         /// Represents the state of the managed dependency.
         public enum State: Equatable {
@@ -185,13 +185,13 @@ public class Workspace {
             self.state = try json.get("state")
         }
 
-        fileprivate func toJSON() -> JSON {
-            return .dictionary([
-                    "repositoryURL": .string(repository.url),
-                    "subpath": .string(subpath.asString),
-                    "basedOn": basedOn?.toJSON() ?? .null,
-                    "state": state.toJSON(),
-                ])
+        public func toJSON() -> JSON {
+            return .init([
+                "repositoryURL": repository.url,
+                "subpath": subpath.asString,
+                "basedOn": basedOn.toJSON(),
+                "state": state,
+            ])
         }
     }
 
@@ -1266,16 +1266,16 @@ public class Workspace {
 
     /// Write the manager state to disk.
     private func saveState() throws {
-        var data = [String: JSON]()
-        data["version"] = .int(Workspace.currentSchemaVersion)
-        data["dependencies"] = .array(dependencies.map{ $0.toJSON() })
-
+        let data = JSON([
+            "version": Workspace.currentSchemaVersion,
+            "dependencies": dependencies.toJSON(),
+        ])
         // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        try fileSystem.writeFileContents(statePath, bytes: data.toBytes())
     }
 }
 
-extension Workspace.ManagedDependency.State: JSONMappable {
+extension Workspace.ManagedDependency.State: JSONMappable, JSONSerializable {
 
     public static func ==(lhs: Workspace.ManagedDependency.State, rhs: Workspace.ManagedDependency.State) -> Bool {
         switch (lhs, rhs) {
@@ -1294,22 +1294,22 @@ extension Workspace.ManagedDependency.State: JSONMappable {
         }
     }
 
-    func toJSON() -> JSON {
+    public func toJSON() -> JSON {
         switch self {
         case .checkout(let checkoutState):
-            return .dictionary([
-                    "name": .string("checkout"),
-                    "checkoutState": checkoutState.toJSON()
-                ])
+            return .init([
+                "name": "checkout",
+                "checkoutState": checkoutState
+            ])
         case .edited:
-            return .dictionary([
-                    "name": .string("edited"),
-                ])
+            return .init([
+                "name": "edited",
+            ])
         case .unmanaged(let path):
-            return .dictionary([
-                    "name": .string("unmanaged"),
-                    "path": .string(path.asString),
-                ])
+            return .init([
+                "name": "unmanaged",
+                "path": path,
+            ])
         }
     }
 

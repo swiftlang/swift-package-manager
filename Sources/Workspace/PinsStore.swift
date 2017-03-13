@@ -176,17 +176,18 @@ extension PinsStore {
 
     /// Saves the current state of pins.
     fileprivate mutating func saveState() throws {
-        var data = [String: JSON]()
-        data["version"] = .int(PinsStore.currentSchemaVersion)
-        data["pins"] = .array(pins.sorted{ $0.package < $1.package  }.map{ $0.toJSON() })
-        data["autoPin"] = .bool(autoPin)
+        let data = JSON([
+            "version": PinsStore.currentSchemaVersion,
+            "pins": pins.sorted{$0.package < $1.package}.toJSON(),
+            "autoPin": autoPin,
+        ])
         // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(pinsFile, bytes: JSON.dictionary(data).toBytes(prettyPrint: true))
+        try fileSystem.writeFileContents(pinsFile, bytes: data.toBytes(prettyPrint: true))
     }
 }
 
 // JSON.
-extension PinsStore.Pin: JSONMappable, Equatable {
+extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
         self.package = try json.get("package")
@@ -196,13 +197,13 @@ extension PinsStore.Pin: JSONMappable, Equatable {
     }
 
     /// Convert the pin to JSON.
-    func toJSON() -> JSON {
-        return .dictionary([
-                "package": .string(package),
-                "repositoryURL": .string(repository.url),
-                "state": state.toJSON(),
-                "reason": reason.flatMap(JSON.string) ?? .null,
-            ])
+    public func toJSON() -> JSON {
+        return .init([
+            "package": package,
+            "repositoryURL": repository,
+            "state": state,
+            "reason": reason.toJSON(),
+        ])
     }
 
     public static func ==(lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
