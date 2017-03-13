@@ -359,17 +359,16 @@ public class RepositoryManager {
     
     /// Write the manager state to disk.
     private func saveState() throws {
-        var data = [String: JSON]()
-        data["version"] = .int(RepositoryManager.schemaVersion)
         // FIXME: Should record information on the provider, in case it changes.
-        data["repositories"] = .array(repositories.map{ (key, handle) in
-                .dictionary([
-                        "key": .string(key),
-                        "handle": handle.toJSON() ])
-            })
+        let data = JSON([
+            "version": RepositoryManager.schemaVersion,
+            "repositories": repositories.map{
+                JSON(["key": $0.0, "handle": $0.1.toJSON()])
+            }.toJSON(),
+        ])
 
         // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(statePath, bytes: JSON.dictionary(data).toBytes())
+        try fileSystem.writeFileContents(statePath, bytes: data.toBytes())
     }
 }
 
