@@ -57,15 +57,20 @@ public class RepositoryManager {
         /// The status of the repository.
         fileprivate var status: Status = .uninitialized
 
-        /// The serial queue to perform the operations like updating the state of the handle and fetching the repositories
-        /// from its remote. The advantage of having a serial queue in handle is that we don't have to worry about multiple lookups on the same handle as they will be queued automatically.
+        /// The serial queue to perform the operations like updating the state
+        /// of the handle and fetching the repositories from its remote.
+        ///
+        /// The advantage of having a serial queue in handle is that we don't
+        /// have to worry about multiple lookups on the same handle as they will
+        /// be queued automatically.
         fileprivate let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repohandle-serial")
 
         /// If the repository needs to be fetched, due to being possibly outdated.
         ///
-        /// If we have just created this handle, we don't need to fetch the repository handled
-        /// by this instance. If we're loading this handle from a saved state, it may be possible that
-        /// the copy on disk has become outdated and we should fetch it from remote.
+        /// If we have just created this handle, we don't need to fetch the
+        /// repository handled by this instance. If we're loading this handle
+        /// from a saved state, it may be possible that the copy on disk has
+        /// become outdated and we should fetch it from remote.
         fileprivate var needsFetch: Bool
 
         /// Create a handle.
@@ -95,14 +100,13 @@ public class RepositoryManager {
         ///
         /// - Parameters:
         ///   - path: The path at which to create the working copy; it is
-        ///     expected to be non-existent when called.
+        ///           expected to be non-existent when called.
+        ///
         ///   - editable: The clone is expected to be edited by user.
         public func cloneCheckout(to path: AbsolutePath, editable: Bool) throws {
             precondition(status == .available, "cloneCheckout() called in invalid state")
             try self.manager.cloneCheckout(self, to: path, editable: editable)
         }
-
-        // MARK: Persistence
 
         fileprivate func toJSON() -> JSON {
             return .init([
@@ -124,8 +128,8 @@ public class RepositoryManager {
 
     /// The map of registered repositories.
     //
-    // FIXME: We should use a more sophisticated map here, which tracks the full
-    // specifier but then is capable of efficiently determining if two
+    // FIXME: We should use a more sophisticated map here, which tracks the
+    // full specifier but then is capable of efficiently determining if two
     // repositories map to the same location.
     private var repositories: [String: RepositoryHandle] = [:]
         
@@ -134,7 +138,8 @@ public class RepositoryManager {
 
     /// Operation queue to do concurrent operations on manager.
     ///
-    /// We use operation queue (and not dispatch queue) to limit the amount of concurrent operations.
+    /// We use operation queue (and not dispatch queue) to limit the amount of
+    /// concurrent operations.
     private let operationQueue: OperationQueue
 
     /// The filesystem to operate on.
@@ -274,12 +279,21 @@ public class RepositoryManager {
 
     /// Open a repository from a handle.
     private func open(_ handle: RepositoryHandle) throws -> Repository {
-        return try provider.open(repository: handle.repository, at: path.appending(handle.subpath))
+        return try provider.open(
+            repository: handle.repository, at: path.appending(handle.subpath))
     }
 
     /// Clone a repository from a handle.
-    private func cloneCheckout(_ handle: RepositoryHandle, to destinationPath: AbsolutePath, editable: Bool) throws {
-        try provider.cloneCheckout(repository: handle.repository, at: path.appending(handle.subpath), to: destinationPath, editable: editable)
+    private func cloneCheckout(
+        _ handle: RepositoryHandle,
+        to destinationPath: AbsolutePath,
+        editable: Bool
+    ) throws {
+        try provider.cloneCheckout(
+            repository: handle.repository,
+            at: path.appending(handle.subpath),
+            to: destinationPath,
+            editable: editable)
     }
 
     /// Removes the repository.
