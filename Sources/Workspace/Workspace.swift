@@ -211,7 +211,7 @@ public class Workspace {
     private var fileSystem: FileSystem
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
-    public var pinsStore: PinsStore
+    public let pinsStore: PinsStore
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
