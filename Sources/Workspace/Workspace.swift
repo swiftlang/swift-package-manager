@@ -109,7 +109,7 @@ public class Workspace {
     ///
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
-    public final class ManagedDependency {
+    public final class ManagedDependency: JSONMappable {
 
         /// Represents the state of the managed dependency.
         public enum State: Equatable {
@@ -178,19 +178,11 @@ public class Workspace {
         // MARK: Persistence
 
         /// Create an instance from JSON data.
-        fileprivate init?(json data: JSON) {
-            guard case let .dictionary(contents) = data,
-                  case let .string(repositoryURL)? = contents["repositoryURL"],
-                  case let .string(subpathString)? = contents["subpath"],
-                  let state = contents["state"],
-                  let stateData = State(state),
-                  let basedOnData = contents["basedOn"] else {
-                return nil
-            }
-            self.repository = RepositorySpecifier(url: repositoryURL)
-            self.subpath = RelativePath(subpathString)
-            self.basedOn = ManagedDependency(json: basedOnData) ?? nil
-            self.state = stateData
+        public init(json: JSON) throws {
+            self.repository = try json.get("repositoryURL")
+            self.subpath = try RelativePath(json.get("subpath"))
+            self.basedOn = json.get("basedOn")
+            self.state = try json.get("state")
         }
 
         fileprivate func toJSON() -> JSON {
@@ -1261,33 +1253,14 @@ public class Workspace {
         if !fileSystem.exists(statePath) {
             return false
         }
-
         // Load the state.
         let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
-
-        // Load the state from JSON.
-        guard case let .dictionary(contents) = json,
-        case let .int(version)? = contents["version"] else {
-            throw PersistenceError.unexpectedData
-        }
-        guard version == Workspace.currentSchemaVersion else {
+        guard try json.get("version") == Workspace.currentSchemaVersion else {
             throw PersistenceError.invalidVersion
         }
-        guard case let .array(dependenciesData)? = contents["dependencies"] else {
-            throw PersistenceError.unexpectedData
-        }
-
-        // Load the repositories.
-        var dependencies = [RepositorySpecifier: ManagedDependency]()
-        for dependencyData in dependenciesData {
-            guard let repo = ManagedDependency(json: dependencyData) else {
-                throw PersistenceError.unexpectedData
-            }
-            dependencies[repo.repository] = repo
-        }
-
-        self.dependencyMap = dependencies
-
+        self.dependencyMap = try Dictionary(items: 
+            json.get("dependencies").map{($0.repository, $0)}
+        )
         return true
     }
 
@@ -1302,7 +1275,7 @@ public class Workspace {
     }
 }
 
-extension Workspace.ManagedDependency.State {
+extension Workspace.ManagedDependency.State: JSONMappable {
 
     public static func ==(lhs: Workspace.ManagedDependency.State, rhs: Workspace.ManagedDependency.State) -> Bool {
         switch (lhs, rhs) {
@@ -1340,28 +1313,17 @@ extension Workspace.ManagedDependency.State {
         }
     }
 
-    init?(_ json: JSON) {
-        guard case let .dictionary(contents) = json,
-              case let .string(name)? = contents["name"] else {
-            return nil
-        }
+    public init(json: JSON) throws {
+        let name: String = try json.get("name")
         switch name {
         case "checkout":
-            guard let checkoutStateData = contents["checkoutState"],
-                  let checkoutState = CheckoutState(json: checkoutStateData) else { 
-                return nil 
-            }
-            self = .checkout(checkoutState)
-
+            self = try .checkout(json.get("checkoutState"))
         case "edited":
             self = .edited
-
         case "unmanaged":
-            guard case let .string(path)? = contents["path"] else {
-                return nil
-            }
-            self = .unmanaged(path: AbsolutePath(path))
-        default: return nil
+            self = try .unmanaged(path: AbsolutePath(json.get("path")))
+        default:
+            throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
         }
     }
 }

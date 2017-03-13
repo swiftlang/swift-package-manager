@@ -30,7 +30,7 @@ final class PinsStoreTests: XCTestCase {
         let state = CheckoutState(revision: revision, version: v1)
         let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         // We should be able to round trip from JSON.
-        XCTAssertEqual(PinsStore.Pin(json: pin.toJSON()), pin)
+        XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
         
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")

@@ -165,30 +165,13 @@ extension PinsStore {
         let json = try JSON(bytes: try fileSystem.readFileContents(pinsFile))
 
         // Load the state from JSON.
-        guard case let .dictionary(contents) = json,
-        case let .int(version)? = contents["version"] else {
-            throw PersistenceError.unexpectedData
-        }
         // FIXME: We will need migration support when we update pins schema.
-        guard version == PinsStore.currentSchemaVersion else {
+        guard try json.get("version") == PinsStore.currentSchemaVersion else {
             fatalError("Migration not supported yet")
         }
-        guard case let .bool(autoPin)? = contents["autoPin"],
-              case let .array(pinsData)? = contents["pins"] else {
-            throw PersistenceError.unexpectedData
-        }
-
         // Load the pins.
-        var pins = [String: Pin]()
-        for pinData in pinsData {
-            guard let pin = Pin(json: pinData) else {
-                throw PersistenceError.unexpectedData
-            }
-            pins[pin.package] = pin
-        }
-
-        self.autoPin = autoPin
-        self.pinsMap = pins 
+        self.autoPin = try json.get("autoPin")
+        self.pinsMap = try Dictionary(items: json.get("pins").map{($0.package, $0)})
     }
 
     /// Saves the current state of pins.
@@ -203,20 +186,13 @@ extension PinsStore {
 }
 
 // JSON.
-extension PinsStore.Pin: Equatable {
+extension PinsStore.Pin: JSONMappable, Equatable {
     /// Create an instance from JSON data.
-    init?(json data: JSON) {
-        guard case let .dictionary(contents) = data,
-              case let .string(package)? = contents["package"],
-              case let .string(repositoryURL)? = contents["repositoryURL"],
-              let stateData = contents["state"],
-              let state = CheckoutState(json: stateData) else {
-            return nil
-        }
-        self.package = package
-        self.repository = RepositorySpecifier(url: repositoryURL)
-        self.reason = JSON.getOptional(contents["reason"])
-        self.state = state
+    public init(json: JSON) throws {
+        self.package = try json.get("package")
+        self.repository = try json.get("repositoryURL")
+        self.reason = json.get("reason")
+        self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
