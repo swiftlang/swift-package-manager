@@ -152,3 +152,72 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         }
     }
 }
+
+/// Represents a collection of managed dependency which are persisted on disk.
+public final class ManagedDependencies: SimplePersistanceProtocol {
+
+    /// The current state of managed dependencies.
+    private var dependencyMap: [RepositorySpecifier: ManagedDependency]
+
+    /// Path to the state file.
+    let statePath: AbsolutePath
+
+    /// persistence helper
+    let persistence: SimplePersistence
+
+    init(dataPath: AbsolutePath, fileSystem: FileSystem) throws {
+        let statePath = dataPath.appending(component: "dependencies-state.json")
+
+        self.dependencyMap = [:]
+        self.statePath = statePath
+        self.persistence = SimplePersistence(
+            fileSystem: fileSystem,
+            schemaVersion: 1,
+            statePath: statePath)
+
+        // Load the state from disk, if possible.
+        if try !self.persistence.restoreState(self) {
+            var fileSystem = fileSystem
+            try fileSystem.createDirectory(dataPath, recursive: true)
+            // There was no state, write the default state immediately.
+            try self.persistence.saveState(self)
+        }
+    }
+
+    public subscript(_ url: String) -> ManagedDependency? {
+        return dependencyMap[RepositorySpecifier(url: url)]
+    }
+
+    public subscript(_ repository: RepositorySpecifier) -> ManagedDependency? {
+        get {
+            return dependencyMap[repository]
+        }
+        set {
+            dependencyMap[repository] = newValue
+        }
+    }
+
+    func reset() {
+        dependencyMap = [:]
+    }
+
+    func saveState() throws {
+        try self.persistence.saveState(self)
+    }
+
+    public var values: AnySequence<ManagedDependency> {
+        return AnySequence<ManagedDependency>(dependencyMap.values)
+    }
+
+    public func restore(from json: JSON) throws {
+        self.dependencyMap = try Dictionary(items: 
+            json.get("dependencies").map{($0.repository, $0)}
+        )
+    }
+
+    public func toJSON() -> JSON {
+        return JSON([
+            "dependencies": values.toJSON(),
+        ])
+    }
+}

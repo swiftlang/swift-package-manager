@@ -229,15 +229,10 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    private(set) var dependencyMap: [RepositorySpecifier: ManagedDependency]
+    let managedDependencies: ManagedDependencies
 
     /// Enable prefetching containers in resolver.
     let enableResolverPrefetching: Bool
-
-    /// The known set of dependencies.
-    public var dependencies: AnySequence<ManagedDependency> {
-        return AnySequence<ManagedDependency>(dependencyMap.values)
-    }
 
     /// Create a new package workspace.
     ///
@@ -282,19 +277,11 @@ public class Workspace {
             repositoryManager: repositoryManager, manifestLoader: manifestLoader, toolsVersionLoader: toolsVersionLoader)
         self.fileSystem = fileSystem
 
-        // Initialize the default state.
-        self.dependencyMap = [:]
-
         self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
+        self.managedDependencies = try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
 
         // Ensure the cache path exists.
         try createCacheDirectories()
-
-        // Load the state from disk, if possible.
-        if try !restoreState() {
-            // There was no state, write the default state immediately.
-            try saveState()
-        }
     }
 
     /// Create the cache directories.
@@ -327,7 +314,7 @@ public class Workspace {
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            statePath,
+            managedDependencies.statePath,
         ].map { path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
@@ -345,7 +332,7 @@ public class Workspace {
 
     /// Resets the entire workspace by removing the data directory.
     public func reset() throws {
-        dependencyMap = [:]
+        managedDependencies.reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
         try createCacheDirectories()
@@ -447,10 +434,10 @@ public class Workspace {
         }
 
         // Change its stated to edited.
-        dependencyMap[dependency.repository] = dependency.makingEditable(
+        managedDependencies[dependency.repository] = dependency.makingEditable(
             subpath: RelativePath(packageName), state: state)
         // Save the state.
-        try saveState()
+        try managedDependencies.saveState()
     }
 
     /// Ends the edit mode of a dependency which is in edit mode.
@@ -498,9 +485,9 @@ public class Workspace {
             fileSystem.removeFileTree(editablesPath)
         }
         // Restore the dependency state.
-        dependencyMap[dependency.repository] = dependency.basedOn
+        managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
-        try saveState()
+        try managedDependencies.saveState()
     }
 
     /// Pins a package at a given state.
@@ -558,7 +545,7 @@ public class Workspace {
         try updateCheckouts(with: results)
 
         // Get the updated dependency.
-        let newDependency = dependencyMap[dependency.repository]!
+        let newDependency = managedDependencies[dependency.repository]!
 
         // Assert that the dependency is at the pinned checkout state now.
         if case .checkout(let checkoutState) = newDependency.state {
@@ -629,7 +616,7 @@ public class Workspace {
     /// - Throws: If the operation could not be satisfied.
     private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
-        if let dependency = dependencyMap[repository] {
+        if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
             // Fetch the checkout in case there are updates available.
             let workingRepo = try repositoryManager.provider.openCheckout(at: path)
@@ -679,10 +666,10 @@ public class Workspace {
         try workingRepo.checkout(revision: checkoutState.revision)
 
         // Write the state record.
-        dependencyMap[repository] = ManagedDependency(
+        managedDependencies[repository] = ManagedDependency(
                 repository: repository, subpath: path.relative(to: checkoutsPath),
                 checkoutState: checkoutState)
-        try saveState()
+        try managedDependencies.saveState()
 
         return path
     }
@@ -773,7 +760,7 @@ public class Workspace {
         // Otherwise, we need to repin only the previous pins.
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
-            guard let dependency = dependencyMap[pin.repository] else {
+            guard let dependency = managedDependencies[pin.repository] else {
                 // FIXME: Use diagnosics engine when we have that.
                 delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.state.description) but the dependency is not present.")
                 continue
@@ -832,7 +819,7 @@ public class Workspace {
             case .unversioned:
                 // Right not it is only possible to get unversioned binding if
                 // a dependency is in editable state.
-                assert(dependencyMap[specifier]?.state.isCheckout == false)
+                assert(managedDependencies[specifier]?.state.isCheckout == false)
                 packageStateChanges[specifier] = .unchanged
 
             case .revision(let identifier):
@@ -850,7 +837,7 @@ public class Workspace {
                 }
 
                 // First check if we have this dependency.
-                if let currentDependency = dependencyMap[specifier] {
+                if let currentDependency = managedDependencies[specifier] {
                     // If current state and new state are equal, we don't need
                     // to do anything.
                     let newState = CheckoutState(revision: revision, branch: branch)
@@ -865,7 +852,7 @@ public class Workspace {
                 }
 
             case .version(let version):
-                if let currentDependency = dependencyMap[specifier] {
+                if let currentDependency = managedDependencies[specifier] {
                     if case .checkout(let checkoutState) = currentDependency.state, checkoutState.version == version {
                         packageStateChanges[specifier] = .unchanged
                     } else {
@@ -877,6 +864,7 @@ public class Workspace {
             }
         }
         // Set the state of any old package that might have been removed.
+        let dependencies = managedDependencies.values
         for specifier in dependencies.lazy.map({$0.repository}) where packageStateChanges[specifier] == nil{
             packageStateChanges[specifier] = .removed
         }
@@ -912,7 +900,7 @@ public class Workspace {
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
                 // Check if this dependency is available.
-                guard let managedDependency = dependencyMap[RepositorySpecifier(url: dependency.url)] else {
+                guard let managedDependency = managedDependencies[RepositorySpecifier(url: dependency.url)] else {
                     return nil
                 }
 
@@ -954,15 +942,15 @@ public class Workspace {
                 return KeyedPair(manifest, key: manifest.url)
             }
         }
-
-        return DependencyManifests(roots: rootManifests, dependencies: dependencies.map{ ($0.item, dependencyMap[RepositorySpecifier(url: $0.item.url)]!) })
+        let deps = dependencies.map{ ($0.item, managedDependencies[$0.item.url]!) }
+        return DependencyManifests(roots: rootManifests, dependencies: deps)
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func validateEditedPackages() throws {
-        for dependency in dependencies {
+        for dependency in managedDependencies.values {
 
             let dependencyPath: AbsolutePath
 
@@ -1067,7 +1055,7 @@ public class Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     func remove(specifier: RepositorySpecifier) throws {
-        guard var dependency = dependencyMap[specifier] else {
+        guard var dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
 
@@ -1085,7 +1073,7 @@ public class Workspace {
         delegate.removing(repository: dependency.repository.url)
 
         // Remove the repository from dependencies.
-        dependencyMap[dependency.repository] = nil
+        managedDependencies[dependency.repository] = nil
 
         // Remove the checkout.
         let dependencyPath = checkoutsPath.appending(dependency.subpath)
@@ -1099,7 +1087,7 @@ public class Workspace {
         try repositoryManager.remove(repository: dependency.repository)
 
         // Save the state.
-        try saveState()
+        try managedDependencies.saveState()
     }
 
     /// Loads and returns the root manifests, if all manifests are loaded successfully.
@@ -1125,63 +1113,6 @@ public class Workspace {
             return try manifestLoader.load(
                 package: $0, baseURL: $0.asString, manifestVersion: toolsVersion.manifestVersion)
         }
-    }
-    
-    // MARK: Persistence
-
-    // FIXME: A lot of the persistence mechanism here is copied from
-    // `RepositoryManager`. It would be nice to get actual infrastructure around
-    // persistence to handle the boilerplate parts.
-
-    private enum PersistenceError: Swift.Error {
-        /// The schema does not match the current version.
-        case invalidVersion
-
-        /// There was a missing or malformed key.
-        case unexpectedData
-    }
-
-    /// The current schema version for the persisted information.
-    ///
-    /// We currently discard any restored state if we detect a schema change.
-    private static let currentSchemaVersion = 1
-
-    /// The path at which we persist the manager state.
-    var statePath: AbsolutePath {
-        return dataPath.appending(component: "workspace-state.json")
-    }
-
-    /// Restore the manager state from disk.
-    ///
-    /// - Throws: A PersistenceError if the state was available, but could not
-    /// be restored.
-    ///
-    /// - Returns: True if the state was restored, or false if the state wasn't
-    /// available.
-    private func restoreState() throws -> Bool {
-        // If the state doesn't exist, don't try to load and fail.
-        if !fileSystem.exists(statePath) {
-            return false
-        }
-        // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
-        guard try json.get("version") == Workspace.currentSchemaVersion else {
-            throw PersistenceError.invalidVersion
-        }
-        self.dependencyMap = try Dictionary(items: 
-            json.get("dependencies").map{($0.repository, $0)}
-        )
-        return true
-    }
-
-    /// Write the manager state to disk.
-    private func saveState() throws {
-        let data = JSON([
-            "version": Workspace.currentSchemaVersion,
-            "dependencies": dependencies.toJSON(),
-        ])
-        // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(statePath, bytes: data.toBytes())
     }
 }
 

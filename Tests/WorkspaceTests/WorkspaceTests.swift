@@ -89,7 +89,7 @@ extension Workspace {
     }
 
     func getDependency(for url: AbsolutePath) -> ManagedDependency {
-        return dependencyMap[RepositorySpecifier(url: url.asString)]!
+        return managedDependencies[url.asString]!
     }
 }
 
@@ -125,7 +125,7 @@ final class WorkspaceTests: XCTestCase {
             // Create the initial workspace.
             do {
                 let workspace = try Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(workspace.dependencies.map{ $0.repository.url }, [])
+                XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository.url }, [])
 
                 // Do a low-level clone.
                 let state = CheckoutState(revision: currentRevision)
@@ -136,8 +136,8 @@ final class WorkspaceTests: XCTestCase {
             // Re-open the workspace, and check we know the checkout version.
             do {
                 let workspace = try Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
-                if let dependency = workspace.dependencies.first(where: { _ in true }) {
+                XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
+                if let dependency = workspace.managedDependencies.values.first(where: { _ in true }) {
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, currentRevision)
                 }
@@ -152,9 +152,9 @@ final class WorkspaceTests: XCTestCase {
             let statePath: AbsolutePath
             do {
                 let workspace = try Workspace.createWith(rootPackage: path)
-                statePath = workspace.statePath
-                XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
-                if let dependency = workspace.dependencies.first(where: { _ in true }) {
+                statePath = workspace.managedDependencies.statePath
+                XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
+                if let dependency = workspace.managedDependencies.values.first(where: { _ in true }) {
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, initialRevision)
                 }
@@ -164,10 +164,10 @@ final class WorkspaceTests: XCTestCase {
             try removeFileTree(statePath)
             do {
                 let workspace = try Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(workspace.dependencies.map{ $0.repository.url }, [])
+                XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository.url }, [])
                 let state = CheckoutState(revision: currentRevision)
                 _ = try workspace.clone(repository: testRepoSpec, at: state)
-                XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
+                XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
             }
         }
     }
@@ -430,7 +430,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try Workspace.createWith(rootPackage: path)
             let state = CheckoutState(revision: Revision(identifier: "initial"))
             let checkoutPath = try workspace.clone(repository: testRepoSpec, at: state)
-            XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
+            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
 
             // Drop a build artifact in data directory.
             let buildArtifact = workspace.dataPath.appending(component: "test.o")
@@ -442,7 +442,7 @@ final class WorkspaceTests: XCTestCase {
 
             try workspace.clean()
 
-            XCTAssertEqual(workspace.dependencies.map{ $0.repository }, [testRepoSpec])
+            XCTAssertEqual(workspace.managedDependencies.values.map{ $0.repository }, [testRepoSpec])
             XCTAssert(localFileSystem.exists(workspace.dataPath))
             // The checkout should be safe.
             XCTAssert(localFileSystem.exists(checkoutPath))
@@ -458,7 +458,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(localFileSystem.exists(buildArtifact))
             XCTAssertFalse(localFileSystem.exists(checkoutPath))
             XCTAssertTrue(localFileSystem.exists(workspace.dataPath))
-            XCTAssertTrue(workspace.dependencies.map{$0}.isEmpty)
+            XCTAssertTrue(workspace.managedDependencies.values.map{$0}.isEmpty)
         }
     }
 
@@ -488,7 +488,7 @@ final class WorkspaceTests: XCTestCase {
             }
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+                return workspace.managedDependencies[manifest.url]!
             }
 
             // Get the dependency for package A.
@@ -525,7 +525,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = try Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-                let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
+                let dependency = workspace.managedDependencies[RepositorySpecifier(url: aManifest.url)]!
                 XCTAssert(dependency.state == .edited)
             }
 
@@ -558,7 +558,7 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+                return workspace.managedDependencies[manifest.url]!
             }
             // Get the dependency for package A.
             let dependency = getDependency(aManifest)
@@ -614,7 +614,7 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+                return workspace.managedDependencies[manifest.url]!
             }
             let dependency = getDependency(aManifest)
             // Put the dependency in edit mode.
@@ -1163,7 +1163,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(g.errors.isEmpty)
             XCTAssert(g.lookup("A").version == "1.0.1")
             // FIXME: We also cloned B because it has a pin.
-            XCTAssertNotNil(workspace.dependencyMap[manifestGraph.repo("B")])
+            XCTAssertNotNil(workspace.managedDependencies[manifestGraph.repo("B")])
         }
 
         do {
@@ -1175,7 +1175,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(g.errors.isEmpty)
             XCTAssert(g.lookup("A").version == "1.0.1")
             // This dependency should be removed on updating dependencies because it is not referenced anywhere.
-            XCTAssertNil(workspace.dependencyMap[manifestGraph.repo("B")])
+            XCTAssertNil(workspace.managedDependencies[manifestGraph.repo("B")])
         }
     }
 
@@ -1483,7 +1483,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Put A in edit mode.
             let aManifest = try workspace.loadDependencyManifests().lookup(manifest: "A")!
-            let dependency = workspace.dependencyMap[RepositorySpecifier(url: aManifest.url)]!
+            let dependency = workspace.managedDependencies[RepositorySpecifier(url: aManifest.url)]!
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
 
             // We should retain the original pin for a package which is in edit mode.
@@ -1674,7 +1674,7 @@ final class WorkspaceTests: XCTestCase {
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
+                return workspace.managedDependencies[manifest.url]!
             }
 
             // Load the package graph.
