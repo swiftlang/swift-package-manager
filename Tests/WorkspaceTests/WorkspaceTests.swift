@@ -88,12 +88,12 @@ extension Workspace {
         return try loadDependencyManifests(loadRootManifests())
     }
 
-    func getDependency(for url: AbsolutePath) -> Workspace.ManagedDependency {
+    func getDependency(for url: AbsolutePath) -> ManagedDependency {
         return dependencyMap[RepositorySpecifier(url: url.asString)]!
     }
 }
 
-extension Workspace.ManagedDependency {
+extension ManagedDependency {
     var checkoutState: CheckoutState? {
         if case .checkout(let checkoutState) = state {
             return checkoutState
@@ -487,7 +487,7 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
 
-            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+            func getDependency(_ manifest: Manifest) -> ManagedDependency {
                 return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
             }
 
@@ -557,7 +557,7 @@ final class WorkspaceTests: XCTestCase {
             guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+            func getDependency(_ manifest: Manifest) -> ManagedDependency {
                 return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
             }
             // Get the dependency for package A.
@@ -613,7 +613,7 @@ final class WorkspaceTests: XCTestCase {
             guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+            func getDependency(_ manifest: Manifest) -> ManagedDependency {
                 return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
             }
             let dependency = getDependency(aManifest)
@@ -1673,7 +1673,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = try Workspace.createWith(
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
-            func getDependency(_ manifest: Manifest) -> Workspace.ManagedDependency {
+            func getDependency(_ manifest: Manifest) -> ManagedDependency {
                 return workspace.dependencyMap[RepositorySpecifier(url: manifest.url)]!
             }
 
