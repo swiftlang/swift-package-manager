@@ -229,7 +229,7 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    let managedDependencies: ManagedDependencies
+    let managedDependencies: ReloadableResult<ManagedDependencies, AnyError>
 
     /// Enable prefetching containers in resolver.
     let enableResolverPrefetching: Bool
@@ -278,7 +278,9 @@ public class Workspace {
         self.fileSystem = fileSystem
 
         self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
-        self.managedDependencies = try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+        self.managedDependencies = ReloadableResult{
+            try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+        }
 
         // Ensure the cache path exists.
         try createCacheDirectories()
@@ -314,7 +316,7 @@ public class Workspace {
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            managedDependencies.statePath,
+            try managedDependencies.dematerialize().statePath,
         ].map { path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
@@ -332,7 +334,7 @@ public class Workspace {
 
     /// Resets the entire workspace by removing the data directory.
     public func reset() throws {
-        managedDependencies.reset()
+        try managedDependencies.dematerialize().reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
         try createCacheDirectories()
@@ -433,6 +435,7 @@ public class Workspace {
                     relative: false)
         }
 
+        let managedDependencies = try self.managedDependencies.dematerialize()
         // Change its stated to edited.
         managedDependencies[dependency.repository] = dependency.makingEditable(
             subpath: RelativePath(packageName), state: state)
@@ -484,6 +487,7 @@ public class Workspace {
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
             fileSystem.removeFileTree(editablesPath)
         }
+        let managedDependencies = try self.managedDependencies.dematerialize()
         // Restore the dependency state.
         managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
@@ -545,6 +549,7 @@ public class Workspace {
         try updateCheckouts(with: results)
 
         // Get the updated dependency.
+        let managedDependencies = try self.managedDependencies.dematerialize()
         let newDependency = managedDependencies[dependency.repository]!
 
         // Assert that the dependency is at the pinned checkout state now.
@@ -615,6 +620,7 @@ public class Workspace {
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
     private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
+        let managedDependencies = try self.managedDependencies.dematerialize()
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
@@ -666,6 +672,7 @@ public class Workspace {
         try workingRepo.checkout(revision: checkoutState.revision)
 
         // Write the state record.
+        let managedDependencies = try self.managedDependencies.dematerialize()
         managedDependencies[repository] = ManagedDependency(
                 repository: repository, subpath: path.relative(to: checkoutsPath),
                 checkoutState: checkoutState)
@@ -757,6 +764,7 @@ public class Workspace {
             return try pinAll(reset: true)
         }
 
+        let managedDependencies = try self.managedDependencies.dematerialize()
         // Otherwise, we need to repin only the previous pins.
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
@@ -810,6 +818,7 @@ public class Workspace {
         updateBranches: Bool
     ) throws -> [RepositorySpecifier: PackageStateChange] {
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
+        let managedDependencies = try self.managedDependencies.dematerialize()
         // Set the states from resolved dependencies results.
         for (specifier, binding) in resolvedDependencies {
             switch binding {
@@ -895,7 +904,10 @@ public class Workspace {
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
     public func loadDependencyManifests(_ rootManifests: [Manifest]) -> DependencyManifests {
-
+        guard let managedDependencies = try? self.managedDependencies.dematerialize() else {
+            // We need to capture the error here and continue.
+            fatalError("unimplemented.")
+        }
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
@@ -950,6 +962,7 @@ public class Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func validateEditedPackages() throws {
+        let managedDependencies = try self.managedDependencies.dematerialize()
         for dependency in managedDependencies.values {
 
             let dependencyPath: AbsolutePath
@@ -1055,6 +1068,7 @@ public class Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     func remove(specifier: RepositorySpecifier) throws {
+        let managedDependencies = try self.managedDependencies.dematerialize()
         guard var dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
@@ -1150,5 +1164,32 @@ extension Collection {
             }
         }
         return (result, errors)
+    }
+}
+
+/// A result which can be reloaded.
+///
+/// It is useful for objects that holds a state on disk and needs to be
+/// reloaded frequently.
+final class ReloadableResult<Value, ErrorType: Swift.Error> {
+
+    /// The constructor closure for the value.
+    private let construct: () throws -> Value
+
+    /// Create a reloadable result.
+    init(_ construct: @escaping () throws -> Value) {
+        self.construct = construct
+    }
+
+    /// Load and return the result.
+    func result() -> Result<Value, ErrorType> {
+        return try! Result {
+            try self.construct()
+        }
+    }
+
+    /// Load and return the value.
+    func dematerialize() throws -> Value {
+        return try result().dematerialize()
     }
 }
