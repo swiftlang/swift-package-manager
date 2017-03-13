@@ -254,3 +254,68 @@ extension JSON {
         try self.init(bytes: bytes)
     }
 }
+
+// MARK:- JSONSerializable helpers.
+
+extension JSON {
+    public init(_ dict: [String: JSONSerializable]) {
+        self = .dictionary(Dictionary(items: dict.map{($0.0, $0.1.toJSON())}))
+    }
+}
+
+extension Int: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .int(self)
+    }
+}
+
+extension Double: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .double(self)
+    }
+}
+
+extension String: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .string(self)
+    }
+}
+
+extension Bool: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .bool(self)
+    }
+}
+
+extension AbsolutePath: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .string(asString)
+    }
+}
+
+extension RelativePath: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .string(asString)
+    }
+}
+
+extension Optional where Wrapped: JSONSerializable {
+    public func toJSON() -> JSON {
+        switch self {
+        case .some(let wrapped): return wrapped.toJSON()
+        case .none: return .null
+        }
+    }
+}
+
+extension Sequence where Iterator.Element: JSONSerializable {
+    public func toJSON() -> JSON {
+        return .array(map{$0.toJSON()})
+    }
+}
+
+extension JSON: JSONSerializable {
+    public func toJSON() -> JSON {
+        return self
+    }
+}
