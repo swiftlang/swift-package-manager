@@ -259,7 +259,7 @@ public class Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         enableResolverPrefetching: Bool = false
-    ) throws {
+    ) {
         self.rootPackages = []
         self.delegate = delegate
         self.dataPath = dataPath
@@ -283,9 +283,6 @@ public class Workspace {
         self.managedDependencies = ReloadableResult{
             try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
         }
-
-        // Ensure the cache path exists.
-        try createCacheDirectories()
     }
 
     /// Create the cache directories.
@@ -1012,6 +1009,10 @@ public class Workspace {
         var errors: [Swift.Error] = []
 
         do {
+            // FIXME: We need to avoid fetching dependencies if there is an
+            // error before dependency resolution.
+            // Ensure the cache path exists.
+            try createCacheDirectories()
             // Validate that edited dependencies are still present.
             try validateEditedPackages()
         } catch {

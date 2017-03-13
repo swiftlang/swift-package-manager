@@ -206,7 +206,7 @@ public class SwiftTool<Options: ToolOptions> {
         let delegate = ToolWorkspaceDelegate()
         let rootPackage = try getPackageRoot()
         let provider = GitRepositoryProvider(processSet: processSet)
-        let workspace = try Workspace(
+        let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
             pinsFile: rootPackage.appending(component: "Package.pins"),
