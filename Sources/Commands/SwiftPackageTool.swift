@@ -69,8 +69,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .update:
             let workspace = try getActiveWorkspace()
+            let pinsStore = try workspace.pinsStore.dematerialize()
             // We repin either on explicit repin option or if autopin is enabled.
-            let repin = options.repin || workspace.pinsStore.autoPin
+            let repin = options.repin || pinsStore.autoPin
             try workspace.updateDependencies(repin: repin)
 
         case .fetch:
@@ -181,7 +182,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Toggle enable auto pinning if requested.
             if let enableAutoPin = options.pinOptions.enableAutoPin {
                 let workspace = try getActiveWorkspace()
-                return try workspace.pinsStore.setAutoPin(on: enableAutoPin)
+                return try workspace.pinsStore.dematerialize().setAutoPin(on: enableAutoPin)
             }
 
             // Get the pin options.
@@ -226,7 +227,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 fatalError("Expected package name from parser")
             }
             let workspace = try getActiveWorkspace()
-            try workspace.pinsStore.unpin(package: packageName)
+            try workspace.pinsStore.dematerialize().unpin(package: packageName)
         }
     }
 
