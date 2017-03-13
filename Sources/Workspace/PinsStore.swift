@@ -9,7 +9,7 @@
 */
 
 import Basic
-import struct Utility.Version
+import Utility
 import SourceControl
 import typealias PackageGraph.RepositoryPackageConstraint
 
@@ -18,7 +18,7 @@ public enum PinOperationError: Swift.Error {
     case autoPinEnabled
 }
 
-public struct PinsStore {
+public final class PinsStore {
     public struct Pin {
         /// The package name of the pinned dependency.
         public let package: String
@@ -62,6 +62,8 @@ public struct PinsStore {
         return AnySequence<Pin>(pinsMap.values)
     }
 
+    fileprivate let persistence: SimplePersistence
+
     /// Create a new pins store.
     ///
     /// - Parameters:
@@ -70,13 +72,18 @@ public struct PinsStore {
     public init(pinsFile: AbsolutePath, fileSystem: FileSystem) throws {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
+        self.persistence = SimplePersistence(
+            fileSystem: fileSystem,
+            schemaVersion: 1,
+            statePath: pinsFile,
+            prettyPrint: true)
         pinsMap = [:]
         autoPin = true
-        try restoreState()
+        _ = try self.persistence.restoreState(self)
     }
 
     /// Update the autopin setting. Writes the setting to pins file.
-    public mutating func setAutoPin(on value: Bool) throws {
+    public func setAutoPin(on value: Bool) throws {
         autoPin = value
         try saveState()
     }
@@ -90,7 +97,7 @@ public struct PinsStore {
     ///   - state: The state to pin at.
     ///   - reason: The reason for pinning.
     /// - Throws: PinOperationError
-    public mutating func pin(
+    public func pin(
         package: String,
         repository: RepositorySpecifier,
         state: CheckoutState,
@@ -113,7 +120,7 @@ public struct PinsStore {
     /// - Returns: The pin which was removed.
     /// - Throws: PinOperationError
     @discardableResult
-    public mutating func unpin(package: String) throws -> Pin {
+    public func unpin(package: String) throws -> Pin {
         // Ensure autopin is not on.
         guard !autoPin else {
             throw PinOperationError.autoPinEnabled
@@ -127,7 +134,7 @@ public struct PinsStore {
     }
 
     /// Unpin all of the currently pinnned dependencies.
-    public mutating func unpinAll() throws {
+    public func unpinAll() throws {
         // Reset the pins map.
         pinsMap = [:]
         // Save the state.
@@ -144,45 +151,23 @@ public struct PinsStore {
 }
 
 /// Persistence.
-extension PinsStore {
-    // FIXME: A lot of the persistence mechanism here is copied from
-    // `RepositoryManager`. It would be nice to get actual infrastructure around
-    // persistence to handle the boilerplate parts.
+extension PinsStore: SimplePersistanceProtocol {
 
-    private enum PersistenceError: Swift.Error {
-        /// There was a missing or malformed key.
-        case unexpectedData
+    fileprivate func saveState() throws {
+        try self.persistence.saveState(self)
     }
-
-    /// The current schema version for the persisted information.
-    private static let currentSchemaVersion = 1
     
-    fileprivate mutating func restoreState() throws {
-        if !fileSystem.exists(pinsFile) {
-            return
-        }
-        // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(pinsFile))
-
-        // Load the state from JSON.
-        // FIXME: We will need migration support when we update pins schema.
-        guard try json.get("version") == PinsStore.currentSchemaVersion else {
-            fatalError("Migration not supported yet")
-        }
-        // Load the pins.
+    public func restore(from json: JSON) throws {
         self.autoPin = try json.get("autoPin")
         self.pinsMap = try Dictionary(items: json.get("pins").map{($0.package, $0)})
     }
 
     /// Saves the current state of pins.
-    fileprivate mutating func saveState() throws {
-        let data = JSON([
-            "version": PinsStore.currentSchemaVersion,
+    public func toJSON() -> JSON {
+        return JSON([
             "pins": pins.sorted{$0.package < $1.package}.toJSON(),
             "autoPin": autoPin,
         ])
-        // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(pinsFile, bytes: data.toBytes(prettyPrint: true))
     }
 }
 

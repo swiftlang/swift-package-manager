@@ -18,7 +18,7 @@ import SourceControl
 import TestSupport
 import Utility
 import Workspace
-@testable import struct Workspace.PinsStore
+@testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
     private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {

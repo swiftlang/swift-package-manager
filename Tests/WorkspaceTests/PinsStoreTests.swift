@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-import struct Utility.Version
+import Utility
 import TestSupport
 import SourceControl
 @testable import Workspace
@@ -34,7 +34,7 @@ final class PinsStoreTests: XCTestCase {
         
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
-        var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
@@ -45,13 +45,13 @@ final class PinsStoreTests: XCTestCase {
 
         // Test autopin toggle and persistence.
         do {
-            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
             XCTAssert(store.autoPin)
             try store.setAutoPin(on: false)
             XCTAssertFalse(store.autoPin)
         }
         do {
-            var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
             XCTAssertFalse(store.autoPin)
             try store.setAutoPin(on: true)
             XCTAssert(store.autoPin)

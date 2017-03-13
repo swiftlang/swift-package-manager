@@ -36,14 +36,19 @@ public final class SimplePersistence {
     /// The path at which we persist the state.
     private let statePath: AbsolutePath
 
+    /// Writes the state files with pretty print JSON.
+    private let prettyPrint: Bool
+
     public init(
         fileSystem: FileSystem,
         schemaVersion: Int,
-        statePath: AbsolutePath
+        statePath: AbsolutePath,
+        prettyPrint: Bool = false
     ) {
         self.fileSystem = fileSystem
         self.schemaVersion = schemaVersion
         self.statePath = statePath
+        self.prettyPrint = prettyPrint
     }
 
     public func restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
@@ -69,6 +74,7 @@ public final class SimplePersistence {
             "object": object
         ])
         // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(statePath, bytes: data.toBytes())
+        try fileSystem.writeFileContents(
+            statePath, bytes: data.toBytes(prettyPrint: self.prettyPrint))
     }
 }
