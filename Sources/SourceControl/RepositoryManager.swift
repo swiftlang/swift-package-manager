@@ -131,7 +131,7 @@ public class RepositoryManager {
     // FIXME: We should use a more sophisticated map here, which tracks the
     // full specifier but then is capable of efficiently determining if two
     // repositories map to the same location.
-    private var repositories: [String: RepositoryHandle] = [:]
+    fileprivate var repositories: [String: RepositoryHandle] = [:]
         
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
@@ -144,6 +144,9 @@ public class RepositoryManager {
 
     /// The filesystem to operate on.
     private var fileSystem: FileSystem
+
+    /// Simple persistence helper.
+    private let persistence: SimplePersistence
 
     /// Create a new empty manager.
     ///
@@ -164,9 +167,14 @@ public class RepositoryManager {
         self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
         self.operationQueue.maxConcurrentOperationCount = 10
 
+        self.persistence = SimplePersistence(
+            fileSystem: fileSystem,
+            schemaVersion: 1,
+            statePath: path.appending(component: "checkouts-state.json"))
+
         // Load the state from disk, if possible.
         do {
-            _ = try restoreState()
+            _ = try self.persistence.restoreState(self)
         } catch {
             // State restoration errors are ignored, for now.
             //
@@ -225,7 +233,7 @@ public class RepositoryManager {
                     // Save the manager state.
                     self.serialQueue.sync { 
                         do {
-                            try self.saveState()
+                            try self.persistence.saveState(self)
                         } catch {
                             // FIXME: Handle failure gracefully, somehow.
                             fatalError("unable to save manager state \(error)")
@@ -306,7 +314,7 @@ public class RepositoryManager {
             repositories[repository.url] = nil
             let repositoryPath = path.appending(handle.subpath)
             fileSystem.removeFileTree(repositoryPath)
-            try self.saveState()
+            try self.persistence.saveState(self)
         }
     }
 
@@ -319,70 +327,23 @@ public class RepositoryManager {
             self.fileSystem.removeFileTree(path)
         }
     }
+}
 
-    // MARK: Persistence
+// MARK: Persistence
+extension RepositoryManager: SimplePersistanceProtocol {
 
-    private enum PersistenceError: Swift.Error {
-        /// The schema does not match the current version.
-        case invalidVersion
-        
-        /// There was a missing or malformed key.
-        case unexpectedData
-    }
-    
-    /// The schema of the state file.
-    ///
-    /// We currently discard any restored state if we detect a schema change.
-    private static var schemaVersion = 1
-
-    /// The path at which we persist the manager state.
-    var statePath: AbsolutePath {
-        return path.appending(component: "checkouts-state.json")
-    }
-    
-    /// Restore the manager state from disk.
-    ///
-    /// - Throws: A PersistenceError if the state was available, but could not
-    /// be restored.
-    ///
-    /// - Returns: True if the state was restored, or false if the state wasn't
-    /// available.
-    private func restoreState() throws -> Bool {
-        // If the state doesn't exist, don't try to load and fail.
-        if !fileSystem.exists(statePath) {
-            return false
-        }
-        
-        // Load the state.
-        let json = try JSON(bytes: try fileSystem.readFileContents(statePath))
-
-        // Load the state from JSON.
-        guard try json.get("version") == RepositoryManager.schemaVersion else {
-            throw PersistenceError.invalidVersion
-        }
-        // Load the repositories.
+    public func restore(from json: JSON) throws {
         self.repositories = try Dictionary(items: json.get("repositories").map{
             try ($0.get("key"), RepositoryHandle(manager: self, json: $0.get("handle")))
         })
-
-        // FIXME: We may need to validate the integrity of this
-        // repository. However, we might want to recover from that on
-        // the common path too, so it might prove unnecessary...
-        return true
     }
     
-    /// Write the manager state to disk.
-    private func saveState() throws {
-        // FIXME: Should record information on the provider, in case it changes.
-        let data = JSON([
-            "version": RepositoryManager.schemaVersion,
+    public func toJSON() -> JSON {
+        return JSON([
             "repositories": repositories.map{
                 JSON(["key": $0.0, "handle": $0.1.toJSON()])
             }.toJSON(),
         ])
-
-        // FIXME: This should write atomically.
-        try fileSystem.writeFileContents(statePath, bytes: data.toBytes())
     }
 }
 
