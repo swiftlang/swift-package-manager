@@ -363,7 +363,7 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = try createWorkspace()
 
                 // Turn off auto pinning.
-                try workspace.pinsStore.setAutoPin(on: false)
+                try workspace.pinsStore.dematerialize().setAutoPin(on: false)
                 // Ensure delegates haven't been called yet.
                 XCTAssert(delegate.fetched.isEmpty)
                 XCTAssert(delegate.cloned.isEmpty)
@@ -714,17 +714,17 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("AA").version == v1)
             // We should have pin for AA automatically.
-            XCTAssertNotNil(workspace.pinsStore.pinsMap["A"])
-            XCTAssertNotNil(workspace.pinsStore.pinsMap["AA"])
+            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["A"])
+            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["AA"])
         }
 
         // Unpin all of the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.unpinAll()
+            try workspace.pinsStore.dematerialize().unpinAll()
             // Reset so we have a clean workspace.
             try workspace.reset()
-            try workspace.pinsStore.setAutoPin(on: false)
+            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
         }
 
         // Pin at A at v1.
@@ -749,9 +749,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("AA").version == v1)
-            XCTAssertNotNil(workspace.pinsStore.pinsMap["A"])
+            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["A"])
             // We should not have pinned AA.
-            XCTAssertNil(workspace.pinsStore.pinsMap["AA"])
+            XCTAssertNil(try workspace.pinsStore.dematerialize().pinsMap["AA"])
         }
     }
 
@@ -791,7 +791,7 @@ final class WorkspaceTests: XCTestCase {
             }
             // Try unpinning something which is not pinned.
             XCTAssertThrows(PinOperationError.notPinned) {
-                try workspace.pinsStore.unpin(package: "A")
+                try workspace.pinsStore.dematerialize().unpin(package: "A")
             }
             try workspace.pin(dependency: dep, packageName: "A", version: v1)
         }
@@ -799,7 +799,7 @@ final class WorkspaceTests: XCTestCase {
         // Turn off autopin.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.setAutoPin(on: false)
+            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
         }
 
         // Package graph should load 1.0.1.
@@ -824,7 +824,7 @@ final class WorkspaceTests: XCTestCase {
         // Unpin package.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.unpin(package: "A")
+            try workspace.pinsStore.dematerialize().unpin(package: "A")
             try workspace.reset()
         }
 
@@ -928,7 +928,7 @@ final class WorkspaceTests: XCTestCase {
         // Unpin all of the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.unpinAll()
+            try workspace.pinsStore.dematerialize().unpinAll()
             // Reset so we have a clean workspace.
             try workspace.reset()
         }
@@ -1062,7 +1062,7 @@ final class WorkspaceTests: XCTestCase {
             // But we should still be able to repin at v1.
             try pin(at: v1)
             // And also after unpinning.
-            try workspace.pinsStore.unpinAll()
+            try workspace.pinsStore.dematerialize().unpinAll()
             try pin(at: v1)
 
         }
@@ -1134,7 +1134,7 @@ final class WorkspaceTests: XCTestCase {
         
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.setAutoPin(on: false)
+            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
             _ = workspace.loadPackageGraph()
             let manifests = try workspace.loadDependencyManifests()
             guard let (_, dep) = manifests.lookup(package: "B") else {
@@ -1266,10 +1266,10 @@ final class WorkspaceTests: XCTestCase {
             // Check pins.
             do {
                 let workspace = getWorkspace()
-                let dep1Pin = workspace.pinsStore.pinsMap["dep"]!
+                let dep1Pin = try workspace.pinsStore.dematerialize().pinsMap["dep"]!
                 XCTAssertEqual(dep1Pin.state, CheckoutState(revision: dep1Revision, branch: "develop"))
 
-                let dep2Pin = workspace.pinsStore.pinsMap["dep2"]!
+                let dep2Pin = try workspace.pinsStore.dematerialize().pinsMap["dep2"]!
                 XCTAssertEqual(dep2Pin.state, CheckoutState(revision: dep2Revision))
             }
 
@@ -1384,7 +1384,7 @@ final class WorkspaceTests: XCTestCase {
             // Set auto pinning off.
             do {
                 let workspace = try createWorkspace()
-                try workspace.pinsStore.setAutoPin(on: false)
+                try workspace.pinsStore.dematerialize().setAutoPin(on: false)
             }
 
             // Throw if we have not registered any packages but want to load things.
@@ -1488,7 +1488,7 @@ final class WorkspaceTests: XCTestCase {
 
             // We should retain the original pin for a package which is in edit mode.
             try workspace.pinAll(reset: true)
-            XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.state.version, v1)
+            XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, v1)
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
@@ -1527,8 +1527,8 @@ final class WorkspaceTests: XCTestCase {
                 try workspace.edit(dependency: bDependency, packageName: "B", revision: bDependency.checkoutState!.revision)
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
-                XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.state.version, v1)
-                XCTAssertEqual(workspace.pinsStore.pinsMap["B"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["B"]?.state.version, v1)
 
                 // Create update.
                 let repoPath = AbsolutePath(manifestGraph.repo("A").url)
@@ -1546,9 +1546,9 @@ final class WorkspaceTests: XCTestCase {
                 let manifests = try workspace.loadDependencyManifests()
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
-                XCTAssertEqual(workspace.pinsStore.pinsMap["A"]?.state.version, "1.0.1")
+                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited)
-                XCTAssertEqual(workspace.pinsStore.pinsMap["B"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["B"]?.state.version, v1)
             }
         }
     }

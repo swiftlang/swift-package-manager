@@ -211,7 +211,7 @@ public class Workspace {
     private var fileSystem: FileSystem
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
-    public let pinsStore: PinsStore
+    public let pinsStore: ReloadableResult<PinsStore, AnyError>
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
@@ -277,7 +277,9 @@ public class Workspace {
             repositoryManager: repositoryManager, manifestLoader: manifestLoader, toolsVersionLoader: toolsVersionLoader)
         self.fileSystem = fileSystem
 
-        self.pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: self.fileSystem)
+        self.pinsStore = ReloadableResult {
+            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
+        }
         self.managedDependencies = ReloadableResult{
             try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
         }
@@ -531,6 +533,8 @@ public class Workspace {
             requirement = currentState.requirement()
         }
 
+        let pinsStore = try self.pinsStore.dematerialize()
+
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
         // resolved with new constraints.
@@ -573,6 +577,7 @@ public class Workspace {
     ///   - reset: Remove all current pins before pinning dependencies.
     public func pinAll(reason: String? = nil, reset: Bool = false) throws {
         if reset {
+            let pinsStore = try self.pinsStore.dematerialize()
             try pinsStore.unpinAll()
         }
         // Load the dependencies.
@@ -602,6 +607,7 @@ public class Workspace {
                 return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
             }
         }
+        let pinsStore = try self.pinsStore.dematerialize()
         // Commit the pin.
         try pinsStore.pin(
             package: package,
@@ -759,6 +765,7 @@ public class Workspace {
     /// This methods pins all packages if auto pinning is on.
     /// Otherwise, only currently pinned packages are repinned.
     private func repinPackages() throws {
+        let pinsStore = try self.pinsStore.dematerialize()
         // If autopin is on, pin everything and return.
         if pinsStore.autoPin {
             return try pinAll(reset: true)
@@ -817,6 +824,7 @@ public class Workspace {
         resolvedDependencies: [(RepositorySpecifier, BoundVersion)],
         updateBranches: Bool
     ) throws -> [RepositorySpecifier: PackageStateChange] {
+        let pinsStore = try self.pinsStore.dematerialize()
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         let managedDependencies = try self.managedDependencies.dematerialize()
         // Set the states from resolved dependencies results.
@@ -887,9 +895,10 @@ public class Workspace {
     ///   - includePins: If the constraints from pins should be included.
     /// - Returns: Array of constraints.
     private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
+        // FIXME: Need to get rid of bang here.
         return rootManifests.flatMap{ 
             $0.package.dependencyConstraints() 
-        } + (includePins ? pinsStore.createConstraints() : [])
+        } + (includePins ? try! pinsStore.dematerialize().createConstraints() : [])
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
@@ -1032,7 +1041,9 @@ public class Workspace {
         // delegate of what is happening.
         delegate.fetchingMissingRepositories(missingURLs)
 
+        let pinsStore = try! self.pinsStore.dematerialize()
         // Add constraints from the root packages and the current manifests.
+        // FIXME: Fix bang here.
         let constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
                         + currentManifests.createConstraints(pinsStore: pinsStore)
 
@@ -1171,25 +1182,25 @@ extension Collection {
 ///
 /// It is useful for objects that holds a state on disk and needs to be
 /// reloaded frequently.
-final class ReloadableResult<Value, ErrorType: Swift.Error> {
+public final class ReloadableResult<Value, ErrorType: Swift.Error> {
 
     /// The constructor closure for the value.
     private let construct: () throws -> Value
 
     /// Create a reloadable result.
-    init(_ construct: @escaping () throws -> Value) {
+    public init(_ construct: @escaping () throws -> Value) {
         self.construct = construct
     }
 
     /// Load and return the result.
-    func result() -> Result<Value, ErrorType> {
+    public func result() -> Result<Value, ErrorType> {
         return try! Result {
             try self.construct()
         }
     }
 
     /// Load and return the value.
-    func dematerialize() throws -> Value {
+    public func dematerialize() throws -> Value {
         return try result().dematerialize()
     }
 }
