@@ -58,12 +58,6 @@ public func handle(error: Any) -> Never {
     case let anyError as AnyError:
         handle(error: anyError.underlyingError)
 
-    // Handle each of the error from Errors structure.
-    case let errors as Errors:
-        for error in errors.errors {
-            handle(error: error)
-        }
-
     default:
         _handle(error)
     }
@@ -76,6 +70,10 @@ public func handle(error: Any) -> Never {
 private func _handle(_ error: Any) {
 
     switch error {
+    case SwiftToolError.hasFatalDiagnostics:
+        // We don't print anything in this case.
+        break
+
     case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
         print(error: "The version specifier '\(versionSpecifier)' is not valid")
 
@@ -160,7 +158,7 @@ private func _handle(_ error: Any) {
     }
 }
 
-private func print(error: Any) {
+func print(error: Any) {
     // FIXME: We should generalize this.
     if let stdStream = stderrStream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
         term.write("error: ", inColor: .red, bold: true)

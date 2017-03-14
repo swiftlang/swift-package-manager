@@ -28,7 +28,9 @@ private class ResolverToolDelegate: DependencyResolverDelegate, RepositoryManage
 extension SwiftPackageTool {
     func executeResolve(_ opts: PackageToolOptions) throws {
         // Load the root manifest.
-        let manifest = try getActiveWorkspace().loadRootManifests()[0]
+        let engine = DiagnosticsEngine()
+        let manifest = try getActiveWorkspace().loadRootManifests(
+            packages: [getPackageRoot()], engine: engine)[0]
         let delegate = ResolverToolDelegate()
 
         // Create the repository manager.

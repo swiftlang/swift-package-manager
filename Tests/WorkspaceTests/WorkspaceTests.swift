@@ -71,7 +71,7 @@ extension Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider()
     ) -> Workspace {
-        let workspace = Workspace(
+        return Workspace(
             dataPath: path.appending(component: ".build"),
             editablesPath: path.appending(component: "Packages"),
             pinsFile: path.appending(component: "Package.pins"),
@@ -80,16 +80,6 @@ extension Workspace {
             delegate: delegate,
             fileSystem: fileSystem,
             repositoryProvider: repositoryProvider)
-        workspace.registerPackage(at: path)
-        return workspace
-    }
-
-    func loadDependencyManifests() throws -> DependencyManifests {
-        return try loadDependencyManifests(loadRootManifests())
-    }
-
-    func getDependency(for url: AbsolutePath) -> ManagedDependency {
-        return try! managedDependencies.dematerialize()[url.asString]!
     }
 }
 
@@ -125,7 +115,7 @@ final class WorkspaceTests: XCTestCase {
             // Create the initial workspace.
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository.url }, [])
+                XCTAssertTrue(try workspace.managedDependencies.load().values.map{$0}.isEmpty)
 
                 // Do a low-level clone.
                 let state = CheckoutState(revision: currentRevision)
@@ -136,8 +126,9 @@ final class WorkspaceTests: XCTestCase {
             // Re-open the workspace, and check we know the checkout version.
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository }, [testRepoSpec])
-                if let dependency = try workspace.managedDependencies.dematerialize().values.first(where: { _ in true }) {
+                let dependencies = try workspace.managedDependencies.load()
+                XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
+                if let dependency = dependencies[testRepoSpec] {
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, currentRevision)
                 }
@@ -152,9 +143,10 @@ final class WorkspaceTests: XCTestCase {
             let statePath: AbsolutePath
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
-                statePath = try workspace.managedDependencies.dematerialize().statePath
-                XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository }, [testRepoSpec])
-                if let dependency = try workspace.managedDependencies.dematerialize().values.first(where: { _ in true }) {
+                let dependencies = try workspace.managedDependencies.load()
+                statePath = dependencies.statePath
+                XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
+                if let dependency = dependencies[testRepoSpec] {
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, initialRevision)
                 }
@@ -164,10 +156,10 @@ final class WorkspaceTests: XCTestCase {
             try removeFileTree(statePath)
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
-                XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository.url }, [])
+                XCTAssert(try workspace.managedDependencies.load().values.map{$0}.isEmpty)
                 let state = CheckoutState(revision: currentRevision)
                 _ = try workspace.clone(repository: testRepoSpec, at: state)
-                XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository }, [testRepoSpec])
+                XCTAssertEqual(try workspace.managedDependencies.load().values.map{$0.repository}, [testRepoSpec])
             }
         }
     }
@@ -203,7 +195,10 @@ final class WorkspaceTests: XCTestCase {
             }
 
             // Load the "current" manifests.
-            let manifests = try workspace.loadDependencyManifests()
+            let engine = DiagnosticsEngine()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertEqual(manifests.roots[0], graph.rootManifest)
             // B should be missing.
             XCTAssertEqual(manifests.missingURLs(), ["//B"])
@@ -242,7 +237,9 @@ final class WorkspaceTests: XCTestCase {
             }
 
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 2)
@@ -264,7 +261,9 @@ final class WorkspaceTests: XCTestCase {
             fs: fs
         )
         let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate(), fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
-        let graph = workspace.loadPackageGraph()
+        let engine = DiagnosticsEngine()
+        let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+        XCTAssertFalse(engine.hasErrors())
         XCTAssertTrue(graph.errors.isEmpty)
         XCTAssertEqual(graph.packages.count, 2)
         XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
@@ -311,7 +310,9 @@ final class WorkspaceTests: XCTestCase {
             }
 
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
 
             // Test the delegates.
@@ -363,7 +364,7 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = try createWorkspace()
 
                 // Turn off auto pinning.
-                try workspace.pinsStore.dematerialize().setAutoPin(on: false)
+                try workspace.pinsStore.load().setAutoPin(on: false)
                 // Ensure delegates haven't been called yet.
                 XCTAssert(delegate.fetched.isEmpty)
                 XCTAssert(delegate.cloned.isEmpty)
@@ -371,7 +372,9 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssert(delegate.removed.isEmpty)
 
                 // Load the package graph.
-                let graph = workspace.loadPackageGraph()
+                let engine = DiagnosticsEngine()
+                let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertTrue(graph.errors.isEmpty)
 
                 // Test the delegates.
@@ -399,7 +402,9 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let workspace = try createWorkspace()
-                try workspace.updateDependencies()
+                let engine = DiagnosticsEngine()
+                workspace.updateDependencies(rootPackages: [path], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 // Test the delegates after update.
                 XCTAssert(delegate.fetched.count == 2)
                 XCTAssert(delegate.cloned.count == 2)
@@ -410,7 +415,8 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(delegate.checkedOut[repoPath.asString], "1.0.1")
                 XCTAssertEqual(delegate.removed, [manifestGraph.repo("AA").url])
 
-                let graph = workspace.loadPackageGraph()
+                let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertTrue(graph.errors.isEmpty)
                 XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
@@ -430,7 +436,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = Workspace.createWith(rootPackage: path)
             let state = CheckoutState(revision: Revision(identifier: "initial"))
             let checkoutPath = try workspace.clone(repository: testRepoSpec, at: state)
-            XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository }, [testRepoSpec])
+            XCTAssertEqual(try workspace.managedDependencies.load().values.map{ $0.repository }, [testRepoSpec])
 
             // Drop a build artifact in data directory.
             let buildArtifact = workspace.dataPath.appending(component: "test.o")
@@ -442,7 +448,7 @@ final class WorkspaceTests: XCTestCase {
 
             try workspace.clean()
 
-            XCTAssertEqual(try workspace.managedDependencies.dematerialize().values.map{ $0.repository }, [testRepoSpec])
+            XCTAssertEqual(try workspace.managedDependencies.load().values.map{ $0.repository }, [testRepoSpec])
             XCTAssert(localFileSystem.exists(workspace.dataPath))
             // The checkout should be safe.
             XCTAssert(localFileSystem.exists(checkoutPath))
@@ -458,7 +464,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(localFileSystem.exists(buildArtifact))
             XCTAssertFalse(localFileSystem.exists(checkoutPath))
             XCTAssertTrue(localFileSystem.exists(workspace.dataPath))
-            XCTAssertTrue(try workspace.managedDependencies.dematerialize().values.map{$0}.isEmpty)
+            XCTAssertTrue(try workspace.managedDependencies.load().values.map{$0}.isEmpty)
         }
     }
 
@@ -476,19 +482,23 @@ final class WorkspaceTests: XCTestCase {
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             // Sanity checks.
             XCTAssertEqual(graph.packages.count, 2)
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
 
-            let manifests = try workspace.loadDependencyManifests()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return try! workspace.managedDependencies.dematerialize()[manifest.url]!
+                return try! workspace.managedDependencies.load()[manifest.url]!
             }
 
             // Get the dependency for package A.
@@ -525,7 +535,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
-                let dependency = try workspace.managedDependencies.dematerialize()[RepositorySpecifier(url: aManifest.url)]!
+                let dependency = try workspace.managedDependencies.load()[aManifest.url]!
                 XCTAssert(dependency.state == .edited)
             }
 
@@ -551,14 +561,19 @@ final class WorkspaceTests: XCTestCase {
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
-            let manifests = try workspace.loadDependencyManifests()
+
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return try! workspace.managedDependencies.dematerialize()[manifest.url]!
+                return try! workspace.managedDependencies.load()[manifest.url]!
             }
             // Get the dependency for package A.
             let dependency = getDependency(aManifest)
@@ -603,18 +618,22 @@ final class WorkspaceTests: XCTestCase {
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             // Sanity checks.
             XCTAssertEqual(graph.packages.count, 2)
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
 
-            let manifests = try workspace.loadDependencyManifests()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             guard let aManifest = manifests.lookup(manifest: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return try! workspace.managedDependencies.dematerialize()[manifest.url]!
+                return try! workspace.managedDependencies.load()[manifest.url]!
             }
             let dependency = getDependency(aManifest)
             // Put the dependency in edit mode.
@@ -679,8 +698,9 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             try workspace.reset()
         }
@@ -690,8 +710,9 @@ final class WorkspaceTests: XCTestCase {
         // We should still get v1 even though an update is available.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             try workspace.reset()
         }
@@ -699,59 +720,72 @@ final class WorkspaceTests: XCTestCase {
         // Updating dependencies shouldn't matter.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
         }
 
         // Updating dependencies with repinning should do the actual update.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies(repin: true)
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("AA").version == v1)
             // We should have pin for AA automatically.
-            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["A"])
-            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["AA"])
+            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["A"])
+            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["AA"])
         }
 
         // Unpin all of the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.dematerialize().unpinAll()
+            try workspace.pinsStore.load().unpinAll()
             // Reset so we have a clean workspace.
             try workspace.reset()
-            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
+            try workspace.pinsStore.load().setAutoPin(on: false)
         }
 
         // Pin at A at v1.
         do {
             let workspace = newWorkspace()
-            _ = workspace.loadPackageGraph()
-            let manifests = try workspace.loadDependencyManifests()
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", version: v1)
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], engine: engine, version: v1)
+
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
         }
 
         // Updating and repinning shouldn't pin new deps which are introduced.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies(repin: true)
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("AA").version == v1)
-            XCTAssertNotNil(try workspace.pinsStore.dematerialize().pinsMap["A"])
+            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["A"])
             // We should not have pinned AA.
-            XCTAssertNil(try workspace.pinsStore.dematerialize().pinsMap["AA"])
+            XCTAssertNil(try workspace.pinsStore.load().pinsMap["AA"])
         }
     }
 
@@ -785,27 +819,32 @@ final class WorkspaceTests: XCTestCase {
         // Pins "A" at v1.
         func pin() throws {
             let workspace = newWorkspace()
-            let manifests = try workspace.loadDependencyManifests()
+            let engine = DiagnosticsEngine()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
             // Try unpinning something which is not pinned.
             XCTAssertThrows(PinOperationError.notPinned) {
-                try workspace.pinsStore.dematerialize().unpin(package: "A")
+                try workspace.pinsStore.load().unpin(package: "A")
             }
-            try workspace.pin(dependency: dep, packageName: "A", version: v1)
+            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], engine: engine, version: v1)
         }
 
         // Turn off autopin.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
+            try workspace.pinsStore.load().setAutoPin(on: false)
         }
 
         // Package graph should load 1.0.1.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
@@ -816,7 +855,9 @@ final class WorkspaceTests: XCTestCase {
         // Package graph should load v1.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.0")
         }
@@ -824,14 +865,16 @@ final class WorkspaceTests: XCTestCase {
         // Unpin package.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.dematerialize().unpin(package: "A")
+            try workspace.pinsStore.load().unpin(package: "A")
             try workspace.reset()
         }
 
         // Package graph should load 1.0.1.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
@@ -842,17 +885,22 @@ final class WorkspaceTests: XCTestCase {
         // Package *update* should load v1 after pinning.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == "1.0.0")
         }
 
         // Package *update* should load 1.0.1 with repinning.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies(repin: true)
-            let graph = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
@@ -888,8 +936,9 @@ final class WorkspaceTests: XCTestCase {
         // Package graph should load v1.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             XCTAssert(graph.lookup("B").version == v1)
         }
@@ -897,7 +946,14 @@ final class WorkspaceTests: XCTestCase {
         // Pin the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinAll()
+            let engine = DiagnosticsEngine()
+
+            let pinsStore = try workspace.pinsStore.load()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+
+            try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
             // Reset so we have a clean workspace.
             try workspace.reset()
         }
@@ -909,8 +965,9 @@ final class WorkspaceTests: XCTestCase {
         // Loading the workspace now should load v1 of both dependencies.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             XCTAssert(graph.lookup("B").version == v1)
         }
@@ -918,9 +975,9 @@ final class WorkspaceTests: XCTestCase {
         // Updating the dependencies shouldn't update to 1.0.1.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             XCTAssert(graph.lookup("B").version == v1)
         }
@@ -928,7 +985,7 @@ final class WorkspaceTests: XCTestCase {
         // Unpin all of the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.dematerialize().unpinAll()
+            try workspace.pinsStore.load().unpinAll()
             // Reset so we have a clean workspace.
             try workspace.reset()
         }
@@ -936,8 +993,9 @@ final class WorkspaceTests: XCTestCase {
         // Loading the workspace now should load 1.0.1 of both dependencies.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("B").version == "1.0.1")
         }
@@ -973,11 +1031,16 @@ final class WorkspaceTests: XCTestCase {
         // Load and pin the dependencies.
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             XCTAssert(graph.lookup("B").version == v1)
-            try workspace.pinAll()
+            let pinsStore = try workspace.pinsStore.load()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
             try workspace.reset()
         }
 
@@ -988,9 +1051,11 @@ final class WorkspaceTests: XCTestCase {
         // Updating the dependencies with repin should update to 1.0.1.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies(repin: true)
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == "1.0.1")
             XCTAssert(graph.lookup("B").version == "1.0.1")
         }
@@ -1028,17 +1093,22 @@ final class WorkspaceTests: XCTestCase {
 
         func pin(at version: Version) throws {
             let workspace = newWorkspace()
-            let manifests = try workspace.loadDependencyManifests()
+            let engine = DiagnosticsEngine()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", version: version)
+            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], engine: engine, version: version)
         }
 
         // Pinning at v1 should work.
         do {
             let workspace = newWorkspace()
-            _ = workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             try pin(at: v1)
             try workspace.reset()
         }
@@ -1048,8 +1118,9 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let workspace = newWorkspace()
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             // Pinning non existant version should fail.
             XCTAssertThrows(DependencyResolverError.unsatisfiable) {
@@ -1062,7 +1133,7 @@ final class WorkspaceTests: XCTestCase {
             // But we should still be able to repin at v1.
             try pin(at: v1)
             // And also after unpinning.
-            try workspace.pinsStore.dematerialize().unpinAll()
+            try workspace.pinsStore.load().unpinAll()
             try pin(at: v1)
 
         }
@@ -1098,9 +1169,9 @@ final class WorkspaceTests: XCTestCase {
 
         // We should not be able to load package graph.
         do {
-            let graph = newWorkspace().loadPackageGraph()
-            XCTAssertEqual(graph.errors.count, 1)
-            // DependencyResolverError.unsatisfiable
+            let engine = DiagnosticsEngine()
+            newWorkspace().loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertEqual(engine.diagnostics[0].localizedDescription, "unsatisfiable")
         }
     }
 
@@ -1134,22 +1205,30 @@ final class WorkspaceTests: XCTestCase {
         
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.dematerialize().setAutoPin(on: false)
-            _ = workspace.loadPackageGraph()
-            let manifests = try workspace.loadDependencyManifests()
+            try workspace.pinsStore.load().setAutoPin(on: false)
+
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+
             guard let (_, dep) = manifests.lookup(package: "B") else {
                 return XCTFail("Expected manifest for package B not found")
             }
-            try workspace.pin(dependency: dep, packageName: "B", version: v1)
+            try workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], engine: engine, version: v1)
             try workspace.reset()
         }
 
         // Try updating with repin and versions shouldn't change.
         do {
             let workspace = newWorkspace()
-            try workspace.updateDependencies(repin: true)
-            let g = workspace.loadPackageGraph()
-            XCTAssertTrue(g.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
+            let g = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(g.lookup("A").version == v1)
             XCTAssert(g.lookup("B").version == v1)
             try workspace.reset()
@@ -1159,23 +1238,26 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let workspace = newWorkspace()
-            let g = workspace.loadPackageGraph()
-            XCTAssertTrue(g.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let g = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(g.lookup("A").version == "1.0.1")
             // FIXME: We also cloned B because it has a pin.
-            XCTAssertNotNil(try workspace.managedDependencies.dematerialize()[manifestGraph.repo("B")])
+            XCTAssertNotNil(try workspace.managedDependencies.load()[manifestGraph.repo("B")])
         }
 
         do {
             let workspace = newWorkspace()
             XCTAssertTrue(delegate.warnings.isEmpty)
-            try workspace.updateDependencies(repin: true)
+            let engine = DiagnosticsEngine()
+            workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertEqual(delegate.warnings, ["Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."])
-            let g = workspace.loadPackageGraph()
-            XCTAssertTrue(g.errors.isEmpty)
+            let g = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssert(g.lookup("A").version == "1.0.1")
             // This dependency should be removed on updating dependencies because it is not referenced anywhere.
-            XCTAssertNil(try workspace.managedDependencies.dematerialize()[manifestGraph.repo("B")])
+            XCTAssertNil(try workspace.managedDependencies.load()[manifestGraph.repo("B")])
         }
     }
 
@@ -1239,17 +1321,18 @@ final class WorkspaceTests: XCTestCase {
                     manifestLoader: MockManifestLoader(manifests: manifests))
             }
 
-            do { 
-                let graph = getWorkspace().loadPackageGraph()
-                XCTAssertTrue(graph.errors.isEmpty, "Found errors \(graph.errors)")
+            do {
+                let engine = DiagnosticsEngine()
+                getWorkspace().loadPackageGraph(rootPackages: [root], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
             }
 
             // Check dep1.
             do {
                 let workspace = getWorkspace()
-                let dependency = workspace.getDependency(for: dep1)
+                let dependency = try workspace.managedDependencies.load()[dep1.asString]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
-                XCTAssertEqual(dep1Revision, 
+                XCTAssertEqual(dep1Revision,
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
 
             }
@@ -1257,7 +1340,7 @@ final class WorkspaceTests: XCTestCase {
             // Check dep2.
             do {
                 let workspace = getWorkspace()
-                let dependency = workspace.getDependency(for: dep2)
+                let dependency = try workspace.managedDependencies.load()[dep2.asString]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep2Revision, branch: nil))
                 XCTAssertEqual(dep2Revision, 
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
@@ -1266,10 +1349,10 @@ final class WorkspaceTests: XCTestCase {
             // Check pins.
             do {
                 let workspace = getWorkspace()
-                let dep1Pin = try workspace.pinsStore.dematerialize().pinsMap["dep"]!
+                let dep1Pin = try workspace.pinsStore.load().pinsMap["dep"]!
                 XCTAssertEqual(dep1Pin.state, CheckoutState(revision: dep1Revision, branch: "develop"))
 
-                let dep2Pin = try workspace.pinsStore.dematerialize().pinsMap["dep2"]!
+                let dep2Pin = try workspace.pinsStore.load().pinsMap["dep2"]!
                 XCTAssertEqual(dep2Pin.state, CheckoutState(revision: dep2Revision))
             }
 
@@ -1284,10 +1367,11 @@ final class WorkspaceTests: XCTestCase {
             // Loading package graph shouldn't update the branches because of pin.
             do {
                 let workspace = getWorkspace()
-                let graph = workspace.loadPackageGraph()
-                XCTAssertTrue(graph.errors.isEmpty, "Found errors \(graph.errors)")
+                let engine = DiagnosticsEngine()
+                workspace.loadPackageGraph(rootPackages: [root], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
 
-                let dependency = workspace.getDependency(for: dep1)
+                let dependency = try workspace.managedDependencies.load()[dep1.asString]!
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: dep1Revision, branch: "develop"))
                 XCTAssertEqual(dep1Revision, 
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
@@ -1296,8 +1380,10 @@ final class WorkspaceTests: XCTestCase {
             // Do an update and check if branch is updated.
             do {
                 let workspace = getWorkspace()
-                let _ = try workspace.updateDependencies()
-                let dependency = workspace.getDependency(for: dep1)
+                let engine = DiagnosticsEngine()
+                workspace.updateDependencies(rootPackages: [root], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
+                let dependency = try workspace.managedDependencies.load()[dep1.asString]!
                 let revision = try repo1.getCurrentRevision()
                 XCTAssertEqual(dependency.checkoutState, CheckoutState(revision: revision, branch: "develop"))
                 XCTAssertEqual(revision, 
@@ -1384,48 +1470,15 @@ final class WorkspaceTests: XCTestCase {
             // Set auto pinning off.
             do {
                 let workspace = try createWorkspace()
-                try workspace.pinsStore.dematerialize().setAutoPin(on: false)
-            }
-
-            // Throw if we have not registered any packages but want to load things.
-            do {
-                let workspace = try createWorkspace()
-                _ = try workspace.loadDependencyManifests()
-                XCTFail("unexpected success")
-            } catch let errors as Errors {
-                switch errors.errors[0] {
-                case WorkspaceOperationError.noRegisteredPackages: break
-                default: XCTFail()
-                }
+                try workspace.pinsStore.load().setAutoPin(on: false)
             }
 
             do {
                 let workspace = try createWorkspace()
-                let graph = workspace.loadPackageGraph()
-                switch graph.errors[0] {
-                case WorkspaceOperationError.noRegisteredPackages: break
-                default: XCTFail()
-                }
-            }
-
-            // Throw if we try to unregister a path which doesn't exists in workspace.
-            let fakePath = path.appending(component: "fake")
-            do {
-                let workspace = try createWorkspace()
-                try workspace.unregisterPackage(at: fakePath)
-                XCTFail("unexpected success")
-            } catch WorkspaceOperationError.pathNotRegistered(let path) {
-                XCTAssertEqual(path, fakePath)
-            }
-
-            do {
-                let workspace = try createWorkspace()
-                // Register first two packages.
-                for root in roots[0..<2] {
-                    workspace.registerPackage(at: root)
-                }
-                let graph = workspace.loadPackageGraph()
-                XCTAssertTrue(graph.errors.isEmpty)
+                // Load first two packages.
+                let engine = DiagnosticsEngine()
+                let graph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
                 XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
                 XCTAssertEqual(graph.lookup("A").version, "1.5.0")
@@ -1441,12 +1494,10 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let workspace = try createWorkspace()
-                // Register all packages.
-                for root in roots {
-                    workspace.registerPackage(at: root)
-                }
-                let graph = workspace.loadPackageGraph()
-                XCTAssertTrue(graph.errors.isEmpty)
+                // Load all packages.
+                let engine = DiagnosticsEngine()
+                let graph = workspace.loadPackageGraph(rootPackages: roots, engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "D", "root1", "root2", "root3"])
                 XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2", "root3"])
                 XCTAssertEqual(graph.lookup("A").version, v1)
@@ -1455,9 +1506,8 @@ final class WorkspaceTests: XCTestCase {
                 try workspace.reset()
 
                 // Remove one of the packages.
-                try workspace.unregisterPackage(at: roots[2])
-                let newGraph = workspace.loadPackageGraph()
-                XCTAssertTrue(newGraph.errors.isEmpty)
+                let newGraph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertEqual(newGraph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "root1", "root2"])
                 XCTAssertEqual(newGraph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2"])
                 XCTAssertEqual(newGraph.lookup("A").version, "1.5.0")
@@ -1479,21 +1529,25 @@ final class WorkspaceTests: XCTestCase {
 
             let delegate = TestWorkspaceDelegate()
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate)
-            workspace.loadPackageGraph()
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
 
             // Put A in edit mode.
-            let aManifest = try workspace.loadDependencyManifests().lookup(manifest: "A")!
-            let dependency = try workspace.managedDependencies.dematerialize()[RepositorySpecifier(url: aManifest.url)]!
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            let aManifest = manifests.lookup(manifest: "A")!
+            let dependency = try workspace.managedDependencies.load()[aManifest.url]!
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
 
             // We should retain the original pin for a package which is in edit mode.
-            try workspace.pinAll(reset: true)
-            XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, v1)
+            XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
             delegate.warnings.removeAll()
-            workspace.loadPackageGraph()
+            workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertTrue(delegate.warnings[0].hasSuffix("A was being edited but has been removed, falling back to original checkout."))
         }
     }
@@ -1520,15 +1574,19 @@ final class WorkspaceTests: XCTestCase {
 
             do {
                 let workspace = createWorkspace()
-                workspace.loadPackageGraph()
-                let manifests = try workspace.loadDependencyManifests()
+                let engine = DiagnosticsEngine()
+                workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+                XCTAssertFalse(engine.hasErrors())
+                let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+                let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+                XCTAssertFalse(engine.hasErrors())
 
                 let bDependency = manifests.lookup(package: "B")!.dependency
                 try workspace.edit(dependency: bDependency, packageName: "B", revision: bDependency.checkoutState!.revision)
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, v1)
-                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["B"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
 
                 // Create update.
                 let repoPath = AbsolutePath(manifestGraph.repo("A").url)
@@ -1542,13 +1600,16 @@ final class WorkspaceTests: XCTestCase {
             // Update and check states.
             do {
                 let workspace = createWorkspace()
-                try workspace.updateDependencies(repin: true)
-                let manifests = try workspace.loadDependencyManifests()
-
+                let engine = DiagnosticsEngine()
+                workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
+                XCTAssertFalse(engine.hasErrors())
+                let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+                let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+                XCTAssertFalse(engine.hasErrors())
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
-                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["A"]?.state.version, "1.0.1")
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited)
-                XCTAssertEqual(try workspace.pinsStore.dematerialize().pinsMap["B"]?.state.version, v1)
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
             }
         }
     }
@@ -1581,7 +1642,7 @@ final class WorkspaceTests: XCTestCase {
         let manifestLoader = MockManifestLoader(manifests: manifests)
 
         func createWorkspace(_ toolsVersion: ToolsVersion) throws -> Workspace {
-            let workspace = Workspace(
+            return Workspace(
                 dataPath: AbsolutePath.root.appending(component: ".build"),
                 editablesPath: AbsolutePath.root.appending(component: "Packages"),
                 pinsFile: AbsolutePath.root.appending(component: "Package.pins"),
@@ -1589,16 +1650,14 @@ final class WorkspaceTests: XCTestCase {
                 currentToolsVersion: toolsVersion,
                 delegate: TestWorkspaceDelegate(),
                 fileSystem: fs)
-            workspace.registerPackage(at: roots[0])
-            workspace.registerPackage(at: roots[1])
-            return workspace
         }
 
         // We should be able to load when no there is no swift-tools-version defined.
         do {
             let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: roots, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
         } 
 
         // Limit root0 to 3.1.0
@@ -1607,8 +1666,9 @@ final class WorkspaceTests: XCTestCase {
         // Test one root package having swift-version.
         do {
             let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: roots, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
         }
 
         // Limit root1 to 4.0.0
@@ -1617,22 +1677,20 @@ final class WorkspaceTests: XCTestCase {
         // Test both having swift-version but different.
         do {
             let workspace = try createWorkspace(ToolsVersion(version: "4.0.0"))
-            let graph = workspace.loadPackageGraph()
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: roots, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
         }
 
         // Failing case.
         do {
             let workspace = try createWorkspace(ToolsVersion(version: "3.1.0"))
-            let graph = workspace.loadPackageGraph()
-
-            switch graph.errors[0] {
-            case WorkspaceOperationError.incompatibleToolsVersion(let rootPackage, let required, let current):
-                XCTAssertEqual(rootPackage, roots[1])
-                XCTAssertEqual(required.description, "4.0.0")
-                XCTAssertEqual(current.description, "3.1.0")
-            default: XCTFail()
-            }
+            let engine = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: roots, engine: engine)
+            let errorDesc = engine.diagnostics[0].localizedDescription
+            XCTAssertTrue(errorDesc.contains("required: 4.0.0"))
+            XCTAssertTrue(errorDesc.contains("current: 3.1.0"))
+            XCTAssertTrue(errorDesc.contains("/root1"))
         }
     }
 
@@ -1649,12 +1707,12 @@ final class WorkspaceTests: XCTestCase {
             }
 
             let workspace = Workspace.createWith(rootPackage: roots[0])
-            workspace.registerPackage(at: roots[1])
-            workspace.registerPackage(at: roots[2])
 
-            let (manifests, errors) = workspace.loadRootManifestsSafely()
+            let engine = DiagnosticsEngine()
+            let manifests = workspace.loadRootManifests(packages: roots, engine: engine)
+
             XCTAssertEqual(manifests.count, 1)
-            XCTAssertEqual(errors.count, 2)
+            XCTAssertEqual(engine.diagnostics.count, 2)
         }
     }
 
@@ -1674,16 +1732,18 @@ final class WorkspaceTests: XCTestCase {
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
             func getDependency(_ manifest: Manifest) -> ManagedDependency {
-                return try! workspace.managedDependencies.dematerialize()[manifest.url]!
+                return try! workspace.managedDependencies.load()[manifest.url]!
             }
 
             // Load the package graph.
-            let graph = workspace.loadPackageGraph()
-            // Sanity checks.
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             XCTAssertEqual(graph.packages.count, 2)
 
-            let manifests = try workspace.loadDependencyManifests()
+            let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+            XCTAssertFalse(engine.hasErrors())
             let aManifest = manifests.lookup(manifest: "A")!
 
             // Get the dependency for package A.
