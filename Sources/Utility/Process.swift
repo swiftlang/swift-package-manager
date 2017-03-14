@@ -10,7 +10,7 @@
 
 import class Foundation.ProcessInfo
 
-import enum POSIX.SystemError
+import POSIX
 import libc
 import Basic
 import Dispatch
@@ -213,7 +213,10 @@ public final class Process: ObjectIdentifierProtocol {
 
         // Set the attribute flags.
         var flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF
-        flags |= POSIX_SPAWN_SETPGROUP
+        // To allow taking input from terminal, only set this flag when stdin is not a tty.
+        if !isatty(STDIN_FILENO) {
+           flags |= POSIX_SPAWN_SETPGROUP
+        }
 
         posix_spawnattr_setflags(&attributes, Int16(flags))
 
