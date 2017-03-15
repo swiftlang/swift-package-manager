@@ -8,11 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import TestSupport
 import XCTest
 import Basic
 import libc
-import Utility
-import TestSupport
+
+@testable import Utility
 
 typealias ProcessID = Utility.Process.ProcessID
 typealias Process = Utility.Process
@@ -92,6 +93,42 @@ class ProcessTests: XCTestCase {
             XCTFail("Unexpected success \(output)")
         } catch ProcessResult.Error.nonZeroExit(let result) {
             XCTAssertEqual(result.exitStatus, .terminated(code: 4))
+        }
+    }
+
+    func testFindExecutable() throws {
+        mktmpdir { path in
+            // This process should always work.
+            XCTAssertTrue(Process().findExecutable("ls"))
+
+            XCTAssertFalse(Process().findExecutable("nonExistantProgram"))
+            XCTAssertFalse(Process().findExecutable(""))
+
+            // Create a local nonexecutable file to test.
+            let tempExecutable = path.appending(component: "nonExecutableProgram")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+
+            try withCustomEnv(["PATH": path.asString]) {
+                XCTAssertFalse(Process().findExecutable("nonExecutableProgram"))
+            }
+        }
+    }
+
+    func testNonExecutableLaunch() throws {
+        mktmpdir { path in
+            // Create a local nonexecutable file to test.
+            let tempExecutable = path.appending(component: "nonExecutableProgram")
+            try localFileSystem.writeFileContents(tempExecutable, bytes: "#!/bin/sh\nexit\n")
+
+            try withCustomEnv(["PATH": path.asString]) {
+                do {
+                    let process = Process(args: "nonExecutableProgram")
+                    try process.launch()
+                    XCTFail("Should have failed to validate nonExecutableProgram")
+                } catch Process.Error.missingExecutableProgram (let program){
+                    XCTAssert(program == "nonExecutableProgram")
+                }
+            }
         }
     }
 
@@ -199,6 +236,8 @@ class ProcessTests: XCTestCase {
         ("testMissingArguments", testMissingArguments),
         ("testEmptyArguments", testEmptyArguments),
         ("testEmptyArgumentArray", testEmptyArgumentArray),
+        ("testFindExecutable", testFindExecutable),
+        ("testNonExecutableLaunch", testNonExecutableLaunch),
         ("testPopen", testPopen),
         ("testSignals", testSignals),
         ("testThreadSafetyOnWaitUntilExit", testThreadSafetyOnWaitUntilExit),

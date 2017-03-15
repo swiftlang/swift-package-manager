@@ -54,7 +54,7 @@ public func getEnvSearchPaths(
 }
 
 /// Lookup an executable path from an environment variable value, current working
-/// directory or search paths.
+/// directory or search paths. Only return a value that is both found and executable.
 ///
 /// This method searches in the following order:
 /// * If env value is a valid absolute path, return it.
@@ -77,7 +77,7 @@ public func lookupExecutablePath(
     }
     // We have a value, but it could be an absolute or a relative path.
     let path = AbsolutePath(value, relativeTo: cwd)
-    if exists(path) {
+    if localFileSystem.isExecutableFile(path){
         return path
     }
     // Ensure the value is not a path.
@@ -87,7 +87,7 @@ public func lookupExecutablePath(
     // Try to locate in search paths.
     for path in searchPaths {
         let exec = path.appending(component: value)
-        if exists(exec) {
+        if localFileSystem.isExecutableFile(exec) {
             return exec
         }
     }

@@ -11,6 +11,7 @@
 import class Foundation.ProcessInfo
 
 import enum POSIX.SystemError
+import func POSIX.getenv
 import libc
 import Basic
 import Dispatch
@@ -107,8 +108,10 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// Errors when attempting to invoke a process
     public enum Error: Swift.Error {
-        /// Missing arguments to invoke a process
+        /// Process instance is missing arguments to invoke a process.
         case missingArguments
+        /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
+        case missingExecutableProgram(program: String)
     }
 
     /// Typealias for process id type.
@@ -151,6 +154,16 @@ public final class Process: ObjectIdentifierProtocol {
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
 
+    /// Queue to protect reading/writing on map of validated executables.
+    private static let executablesQueue = DispatchQueue(
+        label: "org.swift.swiftpm.process.findExecutable")
+
+    /// Cache of validated executables.
+    ///
+    /// Key: Executable name or path.
+    /// Value: If key was found in the search paths and is executable.
+    static private var validatedExecutablesMap = [String: Bool]()
+
     /// Create a new process instance.
     ///
     /// - Parameters:
@@ -165,6 +178,28 @@ public final class Process: ObjectIdentifierProtocol {
         self.redirectOutput = redirectOutput 
     }
 
+    /// Returns true if the given program is present and executable in search path.
+    ///
+    /// The program can be executable name, relative path or absolute path.
+    func findExecutable(_ program: String) -> Bool {
+        return Process.executablesQueue.sync {
+            // Check if we already have a value for the program.
+            if let value = Process.validatedExecutablesMap[program] {
+                return value
+            }
+            // FIXME: This can be cached.
+            let envSearchPaths = Utility.getEnvSearchPaths(
+                pathString: getenv("PATH"),
+                currentWorkingDirectory: currentWorkingDirectory
+            )
+            // Lookup the executable.
+            let value = Utility.lookupExecutablePath(
+                filename: program, searchPaths: envSearchPaths) != nil
+            Process.validatedExecutablesMap[program] = value
+            return value
+        }
+    }
+
     /// Launch the subprocess.
     public func launch() throws {
         precondition(!launched, "It is not allowed to launch the same process object again.")
@@ -172,6 +207,10 @@ public final class Process: ObjectIdentifierProtocol {
 
         guard arguments.count > 0, !arguments[0].isEmpty else {
             throw Error.missingArguments
+        }
+
+        guard findExecutable(arguments[0]) else {
+            throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
 
         // Initialize the spawn attributes.

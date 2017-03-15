@@ -50,7 +50,9 @@ class miscTests: XCTestCase {
             let pathEnvClang = pathEnv1.appending(component: "clang")
             try localFileSystem.writeFileContents(pathEnvClang, bytes: "")
             let pathEnv = [path.appending(component: "pathEnv2"), pathEnv1]
-            
+
+            try! Process.checkNonZeroExit(args: "chmod", "+x", pathEnvClang.asString)
+
             // nil and empty string should fail.
             XCTAssertNil(lookupExecutablePath(filename: nil, currentWorkingDirectory: path, searchPaths: pathEnv))
             XCTAssertNil(lookupExecutablePath(filename: "", currentWorkingDirectory: path, searchPaths: pathEnv))
@@ -63,9 +65,10 @@ class miscTests: XCTestCase {
             exec = lookupExecutablePath(filename: "clang", currentWorkingDirectory: path, searchPaths: pathEnv)
             XCTAssertEqual(exec, pathEnvClang)
             
-            // Create the binary relative to cwd.
+            // Create the binary relative to cwd and make it executable.
             let clang = path.appending(component: "clang")
             try localFileSystem.writeFileContents(clang, bytes: "")
+            try! Process.checkNonZeroExit(args: "chmod", "+x", clang.asString)
             // We should now find clang which is in cwd.
             exec = lookupExecutablePath(filename: "clang", currentWorkingDirectory: path, searchPaths: pathEnv)
             XCTAssertEqual(exec, clang)
