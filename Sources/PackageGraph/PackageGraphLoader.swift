@@ -11,6 +11,7 @@
 import Basic
 import PackageLoading
 import PackageModel
+import Utility
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
@@ -64,10 +65,9 @@ public struct PackageGraphLoader {
     public func load(
         rootManifests: [Manifest],
         externalManifests: [Manifest],
-        errors: [Swift.Error] = [],
+        engine: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) -> PackageGraph {
-        var errors = errors
 
         let allManifests: [Manifest]
         let rootManifestSet = Set(rootManifests)
@@ -75,7 +75,7 @@ public struct PackageGraphLoader {
         let manifestURLMap: [String: Manifest] = Dictionary(items: (externalManifests + rootManifests).map { ($0.url, $0) })
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(rootManifests, successors: { $0.package.dependencies.flatMap{ manifestURLMap[$0.url] } }) {
-            errors.append(PackageGraphError.cycleDetected(cycle))
+            engine.emit(PackageGraphError.cycleDetected(cycle))
             allManifests = rootManifests
         } else {
             // Sort all manifests toplogically.
@@ -105,32 +105,30 @@ public struct PackageGraphLoader {
                     throw PackageGraphError.noModules(package)
                 }
             } catch {
-                errors.append(error)
+                engine.emit(error)
             }
         }
 
         // Resolve dependencies and create resolved packages.
-        let (resolvedPackages, resolvingErrors) = createResolvedPackages(
-            allManifests: allManifests, manifestToPackage: manifestToPackage)
-
-        errors += resolvingErrors
+        let resolvedPackages = createResolvedPackages(
+            allManifests: allManifests, manifestToPackage: manifestToPackage, engine: engine)
 
         // Filter out the root packages.
         let resolvedRootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-        return PackageGraph(rootPackages: resolvedRootPackages, errors: errors)
+        return PackageGraph(rootPackages: resolvedRootPackages)
     }
 }
 
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
     allManifests: [Manifest],
-    manifestToPackage: [Manifest: Package]
-) -> (resolvedPackages: [ResolvedPackage], errors: [Swift.Error]) {
+    manifestToPackage: [Manifest: Package],
+    engine: DiagnosticsEngine
+) -> [ResolvedPackage] {
 
     var packageURLMap: [String: ResolvedPackage] = [:]
 
     var resolvedPackages: [ResolvedPackage] = []
-    var errors: [Swift.Error] = []
 
     // Resolve each package in reverse topological order of their manifest.
     for manifest in allManifests.lazy.reversed() {
@@ -150,11 +148,11 @@ private func createResolvedPackages(
         // Make sure these module names are unique in the graph.
         let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.map{ $0.name }
         if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map{$0.name}) {
-            errors.append(ModuleError.duplicateModule(duplicateModules.first!))
+            engine.emit(ModuleError.duplicateModule(duplicateModules.first!))
         }
 
-        // Add system module dependencies directly to the target's dependencies because they are 
-        // not representable as a product.
+        // Add system module dependencies directly to the target's dependencies
+        // because they are not representable as a product.
         let systemModulesDependencies = dependencies.flatMap{ $0.modules }
             .filter{ $0.type == .systemModule }.map(ResolvedModule.Dependency.target)
 
@@ -174,15 +172,16 @@ private func createResolvedPackages(
                 productDependencies = module.productDependencies.flatMap{ 
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
-                        errors.append(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
+                        engine.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
                         return nil
                     }
                     // If package name is mentioned, ensure it is valid.
                     if let packageName = $0.package {
-                        // Find the declared package and check that it contains the product we found above.
+                        // Find the declared package and check that it contains
+                        // the product we found above.
                         guard let package = dependencies.first(where: { $0.name == packageName }),
                               package.products.contains(product) else {
-                            errors.append(PackageGraphError.productDependencyIncorrectPackage(
+                            engine.emit(PackageGraphError.productDependencyIncorrectPackage(
                                 name: $0.name, package: packageName))
                             return nil
                         }
@@ -210,7 +209,7 @@ private func createResolvedPackages(
         packageURLMap[package.manifest.url] = resolvedPackage 
         resolvedPackages.append(resolvedPackage)
     }
-    return (resolvedPackages, errors)
+    return resolvedPackages
 }
 
 // FIXME: Possibly lift this to Basic.

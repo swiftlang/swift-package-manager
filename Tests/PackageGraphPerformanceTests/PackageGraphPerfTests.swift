@@ -51,9 +51,14 @@ class PackageGraphPerfTests: XCTestCasePerf {
         }
         
         measure {
-            let g = PackageGraphLoader().load(rootManifests: rootManifests, externalManifests: externalManifests, fileSystem: fs)
+            let engine = DiagnosticsEngine()
+            let g = PackageGraphLoader().load(
+                rootManifests: rootManifests,
+                externalManifests: externalManifests,
+                engine: engine,
+                fileSystem: fs)
             XCTAssertEqual(g.packages.count, N)
-            XCTAssertTrue(g.errors.isEmpty)
+            XCTAssertFalse(engine.hasErrors())
         }
     }
 }

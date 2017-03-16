@@ -243,7 +243,6 @@ final class WorkspaceTests: XCTestCase {
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 2)
-            XCTAssertTrue(graph.errors.isEmpty)
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
         }
     }
@@ -264,7 +263,6 @@ final class WorkspaceTests: XCTestCase {
         let engine = DiagnosticsEngine()
         let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
         XCTAssertFalse(engine.hasErrors())
-        XCTAssertTrue(graph.errors.isEmpty)
         XCTAssertEqual(graph.packages.count, 2)
         XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
     }
@@ -313,7 +311,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
 
             // Test the delegates.
             XCTAssertEqual(delegate.fetched.sorted(), manifestGraph.repos.values.map{$0.url}.sorted())
@@ -375,7 +372,6 @@ final class WorkspaceTests: XCTestCase {
                 let engine = DiagnosticsEngine()
                 let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
                 XCTAssertFalse(engine.hasErrors())
-                XCTAssertTrue(graph.errors.isEmpty)
 
                 // Test the delegates.
                 XCTAssert(delegate.fetched.count == 2)
@@ -417,7 +413,6 @@ final class WorkspaceTests: XCTestCase {
 
                 let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
                 XCTAssertFalse(engine.hasErrors())
-                XCTAssertTrue(graph.errors.isEmpty)
                 XCTAssert(graph.packages.filter{ $0.name == "A" }.first!.version == "1.0.1")
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
                 XCTAssertEqual(delegate.removed.sorted(), [manifestGraph.repo("AA").url])
@@ -485,7 +480,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             // Sanity checks.
             XCTAssertEqual(graph.packages.count, 2)
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
@@ -564,7 +558,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
 
             let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
@@ -621,7 +614,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             // Sanity checks.
             XCTAssertEqual(graph.packages.count, 2)
             XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
@@ -845,7 +837,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
 
@@ -858,7 +849,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.0")
         }
 
@@ -875,7 +865,6 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
 
@@ -901,7 +890,6 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(engine.hasErrors())
             let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertTrue(graph.errors.isEmpty)
             XCTAssert(graph.lookup("A").version == "1.0.1")
         }
     }

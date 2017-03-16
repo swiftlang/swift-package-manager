@@ -23,8 +23,9 @@ class GenerateXcodeprojTests: XCTestCase {
         mktmpdir { dstdir in
             let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/DummyModuleName/source.swift")
 
-            let graph = loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", in: fileSystem)
-            XCTAssertTrue(graph.errors.isEmpty)
+            let engine = DiagnosticsEngine()
+            let graph = loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", engine: engine, in: fileSystem)
+            XCTAssertFalse(engine.hasErrors())
 
             let projectName = "DummyProjectName"
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
@@ -47,8 +48,10 @@ class GenerateXcodeprojTests: XCTestCase {
     }
 
     func testXcconfigOverrideValidatesPath() throws {
+        let engine = DiagnosticsEngine()
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
-        let graph = loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", in: fileSystem)
+        let graph = loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", engine: engine, in: fileSystem)
+        XCTAssertFalse(engine.hasErrors())
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
@@ -63,10 +66,12 @@ class GenerateXcodeprojTests: XCTestCase {
     }
 
     func testGenerateXcodeprojWithInvalidModuleNames() throws {
+        let engine = DiagnosticsEngine()
         let moduleName = "Modules"
         let warningStream = BufferedOutputByteStream()
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/\(moduleName)/example.swift")
-        let graph = loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", in: fileSystem)
+        let graph = loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", engine: engine, in: fileSystem)
+        XCTAssertFalse(engine.hasErrors())
 
         _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                              graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem,

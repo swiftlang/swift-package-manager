@@ -260,10 +260,6 @@ public class SwiftTool<Options: ToolOptions> {
         let graph = workspace.loadPackageGraph(
             rootPackages: [try getPackageRoot()], engine: engine)
 
-        for error in graph.errors {
-            engine.emit(error)
-        }
-
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !engine.hasErrors() else { 

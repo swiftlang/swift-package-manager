@@ -168,7 +168,12 @@ public func systemQuietly(_ args: String...) throws {
 }
 
 /// Loads a mock package graph based on package packageMap dictionary provided where key is path to a package.
-public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Package], root: String, in fs: FileSystem) -> PackageGraph {
+public func loadMockPackageGraph(
+    _ packageMap: [String: PackageDescription.Package],
+    root: String,
+    engine: DiagnosticsEngine = DiagnosticsEngine(),
+    in fs: FileSystem
+) -> PackageGraph {
     var externalManifests = [Manifest]()
     var rootManifest: Manifest!
     for (url, package) in packageMap {
@@ -184,10 +189,15 @@ public func loadMockPackageGraph(_ packageMap: [String: PackageDescription.Packa
             externalManifests.append(manifest)
         }
     }
-    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, fileSystem: fs)
+    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, engine: engine, fileSystem: fs)
 }
 
-public func loadMockPackageGraph4(_ packageMap: [String: PackageDescription4.Package], root: String, in fs: FileSystem) -> PackageGraph {
+public func loadMockPackageGraph4(
+    _ packageMap: [String: PackageDescription4.Package],
+    root: String,
+    engine: DiagnosticsEngine = DiagnosticsEngine(),
+    in fs: FileSystem
+) -> PackageGraph {
     var externalManifests = [Manifest]()
     var rootManifest: Manifest!
     for (url, package) in packageMap {
@@ -203,7 +213,7 @@ public func loadMockPackageGraph4(_ packageMap: [String: PackageDescription4.Pac
             externalManifests.append(manifest)
         }
     }
-    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, fileSystem: fs)
+    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, engine: engine, fileSystem: fs)
 }
 
 /// Temporary override environment variables
