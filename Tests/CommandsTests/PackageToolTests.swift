@@ -96,6 +96,8 @@ final class PackageToolTests: XCTestCase {
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
+            // Fetch first so stdout doesn't contain any fetch progress related output.
+            _ = try execute(["fetch"], chdir: packageRoot)
             let dumpOutput = try execute(["dump-package"], chdir: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }

@@ -38,12 +38,6 @@ public enum WorkspaceOperationError: Swift.Error {
     /// The revision doesn't exists in repository.
     case nonExistentRevision
 
-    /// There are no registered root package paths.
-    case noRegisteredPackages
-
-    /// The given path is not a registered root package.
-    case pathNotRegistered(path: AbsolutePath)
-
     /// The root package has incompatible tools version.
     case incompatibleToolsVersion(rootPackage: AbsolutePath, required: ToolsVersion, current: ToolsVersion)
 
@@ -145,11 +139,11 @@ public class Workspace {
             return lookup(package: name)?.manifest
         }
 
-        /// Returns constraints based on the dependencies.
-        ///
-        /// Versioned constraints are not added for dependencies present in the pins store.
-        func createConstraints(pinsStore: PinsStore) -> [RepositoryPackageConstraint] {
-            var constraints: [RepositoryPackageConstraint] = []
+        /// Returns constraints of the root manifests and dependencies.
+        func createConstraints() -> [RepositoryPackageConstraint] {
+            // Add the constraints from root manfiests.
+            var constraints = roots.flatMap{ $0.package.dependencyConstraints() }
+            // Iterate and add constraints from dependencies.
             for (externalManifest, managedDependency) in dependencies {
                 let specifier = RepositorySpecifier(url: externalManifest.url)
                 let constraint: RepositoryPackageConstraint
@@ -163,12 +157,6 @@ public class Workspace {
                         container: specifier, requirement: .unversioned(dependencies))
 
                 case .checkout(let checkoutState):
-                    // If this specifier is pinned, don't add a constraint for
-                    // it as we'll get it from the pin.
-                    guard pinsStore.pinsMap[externalManifest.name] == nil else {
-                        continue
-                    }
-
                     // If we know the manifest is at a particular state, use that.
                     //
                     // FIXME: This backfires in certain cases when the
@@ -195,9 +183,6 @@ public class Workspace {
     /// The delegate interface.
     public let delegate: WorkspaceDelegate
 
-    /// The paths of the registered root packages.
-    public private(set) var rootPackages: Set<AbsolutePath>
-
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
 
@@ -211,7 +196,7 @@ public class Workspace {
     private var fileSystem: FileSystem
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
-    public let pinsStore: ReloadableResult<PinsStore, AnyError>
+    public let pinsStore: LoadableResult<PinsStore>
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
@@ -229,7 +214,7 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    let managedDependencies: ReloadableResult<ManagedDependencies, AnyError>
+    let managedDependencies: LoadableResult<ManagedDependencies>
 
     /// Enable prefetching containers in resolver.
     let enableResolverPrefetching: Bool
@@ -260,7 +245,6 @@ public class Workspace {
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         enableResolverPrefetching: Bool = false
     ) {
-        self.rootPackages = []
         self.delegate = delegate
         self.dataPath = dataPath
         self.editablesPath = editablesPath
@@ -277,10 +261,10 @@ public class Workspace {
             repositoryManager: repositoryManager, manifestLoader: manifestLoader, toolsVersionLoader: toolsVersionLoader)
         self.fileSystem = fileSystem
 
-        self.pinsStore = ReloadableResult {
+        self.pinsStore = LoadableResult {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
-        self.managedDependencies = ReloadableResult{
+        self.managedDependencies = LoadableResult{
             try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
         }
     }
@@ -291,31 +275,13 @@ public class Workspace {
         try fileSystem.createDirectory(checkoutsPath, recursive: true)
     }
 
-    /// Registers the provided path as a root package. It is valid to re-add previously registered path.
-    ///
-    /// Note: This method just registers the path and does not validate it. A newly registered
-    /// package will only be loaded on explicitly calling a related API.
-    public func registerPackage(at path: AbsolutePath) {
-        rootPackages.insert(path)
-    }
-
-    /// Unregister the provided path. This method will throw if the provided path is not a registered package.
-    ///
-    /// Note: Clients should call a related API to update managed dependencies.
-    public func unregisterPackage(at path: AbsolutePath) throws {
-        guard rootPackages.contains(path) else {
-            throw WorkspaceOperationError.pathNotRegistered(path: path)
-        }
-        rootPackages.remove(path)
-    }
-
     /// Cleans the build artefacts from workspace data.
     public func clean() throws {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            try managedDependencies.dematerialize().statePath,
+            try managedDependencies.load().statePath,
         ].map { path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
@@ -333,7 +299,7 @@ public class Workspace {
 
     /// Resets the entire workspace by removing the data directory.
     public func reset() throws {
-        try managedDependencies.dematerialize().reset()
+        try managedDependencies.load().reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
         try createCacheDirectories()
@@ -434,11 +400,11 @@ public class Workspace {
                     relative: false)
         }
 
-        let managedDependencies = try self.managedDependencies.dematerialize()
-        // Change its stated to edited.
+        // Save the new state.
+        // FIXME: We shouldn't need to reload the managed dependencies here.
+        let managedDependencies = try self.managedDependencies.load()
         managedDependencies[dependency.repository] = dependency.makingEditable(
             subpath: RelativePath(packageName), state: state)
-        // Save the state.
         try managedDependencies.saveState()
     }
 
@@ -486,7 +452,7 @@ public class Workspace {
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
             fileSystem.removeFileTree(editablesPath)
         }
-        let managedDependencies = try self.managedDependencies.dematerialize()
+        let managedDependencies = try self.managedDependencies.load()
         // Restore the dependency state.
         managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
@@ -510,6 +476,8 @@ public class Workspace {
     public func pin(
         dependency: ManagedDependency,
         packageName: String,
+        rootPackages: [AbsolutePath],
+        engine: DiagnosticsEngine,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
@@ -530,7 +498,9 @@ public class Workspace {
             requirement = currentState.requirement()
         }
 
-        let pinsStore = try self.pinsStore.dematerialize()
+        let pinsStore = try self.pinsStore.load()
+        let rootManifests = loadRootManifests(packages: rootPackages, engine: engine)
+        guard !engine.hasErrors() else { return }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -540,9 +510,12 @@ public class Workspace {
         // * Root manifest contraints without pins.
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
-        let constraints = computeRootPackagesConstraints(try loadRootManifests(), includePins: false)
-                        + pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
-                        + [RepositoryPackageConstraint(container: dependency.repository, requirement: requirement)]
+        var constraints = rootManifests.flatMap{ $0.package.dependencyConstraints() }
+        constraints += pinsStore.createConstraints().filter{$0.identifier != dependency.repository}
+        constraints.append(
+            RepositoryPackageConstraint(
+                container: dependency.repository, requirement: requirement))
+
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
 
@@ -550,7 +523,7 @@ public class Workspace {
         try updateCheckouts(with: results)
 
         // Get the updated dependency.
-        let managedDependencies = try self.managedDependencies.dematerialize()
+        let managedDependencies = try self.managedDependencies.load()
         let newDependency = managedDependencies[dependency.repository]!
 
         // Assert that the dependency is at the pinned checkout state now.
@@ -562,6 +535,7 @@ public class Workspace {
 
         // Add the record in pins store.
         try pin(
+            pinsStore: pinsStore,
             dependency: newDependency,
             package: packageName,
             reason: reason)
@@ -572,17 +546,19 @@ public class Workspace {
     /// - Parameters:
     ///   - reason: The optional reason for pinning.
     ///   - reset: Remove all current pins before pinning dependencies.
-    public func pinAll(reason: String? = nil, reset: Bool = false) throws {
+    public func pinAll(
+        pinsStore: PinsStore,
+        dependencyManifests: DependencyManifests,
+        reason: String? = nil,
+        reset: Bool = false
+    ) throws {
         if reset {
-            let pinsStore = try self.pinsStore.dematerialize()
             try pinsStore.unpinAll()
         }
-        // Load the dependencies.
-        let dependencyManifests = try loadDependencyManifests(loadRootManifests())
-
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
             try pin(
+                pinsStore: pinsStore,
                 dependency: dependencyManifest.dependency,
                 package: dependencyManifest.manifest.name,
                 reason: reason)
@@ -590,7 +566,12 @@ public class Workspace {
     }
 
     /// Pins the managed dependency.
-    private func pin(dependency: ManagedDependency, package: String, reason: String?) throws {
+    private func pin(
+        pinsStore: PinsStore,
+        dependency: ManagedDependency,
+        package: String,
+        reason: String?
+    ) throws {
         let checkoutState: CheckoutState
 
         switch dependency.state {
@@ -604,7 +585,6 @@ public class Workspace {
                 return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
             }
         }
-        let pinsStore = try self.pinsStore.dematerialize()
         // Commit the pin.
         try pinsStore.pin(
             package: package,
@@ -622,8 +602,10 @@ public class Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
-        let managedDependencies = try self.managedDependencies.dematerialize()
+    private func fetch(
+        repository: RepositorySpecifier,
+        managedDependencies: ManagedDependencies
+    ) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
@@ -658,15 +640,13 @@ public class Workspace {
     ///   - version: The dependency version the repository is being checked out at, if known.
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    //
-    // FIXME: We are probably going to need a delegate interface so we have a
-    // mechanism for observing the actions.
     func clone(
         repository: RepositorySpecifier,
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
+        let managedDependencies = try self.managedDependencies.load()
         // Get the repository.
-        let path = try fetch(repository: repository)
+        let path = try fetch(repository: repository, managedDependencies: managedDependencies)
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
@@ -675,7 +655,6 @@ public class Workspace {
         try workingRepo.checkout(revision: checkoutState.revision)
 
         // Write the state record.
-        let managedDependencies = try self.managedDependencies.dematerialize()
         managedDependencies[repository] = ManagedDependency(
                 repository: repository, subpath: path.relative(to: checkoutsPath),
                 checkoutState: checkoutState)
@@ -730,11 +709,27 @@ public class Workspace {
     }
 
     /// Updates the current dependencies.
-    public func updateDependencies(repin: Bool = false) throws {
-        let currentManifests = try loadDependencyManifests(loadRootManifests())
+    public func updateDependencies(
+        rootPackages: [AbsolutePath],
+        engine: DiagnosticsEngine,
+        repin: Bool = false
+    ) {
+        // Load the root manifest and current manifests.
+        let rootManifests = loadRootManifests(packages: rootPackages, engine: engine)
+        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+
+        // Try to load pins store. 
+        // We can't proceed if there are errors at this point.
+        guard let pinsStore = self.pinsStore.load(engine: engine),
+              !engine.hasErrors() else {
+            return
+        }
 
         // Create constraints based on root manifest and pins for the update resolution.
-        var updateConstraints = computeRootPackagesConstraints(currentManifests.roots, includePins: !repin)
+        var updateConstraints = rootManifests.flatMap{ $0.package.dependencyConstraints() }
+        if !repin {
+            updateConstraints += pinsStore.createConstraints()
+        }
 
         // Add unversioned constraint for edited packages.
         for (externalManifest, managedDependency) in currentManifests.dependencies {
@@ -747,13 +742,20 @@ public class Workspace {
             updateConstraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
         }
 
-        // Resolve the dependencies.
-        let updateResults = try resolveDependencies(constraints: updateConstraints)
-        // Update the checkouts based on new dependency resolution.
-        try updateCheckouts(with: updateResults, updateBranches: true)
-        // If we're repinning, update the pins store.
-        if repin {
-            try repinPackages()
+        do {
+            // Resolve the dependencies.
+            let updateResults = try resolveDependencies(constraints: updateConstraints)
+            // Update the checkouts based on new dependency resolution.
+            try updateCheckouts(with: updateResults, updateBranches: true)
+            // Get updated manifests.
+            let currentManifests = loadDependencyManifests(
+                rootManifests: rootManifests, engine: engine)
+            // If we're repinning, update the pins store.
+            if repin && !engine.hasErrors() {
+                try repinPackages(pinsStore, dependencyManifests: currentManifests)
+            }
+        } catch {
+            engine.emit(error)
         }
     }
 
@@ -761,15 +763,17 @@ public class Workspace {
     ///
     /// This methods pins all packages if auto pinning is on.
     /// Otherwise, only currently pinned packages are repinned.
-    private func repinPackages() throws {
-        let pinsStore = try self.pinsStore.dematerialize()
+    private func repinPackages(_ pinsStore: PinsStore, dependencyManifests: DependencyManifests) throws {
         // If autopin is on, pin everything and return.
         if pinsStore.autoPin {
-            return try pinAll(reset: true)
+            return try pinAll(
+                pinsStore: pinsStore,
+                dependencyManifests: dependencyManifests,
+                reset: true)
         }
 
-        let managedDependencies = try self.managedDependencies.dematerialize()
         // Otherwise, we need to repin only the previous pins.
+        let managedDependencies = try self.managedDependencies.load()
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
             guard let dependency = managedDependencies[pin.repository] else {
@@ -779,6 +783,7 @@ public class Workspace {
             }
             // Pin this dependency.
             try self.pin(
+                pinsStore: pinsStore,
                 dependency: dependency,
                 package: pin.package,
                 reason: pin.reason)
@@ -794,7 +799,6 @@ public class Workspace {
     ///   - updateBranches: If the branches should be updated in case they're pinned.
     private func updateCheckouts(
         with updateResults: [(RepositorySpecifier, BoundVersion)],
-        ignoreRemovals: Bool = false,
         updateBranches: Bool = false
     ) throws {
         // Get the update package states from resolved results.
@@ -808,9 +812,7 @@ public class Workspace {
             case .updated(let requirement):
                 _ = try clone(specifier: specifier, requirement: requirement)
             case .removed: 
-                if !ignoreRemovals {
-                    try remove(specifier: specifier)
-                }
+                try remove(specifier: specifier)
             case .unchanged: break
             }
         }
@@ -821,9 +823,11 @@ public class Workspace {
         resolvedDependencies: [(RepositorySpecifier, BoundVersion)],
         updateBranches: Bool
     ) throws -> [RepositorySpecifier: PackageStateChange] {
-        let pinsStore = try self.pinsStore.dematerialize()
+        // Load pins store and managed dependendencies.
+        let pinsStore = try self.pinsStore.load()
+        let managedDependencies = try self.managedDependencies.load()
+
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
-        let managedDependencies = try self.managedDependencies.dematerialize()
         // Set the states from resolved dependencies results.
         for (specifier, binding) in resolvedDependencies {
             switch binding {
@@ -885,21 +889,10 @@ public class Workspace {
         return packageStateChanges
     }
 
-    /// Create package constraints based on the root manifests.
-    ///
-    /// - Parameters:
-    ///   - rootManifests: The root manifests.
-    ///   - includePins: If the constraints from pins should be included.
-    /// - Returns: Array of constraints.
-    private func computeRootPackagesConstraints(_ rootManifests: [Manifest], includePins: Bool) -> [RepositoryPackageConstraint] {
-        // FIXME: Need to get rid of bang here.
-        return rootManifests.flatMap{ 
-            $0.package.dependencyConstraints() 
-        } + (includePins ? try! pinsStore.dematerialize().createConstraints() : [])
-    }
-
     /// Runs the dependency resolver based on constraints provided and returns the results.
-    fileprivate func resolveDependencies(constraints: [RepositoryPackageConstraint]) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
+    fileprivate func resolveDependencies(
+        constraints: [RepositoryPackageConstraint]
+    ) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
         let resolver = DependencyResolver(containerProvider, resolverDelegate, enablePrefetching: enableResolverPrefetching)
         return try resolver.resolve(constraints: constraints)
@@ -909,11 +902,21 @@ public class Workspace {
     ///
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
-    public func loadDependencyManifests(_ rootManifests: [Manifest]) -> DependencyManifests {
-        guard let managedDependencies = try? self.managedDependencies.dematerialize() else {
-            // We need to capture the error here and continue.
-            fatalError("unimplemented.")
+    public func loadDependencyManifests(
+        rootManifests: [Manifest],
+        engine: DiagnosticsEngine
+    ) -> DependencyManifests {
+
+        // Try to load current managed dependencies, or emit and return.
+        let managedDependencies: ManagedDependencies
+        do {
+            try validateEditedPackages()
+            managedDependencies = try self.managedDependencies.load()
+        } catch {
+            engine.emit(error)
+            return DependencyManifests(roots: rootManifests, dependencies: [])
         }
+
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
@@ -968,7 +971,7 @@ public class Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func validateEditedPackages() throws {
-        let managedDependencies = try self.managedDependencies.dematerialize()
+        let managedDependencies = try self.managedDependencies.load()
         for dependency in managedDependencies.values {
 
             let dependencyPath: AbsolutePath
@@ -990,7 +993,6 @@ public class Workspace {
         }
     }
 
-
     /// Fetch and load the complete package at the given path.
     ///
     /// This will implicitly cause any dependencies not yet present in the
@@ -1004,92 +1006,93 @@ public class Workspace {
     ///
     /// - Returns: The loaded package graph.
     @discardableResult
-    public func loadPackageGraph() -> PackageGraph {
-
-        var errors: [Swift.Error] = []
-
+    public func loadPackageGraph(
+        rootPackages: [AbsolutePath],
+        engine: DiagnosticsEngine
+    ) -> PackageGraph {
+        // Ensure the cache path exists and validate that edited dependencies.
         do {
-            // FIXME: We need to avoid fetching dependencies if there is an
-            // error before dependency resolution.
-            // Ensure the cache path exists.
             try createCacheDirectories()
-            // Validate that edited dependencies are still present.
-            try validateEditedPackages()
         } catch {
-            errors.append(error)
+            engine.emit(error)
         }
 
-        // Load the root manifests.
-        let (rootManifests, rootManifestErrors) = loadRootManifestsSafely()
-        errors += rootManifestErrors
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(
+            packages: rootPackages, engine: engine)
+        let currentManifests = loadDependencyManifests(
+            rootManifests: rootManifests, engine: engine)
 
-        // Load the active manifest sets.
-        let currentManifests = loadDependencyManifests(rootManifests)
-
-        // Look for any missing URLs.
+        // Compute the missing URLs.
         let missingURLs = currentManifests.missingURLs()
-        if missingURLs.isEmpty {
-            // If not, we are done.
+
+        // Load the package graph if there are no missing URLs or if we
+        // encountered some errors.
+        if engine.hasErrors() || missingURLs.isEmpty {
             return PackageGraphLoader().load(
-                rootManifests: currentManifests.roots,
+                rootManifests: rootManifests,
                 externalManifests: currentManifests.dependencies.map{$0.manifest},
-                errors: errors,
+                errors: [],
                 fileSystem: fileSystem
             )
         }
 
-        // If so, we need to resolve and fetch them. Start by informing the
-        // delegate of what is happening.
+        // Start by informing the delegate of what is happening.
         delegate.fetchingMissingRepositories(missingURLs)
 
-        let pinsStore = try! self.pinsStore.dematerialize()
-        // Add constraints from the root packages and the current manifests.
-        // FIXME: Fix bang here.
-        let constraints = computeRootPackagesConstraints(currentManifests.roots, includePins: true)
-                        + currentManifests.createConstraints(pinsStore: pinsStore)
+        var updatedManifests: DependencyManifests? = nil
 
         do {
+            let pinsStore = try self.pinsStore.load()
+
+            // Create constraints from pinsStore and currently loaded manifests.
+            let constraints = pinsStore.createConstraints() + currentManifests.createConstraints()
+
             // Perform dependency resolution.
             let result = try resolveDependencies(constraints: constraints)
 
             // Update the checkouts with dependency resolution result.
-            //
-            // We ignore the removals if errors are not empty because otherwise
-            // we might end up removing checkouts due to missing constraints.
-            try updateCheckouts(with: result, ignoreRemovals: !errors.isEmpty)
+            try updateCheckouts(with: result)
+
+            // Load the updated manifests.
+            updatedManifests = loadDependencyManifests(
+                rootManifests: currentManifests.roots, engine: engine)
 
             // If autopin is enabled, reset and pin everything.
-            if pinsStore.autoPin {
-                try pinAll(reset: true)
+            if pinsStore.autoPin && !engine.hasErrors() {
+                try self.pinAll(
+                     pinsStore: pinsStore,
+                     dependencyManifests: updatedManifests!,
+                     reset: true)
             }
         } catch {
-            errors.append(error)
+            engine.emit(error)
         }
 
-        // Load the updated manifests.
-        let externalManifests = loadDependencyManifests(rootManifests).dependencies.map{$0.manifest}
-
-        // We've loaded the complete set of manifests, load the graph.
         return PackageGraphLoader().load(
             rootManifests: currentManifests.roots,
-            externalManifests: externalManifests,
-            errors: errors,
+            externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
+            errors: [],
             fileSystem: fileSystem
         )
     }
 
     /// Removes the clone and checkout of the provided specifier.
     func remove(specifier: RepositorySpecifier) throws {
-        let managedDependencies = try self.managedDependencies.dematerialize()
+        let managedDependencies = try self.managedDependencies.load()
         guard var dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
 
-        // If this dependency is based on a dependency, switch to that because we don't want to touch the editable checkout here.
+        // If this dependency is based on a dependency, switch to that because
+        // we don't want to touch the editable checkout here.
         //
-        // FIXME: This will remove also the data about the editable dependency and it will not be possible to "unedit" that dependency anymore.
-        // To do that we need to persist the value of isInEditableState and also store the package names in managed dependencies, because 
-        // it will not be possible to lookup these dependencies using their manifests as we won't have them anymore.
+        // FIXME: This will remove also the data about the editable dependency
+        // and it will not be possible to "unedit" that dependency anymore.  To
+        // do that we need to persist the value of isInEditableState and also
+        // store the package names in managed dependencies, because it will not
+        // be possible to lookup these dependencies using their manifests as we
+        // won't have them anymore.
         // https://bugs.swift.org/browse/SR-3689
         if let basedOn = dependency.basedOn {
             dependency = basedOn
@@ -1116,92 +1119,67 @@ public class Workspace {
         try managedDependencies.saveState()
     }
 
-    /// Loads and returns the root manifests, if all manifests are loaded successfully.
-    public func loadRootManifests() throws -> [Manifest] {
-        let (manifests, errors) = loadRootManifestsSafely()
-        guard errors.isEmpty else {
-            throw Errors(errors)
+    /// Loads and returns manifests at the given paths.
+    public func loadRootManifests(
+        packages: [AbsolutePath],
+        engine: DiagnosticsEngine
+    ) -> [Manifest] {
+        precondition(!packages.isEmpty, "There should be at least one package.")
+
+        func load(_ package: AbsolutePath) throws -> Manifest {
+            let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
+            guard currentToolsVersion >= toolsVersion else {
+                throw WorkspaceOperationError.incompatibleToolsVersion(
+                    rootPackage: package, required: toolsVersion, current: currentToolsVersion)
+            }
+            return try manifestLoader.load(
+                package: package, baseURL: package.asString, manifestVersion: toolsVersion.manifestVersion)
+        }
+
+        var manifests = [Manifest]()
+        for package in packages {
+            do {
+                try manifests.append(load(package))
+            } catch {
+                engine.emit(error)
+            }
         }
         return manifests
     }
-
-    /// Loads root manifests and returns the manifests and errors encountered during loading.
-    public func loadRootManifestsSafely() -> (manifests: [Manifest], errors: [Swift.Error]) {
-        // Ensure we have at least one registered root package path.
-        guard rootPackages.count > 0 else {
-            return ([], [WorkspaceOperationError.noRegisteredPackages])
-        }
-        return rootPackages.safeMap {
-            let toolsVersion = try toolsVersionLoader.load(at: $0, fileSystem: fileSystem)
-            guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceOperationError.incompatibleToolsVersion(rootPackage: $0, required: toolsVersion, current: currentToolsVersion)
-            }
-            return try manifestLoader.load(
-                package: $0, baseURL: $0.asString, manifestVersion: toolsVersion.manifestVersion)
-        }
-    }
 }
 
-// FIXME: Lift these to Basic once proven useful.
-
-/// A wrapper for holding multiple errors.
-public struct Errors: Swift.Error {
-
-    /// The errors contained in this structure.
-    public let errors: [Swift.Error]
-
-    /// Create an instance with given array of errors.
-    public init(_ errors: [Swift.Error]) {
-        self.errors = errors
-    }
-}
-
-extension Collection {
-
-    /// Transform each element with the given transform closure and collects
-    /// any errors thrown while transforming.
-    ///
-    /// - Parameter transform: The transformation closure that will be applied to each element.
-    /// - Returns: A tuple containing transformed elements and errors encountered during 
-    ///     transformation.
-    func safeMap<T>(_ transform: (Iterator.Element) throws -> T) -> ([T], [Swift.Error]) {
-        var result: [T] = []
-        var errors: [Swift.Error] = []
-
-        for item in self {
-            do {
-                try result.append(transform(item))
-            } catch {
-                errors.append(error)
-            }
-        }
-        return (result, errors)
-    }
-}
-
-/// A result which can be reloaded.
+/// A result which can be loaded.
 ///
 /// It is useful for objects that holds a state on disk and needs to be
-/// reloaded frequently.
-public final class ReloadableResult<Value, ErrorType: Swift.Error> {
+/// loaded frequently.
+public final class LoadableResult<Value> {
 
     /// The constructor closure for the value.
     private let construct: () throws -> Value
 
-    /// Create a reloadable result.
+    /// Create a loadable result.
     public init(_ construct: @escaping () throws -> Value) {
         self.construct = construct
     }
 
     /// Load and return the result.
-    public func result() -> Result<Value, ErrorType> {
-        return try! Result {
+    public func loadResult() -> Result<Value, AnyError> {
+        return Result(anyError: {
             try self.construct()
-        }
+        })
     }
 
     /// Load and return the value.
-    public func dematerialize() throws -> Value {
-        return try result().dematerialize()
+    public func load() throws -> Value {
+        return try loadResult().dematerialize()
+    }
+
+    public func load(engine: DiagnosticsEngine) -> Value? {
+        do {
+            return try load()
+        } catch {
+            engine.emit(error)
+            return nil
+        }
     }
 }

@@ -266,4 +266,8 @@ public class DiagnosticsEngine {
     public func emit<T: DiagnosticData>(data: T, location: DiagnosticLocation) {
         diagnostics.append(Diagnostic(id: T.id, location: location, data: data))
     }
+
+    public func hasErrors() -> Bool {
+        return !diagnostics.filter{ $0.behavior == .error }.isEmpty
+    }
 }

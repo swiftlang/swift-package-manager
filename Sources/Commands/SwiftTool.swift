@@ -48,6 +48,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
 enum SwiftToolError: Swift.Error {
     case rootManifestFileNotFound
+    case hasFatalDiagnostics
 }
 
 public class SwiftTool<Options: ToolOptions> {
@@ -77,6 +78,9 @@ public class SwiftTool<Options: ToolOptions> {
 
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
+
+    /// The diagnostics engine.
+    let engine = DiagnosticsEngine()
 
     /// Create an instance of this tool.
     ///
@@ -216,7 +220,6 @@ public class SwiftTool<Options: ToolOptions> {
             repositoryProvider: provider,
             enableResolverPrefetching: options.enableResolverPrefetching
         )
-        workspace.registerPackage(at: rootPackage)
         _workspace = workspace
         return workspace
     }
@@ -228,8 +231,18 @@ public class SwiftTool<Options: ToolOptions> {
             verbosity = Verbosity(rawValue: options.verbosity)
             // Call the implementation.
             try runImpl()
+            guard !engine.hasErrors() else { 
+                throw SwiftToolError.hasFatalDiagnostics
+            }
         } catch {
+            printDiagnostics()
             handle(error: error)
+        }
+    }
+
+    private func printDiagnostics() {
+        for diag in engine.diagnostics {
+            print(error: diag.localizedDescription)
         }
     }
 
@@ -242,10 +255,19 @@ public class SwiftTool<Options: ToolOptions> {
     @discardableResult
     func loadPackageGraph() throws -> PackageGraph {
         let workspace = try getActiveWorkspace()
+
         // Fetch and load the package graph.
-        let graph = workspace.loadPackageGraph()
-        guard graph.errors.isEmpty else {
-            throw Errors(graph.errors)
+        let graph = workspace.loadPackageGraph(
+            rootPackages: [try getPackageRoot()], engine: engine)
+
+        for error in graph.errors {
+            engine.emit(error)
+        }
+
+        // Throw if there were errors when loading the graph.
+        // The actual errors will be printed before exiting.
+        guard !engine.hasErrors() else { 
+            throw SwiftToolError.hasFatalDiagnostics
         }
         return graph
     }

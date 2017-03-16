@@ -26,7 +26,12 @@ import class Foundation.Bundle
 #endif
 
 
-/// Test-helper function that runs a block of code on a copy of a test fixture package.  The copy is made into a temporary directory, and the block is given a path to that directory.  The block is permitted to modify the copy.  The temporary copy is deleted after the block returns.  The fixture name may contain `/` characters, which are treated as path separators, exactly as if the name were a relative path.
+/// Test-helper function that runs a block of code on a copy of a test fixture
+/// package.  The copy is made into a temporary directory, and the block is
+/// given a path to that directory.  The block is permitted to modify the copy.
+/// The temporary copy is deleted after the block returns.  The fixture name may
+/// contain `/` characters, which are treated as path separators, exactly as if
+/// the name were a relative path.
 public func fixture(name: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
     do {
         // Make a suitable test directory name from the fixture subpath.
