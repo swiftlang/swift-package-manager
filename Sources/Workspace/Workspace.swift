@@ -1032,7 +1032,7 @@ public class Workspace {
             return PackageGraphLoader().load(
                 rootManifests: rootManifests,
                 externalManifests: currentManifests.dependencies.map{$0.manifest},
-                errors: [],
+                engine: engine,
                 fileSystem: fileSystem
             )
         }
@@ -1072,7 +1072,7 @@ public class Workspace {
         return PackageGraphLoader().load(
             rootManifests: currentManifests.roots,
             externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
-            errors: [],
+            engine: engine,
             fileSystem: fileSystem
         )
     }

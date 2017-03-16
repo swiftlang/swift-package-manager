@@ -47,7 +47,8 @@ final class BuildPlanTests: XCTestCase {
                 Target(name: "exe", dependencies: ["lib"]),
             ]
         )
-        let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", in: fs)
+        let engine = DiagnosticsEngine()
+        let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", engine: engine, in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph))
  
         result.checkProductsCount(1)
@@ -71,7 +72,8 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift"
         )
-        let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)
+        let engine = DiagnosticsEngine()
+        let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", engine: engine, in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: .release), graph: graph))
 
         result.checkProductsCount(1)
@@ -100,7 +102,8 @@ final class BuildPlanTests: XCTestCase {
                 .Package(url: "/ExtPkg", majorVersion: 1),
             ]
         )
-        let graph = loadMockPackageGraph(["/Pkg": pkg, "/ExtPkg": Package(name: "ExtPkg")], root: "/Pkg", in: fs)
+        let engine = DiagnosticsEngine()
+        let graph = loadMockPackageGraph(["/Pkg": pkg, "/ExtPkg": Package(name: "ExtPkg")], root: "/Pkg", engine: engine, in: fs)
         let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, fileSystem: fs))
  
         result.checkProductsCount(1)
