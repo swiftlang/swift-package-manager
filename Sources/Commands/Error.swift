@@ -69,9 +69,6 @@ private func _handle(_ error: Any) {
     case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
         print(error: "The version specifier '\(versionSpecifier)' is not valid")
 
-    case WorkspaceOperationError.incompatibleToolsVersion(_, let required, let current):
-        print(error: "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)")
-
     case PinOperationError.notPinned:
         print(error: "The provided package is not pinned")
 

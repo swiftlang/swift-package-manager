@@ -17,9 +17,6 @@ import Utility
 
 /// An error in one of the workspace operations
 public enum WorkspaceOperationError: Swift.Error {
-    /// The requested repository could not be accessed.
-    case unavailableRepository
-
     /// The repository has uncommited changes.
     case hasUncommitedChanges(repo: AbsolutePath)
 
@@ -1180,6 +1177,29 @@ public final class LoadableResult<Value> {
         } catch {
             engine.emit(error)
             return nil
+        }
+    }
+}
+
+extension WorkspaceOperationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .hasUncommitedChanges(let repo):
+            return "The repository '\(repo.asString)' has uncommited changes"
+        case .hasUnpushedChanges(let repo):
+            return "The repository '\(repo.asString)' has unpushed changes"
+        case .dependencyAlreadyInEditMode:
+            return "The dependency is already in edit mode"
+        case .dependencyNotInEditMode:
+            return "The dependency is not in edit mode"
+        case .branchAlreadyExists:
+            return "The branch already exists in repository"
+        case .nonExistentRevision:
+            return "The revision doesn't exists in repository"
+        case .incompatibleToolsVersion(_, let required, let current):
+            return "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)"
+        case .mismatchingDestinationPackage(let path, let destPackage, let expectedPackage):
+            return "Trying to edit '\(expectedPackage)' but the package at '\(path.asString)' is '\(destPackage)'"
         }
     }
 }
