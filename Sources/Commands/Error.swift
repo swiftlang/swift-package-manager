@@ -66,11 +66,8 @@ private func _handle(_ error: Any) {
         print(error: error)
         parser.printUsage(on: stderrStream)
 
-    case PinOperationError.notPinned:
-        print(error: "The provided package is not pinned")
-
     case PinOperationError.autoPinEnabled:
-        print(error: "Autopinning should be turned off to use this mode. Run 'swift package pin --disable-autopin' to disable autopin")
+        print(error: "\(error). Run 'swift package pin --disable-autopin' to disable autopinning")
 
     case let error as FixableError:
         print(error: error.error)
