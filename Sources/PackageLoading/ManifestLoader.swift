@@ -38,6 +38,9 @@ public protocol ManifestResourceProvider {
 
     /// The path of the library resources.
     var libDir: AbsolutePath { get }
+
+    /// The path to the directory containing sandbox profile.
+    var sandboxProfileDir: AbsolutePath { get }
 }
 
 /// The supported manifest versions.
@@ -203,8 +206,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Compute the path to runtime we need to load.
         let runtimePath = resources.libDir.appending(component: String(manifestVersion.rawValue)).asString
-    
-        var cmd = [resources.swiftCompiler.asString]
+
+        var cmd = [String]()
+      #if os(macOS)
+        // Use sandbox-exec on macOS. This provides some safety against
+        // arbitrary code execution when parsing manifest files. We only allow
+        // the permissions which are absolutely necessary for manifest parsing.
+        let sandboxProfile = resources.sandboxProfileDir.appending(component: "parse-manifest.sb")
+        cmd += ["sandbox-exec", "-f", sandboxProfile.asString]
+      #endif
+        cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
         cmd += ["-I", runtimePath]
