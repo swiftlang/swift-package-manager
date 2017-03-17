@@ -12,41 +12,30 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
-
 import Utility
 import func POSIX.exit
-
 import Workspace
 
-public enum Error: Swift.Error {
-    case noManifestFound
+enum Error: Swift.Error {
+    /// Couldn't find all tools needed by the package manager.
     case invalidToolchain(problem: String)
-    case buildYAMLNotFound(String)
-    case repositoryHasChanges(String)
+
+    /// The root manifest was not found.
+    case rootManifestFileNotFound
+
+    /// There were fatal diagnostics during the operation.
+    case hasFatalDiagnostics
 }
 
-extension Error: FixableError {
-    public var error: String {
+extension Error: CustomStringConvertible {
+    var description: String {
         switch self {
-        case .noManifestFound:
-            return "no \(Manifest.filename) file found"
         case .invalidToolchain(let problem):
-            return "invalid inferred toolchain: \(problem)"
-        case .buildYAMLNotFound(let value):
-            return "no build YAML found: \(value)"
-        case .repositoryHasChanges(let value):
-            return "repository has changes: \(value)"
-        }
-    }
-
-    public var fix: String? {
-        switch self {
-        case .noManifestFound:
-            return "create a file named \(Manifest.filename) or run `swift package init` to initialize a new package"
-        case .repositoryHasChanges(_):
-            return "stage the changes and reapply them after updating the repository"
-        default:
-            return nil
+            return problem
+        case .rootManifestFileNotFound:
+            return "The root manifest was not found"
+        case .hasFatalDiagnostics:
+            return ""
         }
     }
 }
@@ -70,7 +59,7 @@ public func handle(error: Any) -> Never {
 private func _handle(_ error: Any) {
 
     switch error {
-    case SwiftToolError.hasFatalDiagnostics:
+    case Error.hasFatalDiagnostics:
         // We don't print anything in this case.
         break
 
@@ -120,16 +109,6 @@ private func _handle(_ error: Any) {
             string += " for version \(version)"
         }
         print(error: string)
-
-    case ManifestParseError.emptyManifestFile:
-        print(error: "Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
-
-    case ManifestParseError.invalidManifestFormat(let errors):
-        print(error: errors)
-
-    case ManifestParseError.runtimeManifestErrors(let errors):
-        let errorString = "invalid manifest format; " + errors.joined(separator: ", ")
-        print(error: errorString)
 
     case PackageToolOperationError.insufficientOptions(let usage):
         print(error: usage)
