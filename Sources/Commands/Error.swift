@@ -66,9 +66,6 @@ private func _handle(_ error: Any) {
         print(error: error)
         parser.printUsage(on: stderrStream)
 
-    case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
-        print(error: "The version specifier '\(versionSpecifier)' is not valid")
-
     case PinOperationError.notPinned:
         print(error: "The provided package is not pinned")
 

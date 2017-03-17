@@ -1676,9 +1676,7 @@ final class WorkspaceTests: XCTestCase {
             let engine = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, engine: engine)
             let errorDesc = engine.diagnostics[0].localizedDescription
-            XCTAssertTrue(errorDesc.contains("required: 4.0.0"))
-            XCTAssertTrue(errorDesc.contains("current: 3.1.0"))
-            XCTAssertTrue(errorDesc.contains("/root1"))
+            XCTAssertEqual(errorDesc, "Package requires minimum Swift tools version 4.0.0. Current Swift tools version is 3.1.0")
         }
     }
 
