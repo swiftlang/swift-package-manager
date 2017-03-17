@@ -72,12 +72,6 @@ private func _handle(_ error: Any) {
     case PinOperationError.autoPinEnabled:
         print(error: "Autopinning should be turned off to use this mode. Run 'swift package pin --disable-autopin' to disable autopin")
 
-    case PackageToolOperationError.packageInEditableState:
-        print(error: "The provided package is in editable state")
-
-    case PackageToolOperationError.packageNotFound:
-        print(error: "The provided package was not found")
-
     case let error as FixableError:
         print(error: error.error)
         if let fix = error.fix {
@@ -91,8 +85,6 @@ private func _handle(_ error: Any) {
         }
         print(error: string)
 
-    case PackageToolOperationError.insufficientOptions(let usage):
-        print(error: usage)
         
     default:
         print(error: error)
