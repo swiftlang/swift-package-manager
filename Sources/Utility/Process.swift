@@ -108,8 +108,6 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// Errors when attempting to invoke a process
     public enum Error: Swift.Error {
-        /// Process instance is missing arguments to invoke a process.
-        case missingArguments
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
     }
@@ -202,13 +200,13 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// Launch the subprocess.
     public func launch() throws {
+        precondition(arguments.count > 0 && !arguments[0].isEmpty, "Need at least one argument to launch the process.")
         precondition(!launched, "It is not allowed to launch the same process object again.")
+
+        // Set the launch bool to true.
         launched = true
 
-        guard arguments.count > 0, !arguments[0].isEmpty else {
-            throw Error.missingArguments
-        }
-
+        // Look for executable.
         guard findExecutable(arguments[0]) else {
             throw Process.Error.missingExecutableProgram(program: arguments[0])
         }
@@ -517,5 +515,34 @@ private func close(fd: inout Int32) throws {
     let rv = libc.close(fd)
     guard rv == 0 else {
         throw SystemError.close(rv)
+    }
+}
+
+extension Process.Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .missingExecutableProgram(let program):
+            return "Unable to find executable for '\(program)'"
+        }
+    }
+}
+
+extension ProcessResult.Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .illegalUTF8Sequence:
+            return "The output had illegal UTF8 sequence"
+        case .nonZeroExit(let result):
+            let stream = BufferedOutputByteStream()
+            switch result.exitStatus {
+            case .terminated(let code):
+                stream <<< "terminated(\(code)): "
+
+            case .signalled(let signal):
+                stream <<< "signalled(\(signal)): "
+            }
+            stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
+            return stream.bytes.asString!
+        }
     }
 }

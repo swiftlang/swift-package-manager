@@ -60,30 +60,17 @@ private func _handle(_ error: Any) {
 
     switch error {
     case Error.hasFatalDiagnostics:
-        // We don't print anything in this case.
         break
+
+    case ArgumentParserError.expectedArguments(let parser, _):
+        print(error: error)
+        parser.printUsage(on: stderrStream)
 
     case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
         print(error: "The version specifier '\(versionSpecifier)' is not valid")
 
     case WorkspaceOperationError.incompatibleToolsVersion(_, let required, let current):
         print(error: "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)")
-
-    case ArgumentParserError.unknownOption(let option):
-        print(error: "Unknown option \(option). Use --help to list available options")
-
-    case ArgumentParserError.unknownValue(let option, let value):
-        print(error: "Unknown value \(value) provided for option \(option). Use --help to list available values")
-
-    case ArgumentParserError.expectedValue(let option):
-        print(error: "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'")
-
-    case ArgumentParserError.unexpectedArgument(let arg):
-        print(error: "Unexpected argument \(arg). Use --help to list available arguments")
-
-    case ArgumentParserError.expectedArguments(let parser, let args):
-        print(error: "Expected arguments: \(args.joined(separator: ", ")).\n")
-        parser.printUsage(on: stderrStream)
 
     case PinOperationError.notPinned:
         print(error: "The provided package is not pinned")
@@ -115,22 +102,6 @@ private func _handle(_ error: Any) {
         
     case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
         print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
-
-    case ProcessResult.Error.nonZeroExit(let result):
-        let stream = BufferedOutputByteStream()
-
-        switch result.exitStatus {
-        case .terminated(let code):
-            stream <<< "terminated(\(code)): "
-
-        case .signalled(let signal):
-            stream <<< "signalled(\(signal)): "
-        }
-        stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
-        print(error: stream.bytes.asString!)
-
-    case Process.Error.missingExecutableProgram(let program):
-        print(error: "Unable to find an executable \(program)")
 
     default:
         print(error: error)
