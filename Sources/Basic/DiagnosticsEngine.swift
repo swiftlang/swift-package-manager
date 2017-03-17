@@ -263,8 +263,8 @@ public class DiagnosticsEngine {
     public init() {
     }
 
-    public func emit<T: DiagnosticData>(data: T, location: DiagnosticLocation) {
-        diagnostics.append(Diagnostic(id: T.id, location: location, data: data))
+    public func emit(data: DiagnosticData, location: DiagnosticLocation) {
+        diagnostics.append(Diagnostic(id: type(of: data).id, location: location, data: data))
     }
 
     public func hasErrors() -> Bool {

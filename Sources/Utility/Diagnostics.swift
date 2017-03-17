@@ -10,6 +10,14 @@
 
 import Basic
 
+/// Represents an object which can be converted into a diagnostic data.
+public protocol DiagnosticDataConvertible {
+
+    /// Diagnostic data representation of this instance.
+    var diagnosticData: DiagnosticData { get }
+}
+
+/// DiagnosticData wrapper for Swift errors.
 public struct AnyDiagnostic: DiagnosticData {
     public static let id = DiagnosticID(
         type: AnyDiagnostic.self,
@@ -40,7 +48,27 @@ public final class UnknownLocation: DiagnosticLocation {
 }
 
 extension DiagnosticsEngine {
-    public func emit(_ error: Swift.Error) {
-        emit(data: AnyDiagnostic(error), location: UnknownLocation.location)
+
+    /// Emit a Swift error.
+    ///
+    /// Errors will be converted into diagnostic data if possible.
+    /// Otherwise, they will be emitted as AnyDiagnostic.
+    public func emit(
+        _ error: Swift.Error,
+        location: DiagnosticLocation = UnknownLocation.location
+    ) {
+        if case let convertible as DiagnosticDataConvertible = error {
+            emit(convertible, location: location)
+        } else {
+            emit(data: AnyDiagnostic(error), location: location)
+        }
+    }
+
+    /// Emit a diagnostic data convertible instance.
+    public func emit(
+        _ convertible: DiagnosticDataConvertible,
+        location: DiagnosticLocation = UnknownLocation.location
+     ) {
+        emit(data: convertible.diagnosticData, location: location)
     }
 }
