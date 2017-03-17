@@ -29,6 +29,25 @@ public enum ArgumentParserError: Swift.Error {
     case typeMismatch(String)
 }
 
+extension ArgumentParserError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknownOption(let option):
+            return "Unknown option \(option). Use --help to list available options"
+        case .unknownValue(let option, let value):
+            return "Unknown value \(value) provided for option \(option). Use --help to list available values"
+        case .expectedValue(let option):
+            return "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'"
+        case .unexpectedArgument(let arg):
+            return "Unexpected argument \(arg). Use --help to list available arguments"
+        case .expectedArguments(_, let args):
+            return "Expected arguments: \(args.joined(separator: ", ")).\n"
+        case .typeMismatch(let error):
+            return error
+        }
+    }
+}
+
 /// Different shells for which we can generate shell scripts.
 public enum Shell: String, StringEnumArgument {
     case bash

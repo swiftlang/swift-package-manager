@@ -30,8 +30,16 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     public init() {
     }
 
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, CustomStringConvertible {
         case malformed(specifier: String, file: AbsolutePath)
+
+        public var description: String {
+            switch self {
+            case .malformed(let versionSpecifier, let file):
+                let file = file.appending(component: ToolsVersion.toolsVersionFileName)
+                return "The version specifier '\(versionSpecifier)' in '\(file.asString)' is not valid"
+            }
+        }
     }
 
     public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {

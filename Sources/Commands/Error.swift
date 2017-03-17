@@ -12,41 +12,30 @@ import Basic
 import PackageLoading
 import PackageModel
 import SourceControl
-
 import Utility
 import func POSIX.exit
-
 import Workspace
 
-public enum Error: Swift.Error {
-    case noManifestFound
+enum Error: Swift.Error {
+    /// Couldn't find all tools needed by the package manager.
     case invalidToolchain(problem: String)
-    case buildYAMLNotFound(String)
-    case repositoryHasChanges(String)
+
+    /// The root manifest was not found.
+    case rootManifestFileNotFound
+
+    /// There were fatal diagnostics during the operation.
+    case hasFatalDiagnostics
 }
 
-extension Error: FixableError {
-    public var error: String {
+extension Error: CustomStringConvertible {
+    var description: String {
         switch self {
-        case .noManifestFound:
-            return "no \(Manifest.filename) file found"
         case .invalidToolchain(let problem):
-            return "invalid inferred toolchain: \(problem)"
-        case .buildYAMLNotFound(let value):
-            return "no build YAML found: \(value)"
-        case .repositoryHasChanges(let value):
-            return "repository has changes: \(value)"
-        }
-    }
-
-    public var fix: String? {
-        switch self {
-        case .noManifestFound:
-            return "create a file named \(Manifest.filename) or run `swift package init` to initialize a new package"
-        case .repositoryHasChanges(_):
-            return "stage the changes and reapply them after updating the repository"
-        default:
-            return nil
+            return problem
+        case .rootManifestFileNotFound:
+            return "The root manifest was not found"
+        case .hasFatalDiagnostics:
+            return ""
         }
     }
 }
@@ -70,43 +59,15 @@ public func handle(error: Any) -> Never {
 private func _handle(_ error: Any) {
 
     switch error {
-    case SwiftToolError.hasFatalDiagnostics:
-        // We don't print anything in this case.
+    case Error.hasFatalDiagnostics:
         break
 
-    case ToolsVersionLoader.Error.malformed(let versionSpecifier, _):
-        print(error: "The version specifier '\(versionSpecifier)' is not valid")
-
-    case WorkspaceOperationError.incompatibleToolsVersion(_, let required, let current):
-        print(error: "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)")
-
-    case ArgumentParserError.unknownOption(let option):
-        print(error: "Unknown option \(option). Use --help to list available options")
-
-    case ArgumentParserError.unknownValue(let option, let value):
-        print(error: "Unknown value \(value) provided for option \(option). Use --help to list available values")
-
-    case ArgumentParserError.expectedValue(let option):
-        print(error: "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'")
-
-    case ArgumentParserError.unexpectedArgument(let arg):
-        print(error: "Unexpected argument \(arg). Use --help to list available arguments")
-
-    case ArgumentParserError.expectedArguments(let parser, let args):
-        print(error: "Expected arguments: \(args.joined(separator: ", ")).\n")
+    case ArgumentParserError.expectedArguments(let parser, _):
+        print(error: error)
         parser.printUsage(on: stderrStream)
 
-    case PinOperationError.notPinned:
-        print(error: "The provided package is not pinned")
-
     case PinOperationError.autoPinEnabled:
-        print(error: "Autopinning should be turned off to use this mode. Run 'swift package pin --disable-autopin' to disable autopin")
-
-    case PackageToolOperationError.packageInEditableState:
-        print(error: "The provided package is in editable state")
-
-    case PackageToolOperationError.packageNotFound:
-        print(error: "The provided package was not found")
+        print(error: "\(error). Run 'swift package pin --disable-autopin' to disable autopinning")
 
     case let error as FixableError:
         print(error: error.error)
@@ -121,38 +82,7 @@ private func _handle(_ error: Any) {
         }
         print(error: string)
 
-    case ManifestParseError.emptyManifestFile:
-        print(error: "Empty manifest file is not supported anymore. Use `swift package init` to autogenerate.")
-
-    case ManifestParseError.invalidManifestFormat(let errors):
-        print(error: errors)
-
-    case ManifestParseError.runtimeManifestErrors(let errors):
-        let errorString = "invalid manifest format; " + errors.joined(separator: ", ")
-        print(error: errorString)
-
-    case PackageToolOperationError.insufficientOptions(let usage):
-        print(error: usage)
         
-    case GitRepositoryProviderError.gitCloneFailure(let url, let path, let errorOutput):
-        print(error: "Failed to clone \(url) to \(path.asString):\n\(errorOutput)")
-
-    case ProcessResult.Error.nonZeroExit(let result):
-        let stream = BufferedOutputByteStream()
-
-        switch result.exitStatus {
-        case .terminated(let code):
-            stream <<< "terminated(\(code)): "
-
-        case .signalled(let signal):
-            stream <<< "signalled(\(signal)): "
-        }
-        stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
-        print(error: stream.bytes.asString!)
-
-    case Process.Error.missingExecutableProgram(let program):
-        print(error: "Unable to find an executable \(program)")
-
     default:
         print(error: error)
     }

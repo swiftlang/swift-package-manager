@@ -13,9 +13,18 @@ import Utility
 import SourceControl
 import typealias PackageGraph.RepositoryPackageConstraint
 
-public enum PinOperationError: Swift.Error {
+public enum PinOperationError: Swift.Error, CustomStringConvertible {
     case notPinned
     case autoPinEnabled
+
+    public var description: String {
+        switch self {
+        case .notPinned:
+            return "The provided package is not pinned"
+        case .autoPinEnabled:
+            return "Autopinning should be turned off to use this"
+        }
+    }
 }
 
 public final class PinsStore {

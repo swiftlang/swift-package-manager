@@ -46,11 +46,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
-enum SwiftToolError: Swift.Error {
-    case rootManifestFileNotFound
-    case hasFatalDiagnostics
-}
-
 public class SwiftTool<Options: ToolOptions> {
     /// The options of this tool.
     let options: Options
@@ -61,7 +56,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// Helper function to get package root or throw error if it is not found.
     func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot = packageRoot else {
-            throw SwiftToolError.rootManifestFileNotFound
+            throw Error.rootManifestFileNotFound
         }
         return packageRoot
     }
@@ -232,7 +227,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Call the implementation.
             try runImpl()
             guard !engine.hasErrors() else { 
-                throw SwiftToolError.hasFatalDiagnostics
+                throw Error.hasFatalDiagnostics
             }
         } catch {
             printDiagnostics()
@@ -263,7 +258,7 @@ public class SwiftTool<Options: ToolOptions> {
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !engine.hasErrors() else { 
-            throw SwiftToolError.hasFatalDiagnostics
+            throw Error.hasFatalDiagnostics
         }
         return graph
     }
@@ -292,6 +287,7 @@ public class SwiftTool<Options: ToolOptions> {
         // Generate llbuild manifest.
         let llbuild = LLbuildManifestGenerator(buildPlan)
         try llbuild.generateManifest(at: yaml)
+        assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
         // Run the swift-build-tool with the generated manifest.
         try Commands.build(yamlPath: yaml, llbuild: getToolchain().llbuild, target: includingTests ? "test" : nil, processSet: processSet)
     }

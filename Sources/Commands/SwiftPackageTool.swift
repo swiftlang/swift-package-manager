@@ -30,7 +30,7 @@ enum PackageToolOperationError: Swift.Error {
     case packageInEditableState
 }
 
-/// swift-build tool namespace
+/// swift-package tool namespace
 public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
    public convenience init(args: [String]) {
@@ -537,5 +537,18 @@ extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
             (text.rawValue, "resolve using text format"),
             (json.rawValue, "resolve using JSON format")
         ])
+    }
+}
+
+extension PackageToolOperationError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .packageInEditableState:
+            return "The provided package is in editable state"
+        case .packageNotFound:
+            return "The provided package was not found"
+        case .insufficientOptions(let usage):
+            return usage
+        }
     }
 }
