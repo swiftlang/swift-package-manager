@@ -70,7 +70,7 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
         // Remove discardable flags, e.g., -fabi-version, -fno-omit-frame-pointer
         let flags = removeDiscardableFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
         // Run the whitelist checker.
-        try whitelist(pcFile: pkgConfigName, flags:flags)
+        try whitelist(pcFile: pkgConfigName, flags: flags)
         // Remove any default flags which compiler adds automatically.
         let (cFlags, libs) = removeDefaultFlags(cFlags: flags.cFlags, libs: flags.libs)
         return PkgConfigResult(pkgConfigName: pkgConfigName, cFlags: cFlags, libs: libs)
