@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 import PackageModel
-import PackageLoading
+@testable import PackageLoading
 import Utility
 import TestSupport
 
@@ -92,8 +92,29 @@ class PkgConfigTests: XCTestCase {
             }
         }
     }
+    
+    func testMySQLPackageConfig() {
+        // $ pkg-config mysqlclient --cflags
+        // -fno-omit-frame-pointer -I/usr/local/Cellar/mysql/5.7.17/include/mysql
+        let cFlags = [
+            "-fno-omit-frame-pointer",
+            "-I/usr/local/Cellar/mysql/5.7.17/include/mysql"
+        ]
+        
+        // $ pkg-config mysqlclient --libs
+        // -L/usr/local/Cellar/mysql/5.7.17/lib -lmysqlclient
+        let libs = [
+            "-L/usr/local/Cellar/mysql/5.7.17/lib",
+            "-lmysqlclient"
+        ]
+        
+        let flags = removeDiscardableFlags(cFlags: cFlags, libs: libs)
+        XCTAssertEqual(flags.cFlags, ["-I/usr/local/Cellar/mysql/5.7.17/include/mysql"])
+        XCTAssertEqual(flags.libs, libs)
+    }
 
     static var allTests = [
         ("testBasics", testBasics),
+        ("testMySQLPackageConfig", testMySQLPackageConfig)
     ]
 }

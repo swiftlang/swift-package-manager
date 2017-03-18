@@ -67,10 +67,12 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
     // Get the pkg config flags.
     do {
         let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths, fileSystem: fileSystem)
+        // Remove discardable flags, e.g., -fabi-version, -fno-omit-frame-pointer
+        let flags = removeDiscardableFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
         // Run the whitelist checker.
-        try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+        try whitelist(pcFile: pkgConfigName, flags:flags)
         // Remove any default flags which compiler adds automatically.
-        let (cFlags, libs) = removeDefaultFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
+        let (cFlags, libs) = removeDefaultFlags(cFlags: flags.cFlags, libs: flags.libs)
         return PkgConfigResult(pkgConfigName: pkgConfigName, cFlags: cFlags, libs: libs)
     } catch {
         return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
@@ -127,6 +129,25 @@ extension SystemPackageProvider {
     static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
         return providers.filter{ $0.isAvailable }.first
     }
+}
+
+/// Removes discardable flags such as:
+/// cFlags: -fabi-version, -fno-omit-frame-pointer
+/// libs:
+func removeDiscardableFlags(cFlags: [String], libs: [String]) -> (cFlags: [String], libs: [String]) {
+    let cFlags: [String] = cFlags.flatMap { flag in
+        switch flag {
+        case "-fabi-version":
+            // -fabi-version is something only G++ takes.
+            return nil
+        case "-fno-omit-frame-pointer":
+            // -fno-omit-frame-pointer isn't required for correctness of dependents
+            return nil
+        default:
+            return flag
+        }
+    }
+    return (cFlags, libs)
 }
 
 /// Filters the flags with allowed arguments so unexpected arguments are not passed to
