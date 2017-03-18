@@ -87,9 +87,9 @@ extension PackageDescription4.Package {
             name: name,
             pkgConfig: pkgConfig,
             providers: providers,
-            targets: targets,
             products: products,
             dependencies: dependencies,
+            targets: targets,
             swiftLanguageVersions: swiftLanguageVersions,
             exclude: exclude)
     }
@@ -108,11 +108,11 @@ extension PackageDescription4.Package.Dependency {
         switch requirementDict["type"] {
         case .string("branch")?:
             guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
-            requirement = .branch(identifier)
+            requirement = .branchItem(identifier)
 
         case .string("revision")?:
             guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
-            requirement = .revision(identifier)
+            requirement = .revisionItem(identifier)
 
         case .string("range")?:
             guard case .string(let vv1)? = requirementDict["lowerBound"],
@@ -120,7 +120,7 @@ extension PackageDescription4.Package.Dependency {
                   let v1 = Version(vv1), let v2 = Version(vv2) else {
                 fatalError()
             }
-            requirement = .range(v1..<v2)
+            requirement = .rangeItem(v1..<v2)
 
         default: fatalError()
         }
@@ -134,20 +134,19 @@ extension PackageDescription4.Package.Dependency {
             }
         }
 
-        return PackageDescription4.Package.Dependency(url: fixURL(), requirement: requirement)
+        return PackageDescription4.Package.Dependency.package(url: fixURL(), requirement)
     }
 }
 
 extension PackageDescription4.SystemPackageProvider {
     fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.SystemPackageProvider {
-        guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
-        guard case .string(let name)? = dict["name"] else { fatalError("missing name") }
-        guard case .string(let value)? = dict["value"] else { fatalError("missing value") }
+        let values: [String] = try! json.get("values")
+        let name: String = try! json.get("name")
         switch name {
-        case "Brew":
-            return .Brew(value)
-        case "Apt":
-            return .Apt(value)
+        case "brew":
+            return .brewItem(values)
+        case "apt":
+            return .aptItem(values)
         default:
             fatalError("unexpected string")
         }
@@ -164,7 +163,7 @@ extension PackageDescription4.Target {
             dependencies = array.map(PackageDescription4.Target.Dependency.fromJSON)
         }
 
-        return PackageDescription4.Target(name: name, dependencies: dependencies)
+        return PackageDescription4.Target.target(name: name, dependencies: dependencies)
     }
 }
 
@@ -175,7 +174,7 @@ extension PackageDescription4.Target.Dependency {
         switch type {
         case "target":
             guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
-            return .Target(name: name)
+            return .targetItem(name: name)
         case "product":
             guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
             guard let package = dict["package"] else { fatalError("unexpected item") }
@@ -185,10 +184,10 @@ extension PackageDescription4.Target.Dependency {
             case .null: pkg = nil
             default: fatalError("unexpected item")
             }
-            return .Product(name: name, package: pkg)
+            return .productItem(name: name, package: pkg)
         case "byname":
             guard case .string(let name)? = dict["name"] else { fatalError("unexpected item") }
-            return .ByName(name: name)
+            return .byNameItem(name: name)
         default: fatalError("unexpected item")
         }
     }
@@ -196,31 +195,30 @@ extension PackageDescription4.Target.Dependency {
 
 extension PackageDescription4.Product {
     fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.Product {
-        guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
-        guard case .string(let name)? = dict["name"] else { fatalError("missing item") }
-        guard case .string(let productType)? = dict["product_type"] else { fatalError("missing item") }
-        guard case .array(let targetsJSON)? = dict["targets"] else { fatalError("missing item") }
-
-        let targets: [String] = targetsJSON.map {
-            guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
-            return string
-        }
+        let productType: String = try! json.get("product_type")
 
         switch productType {
-        case "exe":
-            return PackageDescription4.Product.Executable(name: name, targets: targets)
-        case "lib":
-            let type: PackageDescription4.Product.LibraryProduct.LibraryType?
-            switch dict["type"] {
-            case .string("static")?:
+        case "executable":
+            return try! .executable(
+                name: json.get("name"),
+                targets: json.get("targets")
+            )
+        case "library":
+            let type: PackageDescription4.Product.Library.LibraryType?
+            let typeString: String? = json.get("type")
+            switch typeString {
+            case "static"?:
                 type = .static
-            case .string("dynamic")?:
+            case "dynamic"?:
                 type = .dynamic
-            case .null?:
+            default:
                 type = nil
-            default: fatalError("unexpected item")
             }
-            return PackageDescription4.Product.Library(name: name, type: type, targets: targets)
+            return try! .library(
+                name: json.get("name"),
+                type: type,
+                targets: json.get("targets")
+            )
         default:
             fatalError("unexpected item")
         }

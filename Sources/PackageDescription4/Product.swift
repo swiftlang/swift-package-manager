@@ -8,126 +8,87 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
 /// Defines a product in the package.
-public enum Product {
+public class Product {
 
-    /// An exectuable product.
-    public struct ExecutableProduct {
+    /// The name of the product.
+    public let name: String
 
-        /// The name of the executable product.
-        public let name: String
-
-        /// The names of targets in the product.
-        public let targets: [String]
+    init(name: String) {
+        self.name = name
     }
 
-    /// A library product.
-    public struct LibraryProduct {
+    func toJSON() -> JSON {
+        fatalError("Should be implemented by subclasses")
+    }
 
-        /// The type of library products.
+    /// Represents an executable product.
+    public final class Executable: Product {
+
+        /// The names of the targets in this product.
+        public let targets: [String]
+
+        init(name: String, targets: [String]) {
+            self.targets = targets
+            super.init(name: name)
+        }
+
+        override func toJSON() -> JSON {
+            return .dictionary([
+                "name": .string(name),
+                "product_type": .string("executable"),
+                "targets": .array(targets.map(JSON.string)),
+            ])
+        }
+    }
+
+    /// Represents a library product.
+    public final class Library: Product {
+
+        /// The type of library product.
         public enum LibraryType: String {
             case `static`
             case `dynamic`
         }
 
-        /// The name of the library product.
-        public let name: String
+        /// The names of the targets in this product.
+        public let targets: [String]
 
         /// The type of the library.
         ///
         /// If the type is unspecified, package manager will automatically choose a type.
         public let type: LibraryType?
 
-        /// The names of targets in the product.
-        public let targets: [String]
+        init(name: String, type: LibraryType? = nil, targets: [String]) {
+            self.type = type
+            self.targets = targets
+            super.init(name: name)
+        }
+
+        override func toJSON() -> JSON {
+            return .dictionary([
+                "name": .string(name),
+                "productType": .string("library"),
+                "type": type.map{ JSON.string($0.rawValue) } ?? .null,
+                "targets": .array(targets.map(JSON.string)),
+            ])
+        }
     }
 
-    /// Executable product.
-    case exe(ExecutableProduct)
-
-    /// Library product.
-    case lib(LibraryProduct)
+    /// Create a libary product.
+    public static func library(
+        name: String,
+        type: Library.LibraryType? = nil,
+        targets: [String]
+    ) -> Product {
+        return Library(name: name, type: type, targets: targets)
+    }
 
     /// Create an executable product.
-    public static func Executable(name: String, targets: [String]) -> Product {
-        return .exe(ExecutableProduct(name: name, targets: targets))
-    }
-
-    /// Create a library product.
-    public static func Library(name: String, type: LibraryProduct.LibraryType? = nil, targets: [String]) -> Product {
-        return .lib(LibraryProduct(name: name, type: type, targets: targets))
-    }
-
-    /// Name of the product.
-    public var name: String {
-        switch self {
-        case .exe(let p): return p.name
-        case .lib(let p): return p.name
-        }
-    }
-}
-
-extension Product.ExecutableProduct {
-    func toJSON() -> [String: JSON] {
-        return [
-            "name": .string(name),
-            "targets": .array(targets.map(JSON.string)),
-        ]
-    }
-}
-
-extension Product.LibraryProduct {
-    func toJSON() -> [String: JSON] {
-        return [
-            "name": .string(name),
-            "type": type.map{ JSON.string($0.rawValue) } ?? .null,
-            "targets": .array(targets.map(JSON.string)),
-        ]
-    }
-}
-
-extension Product {
-    func toJSON() -> JSON {
-        switch self {
-        case .exe(let product):
-            var dict = product.toJSON()
-            dict["product_type"] = .string("exe")
-            return .dictionary(dict)
-        case .lib(let product):
-            var dict = product.toJSON()
-            dict["product_type"] = .string("lib")
-            return .dictionary(dict)
-        }
-    }
-}
-
-extension Product.ExecutableProduct: Equatable {
-    public static func ==(lhs: Product.ExecutableProduct, rhs: Product.ExecutableProduct) -> Bool {
-        return lhs.name == rhs.name &&
-               lhs.targets == rhs.targets
-    }
-}
-
-extension Product.LibraryProduct: Equatable {
-    public static func ==(lhs: Product.LibraryProduct, rhs: Product.LibraryProduct) -> Bool {
-        return lhs.name == rhs.name &&
-               lhs.type == rhs.type &&
-               lhs.targets == rhs.targets
-    }
-}
-
-extension Product: Equatable {
-    public static func ==(lhs: Product, rhs: Product) -> Bool {
-        switch (lhs, rhs) {
-        case (.exe(let a), .exe(let b)):
-            return a == b
-        case (.exe, _):
-            return false
-        case (.lib(let a), .lib(let b)):
-            return a == b
-        case (.lib, _):
-            return false
-        }
+    public static func executable(
+        name: String,
+        targets: [String]
+    ) -> Product {
+        return Executable(name: name, targets: targets)
     }
 }

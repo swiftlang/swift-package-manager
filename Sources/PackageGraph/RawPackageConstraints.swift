@@ -20,19 +20,22 @@ extension Manifest.RawPackage {
             let requirement: RepositoryPackageConstraint.Requirement
 
             switch $0.requirement {
-            case .range(let range):
+            case .rangeItem(let range):
                 requirement = .versionSet(.range(range.asUtilityVersion))
 
-            case .revision(let identifier):
+            case .revisionItem(let identifier):
                 assert(identifier.characters.count == 40)
                 assert(Git.checkRefFormat(ref: identifier))
 
                 requirement = .revision(identifier)
 
-            case .branch(let identifier):
+            case .branchItem(let identifier):
                 assert(Git.checkRefFormat(ref: identifier))
 
                 requirement = .revision(identifier)
+
+            case .exactItem(let version):
+                requirement = .versionSet(.exact(Version(pdVersion: version)))
             }
 
             return RepositoryPackageConstraint(

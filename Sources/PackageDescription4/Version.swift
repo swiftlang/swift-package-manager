@@ -6,44 +6,55 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-
- -------------------------------------------------------------------------
- [A semantic version](http://semver.org).
 */
 
+/// A struct representing semver version.
 public struct Version {
-    public let (major, minor, patch): (Int, Int, Int)
+
+    /// The major version.
+    public let major: Int
+
+    /// The minor version.
+    public let minor: Int
+
+    /// The patch version.
+    public let patch: Int
+
+    /// The pre-release identifier.
     public let prereleaseIdentifiers: [String]
+
+    /// The build metadata.
     public let buildMetadataIdentifier: String?
     
-    public init(_ major: Int, _ minor: Int, _ patch: Int, prereleaseIdentifiers: [String] = [], buildMetadataIdentifier: String? = nil) {
-        self.major = Swift.max(major, 0)
-        self.minor = Swift.max(minor, 0)
-        self.patch = Swift.max(patch, 0)
+    /// Create a version object.
+    public init(
+        _ major: Int,
+        _ minor: Int,
+        _ patch: Int,
+        prereleaseIdentifiers: [String] = [],
+        buildMetadataIdentifier: String? = nil
+    ) {
+        precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
+        self.major = major
+        self.minor = minor
+        self.patch = patch
         self.prereleaseIdentifiers = prereleaseIdentifiers
         self.buildMetadataIdentifier = buildMetadataIdentifier
     }
 }
 
-// MARK: Equatable
-
-extension Version: Equatable {}
-
-public func ==(v1: Version, v2: Version) -> Bool {
-    guard v1.major == v2.major && v1.minor == v2.minor && v1.patch == v2.patch else {
-        return false
-    }
-    
-    if v1.prereleaseIdentifiers != v2.prereleaseIdentifiers {
-        return false
-    }
-    
-    return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
-}
-
 // MARK: Hashable
 
 extension Version: Hashable {
+
+    public static func ==(lhs: Version, rhs: Version) -> Bool {
+        return lhs.major == rhs.major &&
+               lhs.minor == rhs.minor &&
+               lhs.patch == rhs.patch &&
+               lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
+               lhs.buildMetadataIdentifier == rhs.buildMetadataIdentifier
+    }
+
     public var hashValue: Int {
         // FIXME: We need Swift hashing utilities; this is based on CityHash
         // inspired code inside the Swift stdlib.
@@ -62,64 +73,44 @@ extension Version: Hashable {
 
 // MARK: Comparable
 
-extension Version: Comparable {}
+extension Version: Comparable {
 
-public func <(lhs: Version, rhs: Version) -> Bool {
-    let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
-    let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
-    
-    if lhsComparators != rhsComparators {
-        return lhsComparators.lexicographicallyPrecedes(rhsComparators)
-    }
-    
-    guard lhs.prereleaseIdentifiers.count > 0 else {
-        return false // Non-prerelease lhs >= potentially prerelease rhs
-    }
-    
-    guard rhs.prereleaseIdentifiers.count > 0 else {
-        return true // Prerelease lhs < non-prerelease rhs 
-    }
-    
-    for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
-        if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
-            continue
+    public static func <(lhs: Version, rhs: Version) -> Bool {
+        // FIXME: This method needs cleanup.
+        let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
+        let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
+
+        if lhsComparators != rhsComparators {
+            return lhsComparators.lexicographicallyPrecedes(rhsComparators)
         }
-        
-        let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
-        let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
-        
-        switch (typedLhsIdentifier, typedRhsIdentifier) {
-            case let (int1 as Int, int2 as Int): return int1 < int2
-            case let (string1 as String, string2 as String): return string1 < string2
-            case (is Int, is String): return true // Int prereleases < String prereleases
-            case (is String, is Int): return false
-        default:
+
+        guard lhs.prereleaseIdentifiers.count > 0 else {
+            // Non-prerelease lhs >= potentially prerelease rhs.
             return false
         }
-    }
-    
-    return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
-}
-
-// MARK: BidirectionalIndexType
-
-// FIXME: do we want to keep these APIs now that Version does not conform to
-// BidirectionalCollection?
-extension Version {
-    public func successor() -> Version {
-        return Version(major, minor, patch + 1)
-    }
-
-    public func predecessor() -> Version {
-        if patch == 0 {
-            if minor == 0 {
-                return Version(major - 1, Int.max, Int.max)
-            } else {
-                return Version(major, minor - 1, Int.max)
-            }
-        } else {
-            return Version(major, minor, patch - 1)
+        guard rhs.prereleaseIdentifiers.count > 0 else {
+            // Prerelease lhs < non-prerelease rhs.
+            return true
         }
+
+        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
+            if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
+                continue
+            }
+
+            let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
+            let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
+
+            switch (typedLhsIdentifier, typedRhsIdentifier) {
+                case let (int1 as Int, int2 as Int): return int1 < int2
+                case let (string1 as String, string2 as String): return string1 < string2
+                case (is Int, is String): return true // Int prereleases < String prereleases
+                case (is String, is Int): return false
+            default:
+                return false
+            }
+        }
+        return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
 }
 

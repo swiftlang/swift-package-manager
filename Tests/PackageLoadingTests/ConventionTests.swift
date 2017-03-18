@@ -492,7 +492,7 @@ class ConventionTests: XCTestCase {
             "/Sources/Baz/Baz.swift")
 
         // Direct.
-        var package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "Foo", dependencies: ["Bar"])])
+        var package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "Foo", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
@@ -509,9 +509,13 @@ class ConventionTests: XCTestCase {
         }
 
         // Transitive.
-        package = PackageDescription4.Package(name: "pkg",
-                                                 targets: [Target(name: "Foo", dependencies: ["Bar"]),
-                                                           Target(name: "Bar", dependencies: ["Baz"])])
+        package = PackageDescription4.Package(
+            name: "pkg",
+            targets: [
+                .target(name: "Foo", dependencies: ["Bar"]),
+                .target(name: "Bar", dependencies: ["Baz"])
+            ]
+        )
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
@@ -542,7 +546,7 @@ class ConventionTests: XCTestCase {
         let package = PackageDescription4.Package(
             name: "pkg",
             targets: [
-                Target(
+                .target(
                     name: "Foo",
                     dependencies: ["Bar", "Baz", "Bam"]),
             ])
@@ -571,7 +575,7 @@ class ConventionTests: XCTestCase {
             "/Tests/FooTests/source.swift"
         )
 
-        let package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "FooTests", dependencies: ["Bar"])])
+        let package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "FooTests", dependencies: ["Bar"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
@@ -622,19 +626,19 @@ class ConventionTests: XCTestCase {
         // Reference a target which doesn't exist.
         var fs = InMemoryFileSystem(emptyFiles:
             "/Foo.swift")
-        var package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "Random")])
+        var package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
         }
 
         // Reference an invalid dependency.
-        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: [.Target(name: "Foo")])])
+        package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "pkg", dependencies: [.target(name: "Foo")])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
         }
 
         // Reference self in dependencies.
-        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg", dependencies: ["pkg"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "pkg", dependencies: ["pkg"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("found cyclic dependency declaration: pkg -> pkg")
         }
@@ -646,18 +650,18 @@ class ConventionTests: XCTestCase {
         )
         // Cyclic dependency.
         package = PackageDescription4.Package(name: "pkg", targets: [
-            Target(name: "pkg1", dependencies: ["pkg2"]),
-            Target(name: "pkg2", dependencies: ["pkg3"]),
-            Target(name: "pkg3", dependencies: ["pkg1"]),
+            .target(name: "pkg1", dependencies: ["pkg2"]),
+            .target(name: "pkg2", dependencies: ["pkg3"]),
+            .target(name: "pkg3", dependencies: ["pkg1"]),
         ])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg1")
         }
 
         package = PackageDescription4.Package(name: "pkg", targets: [
-            Target(name: "pkg1", dependencies: ["pkg2"]),
-            Target(name: "pkg2", dependencies: ["pkg3"]),
-            Target(name: "pkg3", dependencies: ["pkg2"]),
+            .target(name: "pkg1", dependencies: ["pkg2"]),
+            .target(name: "pkg2", dependencies: ["pkg3"]),
+            .target(name: "pkg3", dependencies: ["pkg2"]),
         ])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("found cyclic dependency declaration: pkg1 -> pkg2 -> pkg3 -> pkg2")
@@ -667,7 +671,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec/main.swift",
             "/Sources/lib/lib.swift")
-        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "lib", dependencies: ["exec"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "lib", dependencies: ["exec"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("exec") { moduleResult in
                 moduleResult.check(c99name: "exec", type: .executable)
@@ -684,7 +688,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/pkg1/Foo.swift",
             "/Sources/pkg2/readme.txt")
-        package = PackageDescription4.Package(name: "pkg", targets: [Target(name: "pkg1", dependencies: ["pkg2"])])
+        package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
             result.checkModule("pkg1") { moduleResult in
@@ -969,7 +973,7 @@ class ConventionTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/main.c"
         )
-        package = PackageDescription4.Package(name: "pkg", providers: [.Brew("foo")])
+        package = PackageDescription4.Package(name: "pkg", providers: [.brew(["foo"])])
 
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("invalid configuration in 'pkg': providers should only be used with a System Module Package")

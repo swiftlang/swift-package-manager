@@ -1266,7 +1266,7 @@ final class WorkspaceTests: XCTestCase {
                 let manifest = Manifest(
                     path: dep.appending(component: Manifest.filename),
                     url: dep.asString,
-                    package: .v4(.init(name: name, products: [.Library(name: name, targets: [name])])),
+                    package: .v4(.init(name: name, products: [.library(name: name, targets: [name])])),
                     version: nil)
                 manifests[MockManifestLoader.Key(url: dep.asString)] = manifest
             }
@@ -1292,11 +1292,11 @@ final class WorkspaceTests: XCTestCase {
                     url: root.asString,
                     package: .v4(.init(
                         name: "root",
-                        targets: [.init(name: "root", dependencies: ["dep"])],
                         dependencies: [
-                            .package(url: dep1.asString, branch: "develop"),
-                            .package(url: dep2.asString, revision: dep2Revision.identifier),
-                        ])
+                            .package(url: dep1.asString, .branch("develop")),
+                            .package(url: dep2.asString, .revision(dep2Revision.identifier)),
+                        ],
+                        targets: [.target(name: "root", dependencies: ["dep"])])
                     ),
                     version: nil)
                 manifests[MockManifestLoader.Key(url: root.asString)] = manifest

@@ -120,8 +120,8 @@ class PackageGraphTests: XCTestCase {
         let g = loadMockPackageGraph4([
             "/Foo": .init(
                 name: "Foo",
-                targets: [.init(name: "Foo")],
-                products: [.Library(name: "Bar", type: .dynamic, targets: ["Foo"])]),
+                products: [.library(name: "Bar", type: .dynamic, targets: ["Foo"])],
+                targets: [.target(name: "Foo")]),
         ], root: "/Foo", engine: engine, in: fs)
         let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], options: XcodeprojOptions(), fileSystem: fs)
         XcodeProjectTester(project) { result in

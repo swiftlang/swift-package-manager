@@ -13,6 +13,10 @@ import PackageModel
 import Utility
 
 import enum PackageDescription.ProductType
+import class PackageDescription4.Product
+import class PackageDescription4.Target
+
+fileprivate typealias Product = PackageModel.Product
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
@@ -423,21 +427,22 @@ public struct PackageBuilder {
             throw ModuleError.modulesNotFound(missingModules.map{$0})
         }
 
-        let targetMap = Dictionary(items: manifest.package.targets.map { ($0.name, $0) })
+        let targetItems = manifest.package.targets.map{ ($0.name, $0 as PackageDescription4.Target) }
+        let targetMap = Dictionary(items: targetItems)
         let potentialModuleMap = Dictionary(items: potentialModules.map { ($0.name, $0) })
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this module in manifest, i.e. it has no dependencies.
             guard let target = targetMap[$0.name] else { return [] }
             return target.dependencies.flatMap {
                 switch $0 {
-                case .Target(let name):
+                case .targetItem(let name):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in 
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
-                case .Product:
+                case .productItem:
                     return nil
-                case .ByName(let name):
+                case .byNameItem(let name):
                     // By name dependency may or may not be a target dependency.
                     return potentialModuleMap[name]
                 }
@@ -463,17 +468,17 @@ public struct PackageBuilder {
             var deps: [Module] = targetMap[potentialModule.name].map {
                 $0.dependencies.flatMap {
                     switch $0 {
-                    case .Target(let name):
+                    case .targetItem(let name):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         return modules[name]!
 
-                    case .ByName(let name):
+                    case .byNameItem(let name):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         return modules[name]
 
-                    case .Product: return nil
+                    case .productItem: return nil
                     }
                 }
             } ?? []
@@ -489,12 +494,12 @@ public struct PackageBuilder {
             let productDeps: [(String, String?)]
             productDeps = targetMap[potentialModule.name]?.dependencies.flatMap{
                 switch $0 {
-                case .Target:
+                case .targetItem:
                     return nil
-                case .ByName(let name):
+                case .byNameItem(let name):
                     // If this dependency was not found locally, it is a product dependency.
                     return potentialModuleMap[name] == nil ? (name, nil) : nil
-                case .Product(let name, let package):
+                case .productItem(let name, let package):
                     return (name, package)
                 }
             } ?? []
@@ -674,11 +679,11 @@ public struct PackageBuilder {
 
             for product in package.products {
                 switch product {
-                case .exe(let p):
+                case let p as PackageDescription4.Product.Executable:
                     // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
                     let modules = try modulesFrom(targetNames: p.targets, product: p.name)
                     products.append(Product(name: p.name, type: .executable, modules: modules))
-                case .lib(let p):
+                case let p as PackageDescription4.Product.Library:
                     // Get the library type.
                     let type: PackageModel.ProductType
                     switch p.type {
@@ -688,6 +693,8 @@ public struct PackageBuilder {
                     }
                     let modules = try modulesFrom(targetNames: p.targets, product: p.name)
                     products.append(Product(name: p.name, type: type, modules: modules))
+                default:
+                    fatalError("Unreachable")
                 }
             }
         }
@@ -735,9 +742,9 @@ private extension Manifest {
         let names = package.targets.flatMap { target in
             [target.name] + target.dependencies.flatMap {
                 switch $0 {
-                case .Target(let name):
+                case .targetItem(let name):
                     return name
-                case .ByName, .Product:
+                case .byNameItem, .productItem:
                     return nil
                 }
             }

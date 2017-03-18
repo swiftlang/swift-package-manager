@@ -63,7 +63,7 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
     guard let pkgConfigName = module.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
     let provider = module.providers?.first{ $0.isAvailable }
-    let additionalSearchPaths = provider?.pkgConfigSearchPath().map{[$0]} ?? []
+    let additionalSearchPaths = provider?.pkgConfigSearchPath() ?? []
     // Get the pkg config flags.
     do {
         let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths, fileSystem: fileSystem)
@@ -80,10 +80,10 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
 extension SystemPackageProvider {
     public var installText: String {
         switch self {
-        case .Brew(let name):
-            return "    brew install \(name)\n"
-        case .Apt(let name):
-            return "    apt-get install \(name)\n"
+        case .brewItem(let packages):
+            return "    brew install \(packages.joined(separator: " "))\n"
+        case .aptItem(let packages):
+            return "    apt-get install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -91,11 +91,11 @@ extension SystemPackageProvider {
     var isAvailable: Bool {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {
-        case .Brew(_):
+        case .brewItem:
             if case .darwin = platform  {
                 return true
             }
-        case .Apt(_):
+        case .aptItem:
             if case .linux(.debian) = platform  {
                 return true
             }
@@ -103,9 +103,9 @@ extension SystemPackageProvider {
         return false
     }
 
-    func pkgConfigSearchPath() -> AbsolutePath? {
+    func pkgConfigSearchPath() -> [AbsolutePath] {
         switch self {
-        case .Brew(let name):
+        case .brewItem(let packages):
             // Homebrew can have multiple versions of the same package. The
             // user can choose another version than the latest by running
             // ``brew switch NAME VERSION``, so we shouldn't assume to link
@@ -114,12 +114,10 @@ extension SystemPackageProvider {
             struct Static {
                 static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").chomp() }()
             }
-            guard let brewPrefix = Static.value else {
-                return nil
-            }
-            return AbsolutePath(brewPrefix).appending(components: "opt", name, "lib", "pkgconfig")
-        case .Apt:
-            return nil
+            guard let brewPrefix = Static.value else { return [] }
+            return packages.map{ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") }
+        case .aptItem:
+            return []
         }
     }
 

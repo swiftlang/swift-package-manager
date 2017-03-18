@@ -124,10 +124,10 @@ extension Manifest.RawPackage {
                 dependencies = target.dependencies.map { dependency in
                     switch dependency {
                     case .Target(let name):
-                        return .Target(name: name)
+                        return .target(name: name)
                     }
                 }
-                return Target(name: target.name, dependencies: dependencies)
+                return .target(name: target.name, dependencies: dependencies)
             }
 
             case .v4(let package):
@@ -139,7 +139,7 @@ extension Manifest.RawPackage {
         switch self {
         case .v3(let package):
             return package.dependencies.map {
-                .Package(url: $0.url, versions: $0.versionRange.asPD4Version)
+                .package(url: $0.url, $0.versionRange.asPD4Version)
             }
 
         case .v4(let package):
@@ -152,8 +152,8 @@ extension Manifest.RawPackage {
         case .v3(let package):
             return package.providers?.map {
                 switch $0 {
-                case .Brew(let name): return .Brew(name)
-                case .Apt(let name): return .Apt(name)
+                case .Brew(let name): return .brew([name])
+                case .Apt(let name): return .apt([name])
                 }
             }
 
