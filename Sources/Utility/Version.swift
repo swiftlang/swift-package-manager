@@ -26,7 +26,7 @@ public struct Version {
     public let prereleaseIdentifiers: [String]
 
     /// The build metadata.
-    public let buildMetadataIdentifier: String?
+    public let buildMetadataIdentifiers: [String]
     
     /// Create a version object.
     public init(
@@ -34,28 +34,25 @@ public struct Version {
         _ minor: Int,
         _ patch: Int,
         prereleaseIdentifiers: [String] = [],
-        buildMetadataIdentifier: String? = nil
+        buildMetadataIdentifiers: [String] = []
     ) {
         precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
         self.major = major
         self.minor = minor
         self.patch = patch
         self.prereleaseIdentifiers = prereleaseIdentifiers
-        self.buildMetadataIdentifier = buildMetadataIdentifier
+        self.buildMetadataIdentifiers = buildMetadataIdentifiers
     }
 }
 
 extension Version: Hashable {
 
     static public func ==(lhs: Version, rhs: Version) -> Bool {
-        if lhs.major == rhs.major && 
-           lhs.minor == rhs.minor && 
-           lhs.patch == rhs.patch &&
-           lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-           lhs.buildMetadataIdentifier == rhs.buildMetadataIdentifier {
-            return true
-        }
-        return false
+        return lhs.major == rhs.major && 
+               lhs.minor == rhs.minor && 
+               lhs.patch == rhs.patch &&
+               lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
+               lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
     }
 
     public var hashValue: Int {
@@ -67,9 +64,7 @@ extension Version: Hashable {
         result = (result &* mul) ^ UInt64(bitPattern: Int64(minor.hashValue))
         result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
         result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        if let build = buildMetadataIdentifier {
-            result = (result &* mul) ^ UInt64(bitPattern: Int64(build.hashValue))
-        }
+        result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
         return Int(truncatingBitPattern: result)
     }
 }
@@ -117,11 +112,11 @@ extension Version: Comparable {
 extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
-        if prereleaseIdentifiers.count > 0 {
+        if !prereleaseIdentifiers.isEmpty {
             base += "-" + prereleaseIdentifiers.joined(separator: ".")
         }
-        if let buildMetadataIdentifier = buildMetadataIdentifier {
-            base += "+" + buildMetadataIdentifier
+        if !buildMetadataIdentifiers.isEmpty {
+            base += "+" + buildMetadataIdentifiers.joined(separator: ".")
         }
         return base
     }
@@ -141,32 +136,22 @@ public extension Version {
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
         let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
         let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).flatMap{ Int($0) }.filter{ $0 >= 0 }
+            .map(String.init).flatMap{Int($0)}.filter{$0 >= 0}
 
-        guard requiredComponents.count == 3 else {
-            return nil
-        }
+        guard requiredComponents.count == 3 else { return nil }
 
         self.major = requiredComponents[0]
         self.minor = requiredComponents[1]
         self.patch = requiredComponents[2]
 
-        if let prereleaseStartIndex = prereleaseStartIndex {
-            let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
-            let prereleaseCharacters = characters[characters.index(after: prereleaseStartIndex)..<prereleaseEndIndex]
-            prereleaseIdentifiers = prereleaseCharacters.split(separator: ".").map{ String($0) }
-        } else {
-            prereleaseIdentifiers = []
+        func identifiers(start: String.Index?, end: String.Index) -> [String] {
+            guard let start = start else { return [] }
+            let identifiers = characters[characters.index(after: start)..<end]
+            return identifiers.split(separator: ".").map(String.init)
         }
 
-        var buildMetadataIdentifier: String? = nil
-        if let metadataStartIndex = metadataStartIndex {
-            let buildMetadataCharacters = characters.suffix(from: characters.index(after: metadataStartIndex))
-            if !buildMetadataCharacters.isEmpty {
-                buildMetadataIdentifier = String(buildMetadataCharacters)
-            }
-        }
-        self.buildMetadataIdentifier = buildMetadataIdentifier
+        self.prereleaseIdentifiers = identifiers(start: prereleaseStartIndex, end: metadataStartIndex ?? characters.endIndex)
+        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: characters.endIndex)
     }
 }
 
@@ -199,7 +184,7 @@ extension Version: JSONMappable, JSONSerializable {
         self.init(
             version.major, version.minor, version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifier: version.buildMetadataIdentifier
+            buildMetadataIdentifiers: version.buildMetadataIdentifiers
         )
     }
 

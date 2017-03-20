@@ -19,7 +19,7 @@ extension Utility.Version {
             version.minor,
             version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifier: version.buildMetadataIdentifier)
+            buildMetadataIdentifiers: version.buildMetadataIdentifiers)
     }
 }
 

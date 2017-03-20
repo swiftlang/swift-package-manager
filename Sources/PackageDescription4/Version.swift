@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-/// A struct representing semver version.
+/// A struct representing a semver version.
 public struct Version {
 
     /// The major version.
@@ -24,7 +24,7 @@ public struct Version {
     public let prereleaseIdentifiers: [String]
 
     /// The build metadata.
-    public let buildMetadataIdentifier: String?
+    public let buildMetadataIdentifiers: [String]
     
     /// Create a version object.
     public init(
@@ -32,27 +32,25 @@ public struct Version {
         _ minor: Int,
         _ patch: Int,
         prereleaseIdentifiers: [String] = [],
-        buildMetadataIdentifier: String? = nil
+        buildMetadataIdentifiers: [String] = []
     ) {
         precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
         self.major = major
         self.minor = minor
         self.patch = patch
         self.prereleaseIdentifiers = prereleaseIdentifiers
-        self.buildMetadataIdentifier = buildMetadataIdentifier
+        self.buildMetadataIdentifiers = buildMetadataIdentifiers
     }
 }
 
-// MARK: Hashable
-
 extension Version: Hashable {
 
-    public static func ==(lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major &&
-               lhs.minor == rhs.minor &&
+    static public func ==(lhs: Version, rhs: Version) -> Bool {
+        return lhs.major == rhs.major && 
+               lhs.minor == rhs.minor && 
                lhs.patch == rhs.patch &&
                lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
-               lhs.buildMetadataIdentifier == rhs.buildMetadataIdentifier
+               lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
     }
 
     public var hashValue: Int {
@@ -64,19 +62,14 @@ extension Version: Hashable {
         result = (result &* mul) ^ UInt64(bitPattern: Int64(minor.hashValue))
         result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
         result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        if let build = buildMetadataIdentifier {
-            result = (result &* mul) ^ UInt64(bitPattern: Int64(build.hashValue))
-        }
+        result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
         return Int(truncatingBitPattern: result)
     }
 }
 
-// MARK: Comparable
-
 extension Version: Comparable {
 
     public static func <(lhs: Version, rhs: Version) -> Bool {
-        // FIXME: This method needs cleanup.
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
 
@@ -85,12 +78,11 @@ extension Version: Comparable {
         }
 
         guard lhs.prereleaseIdentifiers.count > 0 else {
-            // Non-prerelease lhs >= potentially prerelease rhs.
-            return false
+            return false // Non-prerelease lhs >= potentially prerelease rhs
         }
+
         guard rhs.prereleaseIdentifiers.count > 0 else {
-            // Prerelease lhs < non-prerelease rhs.
-            return true
+            return true // Prerelease lhs < non-prerelease rhs 
         }
 
         for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
@@ -110,20 +102,19 @@ extension Version: Comparable {
                 return false
             }
         }
+
         return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
 }
 
-// MARK: CustomStringConvertible
-
 extension Version: CustomStringConvertible {
     public var description: String {
         var base = "\(major).\(minor).\(patch)"
-        if prereleaseIdentifiers.count > 0 {
+        if !prereleaseIdentifiers.isEmpty {
             base += "-" + prereleaseIdentifiers.joined(separator: ".")
         }
-        if let buildMetadataIdentifier = buildMetadataIdentifier {
-            base += "+" + buildMetadataIdentifier
+        if !buildMetadataIdentifiers.isEmpty {
+            base += "+" + buildMetadataIdentifiers.joined(separator: ".")
         }
         return base
     }

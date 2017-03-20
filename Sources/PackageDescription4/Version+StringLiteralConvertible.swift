@@ -39,7 +39,7 @@ extension Version {
         minor = version.minor
         patch = version.patch
         prereleaseIdentifiers = version.prereleaseIdentifiers
-        buildMetadataIdentifier = version.buildMetadataIdentifier
+        buildMetadataIdentifiers = version.buildMetadataIdentifiers
     }
 
     public init?(_ versionString: String) {
@@ -52,32 +52,22 @@ extension Version {
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
         let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
-        let requiredStringComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-        let requiredComponents = requiredStringComponents.flatMap{ Int($0) }.filter{ $0 >= 0 }
+        let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+            .map(String.init).flatMap{Int($0)}.filter{$0 >= 0}
 
-        guard requiredComponents.count == 3 else {
-            return nil
-        }
+        guard requiredComponents.count == 3 else { return nil }
 
         self.major = requiredComponents[0]
         self.minor = requiredComponents[1]
         self.patch = requiredComponents[2]
 
-        if let prereleaseStartIndex = prereleaseStartIndex {
-            let prereleaseEndIndex = metadataStartIndex ?? characters.endIndex
-            let prereleaseCharacters = characters[characters.index(after: prereleaseStartIndex)..<prereleaseEndIndex]
-            prereleaseIdentifiers = prereleaseCharacters.split(separator: ".").map{ String($0) }
-        } else {
-            prereleaseIdentifiers = []
+        func identifiers(start: String.Index?, end: String.Index) -> [String] {
+            guard let start = start else { return [] }
+            let identifiers = characters[characters.index(after: start)..<end]
+            return identifiers.split(separator: ".").map(String.init)
         }
 
-        var buildMetadataIdentifier: String? = nil
-        if let metadataStartIndex = metadataStartIndex {
-            let buildMetadataCharacters = characters.suffix(from: characters.index(after: metadataStartIndex))
-            if !buildMetadataCharacters.isEmpty {
-                buildMetadataIdentifier = String(buildMetadataCharacters)
-            }
-        }
-        self.buildMetadataIdentifier = buildMetadataIdentifier
+        self.prereleaseIdentifiers = identifiers(start: prereleaseStartIndex, end: metadataStartIndex ?? characters.endIndex)
+        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: characters.endIndex)
     }
 }
