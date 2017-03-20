@@ -68,7 +68,7 @@ public class Product {
         override func toJSON() -> JSON {
             return .dictionary([
                 "name": .string(name),
-                "productType": .string("library"),
+                "product_type": .string("library"),
                 "type": type.map{ JSON.string($0.rawValue) } ?? .null,
                 "targets": .array(targets.map(JSON.string)),
             ])
