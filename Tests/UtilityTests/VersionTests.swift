@@ -27,7 +27,7 @@ class VersionTests: XCTestCase {
                     XCTAssertEqual(version,
                         Version(rversion.major, rversion.minor, rversion.patch,
                             prereleaseIdentifiers: rversion.prereleaseIdentifiers,
-                            buildMetadataIdentifier: rversion.buildMetadataIdentifier))
+                            buildMetadataIdentifiers: rversion.buildMetadataIdentifiers))
                 } else {
                     XCTAssertNotEqual(version, rversion)
                 }
@@ -44,12 +44,17 @@ class VersionTests: XCTestCase {
 
         XCTAssertEqual(Set([Version(1,2,3)]), Set([Version(1,2,3)]))
         XCTAssertNotEqual(Set([Version(1,2,3)]), Set([Version(1,2,3, prereleaseIdentifiers: ["alpha"])]))
-        XCTAssertNotEqual(Set([Version(1,2,3)]), Set([Version(1,2,3, buildMetadataIdentifier: "1011")]))
+        XCTAssertNotEqual(Set([Version(1,2,3)]), Set([Version(1,2,3, buildMetadataIdentifiers: ["1011"])]))
     }
 
     func testDescription() {
-        let v: Version = "123.234.345-alpha.beta+1011"
-        XCTAssertEqual(v.description, "123.234.345-alpha.beta+1011")
+        let v: Version = "123.234.345-alpha.beta+sha1.1011"
+        XCTAssertEqual(v.description, "123.234.345-alpha.beta+sha1.1011")
+        XCTAssertEqual(v.major, 123)
+        XCTAssertEqual(v.minor, 234)
+        XCTAssertEqual(v.patch, 345)
+        XCTAssertEqual(v.prereleaseIdentifiers, ["alpha", "beta"])
+        XCTAssertEqual(v.buildMetadataIdentifiers, ["sha1", "1011"])
     }
 
     func testFromString() {
@@ -65,9 +70,9 @@ class VersionTests: XCTestCase {
         XCTAssertEqual(Version(1,2,3), Version(string: "1.2.3"))
         XCTAssertEqual(Version(1,2,3), Version(string: "01.002.0003"))
         XCTAssertEqual(Version(0,9,21), Version(string: "0.9.21"))
-        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifier: "1011"),
+        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifiers: ["1011"]),
             Version(string: "0.9.21-alpha.beta+1011"))
-        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifier: "1011"), Version(string: "0.9.21+1011"))
+        XCTAssertEqual(Version(0,9,21, prereleaseIdentifiers: [], buildMetadataIdentifiers: ["1011"]), Version(string: "0.9.21+1011"))
     }
 
     func testComparable() {

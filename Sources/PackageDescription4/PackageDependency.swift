@@ -45,7 +45,7 @@ extension Package.Dependency: Equatable {
         let upperBound = Version(
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
-            buildMetadataIdentifier: upper.buildMetadataIdentifier)
+            buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
         return .package(url: url, range.lowerBound..<upperBound)
     }
 

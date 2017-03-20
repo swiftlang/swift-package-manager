@@ -24,7 +24,7 @@ class VersionShimTests: XCTestCase {
         XCTAssertEqual(UVersion(pdVersion: PD4Version("1.0.4")), UVersion(1, 0, 4))
         XCTAssertEqual(UVersion(pdVersion: PD4Version("4.3.4-alpha")), UVersion(4, 3, 4, prereleaseIdentifiers: ["alpha"]))
         XCTAssertEqual(UVersion(pdVersion: PD4Version("4.3.4-alpha.1+k")),
-            UVersion(4, 3, 4, prereleaseIdentifiers: ["alpha", "1"], buildMetadataIdentifier: "k"))
+            UVersion(4, 3, 4, prereleaseIdentifiers: ["alpha", "1"], buildMetadataIdentifiers: ["k"]))
 
         // Ensure we can convert Range correctly.
         let r1: Range<PD4Version> = "1.0.4" ..< "2.0.0"

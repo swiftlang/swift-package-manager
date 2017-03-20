@@ -186,6 +186,6 @@ fileprivate extension PackageDescription.Version {
             version.minor,
             version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
-            buildMetadataIdentifier: version.buildMetadataIdentifier)
+            buildMetadataIdentifier: version.buildMetadataIdentifiers.joined(separator: "."))
     }
 }
