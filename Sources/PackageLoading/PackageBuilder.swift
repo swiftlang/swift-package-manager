@@ -214,6 +214,14 @@ public struct PackageBuilder {
     /// Create a product for all of the package's library targets.
     private let createImplicitProduct: Bool
 
+    /// Returns true if the loaded manifest version is v3.
+    private var v3Manifest: Bool {
+        switch manifest.package {
+        case .v3: return true
+        case .v4: return false
+        }
+    }
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -483,8 +491,10 @@ public struct PackageBuilder {
                 }
             } ?? []
 
-            // For test modules, add dependencies to its base module, if it has no explicit dependency.
-            if potentialModule.isTest && deps.isEmpty {
+            // For test modules, add dependencies to its base module, if it has
+            // no explicit dependency. We only do this for v3 manifests to
+            // maintain compatibility.
+            if v3Manifest && potentialModule.isTest && deps.isEmpty {
                 if let baseModule = modules[potentialModule.basename] {
                     deps.append(baseModule)
                 }

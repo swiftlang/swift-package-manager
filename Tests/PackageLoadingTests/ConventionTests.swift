@@ -324,7 +324,48 @@ class ConventionTests: XCTestCase {
         }
     }
 
-    func testTestsLayouts() throws {
+    func testTestsLayoutsv4() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Tests/ATests/Foo.swift")
+
+        PackageBuilderTester("Foo", in: fs) { result in
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(c99name: "A", type: .executable)
+                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+            }
+
+            result.checkModule("ATests") { moduleResult in
+                moduleResult.check(c99name: "ATests", type: .test)
+                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
+                moduleResult.check(dependencies: [])
+            }
+        }
+
+        let package = PackageDescription4.Package(
+            name: "Foo",
+            targets: [
+                .target(name: "ATests", dependencies: ["A"]),
+            ]
+        )
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(c99name: "A", type: .executable)
+                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+            }
+
+            result.checkModule("ATests") { moduleResult in
+                moduleResult.check(c99name: "ATests", type: .test)
+                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["A"])
+            }
+        }
+    }
+
+    func testTestsLayoutsv3() throws {
+        // We expect auto dependency between Foo and FooTests.
+        //
         // Single module layout.
         for singleModuleSource in ["/", "/Sources/", "/Sources/Foo/"].lazy.map(AbsolutePath.init) {
             let fs = InMemoryFileSystem(emptyFiles:
@@ -333,7 +374,7 @@ class ConventionTests: XCTestCase {
                 "/Tests/FooTests/BarTests.swift",
                 "/Tests/BarTests/BazTests.swift")
 
-            PackageBuilderTester("Foo", in: fs) { result in
+            PackageBuilderTester(.v3(.init(name: "Foo")), in: fs) { result in
                 result.checkModule("Foo") { moduleResult in
                     moduleResult.check(c99name: "Foo", type: .library)
                     moduleResult.checkSources(root: singleModuleSource.asString, paths: "Foo.swift")
@@ -363,7 +404,7 @@ class ConventionTests: XCTestCase {
             "/Tests/DTests/Foo.swift",
             "/Tests/ETests/Foo.swift")
 
-       PackageBuilderTester("Foo", in: fs) { result in
+       PackageBuilderTester(.v3(.init(name: "Foo")), in: fs) { result in
            result.checkModule("A") { moduleResult in
                moduleResult.check(c99name: "A", type: .executable)
                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
@@ -994,7 +1035,8 @@ class ConventionTests: XCTestCase {
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testSingleExecutableClangModule", testSingleExecutableClangModule),
         ("testSingleExecutableSwiftModule", testSingleExecutableSwiftModule),
-        ("testTestsLayouts", testTestsLayouts),
+        ("testTestsLayoutsv3", testTestsLayoutsv3),
+        ("testTestsLayoutsv4", testTestsLayoutsv4),
         ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
         ("testMultipleRoots", testMultipleRoots),
         ("testInvalidLayout1", testInvalidLayout1),
@@ -1027,8 +1069,8 @@ class ConventionTests: XCTestCase {
 ///     - warningStream: OutputByteStream to be passed to package builder.
 ///
 /// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: PackageDescription4.Package, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: .v4(package), version: nil)
+private func loadPackage(_ package: Manifest.RawPackage, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
+    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
     let builder = PackageBuilder(
         manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, createImplicitProduct: false)
     return try builder.construct()
@@ -1056,13 +1098,38 @@ final class PackageBuilderTester {
     var ignoreOtherModules: Bool = false
 
     @discardableResult
-   convenience init(_ name: String, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
-       let package = Package(name: name)
-       self.init(package, path: path, in: fs, file: file, line: line, body)
+    convenience init(
+        _ package: PackageDescription4.Package,
+        path: AbsolutePath = .root,
+        in fs: FileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ body: (PackageBuilderTester) -> Void
+    ) {
+       self.init(.v4(package), path: path, in: fs, file: file, line: line, body)
     }
 
     @discardableResult
-    init(_ package: PackageDescription4.Package, path: AbsolutePath = .root, in fs: FileSystem, file: StaticString = #file, line: UInt = #line, _ body: (PackageBuilderTester) -> Void) {
+    convenience init(
+        _ name: String,
+        path: AbsolutePath = .root,
+        in fs: FileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ body: (PackageBuilderTester) -> Void
+    ) {
+       self.init(.init(name: name), path: path, in: fs, file: file, line: line, body)
+    }
+
+    @discardableResult
+    init(
+        _ package: Manifest.RawPackage,
+        path: AbsolutePath = .root,
+        in fs: FileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
+        _ body: (PackageBuilderTester) -> Void
+    ) {
         let warningStream = BufferedOutputByteStream()
         do {
             let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
@@ -1161,7 +1228,7 @@ final class PackageBuilderTester {
         }
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)")
+            XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)", file: file, line: line)
         }
 
         func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
