@@ -258,11 +258,11 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let g = loadMockPackageGraph4([
-            "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", type: .dynamic, targets: ["Bar"])]),
+            "/Bar": .init(name: "Bar", products: [.library(name: "Bar", type: .dynamic, targets: ["Bar"])]),
             "/Foo": .init(
                 name: "Foo",
-                targets: [.init(name: "Foo", dependencies: ["Bar"])],
-                dependencies: [.Package(url: "/Bar", majorVersion: 1)],
+                dependencies: [.package(url: "/Bar", from: "1.0.0")],
+                targets: [.target(name: "Foo", dependencies: ["Bar"])],
                 swiftLanguageVersions: [2, ToolsVersion.currentToolsVersion.major]),
         ], root: "/Foo", in: fs)
 

@@ -14,8 +14,10 @@ extension Version: ExpressibleByStringLiteral {
         if let version = Version(value.characters) {
             self.init(version)
         } else {
-            // If version can't be initialized using the string literal, report the error and initialize with a dummy value.
-            // This is done to fail the invoking tool (like swift build) gracefully rather than just crashing.
+            // If version can't be initialized using the string literal, report
+            // the error and initialize with a dummy value.  This is done to
+            // report error to the invoking tool (like swift build) gracefully
+            // rather than just crashing.
             errors.add("Invalid version string: \(value)")
             self.init(0, 0, 0)
         }

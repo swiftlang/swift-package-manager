@@ -120,7 +120,7 @@ class ManifestTests: XCTestCase {
             XCTAssertEqual(manifest.package.targets.count, 1)
             let foo = manifest.package.targets[0]
             XCTAssertEqual(foo.name, "Foo")
-            XCTAssertEqual(foo.dependencies, [.Target(name: "Bar")])
+            XCTAssertEqual(foo.dependencies, [.target(name: "Bar")])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
     }

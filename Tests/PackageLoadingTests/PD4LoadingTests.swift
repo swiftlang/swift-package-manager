@@ -88,12 +88,12 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "let package = Package("
         stream <<< "    name: \"Trivial\","
         stream <<< "    targets: ["
-        stream <<< "        Target("
+        stream <<< "        .target("
         stream <<< "            name: \"foo\","
         stream <<< "            dependencies: ["
         stream <<< "                \"dep1\","
-        stream <<< "                .Target(name: \"dep2\"),"
-        stream <<< "                .Product(name: \"dep3\", package: \"Pkg\"),"
+        stream <<< "                .target(name: \"dep2\"),"
+        stream <<< "                .product(name: \"dep3\", package: \"Pkg\"),"
         stream <<< "            ]),"
         stream <<< "    ]"
         stream <<< ")"
@@ -104,7 +104,7 @@ class PackageDescription4LoadingTests: XCTestCase {
             XCTAssertEqual(foo.name, "foo")
 
             let expectedDependencies: [PackageDescription4.Target.Dependency]
-            expectedDependencies = [.ByName(name: "dep1"), .Target(name: "dep2"), .Product(name: "dep3", package: "Pkg")]
+            expectedDependencies = [.byNameItem(name: "dep1"), .target(name: "dep2"), .product(name: "dep3", package: "Pkg")]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
         }
     }
@@ -145,14 +145,14 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
         stream <<< "   dependencies: [" <<< "\n"
-        stream <<< "       .package(url: \"/foo\", branch: \"master\")," <<< "\n"
-        stream <<< "       .package(url: \"/bar\", revision: \"58e9de4e7b79e67c72a46e164158e3542e570ab6\")," <<< "\n"
+        stream <<< "       .package(url: \"/foo\", .branch(\"master\"))," <<< "\n"
+        stream <<< "       .package(url: \"/bar\", .revision(\"58e9de4e7b79e67c72a46e164158e3542e570ab6\"))," <<< "\n"
         stream <<< "   ]" <<< "\n"
         stream <<< ")" <<< "\n"
         loadManifest(stream.bytes) { manifest in
             let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo"], .package(url: "/foo", branch: "master"))
-            XCTAssertEqual(deps["/bar"], .package(url: "/bar", revision: "58e9de4e7b79e67c72a46e164158e3542e570ab6"))
+            XCTAssertEqual(deps["/foo"], .package(url: "/foo", .branch("master")))
+            XCTAssertEqual(deps["/bar"], .package(url: "/bar", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 

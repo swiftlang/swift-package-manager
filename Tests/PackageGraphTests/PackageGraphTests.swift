@@ -54,11 +54,12 @@ class PackageGraphTests: XCTestCase {
 
         let engine = DiagnosticsEngine()
         let g = loadMockPackageGraph4([
-            "/Bar": .init(name: "Bar", products: [.Library(name: "Bar", targets: ["Bar"])]),
+            "/Bar": .init(name: "Bar", products: [.library(name: "Bar", targets: ["Bar"])]),
             "/Foo": .init(
                 name: "Foo",
-                targets: [.init(name: "Foo", dependencies: ["Bar"])],
-                dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
+                dependencies: [.package(url: "/Bar", from: "1.0.0")],
+                targets: [.target(name: "Foo", dependencies: ["Bar"])]
+                ),
         ], root: "/Foo", engine: engine, in: fs)
 
         PackageGraphTester(g) { result in

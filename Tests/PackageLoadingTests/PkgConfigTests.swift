@@ -40,8 +40,8 @@ class PkgConfigTests: XCTestCase {
             let module = CModule(
                 pkgConfig: "Foo",
                 providers: [
-                    .Brew("libFoo"),
-                    .Apt("libFoo-dev"),
+                    .brew(["libFoo"]),
+                    .apt(["libFoo-dev"]),
                 ]
             )
             let result = pkgConfigArgs(for: module)!
@@ -49,10 +49,10 @@ class PkgConfigTests: XCTestCase {
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
             switch result.provider {
-            case .Brew(let name)?:
-                XCTAssertEqual(name, "libFoo")
-            case .Apt(let name)?:
-                XCTAssertEqual(name, "libFoo-dev")
+            case .brewItem(let names)?:
+                XCTAssertEqual(names, ["libFoo"])
+            case .aptItem(let names)?:
+                XCTAssertEqual(names, ["libFoo-dev"])
             case nil:
                 XCTFail("Expected a provider here")
             }
