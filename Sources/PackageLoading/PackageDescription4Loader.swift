@@ -122,6 +122,10 @@ extension PackageDescription4.Package.Dependency {
             }
             requirement = .rangeItem(v1..<v2)
 
+        case .string("exact")?:
+            guard case .string(let identifier)? = requirementDict["identifier"] else { fatalError() }
+            requirement = .exactItem(Version(identifier)!)
+
         default: fatalError()
         }
 

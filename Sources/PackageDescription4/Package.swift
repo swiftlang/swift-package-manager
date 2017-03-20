@@ -15,7 +15,7 @@ import Darwin.C
 #endif
 
 /// The description for a complete package.
-public final class Package: Equatable {
+public final class Package {
 
     /// Represents a package dependency.
     public class Dependency {
@@ -99,10 +99,6 @@ public final class Package: Equatable {
             dumpPackageAtExit(self, fileNo: fileNo)
         }
     }
-
-    public static func ==(lhs: Package, rhs: Package) -> Bool {
-        return lhs === rhs
-    }
 }
 
 /// Represents system package providers.
@@ -125,7 +121,21 @@ public enum SystemPackageProvider {
 
 // MARK: Package JSON serialization
 
-extension SystemPackageProvider {
+extension SystemPackageProvider: Equatable {
+
+    public static func ==(lhs: SystemPackageProvider, rhs: SystemPackageProvider) -> Bool {
+        switch (lhs, rhs) {
+        case (.brewItem(let lhs), .brewItem(let rhs)):
+            return lhs == rhs
+        case (.brewItem, _):
+            return false
+        case (.aptItem(let lhs), .aptItem(let rhs)):
+            return lhs == rhs
+        case (.aptItem, _):
+            return false
+        }
+    }
+
     func toJSON() -> JSON {
         let name: String
         let values: [String]

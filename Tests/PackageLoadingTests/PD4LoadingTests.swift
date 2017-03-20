@@ -94,6 +94,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "                \"dep1\","
         stream <<< "                .target(name: \"dep2\"),"
         stream <<< "                .product(name: \"dep3\", package: \"Pkg\"),"
+        stream <<< "                .product(name: \"dep4\"),"
         stream <<< "            ]),"
         stream <<< "    ]"
         stream <<< ")"
@@ -104,7 +105,12 @@ class PackageDescription4LoadingTests: XCTestCase {
             XCTAssertEqual(foo.name, "foo")
 
             let expectedDependencies: [PackageDescription4.Target.Dependency]
-            expectedDependencies = [.byNameItem(name: "dep1"), .target(name: "dep2"), .product(name: "dep3", package: "Pkg")]
+            expectedDependencies = [
+                .byName(name: "dep1"),
+                .target(name: "dep2"),
+                .product(name: "dep3", package: "Pkg"),
+                .product(name: "dep4"),
+            ]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
         }
     }
@@ -139,20 +145,82 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
-    func testRevision() throws {
+    func testPackageDependencies() throws {
         let stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
         stream <<< "let package = Package(" <<< "\n"
         stream <<< "   name: \"Foo\"," <<< "\n"
         stream <<< "   dependencies: [" <<< "\n"
-        stream <<< "       .package(url: \"/foo\", .branch(\"master\"))," <<< "\n"
-        stream <<< "       .package(url: \"/bar\", .revision(\"58e9de4e7b79e67c72a46e164158e3542e570ab6\"))," <<< "\n"
+        stream <<< "       .package(url: \"/foo1\", from: \"1.0.0\")," <<< "\n"
+        stream <<< "       .package(url: \"/foo2\", .upToNextMajor(from: \"1.0.0\"))," <<< "\n"
+        stream <<< "       .package(url: \"/foo3\", .upToNextMinor(from: \"1.0.0\"))," <<< "\n"
+        stream <<< "       .package(url: \"/foo4\", .exact(\"1.0.0\"))," <<< "\n"
+        stream <<< "       .package(url: \"/foo5\", .branch(\"master\"))," <<< "\n"
+        stream <<< "       .package(url: \"/foo6\", .revision(\"58e9de4e7b79e67c72a46e164158e3542e570ab6\"))," <<< "\n"
+        stream <<< "   ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+       loadManifest(stream.bytes) { manifest in
+            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], .package(url: "/foo1", from: "1.0.0"))
+            XCTAssertEqual(deps["/foo2"], .package(url: "/foo2", .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo3"], .package(url: "/foo3", .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo4"], .package(url: "/foo4", .exact("1.0.0")))
+            XCTAssertEqual(deps["/foo5"], .package(url: "/foo5", .branch("master")))
+            XCTAssertEqual(deps["/foo6"], .package(url: "/foo6", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        }
+    }
+
+    func testProducts() {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Foo\"," <<< "\n"
+        stream <<< "   products: [" <<< "\n"
+        stream <<< "       .executable(name: \"tool\", targets: [\"tool\"])," <<< "\n"
+        stream <<< "       .library(name: \"Foo\", targets: [\"Foo\"])," <<< "\n"
+        stream <<< "       .library(name: \"FooDy\", type: .dynamic, targets: [\"Foo\"])," <<< "\n"
         stream <<< "   ]" <<< "\n"
         stream <<< ")" <<< "\n"
         loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.package.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo"], .package(url: "/foo", .branch("master")))
-            XCTAssertEqual(deps["/bar"], .package(url: "/bar", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            guard case .v4(let package) = manifest.package else {
+                return XCTFail()
+            }
+            let products = Dictionary(items: package.products.map{ ($0.name, $0) })
+            // Check tool.
+            let tool = products["tool"]! as! PackageDescription4.Product.Executable
+            XCTAssertEqual(tool.name, "tool")
+            XCTAssertEqual(tool.targets, ["tool"])
+            // Check Foo.
+            let foo = products["Foo"]! as! PackageDescription4.Product.Library
+            XCTAssertEqual(foo.name, "Foo")
+            XCTAssertEqual(foo.type, nil)
+            XCTAssertEqual(foo.targets, ["Foo"])
+            // Check FooDy.
+            let fooDy = products["FooDy"]! as! PackageDescription4.Product.Library
+            XCTAssertEqual(fooDy.name, "FooDy")
+            XCTAssertEqual(fooDy.type, .dynamic)
+            XCTAssertEqual(fooDy.targets, ["Foo"])
+        }
+    }
+
+    func testSystemPackage() {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"Copenssl\"," <<< "\n"
+        stream <<< "   pkgConfig: \"openssl\"," <<< "\n"
+        stream <<< "   providers: [" <<< "\n"
+        stream <<< "       .brew([\"openssl\"])," <<< "\n"
+        stream <<< "       .apt([\"openssl\", \"libssl-dev\"])," <<< "\n"
+        stream <<< "   ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "Copenssl")
+            XCTAssertEqual(manifest.package.pkgConfig, "openssl")
+            XCTAssertEqual(manifest.package.providers!, [
+                .brew(["openssl"]),
+                .apt(["openssl", "libssl-dev"]),
+            ])
         }
     }
 
@@ -160,6 +228,8 @@ class PackageDescription4LoadingTests: XCTestCase {
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testTargetDependencies", testTargetDependencies),
         ("testTrivial", testTrivial),
-        ("testRevision", testRevision),
+        ("testPackageDependencies", testPackageDependencies),
+        ("testProducts", testProducts),
+        ("testSystemPackage", testSystemPackage),
     ]
 }
