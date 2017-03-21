@@ -122,6 +122,11 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.enableResolverPrefetching = $1 })
 
         binder.bind(
+            option: parser.add(option: "--disable-manifest-sandbox", kind: Bool.self,
+            usage: "Disable using the sandbox when parsing manifests on macOS"),
+            to: { $0.disableManifestSandbox = $1 })
+
+        binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
             to: { $0.printVersion = $1 })
 
@@ -316,7 +321,12 @@ public class SwiftTool<Options: ToolOptions> {
     }()
 
     private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
-        return Result(anyError: { try ManifestLoader(resources: self.getToolchain()) })
+        return Result(anyError: {
+            try ManifestLoader(
+                resources: self.getToolchain(),
+                enableManifestSandbox: !self.options.disableManifestSandbox
+            )
+        })
     }()
 }
 
