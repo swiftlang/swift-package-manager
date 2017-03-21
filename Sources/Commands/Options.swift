@@ -30,5 +30,8 @@ public class ToolOptions {
     /// The verbosity of informational output.
     public var verbosity: Int = 0
 
+    /// Disables parsing manifest in a sandbox.
+    public var disableManifestSandbox = false
+
     public required init() {}
 }

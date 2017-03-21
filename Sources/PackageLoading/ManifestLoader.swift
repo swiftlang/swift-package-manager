@@ -102,10 +102,16 @@ extension ManifestLoaderProtocol {
 /// serialized form of the manifest (as implemented by `PackageDescription`'s
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
-    let resources: ManifestResourceProvider
 
-    public init(resources: ManifestResourceProvider) {
+    let resources: ManifestResourceProvider
+    let enableManifestSandbox: Bool
+
+    public init(
+        resources: ManifestResourceProvider,
+        enableManifestSandbox: Bool = true
+    ) {
         self.resources = resources
+        self.enableManifestSandbox = enableManifestSandbox
     }
 
     public func load(
@@ -209,10 +215,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         var cmd = [String]()
       #if os(macOS)
-        // Use sandbox-exec on macOS. This provides some safety against
+        // If enabled, use sandbox-exec on macOS. This provides some safety against
         // arbitrary code execution when parsing manifest files. We only allow
         // the permissions which are absolutely necessary for manifest parsing.
-        cmd += ["sandbox-exec", "-p", sandboxProfile()]
+        if enableManifestSandbox {
+            cmd += ["sandbox-exec", "-p", sandboxProfile()]
+        }
       #endif
         cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
