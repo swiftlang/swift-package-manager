@@ -405,7 +405,6 @@ g_source_root = os.path.join(g_project_root, "Sources")
 g_ignored_targets = ["swiftpm-xctest-helper", "TestSupport"]
 (targets, products) = parse_manifest()
 product_map = dict((p.name, p) for p in products)
-g_sandbox_profile_dir = os.path.join(g_project_root, "Utilities", "sandbox")
 
 # Create a quoted C string literal from an arbitrary string.
 def make_c_string_literal(str):
@@ -891,12 +890,6 @@ def main():
             shutil.rmtree(libdir)
         symlink_force(os.path.join(sandbox_path, "lib"), build_path)
 
-        # Symlink sandbox profile dir.
-        if platform.system() == 'Darwin':
-            sandbox_profile_dir = os.path.join(build_path, "share", "swift", "pm")
-            mkdir_p(sandbox_profile_dir)
-            symlink_force(g_sandbox_profile_dir, sandbox_profile_dir)
-
         if args.foundation_path:
             libswiftdir = os.path.join(sandbox_path, "lib", "swift", "linux")
             mkdir_p(libswiftdir)
@@ -1017,9 +1010,6 @@ def main():
                                             "lib", "swift", "pm")
             libexec_install_path = os.path.join(g_project_root, install_prefix,
                                             "libexec", "swift", "pm")
-            share_install_path = os.path.join(g_project_root, install_prefix,
-                                            "share", "swift", "pm")
-            sandbox_profile_install_path = os.path.join(share_install_path, "sandbox")
             mkdir_p(bin_install_path)
             mkdir_p(lib_install_path)
             mkdir_p(libexec_install_path)
@@ -1066,13 +1056,6 @@ def main():
                     if add_rpath:
                         error("unable to add RPATHs on this platform")
 
-            def installSandboxProfile(profile, install_path):
-                cmd = ["rsync", "-a", profile, install_path]
-                note("copying %s: %s" % (os.path.basename(profile), ' '.join(cmd)))
-                result = subprocess.call(cmd)
-                if result != 0:
-                    error("copying failed with exit status %d" % result)
-
             # Install XCTest helper inside libexec.
             if platform.system() == 'Darwin':
                 # Append the required RPATH for finding the standard libraries from
@@ -1088,14 +1071,6 @@ def main():
             for product_path in [swift_package_path, swift_build_path,
                                  swift_test_path]:
                 installBinary(product_path, bin_install_path)
-
-            # Install sandbox profiles.
-            if platform.system() == 'Darwin':
-                mkdir_p(sandbox_profile_install_path)
-                for profile in os.listdir(g_sandbox_profile_dir):
-                    installSandboxProfile(
-                            os.path.join(g_sandbox_profile_dir, profile),
-                            sandbox_profile_install_path)
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():

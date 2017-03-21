@@ -212,8 +212,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Use sandbox-exec on macOS. This provides some safety against
         // arbitrary code execution when parsing manifest files. We only allow
         // the permissions which are absolutely necessary for manifest parsing.
-        let sandboxProfile = resources.sandboxProfileDir.appending(component: "parse-manifest.sb")
-        cmd += ["sandbox-exec", "-f", sandboxProfile.asString]
+        cmd += ["sandbox-exec", "-p", sandboxProfile()]
       #endif
         cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
@@ -247,4 +246,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     
         return json.isEmpty ? nil : json
     }
+}
+
+/// Returns the sandbox profile to be used when parsing manifest on macOS.
+private func sandboxProfile() -> String {
+    let stream = BufferedOutputByteStream()
+    stream <<< "(version 1)" <<< "\n"
+    // Deny everything by default.
+    stream <<< "(deny default)" <<< "\n"
+    // Allow reading all files.
+    stream <<< "(allow file-read*)" <<< "\n"
+    // These are required by the Swift compiler.
+    stream <<< "(allow process*)" <<< "\n"
+    stream <<< "(allow sysctl*)" <<< "\n"
+    stream <<< "(allow mach*)" <<< "\n"
+    stream <<< "(allow signal)" <<< "\n"
+    // Allow writing in temporary locations.
+    stream <<< "(allow file-write*" <<< "\n"
+    stream <<< "    (subpath \"/private/var\")" <<< "\n"
+    stream <<< ")" <<< "\n"
+    return stream.bytes.asString!
 }

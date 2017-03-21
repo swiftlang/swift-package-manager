@@ -34,12 +34,9 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path to SwiftPM library directory containing runtime libraries.
     public let libDir: AbsolutePath
 
-    /// Path to share directory in toolchain.
-    public let shareDir: AbsolutePath
-    
     /// Path to the directory containing sandbox files.
     public var sandboxProfileDir: AbsolutePath {
-        return shareDir.appending(component: "sandbox")
+        fatalError()
     }
 
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
@@ -80,7 +77,6 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         }
 
         libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
-        shareDir = binDir.parentDirectory.appending(components: "share", "swift", "pm")
 
         // First look in env and then in bin dir.
         swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
