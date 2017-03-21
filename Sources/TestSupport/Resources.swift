@@ -33,10 +33,6 @@ public class Resources: ManifestResourceProvider {
         return toolchain.libDir
     }
 
-    public var sandboxProfileDir: AbsolutePath {
-        return toolchain.sandboxProfileDir
-    }
-
   #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
         return toolchain.sdkPlatformFrameworksPath!

@@ -34,11 +34,6 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path to SwiftPM library directory containing runtime libraries.
     public let libDir: AbsolutePath
 
-    /// Path to the directory containing sandbox files.
-    public var sandboxProfileDir: AbsolutePath {
-        fatalError()
-    }
-
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
     public let defaultSDK: AbsolutePath?
 

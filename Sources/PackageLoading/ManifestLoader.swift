@@ -38,9 +38,6 @@ public protocol ManifestResourceProvider {
 
     /// The path of the library resources.
     var libDir: AbsolutePath { get }
-
-    /// The path to the directory containing sandbox profile.
-    var sandboxProfileDir: AbsolutePath { get }
 }
 
 /// The supported manifest versions.
