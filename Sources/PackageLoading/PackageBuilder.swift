@@ -211,8 +211,8 @@ public struct PackageBuilder {
     /// The stream to which warnings should be published.
     private let warningStream: OutputByteStream
 
-    /// Create a product for all of the package's library targets.
-    private let createImplicitProduct: Bool
+    /// True if this is the root package.
+    private let isRootPackage: Bool
 
     /// Returns true if the loaded manifest version is v3.
     private var v3Manifest: Bool {
@@ -229,16 +229,15 @@ public struct PackageBuilder {
     ///   - path: The root path of the package.
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - warningStream: The stream on which warnings should be emitted.
-    ///   - createImplicitProduct: If there should be an implicit product 
-    ///         created for all of the package's library targets.
+    ///   - isRootPackage: If this is a root package.
     public init(
         manifest: Manifest,
         path: AbsolutePath,
         fileSystem: FileSystem = localFileSystem,
         warningStream: OutputByteStream = stdoutStream,
-        createImplicitProduct: Bool
+        isRootPackage: Bool
     ) {
-        self.createImplicitProduct = createImplicitProduct
+        self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
@@ -673,7 +672,8 @@ public struct PackageBuilder {
             // Always create all executables in v3.
             createExecutables()
 
-            if createImplicitProduct {
+            // Create one product containing all of the package's library targets.
+            if !isRootPackage {
                 let libraryModules = modules.filter{ $0.type == .library }
                 if !libraryModules.isEmpty {
                     products += [Product(name: manifest.name, type: .library(.automatic), modules: libraryModules)]
@@ -683,7 +683,7 @@ public struct PackageBuilder {
         case .v4(let package):
 
             // Only create implicit executables for root packages in v4.
-            if !createImplicitProduct {
+            if isRootPackage {
                 createExecutables()
             }
 

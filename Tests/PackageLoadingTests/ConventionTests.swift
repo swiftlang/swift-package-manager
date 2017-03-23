@@ -1072,7 +1072,7 @@ class ConventionTests: XCTestCase {
 private func loadPackage(_ package: Manifest.RawPackage, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
     let builder = PackageBuilder(
-        manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, createImplicitProduct: false)
+        manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, isRootPackage: false)
     return try builder.construct()
 }
 
