@@ -211,8 +211,8 @@ public struct PackageBuilder {
     /// The stream to which warnings should be published.
     private let warningStream: OutputByteStream
 
-    /// Create a product for all of the package's library targets.
-    private let createImplicitProduct: Bool
+    /// True if this is the root package.
+    private let isRootPackage: Bool
 
     /// Returns true if the loaded manifest version is v3.
     private var v3Manifest: Bool {
@@ -229,16 +229,15 @@ public struct PackageBuilder {
     ///   - path: The root path of the package.
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - warningStream: The stream on which warnings should be emitted.
-    ///   - createImplicitProduct: If there should be an implicit product 
-    ///         created for all of the package's library targets.
+    ///   - isRootPackage: If this is a root package.
     public init(
         manifest: Manifest,
         path: AbsolutePath,
         fileSystem: FileSystem = localFileSystem,
         warningStream: OutputByteStream = stdoutStream,
-        createImplicitProduct: Bool
+        isRootPackage: Bool
     ) {
-        self.createImplicitProduct = createImplicitProduct
+        self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
@@ -659,9 +658,17 @@ public struct PackageBuilder {
             products.append(product)
         }
 
-        // Create executables.
-        func createExecutables() {
+        // Auto creates executable products from executables targets if there
+        // isn't already a product with same name.
+        func createExecutables(declaredProducts: Set<String> = []) {
             for module in modules where module.type == .executable {
+                // If this target already has a product, skip generating a
+                // product for it.
+                if declaredProducts.contains(module.name) {
+                    // FIXME: We should probably check and warn in case this is
+                    // not an executable product.
+                    continue
+                }
                 let product = Product(name: module.name, type: .executable, modules: [module])
                 products.append(product)
             }
@@ -673,7 +680,8 @@ public struct PackageBuilder {
             // Always create all executables in v3.
             createExecutables()
 
-            if createImplicitProduct {
+            // Create one product containing all of the package's library targets.
+            if !isRootPackage {
                 let libraryModules = modules.filter{ $0.type == .library }
                 if !libraryModules.isEmpty {
                     products += [Product(name: manifest.name, type: .library(.automatic), modules: libraryModules)]
@@ -681,16 +689,14 @@ public struct PackageBuilder {
             }
 
         case .v4(let package):
-
             // Only create implicit executables for root packages in v4.
-            if !createImplicitProduct {
-                createExecutables()
+            if isRootPackage {
+                createExecutables(declaredProducts: Set(package.products.map{$0.name}))
             }
 
             for product in package.products {
                 switch product {
                 case let p as PackageDescription4.Product.Executable:
-                    // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
                     let modules = try modulesFrom(targetNames: p.targets, product: p.name)
                     products.append(Product(name: p.name, type: .executable, modules: modules))
                 case let p as PackageDescription4.Product.Library:

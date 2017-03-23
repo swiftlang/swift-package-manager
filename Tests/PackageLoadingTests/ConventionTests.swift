@@ -229,6 +229,35 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testDeclaredExecutableProducts() {
+        // Check that declaring executable product doesn't collide with the
+        // inferred products.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exec/main.swift",
+            "/Sources/foo/foo.swift"
+        )
+        let package = PackageDescription4.Package(
+            name: "pkg",
+            products: [
+                .executable(name: "exec", targets: ["exec", "foo"]),
+            ]
+        )
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("exec") { _ in }
+            result.checkProduct("exec") { productResult in
+                productResult.check(type: .executable, modules: ["exec", "foo"])
+            }
+        }
+        PackageBuilderTester("pkg", in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("exec") { _ in }
+            result.checkProduct("exec") { productResult in
+                productResult.check(type: .executable, modules: ["exec"])
+            }
+        }
+    }
+
     func testDotSwiftSuffixDirectory() throws {
         var fs = InMemoryFileSystem(emptyFiles:
             "/hello.swift/dummy",
@@ -1024,6 +1053,7 @@ class ConventionTests: XCTestCase {
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
+        ("testDeclaredExecutableProducts", testDeclaredExecutableProducts),
         ("testDotFilesAreIgnored", testDotFilesAreIgnored),
         ("testDotSwiftSuffixDirectory", testDotSwiftSuffixDirectory),
         ("testMixedSources", testMixedSources),
@@ -1071,8 +1101,9 @@ class ConventionTests: XCTestCase {
 /// - Throws: ModuleError, ProductError
 private func loadPackage(_ package: Manifest.RawPackage, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
     let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+    // FIXME: We should allow customizing root package boolean.
     let builder = PackageBuilder(
-        manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, createImplicitProduct: false)
+        manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, isRootPackage: true)
     return try builder.construct()
 }
 
@@ -1180,10 +1211,11 @@ final class PackageBuilderTester {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
-        guard let product = package.products.first(where: {$0.name == name}) else {
-            return XCTFail("Product: \(name) not found", file: file, line: line)
+        let foundProducts = package.products.filter{$0.name == name}
+        guard foundProducts.count == 1 else {
+            return XCTFail("Couldn't get the product: \(name). Found products \(foundProducts)", file: file, line: line)
         }
-        body?(ProductResult(product))
+        body?(ProductResult(foundProducts[0]))
     }
 
     final class ProductResult {

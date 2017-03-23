@@ -94,7 +94,11 @@ public struct PackageGraphLoader {
 
             // Create a package from the manifest and sources.
             let builder = PackageBuilder(
-                manifest: manifest, path: packagePath, fileSystem: fileSystem, createImplicitProduct: !isRootPackage)
+                manifest: manifest,
+                path: packagePath,
+                fileSystem: fileSystem,
+                isRootPackage: isRootPackage
+            )
 
             do {
                 let package = try builder.construct()
