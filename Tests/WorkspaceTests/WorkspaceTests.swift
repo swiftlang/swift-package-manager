@@ -660,6 +660,67 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testEditAndPinning() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                MockDependency("B", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+            ],
+            packages: [
+                MockPackage("A", version: v1),
+                MockPackage("B", version: v1),
+            ],
+            fs: fs
+        )
+        let provider = manifestGraph.repoProvider!
+
+        // Create the workspace.
+        let workspace = Workspace.createWith(rootPackage: path,
+                                             manifestLoader: manifestGraph.manifestLoader,
+                                             delegate: TestWorkspaceDelegate(),
+                                             fileSystem: fs,
+                                             repositoryProvider: provider)
+        // Load the package graph.
+        let engine = DiagnosticsEngine()
+        let graph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+        XCTAssertFalse(engine.hasErrors())
+        let rootManifests = workspace.loadRootManifests(packages: [path], engine: engine)
+        XCTAssertFalse(engine.hasErrors())
+        let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+        XCTAssertFalse(engine.hasErrors())
+        guard let aManifest = manifests.lookup(manifest: "A") else {
+            return XCTFail("Expected manifest for package A not found")
+        }
+
+        func getDependency(_ manifest: Manifest) -> ManagedDependency {
+            return try! workspace.managedDependencies.load()[manifest.url]!
+        }
+        
+        // Get the dependency for package A.
+        let dependency = getDependency(aManifest)
+        // It should not be in edit mode.
+        XCTAssert(dependency.state.isCheckout)
+        // Put the dependency in edit mode at its current revision.
+        try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
+
+        let editedDependency = getDependency(aManifest)
+        // It should be in edit mode.
+        XCTAssert(editedDependency.state == .edited)
+        // Set up for pinning B to v1
+        guard let (_, dep) = manifests.lookup(package: "B") else {
+            return XCTFail("Expected manifest for package B not found")
+        }
+        // Attempt to pin dependency B.
+        try workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], engine: engine, version: v1)
+        // Validate the versions.
+        let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
+        XCTAssertFalse(engine.hasErrors())
+        XCTAssert(reloadedGraph.lookup("A").version == v1)
+        XCTAssert(reloadedGraph.lookup("B").version == v1)
+    }
+
     func testAutoPinning() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -1774,6 +1835,7 @@ final class WorkspaceTests: XCTestCase {
         ("testBranchAndRevision", testBranchAndRevision),
         ("testEditDependency", testEditDependency),
         ("testEditDependencyOnNewBranch", testEditDependencyOnNewBranch),
+        ("testEditAndPinning", testEditAndPinning),
         ("testDependencyManifestLoading", testDependencyManifestLoading),
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),

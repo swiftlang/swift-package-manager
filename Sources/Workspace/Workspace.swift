@@ -171,6 +171,22 @@ public class Workspace {
             return constraints
         }
 
+        /// Returns a list of constraints for any packages 'edited' or 'unmanaged'.
+        func unversionedConstraints() -> [RepositoryPackageConstraint] {
+            var constraints = [RepositoryPackageConstraint]()
+
+            for (externalManifest, managedDependency) in dependencies {
+                switch managedDependency.state {
+                case .checkout: continue
+                case .unmanaged, .edited: break
+                }
+                let specifier = RepositorySpecifier(url: externalManifest.url)
+                let dependencies = externalManifest.package.dependencyConstraints()
+                constraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
+            }
+            return constraints
+        }
+
         init(roots: [Manifest], dependencies: [(Manifest, ManagedDependency)]) {
             self.roots = roots
             self.dependencies = dependencies
@@ -497,6 +513,7 @@ public class Workspace {
 
         let pinsStore = try self.pinsStore.load()
         let rootManifests = loadRootManifests(packages: rootPackages, engine: engine)
+        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, engine: engine)
         guard !engine.hasErrors() else { return }
 
         // Compute constraints with the new pin and try to resolve
@@ -504,10 +521,12 @@ public class Workspace {
         // resolved with new constraints.
         //
         // The constraints consist of three things:
+        // * Unversioned constraints for edited packages.
         // * Root manifest contraints without pins.
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
-        var constraints = rootManifests.flatMap{ $0.package.dependencyConstraints() }
+        var constraints = currentManifests.unversionedConstraints()
+        constraints += rootManifests.flatMap{ $0.package.dependencyConstraints() }
         constraints += pinsStore.createConstraints().filter{$0.identifier != dependency.repository}
         constraints.append(
             RepositoryPackageConstraint(
@@ -728,16 +747,8 @@ public class Workspace {
             updateConstraints += pinsStore.createConstraints()
         }
 
-        // Add unversioned constraint for edited packages.
-        for (externalManifest, managedDependency) in currentManifests.dependencies {
-            switch managedDependency.state {
-            case .checkout: continue
-            case .unmanaged, .edited: break
-            }
-            let specifier = RepositorySpecifier(url: externalManifest.url)
-            let dependencies = externalManifest.package.dependencyConstraints()
-            updateConstraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
-        }
+        // Add unversioned constraints for edited packages.
+        updateConstraints += currentManifests.unversionedConstraints()
 
         do {
             // Resolve the dependencies.
