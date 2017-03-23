@@ -658,9 +658,17 @@ public struct PackageBuilder {
             products.append(product)
         }
 
-        // Create executables.
-        func createExecutables() {
+        // Auto creates executable products from executables targets if there
+        // isn't already a product with same name.
+        func createExecutables(declaredProducts: Set<String> = []) {
             for module in modules where module.type == .executable {
+                // If this target already has a product, skip generating a
+                // product for it.
+                if declaredProducts.contains(module.name) {
+                    // FIXME: We should probably check and warn in case this is
+                    // not an executable product.
+                    continue
+                }
                 let product = Product(name: module.name, type: .executable, modules: [module])
                 products.append(product)
             }
@@ -681,16 +689,14 @@ public struct PackageBuilder {
             }
 
         case .v4(let package):
-
             // Only create implicit executables for root packages in v4.
             if isRootPackage {
-                createExecutables()
+                createExecutables(declaredProducts: Set(package.products.map{$0.name}))
             }
 
             for product in package.products {
                 switch product {
                 case let p as PackageDescription4.Product.Executable:
-                    // FIXME: We should handle/diagnose name collisions between local and vended executables (SR-3562).
                     let modules = try modulesFrom(targetNames: p.targets, product: p.name)
                     products.append(Product(name: p.name, type: .executable, modules: modules))
                 case let p as PackageDescription4.Product.Library:
