@@ -1045,9 +1045,6 @@ public class DependencyResolver<
     }
 
     /// Add a managed container.
-    //
-    // FIXME: In order to support concurrent fetching of dependencies, we need
-    // to have some measure of asynchronicity here.
     private func addContainer(for identifier: Identifier) throws -> Container {
         assert(!containers.keys.contains(identifier))
         // Get the container synchronously from provider.
