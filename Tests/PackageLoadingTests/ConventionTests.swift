@@ -1050,6 +1050,35 @@ class ConventionTests: XCTestCase {
         }
     }
 
+    func testMultipleTestProducts() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Tests/fooTests/foo.swift",
+            "/Tests/barTests/bar.swift"
+        )
+        let package = PackageDescription4.Package(name: "pkg")
+        PackageBuilderTester(.v4(package), createMultipleTestProducts: true, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("fooTests") { _ in }
+            result.checkModule("barTests") { _ in }
+            result.checkProduct("fooTests") { product in
+                product.check(type: .test, modules: ["fooTests"])
+            }
+            result.checkProduct("barTests") { product in
+                product.check(type: .test, modules: ["barTests"])
+            }
+        }
+
+        PackageBuilderTester(.v4(package), createMultipleTestProducts: false, in: fs) { result in
+            result.checkModule("foo") { _ in }
+            result.checkModule("fooTests") { _ in }
+            result.checkModule("barTests") { _ in }
+            result.checkProduct("pkgPackageTests") { product in
+                product.check(type: .test, modules: ["barTests", "fooTests"])
+            }
+        }
+    }
+
     static var allTests = [
         ("testCInTests", testCInTests),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
@@ -1088,23 +1117,6 @@ class ConventionTests: XCTestCase {
         ("testTestsProduct", testTestsProduct),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
     ]
-}
-
-/// Loads a package using PackageBuilder at the given path.
-///
-/// - Parameters:
-///     - package: PackageDescription instance to use for loading this package.
-///     - path: Directory where the package is located.
-///     - in: FileSystem in which the package should be loaded from.
-///     - warningStream: OutputByteStream to be passed to package builder.
-///
-/// - Throws: ModuleError, ProductError
-private func loadPackage(_ package: Manifest.RawPackage, path: AbsolutePath, in fs: FileSystem, warningStream: OutputByteStream) throws -> PackageModel.Package {
-    let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
-    // FIXME: We should allow customizing root package boolean.
-    let builder = PackageBuilder(
-        manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream, isRootPackage: true)
-    return try builder.construct()
 }
 
 final class PackageBuilderTester {
@@ -1156,6 +1168,7 @@ final class PackageBuilderTester {
     init(
         _ package: Manifest.RawPackage,
         path: AbsolutePath = .root,
+        createMultipleTestProducts: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
@@ -1163,7 +1176,12 @@ final class PackageBuilderTester {
     ) {
         let warningStream = BufferedOutputByteStream()
         do {
-            let loadedPackage = try loadPackage(package, path: path, in: fs, warningStream: warningStream)
+            let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
+            // FIXME: We should allow customizing root package boolean.
+            let builder = PackageBuilder(
+                manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream,
+                isRootPackage: true, createMultipleTestProducts: createMultipleTestProducts)
+            let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.modules)
         } catch {

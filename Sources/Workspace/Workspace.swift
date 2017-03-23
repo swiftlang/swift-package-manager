@@ -1016,7 +1016,8 @@ public class Workspace {
     @discardableResult
     public func loadPackageGraph(
         rootPackages: [AbsolutePath],
-        engine: DiagnosticsEngine
+        engine: DiagnosticsEngine,
+        createMultipleTestProducts: Bool = false
     ) -> PackageGraph {
         // Ensure the cache path exists and validate that edited dependencies.
         do {
@@ -1041,7 +1042,8 @@ public class Workspace {
                 rootManifests: rootManifests,
                 externalManifests: currentManifests.dependencies.map{$0.manifest},
                 engine: engine,
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                createMultipleTestProducts: createMultipleTestProducts
             )
         }
 
@@ -1081,7 +1083,8 @@ public class Workspace {
             rootManifests: currentManifests.roots,
             externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
             engine: engine,
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            createMultipleTestProducts: createMultipleTestProducts
         )
     }
 
