@@ -45,7 +45,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<BuildToolOptions>) {
         binder.bind(
-            option: parser.add(option: "--build-tests", kind: Bool.self),
+            option: parser.add(option: "--build-tests", kind: Bool.self,
+                usage: "Build the both source and test targets"),
             to: { $0.buildTests = $1 })
 
         binder.bind(
