@@ -17,6 +17,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(ByteStringTests.allTests),
         testCase(CollectionAlgorithmsTests.allTests),
         testCase(ConditionTests.allTests),
+        testCase(DeltaAlgorithmTests.allTests),
         testCase(DiagnosticsEngineTests.allTests),
         testCase(DictionaryExtensionTests.allTests),
         testCase(FileAccessTests.allTests),
