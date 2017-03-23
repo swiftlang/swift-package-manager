@@ -305,12 +305,24 @@ public final class ProductBuildDescription {
         self.buildParameters = buildParameters
     }
 
+    /// Strips the arguments which should *never* be passed to Swift compiler
+    /// when we're linking the product.
+    ///
+    /// We might want to get rid of this method once Swift driver can strip the
+    /// flags itself, <rdar://problem/31215562>.
+    private func stripInvalidArguments(_ args: [String]) -> [String] {
+        let invalidArguments: Set<String> = [
+            "-wmo", "-whole-module-optimization",
+        ]
+        return args.filter{ !invalidArguments.contains($0) }
+    }
+
     /// The arguments to link and create this product.
     public func linkArguments() -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.asString]
         args += buildParameters.toolchain.swiftPlatformArgs
         args += buildParameters.linkerFlags
-        args += buildParameters.swiftCompilerFlags
+        args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         args += additionalFlags
 
         if buildParameters.configuration == .debug {
