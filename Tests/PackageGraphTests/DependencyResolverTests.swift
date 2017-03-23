@@ -551,6 +551,70 @@ class DependencyResolverTests: XCTestCase {
        ])
     }
 
+    func testIncompleteMode() throws {
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependencies: [
+                "1.0.0": [
+                    (container: "B", requirement: .versionSet(v1Range)),
+                ],
+            ]),
+            MockPackageContainer(name: "B", dependencies: [
+                "1.0.0": [],
+            ]),
+        ])
+
+        let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+        resolver.incompleteMode = true
+
+        // First, try to resolve to a non-existant version.
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+            _ = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact("1.1.0")),
+            ])
+        }
+
+        // Now try to resolve to a version which will want a new container.
+        do {
+            let result = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
+            ])
+            // This resolves but is "incomplete".
+            XCTAssertEqual(result, [
+                "A": .version(v1),
+            ])
+        }
+
+        // Add B in input constraint.
+        do {
+            let result = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "B", versionRequirement: .exact(v1)),
+            ])
+            // This should resolve and also get the container B because it is
+            // presented as an input constraint.
+            XCTAssertEqual(result, [
+                "B": .version(v1),
+            ])
+        }
+
+        // Now that resolver has B, we should be able to fully resolve A.
+        do {
+            let result = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact(v1)),
+            ])
+            XCTAssertEqual(result, [
+                "A": .version(v1),
+                "B": .version(v1),
+            ])
+        }
+
+        // Invalid requirement of known containers should still be errors.
+        XCTAssertThrows(DependencyResolverError.unsatisfiable) {
+            _ = try resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact(v2))
+            ])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -563,6 +627,7 @@ class DependencyResolverTests: XCTestCase {
         ("testLazyResolve", testLazyResolve),
         ("testExactConstraint", testExactConstraint),
         ("testUnversionedConstraint", testUnversionedConstraint),
+        ("testIncompleteMode", testIncompleteMode),
     ]
 }
 
