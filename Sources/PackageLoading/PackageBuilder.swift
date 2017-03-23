@@ -214,6 +214,11 @@ public struct PackageBuilder {
     /// True if this is the root package.
     private let isRootPackage: Bool
 
+    /// Create multiple test products.
+    ///
+    /// If set to true, one test product will be created for each test target.
+    private let createMultipleTestProducts: Bool
+
     /// Returns true if the loaded manifest version is v3.
     private var v3Manifest: Bool {
         switch manifest.package {
@@ -230,18 +235,22 @@ public struct PackageBuilder {
     ///   - fileSystem: The file system on which the builder should be run.
     ///   - warningStream: The stream on which warnings should be emitted.
     ///   - isRootPackage: If this is a root package.
+    ///   - createMultipleTestProducts: If enabled, create one test product for
+    ///     each test target.
     public init(
         manifest: Manifest,
         path: AbsolutePath,
         fileSystem: FileSystem = localFileSystem,
         warningStream: OutputByteStream = stdoutStream,
-        isRootPackage: Bool
+        isRootPackage: Bool,
+        createMultipleTestProducts: Bool = false
     ) {
         self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
         self.warningStream = warningStream
+        self.createMultipleTestProducts = createMultipleTestProducts
     }
     
     /// Build a new package following the conventions.
@@ -625,8 +634,15 @@ public struct PackageBuilder {
             return true
         }
 
-        // Create a test product if we have any test module.
-        if !testModules.isEmpty {
+        // If enabled, create one test product for each test target.
+        if createMultipleTestProducts {
+            for testTarget in testModules {
+                let product = Product(name: testTarget.name, type: .test, modules: [testTarget])
+                products.append(product)
+            }
+        } else if !testModules.isEmpty {
+            // Otherwise we only need to create one test product for all of the test targets.
+            //
             // Add suffix 'PackageTests' to test product so the module name of linux executable don't collide with
             // main package, if present.
             let product = Product(name: manifest.name + "PackageTests", type: .test, modules: testModules)
