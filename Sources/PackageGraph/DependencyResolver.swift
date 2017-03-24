@@ -786,6 +786,16 @@ public class DependencyResolver<
     // FIXME: @testable private
     var error: Swift.Error?
 
+    /// Puts the resolver in incomplete mode.
+    ///
+    /// In this mode, no new containers will be requested from the provider.
+    /// Instead, if a container is not already present in the resolver, it will
+    /// skipped without raising an error. This is useful to avoid cloning
+    /// repositories from network when trying to partially resolve the constraints.
+    ///
+    /// Note that the input constraints will always be fetched.
+    public var incompleteMode = false
+
     public init(_ provider: Provider, _ delegate: Delegate, enablePrefetching: Bool = false) {
         self.provider = provider
         self.delegate = delegate
@@ -866,8 +876,10 @@ public class DependencyResolver<
             return AnySequence(self.merge(
                 constraints: constraints,
                 into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
-                // We found a complete valid assignment.
-                assert(result.checkIfValidAndComplete())
+                // We might not have a complete result in incomplete mode.
+                if !self.incompleteMode {
+                    assert(result.checkIfValidAndComplete())
+                }
                 return result
             })
         }
@@ -897,8 +909,14 @@ public class DependencyResolver<
 
                 // Get the constraints for this container version and update the assignment to include each one.
                 // FIXME: Making these methods throwing will kill the lazy behavior.
-                guard let constraints = self.safely({ try container.getDependencies(at: version) }) else {
+                guard var constraints = self.safely({ try container.getDependencies(at: version) }) else {
                     return AnySequence([])
+                }
+
+                // Since we don't want to request additional containers in incomplete
+                // mode, remove any dependency that we don't already have.
+                if self.incompleteMode {
+                    constraints = constraints.filter{ self.containers[$0.identifier] != nil }
                 }
 
                 // Since this is a versioned container, none of its
@@ -939,7 +957,8 @@ public class DependencyResolver<
     ) -> AnySequence<AssignmentSet> {
         var allConstraints = allConstraints
 
-        if enablePrefetching {
+        // Never prefetch when running in incomplete mode.
+        if !incompleteMode && enablePrefetching {
             // Ask all of these containers upfront to do async cloning.
             for constraint in constraints {
                 provider.getContainer(for: constraint.identifier) { _ in }
