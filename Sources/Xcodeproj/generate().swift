@@ -25,12 +25,12 @@ public struct XcodeprojOptions {
     public let xcconfigOverrides: AbsolutePath?
 
     /// Whether code coverage should be enabled in the generated scheme.
-    public let enableCodeCoverage: Bool
+    public let isCodeCoverageEnabled: Bool
     
-    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil, enableCodeCoverage: Bool? = nil) {
+    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil, isCodeCoverageEnabled: Bool? = nil) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
-        self.enableCodeCoverage = enableCodeCoverage ?? false
+        self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
     }
 }
 
@@ -73,7 +73,7 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
    /// it has all tests associated so CMD+U works
     let schemeName = "\(projectName).xcscheme"
     try open(schemesDir.appending(RelativePath(schemeName))) { stream in
-        xcscheme(container: xcodeprojPath.relative(to: srcroot).asString, graph: graph, enableCodeCoverage: options.enableCodeCoverage, printer: stream)
+        xcscheme(container: xcodeprojPath.relative(to: srcroot).asString, graph: graph, codeCoverageEnabled: options.isCodeCoverageEnabled, printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed

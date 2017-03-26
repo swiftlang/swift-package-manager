@@ -359,7 +359,7 @@ final class PackageToolTests: XCTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssert(pinsStore.autoPin)
+                XCTAssert(pinsStore.isAutoPinEnabled)
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let pin = pinsStore.pinsMap[pkg]!
@@ -379,14 +379,14 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("pin", "--enable-autopin")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssert(pinsStore.autoPin)
+                XCTAssert(pinsStore.isAutoPinEnabled)
             }
 
             // Disable autopin.
             do {
                 try execute("pin", "--disable-autopin")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertFalse(pinsStore.autoPin)
+                XCTAssertFalse(pinsStore.isAutoPinEnabled)
             }
 
             // Try to pin bar.

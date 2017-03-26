@@ -63,8 +63,8 @@ public final class PinsStore {
     /// The pins map.
     fileprivate(set) var pinsMap: [String: Pin]
 
-    /// Autopin enabled or disabled. Autopin is enabled by default.
-    public fileprivate(set) var autoPin: Bool
+    /// Auto-pin enabled or disabled. Auto-pinned is enabled by default.
+    public fileprivate(set) var isAutoPinEnabled: Bool
 
     /// The current pins.
     public var pins: AnySequence<Pin> {
@@ -87,13 +87,13 @@ public final class PinsStore {
             statePath: pinsFile,
             prettyPrint: true)
         pinsMap = [:]
-        autoPin = true
+        isAutoPinEnabled = true
         _ = try self.persistence.restoreState(self)
     }
 
     /// Update the autopin setting. Writes the setting to pins file.
     public func setAutoPin(on value: Bool) throws {
-        autoPin = value
+        isAutoPinEnabled = value
         try saveState()
     }
 
@@ -131,7 +131,7 @@ public final class PinsStore {
     @discardableResult
     public func unpin(package: String) throws -> Pin {
         // Ensure autopin is not on.
-        guard !autoPin else {
+        guard !isAutoPinEnabled else {
             throw PinOperationError.autoPinEnabled
         }
         // The repo should already be pinned.
@@ -167,7 +167,7 @@ extension PinsStore: SimplePersistanceProtocol {
     }
     
     public func restore(from json: JSON) throws {
-        self.autoPin = try json.get("autoPin")
+        self.isAutoPinEnabled = try json.get("autoPin")
         self.pinsMap = try Dictionary(items: json.get("pins").map{($0.package, $0)})
     }
 
@@ -175,7 +175,7 @@ extension PinsStore: SimplePersistanceProtocol {
     public func toJSON() -> JSON {
         return JSON([
             "pins": pins.sorted{$0.package < $1.package}.toJSON(),
-            "autoPin": autoPin,
+            "autoPin": isAutoPinEnabled,
         ])
     }
 }

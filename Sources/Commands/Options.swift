@@ -22,16 +22,16 @@ public class ToolOptions {
     public var chdir: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
-    public var enableResolverPrefetching = false
+    public var shouldEnableResolverPrefetching = false
 
     /// If print version option was passed.
-    public var printVersion: Bool = false
+    public var shouldPrintVersion: Bool = false
 
     /// The verbosity of informational output.
     public var verbosity: Int = 0
 
     /// Disables parsing manifest in a sandbox.
-    public var disableManifestSandbox = false
+    public var shouldDisableManifestSandbox = false
 
     public required init() {}
 }

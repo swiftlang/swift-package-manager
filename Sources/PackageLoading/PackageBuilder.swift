@@ -217,10 +217,10 @@ public struct PackageBuilder {
     /// Create multiple test products.
     ///
     /// If set to true, one test product will be created for each test target.
-    private let createMultipleTestProducts: Bool
+    private let shouldCreateMultipleTestProducts: Bool
 
     /// Returns true if the loaded manifest version is v3.
-    private var v3Manifest: Bool {
+    private var isVersion3Manifest: Bool {
         switch manifest.package {
         case .v3: return true
         case .v4: return false
@@ -243,14 +243,14 @@ public struct PackageBuilder {
         fileSystem: FileSystem = localFileSystem,
         warningStream: OutputByteStream = stdoutStream,
         isRootPackage: Bool,
-        createMultipleTestProducts: Bool = false
+        shouldCreateMultipleTestProducts: Bool = false
     ) {
         self.isRootPackage = isRootPackage
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
         self.warningStream = warningStream
-        self.createMultipleTestProducts = createMultipleTestProducts
+        self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
     }
     
     /// Build a new package following the conventions.
@@ -502,7 +502,7 @@ public struct PackageBuilder {
             // For test modules, add dependencies to its base module, if it has
             // no explicit dependency. We only do this for v3 manifests to
             // maintain compatibility.
-            if v3Manifest && potentialModule.isTest && deps.isEmpty {
+            if isVersion3Manifest && potentialModule.isTest && deps.isEmpty {
                 if let baseModule = modules[potentialModule.basename] {
                     deps.append(baseModule)
                 }
@@ -635,7 +635,7 @@ public struct PackageBuilder {
         }
 
         // If enabled, create one test product for each test target.
-        if createMultipleTestProducts {
+        if shouldCreateMultipleTestProducts {
             for testTarget in testModules {
                 let product = Product(name: testTarget.name, type: .test, modules: [testTarget])
                 products.append(product)

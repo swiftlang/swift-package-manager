@@ -73,7 +73,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 public class BuildToolOptions: ToolOptions {
     /// Returns the mode in which the build tool should run.
     func mode() throws -> BuildToolMode {
-        if printVersion {
+        if shouldPrintVersion {
             return .version
         }
         // Get the build configuration or assume debug.

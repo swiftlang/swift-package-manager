@@ -564,7 +564,7 @@ class DependencyResolverTests: XCTestCase {
         ])
 
         let resolver = MockDependencyResolver(provider, MockResolverDelegate())
-        resolver.incompleteMode = true
+        resolver.isInIncompleteMode = true
 
         // First, try to resolve to a non-existant version.
         XCTAssertThrows(DependencyResolverError.unsatisfiable) {

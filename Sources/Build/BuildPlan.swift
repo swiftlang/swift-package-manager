@@ -631,7 +631,7 @@ public class BuildPlan {
             return pkgConfigCache[module]!
         }
         // If there is no pc file on system and we have an available provider, emit a warning.
-        if let provider = result.provider, result.noPcFile {
+        if let provider = result.provider, result.couldNotFindConfigFile {
             delegate?.warning(message: "you may be able to install \(result.pkgConfigName) using your system-packager:")
             delegate?.warning(message: provider.installText)
         } else if let error = result.error {

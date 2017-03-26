@@ -119,16 +119,16 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
             usage: "Enable prefetching in resolver"),
-            to: { $0.enableResolverPrefetching = $1 })
+            to: { $0.shouldEnableResolverPrefetching = $1 })
 
         binder.bind(
             option: parser.add(option: "--disable-manifest-sandbox", kind: Bool.self,
             usage: "Disable using the sandbox when parsing manifests on macOS"),
-            to: { $0.disableManifestSandbox = $1 })
+            to: { $0.shouldDisableManifestSandbox = $1 })
 
         binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
-            to: { $0.printVersion = $1 })
+            to: { $0.shouldPrintVersion = $1 })
 
         // If manifest should be assumed to be PackageDescription4.
         // This is temporary and will go away when the compiler bumps its major version to 4.
@@ -218,7 +218,7 @@ public class SwiftTool<Options: ToolOptions> {
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
             repositoryProvider: provider,
-            enableResolverPrefetching: options.enableResolverPrefetching
+            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching
         )
         _workspace = workspace
         return workspace
@@ -324,7 +324,7 @@ public class SwiftTool<Options: ToolOptions> {
         return Result(anyError: {
             try ManifestLoader(
                 resources: self.getToolchain(),
-                enableManifestSandbox: !self.options.disableManifestSandbox
+                isManifestSandboxEnabled: !self.options.shouldDisableManifestSandbox
             )
         })
     }()
