@@ -18,7 +18,7 @@ public enum GraphError: Swift.Error {
 /// NOTE: The relation is *not* assumed to be reflexive; i.e. the result will
 /// not automatically include `nodes` unless present in the relation defined by
 /// `successors`.
-public func transitiveClosure<T: Hashable>(
+public func transitiveClosure<T>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) rethrows -> Set<T> {
     var result = Set<T>()

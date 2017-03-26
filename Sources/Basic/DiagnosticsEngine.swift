@@ -39,7 +39,7 @@ public class DiagnosticDescriptionBuilder<Data: DiagnosticData> {
 }
 
 @discardableResult
-public func <<<<T: DiagnosticData>(
+public func <<<<T>(
     builder: DiagnosticDescriptionBuilder<T>,
     string: String
 ) -> DiagnosticDescriptionBuilder<T> {
@@ -48,7 +48,7 @@ public func <<<<T: DiagnosticData>(
 }
 
 @discardableResult
-public func <<<<T: DiagnosticData, P: DiagnosticParameter>(
+public func <<<<T, P: DiagnosticParameter>(
     builder: DiagnosticDescriptionBuilder<T>,
     accessor: @escaping (T) -> P
 ) -> DiagnosticDescriptionBuilder<T> {
@@ -57,7 +57,7 @@ public func <<<<T: DiagnosticData, P: DiagnosticParameter>(
 }
 
 @discardableResult
-public func <<<<T: DiagnosticData>(
+public func <<<<T>(
     builder: DiagnosticDescriptionBuilder<T>,
     fragment: DiagnosticID.DescriptionFragment
 ) -> DiagnosticDescriptionBuilder<T> {
@@ -144,7 +144,7 @@ public class DiagnosticID: ObjectIdentifierProtocol {
     ///     
     ///         let count: Int
     ///     }
-    public init<T: DiagnosticData>(
+    public init<T>(
         type: T.Type,
         name: String,
         defaultBehavior: Diagnostic.Behavior = .error,

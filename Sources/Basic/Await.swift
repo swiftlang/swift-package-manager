@@ -14,7 +14,7 @@
 ///                   should be passed to the async method's completion handler.
 /// - Returns: The value wrapped by the async method's result.
 /// - Throws: The error wrapped by the async method's result
-public func await<T, ErrorType: Swift.Error>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
+public func await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     let condition = Condition()
     var result: Result<T, ErrorType>? = nil
     body { theResult in
