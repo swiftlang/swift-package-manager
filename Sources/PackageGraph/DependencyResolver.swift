@@ -685,7 +685,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         }
     }
 }
-func ==<C: PackageContainer>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
+func ==<C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
     if lhs.assignments.count != rhs.assignments.count { return false }
     for (container, lhsBinding) in lhs {
         switch rhs[container] {

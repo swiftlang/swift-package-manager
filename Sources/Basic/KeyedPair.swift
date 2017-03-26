@@ -46,6 +46,6 @@ public struct KeyedPair<T, K: Hashable>: Hashable {
         return key.hashValue
     }
 }    
-public func ==<T, K: Hashable>(lhs: KeyedPair<T, K>, rhs: KeyedPair<T, K>) -> Bool {
+public func ==<T, K>(lhs: KeyedPair<T, K>, rhs: KeyedPair<T, K>) -> Bool {
     return lhs.key == rhs.key
 }
