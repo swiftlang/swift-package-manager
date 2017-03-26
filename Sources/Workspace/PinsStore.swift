@@ -64,7 +64,7 @@ public final class PinsStore {
     fileprivate(set) var pinsMap: [String: Pin]
 
     /// Autopin enabled or disabled. Autopin is enabled by default.
-    public fileprivate(set) var autoPin: Bool
+    public var autoPin: Bool
 
     /// The current pins.
     public var pins: AnySequence<Pin> {
@@ -91,39 +91,31 @@ public final class PinsStore {
         _ = try self.persistence.restoreState(self)
     }
 
-    /// Update the autopin setting. Writes the setting to pins file.
-    public func setAutoPin(on value: Bool) throws {
-        autoPin = value
-        try saveState()
-    }
-
     /// Pin a repository at a version.
     ///
-    /// - precodition: Both branch and version can't be provided.
     /// - Parameters:
     ///   - package: The name of the package to pin.
     ///   - repository: The repository to pin.
     ///   - state: The state to pin at.
     ///   - reason: The reason for pinning.
-    /// - Throws: PinOperationError
     public func pin(
         package: String,
         repository: RepositorySpecifier,
         state: CheckoutState,
         reason: String? = nil
-    ) throws {
-        // Add pin and save the state.
+    ) {
+        // Add pin
         pinsMap[package] = Pin(
             package: package,
             repository: repository,
             state: state,
             reason: reason
         )
-        try saveState()
     }
 
-    /// Unpin a pinnned repository and saves the state.
+    /// Unpin a pinnned repository.
     ///
+    /// - precondition: The package should already be pinned.
     /// - Parameters:
     ///   - package: The package name to unpin. It should already be pinned.
     /// - Returns: The pin which was removed.
@@ -136,18 +128,15 @@ public final class PinsStore {
         }
         // The repo should already be pinned.
         guard let pin = pinsMap[package] else { throw PinOperationError.notPinned }
-        // Remove pin and save the state.
+        // Remove pin
         pinsMap[package] = nil
-        try saveState()
         return pin
     }
 
     /// Unpin all of the currently pinnned dependencies.
-    public func unpinAll() throws {
+    public func unpinAll() {
         // Reset the pins map.
         pinsMap = [:]
-        // Save the state.
-        try saveState()
     }
 
     /// Creates constraints based on the pins in the store.
@@ -157,15 +146,15 @@ public final class PinsStore {
                 container: pin.repository, requirement: pin.state.requirement())
         }
     }
+    
+    /// Writes the pins to the pins file.
+    public func saveState() throws {
+        try self.persistence.saveState(self)
+    }
 }
 
 /// Persistence.
 extension PinsStore: SimplePersistanceProtocol {
-
-    fileprivate func saveState() throws {
-        try self.persistence.saveState(self)
-    }
-    
     public func restore(from json: JSON) throws {
         self.autoPin = try json.get("autoPin")
         self.pinsMap = try Dictionary(items: json.get("pins").map{($0.package, $0)})

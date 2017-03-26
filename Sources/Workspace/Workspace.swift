@@ -549,12 +549,12 @@ public class Workspace {
             assertionFailure()
         }
 
-        // Add the record in pins store.
-        try pin(
-            pinsStore: pinsStore,
+        // Add the record in pins store and save it
+        pin(pinsStore: pinsStore,
             dependency: newDependency,
             package: packageName,
             reason: reason)
+        try pinsStore.saveState()
     }
 
     /// Pins all of the dependencies to the loaded version.
@@ -569,16 +569,18 @@ public class Workspace {
         reset: Bool = false
     ) throws {
         if reset {
-            try pinsStore.unpinAll()
+            pinsStore.unpinAll()
+            try pinsStore.saveState()
         }
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
-            try pin(
-                pinsStore: pinsStore,
+            pin(pinsStore: pinsStore,
                 dependency: dependencyManifest.dependency,
                 package: dependencyManifest.manifest.name,
                 reason: reason)
         }
+        
+        try pinsStore.saveState()
     }
 
     /// Pins the managed dependency.
@@ -587,7 +589,7 @@ public class Workspace {
         dependency: ManagedDependency,
         package: String,
         reason: String?
-    ) throws {
+    ) {
         let checkoutState: CheckoutState
 
         switch dependency.state {
@@ -602,7 +604,7 @@ public class Workspace {
             }
         }
         // Commit the pin.
-        try pinsStore.pin(
+        pinsStore.pin(
             package: package,
             repository: dependency.repository,
             state: checkoutState,
@@ -758,9 +760,10 @@ public class Workspace {
             // Get updated manifests.
             let currentManifests = loadDependencyManifests(
                 rootManifests: rootManifests, engine: engine)
-            // If we're repinning, update the pins store.
+            // If we're repinning, update the pins store and save it
             if repin && !engine.hasErrors() {
                 try repinPackages(pinsStore, dependencyManifests: currentManifests)
+                try pinsStore.saveState()
             }
         } catch {
             engine.emit(error)
@@ -789,8 +792,8 @@ public class Workspace {
                 delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.state.description) but the dependency is not present.")
                 continue
             }
-            // Pin this dependency.
-            try self.pin(
+            // Pin this dependency
+            self.pin(
                 pinsStore: pinsStore,
                 dependency: dependency,
                 package: pin.package,

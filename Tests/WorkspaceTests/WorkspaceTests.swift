@@ -361,7 +361,7 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = try createWorkspace()
 
                 // Turn off auto pinning.
-                try workspace.pinsStore.load().setAutoPin(on: false)
+                try workspace.pinsStore.load().autoPin = false
                 // Ensure delegates haven't been called yet.
                 XCTAssert(delegate.fetched.isEmpty)
                 XCTAssert(delegate.cloned.isEmpty)
@@ -799,10 +799,12 @@ final class WorkspaceTests: XCTestCase {
         // Unpin all of the dependencies.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.load().unpinAll()
+            let pinsStore = try workspace.pinsStore.load()
+            pinsStore.unpinAll()
             // Reset so we have a clean workspace.
             try workspace.reset()
-            try workspace.pinsStore.load().setAutoPin(on: false)
+            pinsStore.autoPin = false
+            try pinsStore.saveState()
         }
 
         // Pin at A at v1.
@@ -889,7 +891,9 @@ final class WorkspaceTests: XCTestCase {
         // Turn off autopin.
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.load().setAutoPin(on: false)
+            let pinsStore = try workspace.pinsStore.load()
+            pinsStore.autoPin = false
+            try pinsStore.saveState()
         }
 
         // Package graph should load 1.0.1.
@@ -1254,7 +1258,9 @@ final class WorkspaceTests: XCTestCase {
         
         do {
             let workspace = newWorkspace()
-            try workspace.pinsStore.load().setAutoPin(on: false)
+            let pinsStore = try workspace.pinsStore.load()
+            pinsStore.autoPin = false
+            try pinsStore.saveState()
 
             let engine = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: [path], engine: engine)
@@ -1519,7 +1525,9 @@ final class WorkspaceTests: XCTestCase {
             // Set auto pinning off.
             do {
                 let workspace = try createWorkspace()
-                try workspace.pinsStore.load().setAutoPin(on: false)
+                let pinsStore = try workspace.pinsStore.load()
+                pinsStore.autoPin = false
+                try pinsStore.saveState()
             }
 
             do {
