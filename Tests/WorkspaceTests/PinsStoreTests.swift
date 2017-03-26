@@ -40,21 +40,24 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(store.pins.map{$0}.isEmpty)
         XCTAssert(store.autoPin)
 
-        try store.pin(package: foo, repository: fooRepo, state: state, reason: "bad")
+        store.pin(package: foo, repository: fooRepo, state: state, reason: "bad")
+        try store.saveState()
         XCTAssert(fs.exists(pinsFile))
 
         // Test autopin toggle and persistence.
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
             XCTAssert(store.autoPin)
-            try store.setAutoPin(on: false)
+            store.autoPin = false
             XCTAssertFalse(store.autoPin)
+            try store.saveState()
         }
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
             XCTAssertFalse(store.autoPin)
-            try store.setAutoPin(on: true)
+            store.autoPin = true
             XCTAssert(store.autoPin)
+            try store.saveState()
         }
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
@@ -77,19 +80,19 @@ final class PinsStoreTests: XCTestCase {
         }
         
         // We should be able to pin again.
-        try store.pin(package: foo, repository: fooRepo, state: state)
-        try store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
+        store.pin(package: foo, repository: fooRepo, state: state)
+        store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
 
         XCTAssertThrows(PinOperationError.autoPinEnabled) {
             try store.unpin(package: bar)
         }
 
+        store.autoPin = false
         XCTAssertThrows(PinOperationError.notPinned) {
-            try store.setAutoPin(on: false)
             try store.unpin(package: bar)
         }
 
-        try store.pin(package: bar, repository: barRepo, state: state)
+        store.pin(package: bar, repository: barRepo, state: state)
         XCTAssert(store.pins.map{$0}.count == 2)
         try store.unpin(package: foo)
         try store.unpin(package: bar)
@@ -97,7 +100,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test branch pin.
         do {
-            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
+            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, "develop")
             XCTAssertEqual(barPin.state.version, nil)
@@ -107,7 +110,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test revision pin.
         do {
-            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
+            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, nil)
             XCTAssertEqual(barPin.state.version, nil)

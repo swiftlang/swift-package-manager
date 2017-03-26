@@ -196,7 +196,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Toggle enable auto pinning if requested.
             if let enableAutoPin = options.pinOptions.enableAutoPin {
                 let workspace = try getActiveWorkspace()
-                return try workspace.pinsStore.load().setAutoPin(on: enableAutoPin)
+                let pinsStore = try workspace.pinsStore.load()
+                pinsStore.autoPin = enableAutoPin
+                try pinsStore.saveState()
+                return
             }
 
             // Get the pin options.
@@ -251,7 +254,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 fatalError("Expected package name from parser")
             }
             let workspace = try getActiveWorkspace()
-            try workspace.pinsStore.load().unpin(package: packageName)
+            let pinsStore = try workspace.pinsStore.load()
+            try pinsStore.unpin(package: packageName)
+            try pinsStore.saveState()
         }
     }
 
