@@ -810,7 +810,7 @@ private func ==(_ lhs: [String: VersionSetSpecifier], _ rhs: [String: VersionSet
     return true
 }
 
-private func XCTAssertEqual<C: PackageContainer>(
+private func XCTAssertEqual<C>(
     _ constraints: PackageContainerConstraintSet<C>,
     _ expected: [String: VersionSetSpecifier],
     file: StaticString = #file, line: UInt = #line)
@@ -830,7 +830,7 @@ where C.Identifier == String
     XCTAssertEqual(actual, expected, file: file, line: line)
 }
 
-private func XCTAssertEqual<C: PackageContainer>(
+private func XCTAssertEqual<C>(
     _ assignment: VersionAssignmentSet<C>?,
     _ expected: [String: Version],
     file: StaticString = #file, line: UInt = #line)
@@ -850,7 +850,7 @@ where C.Identifier == String
     }
 }
 
-private func XCTAssertEqual<C: PackageContainer>(
+private func XCTAssertEqual<C>(
     _ assignments: AnySequence<VersionAssignmentSet<C>>,
     _ expected: [[String: Version]],
     file: StaticString = #file, line: UInt = #line)
