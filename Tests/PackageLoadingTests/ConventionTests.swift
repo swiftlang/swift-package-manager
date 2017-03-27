@@ -1057,7 +1057,7 @@ class ConventionTests: XCTestCase {
             "/Tests/barTests/bar.swift"
         )
         let package = PackageDescription4.Package(name: "pkg")
-        PackageBuilderTester(.v4(package), createMultipleTestProducts: true, in: fs) { result in
+        PackageBuilderTester(.v4(package), shouldCreateMultipleTestProducts: true, in: fs) { result in
             result.checkModule("foo") { _ in }
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
@@ -1069,7 +1069,7 @@ class ConventionTests: XCTestCase {
             }
         }
 
-        PackageBuilderTester(.v4(package), createMultipleTestProducts: false, in: fs) { result in
+        PackageBuilderTester(.v4(package), shouldCreateMultipleTestProducts: false, in: fs) { result in
             result.checkModule("foo") { _ in }
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
@@ -1132,13 +1132,13 @@ final class PackageBuilderTester {
     private var uncheckedDiagnostics = Set<String>()
 
     /// Setting this to true will disable checking for any unchecked diagnostics prodcuted by PackageBuilder during loading process.
-    var ignoreDiagnostics: Bool = false
+    var ignoresDiagnostics: Bool = false
 
     /// Contains the modules which have not been checked yet.
     private var uncheckedModules = Set<Module>()
 
     /// Setting this to true will disable checking for any unchecked module.
-    var ignoreOtherModules: Bool = false
+    var ignoresOtherModules: Bool = false
 
     @discardableResult
     convenience init(
@@ -1168,7 +1168,7 @@ final class PackageBuilderTester {
     init(
         _ package: Manifest.RawPackage,
         path: AbsolutePath = .root,
-        createMultipleTestProducts: Bool = false,
+        shouldCreateMultipleTestProducts: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
@@ -1180,7 +1180,7 @@ final class PackageBuilderTester {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream,
-                isRootPackage: true, createMultipleTestProducts: createMultipleTestProducts)
+                isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.modules)
@@ -1197,12 +1197,12 @@ final class PackageBuilderTester {
     }
 
     private func validateDiagnostics(file: StaticString, line: UInt) {
-        guard !ignoreDiagnostics && !uncheckedDiagnostics.isEmpty else { return }
+        guard !ignoresDiagnostics && !uncheckedDiagnostics.isEmpty else { return }
         XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)", file: file, line: line)
     }
 
     private func validateCheckedModules(file: StaticString, line: UInt) {
-        guard !ignoreOtherModules && !uncheckedModules.isEmpty else { return }
+        guard !ignoresOtherModules && !uncheckedModules.isEmpty else { return }
         XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
     }
 

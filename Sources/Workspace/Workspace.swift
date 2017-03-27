@@ -230,7 +230,7 @@ public class Workspace {
     let managedDependencies: LoadableResult<ManagedDependencies>
 
     /// Enable prefetching containers in resolver.
-    let enableResolverPrefetching: Bool
+    let isResolverPrefetchingEnabled: Bool
 
     /// Create a new package workspace.
     ///
@@ -256,7 +256,7 @@ public class Workspace {
         delegate: WorkspaceDelegate,
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
-        enableResolverPrefetching: Bool = false
+        isResolverPrefetchingEnabled: Bool = false
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -264,7 +264,7 @@ public class Workspace {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
-        self.enableResolverPrefetching = enableResolverPrefetching 
+        self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -773,7 +773,7 @@ public class Workspace {
     /// Otherwise, only currently pinned packages are repinned.
     private func repinPackages(_ pinsStore: PinsStore, dependencyManifests: DependencyManifests) throws {
         // If autopin is on, pin everything and return.
-        if pinsStore.autoPin {
+        if pinsStore.isAutoPinEnabled {
             return try pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: dependencyManifests,
@@ -902,7 +902,7 @@ public class Workspace {
         constraints: [RepositoryPackageConstraint]
     ) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
-        let resolver = DependencyResolver(containerProvider, resolverDelegate, enablePrefetching: enableResolverPrefetching)
+        let resolver = DependencyResolver(containerProvider, resolverDelegate, isPrefetchingEnabled: isResolverPrefetchingEnabled)
         return try resolver.resolve(constraints: constraints)
     }
 
@@ -1043,7 +1043,7 @@ public class Workspace {
                 externalManifests: currentManifests.dependencies.map{$0.manifest},
                 engine: engine,
                 fileSystem: fileSystem,
-                createMultipleTestProducts: createMultipleTestProducts
+                shouldCreateMultipleTestProducts: createMultipleTestProducts
             )
         }
 
@@ -1069,7 +1069,7 @@ public class Workspace {
                 rootManifests: currentManifests.roots, engine: engine)
 
             // If autopin is enabled, reset and pin everything.
-            if pinsStore.autoPin && !engine.hasErrors() {
+            if pinsStore.isAutoPinEnabled && !engine.hasErrors() {
                 try self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
@@ -1084,7 +1084,7 @@ public class Workspace {
             externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
             engine: engine,
             fileSystem: fileSystem,
-            createMultipleTestProducts: createMultipleTestProducts
+            shouldCreateMultipleTestProducts: createMultipleTestProducts
         )
     }
 

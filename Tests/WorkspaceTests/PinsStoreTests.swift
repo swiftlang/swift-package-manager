@@ -38,7 +38,7 @@ final class PinsStoreTests: XCTestCase {
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
-        XCTAssert(store.autoPin)
+        XCTAssert(store.isAutoPinEnabled)
 
         try store.pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         XCTAssert(fs.exists(pinsFile))
@@ -46,24 +46,24 @@ final class PinsStoreTests: XCTestCase {
         // Test autopin toggle and persistence.
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
-            XCTAssert(store.autoPin)
+            XCTAssert(store.isAutoPinEnabled)
             try store.setAutoPin(on: false)
-            XCTAssertFalse(store.autoPin)
+            XCTAssertFalse(store.isAutoPinEnabled)
         }
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
-            XCTAssertFalse(store.autoPin)
+            XCTAssertFalse(store.isAutoPinEnabled)
             try store.setAutoPin(on: true)
-            XCTAssert(store.autoPin)
+            XCTAssert(store.isAutoPinEnabled)
         }
         do {
             let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
-            XCTAssert(store.autoPin)
+            XCTAssert(store.isAutoPinEnabled)
         }
 
         // Load the store again from disk.
         let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
-        XCTAssert(store2.autoPin)
+        XCTAssert(store2.isAutoPinEnabled)
         // Test basics on the store.
         for s in [store, store2] {
             XCTAssert(s.pins.map{$0}.count == 1)

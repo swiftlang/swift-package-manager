@@ -101,14 +101,14 @@ extension ManifestLoaderProtocol {
 public final class ManifestLoader: ManifestLoaderProtocol {
 
     let resources: ManifestResourceProvider
-    let enableManifestSandbox: Bool
+    let isManifestSandboxEnabled: Bool
 
     public init(
         resources: ManifestResourceProvider,
-        enableManifestSandbox: Bool = true
+        isManifestSandboxEnabled: Bool = true
     ) {
         self.resources = resources
-        self.enableManifestSandbox = enableManifestSandbox
+        self.isManifestSandboxEnabled = isManifestSandboxEnabled
     }
 
     public func load(
@@ -215,7 +215,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // If enabled, use sandbox-exec on macOS. This provides some safety against
         // arbitrary code execution when parsing manifest files. We only allow
         // the permissions which are absolutely necessary for manifest parsing.
-        if enableManifestSandbox {
+        if isManifestSandboxEnabled {
             cmd += ["sandbox-exec", "-p", sandboxProfile()]
         }
       #endif

@@ -780,7 +780,7 @@ public class DependencyResolver<
     public let delegate: Delegate
 
     /// Should resolver prefetch the containers.
-    private let enablePrefetching: Bool
+    private let isPrefetchingEnabled: Bool
 
     /// Contains any error encountered during dependency resolution.
     // FIXME: @testable private
@@ -794,12 +794,12 @@ public class DependencyResolver<
     /// repositories from network when trying to partially resolve the constraints.
     ///
     /// Note that the input constraints will always be fetched.
-    public var incompleteMode = false
+    public var isInIncompleteMode = false
 
-    public init(_ provider: Provider, _ delegate: Delegate, enablePrefetching: Bool = false) {
+    public init(_ provider: Provider, _ delegate: Delegate, isPrefetchingEnabled: Bool = false) {
         self.provider = provider
         self.delegate = delegate
-        self.enablePrefetching = enablePrefetching
+        self.isPrefetchingEnabled = isPrefetchingEnabled
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -877,7 +877,7 @@ public class DependencyResolver<
                 constraints: constraints,
                 into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
                 // We might not have a complete result in incomplete mode.
-                if !self.incompleteMode {
+                if !self.isInIncompleteMode {
                     assert(result.checkIfValidAndComplete())
                 }
                 return result
@@ -915,7 +915,7 @@ public class DependencyResolver<
 
                 // Since we don't want to request additional containers in incomplete
                 // mode, remove any dependency that we don't already have.
-                if self.incompleteMode {
+                if self.isInIncompleteMode {
                     constraints = constraints.filter{ self.containers[$0.identifier] != nil }
                 }
 
@@ -958,7 +958,7 @@ public class DependencyResolver<
         var allConstraints = allConstraints
 
         // Never prefetch when running in incomplete mode.
-        if !incompleteMode && enablePrefetching {
+        if !isInIncompleteMode && isPrefetchingEnabled {
             // Ask all of these containers upfront to do async cloning.
             for constraint in constraints {
                 provider.getContainer(for: constraint.identifier) { _ in }

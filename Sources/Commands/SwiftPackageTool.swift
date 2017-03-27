@@ -72,7 +72,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let workspace = try getActiveWorkspace()
             let pinsStore = try workspace.pinsStore.load()
             // We repin either on explicit repin option or if autopin is enabled.
-            let repin = options.repin || pinsStore.autoPin
+            let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
             workspace.updateDependencies(
                 rootPackages: rootPackages,
                 engine: engine,
@@ -125,7 +125,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
                 throw PackageToolOperationError.packageNotFound
             }
-            try workspace.unedit(dependency: editedDependency, forceRemove: options.editOptions.forceRemove)
+            try workspace.unedit(dependency: editedDependency, forceRemove: options.editOptions.shouldForceRemove)
 
         case .showDependencies:
             let graph = try loadPackageGraph()
@@ -194,7 +194,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Argument parser needs to provide that functionality.
 
             // Toggle enable auto pinning if requested.
-            if let enableAutoPin = options.pinOptions.enableAutoPin {
+            if let enableAutoPin = options.pinOptions.shouldAutoPin {
                 let workspace = try getActiveWorkspace()
                 return try workspace.pinsStore.load().setAutoPin(on: enableAutoPin)
             }
@@ -314,7 +314,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             option: updateParser.add(
                 option: "--repin", kind: Bool.self,
                 usage: "Update without applying pins and repin the updated versions"),
-            to: { $0.repin = $1 })
+            to: { $0.shouldRepin = $1 })
 
         let initPackageParser = parser.add(subparser: PackageMode.initPackage.rawValue, overview: "Initialize a new package")
         binder.bind(
@@ -333,7 +333,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             option: uneditParser.add(
                 option: "--force", kind: Bool.self,
                 usage: "Unedit the package even if it has uncommited and unpushed changes."),
-            to: { $0.editOptions.forceRemove = $1 })
+            to: { $0.editOptions.shouldForceRemove = $1 })
         
         let showDependenciesParser = parser.add(subparser: PackageMode.showDependencies.rawValue, overview: "Print the resolved dependency graph")
         binder.bind(
@@ -368,7 +368,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
             to: { 
-                $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $1?.path, enableCodeCoverage: $2)
+                $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $1?.path, isCodeCoverageEnabled: $2)
                 $0.outputPath = $3?.path })
 
         let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "Perform pinning operations on a package.")
@@ -381,12 +381,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             option: pinParser.add(
                 option: "--enable-autopin", kind: Bool.self,
                 usage: "Enable automatic pinning"),
-            to: { $0.pinOptions.enableAutoPin = $1 })
+            to: { $0.pinOptions.shouldAutoPin = $1 })
         binder.bind(
             option: pinParser.add(
                 option: "--disable-autopin", kind: Bool.self,
                 usage: "Disable automatic pinning"),
-            to: { $0.pinOptions.enableAutoPin = !$1 })
+            to: { $0.pinOptions.shouldAutoPin = !$1 })
 
         binder.bind(
             pinParser.add(
@@ -441,7 +441,7 @@ public class PackageToolOptions: ToolOptions {
         var revision: String?
         var checkoutBranch: String?
         var path: AbsolutePath?
-        var forceRemove = false
+        var shouldForceRemove = false
     }
 
     var editOptions = EditOptions()
@@ -450,7 +450,7 @@ public class PackageToolOptions: ToolOptions {
     var xcodeprojOptions = XcodeprojOptions()
 
     struct PinOptions {
-        var enableAutoPin: Bool?
+        var shouldAutoPin: Bool?
         var pinAll = false
         var message: String?
         var packageName: String?
@@ -461,7 +461,7 @@ public class PackageToolOptions: ToolOptions {
     var pinOptions = PinOptions()
 
     /// Repin the dependencies when running package update.
-    var repin = false
+    var shouldRepin = false
 
     enum ResolveToolMode: String {
         case text

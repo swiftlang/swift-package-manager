@@ -56,7 +56,7 @@ class PkgConfigTests: XCTestCase {
             case nil:
                 XCTFail("Expected a provider here")
             }
-            XCTAssertTrue(result.noPcFile)
+            XCTAssertTrue(result.couldNotFindConfigFile)
             switch result.error {
                 case PkgConfigError.couldNotFindConfigFile?: break
                 default: 
@@ -73,7 +73,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
             XCTAssertNil(result.provider)
             XCTAssertNil(result.error)
-            XCTAssertFalse(result.noPcFile)
+            XCTAssertFalse(result.couldNotFindConfigFile)
         }
 
         // Pc file with non whitelisted flags.
@@ -83,7 +83,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
             XCTAssertNil(result.provider)
-            XCTAssertFalse(result.noPcFile)
+            XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
             case PkgConfigError.nonWhitelistedFlags(let desc)?:
                 XCTAssertEqual(desc, "Non whitelisted flags found: [\"-DBlackListed\"] in pc file Bar")

@@ -67,7 +67,7 @@ public struct PackageGraphLoader {
         externalManifests: [Manifest],
         engine: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
-        createMultipleTestProducts: Bool = false
+        shouldCreateMultipleTestProducts: Bool = false
     ) -> PackageGraph {
 
         let allManifests: [Manifest]
@@ -99,7 +99,7 @@ public struct PackageGraphLoader {
                 path: packagePath,
                 fileSystem: fileSystem,
                 isRootPackage: isRootPackage,
-                createMultipleTestProducts: createMultipleTestProducts
+                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts
             )
 
             do {

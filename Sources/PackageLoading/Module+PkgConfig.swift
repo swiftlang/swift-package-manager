@@ -31,7 +31,7 @@ public struct PkgConfigResult {
     public let error: Swift.Error?
 
     /// If the pc file was not found.
-    public var noPcFile: Bool {
+    public var couldNotFindConfigFile: Bool {
         switch error {
             case PkgConfigError.couldNotFindConfigFile?: return true
             default: return false

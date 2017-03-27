@@ -34,7 +34,7 @@ struct Options {
     }
     var branch: String?
     var package: String!
-    var verbose: Bool = false
+    var isVerbose: Bool = false
     var xld = [String]()
     var flags = Flags(xswiftc: [], xlinker: [])
     var foo: String?
@@ -149,7 +149,7 @@ class ArgumentParserTests: XCTestCase {
 
         binder.bind(
             option: parser.add(option: "--verbose", kind: Bool.self),
-            to: { $0.verbose = $1 })
+            to: { $0.isVerbose = $1 })
 
         binder.bindArray(
             option: parser.add(option: "-Xld", kind: Array<String>.self),
@@ -167,7 +167,7 @@ class ArgumentParserTests: XCTestCase {
 
         XCTAssertEqual(options.branch, "bugfix")
         XCTAssertEqual(options.package, "MyPkg")
-        XCTAssertEqual(options.verbose, true)
+        XCTAssertEqual(options.isVerbose, true)
         XCTAssertEqual(options.xld, ["foo", "bar"])
         XCTAssertEqual(options.flags.xlinker, ["a"])
         XCTAssertEqual(options.flags.xswiftc, ["b"])

@@ -165,7 +165,7 @@ public final class TemporaryDirectory {
     public let path: AbsolutePath
 
     /// If true, try to remove the whole directory tree before deallocating.
-    let removeTreeOnDeinit: Bool
+    let shouldRemoveTreeOnDeinit: Bool
 
     /// Creates a temporary directory which is automatically removed when the object of this class goes out of scope.
     ///
@@ -178,7 +178,7 @@ public final class TemporaryDirectory {
     ///
     /// - Throws: MakeDirectoryError
     public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false) throws {
-        self.removeTreeOnDeinit = removeTreeOnDeinit
+        self.shouldRemoveTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
         let path = determineTempDirectory(dir).appending(RelativePath(prefix + ".XXXXXX"))
@@ -197,7 +197,7 @@ public final class TemporaryDirectory {
 
     /// Remove the temporary file before deallocating.
     deinit {
-        if removeTreeOnDeinit {
+        if shouldRemoveTreeOnDeinit {
             let _ = try? FileManager.default.removeItem(atPath: path.asString)
         } else {
             rmdir(path.asString)

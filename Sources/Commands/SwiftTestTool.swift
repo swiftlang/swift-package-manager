@@ -39,31 +39,31 @@ public class TestToolOptions: ToolOptions {
     /// Returns the mode in with the tool command should run.
     var mode: TestMode {
         // If we got version option, just print the version and exit.
-        if printVersion {
+        if shouldPrintVersion {
             return .version
         }
         // List the test cases.
-        if listTests {
+        if shouldListTests {
             return .listTests
         }
         // Run tests in parallel.
-        if parallel {
+        if shouldRunInParallel {
             return .runInParallel
         }
         return .run(specifier)
     }
 
     /// If the test target should be built before testing.
-    var buildTests = true
+    var shouldBuildTests = true
 
     /// Build configuration.
     var config: Build.Configuration = .debug
 
     /// If tests should run in parallel mode.
-    var parallel = false 
+    var shouldRunInParallel = false
 
     /// List the tests and exit.
-    var listTests = false 
+    var shouldListTests = false
     
     /// Run only these specified tests.
     var specifier: String?
@@ -115,7 +115,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let testSuites = try getTestSuites(path: testPath)
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run(testSuites)
-            exit(runner.success ? 0 : 1)
+            exit(runner.ranSuccesfully ? 0 : 1)
         }
     }
 
@@ -124,7 +124,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let graph = try loadPackageGraph()
-        if options.buildTests {
+        if options.shouldBuildTests {
             try build(graph: graph, includingTests: true, config: options.config)
         }
                 
@@ -158,17 +158,17 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         binder.bind(
             option: parser.add(option: "--skip-build", kind: Bool.self,
                 usage: "Skip building the test target"),
-            to: { $0.buildTests = !$1 })
+            to: { $0.shouldBuildTests = !$1 })
 
         binder.bind(
             option: parser.add(option: "--list-tests", shortName: "-l", kind: Bool.self,
                 usage: "Lists test methods in specifier format"),
-            to: { $0.listTests = $1 })
+            to: { $0.shouldListTests = $1 })
 
         binder.bind(
             option: parser.add(option: "--parallel", kind: Bool.self,
                 usage: "Run the tests in parallel."),
-            to: { $0.parallel = $1 })
+            to: { $0.shouldRunInParallel = $1 })
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
@@ -350,7 +350,7 @@ final class ParallelTestRunner {
     private var numCurrentTest = 0
 
     /// True if all tests executed successfully.
-    private(set) var success: Bool = true
+    private(set) var ranSuccesfully: Bool = true
 
     let processSet: ProcessSet
 
@@ -402,7 +402,7 @@ final class ParallelTestRunner {
                     if success {
                         self.finishedTests.enqueue(.success(test))
                     } else {
-                        self.success = false
+                        self.ranSuccesfully = false
                         self.finishedTests.enqueue(.failure(test, output: output))
                     }
                 }
