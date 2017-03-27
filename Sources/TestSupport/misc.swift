@@ -193,7 +193,8 @@ public func loadMockPackageGraph(
             externalManifests.append(manifest)
         }
     }
-    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, engine: engine, fileSystem: fs)
+    let root = PackageGraphRoot(manifests: [rootManifest])
+    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, engine: engine, fileSystem: fs)
 }
 
 public func loadMockPackageGraph4(
@@ -217,7 +218,8 @@ public func loadMockPackageGraph4(
             externalManifests.append(manifest)
         }
     }
-    return PackageGraphLoader().load(rootManifests: [rootManifest], externalManifests: externalManifests, engine: engine, fileSystem: fs)
+    let root = PackageGraphRoot(manifests: [rootManifest])
+    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, engine: engine, fileSystem: fs)
 }
 
 /// Temporary override environment variables

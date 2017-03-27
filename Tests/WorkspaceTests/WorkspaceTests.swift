@@ -81,6 +81,12 @@ extension Workspace {
             fileSystem: fileSystem,
             repositoryProvider: repositoryProvider)
     }
+
+    // FIXME: Eliminate this.
+    @discardableResult
+    fileprivate func loadPackageGraph(rootPackages: [AbsolutePath], engine: DiagnosticsEngine) -> PackageGraph {
+        return loadPackageGraph(root: WorkspaceRoot(packages: rootPackages), engine: engine)
+    }
 }
 
 extension ManagedDependency {
@@ -1830,6 +1836,45 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testPackageGraphWithGraphRootDependencies() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+            ],
+            packages: [
+                MockPackage("A", version: v1),
+                MockPackage("A", version: "1.5.1"),
+                MockPackage("B", version: v1),
+            ],
+            fs: fs
+        )
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.5.1")
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: TestWorkspaceDelegate(),
+            fileSystem: fs,
+            repositoryProvider: provider
+        )
+        let engine = DiagnosticsEngine()
+        let root = WorkspaceRoot(packages: [path], dependencies: [
+            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
+            .init(url: "/RootPkg/A", requirement: .versionSet(.exact(v1)), location: "rootA"),
+        ])
+
+        let graph = workspace.loadPackageGraph(root: root, engine: engine)
+        XCTAssertFalse(engine.hasErrors())
+        XCTAssertEqual(graph.rootPackages.map{$0.name}.sorted(), ["Root"])
+        XCTAssertEqual(graph.lookup("A").manifest.version, v1)
+        XCTAssertEqual(graph.packages.map{$0.name}.sorted(), ["A", "B", "Root"])
+        XCTAssertEqual(graph.modules.map{$0.name}.sorted(), ["A", "B", "Root"])
+        XCTAssertEqual(graph.products.map{$0.name}.sorted(), ["A", "B"])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
@@ -1856,6 +1901,7 @@ final class WorkspaceTests: XCTestCase {
         ("testToolsVersionRootPackages", testToolsVersionRootPackages),
         ("testTOTPackageEdit", testTOTPackageEdit),
         ("testLoadingRootManifests", testLoadingRootManifests),
+        ("testPackageGraphWithGraphRootDependencies", testPackageGraphWithGraphRootDependencies),
     ]
 }
 

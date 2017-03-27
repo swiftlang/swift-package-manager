@@ -905,12 +905,20 @@ public class Workspace {
         return try resolver.resolve(constraints: constraints)
     }
 
+    // FIXME: Temporary shim while we transition to the new methods.
+    public func loadDependencyManifests(
+        rootManifests: [Manifest],
+        engine: DiagnosticsEngine
+    ) -> DependencyManifests {
+        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), engine: engine)
+    }
+
     /// Load the manifests for the current dependency tree.
     ///
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
     public func loadDependencyManifests(
-        rootManifests: [Manifest],
+        root: PackageGraphRoot,
         engine: DiagnosticsEngine
     ) -> DependencyManifests {
 
@@ -921,18 +929,24 @@ public class Workspace {
             managedDependencies = try self.managedDependencies.load()
         } catch {
             engine.emit(error)
-            return DependencyManifests(roots: rootManifests, dependencies: [])
+            return DependencyManifests(roots: root.manifests, dependencies: [])
         }
 
+        let rootDependencyManifests = root.dependencies.flatMap{
+            // FIXME: We need to emit any errors here to the engine (SR-4262).
+            return loadManifest(forDependencyURL: $0.url, managedDependencies: managedDependencies)
+        }
+        let inputManifests = root.manifests + rootDependencyManifests
+
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
+        let dependencies = transitiveClosure(inputManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
                 let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
                 return manifest.flatMap{ KeyedPair($0, key: $0.url) }
             }
         }
-        let deps = dependencies.map{ ($0.item, managedDependencies[$0.item.url]!) }
-        return DependencyManifests(roots: rootManifests, dependencies: deps)
+        let deps = (rootDependencyManifests + dependencies.map{$0.item}).map{($0, managedDependencies[$0.url]!)}
+        return DependencyManifests(roots: root.manifests, dependencies: deps)
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
@@ -975,7 +989,7 @@ public class Workspace {
     /// - Returns: The loaded package graph.
     @discardableResult
     public func loadPackageGraph(
-        rootPackages: [AbsolutePath],
+        root: WorkspaceRoot,
         engine: DiagnosticsEngine,
         createMultipleTestProducts: Bool = false
     ) -> PackageGraph {
@@ -988,7 +1002,7 @@ public class Workspace {
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(
-            packages: rootPackages, engine: engine)
+            packages: root.packages, engine: engine)
         let currentManifests = loadDependencyManifests(
             rootManifests: rootManifests, engine: engine)
 
@@ -999,7 +1013,7 @@ public class Workspace {
         // encountered some errors.
         if engine.hasErrors() || missingURLs.isEmpty {
             return PackageGraphLoader().load(
-                rootManifests: rootManifests,
+                root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
                 externalManifests: currentManifests.dependencies.map{$0.manifest},
                 engine: engine,
                 fileSystem: fileSystem,
@@ -1019,6 +1033,7 @@ public class Workspace {
             var constraints = [RepositoryPackageConstraint]()
             constraints += pinsStore.createConstraints()
             constraints += rootManifests.flatMap{$0.package.dependencyConstraints()}
+            constraints += root.constraints
             constraints += currentManifests.createDependencyConstraints()
 
             // Perform dependency resolution.
@@ -1027,10 +1042,10 @@ public class Workspace {
             // Update the checkouts with dependency resolution result.
             try updateCheckouts(with: result)
 
+            let graphRoot = PackageGraphRoot(
+                manifests: rootManifests, dependencies: root.dependencies)
             // Load the updated manifests.
-            updatedManifests = loadDependencyManifests(
-                rootManifests: currentManifests.roots, engine: engine)
-
+            updatedManifests = loadDependencyManifests(root: graphRoot, engine: engine) 
             // If autopin is enabled, reset and pin everything.
             if pinsStore.isAutoPinEnabled && !engine.hasErrors() {
                 try self.pinAll(
@@ -1043,7 +1058,7 @@ public class Workspace {
         }
 
         return PackageGraphLoader().load(
-            rootManifests: currentManifests.roots,
+            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
             externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
             engine: engine,
             fileSystem: fileSystem,
