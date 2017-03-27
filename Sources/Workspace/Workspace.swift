@@ -136,10 +136,9 @@ public class Workspace {
             return lookup(package: name)?.manifest
         }
 
-        /// Returns constraints of the root manifests and dependencies.
-        func createConstraints() -> [RepositoryPackageConstraint] {
-            // Add the constraints from root manfiests.
-            var constraints = roots.flatMap{ $0.package.dependencyConstraints() }
+        /// Returns constraints of the dependencies.
+        func createDependencyConstraints() -> [RepositoryPackageConstraint] {
+            var constraints = [RepositoryPackageConstraint]()
             // Iterate and add constraints from dependencies.
             for (externalManifest, managedDependency) in dependencies {
                 let specifier = RepositorySpecifier(url: externalManifest.url)
@@ -1055,8 +1054,11 @@ public class Workspace {
         do {
             let pinsStore = try self.pinsStore.load()
 
-            // Create constraints from pinsStore and currently loaded manifests.
-            let constraints = pinsStore.createConstraints() + currentManifests.createConstraints()
+            // Create the constraints.
+            var constraints = [RepositoryPackageConstraint]()
+            constraints += pinsStore.createConstraints()
+            constraints += rootManifests.flatMap{$0.package.dependencyConstraints()}
+            constraints += currentManifests.createDependencyConstraints()
 
             // Perform dependency resolution.
             let result = try resolveDependencies(constraints: constraints)
