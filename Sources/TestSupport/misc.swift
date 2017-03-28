@@ -149,7 +149,11 @@ public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuratio
 /// Test helper utility for executing a block with a temporary directory.
 public func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
     do {
-        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(function)", removeTreeOnDeinit: true)
+        let cleanedFunction = function.description
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+            .replacingOccurrences(of: ".", with: "")
+        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)", removeTreeOnDeinit: true)
         try body(tmpDir.path)
     } catch {
         XCTFail("\(error)", file: file, line: line)
