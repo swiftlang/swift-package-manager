@@ -144,6 +144,8 @@ class ClangModulesTestCase: XCTestCase {
     }
     
     func testObjectiveCPackageWithTestTarget(){
+      // Disable until https://bugs.swift.org/browse/SR-4419 is fixed.
+#if false
 #if os(macOS)
         fixture(name: "ClangModules/ObjCmacOSPackage") { prefix in
             // Build the package.
@@ -153,7 +155,7 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertSwiftTest(prefix)
         }
 #endif
-
+#endif
     }
 
     static var allTests = [
