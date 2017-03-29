@@ -15,6 +15,8 @@ import Utility
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() {
+      // Reenable when https://bugs.swift.org/browse/SR-4419 is fixed.
+#if false
 #if os(macOS)
 
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
@@ -39,6 +41,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Run the XCTest helper tool and check result.
             XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
+#endif
 #endif
     }
     
