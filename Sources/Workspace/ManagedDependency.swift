@@ -26,13 +26,11 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         case checkout(CheckoutState)
 
         /// The dependency is in edited state.
-        case edited
-
-        /// The dependency is managed by a user and is located at the path.
-        /// 
-        /// In other words, this dependency is being used for top of the
-        /// tree style development.
-        case unmanaged(path: AbsolutePath)
+        ///
+        /// If the path is non-nil, the dependency is managed by a user and is
+        /// located at the path. In other words, this dependency is being used
+        /// for top of the tree style development.
+        case edited(AbsolutePath?)
 
         /// Returns true if state is checkout.
         var isCheckout: Bool {
@@ -68,19 +66,26 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         self.subpath = subpath
     }
 
-    private init(basedOn dependency: ManagedDependency, subpath: RelativePath, state: State) {
+    private init(
+        basedOn dependency: ManagedDependency,
+        subpath: RelativePath,
+        unmanagedPath: AbsolutePath?
+    ) {
         assert(dependency.state.isCheckout)
-        assert(!state.isCheckout)
         self.basedOn = dependency
         self.repository = dependency.repository
         self.subpath = subpath
-        self.state = state
+        self.state = .edited(unmanagedPath)
     }
 
     /// Create an editable managed dependency based on a dependency which
     /// was *not* in edit state.
-    func makingEditable(subpath: RelativePath, state: State) -> ManagedDependency {
-        return ManagedDependency(basedOn: self, subpath: subpath, state: state)
+    ///
+    /// - Parameters:
+    ///     - subpath: The subpath inside the editables directory.
+    ///     - unmanagedPath: A custom absolute path instead of the subpath.
+    func editedDependency(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
+        return ManagedDependency(basedOn: self, subpath: subpath, unmanagedPath: unmanagedPath)
     }
 
     public init(json: JSON) throws {
@@ -108,13 +113,9 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
             return lhs == rhs
         case (.checkout, _):
             return false
-        case (.edited, .edited):
-            return true
-        case (.edited, _):
-            return false
-        case (.unmanaged(let lhs), .unmanaged(let rhs)):
+        case (.edited(let lhs), .edited(let rhs)):
             return lhs == rhs
-        case (.unmanaged, _):
+        case (.edited, _):
             return false
         }
     }
@@ -126,14 +127,10 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
                 "name": "checkout",
                 "checkoutState": checkoutState
             ])
-        case .edited:
+        case .edited(let path):
             return .init([
                 "name": "edited",
-            ])
-        case .unmanaged(let path):
-            return .init([
-                "name": "unmanaged",
-                "path": path,
+                "path": path.toJSON(),
             ])
         }
     }
@@ -144,9 +141,8 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         case "checkout":
             self = try .checkout(json.get("checkoutState"))
         case "edited":
-            self = .edited
-        case "unmanaged":
-            self = try .unmanaged(path: AbsolutePath(json.get("path")))
+            let path: String? = json.get("path")
+            self = .edited(path.map(AbsolutePath.init))
         default:
             throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
         }
