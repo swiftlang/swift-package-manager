@@ -39,7 +39,7 @@ private extension TempFileError {
 ///     - dir: If present this will be the temporary directory.
 ///
 /// - Returns: Path to directory in which temporary file should be created.
-private func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath {
+public func determineTempDirectory(_ dir: AbsolutePath? = nil) -> AbsolutePath {
     // FIXME: Add other platform specific locations.
     let tmpDir = dir ?? cachedTempDirectory
     // FIXME: This is a runtime condition, so it should throw and not crash.
