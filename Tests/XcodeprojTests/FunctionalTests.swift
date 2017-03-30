@@ -143,8 +143,13 @@ func write(path: AbsolutePath, write: (OutputByteStream) -> Void) throws {
 
 func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     do {
+        var env = ProcessInfo.processInfo.environment
+        // Use the default toolchain if its not explicitly set.
+        if env["TOOLCHAINS"] == nil {
+            env["TOOLCHAINS"] = "default"
+        }
         try Process.checkNonZeroExit(
-            args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-project", project.asString, "-alltargets")
+            args: "xcodebuild", "-project", project.asString, "-alltargets", environment: env)
     } catch {
         XCTFail("xcodebuild failed:\n\n\(error)\n", file: file, line: line)
     }
