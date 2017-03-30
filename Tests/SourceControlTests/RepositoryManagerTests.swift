@@ -131,7 +131,6 @@ class RepositoryManagerTests: XCTestCase {
                 }
 
                 XCTAssertEqual(provider.numFetches, 0)
-                XCTAssert(delegate.fetched.contains(dummyRepo))
             
                 // We should always get back the same handle once fetched.
                 XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
@@ -173,18 +172,20 @@ class RepositoryManagerTests: XCTestCase {
 
     func testReset() throws {
         mktmpdir { path in
+            let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
-            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
+            try localFileSystem.createDirectory(repos, recursive: true)
+            let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
             _ = try manager.lookupSynchronously(repository: dummyRepo)
             _ = try manager.lookupSynchronously(repository: dummyRepo)
-            XCTAssertTrue(delegate.fetched.count == 1)
+            XCTAssertEqual(delegate.fetched.count, 1)
             manager.reset()
-            XCTAssertTrue(!isDirectory(path))
-            try localFileSystem.createDirectory(path, recursive: true)
+            XCTAssertTrue(!isDirectory(repos))
+            try localFileSystem.createDirectory(repos, recursive: true)
             _ = try manager.lookupSynchronously(repository: dummyRepo)
-            XCTAssertTrue(delegate.fetched.count == 2)
+            XCTAssertEqual(delegate.fetched.count, 2)
         }
     }
 
