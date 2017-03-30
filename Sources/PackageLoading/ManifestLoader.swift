@@ -264,6 +264,8 @@ private func sandboxProfile() -> String {
     // These are required by the Swift compiler.
     stream <<< "(allow process*)" <<< "\n"
     stream <<< "(allow sysctl*)" <<< "\n"
+    stream <<< "(allow mach*)" <<< "\n"
+    stream <<< "(allow signal)" <<< "\n"
     // Allow writing in temporary locations.
     stream <<< "(allow file-write*" <<< "\n"
     stream <<< "    (subpath \"/private/var\")" <<< "\n"
