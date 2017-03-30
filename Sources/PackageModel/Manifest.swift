@@ -16,7 +16,7 @@ import PackageDescription4
  This contains the declarative specification loaded from package manifest
  files, and the tools for working with the manifest.
 */
-public final class Manifest: ObjectIdentifierProtocol {
+public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     /// The standard filename for the manifest.
     public static var filename = basename + ".swift"
 
@@ -71,6 +71,10 @@ public final class Manifest: ObjectIdentifierProtocol {
         self.package = package
         self.legacyProducts = legacyProducts
         self.version = version
+    }
+
+    public var description: String {
+        return "<Manifest: \(name)>"
     }
 }
 
