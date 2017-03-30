@@ -17,6 +17,22 @@ import func POSIX.getenv
 
 public struct BuildParameters {
 
+    /// Path to the module cache directory to use for SwiftPM's own tests.
+    fileprivate static let swiftpmTestCache = determineTempDirectory().appending(component: "org.swift.swiftpm.tests")
+
+    /// Returns the directory to be used for module cache.
+    fileprivate var moduleCache: AbsolutePath {
+        let base: AbsolutePath
+        // FIXME: We use this hack to let swiftpm's functional test use shared
+        // cache so it doesn't become painfully slow.
+        if getenv("IS_SWIFTPM_TEST") != nil {
+            base = BuildParameters.swiftpmTestCache
+        } else {
+            base = buildPath
+        }
+        return base.appending(component: "ModuleCache")
+    }
+
     /// The path to the data directory.
     public let dataPath: AbsolutePath
 
@@ -191,10 +207,7 @@ public final class ClangTargetDescription {
 
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
-        // FIXME: We use this hack to let swiftpm's functional test use shared cache so it doesn't become painfully slow.
-        if getenv("IS_SWIFTPM_TEST") != nil { return [] }
-        let moduleCachePath = buildParameters.buildPath.appending(component: "ModuleCache")
-        return ["-fmodules-cache-path=" + moduleCachePath.asString]
+        return ["-fmodules-cache-path=" + buildParameters.moduleCache.asString]
     }
 }
 
@@ -266,10 +279,7 @@ public final class SwiftTargetDescription {
 
     /// Module cache arguments.
     private var moduleCacheArgs: [String] {
-        // FIXME: We use this hack to let swiftpm's functional test use shared cache so it doesn't become painfully slow.
-        if getenv("IS_SWIFTPM_TEST") != nil { return [] }
-        let moduleCachePath = buildParameters.buildPath.appending(component: "ModuleCache")
-        return ["-module-cache-path", moduleCachePath.asString]
+        return ["-module-cache-path", buildParameters.moduleCache.asString]
     }
 }
 
