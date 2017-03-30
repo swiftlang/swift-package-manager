@@ -117,7 +117,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     let reversedVersions: [Version]
 
     /// The cached dependency information.
-    private var dependenciesCache: [Revision: [RepositoryPackageConstraint]] = [:]
+    private var dependenciesCache: [String: [RepositoryPackageConstraint]] = [:]
     private var dependenciesCacheLock = Lock()
     
     init(
@@ -167,42 +167,50 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
-        // FIXME: We should have a persistent cache for these.
-        let tag = knownVersions[version]!
-        let revision = try repository.resolveRevision(tag: tag)
-        return try getDependencies(at: revision, version: version)
+        return try cachedDependencies(forIdentifier: version.description) {
+            let tag = knownVersions[version]!
+            let revision = try repository.resolveRevision(tag: tag)
+            return try getDependencies(at: revision, version: version)
+        }
     }
 
     public func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
-        // Resolve the revision identifier and return its dependencies.
-        let revision = try repository.resolveRevision(identifier: revision)
-        return try getDependencies(at: revision)
+        return try cachedDependencies(forIdentifier: revision) {
+            // resolve the revision identifier and return its dependencies.
+            let revision = try repository.resolveRevision(identifier: revision)
+            return try getDependencies(at: revision)
+        }
+    }
+
+    private func cachedDependencies(
+        forIdentifier identifier: String,
+        getDependencies: () throws -> [RepositoryPackageConstraint]
+    ) throws -> [RepositoryPackageConstraint] {
+        return try dependenciesCacheLock.withLock{
+            if let result = dependenciesCache[identifier] {
+                return result
+            }
+            let result = try getDependencies()
+            dependenciesCache[identifier] = result
+            return result
+        }
     }
 
     /// Returns dependencies of a container at the given revision.
     private func getDependencies(at revision: Revision, version: Version? = nil) throws -> [RepositoryPackageConstraint] {
-        // FIXME: Get a caching helper for this.
-        return try dependenciesCacheLock.withLock{
-            if let result = dependenciesCache[revision] {
-                return result
-            }
-            let fs = try repository.openFileView(revision: revision)
+        let fs = try repository.openFileView(revision: revision)
 
-            // Load the tools version.
-            let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+        // Load the tools version.
+        let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
 
-            // Load the manifest.
-            let manifest = try manifestLoader.load(
-                package: AbsolutePath.root,
-                baseURL: identifier.url,
-                version: version,
-                manifestVersion: toolsVersion.manifestVersion,
-                fileSystem: fs)
+        // Load the manifest.
+        let manifest = try manifestLoader.load(
+            package: AbsolutePath.root,
+            baseURL: identifier.url,
+            version: version,
+            manifestVersion: toolsVersion.manifestVersion,
+            fileSystem: fs)
 
-            let result = manifest.package.dependencyConstraints()
-            dependenciesCache[revision] = result
-
-            return result
-        }
+        return manifest.package.dependencyConstraints()
     }
 }
