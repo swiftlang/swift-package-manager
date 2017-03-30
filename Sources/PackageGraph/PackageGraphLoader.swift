@@ -63,27 +63,37 @@ public struct PackageGraphLoader {
 
     /// Load the package graph for the given package path.
     public func load(
-        rootManifests: [Manifest],
+        root: PackageGraphRoot,
         externalManifests: [Manifest],
         engine: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false
     ) -> PackageGraph {
 
-        let allManifests: [Manifest]
-        let rootManifestSet = Set(rootManifests)
         // Manifest url to manifest map.
-        let manifestURLMap: [String: Manifest] = Dictionary(items: (externalManifests + rootManifests).map { ($0.url, $0) })
-        // Detect cycles in manifest dependencies.
-        if let cycle = findCycle(rootManifests, successors: { $0.package.dependencies.flatMap{ manifestURLMap[$0.url] } }) {
-            engine.emit(PackageGraphError.cycleDetected(cycle))
-            allManifests = rootManifests
-        } else {
-            // Sort all manifests toplogically.
-            allManifests = try! topologicalSort(rootManifests) { $0.package.dependencies.flatMap{ manifestURLMap[$0.url] } }
+        let manifestURLMap = Dictionary(items: (externalManifests + root.manifests).map{($0.url, $0)})
+        let successors: (Manifest) -> [Manifest] = { manifest in
+            manifest.package.dependencies.flatMap{ manifestURLMap[$0.url] }
         }
 
-        // Create the packages and convert to modules.
+        // Construct the root manifest and root dependencies set.
+        let rootManifestSet = Set(root.manifests)
+        let rootDependencies = Set(root.dependencies.flatMap{manifestURLMap[$0.url]})
+        let inputManifests = root.manifests + rootDependencies 
+
+        // Collect the manifests for which we are going to build packages.
+        let allManifests: [Manifest]
+
+        // Detect cycles in manifest dependencies.
+        if let cycle = findCycle(inputManifests, successors: successors) {
+            engine.emit(PackageGraphError.cycleDetected(cycle))
+            allManifests = inputManifests
+        } else {
+            // Sort all manifests toplogically.
+            allManifests = try! topologicalSort(inputManifests, successors: successors)
+        }
+
+        // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
         for manifest in allManifests {
             let isRootPackage = rootManifestSet.contains(manifest)
@@ -119,9 +129,10 @@ public struct PackageGraphLoader {
         let resolvedPackages = createResolvedPackages(
             allManifests: allManifests, manifestToPackage: manifestToPackage, engine: engine)
 
-        // Filter out the root packages.
-        let resolvedRootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-        return PackageGraph(rootPackages: resolvedRootPackages)
+        return PackageGraph(
+            rootPackages: resolvedPackages.filter{rootManifestSet.contains($0.manifest)},
+            rootDependencies: resolvedPackages.filter{rootDependencies.contains($0.manifest)}
+        )
     }
 }
 

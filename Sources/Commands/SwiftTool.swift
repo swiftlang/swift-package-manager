@@ -61,6 +61,11 @@ public class SwiftTool<Options: ToolOptions> {
         return packageRoot
     }
 
+    /// Get the current workspace root object.
+    func getWorkspaceRoot() throws -> WorkspaceRoot {
+        return try WorkspaceRoot(packages: [getPackageRoot()])
+    }
+
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
@@ -257,8 +262,8 @@ public class SwiftTool<Options: ToolOptions> {
         let workspace = try getActiveWorkspace()
 
         // Fetch and load the package graph.
-        let graph = workspace.loadPackageGraph(
-            rootPackages: [try getPackageRoot()], engine: engine)
+        let graph = try workspace.loadPackageGraph(
+            root: getWorkspaceRoot(), engine: engine)
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
