@@ -1246,10 +1246,10 @@ final class WorkspaceTests: XCTestCase {
             ],
             fs: fs
         )
-        let delegate = TestWorkspaceDelegate()
+        
         let provider = manifestGraph.repoProvider!
 
-        func newWorkspace() -> Workspace {
+        func newWorkspace(with delegate: WorkspaceDelegate) -> Workspace {
             return Workspace.createWith(
                 rootPackage: path,
                 manifestLoader: manifestGraph.manifestLoader,
@@ -1259,7 +1259,8 @@ final class WorkspaceTests: XCTestCase {
         }
         
         do {
-            let workspace = newWorkspace()
+            let delegate = TestWorkspaceDelegate()
+            let workspace = newWorkspace(with: delegate)
             try workspace.pinsStore.load().setAutoPin(on: false)
 
             let engine = DiagnosticsEngine()
@@ -1278,7 +1279,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Try updating with repin and versions shouldn't change.
         do {
-            let workspace = newWorkspace()
+            let delegate = TestWorkspaceDelegate()
+            let workspace = newWorkspace(with: delegate)
             let engine = DiagnosticsEngine()
             workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
             XCTAssertFalse(engine.hasErrors())
@@ -1292,7 +1294,8 @@ final class WorkspaceTests: XCTestCase {
         try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
 
         do {
-            let workspace = newWorkspace()
+            let delegate = TestWorkspaceDelegate()
+            let workspace = newWorkspace(with: delegate)
             let engine = DiagnosticsEngine()
             let g = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
@@ -1302,12 +1305,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let workspace = newWorkspace()
+            let delegate = TestWorkspaceDelegate()
+            let workspace = newWorkspace(with: delegate)
             XCTAssertTrue(delegate.warnings.isEmpty)
             let engine = DiagnosticsEngine()
             workspace.updateDependencies(rootPackages: [path], engine: engine, repin: true)
             XCTAssertFalse(engine.hasErrors())
-            XCTAssertEqual(delegate.warnings, ["Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."])
+            XCTAssert(delegate.warnings.contains("Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."))
             let g = workspace.loadPackageGraph(rootPackages: [path], engine: engine)
             XCTAssertFalse(engine.hasErrors())
             XCTAssert(g.lookup("A").version == "1.0.1")
@@ -1874,6 +1878,22 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(graph.modules.map{$0.name}.sorted(), ["A", "B", "Root"])
         XCTAssertEqual(graph.products.map{$0.name}.sorted(), ["A", "B"])
     }
+    
+    func testDeletedCheckoutDirectory() throws {
+        fixture(name: "DependencyResolution/External/Simple") { path in
+            let barRoot = path.appending(component: "Bar")
+            
+            let engine = DiagnosticsEngine()
+            let delegate = TestWorkspaceDelegate()
+            let workspace = Workspace.createWith(rootPackage: barRoot, delegate: delegate)
+            workspace.loadPackageGraph(rootPackages: [barRoot], engine: engine)
+            try removeFileTree(workspace.checkoutsPath)
+            workspace.loadPackageGraph(rootPackages: [barRoot], engine: engine)
+            XCTAssertFalse(engine.hasErrors())
+            XCTAssertTrue(delegate.warnings.contains(where: { $0.hasPrefix("Foo") && $0.hasSuffix(" is missing and has been cloned again.") }))
+            XCTAssertTrue(isDirectory(workspace.checkoutsPath))
+        }
+    }
 
     static var allTests = [
         ("testBasics", testBasics),
@@ -1902,6 +1922,7 @@ final class WorkspaceTests: XCTestCase {
         ("testTOTPackageEdit", testTOTPackageEdit),
         ("testLoadingRootManifests", testLoadingRootManifests),
         ("testPackageGraphWithGraphRootDependencies", testPackageGraphWithGraphRootDependencies),
+        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory)
     ]
 }
 
