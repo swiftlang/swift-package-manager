@@ -16,7 +16,7 @@ import PackageLoading
 import Utility
 
 public enum MockManifestLoaderError: Swift.Error {
-    case unknownRequest
+    case unknownRequest(String)
 }
 
 /// A mock manifest loader implementation.
@@ -56,10 +56,11 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem?
     ) throws -> PackageModel.Manifest {
-        if let result = manifests[Key(url: baseURL, version: version)] {
+        let key = Key(url: baseURL, version: version)
+        if let result = manifests[key] {
             return result
         }
-        throw MockManifestLoaderError.unknownRequest
+        throw MockManifestLoaderError.unknownRequest("\(key)")
     }
 }
 public func ==(lhs: MockManifestLoader.Key, rhs: MockManifestLoader.Key) -> Bool {
