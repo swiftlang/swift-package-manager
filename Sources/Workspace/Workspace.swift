@@ -927,47 +927,8 @@ public class Workspace {
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(rootManifests.map{ KeyedPair($0, key: $0.url) }) { node in
             return node.item.package.dependencies.flatMap{ dependency in
-                // Check if this dependency is available.
-                guard let managedDependency = managedDependencies[RepositorySpecifier(url: dependency.url)] else {
-                    return nil
-                }
-
-                // The version, if known.
-                let version: Version?
-                let packagePath: AbsolutePath
-
-                // Construct the package path for the dependency.
-                switch managedDependency.state {
-                case .checkout(let checkoutState):
-                    packagePath = checkoutsPath.appending(managedDependency.subpath)
-                    version = checkoutState.version
-                case .edited:
-                    packagePath = editablesPath.appending(managedDependency.subpath)
-                    version = nil
-                case .unmanaged(let path):
-                    packagePath = path
-                    version = nil
-                }
-
-                // Load the tools version for the package.
-                let toolsVersion = try! toolsVersionLoader.load(
-                    at: packagePath, fileSystem: localFileSystem)
-
-                // If so, load its manifest.
-                //
-                // This should *never* fail, because we should only have ever
-                // got this checkout via loading its manifest successfully.
-                //
-                // FIXME: Nevertheless, we should handle this failure explicitly.
-                //
-                // FIXME: We should have a cache for this.
-                let manifest: Manifest = try! manifestLoader.load(
-                    package: packagePath,
-                    baseURL: managedDependency.repository.url,
-                    version: version,
-                    manifestVersion: toolsVersion.manifestVersion)
-
-                return KeyedPair(manifest, key: manifest.url)
+                let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
+                return manifest.flatMap{ KeyedPair($0, key: $0.url) }
             }
         }
         let deps = dependencies.map{ ($0.item, managedDependencies[$0.item.url]!) }
@@ -1158,6 +1119,50 @@ public class Workspace {
             }
         }
         return manifests
+    }
+
+    /// Loads the given manifest, if it is present in the managed dependencies.
+    private func loadManifest(
+        forDependencyURL url: String,
+        managedDependencies: ManagedDependencies
+    ) -> Manifest? {
+        // Check if this dependency is available.
+        guard let managedDependency = managedDependencies[url] else {
+            return nil
+        }
+
+        // The version, if known.
+        let version: Version?
+        let packagePath: AbsolutePath
+
+        // Construct the package path for the dependency.
+        switch managedDependency.state {
+        case .checkout(let checkoutState):
+            packagePath = checkoutsPath.appending(managedDependency.subpath)
+            version = checkoutState.version
+        case .edited:
+            packagePath = editablesPath.appending(managedDependency.subpath)
+            version = nil
+        case .unmanaged(let path):
+            packagePath = path
+            version = nil
+        }
+
+        // Load the tools version for the package.
+        let toolsVersion = try! toolsVersionLoader.load(
+            at: packagePath, fileSystem: localFileSystem)
+
+        // Load the manifest.
+        //
+        // FIXME: We need to emit errors if this fails (SR-4262).
+        //
+        // FIXME: We should have a cache for this.
+        let manifest: Manifest = try! manifestLoader.load(
+            package: packagePath,
+            baseURL: managedDependency.repository.url,
+            version: version,
+            manifestVersion: toolsVersion.manifestVersion)
+        return manifest
     }
 }
 
