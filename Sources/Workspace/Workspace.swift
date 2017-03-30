@@ -145,7 +145,7 @@ public class Workspace {
                 let constraint: RepositoryPackageConstraint
 
                 switch managedDependency.state {
-                case .unmanaged, .edited:
+                case .edited:
                     // Create unversioned constraints for editable dependencies.
                     let dependencies = externalManifest.package.dependencyConstraints()
 
@@ -177,7 +177,7 @@ public class Workspace {
             for (externalManifest, managedDependency) in dependencies {
                 switch managedDependency.state {
                 case .checkout: continue
-                case .unmanaged, .edited: break
+                case .edited: break
                 }
                 let specifier = RepositorySpecifier(url: externalManifest.url)
                 let dependencies = externalManifest.package.dependencyConstraints()
@@ -341,19 +341,9 @@ public class Workspace {
             throw WorkspaceOperationError.dependencyAlreadyInEditMode
         }
 
-        let destination: AbsolutePath
-        let state: ManagedDependency.State
-
-        // If a path is provided then we make this dependency unmanaged (Top of
-        // the tree). Otherwise, it is an edited dependency inside editables
-        // directory.
-        if let path = path {
-            destination = path
-            state = .unmanaged(path: destination)
-        } else {
-            destination = editablesPath.appending(component: packageName)
-            state = .edited
-        }
+        // If a path is provided then we use it as destination. If not, we
+        // use the folder with packageName inside editablesPath.
+        let destination = path ?? editablesPath.appending(component: packageName)
 
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
@@ -403,7 +393,7 @@ public class Workspace {
         }
 
         // For unmanaged dependencies, create the symlink under editables dir.
-        if case let .unmanaged(path) = state {
+        if let path = path {
             try fileSystem.createDirectory(editablesPath)
             // FIXME: We need this to work with InMem file system too.
             try createSymlink(
@@ -415,8 +405,8 @@ public class Workspace {
         // Save the new state.
         // FIXME: We shouldn't need to reload the managed dependencies here.
         let managedDependencies = try self.managedDependencies.load()
-        managedDependencies[dependency.repository] = dependency.makingEditable(
-            subpath: RelativePath(packageName), state: state)
+        managedDependencies[dependency.repository] = dependency.editedDependency(
+            subpath: RelativePath(packageName), unmanagedPath: path)
         try managedDependencies.saveState()
     }
 
@@ -435,13 +425,13 @@ public class Workspace {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout: 
             throw WorkspaceOperationError.dependencyNotInEditMode
-        case .edited:
-            break
-        case .unmanaged:
-            // Set force remove to true for unmanaged dependencies.  Note that
-            // this only removes the symlink under the editable directory and
-            // not the actual unmanaged package.
-            forceRemove = true
+        case .edited(let path):
+            if path != nil {
+                // Set force remove to true for unmanaged dependencies.  Note that
+                // this only removes the symlink under the editable directory and
+                // not the actual unmanaged package.
+                forceRemove = true
+            }
         }
 
         // Form the edit working repo path.
@@ -592,7 +582,7 @@ public class Workspace {
         switch dependency.state {
         case .checkout(let state):
             checkoutState = state
-        case .unmanaged, .edited:
+        case .edited:
             // For editable dependencies, pin the underlying dependency if we have them.
             if let basedOn = dependency.basedOn, case .checkout(let state) = basedOn.state {
                 checkoutState = state
@@ -955,23 +945,32 @@ public class Workspace {
     private func validateEditedPackages() throws {
         let managedDependencies = try self.managedDependencies.load()
         for dependency in managedDependencies.values {
-
-            let dependencyPath: AbsolutePath
-
             switch dependency.state {
             case .checkout: continue
             case .edited:
-                dependencyPath = editablesPath.appending(dependency.subpath)
-            case .unmanaged(let path):
-                dependencyPath = path
+                let dependencyPath = path(for: dependency)
+                
+                // If some edited dependency has been removed, mark it as unedited.
+                if !fileSystem.exists(dependencyPath) {
+                    try unedit(dependency: dependency, forceRemove: true)
+                    // FIXME: Use diagnosics engine when we have that.
+                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, falling back to original checkout.")
+                }
             }
-
-            // If some edited dependency has been removed, mark it as unedited.
-            if !fileSystem.exists(dependencyPath) {
-                try unedit(dependency: dependency, forceRemove: true)
-                // FIXME: Use diagnosics engine when we have that.
-                delegate.warning(message: "\(dependencyPath.asString) was being edited but has been removed, falling back to original checkout.")
-            }
+        }
+    }
+    
+    /// Returns the location of the dependency.
+    ///
+    /// Checkout dependencies will return the subpath inside `checkoutsPath` and
+    /// edited dependencies will either return a subpath inside `editablesPath` or
+    /// a custom path.
+    private func path(for dependency: ManagedDependency) -> AbsolutePath {
+        switch dependency.state {
+        case .checkout:
+            return checkoutsPath.appending(dependency.subpath)
+        case .edited(let path):
+            return path ?? editablesPath.appending(dependency.subpath)
         }
     }
 
@@ -1146,20 +1145,14 @@ public class Workspace {
             return nil
         }
 
+        let packagePath = path(for: managedDependency)
+
         // The version, if known.
         let version: Version?
-        let packagePath: AbsolutePath
-
-        // Construct the package path for the dependency.
         switch managedDependency.state {
         case .checkout(let checkoutState):
-            packagePath = checkoutsPath.appending(managedDependency.subpath)
             version = checkoutState.version
         case .edited:
-            packagePath = editablesPath.appending(managedDependency.subpath)
-            version = nil
-        case .unmanaged(let path):
-            packagePath = path
             version = nil
         }
 

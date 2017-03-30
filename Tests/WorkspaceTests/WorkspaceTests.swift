@@ -510,7 +510,7 @@ final class WorkspaceTests: XCTestCase {
 
             let editedDependency = getDependency(aManifest)
             // It should be in edit mode.
-            XCTAssert(editedDependency.state == .edited)
+            XCTAssert(editedDependency.state == .edited(nil))
             // Check the based on data.
             XCTAssertEqual(editedDependency.basedOn?.subpath, dependency.subpath)
             XCTAssertEqual(editedDependency.basedOn?.checkoutState, dependency.checkoutState)
@@ -536,7 +536,7 @@ final class WorkspaceTests: XCTestCase {
                 // Reopen workspace and check if we maintained the state.
                 let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
                 let dependency = try workspace.managedDependencies.load()[aManifest.url]!
-                XCTAssert(dependency.state == .edited)
+                XCTAssert(dependency.state == .edited(nil))
             }
 
             // We should be able to unedit the dependency.
@@ -586,7 +586,7 @@ final class WorkspaceTests: XCTestCase {
             // Put the dependency in edit mode at its current revision on a new branch.
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "BugFix")
             let editedDependency = getDependency(aManifest)
-            XCTAssert(editedDependency.state == .edited)
+            XCTAssert(editedDependency.state == .edited(nil))
 
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
             let editRepo = GitRepository(path: editRepoPath)
@@ -713,7 +713,7 @@ final class WorkspaceTests: XCTestCase {
 
         let editedDependency = getDependency(aManifest)
         // It should be in edit mode.
-        XCTAssert(editedDependency.state == .edited)
+        XCTAssert(editedDependency.state == .edited(nil))
         // Set up for pinning B to v1
         guard let (_, dep) = manifests.lookup(package: "B") else {
             return XCTFail("Expected manifest for package B not found")
@@ -1663,7 +1663,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertFalse(engine.hasErrors())
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, "1.0.1")
-                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited)
+                XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
             }
         }
@@ -1810,7 +1810,7 @@ final class WorkspaceTests: XCTestCase {
             let editedDependency = getDependency(aManifest)
 
             switch editedDependency.state {
-            case .unmanaged(let path):
+            case .edited(let path):
                 XCTAssertEqual(path, tot)
             default: return XCTFail()
             }
