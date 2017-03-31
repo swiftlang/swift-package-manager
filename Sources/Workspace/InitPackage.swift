@@ -62,6 +62,7 @@ public final class InitPackage {
         // FIXME: We should form everything we want to write, then validate that
         // none of it exists, and then act.
         try writeManifestFile()
+        try writeREADMEFile()
         try writeGitIgnore()
         try writeSources()
         try writeModuleMap()
@@ -95,6 +96,19 @@ public final class InitPackage {
         // Write the current tools version.
         try writeToolsVersion(
             at: manifest.parentDirectory, version: version, fs: &localFileSystem)
+    }
+    
+    private func writeREADMEFile() throws {
+        let readme = destinationPath.appending(component: "README.md")
+        guard exists(readme) == false else {
+            return
+        }
+        
+        try writePackageFile(readme) { stream in
+            stream <<< "# \(pkgname)\n"
+            stream <<< "\n"
+            stream <<< "A description of this package.\n"
+        }
     }
     
     private func writeGitIgnore() throws {

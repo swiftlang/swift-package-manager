@@ -37,6 +37,7 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
@@ -62,11 +63,16 @@ class InitTests: XCTestCase {
             
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            let contents = try localFileSystem.readFileContents(manifest).asString!
-            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
-            
             XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+            
+            let readme = path.appending(component: "README.md")
+            XCTAssertTrue(fs.exists(readme))
+            let readmeContents = try localFileSystem.readFileContents(readme).asString!
+            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
+
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
             
@@ -95,7 +101,17 @@ class InitTests: XCTestCase {
             XCTAssert(progressMessages.count > 0)
 
             // Verify basic file system content that we expect in the package
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            let manifest = path.appending(component: "Package.swift")
+            XCTAssertTrue(fs.exists(manifest))
+            let manifestContents = try localFileSystem.readFileContents(manifest).asString!
+            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+
+            let readme = path.appending(component: "README.md")
+            XCTAssertTrue(fs.exists(readme))
+            let readmeContents = try localFileSystem.readFileContents(readme).asString!
+            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
+
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["Foo.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
@@ -126,6 +142,7 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }
