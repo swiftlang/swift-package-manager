@@ -1180,7 +1180,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(graph.lookup("A").version == v1)
             // Pinning non existant version should fail.
             try pin(at: "1.0.2", diagnostics: diagnostics)
-            XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "unsatisfiable")
+            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.2"))
 
             // Pinning an unstatisfiable version should fail.
             diagnostics = DiagnosticsEngine()
@@ -1230,7 +1230,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let diagnostics = DiagnosticsEngine()
             newWorkspace().loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "unsatisfiable")
+            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.0..<1.0.1"))
         }
     }
 

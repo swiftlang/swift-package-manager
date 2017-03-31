@@ -542,13 +542,14 @@ public class Workspace {
         // * The constraint for the new pin we're trying to add.
         var constraints = currentManifests.unversionedConstraints()
         constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
-        constraints += pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
-        constraints.append(
+
+        var pins = pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
+        pins.append(
             RepositoryPackageConstraint(
                 container: dependency.repository, requirement: requirement))
 
         // Resolve the dependencies.
-        let results = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
+        let results = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
         // Update the checkouts based on new dependency resolution.
@@ -765,15 +766,16 @@ public class Workspace {
 
         // Create constraints based on root manifest and pins for the update resolution.
         var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
-        if !repin {
-            updateConstraints += pinsStore.createConstraints()
-        }
-
         // Add unversioned constraints for edited packages.
         updateConstraints += currentManifests.unversionedConstraints()
 
+        var pins = [RepositoryPackageConstraint]()
+        if !repin {
+            pins += pinsStore.createConstraints()
+        }
+
         // Resolve the dependencies.
-        let updateResults = resolveDependencies(constraints: updateConstraints, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(dependencies: updateConstraints, pins: pins, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
         do {
@@ -924,7 +926,8 @@ public class Workspace {
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        constraints: [RepositoryPackageConstraint],
+        dependencies: [RepositoryPackageConstraint],
+        pins: [RepositoryPackageConstraint],
         diagnostics: DiagnosticsEngine
     ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
@@ -932,9 +935,14 @@ public class Workspace {
             containerProvider,
             resolverDelegate,
             isPrefetchingEnabled: isResolverPrefetchingEnabled)
-        do {
-            return try resolver.resolve(constraints: constraints)
-        } catch {
+        let result = resolver.resolve(dependencies: dependencies, pins: pins)
+        switch result {
+        case .success(let bindings):
+            return bindings
+        case .unsatisfiable(let dependencies, let pins):
+            diagnostics.emit(data: ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins))
+            return []
+        case .error(let error):
             diagnostics.emit(error)
             return []
         }
@@ -1081,13 +1089,15 @@ public class Workspace {
 
             // Create the constraints.
             var constraints = [RepositoryPackageConstraint]()
-            constraints += pinsStore.createConstraints()
             constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
             constraints += root.constraints
-            constraints += currentManifests.createDependencyConstraints()
+
+            var pins = [RepositoryPackageConstraint]()
+            pins += pinsStore.createConstraints()
+            pins += currentManifests.createDependencyConstraints()
 
             // Perform dependency resolution.
-            let result = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
+            let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else { break resolve }
 
             // Update the checkouts with dependency resolution result.

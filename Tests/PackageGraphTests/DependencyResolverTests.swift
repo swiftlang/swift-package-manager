@@ -615,6 +615,77 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testDiagnostics() {
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependencies: [
+                "1.0.0": [
+                    (container: "B", requirement: .versionSet(v1Range)),
+                ],
+                "2.0.0": [
+                ],
+            ]),
+            MockPackageContainer(name: "B", dependencies: [
+                "1.0.0": [
+                    (container: "C", requirement: .versionSet(v1Range)),
+                ],
+            ]),
+            MockPackageContainer(name: "C", dependencies: [
+                "1.0.0": [],
+                "2.0.0": [],
+            ]),
+        ])
+
+        // Non existant version shouldn't resolve.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = resolver.resolve(dependencies: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact("1.9.0")),
+            ], pins: [])
+            XCTAssertEqual(result, constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact("1.9.0")),
+            ])
+        }
+
+        // Incompatible pin.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = resolver.resolve(dependencies: [
+                MockPackageConstraint(container: "A", versionRequirement: v1Range),
+                MockPackageConstraint(container: "B", versionRequirement: v1Range)
+            ], pins: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact("2.0.0")),
+            ])
+            XCTAssertEqual(result, pins: [
+                MockPackageConstraint(container: "A", versionRequirement: .exact("2.0.0")),
+            ])
+        }
+
+        // Non existant container should result in error.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = resolver.resolve(dependencies: [
+                MockPackageConstraint(container: "D", versionRequirement: v1Range)
+            ], pins: [])
+            if case let .error(error) = result {
+                XCTAssertEqual("\(error)", "unknownModule")
+            } else {
+                XCTFail("Unexpected result \(result)")
+            }
+        }
+
+        // Transitive incompatible dependency.
+        do {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = resolver.resolve(dependencies: [
+                MockPackageConstraint(container: "A", versionRequirement: v1Range),
+                MockPackageConstraint(container: "C", versionRequirement: v2Range),
+            ], pins: [])
+            XCTAssertEqual(result, constraints: [
+                MockPackageConstraint(container: "C", versionRequirement: v2Range),
+            ])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -628,6 +699,7 @@ class DependencyResolverTests: XCTestCase {
         ("testExactConstraint", testExactConstraint),
         ("testUnversionedConstraint", testUnversionedConstraint),
         ("testIncompleteMode", testIncompleteMode),
+        ("testDiagnostics", testDiagnostics),
     ]
 }
 
@@ -879,5 +951,23 @@ private func XCTAssertEqual(
                 "unexpected binding for \(container). Expected: \(expectedBinding.debugDescription) got: \(binding)",
                 file: file, line: line)
         }
+    }
+}
+
+private func XCTAssertEqual<D, P>(
+    _ result: DependencyResolver<D, P>.Result,
+    constraints: [PackageContainerConstraint<P.Identifier>] = [],
+    pins: [PackageContainerConstraint<P.Identifier>] = [],
+    file: StaticString = #file, line: UInt = #line
+) {
+
+    switch result {
+    case .success(let bindings):
+        XCTFail("Unexpected success \(bindings)", file: file, line: line)
+    case .unsatisfiable(let dependencies, let resultPins):
+        XCTAssertEqual(constraints, dependencies, file: file, line: line)
+        XCTAssertEqual(pins, resultPins, file: file, line: line)
+    case .error(let error):
+        XCTFail("Unexpected error \(error)", file: file, line: line)
     }
 }
