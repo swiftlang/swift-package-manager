@@ -40,7 +40,7 @@ public final class UnknownLocation: DiagnosticLocation {
     /// The singleton instance.
     public static let location = UnknownLocation()
 
-    private init(){}
+    private init() {}
 
     public var localizedDescription: String {
         return "<unknown>"

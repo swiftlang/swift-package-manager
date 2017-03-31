@@ -45,14 +45,14 @@ import Utility
 public final class Package {
     /// The manifest describing the package.
     public let manifest: Manifest
-    
+
     /// The local path of the package.
     public let path: AbsolutePath
 
     /// The name of the package.
     public var name: String {
         return manifest.name
-    }        
+    }
 
     /// The modules contained in the package.
     public let modules: [Module]
@@ -83,11 +83,11 @@ extension Package: Hashable, Equatable {
     public var hashValue: Int { return ObjectIdentifier(self).hashValue }
 }
 
-public func ==(lhs: Package, rhs: Package) -> Bool {
+public func == (lhs: Package, rhs: Package) -> Bool {
     return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
 }
 
-public func ==(lhs: Package.Error, rhs: Package.Error) -> Bool {
+public func == (lhs: Package.Error, rhs: Package.Error) -> Bool {
     switch (lhs, rhs) {
     case let (.noManifest(lhs), .noManifest(rhs)):
         return lhs.baseURL == rhs.baseURL && lhs.version == rhs.version

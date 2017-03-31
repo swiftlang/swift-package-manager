@@ -82,7 +82,6 @@ private func _handle(_ error: Any) {
         }
         print(error: string)
 
-        
     default:
         print(error: error)
     }

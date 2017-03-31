@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
 /// Represents an absolute file system path, independently of what (or whether
 /// anything at all) exists at that path in the file system at any given time.
 /// An absolute path always starts with a `/` character, and holds a normalized
@@ -38,7 +37,7 @@ public struct AbsolutePath {
     public static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
     }
-    
+
     /// Private implementation details, shared with the RelativePath struct.
     private let _impl: PathImpl
 
@@ -46,7 +45,7 @@ public struct AbsolutePath {
     private init(_ impl: PathImpl) {
         _impl = impl
     }
-    
+
     /// Initializes the AbsolutePath from `absStr`, which must be an absolute
     /// path (i.e. it must begin with a path separator; this initializer does
     /// not interpret leading `~` characters as home directory specifiers).
@@ -56,19 +55,18 @@ public struct AbsolutePath {
         // Normalize the absolute string.
         self.init(PathImpl(string: normalize(absolute: absStr)))
     }
-    
+
     /// Initializes an AbsolutePath from a string that may be either absolute
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(_ str: String, relativeTo basePath: AbsolutePath) {
         if str.hasPrefix("/") {
             self.init(str)
-        }
-        else {
+        } else {
             self.init(basePath, RelativePath(str))
         }
     }
-    
+
     /// Initializes the AbsolutePath by concatenating a relative path to an
     /// existing absolute path, and renormalizing if necessary.
     public init(_ absPath: AbsolutePath, _ relPath: RelativePath) {
@@ -81,7 +79,7 @@ public struct AbsolutePath {
             absStr.append("/")
         }
         absStr.append(relStr)
-        
+
         // If the relative string starts with `.` or `..`, we need to normalize
         // the resulting string.
         // FIXME: We can actually optimize that case, since we know that the
@@ -90,27 +88,27 @@ public struct AbsolutePath {
         if relStr.hasPrefix(".") {
             absStr = normalize(absolute: absStr)
         }
-        
+
         // Finally, store the result as our PathImpl.
         self.init(PathImpl(string: absStr))
     }
-    
+
     /// Convenience initializer that appends a string to a relative path.
     public init(_ absPath: AbsolutePath, _ relStr: String) {
         self.init(absPath, RelativePath(relStr))
     }
-    
+
     /// Directory component.  An absolute path always has a non-empty directory
     /// component (the directory component of the root path is the root itself).
     public var dirname: String {
         return _impl.dirname
     }
-    
+
     /// Last path component (including the suffix, if any).  it is never empty.
     public var basename: String {
         return _impl.basename
     }
-    
+
     /// Suffix (including leading `.` character) if any.  Note that a basename
     /// that starts with a `.` character is not considered a suffix, nor is a
     /// trailing `.` character.
@@ -123,25 +121,25 @@ public struct AbsolutePath {
     public var `extension`: String? {
         return _impl.extension
     }
-    
+
     /// Absolute path of parent directory.  This always returns a path, because
     /// every directory has a parent (the parent directory of the root directory
     /// is considered to be the root directory itself).
     public var parentDirectory: AbsolutePath {
         return isRoot ? self : AbsolutePath(_impl.dirname)
     }
-    
+
     /// True if the path is the root directory.
     public var isRoot: Bool {
         let chars = _impl.string.characters
         return chars.count == 1 && chars.first == "/"
     }
-    
+
     /// Returns the absolute path with the relative path applied.
     public func appending(_ subpath: RelativePath) -> AbsolutePath {
         return AbsolutePath(self, subpath)
     }
-    
+
     /// Returns the absolute path with an additional literal component appended.
     ///
     /// This method should only be used in cases where the input is guaranteed
@@ -153,9 +151,9 @@ public struct AbsolutePath {
             return AbsolutePath(PathImpl(string: "/" + name))
         } else {
             return AbsolutePath(PathImpl(string: _impl.string + "/" + name))
-        }            
+        }
     }
-    
+
     /// Returns the absolute path with additional literal components appended.
     ///
     /// This method should only be used in cases where the input is guaranteed
@@ -172,22 +170,22 @@ public struct AbsolutePath {
     ///       as `appending(suffix:)`, and also perhaps `replacing()` methods,
     ///       such as `replacing(suffix:)` or `replacing(basename:)` for some
     ///       of the more common path operations.
-    
+
     /// NOTE: We may want to consider adding operators such as `+` for appending
     ///       a path component.
-    
+
     /// NOTE: We will want to add a method to return the lowest common ancestor
     ///       path.
-    
+
     /// Root directory (whose string representation is just a path separator).
     public static let root = AbsolutePath("/")
-    
+
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var asString: String {
         return _impl.string
     }
-    
+
     /// Returns an array of strings that make up the path components of the
     /// absolute path.  This is the same sequence of strings as the basenames
     /// of each successive path component, starting from the root.  Therefore
@@ -200,9 +198,9 @@ public struct AbsolutePath {
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
-        return ["/"] + _impl.string.components(separatedBy: "/").filter {
+        return ["/"] + _impl.string.components(separatedBy: "/").filter({
             !$0.isEmpty
-        }
+        })
     }
 }
 
@@ -224,7 +222,7 @@ public struct AbsolutePath {
 public struct RelativePath {
     /// Private implementation details, shared with the AbsolutePath struct.
     fileprivate let _impl: PathImpl
-    
+
     /// Initializes the RelativePath from `str`, which must be a relative path
     /// (which means that it must not begin with a path separator or a tilde).
     /// An empty input path is allowed, but will be normalized to a single `.`
@@ -234,18 +232,18 @@ public struct RelativePath {
         // Normalize the relative string and store it as our PathImpl.
         _impl = PathImpl(string: normalize(relative: string))
     }
-    
+
     /// Directory component.  For a relative path without any path separators,
     /// this is the `.` string instead of the empty string.
     public var dirname: String {
         return _impl.dirname
     }
-    
+
     /// Last path component (including the suffix, if any).  It is never empty.
     public var basename: String {
         return _impl.basename
     }
-    
+
     /// Suffix (including leading `.` character) if any.  Note that a basename
     /// that starts with a `.` character is not considered a suffix, nor is a
     /// trailing `.` character.
@@ -258,7 +256,7 @@ public struct RelativePath {
     public var `extension`: String? {
         return _impl.extension
     }
-    
+
     /// Normalized string representation (the normalization rules are described
     /// in the documentation of the initializer).  This string is never empty.
     public var asString: String {
@@ -278,7 +276,7 @@ public struct RelativePath {
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
         // the path string and just return a slice at a time.
-        return _impl.string.components(separatedBy: "/").filter { !$0.isEmpty }
+        return _impl.string.components(separatedBy: "/").filter({ !$0.isEmpty })
     }
 }
 
@@ -291,22 +289,22 @@ extension AbsolutePath : Hashable {
 
 // Make absolute paths Equatable.
 extension AbsolutePath : Equatable { }
-public func ==(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+public func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString == rhs.asString
 }
 
 // Make absolute paths Comparable.
 extension AbsolutePath : Comparable { }
-public func <(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+public func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString < rhs.asString
 }
-public func <=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+public func <= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString <= rhs.asString
 }
-public func >=(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+public func >= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString >= rhs.asString
 }
-public func >(lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+public func > (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
     return lhs.asString > rhs.asString
 }
 
@@ -327,7 +325,7 @@ extension RelativePath : Hashable {
 
 // Make relative paths Equatable.
 extension RelativePath : Equatable { }
-public func ==(lhs: RelativePath, rhs: RelativePath) -> Bool {
+public func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
     return lhs.asString == rhs.asString
 }
 
@@ -339,7 +337,6 @@ extension RelativePath : CustomStringConvertible {
     }
 }
 
-
 /// Private implementation shared between AbsolutePath and RelativePath.  It is
 /// a little unfortunate that there needs to be duplication at all between the
 /// AbsolutePath and RelativePath struct, but PathImpl helps mitigate it.  From
@@ -350,7 +347,7 @@ extension RelativePath : CustomStringConvertible {
 struct PathImpl {
     /// Normalized string of the (absolute or relative) path.  Never empty.
     fileprivate let string: String
-    
+
     /// Private function that returns the directory part of the stored path
     /// string (relying on the fact that it has been normalized).  Returns a
     /// string consisting of just `.` if there is no directory part (which is
@@ -373,7 +370,7 @@ struct PathImpl {
         // separator.
         return String(chars.prefix(upTo: idx))
     }
-    
+
     fileprivate var basename: String {
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
@@ -393,7 +390,7 @@ struct PathImpl {
         // separator.
         return String(chars.suffix(from: chars.index(after: idx)))
     }
-    
+
     fileprivate var suffix: String? {
         return suffix(withDot: true)
     }
@@ -420,8 +417,7 @@ struct PathImpl {
             if chars.distance(from: idx, to: chars.endIndex) > 1 {
                 let fromIndex = withDot ? idx : chars.index(idx, offsetBy: 1)
                 return String(chars.suffix(from: fromIndex))
-            }
-            else {
+            } else {
                 return nil
             }
         }
@@ -429,7 +425,6 @@ struct PathImpl {
         return nil
     }
 }
-
 
 extension AbsolutePath {
     /// Returns a relative path that, when concatenated to `base`, yields the
@@ -449,15 +444,14 @@ extension AbsolutePath {
         // FIXME: The is needs to be optimized to avoid unncessary copying.
         let pathComps = self.components
         let baseComps = base.components
-        
+
         // It's common for the base to be an ancestor, so try that first.
         if pathComps.starts(with: baseComps) {
             // Special case, which is a plain path without `..` components.  It
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
             result = RelativePath(relComps.joined(separator: "/"))
-        }
-        else {
+        } else {
             // General case, in which we might well need `..` components to go
             // "up" before we can go "down" the directory tree.
             var newPathComps = ArraySlice(pathComps)
@@ -478,7 +472,6 @@ extension AbsolutePath {
     }
 }
 
-
 // FIXME: We should consider whether to merge the two `normalize()` functions.
 // The argument for doing so is that some of the code is repeated; the argument
 // against doing so is that some of the details are different, and since any
@@ -486,21 +479,20 @@ extension AbsolutePath {
 // for whether it's relative or absolute.  Possibly we can do both by clever
 // use of generics that abstract away the differences.
 
-
 /// Private function that normalizes and returns an absolute string.  Asserts
 /// that `string` starts with a path separator.
 ///
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(absolute string: String) -> String {
     precondition(string.characters.first == "/", "Failure normalizing \(string), absolute paths should start with '/'")
-    
+
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.
     let chars = string.characters
-    
+
     // At this point we expect to have a path separator as first character.
     assert(chars.first == "/")
-    
+
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
 
@@ -530,12 +522,12 @@ private func normalize(absolute string: String) -> String {
         }
     }
     capacity += max(parts.count, 1)
-    
+
     // Create an output buffer using the capacity we've calculated.
     // FIXME: Determine the most efficient way to reassemble a string.
     var result = ""
     result.reserveCapacity(capacity)
-    
+
     // Put the normalized parts back together again.
     var iter = parts.makeIterator()
     result.append("/")
@@ -546,16 +538,15 @@ private func normalize(absolute string: String) -> String {
             result.append(contentsOf: next)
         }
     }
-    
+
     // Sanity-check the result (including the capacity we reserved).
     assert(!result.isEmpty, "unexpected empty string")
     assert(result.characters.count == capacity, "count: " +
         "\(result.characters.count), cap: \(capacity)")
-    
+
     // Use the result as our stored string.
     return result
 }
-
 
 /// Private function that normalizes and returns a relative string.  Asserts
 /// that `string` does not start with a path separator.
@@ -563,14 +554,14 @@ private func normalize(absolute string: String) -> String {
 /// The normalization rules are as described for the AbsolutePath struct.
 private func normalize(relative string: String) -> String {
     precondition(string.characters.first != "/")
-    
+
     // Get a hold of the character view.
     // FIXME: Switch to use the UTF-8 view, which is more efficient.
     let chars = string.characters
-    
+
     // FIXME: Here we should also keep track of whether anything actually has
     // to be changed in the string, and if not, just return the existing one.
-    
+
     // Split the character array into parts, folding components as we go.
     // As we do so, we count the number of characters we'll end up with in
     // the normalized string representation.
@@ -604,12 +595,12 @@ private func normalize(relative string: String) -> String {
         }
     }
     capacity += max(parts.count - 1, 0)
-    
+
     // Create an output buffer using the capacity we've calculated.
     // FIXME: Determine the most efficient way to reassemble a string.
     var result = ""
     result.reserveCapacity(capacity)
-    
+
     // Put the normalized parts back together again.
     var iter = parts.makeIterator()
     if let first = iter.next() {
@@ -619,11 +610,11 @@ private func normalize(relative string: String) -> String {
             result.append(contentsOf: next)
         }
     }
-    
+
     // Sanity-check the result (including the capacity we reserved).
     assert(result.characters.count == capacity, "count: " +
         "\(result.characters.count), cap: \(capacity)")
-    
+
     // If the result is empty, return `.`, otherwise we return it as a string.
     return result.isEmpty ? "." : result
 }

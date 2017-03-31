@@ -47,8 +47,8 @@ public final class PinsStore {
             state: CheckoutState,
             reason: String? = nil
         ) {
-            self.package = package 
-            self.repository = repository 
+            self.package = package
+            self.repository = repository
             self.state = state
             self.reason = reason
         }
@@ -152,10 +152,10 @@ public final class PinsStore {
 
     /// Creates constraints based on the pins in the store.
     public func createConstraints() -> [RepositoryPackageConstraint] {
-        return pins.map { pin in
+        return pins.map({ pin in
             return RepositoryPackageConstraint(
                 container: pin.repository, requirement: pin.state.requirement())
-        }
+        })
     }
 }
 
@@ -165,16 +165,16 @@ extension PinsStore: SimplePersistanceProtocol {
     fileprivate func saveState() throws {
         try self.persistence.saveState(self)
     }
-    
+
     public func restore(from json: JSON) throws {
         self.isAutoPinEnabled = try json.get("autoPin")
-        self.pinsMap = try Dictionary(items: json.get("pins").map{($0.package, $0)})
+        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.package, $0) }))
     }
 
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
         return JSON([
-            "pins": pins.sorted{$0.package < $1.package}.toJSON(),
+            "pins": pins.sorted(by: { $0.package < $1.package }).toJSON(),
             "autoPin": isAutoPinEnabled,
         ])
     }
@@ -200,7 +200,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
         ])
     }
 
-    public static func ==(lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
+    public static func == (lhs: PinsStore.Pin, rhs: PinsStore.Pin) -> Bool {
         return lhs.package == rhs.package &&
                lhs.repository == rhs.repository &&
                lhs.state == rhs.state

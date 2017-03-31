@@ -23,13 +23,21 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     public static let defaultToolsVersion = ToolsVersion(version: "3.1.0")
 
     /// The current tools version in use.
-    public static let currentToolsVersion = ToolsVersion(
-        string: "\(Versioning.currentVersion.major).\(Versioning.currentVersion.minor).\(Versioning.currentVersion.patch)")!
+    public static let currentToolsVersion = ToolsVersion(string:
+        "\(Versioning.currentVersion.major)." +
+        "\(Versioning.currentVersion.minor)." +
+        "\(Versioning.currentVersion.patch)")!
 
     /// Regex pattern to parse tools version. The format is SemVer 2.0 with an
     /// addition that specifying the patch version is optional.
-    static let toolsVersionRegex = try! NSRegularExpression(
-        pattern: "^(\\d+)\\.(\\d+)(?:\\.(\\d+))?(\\-[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*)?(\\+[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*)?$", options: [])
+    static let toolsVersionRegex = try! NSRegularExpression(pattern: "^" +
+        "(\\d+)\\.(\\d+)(?:\\.(\\d+))?" +
+        "(" +
+            "\\-[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" +
+        ")?" +
+        "(" +
+            "\\+[A-Za-z\\d]+(?:\\.[A-Za-z\\d]+)*" +
+        ")?$", options: [])
 
     /// The major version number.
     public var major: Int {
@@ -73,19 +81,19 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
         _version = version
     }
 
-    // MARK:- CustomStringConvertible
+    // MARK: - CustomStringConvertible
 
     public var description: String {
         return _version.description
     }
 
-    // MARK:- Comparable
+    // MARK: - Comparable
 
-    public static func ==(lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
+    public static func == (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         return lhs._version == rhs._version
     }
 
-    public static func <(lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
+    public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
         return lhs._version < rhs._version
     }
 }

@@ -52,7 +52,7 @@ public struct BuildParameters {
 
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
-        var flags = self.flags.cCompilerFlags.flatMap{ ["-Xcc", $0] }
+        var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
         flags += self.flags.swiftCompilerFlags
         flags += verbosity.ccArgs
         return flags
@@ -60,12 +60,12 @@ public struct BuildParameters {
 
     /// Extra flags to pass to linker.
     public var linkerFlags: [String] {
-        return self.flags.linkerFlags.flatMap{ ["-Xlinker", $0] }
+        return self.flags.linkerFlags.flatMap({ ["-Xlinker", $0] })
     }
 
     /// The tools version to use.
     public let toolsVersion: ToolsVersion
-    
+
     public init(
         dataPath: AbsolutePath,
         configuration: Configuration,
@@ -124,8 +124,8 @@ public final class ClangTargetDescription {
     }
 
     /// The objects in this target.
-    var objects: [AbsolutePath] { 
-        return compilePaths().map{$0.object} 
+    var objects: [AbsolutePath] {
+        return compilePaths().map({ $0.object })
     }
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
@@ -138,13 +138,13 @@ public final class ClangTargetDescription {
     public var isTestTarget: Bool {
         return module.type == .test
     }
-    
+
     /// Create a new target description with module and build parameters.
     init(module: ResolvedModule, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem) throws {
         assert(module.underlyingModule is ClangModule, "underlying module type mismatch \(module)")
         self.fileSystem = fileSystem
         self.module = module
-        self.buildParameters = buildParameters 
+        self.buildParameters = buildParameters
         // Try computing modulemap path for a C library.
         if module.type == .library {
             self.moduleMap = try computeModulemapPath()
@@ -152,13 +152,15 @@ public final class ClangTargetDescription {
     }
 
     /// An array of tuple containing filename, source, object and dependency path for each of the source in this target.
-    public func compilePaths() -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)] {
-        return module.sources.relativePaths.map { source in
+    public func compilePaths()
+        -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
+    {
+        return module.sources.relativePaths.map({ source in
             let path = module.sources.root.appending(source)
             let object = tempsPath.appending(RelativePath(source.asString + ".o"))
             let deps = tempsPath.appending(RelativePath(source.asString + ".d"))
             return (source, path, object, deps)
-        }
+        })
     }
 
     /// Builds up basic compilation arguments for this target.
@@ -227,12 +229,12 @@ public final class SwiftTargetDescription {
 
     /// The objects in this target.
     var objects: [AbsolutePath] {
-        return module.sources.relativePaths.map{ tempsPath.appending(RelativePath($0.asString + ".o")) }
+        return module.sources.relativePaths.map({ tempsPath.appending(RelativePath($0.asString + ".o")) })
     }
 
     /// The path to the swiftmodule file after compilation.
-    var moduleOutputPath: AbsolutePath { 
-        return buildParameters.buildPath.appending(component: module.c99name + ".swiftmodule") 
+    var moduleOutputPath: AbsolutePath {
+        return buildParameters.buildPath.appending(component: module.c99name + ".swiftmodule")
     }
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
@@ -321,10 +323,8 @@ public final class ProductBuildDescription {
     /// We might want to get rid of this method once Swift driver can strip the
     /// flags itself, <rdar://problem/31215562>.
     private func stripInvalidArguments(_ args: [String]) -> [String] {
-        let invalidArguments: Set<String> = [
-            "-wmo", "-whole-module-optimization",
-        ]
-        return args.filter{ !invalidArguments.contains($0) }
+        let invalidArguments: Set<String> = ["-wmo", "-whole-module-optimization"]
+        return args.filter({ !invalidArguments.contains($0) })
     }
 
     /// The arguments to link and create this product.
@@ -341,7 +341,7 @@ public final class ProductBuildDescription {
         args += ["-L", buildParameters.buildPath.asString]
         args += ["-o", binary.asString]
         args += ["-module-name", product.name]
-        args += dylibs.map{ "-l" + $0.product.name }
+        args += dylibs.map({ "-l" + $0.product.name })
 
         switch product.type {
         case .library(.automatic):
@@ -361,7 +361,7 @@ public final class ProductBuildDescription {
         case .executable:
             args += ["-emit-executable"]
         }
-        args += objects.map{$0.asString}
+        args += objects.map({ $0.asString })
         return args
     }
 }
@@ -428,7 +428,10 @@ public class BuildPlan {
              case is SwiftModule:
                  targetMap[module] = .swift(SwiftTargetDescription(module: module, buildParameters: buildParameters))
              case is ClangModule:
-                 let target = try ClangTargetDescription(module: module, buildParameters: buildParameters, fileSystem: fileSystem)
+                 let target = try ClangTargetDescription(
+                    module: module,
+                    buildParameters: buildParameters,
+                    fileSystem: fileSystem)
                  targetMap[module] = .clang(target)
              case is CModule:
                  break
@@ -508,15 +511,19 @@ public class BuildPlan {
             }
         }
 
-        buildProduct.dylibs = dependencies.dylibs.map{ productMap[$0]! }
-        buildProduct.objects = dependencies.staticTargets.flatMap{ targetMap[$0]!.objects }
+        buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
+        buildProduct.objects = dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
 
     }
 
     /// Computes the dependencies of a product.
     private func computeDependencies(
         of product: ResolvedProduct
-    ) -> (dylibs: [ResolvedProduct], staticTargets: [ResolvedModule], systemModules: [ResolvedModule]) {
+    ) -> (
+        dylibs: [ResolvedProduct],
+        staticTargets: [ResolvedModule],
+        systemModules: [ResolvedModule]
+    ) {
 
         // Sort the product targets in topological order.
         let nodes = product.modules.map(ResolvedModule.Dependency.target)
@@ -539,7 +546,9 @@ public class BuildPlan {
         })
 
         // Create empty arrays to collect our results.
-        var (linkLibraries, staticTargets, systemModules) = ([ResolvedProduct](), [ResolvedModule](), [ResolvedModule]())
+        var linkLibraries = [ResolvedProduct]()
+        var staticTargets = [ResolvedModule]()
+        var systemModules = [ResolvedModule]()
 
         for dependency in allTargets {
             switch dependency {
@@ -608,18 +617,22 @@ public class BuildPlan {
             }
         }
 
-        // We need to iterate recursive dependencies because Swift compiler needs to see all the modules a target depends on.
+        // We need to iterate recursive dependencies because Swift compiler needs to see all the modules a target
+        // depends on.
         for dependency in swiftTarget.module.recursiveDependencies {
             switch dependency.underlyingModule {
             case let module as ClangModule where module.type == .library:
-                guard case let .clang(target)? = targetMap[dependency] else { fatalError("unexpected clang module \(module)") }
-                // Add the path to modulemap of the dependency. Currently we require that all Clang modules have a modulemap
-                // but we may want to remove that requirement since it is valid for a module to exist without one. However,
-                // in that case it will not be importable in Swift modules. We may want to emit a warning in that case from here.
+                guard case let .clang(target)? = targetMap[dependency] else {
+                    fatalError("unexpected clang module \(module)")
+                }
+                // Add the path to modulemap of the dependency. Currently we require that all Clang modules have a
+                // modulemap but we may want to remove that requirement since it is valid for a module to exist without
+                // one. However, in that case it will not be importable in Swift modules. We may want to emit a warning
+                // in that case from here.
                 guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.additionalFlags += [
                     "-Xcc", "-fmodule-map-file=\(moduleMap.asString)",
-                    "-I", target.clangModule.includeDir.asString
+                    "-I", target.clangModule.includeDir.asString,
                 ]
             case let module as CModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(module.moduleMapPath.asString)"]
@@ -650,7 +663,7 @@ public class BuildPlan {
         pkgConfigCache[module] = (result.cFlags, result.libs)
         return pkgConfigCache[module]!
     }
-    
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [CModule: (cFlags: [String], libs: [String])]()
 }

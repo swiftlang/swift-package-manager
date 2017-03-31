@@ -65,7 +65,8 @@ public final class TemporaryFile {
     /// The directory in which the temporary file is created.
     public let dir: AbsolutePath
 
-    /// The full path of the temporary file. For safety file operations should be done via the fileHandle instead of using this path.
+    /// The full path of the temporary file. For safety file operations should be done via the fileHandle instead of
+    /// using this path.
     public let path: AbsolutePath
 
     /// The file descriptor of the temporary file. It is used to create NSFileHandle which is exposed to clients.
@@ -96,7 +97,7 @@ public final class TemporaryFile {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkstemps method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary file.
-        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
 
         fd = libc.mkstemps(&template, Int32(suffix.utf8.count))
         // If mkstemps failed then throw error.
@@ -170,14 +171,18 @@ public final class TemporaryDirectory {
     /// Creates a temporary directory which is automatically removed when the object of this class goes out of scope.
     ///
     /// - Parameters:
-    ///     - dir: If specified the temporary directory will be created in this directory otherwise environment variables
-    ///            TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env variables are
-    ///            set, dir will be set to `/tmp/`.
+    ///     - dir: If specified the temporary directory will be created in this directory otherwise environment
+    ///            variables TMPDIR, TEMP and TMP will be checked for a value (in that order). If none of the env
+    ///            variables are set, dir will be set to `/tmp/`.
     ///     - prefix: The prefix to the temporary file name.
     ///     - removeTreeOnDeinit: If enabled try to delete the whole directory tree otherwise remove only if its empty.
     ///
     /// - Throws: MakeDirectoryError
-    public init(dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false) throws {
+    public init(
+        dir: AbsolutePath? = nil,
+        prefix: String = "TemporaryDirectory",
+        removeTreeOnDeinit: Bool = false
+    ) throws {
         self.shouldRemoveTreeOnDeinit = removeTreeOnDeinit
         self.prefix = prefix
         // Construct path to the temporary directory.
@@ -186,7 +191,7 @@ public final class TemporaryDirectory {
         // Convert path to a C style string terminating with null char to be an valid input
         // to mkdtemp method. The XXXXXX in this string will be replaced by a random string
         // which will be the actual path to the temporary directory.
-        var template = [UInt8](path.asString.utf8).map{ Int8($0) } + [Int8(0)]
+        var template = [UInt8](path.asString.utf8).map({ Int8($0) }) + [Int8(0)]
 
         if libc.mkdtemp(&template) == nil {
             throw MakeDirectoryError(errno: errno)
@@ -198,7 +203,7 @@ public final class TemporaryDirectory {
     /// Remove the temporary file before deallocating.
     deinit {
         if shouldRemoveTreeOnDeinit {
-            let _ = try? FileManager.default.removeItem(atPath: path.asString)
+            _ = try? FileManager.default.removeItem(atPath: path.asString)
         } else {
             rmdir(path.asString)
         }

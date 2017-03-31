@@ -14,7 +14,7 @@ extension String {
 
     /// Returns a form of the string that is a valid bundle identifier
     public func mangledToBundleIdentifier() -> String {
-        let mangledUnichars: [UInt16] = self.utf16.map {
+        let mangledUnichars: [UInt16] = self.utf16.map({
             switch $0 {
             case
             // A-Z
@@ -31,7 +31,7 @@ extension String {
             default:
                 return 0x2D
             }
-        }
+        })
 
         return String(utf16CodeUnits: mangledUnichars, count: mangledUnichars.count)
     }
@@ -43,7 +43,7 @@ extension String {
     public func mangledToC99ExtendedIdentifier() -> String {
         // Map invalid C99-invalid Unicode scalars to a replacement character.
         let replacementUnichar: UnicodeScalar = "_"
-        var mangledUnichars: [UnicodeScalar] = self.unicodeScalars.map {
+        var mangledUnichars: [UnicodeScalar] = self.unicodeScalars.map({
             switch $0.value {
               case
                 // A-Z
@@ -220,8 +220,8 @@ extension String {
               default:
                 return replacementUnichar
             }
-        }
-        
+        })
+
         // Apply further restrictions to the prefix.
         loop: for (idx, c) in mangledUnichars.enumerated() {
             switch c.value {
@@ -245,7 +245,7 @@ extension String {
         // FIXME: We should only construct a new string if anything changed.
         // FIXME: There doesn't seem to be a way to create a string from an
         //        array of Unicode scalars; but there must be a better way.
-        return mangledUnichars.reduce(""){ $0 + String($1) }
+        return mangledUnichars.reduce("") { $0 + String($1) }
     }
 
     /// Mangles the contents to a valid C99 Extended Identifier.  This method

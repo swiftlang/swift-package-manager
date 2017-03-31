@@ -19,19 +19,19 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX EACCES error code.
     case invalidAccess
-    
+
     /// Invalid encoding
     ///
     /// This is used when an operation cannot be completed because a path could
     /// not be decoded correctly.
     case invalidEncoding
-    
+
     /// IO Error encoding
     ///
     /// This is used when an operation cannot be completed due to an otherwise
     /// unspecified IO error.
     case ioError
-    
+
     /// Is a directory
     ///
     /// This is used when an operation cannot be completed because a component
@@ -39,7 +39,7 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX EISDIR error code.
     case isDirectory
-    
+
     /// No such path exists.
     ///
     /// This is used when a path specified does not exist, but it was expected
@@ -47,7 +47,7 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX ENOENT error code.
     case noEntry
-    
+
     /// Not a directory
     ///
     /// This is used when an operation cannot be completed because a component
@@ -55,7 +55,7 @@ public enum FileSystemError: Swift.Error {
     ///
     /// Used in situations that correspond to the POSIX ENOTDIR error code.
     case notDirectory
-    
+
     /// Unsupported operation
     ///
     /// This is used when an operation is not supported by the concrete file
@@ -95,10 +95,10 @@ extension FileSystemError {
 public protocol FileSystem {
     /// Check whether the given path exists and is accessible.
     func exists(_ path: AbsolutePath) -> Bool
-    
+
     /// Check whether the given path is accessible and a directory.
     func isDirectory(_ path: AbsolutePath) -> Bool
-    
+
     /// Check whether the given path is accessible and a file.
     func isFile(_ path: AbsolutePath) -> Bool
 
@@ -113,7 +113,7 @@ public protocol FileSystem {
     // FIXME: Actual file system interfaces will allow more efficient access to
     // more data than just the name here.
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String]
-    
+
     /// Create the given directory.
     mutating func createDirectory(_ path: AbsolutePath) throws
 
@@ -128,14 +128,15 @@ public protocol FileSystem {
     //
     // FIXME: This is obviously not a very efficient or flexible API.
     func readFileContents(_ path: AbsolutePath) throws -> ByteString
-    
+
     /// Write the contents of a file.
     //
     // FIXME: This is obviously not a very efficient or flexible API.
     mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
     /// Recursively deletes the file system entity at `path`.
-    /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered to be an error).
+    /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
+    /// to be an error).
     mutating func removeFileTree(_ path: AbsolutePath)
 }
 
@@ -148,7 +149,7 @@ public extension FileSystem {
     }
 
     /// Write to a file from a stream producer.
-    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+    mutating func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
@@ -169,7 +170,7 @@ private class LocalFileSystem: FileSystem {
     func exists(_ path: AbsolutePath) -> Bool {
         return Basic.exists(path)
     }
-    
+
     func isDirectory(_ path: AbsolutePath) -> Bool {
         return Basic.isDirectory(path)
     }
@@ -181,16 +182,16 @@ private class LocalFileSystem: FileSystem {
     func isSymlink(_ path: AbsolutePath) -> Bool {
         return Basic.isSymlink(path)
     }
-    
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let dir = libc.opendir(path.asString) else {
             throw FileSystemError(errno: errno)
         }
         defer { _ = libc.closedir(dir) }
-        
+
         var result: [String] = []
         var entry = dirent()
-        
+
         while true {
             var entryPtr: UnsafeMutablePointer<dirent>? = nil
             if readdir_r(dir, &entry, &entryPtr) < 0 {
@@ -198,20 +199,20 @@ private class LocalFileSystem: FileSystem {
                 // continue here?
                 throw FileSystemError(errno: errno)
             }
-            
+
             // If the entry pointer is null, we reached the end of the directory.
             if entryPtr == nil {
                 break
             }
-            
+
             // Otherwise, the entry pointer should point at the storage we provided.
             assert(entryPtr == &entry)
-            
+
             // Add the entry to the result.
             guard let name = entry.name else {
                 throw FileSystemError.invalidEncoding
             }
-            
+
             // Ignore the pseudo-entries.
             if name == "." || name == ".." {
                 continue
@@ -219,7 +220,7 @@ private class LocalFileSystem: FileSystem {
 
             result.append(name)
         }
-        
+
         return result
     }
 
@@ -247,7 +248,7 @@ private class LocalFileSystem: FileSystem {
             throw FileSystemError(errno: errno)
         }
     }
-    
+
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
         let fp = fopen(path.asString, "rb")
@@ -273,10 +274,10 @@ private class LocalFileSystem: FileSystem {
             }
             data <<< tmpBuffer[0..<n]
         }
-        
+
         return data.bytes
     }
-    
+
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         // Open the file.
         let fp = fopen(path.asString, "wb")
@@ -314,14 +315,14 @@ public class InMemoryFileSystem: FileSystem {
     private class Node {
         /// The actual node data.
         let contents: NodeContents
-        
+
         init(_ contents: NodeContents) {
             self.contents = contents
         }
 
         /// Creates deep copy of the object.
         func copy() -> Node {
-           return Node(contents.copy()) 
+           return Node(contents.copy())
         }
     }
     private enum NodeContents {
@@ -337,9 +338,9 @@ public class InMemoryFileSystem: FileSystem {
                 return .directory(contents.copy())
             }
         }
-    }    
+    }
     private class DirectoryContents {
-        var entries:  [String: Node]
+        var entries: [String: Node]
 
         init(entries: [String: Node] = [:]) {
             self.entries = entries
@@ -354,7 +355,7 @@ public class InMemoryFileSystem: FileSystem {
             return contents
         }
     }
-    
+
     /// The root filesytem.
     private var root: Node
 
@@ -396,7 +397,7 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     // MARK: FileSystem Implementation
-    
+
     public func exists(_ path: AbsolutePath) -> Bool {
         do {
             return try getNode(path) != nil
@@ -404,7 +405,7 @@ public class InMemoryFileSystem: FileSystem {
             return false
         }
     }
-    
+
     public func isDirectory(_ path: AbsolutePath) -> Bool {
         do {
             if case .directory? = try getNode(path)?.contents {
@@ -432,7 +433,7 @@ public class InMemoryFileSystem: FileSystem {
         // gets symbolic link semantics.
         return false
     }
-    
+
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
         // FIXME: Always return false until in-memory implementation
         // gets permission semantics.
@@ -478,7 +479,7 @@ public class InMemoryFileSystem: FileSystem {
             // The parent isn't a directory, this is an error.
             throw FileSystemError.notDirectory
         }
-        
+
         // Check if the node already exists.
         if let node = contents.entries[path.basename] {
             // Verify it is a directory.
@@ -517,7 +518,7 @@ public class InMemoryFileSystem: FileSystem {
         guard path != parentPath else {
             throw FileSystemError.isDirectory
         }
-            
+
         // Get the parent node.
         guard let parent = try getNode(parentPath) else {
             throw FileSystemError.noEntry
@@ -572,7 +573,7 @@ public struct RerootedFileSystemView: FileSystem {
 
     /// The root path within the containing file system.
     private let root: AbsolutePath
-    
+
     public init(_ underlyingFileSystem: inout FileSystem, rootedAt root: AbsolutePath) {
         self.underlyingFileSystem = underlyingFileSystem
         self.root = root
@@ -587,17 +588,17 @@ public struct RerootedFileSystemView: FileSystem {
             return root.appending(RelativePath(String(path.asString.characters.dropFirst(1))))
         }
     }
-    
+
     // MARK: FileSystem Implementation
 
     public func exists(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.exists(formUnderlyingPath(path))
     }
-    
+
     public func isDirectory(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isDirectory(formUnderlyingPath(path))
     }
-    
+
     public func isFile(_ path: AbsolutePath) -> Bool {
         return underlyingFileSystem.isFile(formUnderlyingPath(path))
     }

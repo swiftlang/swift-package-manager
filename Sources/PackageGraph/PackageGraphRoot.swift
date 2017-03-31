@@ -36,11 +36,11 @@ public struct PackageGraphRoot {
             location: String
         ) {
             self.url = url
-            self.requirement = requirement 
+            self.requirement = requirement
             self.location = location
         }
     }
-    
+
     /// The list of root manifests.
     public let manifests: [Manifest]
 

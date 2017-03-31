@@ -42,7 +42,8 @@ final public class Thread {
                     strongSelf.finishedCondition.broadcast()
                 }
             } else {
-                // If the containing thread has been destroyed, we can ignore the finished condition and just run the task.
+                // If the containing thread has been destroyed, we can ignore the finished condition and just run the
+                // task.
                 task()
             }
         }

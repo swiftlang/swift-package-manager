@@ -68,14 +68,14 @@ extension Target.Dependency {
 // MARK: Equatable
 
 extension Target: Equatable {
-    public static func ==(lhs: Target, rhs: Target) -> Bool {
+    public static func == (lhs: Target, rhs: Target) -> Bool {
         return lhs.name == rhs.name &&
                lhs.dependencies == rhs.dependencies
     }
 }
 
 extension Target.Dependency: Equatable {
-    public static func ==(
+    public static func == (
         lhs: Target.Dependency,
         rhs: Target.Dependency
     ) -> Bool {

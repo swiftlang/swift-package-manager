@@ -123,16 +123,16 @@ extension Manifest.RawPackage {
     public var targets: [PackageDescription4.Target] {
         switch self {
         case .v3(let package):
-            return package.targets.map { target in
+            return package.targets.map({ target in
                 let dependencies: [PackageDescription4.Target.Dependency]
-                dependencies = target.dependencies.map { dependency in
+                dependencies = target.dependencies.map({ dependency in
                     switch dependency {
                     case .Target(let name):
                         return .target(name: name)
                     }
-                }
+                })
                 return .target(name: target.name, dependencies: dependencies)
-            }
+            })
 
             case .v4(let package):
                 return package.targets
@@ -142,9 +142,9 @@ extension Manifest.RawPackage {
     public var dependencies: [PackageDescription4.Package.Dependency] {
         switch self {
         case .v3(let package):
-            return package.dependencies.map {
+            return package.dependencies.map({
                 .package(url: $0.url, $0.versionRange.asPD4Version)
-            }
+            })
 
         case .v4(let package):
             return package.dependencies
@@ -154,12 +154,12 @@ extension Manifest.RawPackage {
     public var providers: [PackageDescription4.SystemPackageProvider]? {
         switch self {
         case .v3(let package):
-            return package.providers?.map {
+            return package.providers?.map({
                 switch $0 {
                 case .Brew(let name): return .brew([name])
                 case .Apt(let name): return .apt([name])
                 }
-            }
+            })
 
         case .v4(let package):
             return package.providers
@@ -174,7 +174,7 @@ extension Manifest.RawPackage {
     }
 }
 
-// MARK:- Version shim for PackageDescription4 -> PackageDescription.
+// MARK: - Version shim for PackageDescription4 -> PackageDescription.
 
 extension PackageDescription4.Version {
     fileprivate init(pdVersion version: PackageDescription.Version) {

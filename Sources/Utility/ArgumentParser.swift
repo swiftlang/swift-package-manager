@@ -55,7 +55,7 @@ public enum Shell: String, StringEnumArgument {
 
     public static var completion: ShellCompletion = .values([
         (bash.rawValue, "generate completion script for Bourne-again shell"),
-        (zsh.rawValue, "generate completion script for Z shell")
+        (zsh.rawValue, "generate completion script for Z shell"),
     ])
 }
 
@@ -90,7 +90,7 @@ public protocol ArgumentKind {
     static var completion: ShellCompletion { get }
 }
 
-// MARK:- ArgumentKind conformance for common types
+// MARK: - ArgumentKind conformance for common types
 
 extension String: ArgumentKind {
     public init?(arg: String) {
@@ -165,7 +165,6 @@ extension StringEnumArgument {
     }
 }
 
-
 /// An argument representing a path (file / directory).
 ///
 /// The path is resolved in the current working directory.
@@ -188,7 +187,7 @@ protocol ArgumentProtocol: Hashable {
     /// The argument kind of this argument for eg String, Bool etc.
     // FIXME: This should be constrained to ArgumentKind but Array can't conform to it:
     // `extension of type 'Array' with constraints cannot have an inheritance clause`.
-    associatedtype ArgumentKindTy 
+    associatedtype ArgumentKindTy
 
     /// Name of the argument which will be parsed by the parser.
     var name: String { get }
@@ -202,13 +201,13 @@ protocol ArgumentProtocol: Hashable {
 }
 
 extension ArgumentProtocol {
-    // MARK:- Conformance for Hashable
+    // MARK: - Conformance for Hashable
 
     public var hashValue: Int {
         return name.hashValue
     }
 
-    public static func ==(_ lhs: Self, _ rhs: Self) -> Bool {
+    public static func == (_ lhs: Self, _ rhs: Self) -> Bool {
         return lhs.name == rhs.name && lhs.usage == rhs.usage
     }
 }
@@ -314,7 +313,7 @@ public final class ArgumentParser {
         private var results = [AnyArgument: Any]()
 
         /// Result of the parent parent parser, if any.
-        private var parentResult: Result? = nil
+        private var parentResult: Result?
 
         /// Reference to the parser this result belongs to.
         private let parser: ArgumentParser
@@ -428,14 +427,24 @@ public final class ArgumentParser {
     }
 
     /// Adds an option to the parser.
-    public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: T.Type, usage: String? = nil) -> OptionArgument<T> {
+    public func add<T: ArgumentKind>(
+        option: String,
+        shortName: String? = nil,
+        kind: T.Type,
+        usage: String? = nil
+    ) -> OptionArgument<T> {
         let arg = OptionArgument<T>(name: option, shortName: shortName, usage: usage)
         options.append(AnyArgument(arg))
         return arg
     }
 
     /// Adds an array argument type.
-    public func add<T: ArgumentKind>(option: String, shortName: String? = nil, kind: [T].Type, usage: String? = nil) -> OptionArgument<[T]> {
+    public func add<T: ArgumentKind>(
+        option: String,
+        shortName: String? = nil,
+        kind: [T].Type,
+        usage: String? = nil
+    ) -> OptionArgument<[T]> {
         let arg = OptionArgument<[T]>(name: option, shortName: shortName, usage: usage)
         options.append(AnyArgument(arg))
         return arg
@@ -443,15 +452,21 @@ public final class ArgumentParser {
 
     /// Adds an argument to the parser.
     /// Note: Only one positional argument is allowed if optional setting is enabled.
-    public func add<T: ArgumentKind>(positional: String, kind: T.Type, optional: Bool = false, usage: String? = nil) -> PositionalArgument<T> {
+    public func add<T: ArgumentKind>(
+        positional: String,
+        kind: T.Type,
+        optional: Bool = false,
+        usage: String? = nil
+    ) -> PositionalArgument<T> {
         precondition(subparsers.isEmpty, "Positional arguments are not supported with subparsers")
-        precondition(optional ? positionalArgs.count <= 1 : true, "Only one positional argument is allowed if optional setting is enabled.")
+        precondition(optional ? positionalArgs.count <= 1 : true,
+            "Only one positional argument is allowed if optional setting is enabled.")
         optionalPositionalArg = optional
         let arg = PositionalArgument<T>(name: positional, usage: usage)
         positionalArgs.append(AnyArgument(arg))
         return arg
     }
-    
+
     /// Add a parser with a subcommand name and its corresponding overview.
     @discardableResult
     public func add(subparser command: String, overview: String) -> ArgumentParser {
@@ -460,7 +475,7 @@ public final class ArgumentParser {
         return parser
     }
 
-    // MARK:- Parsing
+    // MARK: - Parsing
 
     /// A wrapper struct to pass to the ArgumentKind initializers.
     struct Parser: ArgumentParserProtocol {
@@ -494,14 +509,14 @@ public final class ArgumentParser {
     private func parse(_ args: [String] = [], parent: Result?) throws -> Result {
         let result = Result(parser: self, parent: parent)
         // Create options map to quickly look up the arguments.
-        let optionsTuple = options.flatMap { option -> [(String, AnyArgument)] in
+        let optionsTuple = options.flatMap({ option -> [(String, AnyArgument)] in
             var result = [(option.name, option)]
             // Add the short names too, if we have them.
             if let shortName = option.shortName {
                 result += [(shortName, option)]
             }
             return result
-        }
+        })
         let optionsMap = Dictionary(items: optionsTuple)
         // Create iterators.
         var positionalArgsIterator = positionalArgs.makeIterator()
@@ -558,7 +573,7 @@ public final class ArgumentParser {
         // Report if there are any non-optional positional arguments left which were not present in the arguments.
         let leftOverArgs = Array(positionalArgsIterator)
         if !optionalPositionalArg && !leftOverArgs.isEmpty {
-            throw ArgumentParserError.expectedArguments(self, leftOverArgs.map {$0.name})
+            throw ArgumentParserError.expectedArguments(self, leftOverArgs.map({ $0.name }))
         }
         return result
     }
@@ -572,7 +587,8 @@ public final class ArgumentParser {
         let maxWidth: Int
         // Figure out the max width based on argument length or choose the default width if max width is longer
         // than the default width.
-        if let maxArgument = (positionalArgs + options).map({ $0.name.characters.count }).max(), maxArgument < maxWidthDefault {
+        if let maxArgument = (positionalArgs + options).map({ $0.name.characters.count }).max(),
+            maxArgument < maxWidthDefault {
             maxWidth = maxArgument + padding + 1
         } else {
             maxWidth = maxWidthDefault
@@ -613,7 +629,7 @@ public final class ArgumentParser {
             for argument in options.lazy.sorted(by: {$0.name < $1.name}) {
                 guard let usage = argument.usage else { continue }
                 // Create name with its shortname, if available.
-                let name = [argument.name, argument.shortName].flatMap{$0}.joined(separator: ", ")
+                let name = [argument.name, argument.shortName].flatMap({ $0 }).joined(separator: ", ")
                 print(formatted: name, usage: usage, on: stream)
             }
 

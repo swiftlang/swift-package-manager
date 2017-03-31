@@ -38,7 +38,7 @@ public class Git {
                 return knownVersions
             }
         }
-            
+
         // Otherwise, look for normal tags.
         for tag in tags {
             if let version = Version(string: tag) {

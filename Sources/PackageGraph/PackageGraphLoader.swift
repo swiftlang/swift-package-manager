@@ -35,7 +35,7 @@ extension PackageGraphError: FixableError {
 
         case .cycleDetected(let cycle):
             return "found cyclic dependency declaration: " +
-                (cycle.path + cycle.cycle).map{$0.name}.joined(separator: " -> ") +
+                (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
         case .productDependencyNotFound(let name, _):
@@ -71,15 +71,15 @@ public struct PackageGraphLoader {
     ) -> PackageGraph {
 
         // Manifest url to manifest map.
-        let manifestURLMap = Dictionary(items: (externalManifests + root.manifests).map{($0.url, $0)})
+        let manifestURLMap = Dictionary(items: (externalManifests + root.manifests).map({ ($0.url, $0) }))
         let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.package.dependencies.flatMap{ manifestURLMap[$0.url] }
+            manifest.package.dependencies.flatMap({ manifestURLMap[$0.url] })
         }
 
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
-        let rootDependencies = Set(root.dependencies.flatMap{manifestURLMap[$0.url]})
-        let inputManifests = root.manifests + rootDependencies 
+        let rootDependencies = Set(root.dependencies.flatMap({ manifestURLMap[$0.url] }))
+        let inputManifests = root.manifests + rootDependencies
 
         // Collect the manifests for which we are going to build packages.
         let allManifests: [Manifest]
@@ -115,7 +115,7 @@ public struct PackageGraphLoader {
             do {
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
-                
+
                 // Throw if any of the non-root package is empty.
                 if package.modules.isEmpty && !isRootPackage {
                     throw PackageGraphError.noModules(package)
@@ -130,8 +130,8 @@ public struct PackageGraphLoader {
             allManifests: allManifests, manifestToPackage: manifestToPackage, engine: engine)
 
         return PackageGraph(
-            rootPackages: resolvedPackages.filter{rootManifestSet.contains($0.manifest)},
-            rootDependencies: resolvedPackages.filter{rootDependencies.contains($0.manifest)}
+            rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
+            rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) })
         )
     }
 }
@@ -157,28 +157,30 @@ private func createResolvedPackages(
 
         // Get all the external dependencies of this package, ignoring any
         // dependency we couldn't load.
-        let dependencies = manifest.package.dependencies.flatMap{ packageURLMap[$0.url] }
+        let dependencies = manifest.package.dependencies.flatMap({ packageURLMap[$0.url] })
 
         // Topologically Sort all the local modules in this package.
         let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
 
         // Make sure these module names are unique in the graph.
-        let dependencyModuleNames = dependencies.lazy.flatMap{ $0.modules }.map{ $0.name }
-        if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map{$0.name}) {
+        let dependencyModuleNames = dependencies.lazy.flatMap({ $0.modules }).map({ $0.name })
+        if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map({ $0.name })) {
             engine.emit(ModuleError.duplicateModule(duplicateModules.first!))
         }
 
         // Add system module dependencies directly to the target's dependencies
         // because they are not representable as a product.
-        let systemModulesDependencies = dependencies.flatMap{ $0.modules }
-            .filter{ $0.type == .systemModule }.map(ResolvedModule.Dependency.target)
+        let systemModulesDependencies = dependencies
+            .flatMap({ $0.modules })
+            .filter({ $0.type == .systemModule })
+            .map(ResolvedModule.Dependency.target)
 
-        let allProducts = dependencies.flatMap{ $0.products }.filter{ $0.type != .test }
-        let allProductsMap = Dictionary(items: allProducts.map{($0.name, $0)})
+        let allProducts = dependencies.flatMap({ $0.products }).filter({ $0.type != .test })
+        let allProductsMap = Dictionary(items: allProducts.map({ ($0.name, $0) }))
 
         // Resolve the modules.
         var moduleToResolved = [Module: ResolvedModule]()
-        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map { module in
+        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map({ module in
 
             // Get the product dependencies for targets in this package.
             let productDependencies: [ResolvedProduct]
@@ -186,7 +188,7 @@ private func createResolvedPackages(
             case .v3:
                 productDependencies = allProducts
             case .v4:
-                productDependencies = module.productDependencies.flatMap{ 
+                productDependencies = module.productDependencies.flatMap({
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
                         engine.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
@@ -204,26 +206,29 @@ private func createResolvedPackages(
                         }
                     }
                     return product
-                }
+                })
             }
 
-            let moduleDependencies = module.dependencies.map{ moduleToResolved[$0]! }.map(ResolvedModule.Dependency.target)
-            let resolvedModule = ResolvedModule(
-                module: module,
-                dependencies: moduleDependencies + systemModulesDependencies + productDependencies.map(ResolvedModule.Dependency.product)
-            )
-            moduleToResolved[module] = resolvedModule 
+            let moduleDependencies = module.dependencies
+                .map({ moduleToResolved[$0]! })
+                .map(ResolvedModule.Dependency.target)
+            let dependencies =
+                moduleDependencies +
+                systemModulesDependencies +
+                productDependencies.map(ResolvedModule.Dependency.product)
+            let resolvedModule = ResolvedModule(module: module, dependencies: dependencies)
+            moduleToResolved[module] = resolvedModule
             return resolvedModule
-        }
+        })
 
         // Create resolved products.
-        let resolvedProducts = package.products.map { product in
-            return ResolvedProduct(product: product, modules: product.modules.map{ moduleToResolved[$0]! })
-        }
+        let resolvedProducts = package.products.map({ product in
+            return ResolvedProduct(product: product, modules: product.modules.map({ moduleToResolved[$0]! }))
+        })
         // Create resolved package.
         let resolvedPackage = ResolvedPackage(
             package: package, dependencies: dependencies, modules: resolvedModules, products: resolvedProducts)
-        packageURLMap[package.manifest.url] = resolvedPackage 
+        packageURLMap[package.manifest.url] = resolvedPackage
         resolvedPackages.append(resolvedPackage)
     }
     return resolvedPackages
@@ -232,7 +237,7 @@ private func createResolvedPackages(
 // FIXME: Possibly lift this to Basic.
 private extension Sequence where Iterator.Element: Hashable {
     // Returns the set of duplicate elements in two arrays, if any.
-    func duplicates(_ other: Array<Iterator.Element>) -> Set<Iterator.Element>? {
+    func duplicates(_ other: [Iterator.Element]) -> Set<Iterator.Element>? {
         let dupes = Set(self).intersection(Set(other))
         return dupes.isEmpty ? nil : dupes
     }

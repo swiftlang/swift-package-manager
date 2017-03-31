@@ -52,7 +52,7 @@ extension JSON {
             throw MapError.typeMismatch(
                 key: key, expected: Dictionary<String, JSON>.self, json: object)
         }
-        return try Dictionary(items: value.map{($0.0, try T.init(json: $0.1))})
+        return try Dictionary(items: value.map({ ($0.0, try T.init(json: $0.1)) }))
     }
 
     /// Returns JSON entry in the dictionary from a given key.
@@ -77,7 +77,7 @@ extension JSON {
     }
 }
 
-// MARK:- Conformance for basic JSON types.
+// MARK: - Conformance for basic JSON types.
 
 extension Int: JSONMappable {
     public init(json: JSON) throws {

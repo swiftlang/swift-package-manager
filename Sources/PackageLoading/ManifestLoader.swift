@@ -87,7 +87,12 @@ extension ManifestLoaderProtocol {
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
-        return try load(packagePath: path, baseURL: baseURL, version: version, manifestVersion: manifestVersion, fileSystem: fileSystem)
+        return try load(
+            packagePath: path,
+            baseURL: baseURL,
+            version: version,
+            manifestVersion: manifestVersion,
+            fileSystem: fileSystem)
     }
 }
 
@@ -119,15 +124,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
         // As per our versioning support, determine the appropriate manifest version to load.
-        for versionSpecificKey in Versioning.currentVersionSpecificKeys { 
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
             let versionSpecificPath = path.appending(component: Manifest.basename + versionSpecificKey + ".swift")
             if (fileSystem ?? localFileSystem).exists(versionSpecificPath) {
-                return try loadFile(path: versionSpecificPath, baseURL: baseURL, version: version, manifestVersion: manifestVersion, fileSystem: fileSystem)
+                return try loadFile(
+                    path: versionSpecificPath,
+                    baseURL: baseURL,
+                    version: version,
+                    manifestVersion: manifestVersion,
+                    fileSystem: fileSystem)
             }
         }
-        
+
         return try loadFile(
-            path: path.appending(component: Manifest.filename), baseURL: baseURL, version: version, manifestVersion: manifestVersion, fileSystem: fileSystem)
+            path: path.appending(component: Manifest.filename),
+            baseURL: baseURL,
+            version: version,
+            manifestVersion: manifestVersion,
+            fileSystem: fileSystem)
     }
 
     /// Create a manifest by loading a specific manifest file from the given `path`.
@@ -154,7 +168,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
             let tmpFile = try TemporaryFile(suffix: ".swift")
             try localFileSystem.writeFileContents(tmpFile.path, bytes: contents)
-            return try loadFile(path: tmpFile.path, baseURL: baseURL, version: version, manifestVersion: manifestVersion)
+            return try loadFile(
+                path: tmpFile.path,
+                baseURL: baseURL,
+                version: version,
+                manifestVersion: manifestVersion)
         }
 
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
@@ -176,7 +194,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let path: AbsolutePath = isDirectory(inputPath) ? inputPath.appending(component: Manifest.filename) : inputPath
 
         // Validate that the file exists.
-        guard isFile(path) else { throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description) }
+        guard isFile(path) else {
+            throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
+        }
 
         // Get the json from manifest.
         guard let jsonString = try parse(path: path, manifestVersion: manifestVersion) else {
@@ -188,7 +208,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         switch manifestVersion {
         case .three:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
-            return Manifest(path: path, url: baseURL, package: .v3(pd.package), legacyProducts: pd.products, version: version)
+            return Manifest(
+                path: path,
+                url: baseURL,
+                package: .v3(pd.package),
+                legacyProducts: pd.products,
+                version: version)
 
         case .four:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
@@ -200,7 +225,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parse(path manifestPath: AbsolutePath, manifestVersion: ManifestVersion) throws -> String? {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
-        assert(manifestPath.extension == "swift", "Manifest files must contain .swift suffix in their name, given: \(manifestPath.asString).")
+        assert(manifestPath.extension == "swift",
+               "Manifest files must contain .swift suffix in their name, given: \(manifestPath.asString).")
 
         // For now, we load the manifest by having Swift interpret it directly.
         // Eventually, we should have two loading processes, one that loads only the
@@ -223,8 +249,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
         cmd += ["-I", runtimePath]
-        cmd += ["-L", runtimePath, "-lPackageDescription"] 
-    
+        cmd += ["-L", runtimePath, "-lPackageDescription"]
+
     #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
     #endif
@@ -244,11 +270,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let output = output {
             throw ManifestParseError.invalidManifestFormat(output)
         }
-    
+
         guard let json = try localFileSystem.readFileContents(file.path).asString else {
             throw ManifestParseError.invalidEncoding
         }
-    
+
         return json.isEmpty ? nil : json
     }
 }

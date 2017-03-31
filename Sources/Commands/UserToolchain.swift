@@ -24,7 +24,7 @@ import Utility
 public struct UserToolchain: Toolchain, ManifestResourceProvider {
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
-    
+
     /// Path of the `clang` compiler.
     public let clangCompiler: AbsolutePath
 
@@ -75,7 +75,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
 
         // First look in env and then in bin dir.
         swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
-        
+
         // Check that it's valid in the file system.
         guard localFileSystem.isExecutableFile(swiftCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `swiftc` at expected path \(swiftCompiler.asString)")
@@ -98,12 +98,12 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
             }
             clangCompiler = AbsolutePath(foundPath)
         }
-        
+
         // Check that it's valid in the file system.
         guard localFileSystem.isExecutableFile(clangCompiler) else {
             throw Error.invalidToolchain(problem: "could not find `clang` at expected path \(clangCompiler.asString)")
         }
-        
+
         // Find the default SDK (on macOS only).
       #if os(macOS)
         let sdk: AbsolutePath
@@ -119,7 +119,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
             }
             sdk = AbsolutePath(foundPath)
         }
-        
+
         // Verify that the sdk exists and is a directory
         guard localFileSystem.exists(sdk) && localFileSystem.isDirectory(sdk) else {
             throw Error.invalidToolchain(problem: "could not find default SDK at expected path \(sdk.asString)")
@@ -130,7 +130,8 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
         let platformPath = try? Process.checkNonZeroExit(
             args: "xcrun", "--sdk", "macosx", "--show-sdk-platform-path").chomp()
         if let platformPath = platformPath, !platformPath.isEmpty {
-            sdkPlatformFrameworksPath = AbsolutePath(platformPath).appending(components: "Developer", "Library", "Frameworks")
+            sdkPlatformFrameworksPath = AbsolutePath(platformPath)
+                .appending(components: "Developer", "Library", "Frameworks")
         } else {
             sdkPlatformFrameworksPath = nil
         }

@@ -22,7 +22,7 @@ import libc
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
-    
+
     func fetching(repository: String) {
         print("Fetching \(repository)")
     }
@@ -122,7 +122,7 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.chdir = $1.path })
 
         binder.bind(
-            option: parser.add(option: "--enable-prefetching", kind: Bool.self, 
+            option: parser.add(option: "--enable-prefetching", kind: Bool.self,
             usage: "Enable prefetching in resolver"),
             to: { $0.shouldEnableResolverPrefetching = $1 })
 
@@ -146,7 +146,7 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
                 usage: "Increase verbosity of informational output"),
             to: { $0.verbosity = $1 ? 1 : 0 })
-    
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -175,7 +175,9 @@ public class SwiftTool<Options: ToolOptions> {
               #if os(macOS)
                 action.__sigaction_u.__sa_handler = SIG_DFL
               #else
-                action.__sigaction_handler = unsafeBitCast(SIG_DFL, to: sigaction.__Unnamed_union___sigaction_handler.self)
+                action.__sigaction_handler = unsafeBitCast(
+                    SIG_DFL,
+                    to: sigaction.__Unnamed_union___sigaction_handler.self)
               #endif
                 sigaction(SIGINT, &action, nil)
 
@@ -193,7 +195,9 @@ public class SwiftTool<Options: ToolOptions> {
         let packageRoot = findPackageRoot()
 
         self.packageRoot = packageRoot
-        self.buildPath = getEnvBuildPath() ?? customBuildPath ?? (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
+        self.buildPath = getEnvBuildPath() ??
+            customBuildPath ??
+            (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
@@ -205,7 +209,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
     /// workspace is not needed, infact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
-    private var _workspace: Workspace? = nil
+    private var _workspace: Workspace?
 
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
@@ -236,7 +240,7 @@ public class SwiftTool<Options: ToolOptions> {
             verbosity = Verbosity(rawValue: options.verbosity)
             // Call the implementation.
             try runImpl()
-            guard !engine.hasErrors() else { 
+            guard !engine.hasErrors() else {
                 throw Error.hasFatalDiagnostics
             }
         } catch {
@@ -267,7 +271,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !engine.hasErrors() else { 
+        guard !engine.hasErrors() else {
             throw Error.hasFatalDiagnostics
         }
         return graph
@@ -299,7 +303,11 @@ public class SwiftTool<Options: ToolOptions> {
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
         // Run the swift-build-tool with the generated manifest.
-        try Commands.build(yamlPath: yaml, llbuild: getToolchain().llbuild, target: includingTests ? "test" : nil, processSet: processSet)
+        try Commands.build(
+            yamlPath: yaml,
+            llbuild: getToolchain().llbuild,
+            target: includingTests ? "test" : nil,
+            processSet: processSet)
     }
 
     /// Lazily compute the toolchain.

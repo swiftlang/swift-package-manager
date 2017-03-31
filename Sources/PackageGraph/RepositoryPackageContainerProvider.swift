@@ -24,12 +24,13 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
 
-    /// The tools version currently in use. Only the container versions less than and equal to this will be provided by the container.
+    /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
+    /// the container.
     let currentToolsVersion: ToolsVersion
 
     /// The tools version loader.
     let toolsVersionLoader: ToolsVersionLoaderProtocol
-    
+
     /// Create a repository-based package provider.
     ///
     /// - Parameters:
@@ -49,7 +50,10 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         self.toolsVersionLoader = toolsVersionLoader
     }
 
-    public func getContainer(for identifier: Container.Identifier, completion: @escaping (Result<Container, AnyError>) -> Void) {
+    public func getContainer(
+        for identifier: Container.Identifier,
+        completion: @escaping (Result<Container, AnyError>) -> Void
+    ) {
         // Resolve the container using the repository manager.
         repositoryManager.lookup(repository: identifier) { result in
             // Create the container wrapper.
@@ -90,13 +94,13 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     /// The available version list (in reverse order).
     public var versions: AnySequence<Version> {
-        return AnySequence(reversedVersions.lazy.filter{
+        return AnySequence(reversedVersions.lazy.filter({
             guard let toolsVersion = try? self.toolsVersion(for: $0),
                   self.currentToolsVersion >= toolsVersion else {
                 return false
             }
             return true
-        })
+        }))
     }
     /// The opened repository.
     let repository: Repository
@@ -105,21 +109,21 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     let manifestLoader: ManifestLoaderProtocol
 
     /// The tools version loader.
-    let toolsVersionLoader: ToolsVersionLoaderProtocol 
+    let toolsVersionLoader: ToolsVersionLoaderProtocol
 
     /// The current tools version in use.
     let currentToolsVersion: ToolsVersion
 
     /// The versions in the repository and their corresponding tags.
     let knownVersions: [Version: String]
-    
+
     /// The versions in the repository sorted by latest first.
     let reversedVersions: [Version]
 
     /// The cached dependency information.
     private var dependenciesCache: [String: [RepositoryPackageConstraint]] = [:]
     private var dependenciesCacheLock = Lock()
-    
+
     init(
         identifier: RepositorySpecifier,
         repository: Repository,
@@ -186,7 +190,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         forIdentifier identifier: String,
         getDependencies: () throws -> [RepositoryPackageConstraint]
     ) throws -> [RepositoryPackageConstraint] {
-        return try dependenciesCacheLock.withLock{
+        return try dependenciesCacheLock.withLock {
             if let result = dependenciesCache[identifier] {
                 return result
             }
@@ -197,7 +201,10 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     /// Returns dependencies of a container at the given revision.
-    private func getDependencies(at revision: Revision, version: Version? = nil) throws -> [RepositoryPackageConstraint] {
+    private func getDependencies(
+        at revision: Revision,
+        version: Version? = nil
+    ) throws -> [RepositoryPackageConstraint] {
         let fs = try repository.openFileView(revision: revision)
 
         // Load the tools version.

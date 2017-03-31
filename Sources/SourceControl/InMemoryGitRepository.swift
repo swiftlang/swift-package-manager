@@ -20,11 +20,11 @@ public enum InMemoryGitRepositoryError: Swift.Error {
     case tagAlreadyPresent
 }
 
-/// A class that implements basic git features on in-memory file system. It takes the path and file system reference where
-/// the repository should be created. The class itself is a file system pointing to current revision state i.e. HEAD. All mutations
-/// should be made on file system interface of this class and then they can be committed using commit() method. 
-/// Calls to checkout related methods will checkout the HEAD on the passed file system at the repository path, as well as on the file system
-/// interface of this class.
+/// A class that implements basic git features on in-memory file system. It takes the path and file system reference
+/// where the repository should be created. The class itself is a file system pointing to current revision state
+/// i.e. HEAD. All mutations should be made on file system interface of this class and then they can be committed using
+/// commit() method. Calls to checkout related methods will checkout the HEAD on the passed file system at the
+/// repository path, as well as on the file system interface of this class.
 /// Note: This class is intended to be used as testing infrastructure only.
 /// Note: This class is not thread safe yet.
 public final class InMemoryGitRepository {
@@ -56,7 +56,7 @@ public final class InMemoryGitRepository {
     fileprivate var tagsMap: [String: RevisionIdentifier] = [:]
 
     /// The array of current tags in the repository.
-    public var tags: [String] { 
+    public var tags: [String] {
         return Array(tagsMap.keys)
     }
 
@@ -109,7 +109,7 @@ public final class InMemoryGitRepository {
             throw InMemoryGitRepositoryError.unknownRevision
         }
         // Point the head to the revision state.
-        head = state 
+        head = state
         isDirty = false
         // Install this state on the passed filesystem.
         try installHead()
@@ -138,7 +138,7 @@ public final class InMemoryGitRepository {
         let headFs = head.fileSystem
 
         /// Recursively copies the content at HEAD to fs.
-        func install(at path: AbsolutePath) throws { 
+        func install(at path: AbsolutePath) throws {
             for entry in try headFs.getDirectoryContents(path) {
                 // The full path of the entry.
                 let entryPath = path.appending(component: entry)
@@ -178,11 +178,11 @@ extension InMemoryGitRepository: FileSystem {
     public func exists(_ path: AbsolutePath) -> Bool {
         return head.fileSystem.exists(path)
     }
-    
+
     public func isDirectory(_ path: AbsolutePath) -> Bool {
         return head.fileSystem.isDirectory(path)
     }
-    
+
     public func isFile(_ path: AbsolutePath) -> Bool {
         return head.fileSystem.isFile(path)
     }
@@ -198,7 +198,7 @@ extension InMemoryGitRepository: FileSystem {
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         return try head.fileSystem.getDirectoryContents(path)
     }
-    
+
     public func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         try head.fileSystem.createDirectory(path, recursive: recursive)
     }
@@ -264,7 +264,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
 
     /// Contains the repositories which are checked out using this provider.
     private var checkoutsMap = [AbsolutePath: InMemoryGitRepository]()
-    
+
     /// Create a new provider.
     public init() {
     }
@@ -280,8 +280,8 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     public func openRepo(at path: AbsolutePath) -> InMemoryGitRepository {
         return fetchedMap[path] ?? checkoutsMap[path]!
     }
-    
-    // MARK:- RepositoryProvider conformance
+
+    // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {

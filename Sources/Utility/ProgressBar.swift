@@ -87,7 +87,7 @@ public final class ProgressBar: ProgressBarProtocol {
         term.clearLine()
         term.write(text)
 
-        term.moveCursor(y: 1)
+        term.moveCursor(up: 1)
     }
 
     public func complete() {

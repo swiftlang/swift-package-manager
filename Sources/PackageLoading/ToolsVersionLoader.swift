@@ -54,10 +54,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // Get the version specifier string from tools version file.
         guard let versionSpecifier = ToolsVersionLoader.split(contents).versionSpecifier else {
             // Try to diagnose if there is a misspelling of the swift-tools-version comment.
-            let splitted = contents.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
-            let misspellings = [
-                "swift-tool", "tool-version",
-            ]
+            let splitted = contents.contents.split(
+                separator: UInt8(ascii: "\n"),
+                maxSplits: 1,
+                omittingEmptySubsequences: false)
+            let misspellings = ["swift-tool", "tool-version"]
             if let firstLine = ByteString(splitted[0]).asString,
                misspellings.first(where: firstLine.lowercased().contains) != nil {
                 throw Error.malformed(specifier: firstLine, file: path)
@@ -75,7 +76,10 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
     /// Splits the bytes to the version specifier (if present) and rest of the contents.
     public static func split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8]) {
-        let splitted = bytes.contents.split(separator: UInt8(ascii: "\n"), maxSplits: 1, omittingEmptySubsequences: false)
+        let splitted = bytes.contents.split(
+            separator: UInt8(ascii: "\n"),
+            maxSplits: 1,
+            omittingEmptySubsequences: false)
         // Try to match our regex and see if a valid specifier line.
         guard let firstLine = ByteString(splitted[0]).asString,
               let match = ToolsVersionLoader.regex.firstMatch(
@@ -92,5 +96,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     // * It should start with `//` followed by any amount of whitespace.
     // * Following that it should contain the case insensitive string `swift-tools-version:`.
     // * The text between the above string and `;` or string end becomes the tools version specifier.
-    static let regex = try! NSRegularExpression(pattern: "^// swift-tools-version:(.*?)(?:;.*|$)", options: [.caseInsensitive])
+    static let regex = try! NSRegularExpression(
+        pattern: "^// swift-tools-version:(.*?)(?:;.*|$)",
+        options: [.caseInsensitive])
 }

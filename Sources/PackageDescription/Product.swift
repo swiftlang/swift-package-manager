@@ -61,7 +61,7 @@ extension Product {
 }
 
 extension ProductType: Equatable {
-    public static func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+    public static func == (lhs: ProductType, rhs: ProductType) -> Bool {
         switch (lhs, rhs) {
         case (.Executable, .Executable):
             return true
@@ -80,7 +80,7 @@ extension ProductType: Equatable {
 }
 
 extension Product: Equatable {
-    public static func ==(lhs: PackageDescription.Product, rhs: PackageDescription.Product) -> Bool {
+    public static func == (lhs: PackageDescription.Product, rhs: PackageDescription.Product) -> Bool {
         return lhs.name == rhs.name &&
                lhs.type == rhs.type &&
                lhs.modules == rhs.modules

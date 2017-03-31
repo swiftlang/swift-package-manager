@@ -43,7 +43,7 @@ public class Product {
 
     /// The type of product to create.
     public let type: ProductType
-    
+
     /// The list of modules to combine to form the product.
     ///
     /// This is never empty, and is only the modules which are required to be in
@@ -53,7 +53,8 @@ public class Product {
     public init(name: String, type: ProductType, modules: [Module]) {
         precondition(!modules.isEmpty)
         if type == .executable {
-            assert(modules.filter{$0.type == .executable}.count == 1, "Executable products should have exactly one executable module.")
+            assert(modules.filter({ $0.type == .executable }).count == 1,
+                   "Executable products should have exactly one executable module.")
         }
         self.name = name
         self.type = type
@@ -102,7 +103,7 @@ extension Product: CustomStringConvertible {
 }
 
 extension ProductType: Equatable {
-    public static func ==(lhs: ProductType, rhs: ProductType) -> Bool {
+    public static func == (lhs: ProductType, rhs: ProductType) -> Bool {
         switch (lhs, rhs) {
         case (.executable, .executable):
             return true

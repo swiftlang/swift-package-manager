@@ -61,7 +61,11 @@ public struct ModuleMapGenerator {
     /// Stream on which warnings will be emitted.
     private let warningStream: OutputByteStream
 
-    public init(for module: ClangModule, fileSystem: FileSystem = localFileSystem, warningStream: OutputByteStream = stdoutStream) {
+    public init(
+        for module: ClangModule,
+        fileSystem: FileSystem = localFileSystem,
+        warningStream: OutputByteStream = stdoutStream
+    ) {
         self.module = module
         self.fileSystem = fileSystem
         self.warningStream = warningStream
@@ -90,20 +94,23 @@ public struct ModuleMapGenerator {
         let includeDir = module.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {
-            warningStream <<< "warning: No include directory found for module '\(module.name)'. A library can not be imported without any public headers."
+            warningStream <<< ("warning: No include directory found for module '\(module.name)'. " +
+                "A library can not be imported without any public headers.")
             warningStream.flush()
             return
         }
-        
-        let walked = try fileSystem.getDirectoryContents(includeDir).map{ includeDir.appending(component: $0) }
-        
-        let files = walked.filter{ fileSystem.isFile($0) && $0.suffix == ".h" }
-        let dirs = walked.filter{ fileSystem.isDirectory($0) }
+
+        let walked = try fileSystem.getDirectoryContents(includeDir).map({ includeDir.appending(component: $0) })
+
+        let files = walked.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
+        let dirs = walked.filter({ fileSystem.isDirectory($0) })
 
         let umbrellaHeaderFlat = includeDir.appending(component: module.c99name + ".h")
         if fileSystem.isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else {
-                throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name, .umbrellaHeaderWithAdditionalNonEmptyDirectories(umbrellaHeaderFlat, dirs))
+                throw ModuleMapError.unsupportedIncludeLayoutForModule(
+                    module.name,
+                    .umbrellaHeaderWithAdditionalNonEmptyDirectories(umbrellaHeaderFlat, dirs))
             }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat))
             return
@@ -113,10 +120,14 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = includeDir.appending(components: module.c99name, module.c99name + ".h")
         if fileSystem.isFile(umbrellaHeader) {
             guard dirs.count == 1 else {
-                throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name, .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(umbrellaHeader, dirs))
+                throw ModuleMapError.unsupportedIncludeLayoutForModule(
+                    module.name,
+                    .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(umbrellaHeader, dirs))
             }
             guard files.isEmpty else {
-                throw ModuleMapError.unsupportedIncludeLayoutForModule(module.name, .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(umbrellaHeader, files))
+                throw ModuleMapError.unsupportedIncludeLayoutForModule(
+                    module.name,
+                    .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(umbrellaHeader, files))
             }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeader))
             return
@@ -132,7 +143,8 @@ public struct ModuleMapGenerator {
         let umbrellaHeader = path.appending(component: module.c99name + ".h")
         let invalidUmbrellaHeader = path.appending(component: module.name + ".h")
         if module.c99name != module.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            warningStream <<< "warning: \(invalidUmbrellaHeader.asString) should be renamed to \(umbrellaHeader.asString) to be used as an umbrella header"
+            warningStream <<< ("warning: \(invalidUmbrellaHeader.asString) should be renamed to " +
+                "\(umbrellaHeader.asString) to be used as an umbrella header")
             warningStream.flush()
         }
     }
@@ -141,7 +153,7 @@ public struct ModuleMapGenerator {
         case header(AbsolutePath)
         case directory(AbsolutePath)
     }
-    
+
     private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType) throws {
         let stream = BufferedOutputByteStream()
         stream <<< "module \(module.c99name) {\n"
@@ -172,7 +184,8 @@ extension ModuleMapGenerator.ModuleMapError: FixableError {
     public var error: String {
         switch self {
         case .unsupportedIncludeLayoutForModule(let (name, problem)):
-            return "could not generate module map for module '\(name)', the file layout is not supported: \(problem.error)"
+            return "could not generate module map for module '\(name)', the file layout is not " +
+                "supported: \(problem.error)"
         }
     }
 
@@ -188,22 +201,26 @@ extension ModuleMapGenerator.ModuleMapError.UnsupportedIncludeLayoutType: Fixabl
     public var error: String {
         switch self {
         case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (umbrella, dirs)):
-            return "an umbrella header is defined at \(umbrella.asString), but the following directories exist: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "an umbrella header is defined at \(umbrella.asString), but the following directories " +
+                "exist: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
         case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (umbrella, dirs)):
-            return "an umbrella header is defined at \(umbrella.asString), but more than 1 directories exist: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "an umbrella header is defined at \(umbrella.asString), but more than 1 directories " +
+                "exist: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
         case .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (umbrella, files)):
-            return "an umbrella header is defined at \(umbrella.asString), but the following files exist: \(files.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "an umbrella header is defined at \(umbrella.asString), but the following files " +
+                "exist: \(files.map({ $0.asString }).sorted().joined(separator: ", "))"
         }
     }
 
     public var fix: String? {
         switch self {
         case .umbrellaHeaderWithAdditionalNonEmptyDirectories(let (_, dirs)):
-            return "remove these directories: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "remove these directories: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
         case .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(let (_, dirs)):
-            return "reduce these directories to a single directory: \(dirs.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "reduce these directories to a single " +
+                "directory: \(dirs.map({ $0.asString }).sorted().joined(separator: ", "))"
         case.umbrellaHeaderWithAdditionalFilesInIncludeDirectory(let (_, files)):
-            return "remove these files: \(files.map { $0.asString }.sorted().joined(separator: ", "))"
+            return "remove these files: \(files.map({ $0.asString }).sorted().joined(separator: ", "))"
         }
     }
 }

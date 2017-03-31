@@ -16,10 +16,10 @@ import Utility
 protocol ToolProtocol {
     /// The list of inputs to declare.
     var inputs: [String] { get }
-    
+
     /// The list of outputs to declare.
     var outputs: [String] { get }
-    
+
     /// Write a description of the tool to the given output `stream`.
     ///
     /// This should append JSON or YAML content; if it is YAML it should be indented by 4 spaces.
@@ -37,7 +37,7 @@ struct ShellTool: ToolProtocol {
         stream <<< "    description: " <<< Format.asJSON(description) <<< "\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-    
+
         // If one argument is specified we assume pre-escaped and have llbuild
         // execute it passed through to the shell.
         if self.args.count == 1 {
@@ -54,7 +54,7 @@ struct Target {
     /// A unique name for the target.  These should be names that have meaning
     /// to a client wanting to control the build.
     let name: String
-    
+
     /// A list of commands to run when building the target.  A command may be
     /// in multiple targets, or might not be in any target at all.
     var cmds: [Command]

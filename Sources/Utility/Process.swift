@@ -123,32 +123,31 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// The process id of the spawned process, available after the process is launched.
     public private(set) var processID = ProcessID()
-    
+
     /// If the subprocess has launched.
-    // Note: This property is not protected by the serial queue because it is only mutated in `launch()`, which will be called only once.
+    /// Note: This property is not protected by the serial queue because it is only mutated in `launch()`, which will be
+    /// called only once.
     public private(set) var launched = false
-    
+
     /// The result of the process execution. Available after process is terminated.
     public var result: ProcessResult? {
-        get {
-            return self.serialQueue.sync {
-                self._result
-            }
+        return self.serialQueue.sync {
+            self._result
         }
     }
-    
+
     /// If process was asked to redirect its output.
     public let redirectOutput: Bool
-    
+
     /// The result of the process execution. Available after process is terminated.
     private var _result: ProcessResult?
-    
+
     /// If redirected, stdout result and reference to the thread reading the output.
     private var stdout: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
 
     /// If redirected, stderr result and reference to the thread reading the output.
     private var stderr: (result: Result<[Int8], AnyError>, thread: Thread?) = (Result([]), nil)
-    
+
     /// Queue to protect concurrent reads.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.process")
 
@@ -168,12 +167,12 @@ public final class Process: ObjectIdentifierProtocol {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
-    ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of printing on
-    ///     the standard streams. Default value is true.
+    ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
+    ///     printing on the standard streams. Default value is true.
     public init(arguments: [String], environment: [String: String] = env(), redirectOutput: Bool = true) {
         self.arguments = arguments
         self.environment = environment
-        self.redirectOutput = redirectOutput 
+        self.redirectOutput = redirectOutput
     }
 
     /// Returns true if the given program is present and executable in search path.
@@ -235,7 +234,7 @@ public final class Process: ObjectIdentifierProtocol {
         // On Linux, this can only be used to reset signals that are legal to
         // modify, so we have to take care about the set we use.
         var mostSignals = sigset_t()
-        sigemptyset(&mostSignals);
+        sigemptyset(&mostSignals)
         for i in 1 ..< SIGUNUSED {
             if i == SIGKILL || i == SIGSTOP {
                 continue
@@ -289,10 +288,10 @@ public final class Process: ObjectIdentifierProtocol {
             posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
         }
 
-        var argv: [UnsafeMutablePointer<CChar>?] = arguments.map{ $0.withCString(strdup) }
+        var argv: [UnsafeMutablePointer<CChar>?] = arguments.map({ $0.withCString(strdup) })
         argv.append(nil)
         defer { for case let arg? in argv { free(arg) } }
-        var env: [UnsafeMutablePointer<CChar>?] = environment.map{ "\($0.0)=\($0.1)".withCString(strdup) }
+        var env: [UnsafeMutablePointer<CChar>?] = environment.map({ "\($0.0)=\($0.1)".withCString(strdup) })
         env.append(nil)
         defer { for case let arg? in env { free(arg) } }
 
@@ -332,12 +331,12 @@ public final class Process: ObjectIdentifierProtocol {
     public func waitUntilExit() throws -> ProcessResult {
         return try serialQueue.sync {
             precondition(launched, "The process is not yet launched.")
-            
+
             // If the process has already finsihed, return it.
             if let existingResult = _result {
                 return existingResult
             }
-        
+
             // If we're reading output, make sure that is finished.
             stdout.thread?.join()
             stderr.thread?.join()
@@ -345,13 +344,13 @@ public final class Process: ObjectIdentifierProtocol {
             // Wait until process finishes execution.
             var exitStatus: Int32 = 0
             var result = waitpid(processID, &exitStatus, 0)
-            while (result == -1 && errno == EINTR) {
+            while result == -1 && errno == EINTR {
                 result = waitpid(processID, &exitStatus, 0)
             }
             if result == -1 {
                 throw SystemError.waitpid(errno)
             }
-            
+
             // Construct the result.
             let executionResult = ProcessResult(
                 arguments: arguments,
@@ -371,7 +370,7 @@ public final class Process: ObjectIdentifierProtocol {
         // Read all of the data from the output pipe.
         let N = 4096
         var buf = [Int8](repeating: 0, count: N + 1)
-        
+
         var out = [Int8]()
         var error: Swift.Error? = nil
         loop: while true {
@@ -454,7 +453,7 @@ extension Process {
     }
 }
 
-// MARK:- Private helpers
+// MARK: - Private helpers
 
 #if os(macOS)
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t?
@@ -488,7 +487,7 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
 }
 
 extension ProcessResult.ExitStatus: Equatable {
-    public static func ==(lhs: ProcessResult.ExitStatus, rhs: ProcessResult.ExitStatus) -> Bool {
+    public static func == (lhs: ProcessResult.ExitStatus, rhs: ProcessResult.ExitStatus) -> Bool {
         switch (lhs, rhs) {
         case (.terminated(let l), .terminated(let r)):
             return l == r
@@ -541,7 +540,7 @@ extension ProcessResult.Error: CustomStringConvertible {
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
             }
-            stream <<< result.arguments.map{$0.shellEscaped()}.joined(separator: " ")
+            stream <<< result.arguments.map({ $0.shellEscaped() }).joined(separator: " ")
             return stream.bytes.asString!
         }
     }

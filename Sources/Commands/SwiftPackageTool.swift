@@ -99,7 +99,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 throw PackageToolOperationError.packageNotFound
             }
             // Create revision object if provided by user.
-            let revision = options.editOptions.revision.flatMap { Revision(identifier: $0) }
+            let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
             // Put the dependency in edit mode.
             try workspace.edit(
                 dependency: dependency,
@@ -173,7 +173,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dstdir = try getPackageRoot()
                 projectName = graph.rootPackages[0].name
             }
-            let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: options.xcodeprojOptions)
+            let outpath = try Xcodeproj.generate(
+                outputDir: dstdir,
+                projectName: projectName,
+                graph: graph,
+                options: options.xcodeprojOptions)
 
             print("generated:", outpath.prettyPath)
 
@@ -268,7 +272,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             option: parser.add(option: "--version", kind: Bool.self),
             to: { options, _ in options.mode = .version })
 
-        let describeParser = parser.add(subparser: PackageMode.describe.rawValue, overview: "Describe the current package")
+        let describeParser = parser.add(
+            subparser: PackageMode.describe.rawValue,
+            overview: "Describe the current package")
         binder.bind(
             option: describeParser.add(option: "--type", kind: DescribeMode.self, usage: "json|text"),
             to: { $0.describeMode = $1 })
@@ -288,8 +294,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             editParser.add(
                 option: "--branch", kind: String.self,
                 usage: "The branch to create"),
-            to: { 
-                $0.editOptions.revision = $1 
+            to: {
+                $0.editOptions.revision = $1
                 $0.editOptions.checkoutBranch = $2})
 
         binder.bind(
@@ -316,14 +322,18 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Update without applying pins and repin the updated versions"),
             to: { $0.shouldRepin = $1 })
 
-        let initPackageParser = parser.add(subparser: PackageMode.initPackage.rawValue, overview: "Initialize a new package")
+        let initPackageParser = parser.add(
+            subparser: PackageMode.initPackage.rawValue,
+            overview: "Initialize a new package")
         binder.bind(
             option: initPackageParser.add(
                 option: "--type", kind: InitPackage.PackageType.self,
                 usage: "empty|library|executable|system-module"),
             to: { $0.initMode = $1 })
 
-        let uneditParser = parser.add(subparser: PackageMode.unedit.rawValue, overview: "Remove a package from editable mode")
+        let uneditParser = parser.add(
+            subparser: PackageMode.unedit.rawValue,
+            overview: "Remove a package from editable mode")
         binder.bind(
             positional: uneditParser.add(
                 positional: "name", kind: String.self,
@@ -334,16 +344,20 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--force", kind: Bool.self,
                 usage: "Unedit the package even if it has uncommited and unpushed changes."),
             to: { $0.editOptions.shouldForceRemove = $1 })
-        
-        let showDependenciesParser = parser.add(subparser: PackageMode.showDependencies.rawValue, overview: "Print the resolved dependency graph")
+
+        let showDependenciesParser = parser.add(
+            subparser: PackageMode.showDependencies.rawValue,
+            overview: "Print the resolved dependency graph")
         binder.bind(
             option: showDependenciesParser.add(
-                option: "--format", kind: ShowDependenciesMode.self, 
+                option: "--format", kind: ShowDependenciesMode.self,
                 usage: "text|dot|json"),
-            to: { 
+            to: {
                 $0.showDepsMode = $1})
 
-        let toolsVersionParser = parser.add(subparser: PackageMode.toolsVersion.rawValue, overview: "Manipulate tools version of the current package")
+        let toolsVersionParser = parser.add(
+            subparser: PackageMode.toolsVersion.rawValue,
+            overview: "Manipulate tools version of the current package")
         binder.bind(
             option: toolsVersionParser.add(
                 option: "--set", kind: String.self,
@@ -356,7 +370,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "Set tools version of package to the current tools version in use"),
             to: { if $1 { $0.toolsVersionMode = .setCurrent } })
 
-        let generateXcodeParser = parser.add(subparser: PackageMode.generateXcodeproj.rawValue, overview: "Generates an Xcode project")
+        let generateXcodeParser = parser.add(
+            subparser: PackageMode.generateXcodeproj.rawValue,
+            overview: "Generates an Xcode project")
         binder.bind(
             generateXcodeParser.add(
                 option: "--xcconfig-overrides", kind: PathArgument.self,
@@ -367,11 +383,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             generateXcodeParser.add(
                 option: "--output", kind: PathArgument.self,
                 usage: "Path where the Xcode project should be generated"),
-            to: { 
-                $0.xcodeprojOptions = XcodeprojOptions(flags: $0.buildFlags, xcconfigOverrides: $1?.path, isCodeCoverageEnabled: $2)
-                $0.outputPath = $3?.path })
+            to: {
+                $0.xcodeprojOptions = XcodeprojOptions(
+                    flags: $0.buildFlags,
+                    xcconfigOverrides: $1?.path,
+                    isCodeCoverageEnabled: $2)
+                $0.outputPath = $3?.path
+            })
 
-        let pinParser = parser.add(subparser: PackageMode.pin.rawValue, overview: "Perform pinning operations on a package.")
+        let pinParser = parser.add(
+            subparser: PackageMode.pin.rawValue,
+            overview: "Perform pinning operations on a package.")
         binder.bind(
             positional: pinParser.add(
                 positional: "name", kind: String.self, optional: true,
@@ -414,7 +436,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.pinOptions.branch = $2
                 $0.pinOptions.revision = $3 })
 
-        let unpinParser = parser.add(subparser: PackageMode.unpin.rawValue, overview: "Unpin a package. Note: This can only be used when auto-pinning is disabled.")
+        let unpinParser = parser.add(
+            subparser: PackageMode.unpin.rawValue,
+            overview: "Unpin a package. Note: This can only be used when auto-pinning is disabled.")
         binder.bind(
             positional: unpinParser.add(
                 positional: "name", kind: String.self,
@@ -507,7 +531,7 @@ extension InitPackage.PackageType: StringEnumArgument {
             (empty.description, "generates an empty project"),
             (library.description, "generates project for a dynamic library"),
             (executable.description, "generates a project for a cli executable"),
-            (systemModule.description, "generates a project for a system module")
+            (systemModule.description, "generates a project for a system module"),
         ])
     }
 }
@@ -517,7 +541,7 @@ extension ShowDependenciesMode: StringEnumArgument {
         return .values([
             (text.description, "list dependencies using text format"),
             (dot.description, "list dependencies using dot format"),
-            (json.description, "list dependencies using JSON format")
+            (json.description, "list dependencies using JSON format"),
         ])
     }
 }
@@ -526,7 +550,7 @@ extension DescribeMode: StringEnumArgument {
     public static var completion: ShellCompletion {
         return .values([
             (text.rawValue, "describe using text format"),
-            (json.rawValue, "describe using JSON format")
+            (json.rawValue, "describe using JSON format"),
         ])
     }
 }
@@ -535,7 +559,7 @@ extension PackageToolOptions.ResolveToolMode: StringEnumArgument {
     static var completion: ShellCompletion {
         return .values([
             (text.rawValue, "resolve using text format"),
-            (json.rawValue, "resolve using JSON format")
+            (json.rawValue, "resolve using JSON format"),
         ])
     }
 }

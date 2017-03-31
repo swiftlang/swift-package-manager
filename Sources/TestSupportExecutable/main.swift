@@ -43,7 +43,7 @@ class HandlerTest {
     }
 }
 
-// MARK:- Frontend
+// MARK: - Frontend
 
 enum Mode: String {
     case fileLockTest
@@ -66,29 +66,39 @@ struct Options {
 
 do {
     let binder = ArgumentBinder<Options>()
-    
+
     let parser = ArgumentParser(
         usage: "subcommand",
         overview: "Test support executable")
 
     let fileLockParser = parser.add(subparser: Mode.fileLockTest.rawValue, overview: "Execute the file lock test")
-    
+
     binder.bindPositional(
         fileLockParser.add(positional: "cache directory", kind: String.self, usage: "Path to cache directory"),
         fileLockParser.add(positional: "file path", kind: String.self, usage: "Path of the file to mutate"),
         fileLockParser.add(positional: "contents", kind: Int.self, usage: "Contents to write in the file"),
         to: {
-            $0.fileLockOptions = Options.FileLockOptions(cacheDir: AbsolutePath($1), path: AbsolutePath($2), content: $3)
-    })
+            $0.fileLockOptions = Options.FileLockOptions(
+                cacheDir: AbsolutePath($1),
+                path: AbsolutePath($2),
+                content: $3)
+        })
 
-    let intHandlerParser = parser.add(subparser: Mode.interruptHandlerTest.rawValue, overview: "Execute the interrupt handler test")
+    let intHandlerParser = parser.add(
+        subparser: Mode.interruptHandlerTest.rawValue,
+        overview: "Execute the interrupt handler test")
     binder.bind(
         positional: intHandlerParser.add(positional: "temporary file", kind: String.self, usage: "Path to temp file"),
         to: { $0.temporaryFile = AbsolutePath($1) })
 
-    let absolutePathParser = parser.add(subparser: Mode.pathArgumentTest.rawValue, overview: "Print the absolute path for the given relative path")
+    let absolutePathParser = parser.add(
+        subparser: Mode.pathArgumentTest.rawValue,
+        overview: "Print the absolute path for the given relative path")
     binder.bind(
-        positional: absolutePathParser.add(positional: "relative path", kind: PathArgument.self, usage: "Relative path to return absolute path for"),
+        positional: absolutePathParser.add(
+            positional: "relative path",
+            kind: PathArgument.self,
+            usage: "Relative path to return absolute path for"),
         to: { $0.absolutePath = $1.path })
 
     binder.bind(
@@ -102,7 +112,10 @@ do {
     switch options.mode {
     case .fileLockTest:
         guard let fileLockOptions = options.fileLockOptions else { break }
-        try fileLockTest(cacheDir: fileLockOptions.cacheDir, path: fileLockOptions.path, content: fileLockOptions.content)
+        try fileLockTest(
+            cacheDir: fileLockOptions.cacheDir,
+            path: fileLockOptions.path,
+            content: fileLockOptions.content)
     case .interruptHandlerTest:
         let handlerTest = try HandlerTest(options.temporaryFile!)
         handlerTest.run()

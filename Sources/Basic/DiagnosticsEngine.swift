@@ -23,15 +23,15 @@ extension DiagnosticParameter where Self: CustomStringConvertible {
 }
 
 // Conform basic types.
-extension String: DiagnosticParameter{}
-extension Int: DiagnosticParameter{}
+extension String: DiagnosticParameter {}
+extension Int: DiagnosticParameter {}
 
 /// A builder for constructing diagnostic descriptions.
 public class DiagnosticDescriptionBuilder<Data: DiagnosticData> {
     public var fragments: [DiagnosticID.DescriptionFragment] = []
 
     func build(
-        _ body: (DiagnosticDescriptionBuilder) -> ()
+        _ body: (DiagnosticDescriptionBuilder) -> Void
     ) -> [DiagnosticID.DescriptionFragment] {
         body(self)
         return fragments
@@ -39,7 +39,7 @@ public class DiagnosticDescriptionBuilder<Data: DiagnosticData> {
 }
 
 @discardableResult
-public func <<<<T>(
+public func <<< <T>(
     builder: DiagnosticDescriptionBuilder<T>,
     string: String
 ) -> DiagnosticDescriptionBuilder<T> {
@@ -57,7 +57,7 @@ public func <<<<T, P: DiagnosticParameter>(
 }
 
 @discardableResult
-public func <<<<T>(
+public func <<< <T>(
     builder: DiagnosticDescriptionBuilder<T>,
     fragment: DiagnosticID.DescriptionFragment
 ) -> DiagnosticDescriptionBuilder<T> {
@@ -109,13 +109,13 @@ public class DiagnosticID: ObjectIdentifierProtocol {
             return .substitutionItem(accessor, preference: preference)
         }
     }
-    
+
     /// The name of the diagnostic, which is expected to be in reverse dotted notation.
     public let name: String
 
     /// The English format string for the diagnostic description.
     public let description: [DescriptionFragment]
-    
+
     /// The default behavior associated with this diagnostic.
     public let defaultBehavior: Diagnostic.Behavior
 
@@ -148,7 +148,7 @@ public class DiagnosticID: ObjectIdentifierProtocol {
         type: T.Type,
         name: String,
         defaultBehavior: Diagnostic.Behavior = .error,
-        description buildDescription: (DiagnosticDescriptionBuilder<T>) -> ()
+        description buildDescription: (DiagnosticDescriptionBuilder<T>) -> Void
     ) {
         self.name = name
         self.description = DiagnosticDescriptionBuilder<T>().build(buildDescription)
@@ -170,7 +170,7 @@ public protocol DiagnosticLocation {
 
 public struct Diagnostic {
     public typealias Location = DiagnosticLocation
-    
+
     /// The behavior associated with this diagnostic.
     public enum Behavior {
         /// An error which will halt the operation.
@@ -227,7 +227,7 @@ public struct Diagnostic {
             if i != 0 {
                 result += " "
             }
-            
+
             switch fragment {
             case let .literalItem(string, _):
                 result += string
@@ -259,7 +259,7 @@ public protocol DiagnosticsScope {
 public class DiagnosticsEngine {
     /// The diagnostics produced by the engine.
     public var diagnostics: [Diagnostic] = []
-    
+
     public init() {
     }
 
@@ -268,6 +268,6 @@ public class DiagnosticsEngine {
     }
 
     public func hasErrors() -> Bool {
-        return !diagnostics.filter{ $0.behavior == .error }.isEmpty
+        return !diagnostics.filter({ $0.behavior == .error }).isEmpty
     }
 }

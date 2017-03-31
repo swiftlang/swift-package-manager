@@ -55,7 +55,7 @@ public class Module: ObjectIdentifierProtocol {
         self.type = type
         self.sources = sources
         self.dependencies = dependencies
-        self.productDependencies = productDependencies 
+        self.productDependencies = productDependencies
         self.c99name = self.name.mangledToC99ExtendedIdentifier()
     }
 }

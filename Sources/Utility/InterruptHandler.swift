@@ -41,7 +41,9 @@ public final class InterruptHandler {
       #if os(macOS)
         action.__sigaction_u.__sa_handler = signalHandler
       #else
-        action.__sigaction_handler = unsafeBitCast(signalHandler, to: sigaction.__Unnamed_union___sigaction_handler.self)
+        action.__sigaction_handler = unsafeBitCast(
+            signalHandler,
+            to: sigaction.__Unnamed_union___sigaction_handler.self)
       #endif
         // Install the new handler.
         sigaction(SIGINT, &action, &oldAction)

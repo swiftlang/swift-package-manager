@@ -42,7 +42,8 @@ public enum SwiftPMProduct {
         }
         fatalError()
       #else
-        return AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory.appending(self.exec)
+        return AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory)
+            .parentDirectory.appending(self.exec)
       #endif
     }
 
@@ -72,7 +73,12 @@ public enum SwiftPMProduct {
     ///
     /// - Returns: The output of the process.
     @discardableResult
-    public func execute(_ args: [String], chdir: AbsolutePath? = nil, env: [String: String]? = nil, printIfError: Bool = false) throws -> String {
+    public func execute(
+        _ args: [String],
+        chdir: AbsolutePath? = nil,
+        env: [String: String]? = nil,
+        printIfError: Bool = false
+    ) throws -> String {
         var environment = ProcessInfo.processInfo.environment
         for (key, value) in (env ?? [:]) {
             environment[key] = value
@@ -102,7 +108,7 @@ public enum SwiftPMProduct {
         }
         if printIfError {
             print("**** FAILURE EXECUTING SUBPROCESS ****")
-            print("command: " + completeArgs.map{ $0.shellEscaped() }.joined(separator: " "))
+            print("command: " + completeArgs.map({ $0.shellEscaped() }).joined(separator: " "))
             print("SWIFT_EXEC:", environment["SWIFT_EXEC"] ?? "nil")
             print("output:", output)
         }

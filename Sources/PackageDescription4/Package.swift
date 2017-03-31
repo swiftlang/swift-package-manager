@@ -40,18 +40,18 @@ public final class Package {
             self.requirement = requirement
         }
     }
-    
+
     /// The name of the package.
     public var name: String
-  
+
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to
     /// search for <name>.pc file to get the additional flags needed for the
     /// system module.
     public var pkgConfig: String?
-    
+
     /// Providers array for System module
     public var providers: [SystemPackageProvider]?
-  
+
     /// The list of targets.
     public var targets: [Target]
 
@@ -93,7 +93,7 @@ public final class Package {
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
-        if CommandLine.argc > 0, 
+        if CommandLine.argc > 0,
            let fileNoOptIndex = CommandLine.arguments.index(of: "-fileno"),
            let fileNo = Int32(CommandLine.arguments[fileNoOptIndex + 1]) {
             dumpPackageAtExit(self, fileNo: fileNo)
@@ -123,7 +123,7 @@ public enum SystemPackageProvider {
 
 extension SystemPackageProvider: Equatable {
 
-    public static func ==(lhs: SystemPackageProvider, rhs: SystemPackageProvider) -> Bool {
+    public static func == (lhs: SystemPackageProvider, rhs: SystemPackageProvider) -> Bool {
         switch (lhs, rhs) {
         case (.brewItem(let lhs), .brewItem(let rhs)):
             return lhs == rhs
@@ -161,12 +161,12 @@ extension Package {
         if let pkgConfig = self.pkgConfig {
             dict["pkgConfig"] = .string(pkgConfig)
         }
-        dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
-        dict["exclude"] = .array(exclude.map { .string($0) })
-        dict["targets"] = .array(targets.map { $0.toJSON() })
-        dict["products"] = .array(products.map { $0.toJSON() })
+        dict["dependencies"] = .array(dependencies.map({ $0.toJSON() }))
+        dict["exclude"] = .array(exclude.map({ .string($0) }))
+        dict["targets"] = .array(targets.map({ $0.toJSON() }))
+        dict["products"] = .array(products.map({ $0.toJSON() }))
         if let providers = self.providers {
-            dict["providers"] = .array(providers.map { $0.toJSON() })
+            dict["providers"] = .array(providers.map({ $0.toJSON() }))
         }
         if let swiftLanguageVersions = self.swiftLanguageVersions {
             dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.int))
@@ -179,7 +179,7 @@ extension Target {
     func toJSON() -> JSON {
         return .dictionary([
             "name": .string(name),
-            "dependencies": .array(dependencies.map { $0.toJSON() })
+            "dependencies": .array(dependencies.map({ $0.toJSON() })),
         ])
     }
 }
@@ -239,7 +239,7 @@ public func jsonString(package: Package) -> String {
 }
 
 var errors = Errors()
-private var dumpInfo: (package: Package, fileNo: Int32)? = nil
+private var dumpInfo: (package: Package, fileNo: Int32)?
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }

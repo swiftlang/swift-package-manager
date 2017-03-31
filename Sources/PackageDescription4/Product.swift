@@ -69,7 +69,7 @@ public class Product {
             return .dictionary([
                 "name": .string(name),
                 "product_type": .string("library"),
-                "type": type.map{ JSON.string($0.rawValue) } ?? .null,
+                "type": type.map({ JSON.string($0.rawValue) }) ?? .null,
                 "targets": .array(targets.map(JSON.string)),
             ])
         }

@@ -62,25 +62,27 @@ extension PackageDescription4.Package {
         // Parse the dependencies.
         var dependencies: [PackageDescription4.Package.Dependency] = []
         if case .array(let array)? = package["dependencies"] {
-            dependencies = array.map { PackageDescription4.Package.Dependency.fromJSON($0, baseURL: baseURL) }
+            dependencies = array.map({ PackageDescription4.Package.Dependency.fromJSON($0, baseURL: baseURL) })
         }
 
         // Parse the compatible swift versions.
         var swiftLanguageVersions: [Int]? = nil
         if case .array(let array)? = package["swiftLanguageVersions"] {
-            swiftLanguageVersions = array.map{
+            swiftLanguageVersions = array.map({
                 guard case .int(let value) = $0 else { fatalError("swiftLanguageVersions contains non int element") }
                 return value
-            }
+            })
         }
 
         // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = package["exclude"] {
-            exclude = array.map { element in
-                guard case .string(let excludeString) = element else { fatalError("exclude contains non string element") }
+            exclude = array.map({ element in
+                guard case .string(let excludeString) = element else {
+                    fatalError("exclude contains non string element")
+                }
                 return excludeString
-            }
+            })
         }
 
         return PackageDescription4.Package(
@@ -232,8 +234,8 @@ extension PackageDescription4.Product {
 fileprivate func parseErrors(_ json: JSON) -> [String] {
     guard case .dictionary(let topLevelDict) = json else { fatalError("unexpected item") }
     guard case .array(let errors)? = topLevelDict["errors"] else { fatalError("missing errors") }
-    return errors.map { error in
+    return errors.map({ error in
         guard case .string(let string) = error else { fatalError("unexpected item") }
         return string
-    }
+    })
 }

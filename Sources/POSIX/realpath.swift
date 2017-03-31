@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
 import var libc.errno
 import func libc.free
 import func libc.realpath

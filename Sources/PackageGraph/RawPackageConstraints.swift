@@ -16,7 +16,7 @@ extension Manifest.RawPackage {
 
     /// Constructs constraints of the dependencies in the raw package.
     public func dependencyConstraints() -> [RepositoryPackageConstraint] {
-        return dependencies.map {
+        return dependencies.map({
             let requirement: RepositoryPackageConstraint.Requirement
 
             switch $0.requirement {
@@ -40,6 +40,6 @@ extension Manifest.RawPackage {
 
             return RepositoryPackageConstraint(
                 container: RepositorySpecifier(url: $0.url), requirement: requirement)
-        }
+        })
     }
 }
