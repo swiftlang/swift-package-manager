@@ -107,14 +107,13 @@ public class Workspace {
 
         /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
         func missingURLs() -> Set<String> {
-            let manifestsMap = Dictionary<String, Manifest>(items:
-                roots.map{ ($0.url, $0) } +
-                dependencies.map{ ($0.manifest.url, $0.manifest) }
-            )
+            let manifestsMap = Dictionary(items:
+                roots.map({ ($0.url, $0) }) +
+                dependencies.map({ ($0.manifest.url, $0.manifest) }))
 
-            var requiredURLs = transitiveClosure(roots.map{ $0.url}) { url in
+            var requiredURLs = transitiveClosure(roots.map({ $0.url })) { url in
                 guard let manifest = manifestsMap[url] else { return [] }
-                return manifest.package.dependencies.map{ $0.url }
+                return manifest.package.dependencies.map({ $0.url })
             }
             for root in roots {
                 requiredURLs.insert(root.url)
@@ -182,7 +181,10 @@ public class Workspace {
                 }
                 let specifier = RepositorySpecifier(url: externalManifest.url)
                 let dependencies = externalManifest.package.dependencyConstraints()
-                constraints += [RepositoryPackageConstraint(container: specifier, requirement: .unversioned(dependencies))]
+                constraints.append(RepositoryPackageConstraint(
+                    container: specifier,
+                    requirement: .unversioned(dependencies))
+                )
             }
             return constraints
         }
@@ -268,16 +270,21 @@ public class Workspace {
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
-            path: repositoriesPath, provider: repositoryProvider, delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate), fileSystem: fileSystem)
+            path: repositoriesPath,
+            provider: repositoryProvider,
+            delegate: WorkspaceRepositoryManagerDelegate(workspaceDelegate: delegate),
+            fileSystem: fileSystem)
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.containerProvider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager, manifestLoader: manifestLoader, toolsVersionLoader: toolsVersionLoader)
+            repositoryManager: repositoryManager,
+            manifestLoader: manifestLoader,
+            toolsVersionLoader: toolsVersionLoader)
         self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
-        self.managedDependencies = LoadableResult{
+        self.managedDependencies = LoadableResult {
             try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
         }
     }
@@ -294,7 +301,7 @@ public class Workspace {
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            try managedDependencies.load().statePath,
+            try managedDependencies.load().statePath
         ].map { path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
@@ -424,7 +431,7 @@ public class Workspace {
 
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout: 
+        case .checkout:
             throw WorkspaceOperationError.dependencyNotInEditMode
         case .edited(let path):
             if path != nil {
@@ -516,8 +523,8 @@ public class Workspace {
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
         var constraints = currentManifests.unversionedConstraints()
-        constraints += rootManifests.flatMap{ $0.package.dependencyConstraints() }
-        constraints += pinsStore.createConstraints().filter{$0.identifier != dependency.repository}
+        constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
+        constraints += pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
         constraints.append(
             RepositoryPackageConstraint(
                 container: dependency.repository, requirement: requirement))
@@ -615,7 +622,7 @@ public class Workspace {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
-            
+
             // Make sure the directory is not missing (we will have to clone again
             // if not).
             if fileSystem.isDirectory(path) {
@@ -737,7 +744,7 @@ public class Workspace {
         }
 
         // Create constraints based on root manifest and pins for the update resolution.
-        var updateConstraints = rootManifests.flatMap{ $0.package.dependencyConstraints() }
+        var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
         if !repin {
             updateConstraints += pinsStore.createConstraints()
         }
@@ -781,7 +788,8 @@ public class Workspace {
             // Check if this is a stray pin.
             guard let dependency = managedDependencies[pin.repository] else {
                 // FIXME: Use diagnosics engine when we have that.
-                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at \(pin.state.description) but the dependency is not present.")
+                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
+                    "\(pin.state.description) but the dependency is not present.")
                 continue
             }
             // Pin this dependency.
@@ -814,7 +822,7 @@ public class Workspace {
                 _ = try clone(specifier: specifier, requirement: requirement)
             case .updated(let requirement):
                 _ = try clone(specifier: specifier, requirement: requirement)
-            case .removed: 
+            case .removed:
                 try remove(specifier: specifier)
             case .unchanged: break
             }
@@ -886,7 +894,7 @@ public class Workspace {
         }
         // Set the state of any old package that might have been removed.
         let dependencies = managedDependencies.values
-        for specifier in dependencies.lazy.map({$0.repository}) where packageStateChanges[specifier] == nil{
+        for specifier in dependencies.lazy.map({$0.repository}) where packageStateChanges[specifier] == nil {
             packageStateChanges[specifier] = .removed
         }
         return packageStateChanges
@@ -897,7 +905,10 @@ public class Workspace {
         constraints: [RepositoryPackageConstraint]
     ) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
-        let resolver = DependencyResolver(containerProvider, resolverDelegate, isPrefetchingEnabled: isResolverPrefetchingEnabled)
+        let resolver = DependencyResolver(
+            containerProvider,
+            resolverDelegate,
+            isPrefetchingEnabled: isResolverPrefetchingEnabled)
         return try resolver.resolve(constraints: constraints)
     }
 
@@ -928,20 +939,21 @@ public class Workspace {
             return DependencyManifests(roots: root.manifests, dependencies: [])
         }
 
-        let rootDependencyManifests = root.dependencies.flatMap{
+        let rootDependencyManifests = root.dependencies.flatMap({
             // FIXME: We need to emit any errors here to the engine (SR-4262).
             return loadManifest(forDependencyURL: $0.url, managedDependencies: managedDependencies)
-        }
+        })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure(inputManifests.map{ KeyedPair($0, key: $0.url) }) { node in
-            return node.item.package.dependencies.flatMap{ dependency in
+        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
+            return node.item.package.dependencies.flatMap({ dependency in
                 let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
-                return manifest.flatMap{ KeyedPair($0, key: $0.url) }
-            }
+                return manifest.flatMap { KeyedPair($0, key: $0.url) }
+            })
         }
-        let deps = (rootDependencyManifests + dependencies.map{$0.item}).map{($0, managedDependencies[$0.url]!)}
+        // FIXME: Remove bang and emit errors (SR-4262).
+        let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
         return DependencyManifests(roots: root.manifests, dependencies: deps)
     }
 
@@ -964,12 +976,13 @@ public class Workspace {
                     // If some edited dependency has been removed, mark it as unedited.
                     try unedit(dependency: dependency, forceRemove: true)
                     // FIXME: Use diagnosics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, falling back to original checkout.")
+                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, " +
+                        "falling back to original checkout.")
                 }
             }
         }
     }
-    
+
     /// Returns the location of the dependency.
     ///
     /// Checkout dependencies will return the subpath inside `checkoutsPath` and
@@ -1023,7 +1036,7 @@ public class Workspace {
         if engine.hasErrors() || missingURLs.isEmpty {
             return PackageGraphLoader().load(
                 root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
-                externalManifests: currentManifests.dependencies.map{$0.manifest},
+                externalManifests: currentManifests.dependencies.map({ $0.manifest }),
                 engine: engine,
                 fileSystem: fileSystem,
                 shouldCreateMultipleTestProducts: createMultipleTestProducts
@@ -1041,7 +1054,7 @@ public class Workspace {
             // Create the constraints.
             var constraints = [RepositoryPackageConstraint]()
             constraints += pinsStore.createConstraints()
-            constraints += rootManifests.flatMap{$0.package.dependencyConstraints()}
+            constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
             constraints += root.constraints
             constraints += currentManifests.createDependencyConstraints()
 
@@ -1054,7 +1067,7 @@ public class Workspace {
             let graphRoot = PackageGraphRoot(
                 manifests: rootManifests, dependencies: root.dependencies)
             // Load the updated manifests.
-            updatedManifests = loadDependencyManifests(root: graphRoot, engine: engine) 
+            updatedManifests = loadDependencyManifests(root: graphRoot, engine: engine)
             // If autopin is enabled, reset and pin everything.
             if pinsStore.isAutoPinEnabled && !engine.hasErrors() {
                 try self.pinAll(
@@ -1068,7 +1081,7 @@ public class Workspace {
 
         return PackageGraphLoader().load(
             root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
-            externalManifests: updatedManifests?.dependencies.map{$0.manifest} ?? [],
+            externalManifests: updatedManifests?.dependencies.map({ $0.manifest }) ?? [],
             engine: engine,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
