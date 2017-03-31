@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -614,10 +615,15 @@ public class Workspace {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
-            // Fetch the checkout in case there are updates available.
-            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-            try workingRepo.fetch()
-            return path
+            
+            // Make sure the directory is not missing (we will have to clone again
+            // if not).
+            if fileSystem.isDirectory(path) {
+                // Fetch the checkout in case there are updates available.
+                let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+                try workingRepo.fetch()
+                return path
+            }
         }
 
         // If not, we need to get the repository from the checkouts.
@@ -915,7 +921,7 @@ public class Workspace {
         // Try to load current managed dependencies, or emit and return.
         let managedDependencies: ManagedDependencies
         do {
-            try validateEditedPackages()
+            try fixManagedDependencies()
             managedDependencies = try self.managedDependencies.load()
         } catch {
             engine.emit(error)
@@ -940,18 +946,22 @@ public class Workspace {
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
+    /// If some checkout dependency is reomved form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    private func validateEditedPackages() throws {
+    private func fixManagedDependencies() throws {
         let managedDependencies = try self.managedDependencies.load()
         for dependency in managedDependencies.values {
-            switch dependency.state {
-            case .checkout: continue
-            case .edited:
-                let dependencyPath = path(for: dependency)
-                
-                // If some edited dependency has been removed, mark it as unedited.
-                if !fileSystem.exists(dependencyPath) {
+            let dependencyPath = path(for: dependency)
+            if !fileSystem.isDirectory(dependencyPath) {
+                switch dependency.state {
+                case .checkout(let checkoutState):
+                    // If some checkout dependency has been removed, clone it again.
+                    _ = try clone(repository: dependency.repository, at: checkoutState)
+                    // FIXME: Use diagnosics engine when we have that.
+                    delegate.warning(message: "\(dependency.subpath.asString) is missing and has been cloned again.")
+                case .edited:
+                    // If some edited dependency has been removed, mark it as unedited.
                     try unedit(dependency: dependency, forceRemove: true)
                     // FIXME: Use diagnosics engine when we have that.
                     delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, falling back to original checkout.")
