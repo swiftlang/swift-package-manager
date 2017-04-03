@@ -290,9 +290,13 @@ public class Workspace {
     }
 
     /// Create the cache directories.
-    private func createCacheDirectories() throws {
-        try fileSystem.createDirectory(repositoryManager.path, recursive: true)
-        try fileSystem.createDirectory(checkoutsPath, recursive: true)
+    private func createCacheDirectories(diagnostics: DiagnosticsEngine) {
+        do {
+            try fileSystem.createDirectory(repositoryManager.path, recursive: true)
+            try fileSystem.createDirectory(checkoutsPath, recursive: true)
+        } catch {
+            diagnostics.emit(error)
+        }
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -322,7 +326,6 @@ public class Workspace {
         try managedDependencies.load().reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
-        try createCacheDirectories()
     }
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
@@ -732,6 +735,7 @@ public class Workspace {
         diagnostics: DiagnosticsEngine,
         repin: Bool = false
     ) {
+        createCacheDirectories(diagnostics: diagnostics)
         // Load the root manifest and current manifests.
         let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
@@ -1016,11 +1020,7 @@ public class Workspace {
         createMultipleTestProducts: Bool = false
     ) -> PackageGraph {
         // Ensure the cache path exists and validate that edited dependencies.
-        do {
-            try createCacheDirectories()
-        } catch {
-            diagnostics.emit(error)
-        }
+        createCacheDirectories(diagnostics: diagnostics)
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(
