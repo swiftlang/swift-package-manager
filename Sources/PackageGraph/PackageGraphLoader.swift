@@ -65,7 +65,7 @@ public struct PackageGraphLoader {
     public func load(
         root: PackageGraphRoot,
         externalManifests: [Manifest],
-        engine: DiagnosticsEngine,
+        diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false
     ) -> PackageGraph {
@@ -86,7 +86,7 @@ public struct PackageGraphLoader {
 
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
-            engine.emit(PackageGraphError.cycleDetected(cycle))
+            diagnostics.emit(PackageGraphError.cycleDetected(cycle))
             allManifests = inputManifests
         } else {
             // Sort all manifests toplogically.
@@ -121,13 +121,13 @@ public struct PackageGraphLoader {
                     throw PackageGraphError.noModules(package)
                 }
             } catch {
-                engine.emit(error)
+                diagnostics.emit(error)
             }
         }
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
-            allManifests: allManifests, manifestToPackage: manifestToPackage, engine: engine)
+            allManifests: allManifests, manifestToPackage: manifestToPackage, diagnostics: diagnostics)
 
         return PackageGraph(
             rootPackages: resolvedPackages.filter({ rootManifestSet.contains($0.manifest) }),
@@ -140,7 +140,7 @@ public struct PackageGraphLoader {
 private func createResolvedPackages(
     allManifests: [Manifest],
     manifestToPackage: [Manifest: Package],
-    engine: DiagnosticsEngine
+    diagnostics: DiagnosticsEngine
 ) -> [ResolvedPackage] {
 
     var packageURLMap: [String: ResolvedPackage] = [:]
@@ -165,7 +165,7 @@ private func createResolvedPackages(
         // Make sure these module names are unique in the graph.
         let dependencyModuleNames = dependencies.lazy.flatMap({ $0.modules }).map({ $0.name })
         if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map({ $0.name })) {
-            engine.emit(ModuleError.duplicateModule(duplicateModules.first!))
+            diagnostics.emit(ModuleError.duplicateModule(duplicateModules.first!))
         }
 
         // Add system module dependencies directly to the target's dependencies
@@ -191,7 +191,7 @@ private func createResolvedPackages(
                 productDependencies = module.productDependencies.flatMap({
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
-                        engine.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
+                        diagnostics.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
                         return nil
                     }
                     // If package name is mentioned, ensure it is valid.
@@ -200,7 +200,7 @@ private func createResolvedPackages(
                         // the product we found above.
                         guard let package = dependencies.first(where: { $0.name == packageName }),
                               package.products.contains(product) else {
-                            engine.emit(PackageGraphError.productDependencyIncorrectPackage(
+                            diagnostics.emit(PackageGraphError.productDependencyIncorrectPackage(
                                 name: $0.name, package: packageName))
                             return nil
                         }

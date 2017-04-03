@@ -75,7 +75,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
             workspace.updateDependencies(
                 rootPackages: rootPackages,
-                engine: engine,
+                diagnostics: diagnostics,
                 repin: repin
             )
 
@@ -90,10 +90,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
             let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], engine: engine)
+                packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, engine: engine)
-            guard !engine.hasErrors() else { return }
+                rootManifests: rootManifests, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors() else { return }
             // Look for the package's manifest.
             guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
@@ -117,10 +117,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             let workspace = try getActiveWorkspace()
             let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], engine: engine)
+                packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, engine: engine)
-            guard !engine.hasErrors() else { return }
+                rootManifests: rootManifests, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors() else { return }
             // Look for the package's manifest.
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
                 throw PackageToolOperationError.packageNotFound
@@ -213,10 +213,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let workspace = try getActiveWorkspace()
             // Load the dependencies.
             let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], engine: engine)
+                packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, engine: engine)
-            guard !engine.hasErrors() else { return }
+                rootManifests: rootManifests, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors() else { return }
 
             // Pin all dependencies if requested.
             if pinOptions.pinAll {
@@ -243,7 +243,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dependency: dependency,
                 packageName: packageName,
                 rootPackages: [getPackageRoot()],
-                engine: engine,
+                diagnostics: diagnostics,
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,
                 revision: pinOptions.revision,

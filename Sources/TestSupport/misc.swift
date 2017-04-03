@@ -205,7 +205,7 @@ public func systemQuietly(_ args: String...) throws {
 public func loadMockPackageGraph(
     _ packageMap: [String: PackageDescription.Package],
     root: String,
-    engine: DiagnosticsEngine = DiagnosticsEngine(),
+    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     in fs: FileSystem
 ) -> PackageGraph {
     var externalManifests = [Manifest]()
@@ -224,13 +224,13 @@ public func loadMockPackageGraph(
         }
     }
     let root = PackageGraphRoot(manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, engine: engine, fileSystem: fs)
+    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
 public func loadMockPackageGraph4(
     _ packageMap: [String: PackageDescription4.Package],
     root: String,
-    engine: DiagnosticsEngine = DiagnosticsEngine(),
+    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     in fs: FileSystem
 ) -> PackageGraph {
     var externalManifests = [Manifest]()
@@ -249,7 +249,7 @@ public func loadMockPackageGraph4(
         }
     }
     let root = PackageGraphRoot(manifests: [rootManifest])
-    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, engine: engine, fileSystem: fs)
+    return PackageGraphLoader().load(root: root, externalManifests: externalManifests, diagnostics: diagnostics, fileSystem: fs)
 }
 
 /// Temporary override environment variables

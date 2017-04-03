@@ -29,12 +29,12 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Tests/BazTests/source.swift"
         )
 
-        let engine = DiagnosticsEngine()
+        let diagnostics = DiagnosticsEngine()
         let g = loadMockPackageGraph([
             "/Foo": Package(name: "Foo", targets: [Target(name: "Foo", dependencies: ["FooDep"])]),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
-        ], root: "/Baz", engine: engine, in: fs)
+        ], root: "/Baz", diagnostics: diagnostics, in: fs)
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
@@ -52,7 +52,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar/source.swift"
         )
 
-        let engine = DiagnosticsEngine()
+        let diagnostics = DiagnosticsEngine()
         let g = loadMockPackageGraph4([
             "/Bar": .init(name: "Bar", products: [.library(name: "Bar", targets: ["Bar"])]),
             "/Foo": .init(
@@ -60,7 +60,7 @@ class PackageGraphTests: XCTestCase {
                 dependencies: [.package(url: "/Bar", from: "1.0.0")],
                 targets: [.target(name: "Foo", dependencies: ["Bar"])]
                 ),
-        ], root: "/Foo", engine: engine, in: fs)
+        ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
@@ -76,14 +76,14 @@ class PackageGraphTests: XCTestCase {
             "/Baz/source.swift"
         )
 
-        let engine = DiagnosticsEngine()
+        let diagnostics = DiagnosticsEngine()
         _ = loadMockPackageGraph([
             "/Foo": Package(name: "Foo", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Baz", majorVersion: 1)]),
             "/Baz": Package(name: "Baz", dependencies: [.Package(url: "/Bar", majorVersion: 1)]),
-        ], root: "/Foo", engine: engine, in: fs)
+        ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(engine.diagnostics[0].localizedDescription, "found cyclic dependency declaration: Foo -> Bar -> Baz -> Bar")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found cyclic dependency declaration: Foo -> Bar -> Baz -> Bar")
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -114,13 +114,13 @@ class PackageGraphTests: XCTestCase {
             "/Bar/source.swift"
         )
 
-        let engine = DiagnosticsEngine()
+        let diagnostics = DiagnosticsEngine()
         _ = loadMockPackageGraph([
             "/Foo": Package(name: "Foo"),
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
-        ], root: "/Bar", engine: engine, in: fs)
+        ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(engine.diagnostics[0].localizedDescription, "multiple modules with the name Bar found fix: modules should have a unique name across dependencies")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple modules with the name Bar found fix: modules should have a unique name across dependencies")
     }
 
     static var allTests = [

@@ -487,7 +487,7 @@ public class Workspace {
         dependency: ManagedDependency,
         packageName: String,
         rootPackages: [AbsolutePath],
-        engine: DiagnosticsEngine,
+        diagnostics: DiagnosticsEngine,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
@@ -509,9 +509,9 @@ public class Workspace {
         }
 
         let pinsStore = try self.pinsStore.load()
-        let rootManifests = loadRootManifests(packages: rootPackages, engine: engine)
-        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, engine: engine)
-        guard !engine.hasErrors() else { return }
+        let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
+        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors() else { return }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -729,17 +729,17 @@ public class Workspace {
     /// Updates the current dependencies.
     public func updateDependencies(
         rootPackages: [AbsolutePath],
-        engine: DiagnosticsEngine,
+        diagnostics: DiagnosticsEngine,
         repin: Bool = false
     ) {
         // Load the root manifest and current manifests.
-        let rootManifests = loadRootManifests(packages: rootPackages, engine: engine)
-        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, engine: engine)
+        let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
+        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
 
-        // Try to load pins store. 
+        // Try to load pins store.
         // We can't proceed if there are errors at this point.
-        guard let pinsStore = self.pinsStore.load(engine: engine),
-              !engine.hasErrors() else {
+        guard let pinsStore = self.pinsStore.load(diagnostics: diagnostics),
+              !diagnostics.hasErrors() else {
             return
         }
 
@@ -759,13 +759,13 @@ public class Workspace {
             try updateCheckouts(with: updateResults, updateBranches: true)
             // Get updated manifests.
             let currentManifests = loadDependencyManifests(
-                rootManifests: rootManifests, engine: engine)
+                rootManifests: rootManifests, diagnostics: diagnostics)
             // If we're repinning, update the pins store.
-            if repin && !engine.hasErrors() {
+            if repin && !diagnostics.hasErrors() {
                 try repinPackages(pinsStore, dependencyManifests: currentManifests)
             }
         } catch {
-            engine.emit(error)
+            diagnostics.emit(error)
         }
     }
 
@@ -787,7 +787,7 @@ public class Workspace {
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
             guard let dependency = managedDependencies[pin.repository] else {
-                // FIXME: Use diagnosics engine when we have that.
+                // FIXME: Use diagnostics engine when we have that.
                 delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
                     "\(pin.state.description) but the dependency is not present.")
                 continue
@@ -915,9 +915,9 @@ public class Workspace {
     // FIXME: Temporary shim while we transition to the new methods.
     public func loadDependencyManifests(
         rootManifests: [Manifest],
-        engine: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
-        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), engine: engine)
+        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
     }
 
     /// Load the manifests for the current dependency tree.
@@ -926,7 +926,7 @@ public class Workspace {
     /// current dependencies from the working checkouts.
     public func loadDependencyManifests(
         root: PackageGraphRoot,
-        engine: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
 
         // Try to load current managed dependencies, or emit and return.
@@ -935,12 +935,12 @@ public class Workspace {
             try fixManagedDependencies()
             managedDependencies = try self.managedDependencies.load()
         } catch {
-            engine.emit(error)
+            diagnostics.emit(error)
             return DependencyManifests(roots: root.manifests, dependencies: [])
         }
 
         let rootDependencyManifests = root.dependencies.flatMap({
-            // FIXME: We need to emit any errors here to the engine (SR-4262).
+            // FIXME: We need to emit any errors here to the diagnostics (SR-4262).
             return loadManifest(forDependencyURL: $0.url, managedDependencies: managedDependencies)
         })
         let inputManifests = root.manifests + rootDependencyManifests
@@ -970,12 +970,12 @@ public class Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(repository: dependency.repository, at: checkoutState)
-                    // FIXME: Use diagnosics engine when we have that.
+                    // FIXME: Use diagnostics engine when we have that.
                     delegate.warning(message: "\(dependency.subpath.asString) is missing and has been cloned again.")
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
                     try unedit(dependency: dependency, forceRemove: true)
-                    // FIXME: Use diagnosics engine when we have that.
+                    // FIXME: Use diagnostics engine when we have that.
                     delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, " +
                         "falling back to original checkout.")
                 }
@@ -1012,32 +1012,32 @@ public class Workspace {
     @discardableResult
     public func loadPackageGraph(
         root: WorkspaceRoot,
-        engine: DiagnosticsEngine,
+        diagnostics: DiagnosticsEngine,
         createMultipleTestProducts: Bool = false
     ) -> PackageGraph {
         // Ensure the cache path exists and validate that edited dependencies.
         do {
             try createCacheDirectories()
         } catch {
-            engine.emit(error)
+            diagnostics.emit(error)
         }
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(
-            packages: root.packages, engine: engine)
+            packages: root.packages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(
-            rootManifests: rootManifests, engine: engine)
+            rootManifests: rootManifests, diagnostics: diagnostics)
 
         // Compute the missing URLs.
         let missingURLs = currentManifests.missingURLs()
 
         // Load the package graph if there are no missing URLs or if we
         // encountered some errors.
-        if engine.hasErrors() || missingURLs.isEmpty {
+        if diagnostics.hasErrors() || missingURLs.isEmpty {
             return PackageGraphLoader().load(
                 root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
                 externalManifests: currentManifests.dependencies.map({ $0.manifest }),
-                engine: engine,
+                diagnostics: diagnostics,
                 fileSystem: fileSystem,
                 shouldCreateMultipleTestProducts: createMultipleTestProducts
             )
@@ -1067,22 +1067,22 @@ public class Workspace {
             let graphRoot = PackageGraphRoot(
                 manifests: rootManifests, dependencies: root.dependencies)
             // Load the updated manifests.
-            updatedManifests = loadDependencyManifests(root: graphRoot, engine: engine)
+            updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
             // If autopin is enabled, reset and pin everything.
-            if pinsStore.isAutoPinEnabled && !engine.hasErrors() {
+            if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors() {
                 try self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
                      reset: true)
             }
         } catch {
-            engine.emit(error)
+            diagnostics.emit(error)
         }
 
         return PackageGraphLoader().load(
             root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
             externalManifests: updatedManifests?.dependencies.map({ $0.manifest }) ?? [],
-            engine: engine,
+            diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
         )
@@ -1133,7 +1133,7 @@ public class Workspace {
     /// Loads and returns manifests at the given paths.
     public func loadRootManifests(
         packages: [AbsolutePath],
-        engine: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
         precondition(!packages.isEmpty, "There should be at least one package.")
 
@@ -1152,7 +1152,7 @@ public class Workspace {
             do {
                 try manifests.append(load(package))
             } catch {
-                engine.emit(error)
+                diagnostics.emit(error)
             }
         }
         return manifests
@@ -1223,11 +1223,11 @@ public final class LoadableResult<Value> {
         return try loadResult().dematerialize()
     }
 
-    public func load(engine: DiagnosticsEngine) -> Value? {
+    public func load(diagnostics: DiagnosticsEngine) -> Value? {
         do {
             return try load()
         } catch {
-            engine.emit(error)
+            diagnostics.emit(error)
             return nil
         }
     }

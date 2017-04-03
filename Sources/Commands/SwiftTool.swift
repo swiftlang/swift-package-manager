@@ -80,7 +80,7 @@ public class SwiftTool<Options: ToolOptions> {
     let interruptHandler: InterruptHandler
 
     /// The diagnostics engine.
-    let engine = DiagnosticsEngine()
+    let diagnostics = DiagnosticsEngine()
 
     /// Create an instance of this tool.
     ///
@@ -240,7 +240,7 @@ public class SwiftTool<Options: ToolOptions> {
             verbosity = Verbosity(rawValue: options.verbosity)
             // Call the implementation.
             try runImpl()
-            guard !engine.hasErrors() else {
+            guard !diagnostics.hasErrors() else {
                 throw Error.hasFatalDiagnostics
             }
         } catch {
@@ -250,7 +250,7 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     private func printDiagnostics() {
-        for diag in engine.diagnostics {
+        for diag in diagnostics.diagnostics {
             print(error: diag.localizedDescription)
         }
     }
@@ -267,11 +267,11 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Fetch and load the package graph.
         let graph = try workspace.loadPackageGraph(
-            root: getWorkspaceRoot(), engine: engine)
+            root: getWorkspaceRoot(), diagnostics: diagnostics)
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !engine.hasErrors() else {
+        guard !diagnostics.hasErrors() else {
             throw Error.hasFatalDiagnostics
         }
         return graph

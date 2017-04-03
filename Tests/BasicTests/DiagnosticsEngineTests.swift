@@ -41,14 +41,14 @@ fileprivate struct FooLocation: DiagnosticLocation {
 
 class DiagnosticsEngineTests: XCTestCase {
     func testBasics() {
-        let engine = DiagnosticsEngine() 
-        engine.emit(
+        let diagnostics = DiagnosticsEngine() 
+        diagnostics.emit(
             data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
             location: FooLocation(name: "foo loc")
         )
-        let diag = engine.diagnostics[0]
+        let diag = diagnostics.diagnostics[0]
 
-        XCTAssertEqual(engine.diagnostics.count, 1)
+        XCTAssertEqual(diagnostics.diagnostics.count, 1)
         XCTAssertEqual(diag.location.localizedDescription, "foo loc")
         XCTAssertEqual(diag.localizedDescription, "literal foo, bar 2 str bar str")
         XCTAssertEqual(diag.behavior, .error)
