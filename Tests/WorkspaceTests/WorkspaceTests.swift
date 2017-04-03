@@ -1146,9 +1146,8 @@ final class WorkspaceTests: XCTestCase {
                 repositoryProvider: provider)
         }
 
-        func pin(at version: Version) throws {
+        func pin(at version: Version, diagnostics: DiagnosticsEngine) throws {
             let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
             let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors())
@@ -1164,7 +1163,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors())
-            try pin(at: v1)
+            try pin(at: v1, diagnostics: diagnostics)
             try workspace.reset()
         }
 
@@ -1173,24 +1172,27 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
+            var diagnostics = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors())
             XCTAssert(graph.lookup("A").version == v1)
             // Pinning non existant version should fail.
-            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
-                try pin(at: "1.0.2")
-            }
+            try pin(at: "1.0.2", diagnostics: diagnostics)
+            XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "unsatisfiable")
+
             // Pinning an unstatisfiable version should fail.
-            XCTAssertThrows(DependencyResolverError.unsatisfiable) {
-                try pin(at: "1.0.1")
-            }
+            diagnostics = DiagnosticsEngine()
+            try pin(at: "1.0.1", diagnostics: diagnostics)
+
             // But we should still be able to repin at v1.
-            try pin(at: v1)
+            diagnostics = DiagnosticsEngine()
+            try pin(at: v1, diagnostics: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors())
+
             // And also after unpinning.
             try workspace.pinsStore.load().unpinAll()
-            try pin(at: v1)
-
+            try pin(at: v1, diagnostics: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors())
         }
     }
 

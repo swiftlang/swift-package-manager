@@ -533,7 +533,8 @@ public class Workspace {
                 container: dependency.repository, requirement: requirement))
 
         // Resolve the dependencies.
-        let results = try resolveDependencies(constraints: constraints)
+        let results = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors() else { return }
 
         // Update the checkouts based on new dependency resolution.
         try updateCheckouts(with: results)
@@ -756,9 +757,11 @@ public class Workspace {
         // Add unversioned constraints for edited packages.
         updateConstraints += currentManifests.unversionedConstraints()
 
+        // Resolve the dependencies.
+        let updateResults = resolveDependencies(constraints: updateConstraints, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors() else { return }
+
         do {
-            // Resolve the dependencies.
-            let updateResults = try resolveDependencies(constraints: updateConstraints)
             // Update the checkouts based on new dependency resolution.
             try updateCheckouts(with: updateResults, updateBranches: true)
             // Get updated manifests.
@@ -906,14 +909,20 @@ public class Workspace {
 
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
-        constraints: [RepositoryPackageConstraint]
-    ) throws -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
+        constraints: [RepositoryPackageConstraint],
+        diagnostics: DiagnosticsEngine
+    ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
         let resolver = DependencyResolver(
             containerProvider,
             resolverDelegate,
             isPrefetchingEnabled: isResolverPrefetchingEnabled)
-        return try resolver.resolve(constraints: constraints)
+        do {
+            return try resolver.resolve(constraints: constraints)
+        } catch {
+            diagnostics.emit(error)
+            return []
+        }
     }
 
     // FIXME: Temporary shim while we transition to the new methods.
@@ -1048,8 +1057,11 @@ public class Workspace {
 
         var updatedManifests: DependencyManifests? = nil
 
-        do {
-            let pinsStore = try self.pinsStore.load()
+        resolve: do {
+            // Load the pins store.
+            guard let pinsStore = self.pinsStore.load(diagnostics: diagnostics) else {
+                break resolve
+            }
 
             // Create the constraints.
             var constraints = [RepositoryPackageConstraint]()
@@ -1059,7 +1071,8 @@ public class Workspace {
             constraints += currentManifests.createDependencyConstraints()
 
             // Perform dependency resolution.
-            let result = try resolveDependencies(constraints: constraints)
+            let result = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors() else { break resolve }
 
             // Update the checkouts with dependency resolution result.
             try updateCheckouts(with: result)
@@ -1068,6 +1081,7 @@ public class Workspace {
                 manifests: rootManifests, dependencies: root.dependencies)
             // Load the updated manifests.
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
             // If autopin is enabled, reset and pin everything.
             if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors() {
                 try self.pinAll(
