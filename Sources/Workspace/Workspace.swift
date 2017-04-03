@@ -16,8 +16,8 @@ import PackageGraph
 import SourceControl
 import Utility
 
-/// An error in one of the workspace operations
-public enum WorkspaceOperationError: Swift.Error {
+/// An error in one of the workspace operations.
+public enum WorkspaceError: Swift.Error {
     /// The repository has uncommited changes.
     case hasUncommitedChanges(repo: AbsolutePath)
 
@@ -336,7 +336,7 @@ public class Workspace {
     ///         should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
     ///         created from the revision provided.
-    /// - throws: WorkspaceOperationError
+    /// - throws: WorkspaceError
     public func edit(
         dependency: ManagedDependency,
         packageName: String,
@@ -346,7 +346,7 @@ public class Workspace {
     ) throws {
         // Check if we can edit this dependency.
         guard case .checkout(let checkoutState) = dependency.state else {
-            throw WorkspaceOperationError.dependencyAlreadyInEditMode
+            throw WorkspaceError.dependencyAlreadyInEditMode
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -366,7 +366,7 @@ public class Workspace {
                 manifestVersion: toolsVersion.manifestVersion)
 
             guard manifest.name == packageName else {
-                throw WorkspaceOperationError.mismatchingDestinationPackage(
+                throw WorkspaceError.mismatchingDestinationPackage(
                     path: destination, destPackage: manifest.name, expectedPackage: packageName)
             }
             // Emit warnings for branch and revision, if they're present.
@@ -385,10 +385,10 @@ public class Workspace {
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
-                throw WorkspaceOperationError.branchAlreadyExists
+                throw WorkspaceError.branchAlreadyExists
             }
             if let revision = revision, !repo.exists(revision: revision) {
-                throw WorkspaceOperationError.nonExistentRevision
+                throw WorkspaceError.nonExistentRevision
             }
 
             try handle.cloneCheckout(to: destination, editable: true)
@@ -425,14 +425,14 @@ public class Workspace {
     ///     - forceRemove: If true, the dependency will be unedited even if has
     /// unpushed and uncommited changes. Otherwise will throw respective errors.
     ///
-    /// - throws: WorkspaceOperationError
+    /// - throws: WorkspaceError
     public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
         var forceRemove = forceRemove
 
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout:
-            throw WorkspaceOperationError.dependencyNotInEditMode
+            throw WorkspaceError.dependencyNotInEditMode
         case .edited(let path):
             if path != nil {
                 // Set force remove to true for unmanaged dependencies.  Note that
@@ -448,10 +448,10 @@ public class Workspace {
         if !forceRemove {
             let workingRepo = try repositoryManager.provider.openCheckout(at: path)
             guard !workingRepo.hasUncommitedChanges() else {
-                throw WorkspaceOperationError.hasUncommitedChanges(repo: path)
+                throw WorkspaceError.hasUncommitedChanges(repo: path)
             }
             guard try !workingRepo.hasUnpushedCommits() else {
-                throw WorkspaceOperationError.hasUnpushedChanges(repo: path)
+                throw WorkspaceError.hasUnpushedChanges(repo: path)
             }
         }
         // Remove the editable checkout from disk.
@@ -482,7 +482,7 @@ public class Workspace {
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
     ///   - reason: The optional reason for pinning.
-    /// - Throws: WorkspaceOperationError, PinOperationError
+    /// - Throws: WorkspaceError, PinOperationError
     public func pin(
         dependency: ManagedDependency,
         packageName: String,
@@ -1119,7 +1119,7 @@ public class Workspace {
         let dependencyPath = checkoutsPath.appending(dependency.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
         guard !checkedOutRepo.hasUncommitedChanges() else {
-            throw WorkspaceOperationError.hasUncommitedChanges(repo: dependencyPath)
+            throw WorkspaceError.hasUncommitedChanges(repo: dependencyPath)
         }
         fileSystem.removeFileTree(dependencyPath)
 
@@ -1140,7 +1140,7 @@ public class Workspace {
         func load(_ package: AbsolutePath) throws -> Manifest {
             let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
             guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceOperationError.incompatibleToolsVersion(
+                throw WorkspaceError.incompatibleToolsVersion(
                     rootPackage: package, required: toolsVersion, current: currentToolsVersion)
             }
             return try manifestLoader.load(
@@ -1233,7 +1233,7 @@ public final class LoadableResult<Value> {
     }
 }
 
-extension WorkspaceOperationError: CustomStringConvertible {
+extension WorkspaceError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .hasUncommitedChanges(let repo):

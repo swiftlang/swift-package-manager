@@ -530,7 +530,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: editedDependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
                 XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
-            } catch WorkspaceOperationError.dependencyAlreadyInEditMode {}
+            } catch WorkspaceError.dependencyAlreadyInEditMode {}
 
             do {
                 // Reopen workspace and check if we maintained the state.
@@ -581,7 +581,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: Revision(identifier: "non-existent-revision"))
                 XCTFail()
-            } catch WorkspaceOperationError.nonExistentRevision{}
+            } catch WorkspaceError.nonExistentRevision{}
 
             // Put the dependency in edit mode at its current revision on a new branch.
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "BugFix")
@@ -599,7 +599,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "master")
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceOperationError.branchAlreadyExists {}
+            } catch WorkspaceError.branchAlreadyExists {}
         }
     }
 
@@ -647,7 +647,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceOperationError.hasUncommitedChanges(let repo) {
+            } catch WorkspaceError.hasUncommitedChanges(let repo) {
                 XCTAssertEqual(repo, editRepoPath)
             }
             // Commit and try to unedit.
@@ -655,7 +655,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceOperationError.hasUnpushedChanges(let repo) {
+            } catch WorkspaceError.hasUnpushedChanges(let repo) {
                 XCTAssertEqual(repo, editRepoPath)
             }
             // Force remove.
