@@ -24,11 +24,9 @@ func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode
     dumper.dump(dependenciesOf: rootPackage)
 }
 
-
 private protocol DependenciesDumper {
     func dump(dependenciesOf: ResolvedPackage)
 }
-
 
 private final class PlainTextDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage) {
@@ -38,17 +36,17 @@ private final class PlainTextDumper: DependenciesDumper {
             for (index, package) in packages.enumerated() {
                 if index == packages.count - 1 {
                     hanger = prefix + "└── "
-                }                
+                }
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
-
-                print("\(hanger)\(package.name)<\(package.manifest.url)@\(pkgVersion)>") 
+                print("\(hanger)\(package.name)<\(package.manifest.url)@\(pkgVersion)>")
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
                     var childPrefix = hanger
-                    childPrefix.replaceSubrange(childPrefix.index(childPrefix.endIndex, offsetBy: -4)..<childPrefix.endIndex, with: replacement)
+                    let startIndex = childPrefix.index(childPrefix.endIndex, offsetBy: -4)
+                    childPrefix.replaceSubrange(startIndex..<childPrefix.endIndex, with: replacement)
                     recursiveWalk(packages: package.dependencies, prefix: childPrefix)
                 }
             }
@@ -101,7 +99,7 @@ private final class JSONDumper: DependenciesDumper {
                     "url": .string(package.manifest.url),
                     "version": .string(package.manifest.version?.description ?? "unspecified"),
                     "path": .string(package.path.asString),
-                    "dependencies": .array(package.dependencies.map(convert))
+                    "dependencies": .array(package.dependencies.map(convert)),
                 ])
         }
 
@@ -111,7 +109,7 @@ private final class JSONDumper: DependenciesDumper {
 
 enum ShowDependenciesMode: CustomStringConvertible {
     case text, dot, json
-    
+
     init?(rawValue: String) {
         switch rawValue.lowercased() {
         case "text":
@@ -124,7 +122,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
             return nil
         }
     }
-    
+
     var description: String {
         switch self {
         case .text: return "text"

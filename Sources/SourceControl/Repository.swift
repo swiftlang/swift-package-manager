@@ -19,7 +19,7 @@ public struct RepositorySpecifier: Hashable, CustomStringConvertible {
     public init(url: String) {
         self.url = url
     }
-    
+
     /// A unique identifier for this specifier.
     ///
     /// This identifier is suitable for use in a file system path, and
@@ -40,7 +40,7 @@ public struct RepositorySpecifier: Hashable, CustomStringConvertible {
         return "RepositorySpecifier(\(url))"
     }
 }
-public func ==(lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
+public func == (lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
     return lhs.url == rhs.url
 }
 
@@ -87,7 +87,11 @@ public protocol RepositoryProvider {
     ///   - destinationPath: The path at which to create the working copy; it is
     ///     expected to be non-existent when called.
     ///   - editable: The checkout is expected to be edited by users.
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws
+    func cloneCheckout(
+        repository: RepositorySpecifier,
+        at sourcePath: AbsolutePath,
+        to destinationPath: AbsolutePath,
+        editable: Bool) throws
 
     /// Open a working repository copy.
     ///
@@ -210,7 +214,7 @@ public struct Revision: Hashable {
         return identifier.hashValue
     }
 
-    public static func ==(lhs: Revision, rhs: Revision) -> Bool {
+    public static func == (lhs: Revision, rhs: Revision) -> Bool {
         return lhs.identifier == rhs.identifier
     }
 }

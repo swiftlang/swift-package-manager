@@ -62,11 +62,14 @@ public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFil
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigName = module.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
-    let provider = module.providers?.first{ $0.isAvailable }
+    let provider = module.providers?.first { $0.isAvailable }
     let additionalSearchPaths = provider?.pkgConfigSearchPath() ?? []
     // Get the pkg config flags.
     do {
-        let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths, fileSystem: fileSystem)
+        let pkgConfig = try PkgConfig(
+            name: pkgConfigName,
+            additionalSearchPaths: additionalSearchPaths,
+            fileSystem: fileSystem)
         // Run the whitelist checker.
         try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
         // Remove any default flags which compiler adds automatically.
@@ -92,11 +95,11 @@ extension SystemPackageProvider {
         guard let platform = Platform.currentPlatform else { return false }
         switch self {
         case .brewItem:
-            if case .darwin = platform  {
+            if case .darwin = platform {
                 return true
             }
         case .aptItem:
-            if case .linux(.debian) = platform  {
+            if case .linux(.debian) = platform {
                 return true
             }
         }
@@ -115,7 +118,7 @@ extension SystemPackageProvider {
                 static let value = { try? Process.checkNonZeroExit(args: "brew", "--prefix").chomp() }()
             }
             guard let brewPrefix = Static.value else { return [] }
-            return packages.map{ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") }
+            return packages.map({ AbsolutePath(brewPrefix).appending(components: "opt", $0, "lib", "pkgconfig") })
         case .aptItem:
             return []
         }
@@ -123,7 +126,7 @@ extension SystemPackageProvider {
 
     // FIXME: Get rid of this method once we move on to new Build code.
     static func providerForCurrentPlatform(providers: [SystemPackageProvider]) -> SystemPackageProvider? {
-        return providers.filter{ $0.isAvailable }.first
+        return providers.first(where: { $0.isAvailable })
     }
 }
 
@@ -134,7 +137,7 @@ extension SystemPackageProvider {
 func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws {
     // Returns an array of flags which doesn't match any filter.
     func filter(flags: [String], filters: [String]) -> [String] {
-        var filtered = [String]()     
+        var filtered = [String]()
         var it = flags.makeIterator()
         while let flag = it.next() {
             guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
@@ -143,14 +146,15 @@ func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws
             }
             // If the flag and its value are separated, skip next flag.
             if flag == filter {
-                guard let _ = it.next() else {
-                   fatalError("Expected associated value") 
+                guard it.next() != nil else {
+                   fatalError("Expected associated value")
                 }
             }
         }
         return filtered
     }
-    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) + filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
+    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) +
+        filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
     guard filtered.isEmpty else {
         throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
     }

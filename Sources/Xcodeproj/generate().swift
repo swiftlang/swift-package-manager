@@ -18,7 +18,7 @@ import Utility
 public struct XcodeprojOptions {
     /// The build flags.
     public let flags: BuildFlags
-    
+
     /// If provided, a path to an xcconfig file to be included by the project.
     ///
     /// This allows the client to override settings defined in the project itself.
@@ -26,8 +26,12 @@ public struct XcodeprojOptions {
 
     /// Whether code coverage should be enabled in the generated scheme.
     public let isCodeCoverageEnabled: Bool
-    
-    public init(flags: BuildFlags = BuildFlags(), xcconfigOverrides: AbsolutePath? = nil, isCodeCoverageEnabled: Bool? = nil) {
+
+    public init(
+        flags: BuildFlags = BuildFlags(),
+        xcconfigOverrides: AbsolutePath? = nil,
+        isCodeCoverageEnabled: Bool? = nil
+    ) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
         self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
@@ -39,28 +43,32 @@ public struct XcodeprojOptions {
 /// the file name on the project name `projectName`.  Returns the path of the
 /// generated project.  All ancillary files will be generated inside of the
 /// .xcodeproj wrapper directory.
-public func generate(outputDir: AbsolutePath, projectName: String, graph: PackageGraph, options: XcodeprojOptions) throws -> AbsolutePath {
-    
+public func generate(
+    outputDir: AbsolutePath,
+    projectName: String,
+    graph: PackageGraph,
+    options: XcodeprojOptions
+) throws -> AbsolutePath {
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
-    
+
     let srcroot = graph.rootPackages[0].path
-    
+
     // Determine the path of the .xcodeproj wrapper directory.
     let xcodeprojName = "\(projectName).xcodeproj"
     let xcodeprojPath = outputDir.appending(RelativePath(xcodeprojName))
-    
+
     // Determine the path of the scheme directory (it's inside the .xcodeproj).
     let schemesDir = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
-    
+
     // Create the .xcodeproj wrapper directory.
     try makeDirectories(xcodeprojPath)
     try makeDirectories(schemesDir)
-    
+
     // Find the paths of any extra directories that should be added as folder
     // references in the project.
     let extraDirs = try findDirectoryReferences(path: srcroot)
-    
+
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // FIXME: This could be more efficient by directly writing to a stream
@@ -73,7 +81,11 @@ public func generate(outputDir: AbsolutePath, projectName: String, graph: Packag
    /// it has all tests associated so CMD+U works
     let schemeName = "\(projectName).xcscheme"
     try open(schemesDir.appending(RelativePath(schemeName))) { stream in
-        xcscheme(container: xcodeprojPath.relative(to: srcroot).asString, graph: graph, codeCoverageEnabled: options.isCodeCoverageEnabled, printer: stream)
+        xcscheme(
+            container: xcodeprojPath.relative(to: srcroot).asString,
+            graph: graph,
+            codeCoverageEnabled: options.isCodeCoverageEnabled,
+            printer: stream)
     }
 
 ////// we generate this file to ensure our main scheme is listed
@@ -159,11 +171,11 @@ func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws 
 func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
     let rootDirectories = try walk(path, recursively: false)
 
-    return rootDirectories.filter {
+    return rootDirectories.filter({
         if $0.suffix == ".xcodeproj" { return false }
         if $0.suffix == ".playground" { return false }
         if $0.basename.hasPrefix(".") { return false }
         if PackageBuilder.isReservedDirectory(pathComponent: $0.basename) { return false }
         return isDirectory($0)
-    }
+    })
 }

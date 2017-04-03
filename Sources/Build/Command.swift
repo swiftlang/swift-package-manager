@@ -14,7 +14,7 @@ struct Command {
     /// of the tool, but it does define the stable identifier that is used to
     /// match up incremental build records.
     let name: String
-    
+
     /// A configured tool instance for the command.
     /// FIXME: Clean up the names here; tool, command, task, etc.
     let tool: ToolProtocol

@@ -17,11 +17,11 @@ public struct Sources {
     public let root: AbsolutePath
 
     public var paths: [AbsolutePath] {
-        return relativePaths.map{ root.appending($0) }
+        return relativePaths.map({ root.appending($0) })
     }
 
     public init(paths: [AbsolutePath], root: AbsolutePath) {
-        relativePaths = paths.map { $0.relative(to: root) }
+        relativePaths = paths.map({ $0.relative(to: root) })
         self.root = root
     }
 }
@@ -73,6 +73,6 @@ public enum SupportedLanguageExtension: String {
     ///
     /// - Returns: Set of strings.
     private static func stringSet(_ extensions: SupportedLanguageExtension...) -> Set<String> {
-        return Set(extensions.map{ $0.rawValue })
+        return Set(extensions.map({ $0.rawValue }))
     }
 }

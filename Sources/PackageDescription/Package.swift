@@ -46,17 +46,17 @@ public final class Package {
             return Dependency(url, version...version)
         }
     }
-    
+
     /// The name of the package.
     public let name: String
-  
+
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to search for
     /// <name>.pc file to get the additional flags needed for the system module.
     public let pkgConfig: String?
-    
+
     /// Providers array for System module
     public let providers: [SystemPackageProvider]?
-  
+
     /// The list of targets.
     public var targets: [Target]
 
@@ -123,14 +123,14 @@ extension SystemPackageProvider {
 
 // MARK: Equatable
 extension Package : Equatable { }
-public func ==(lhs: Package, rhs: Package) -> Bool {
+public func == (lhs: Package, rhs: Package) -> Bool {
     return (lhs.name == rhs.name &&
         lhs.targets == rhs.targets &&
         lhs.dependencies == rhs.dependencies)
 }
 
 extension Package.Dependency : Equatable { }
-public func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
+public func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
     return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
 }
 
@@ -140,7 +140,7 @@ extension SystemPackageProvider {
     func toJSON() -> JSON {
         let (name, value) = nameValue
         return .dictionary(["name": .string(name),
-            "value": .string(value)
+            "value": .string(value),
         ])
     }
 }
@@ -151,8 +151,8 @@ extension Package.Dependency {
             "url": .string(url),
             "version": .dictionary([
                 "lowerBound": .string(versionRange.lowerBound.description),
-                "upperBound": .string(versionRange.upperBound.description)
-            ])
+                "upperBound": .string(versionRange.upperBound.description),
+            ]),
         ])
     }
 }
@@ -164,11 +164,11 @@ extension Package {
         if let pkgConfig = self.pkgConfig {
             dict["pkgConfig"] = .string(pkgConfig)
         }
-        dict["dependencies"] = .array(dependencies.map { $0.toJSON() })
-        dict["exclude"] = .array(exclude.map { .string($0) })
-        dict["targets"] = .array(targets.map { $0.toJSON() })
+        dict["dependencies"] = .array(dependencies.map({ $0.toJSON() }))
+        dict["exclude"] = .array(exclude.map({ .string($0) }))
+        dict["targets"] = .array(targets.map({ $0.toJSON() }))
         if let providers = self.providers {
-            dict["providers"] = .array(providers.map { $0.toJSON() })
+            dict["providers"] = .array(providers.map({ $0.toJSON() }))
         }
         if let swiftLanguageVersions = self.swiftLanguageVersions {
             dict["swiftLanguageVersions"] = .array(swiftLanguageVersions.map(JSON.int))
@@ -181,7 +181,7 @@ extension Target {
     func toJSON() -> JSON {
         return .dictionary([
             "name": .string(name),
-            "dependencies": .array(dependencies.map { $0.toJSON() })
+            "dependencies": .array(dependencies.map({ $0.toJSON() })),
         ])
     }
 }
@@ -217,7 +217,7 @@ struct Errors {
 func manifestToJSON(_ package: Package) -> String {
     var dict: [String: JSON] = [:]
     dict["package"] = package.toJSON()
-    dict["products"] = .array(products.map { $0.toJSON() })
+    dict["products"] = .array(products.map({ $0.toJSON() }))
     dict["errors"] = errors.toJSON()
     return JSON.dictionary(dict).toString()
 }
@@ -230,7 +230,7 @@ public func jsonString(package: Package) -> String {
 }
 
 var errors = Errors()
-private var dumpInfo: (package: Package, fileNo: Int32)? = nil
+private var dumpInfo: (package: Package, fileNo: Int32)?
 private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }

@@ -70,7 +70,7 @@ extension String {
 
         return String(cc)
     }
-    
+
     /// Splits string around a delimiter string into up to two substrings
     /// If delimiter is not found, the second returned substring is nil
     public func split(around delimiter: String) -> (String, String?) {

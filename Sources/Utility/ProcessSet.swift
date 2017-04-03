@@ -47,7 +47,8 @@ public final class ProcessSet {
         self.killTimeout = killTimeout
     }
 
-    /// Add a process to the process set. This method will throw if the process set is terminated using the terminate() method.
+    /// Add a process to the process set. This method will throw if the process set is terminated using the terminate()
+    /// method.
     ///
     /// Call remove() method to remove the process from set once it has terminated.
     ///

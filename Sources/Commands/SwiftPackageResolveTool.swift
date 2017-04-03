@@ -35,7 +35,10 @@ extension SwiftPackageTool {
 
         // Create the repository manager.
         let repositoriesPath = buildPath.appending(component: "repositories")
-        let repositoryManager = RepositoryManager(path: repositoriesPath, provider: GitRepositoryProvider(), delegate: delegate)
+        let repositoryManager = RepositoryManager(
+            path: repositoriesPath,
+            provider: GitRepositoryProvider(),
+            delegate: delegate)
 
         // Create the container provider interface.
         let provider = RepositoryPackageContainerProvider(
@@ -63,16 +66,16 @@ extension SwiftPackageTool {
         case .json:
             let json = JSON.dictionary([
                 "name": .string(manifest.name),
-                "constraints": .array(constraints.map{$0.toJSON()}),
-                "containers": .array(resolver.containers.values.map{$0.toJSON()}),
-                "result": .dictionary(Dictionary(items: result.map{($0.0.url, JSON.string($0.1.description))})),
+                "constraints": .array(constraints.map({ $0.toJSON() })),
+                "containers": .array(resolver.containers.values.map({ $0.toJSON() })),
+                "result": .dictionary(Dictionary(items: result.map({ ($0.0.url, JSON.string($0.1.description)) }))),
             ])
             print(json.toString())
         }
     }
 }
 
-// MARK:- JSON Convertible
+// MARK: - JSON Convertible
 
 extension PackageContainerConstraint where T == RepositorySpecifier {
     public func toJSON() -> JSON {
@@ -106,23 +109,23 @@ extension VersionSetSpecifier: JSONSerializable {
             var upperBound = range.upperBound
             // Patch the version representation. Ideally we should store in manifest properly.
             if upperBound.minor == .max && upperBound.patch == .max {
-                upperBound = Version(upperBound.major+1,0,0)
+                upperBound = Version(upperBound.major+1, 0, 0)
             }
             if upperBound.minor != .max && upperBound.patch == .max {
-                upperBound = Version(upperBound.major,upperBound.minor+1,0)
+                upperBound = Version(upperBound.major, upperBound.minor+1, 0)
             }
-            return .array([range.lowerBound, upperBound].map { .string($0.description) })
+            return .array([range.lowerBound, upperBound].map({ .string($0.description) }))
         }
     }
 }
 
 extension RepositoryPackageContainer: JSONSerializable {
     public func toJSON() -> JSON {
-        let depByVersions = versions.flatMap { version -> (String, JSON)? in
+        let depByVersions = versions.flatMap({ version -> (String, JSON)? in
             // Ignore if we can't load the dependencies.
             guard let deps = try? getDependencies(at: version) else { return nil }
-            return (version.description, JSON.array(deps.map { $0.toJSON() }))
-        }
+            return (version.description, JSON.array(deps.map({ $0.toJSON() })))
+        })
 
         return .dictionary([
             "identifier": .string(identifier.url),

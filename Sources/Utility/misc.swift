@@ -20,7 +20,8 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
           clangVersionString.hasPrefix(versionStringPrefix) else {
         return nil
     }
-    let versionStartIndex = clangVersionString.index(clangVersionString.startIndex, offsetBy: versionStringPrefix.utf8.count)
+    let versionStartIndex = clangVersionString.index(clangVersionString.startIndex,
+        offsetBy: versionStringPrefix.utf8.count)
     let versionString: String = clangVersionString[versionStartIndex..<clangVersionString.endIndex]
     // Split major minor patch etc.
     let versions = versionString.utf8.split(separator: UInt8(ascii: ".")).flatMap(String.init)
@@ -36,21 +37,22 @@ public func getClangVersion(versionOutput: String) -> (major: Int, minor: Int)? 
 ///
 /// - Parameters:
 ///   - pathString: The path string to parse.
-///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths based on this path.
+///   - currentWorkingDirectory: The current working directory, the relative paths will be converted to absolute paths
+///     based on this path.
 /// - Returns: List of search paths.
 public func getEnvSearchPaths(
     pathString: String?,
     currentWorkingDirectory cwd: AbsolutePath
     ) -> [AbsolutePath] {
     // Compute search paths from PATH variable.
-    return (pathString ?? "").characters.split(separator: ":").map(String.init).map { pathString in
+    return (pathString ?? "").characters.split(separator: ":").map(String.init).map({ pathString in
         // If this is an absolute path, we're done.
         if pathString.characters.first == "/" {
             return AbsolutePath(pathString)
         }
         // Otherwise convert it into absolute path relative to the working directory.
         return AbsolutePath(pathString, relativeTo: cwd)
-    }
+    })
 }
 
 /// Lookup an executable path from an environment variable value, current working
@@ -77,7 +79,7 @@ public func lookupExecutablePath(
     }
     // We have a value, but it could be an absolute or a relative path.
     let path = AbsolutePath(value, relativeTo: cwd)
-    if localFileSystem.isExecutableFile(path){
+    if localFileSystem.isExecutableFile(path) {
         return path
     }
     // Ensure the value is not a path.

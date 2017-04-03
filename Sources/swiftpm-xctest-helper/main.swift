@@ -37,12 +37,24 @@ func run() throws {
 
     let splitSet: Set<Character> = ["[", " ", "]", ":"]
 
-    // Array of test cases. Contains test cases in format:
-    // { "name" : "<test_suite_name>", "tests" : [ { "name" : "test_class_name", "tests" : [ { "name" : "test_method_name"} ] } ] }
+    // Array of test cases. Contains test cases in the format:
+    // {
+    //     "name": "<test_suite_name>",
+    //     "tests": [
+    //         {
+    //             "name": "test_class_name",
+    //             "tests": [
+    //                 {
+    //                     "name": "test_method_name"
+    //                 }
+    //             ]
+    //         }
+    //     ]
+    // }
     var testCases = [[String: AnyObject]]()
 
     for case let testCaseSuite as XCTestSuite in suite.tests {
-        let testSuite: [[String: AnyObject]] = testCaseSuite.tests.flatMap {
+        let testSuite: [[String: AnyObject]] = testCaseSuite.tests.flatMap({
             guard case let testCaseSuite as XCTestSuite = $0 else { return nil }
             // Get the name of the XCTest subclass with its module name if possible.
             // If the subclass contains atleast one test get the name using reflection,
@@ -55,22 +67,27 @@ func run() throws {
             }
 
             // Collect the test methods.
-            let tests: [[String: String]] = testCaseSuite.tests.flatMap { test in
+            let tests: [[String: String]] = testCaseSuite.tests.flatMap({ test in
                 guard case let test as XCTestCase = test else { return nil }
                 // Split the test description into an array. Description formats:
                 // `-[ClassName MethodName]`, `-[ClassName MethodNameAndReturnError:]`
-                var methodName = test.description.characters.split(whereSeparator: splitSet.contains).map(String.init)[2]
+                var methodName = test.description.characters
+                    .split(whereSeparator: splitSet.contains)
+                    .map(String.init)[2]
                 // Unmangle names for Swift test cases which throw.
                 if methodName.hasSuffix("AndReturnError") {
-                    methodName = String(methodName[methodName.startIndex..<methodName.index(methodName.endIndex, offsetBy: -14)])
+                    let endIndex = methodName.index(methodName.endIndex, offsetBy: -14)
+                    methodName = String(methodName[methodName.startIndex..<endIndex])
                 }
                 return ["name": methodName]
-            }
+            })
 
             return ["name": name as NSString, "tests": tests as NSArray]
-        }
-        testCases.append(["name": (testCaseSuite.name ?? "nil") as NSString,
-                          "tests": testSuite as NSArray])
+        })
+        testCases.append([
+            "name": (testCaseSuite.name ?? "nil") as NSString,
+            "tests": testSuite as NSArray,
+        ])
     }
 
     // Create output file.
@@ -80,7 +97,10 @@ func run() throws {
         throw Error.couldNotOpenOutputFile(outputFile)
     }
     // Create output dictionary.
-    let output = ["name" as NSString: "All Tests" as NSString, "tests" as NSString: testCases as NSArray] as NSDictionary
+    let output = [
+        "name" as NSString: "All Tests" as NSString,
+        "tests" as NSString: testCases as NSArray,
+    ] as NSDictionary
     // Convert output dictionary to JSON and write to output file.
     let outputData = try JSONSerialization.data(withJSONObject: output, options: .prettyPrinted)
     file.write(outputData)

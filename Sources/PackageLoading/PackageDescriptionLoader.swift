@@ -14,10 +14,8 @@ import PackageDescription
 
 /// Load PackageDescription models from the given JSON. The JSON is expected to be completely valid.
 /// The base url is used to resolve any relative paths in the dependency declarations.
-func loadPackageDescription(
-   _ json: JSON,
-   baseURL: String
-) throws -> (package: PackageDescription.Package, products: [PackageDescription.Product]) {
+func loadPackageDescription(_ json: JSON, baseURL: String) throws
+    -> (package: PackageDescription.Package, products: [PackageDescription.Product]) {
     // Construct objects from JSON.
     let package = PackageDescription.Package.fromJSON(json, baseURL: baseURL)
     let products = PackageDescription.Product.fromJSON(json)
@@ -57,25 +55,27 @@ extension PackageDescription.Package {
         // Parse the dependencies.
         var dependencies: [PackageDescription.Package.Dependency] = []
         if case .array(let array)? = package["dependencies"] {
-            dependencies = array.map { PackageDescription.Package.Dependency.fromJSON($0, baseURL: baseURL) }
+            dependencies = array.map({ PackageDescription.Package.Dependency.fromJSON($0, baseURL: baseURL) })
         }
 
         // Parse the compatible swift versions.
         var swiftLanguageVersions: [Int]? = nil
         if case .array(let array)? = package["swiftLanguageVersions"] {
-            swiftLanguageVersions = array.map{
+            swiftLanguageVersions = array.map({
                 guard case .int(let value) = $0 else { fatalError("swiftLanguageVersions contains non int element") }
                 return value
-            }
+            })
         }
 
         // Parse the exclude folders.
         var exclude: [String] = []
         if case .array(let array)? = package["exclude"] {
-            exclude = array.map { element in
-                guard case .string(let excludeString) = element else { fatalError("exclude contains non string element") }
+            exclude = array.map({ element in
+                guard case .string(let excludeString) = element else {
+                    fatalError("exclude contains non string element")
+                }
                 return excludeString
-            }
+            })
         }
 
         return PackageDescription.Package(
@@ -166,10 +166,10 @@ extension PackageDescription.Product {
         guard case .string(let productType)? = dict["type"] else { fatalError("missing item") }
         guard case .array(let targetsJSON)? = dict["modules"] else { fatalError("missing item") }
 
-        let targets: [String] = targetsJSON.map {
+        let targets: [String] = targetsJSON.map({
             guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
             return string
-        }
+        })
         self.init(name: name, type: ProductType(productType), modules: targets)
     }
 }
@@ -178,7 +178,7 @@ extension PackageDescription.ProductType {
     fileprivate init(_ string: String) {
         switch string {
         case "exe":
-            self = .Executable		
+            self = .Executable
         case "a":
             self = .Library(.Static)
         case "dylib":
@@ -194,8 +194,8 @@ extension PackageDescription.ProductType {
 fileprivate func parseErrors(_ json: JSON) -> [String] {
     guard case .dictionary(let topLevelDict) = json else { fatalError("unexpected item") }
     guard case .array(let errors)? = topLevelDict["errors"] else { fatalError("missing errors") }
-    return errors.map { error in
+    return errors.map({ error in
         guard case .string(let string) = error else { fatalError("unexpected item") }
         return string
-    }
+    })
 }

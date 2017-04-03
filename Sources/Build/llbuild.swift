@@ -78,7 +78,8 @@ public struct LLbuildManifestGenerator {
         stream <<< "tools: {}\n"
         stream <<< "targets:\n"
         for target in [targets.test, targets.main] {
-            stream <<< "  " <<< Format.asJSON(target.name) <<< ": " <<< Format.asJSON(target.cmds.flatMap{$0.tool.outputs}) <<< "\n"
+            stream <<< "  " <<< Format.asJSON(target.name)
+                <<< ": " <<< Format.asJSON(target.cmds.flatMap({ $0.tool.outputs })) <<< "\n"
         }
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
         stream <<< "commands: \n"
@@ -95,12 +96,14 @@ public struct LLbuildManifestGenerator {
         let tool: ToolProtocol
         // Create archive tool for static library and shell tool for rest of the products.
         if buildProduct.product.type == .library(.static) {
-            tool = ArchiveTool(inputs: buildProduct.objects.map{$0.asString}, outputs: [buildProduct.binary.asString])
+            tool = ArchiveTool(
+                inputs: buildProduct.objects.map({ $0.asString }),
+                outputs: [buildProduct.binary.asString])
         } else {
-            let inputs = buildProduct.objects + buildProduct.dylibs.map{$0.binary}
+            let inputs = buildProduct.objects + buildProduct.dylibs.map({ $0.binary })
             tool = ShellTool(
                 description: "Linking \(buildProduct.binary.prettyPath)",
-                inputs: inputs.map{$0.asString},
+                inputs: inputs.map({ $0.asString }),
                 outputs: [buildProduct.binary.asString],
                 args: buildProduct.linkArguments())
         }
@@ -110,7 +113,7 @@ public struct LLbuildManifestGenerator {
     /// Create command for Swift target description.
     private func createSwiftCommand(_ target: SwiftTargetDescription) -> Command {
         // Compute inital inputs.
-        var inputs = target.module.sources.paths.map{ $0.asString }
+        var inputs = target.module.sources.paths.map({ $0.asString })
 
         func addStaticTargetInputs(_ target: ResolvedModule) {
             // Ignore C Modules.
@@ -119,7 +122,7 @@ public struct LLbuildManifestGenerator {
             case .swift(let target)?:
                 inputs += [target.moduleOutputPath.asString]
             case .clang(let target)?:
-                inputs += target.objects.map{$0.asString}
+                inputs += target.objects.map({ $0.asString })
             case nil:
                 fatalError("unexpected: target \(target) not in target map \(plan.targetMap)")
             }
@@ -153,7 +156,7 @@ public struct LLbuildManifestGenerator {
 
     /// Create commands for Clang targets.
     private func createClangCommands(_ target: ClangTargetDescription) -> [Command] {
-        return target.compilePaths().map { path in
+        return target.compilePaths().map({ path in
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
@@ -164,7 +167,7 @@ public struct LLbuildManifestGenerator {
                                   args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
                                   deps: path.deps.asString)
             return Command(name: path.object.asString, tool: clang)
-        }
+        })
     }
 }
 
@@ -200,7 +203,7 @@ struct SwiftCompilerTool: ToolProtocol {
 
     /// Outputs produced by the tool.
     var outputs: [String] {
-        return target.objects.map{ $0.asString } + [target.moduleOutputPath.asString]
+        return target.objects.map({ $0.asString }) + [target.moduleOutputPath.asString]
     }
 
     /// The underlying Swift build target.
@@ -215,18 +218,31 @@ struct SwiftCompilerTool: ToolProtocol {
 
     func append(to stream: OutputByteStream) {
         stream <<< "    tool: swift-compiler\n"
-        stream <<< "    executable: " <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.asString) <<< "\n"
-        stream <<< "    module-name: " <<< Format.asJSON(target.module.c99name) <<< "\n"
-        stream <<< "    module-output-path: " <<< Format.asJSON(target.moduleOutputPath.asString) <<< "\n"
-        stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
-        stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
-        stream <<< "    import-paths: " <<< Format.asJSON([target.buildParameters.buildPath.asString]) <<< "\n"
-        stream <<< "    temps-path: " <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
-        stream <<< "    objects: " <<< Format.asJSON(target.objects.map{ $0.asString }) <<< "\n"
-        stream <<< "    other-args: " <<< Format.asJSON(target.compileArguments()) <<< "\n"
-        stream <<< "    sources: " <<< Format.asJSON(target.module.sources.paths.map{ $0.asString }) <<< "\n"
-        stream <<< "    is-library: " <<< Format.asJSON(target.module.type == .library || target.module.type == .test) <<< "\n"
-        stream <<< "    enable-whole-module-optimization: " <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
-        stream <<< "    num-threads: " <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
+        stream <<< "    executable: "
+            <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.asString) <<< "\n"
+        stream <<< "    module-name: "
+            <<< Format.asJSON(target.module.c99name) <<< "\n"
+        stream <<< "    module-output-path: "
+            <<< Format.asJSON(target.moduleOutputPath.asString) <<< "\n"
+        stream <<< "    inputs: "
+            <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: "
+            <<< Format.asJSON(outputs) <<< "\n"
+        stream <<< "    import-paths: "
+            <<< Format.asJSON([target.buildParameters.buildPath.asString]) <<< "\n"
+        stream <<< "    temps-path: "
+            <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
+        stream <<< "    objects: "
+            <<< Format.asJSON(target.objects.map({ $0.asString })) <<< "\n"
+        stream <<< "    other-args: "
+            <<< Format.asJSON(target.compileArguments()) <<< "\n"
+        stream <<< "    sources: "
+            <<< Format.asJSON(target.module.sources.paths.map({ $0.asString })) <<< "\n"
+        stream <<< "    is-library: "
+            <<< Format.asJSON(target.module.type == .library || target.module.type == .test) <<< "\n"
+        stream <<< "    enable-whole-module-optimization: "
+            <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
+        stream <<< "    num-threads: "
+            <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
     }
 }

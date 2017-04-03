@@ -107,7 +107,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
 
 extension ManagedDependency.State: JSONMappable, JSONSerializable {
 
-    public static func ==(lhs: ManagedDependency.State, rhs: ManagedDependency.State) -> Bool {
+    public static func == (lhs: ManagedDependency.State, rhs: ManagedDependency.State) -> Bool {
         switch (lhs, rhs) {
         case (.checkout(let lhs), .checkout(let rhs)):
             return lhs == rhs
@@ -125,7 +125,7 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         case .checkout(let checkoutState):
             return .init([
                 "name": "checkout",
-                "checkoutState": checkoutState
+                "checkoutState": checkoutState,
             ])
         case .edited(let path):
             return .init([
@@ -206,8 +206,8 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.dependencyMap = try Dictionary(items: 
-            json.get("dependencies").map{($0.repository, $0)}
+        self.dependencyMap = try Dictionary(items:
+            json.get("dependencies").map({ ($0.repository, $0) })
         )
     }
 

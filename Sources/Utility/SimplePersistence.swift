@@ -71,7 +71,7 @@ public final class SimplePersistence {
     public func saveState(_ object: SimplePersistanceProtocol) throws {
         let data = JSON([
             "version": self.schemaVersion,
-            "object": object
+            "object": object,
         ])
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(

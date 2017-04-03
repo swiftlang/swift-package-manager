@@ -12,7 +12,6 @@ import libc
 import POSIX
 import Foundation
 
-
 /// This file contains temporary shim functions for use during the adoption of
 /// AbsolutePath and RelativePath.  The eventual plan is to use the FileSystem
 /// API for all of this, at which time this file will go way.  But since it is
@@ -46,19 +45,19 @@ public func exists(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
 
 /// Returns true if and only if `path` refers to an existent file system entity and that entity is a regular file.
 /// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination 
-/// of the symlink; otherwise it pertains to the symlink itself. If any file system error other than non-existence occurs,
-/// this function throws an error.
+/// of the symlink; otherwise it pertains to the symlink itself. If any file system error other than non-existence
+/// occurs, this function throws an error.
 public func isFile(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
     guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .file else {
         return false
     }
     return true
-}  
+}
 
 /// Returns true if and only if `path` refers to an existent file system entity and that entity is a directory.
 /// If `followSymlink` is true, and the last path component is a symbolic link, the result pertains to the destination
-/// of the symlink; otherwise it pertains to the symlink itself.  If any file system error other than non-existence occurs,
-/// this function throws an error.
+/// of the symlink; otherwise it pertains to the symlink itself.  If any file system error other than non-existence
+/// occurs, this function throws an error.
 public func isDirectory(_ path: AbsolutePath, followSymlink: Bool = true) -> Bool {
     guard let status = try? stat(path, followSymlink: followSymlink), status.kind == .directory else {
         return false
@@ -83,17 +82,20 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     return (resolvedPathStr == pathStr) ? path : AbsolutePath(resolvedPathStr)
 }
 
-/// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
+/// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
+/// already a directory at `path`, this function does nothing (in particular, this is not considered to be an error).
 public func makeDirectories(_ path: AbsolutePath) throws {
     try FileManager.default.createDirectory(atPath: path.asString, withIntermediateDirectories: true, attributes: [:])
 }
 
-/// Recursively deletes the file system entity at `path`.  If there is no file system entity at `path`, this function does nothing (in particular, this is not considered to be an error).
+/// Recursively deletes the file system entity at `path`.  If there is no file system entity at `path`, this function
+/// does nothing (in particular, this is not considered to be an error).
 public func removeFileTree(_ path: AbsolutePath) throws {
     try FileManager.default.removeItem(atPath: path.asString)
 }
 
-/// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
+/// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will
+/// be a relative path, otherwise it will be absolute.
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
     let destString = relative ? dest.relative(to: path.parentDirectory).asString : dest.asString
     let rv = libc.symlink(destString, path.asString)
@@ -110,13 +112,14 @@ public func unlink(_ path: AbsolutePath) throws {
     guard rv == 0 else { throw SystemError.unlink(errno, path.asString) }
 }
 
-/// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's `currentDirectoryPath` method).
-/// FIXME: This should probably go onto `FileSystem`, under the assumption that each file system has its own notion of the `current` working directory.
+/// The current working directory of the process (same as returned by POSIX' `getcwd()` function or Foundation's
+/// `currentDirectoryPath` method).
+/// FIXME: This should probably go onto `FileSystem`, under the assumption that each file system has its own notion of
+/// the `current` working directory.
 public var currentWorkingDirectory: AbsolutePath {
     let cwdStr = FileManager.default.currentDirectoryPath
     return AbsolutePath(cwdStr)
 }
-
 
 /**
  - Returns: a generator that walks the specified directory producing all
@@ -131,8 +134,15 @@ public var currentWorkingDirectory: AbsolutePath {
  - Note: setting recursively to `false` still causes the generator to feed
  you the directory; just not its contents.
  */
-public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursively: Bool = true) throws -> RecursibleDirectoryContentsGenerator {
-    return try RecursibleDirectoryContentsGenerator(path: path, fileSystem: fileSystem, recursionFilter: { _ in recursively })
+public func walk(
+    _ path: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem,
+    recursively: Bool = true
+) throws -> RecursibleDirectoryContentsGenerator {
+    return try RecursibleDirectoryContentsGenerator(
+        path: path,
+        fileSystem: fileSystem,
+        recursionFilter: { _ in recursively })
 }
 
 /**
@@ -148,7 +158,11 @@ public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem,
  - Note: returning `false` from `recursing` still produces that directory
  from the generator; just not its contents.
  */
-public func walk(_ path: AbsolutePath, fileSystem: FileSystem = localFileSystem, recursing: @escaping (AbsolutePath) -> Bool) throws -> RecursibleDirectoryContentsGenerator {
+public func walk(
+    _ path: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem,
+    recursing: @escaping (AbsolutePath) -> Bool
+) throws -> RecursibleDirectoryContentsGenerator {
     return try RecursibleDirectoryContentsGenerator(path: path, fileSystem: fileSystem, recursionFilter: recursing)
 }
 
@@ -161,8 +175,12 @@ public class RecursibleDirectoryContentsGenerator: IteratorProtocol, Sequence {
 
     private let shouldRecurse: (AbsolutePath) -> Bool
     private let fileSystem: FileSystem
-    
-    fileprivate init(path: AbsolutePath, fileSystem: FileSystem, recursionFilter: @escaping (AbsolutePath) -> Bool) throws {
+
+    fileprivate init(
+        path: AbsolutePath,
+        fileSystem: FileSystem,
+        recursionFilter: @escaping (AbsolutePath) -> Bool
+    ) throws {
         self.fileSystem = fileSystem
         // FIXME: getDirectoryContents should have an iterator version.
         current = (path, try fileSystem.getDirectoryContents(path).makeIterator())
@@ -204,20 +222,17 @@ extension AbsolutePath {
         // to AbsolutePath to determine ancestry.
         if self == currDir {
             return "."
-        }
-        else if self.asString.hasPrefix(currDir.asString + "/") {
+        } else if self.asString.hasPrefix(currDir.asString + "/") {
             return "./" + self.relative(to: currDir).asString
-        }
-        else {
+        } else {
             return self.asString
         }
     }
 }
 
-
 // FIXME: All of the following will move to the FileSystem class.
 
-public enum FileAccessError : Swift.Error {
+public enum FileAccessError: Swift.Error {
     case unicodeDecodingError
     case unicodeEncodingError
     case couldNotCreateFile(path: String)

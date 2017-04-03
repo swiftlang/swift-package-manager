@@ -26,7 +26,6 @@ public func chdir(_ path: String) throws {
     }
 }
 
-
 private var memo: (argv0: String, wd: String)?
 
 /**

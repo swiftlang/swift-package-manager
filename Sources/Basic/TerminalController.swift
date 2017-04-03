@@ -61,7 +61,7 @@ public final class TerminalController {
     /// Constructs the instance if the stream is a tty.
     public init?(stream: LocalFileOutputByteStream) {
         // Make sure this file stream is tty.
-        guard isatty(fileno(stream.fp)) != 0 else {
+        guard isatty(fileno(stream.filePointer)) != 0 else {
             return nil
         }
         width = TerminalController.terminalWidth() ?? 80 // Assume default if we are not able to determine.
@@ -98,8 +98,8 @@ public final class TerminalController {
     }
 
     /// Moves the cursor y columns up.
-    public func moveCursor(y: Int) {
-        stream <<< "\u{001B}[\(y)A"
+    public func moveCursor(up: Int) {
+        stream <<< "\u{001B}[\(up)A"
         flush()
     }
 

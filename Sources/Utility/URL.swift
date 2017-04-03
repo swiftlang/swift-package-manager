@@ -9,7 +9,7 @@
 */
 
 public struct URL {
-    
+
     /// Parses the URL type of a git repository
     /// e.g. https://github.com/apple/swift returns "https"
     /// e.g. git@github.com:apple/swift returns "git"
@@ -28,7 +28,7 @@ public struct URL {
                 return head.lowercased()
             }
         }
-        
+
         for delim in ["://", "@"] {
             if let found = prefixOfSplitBy(delim) {
                 return found

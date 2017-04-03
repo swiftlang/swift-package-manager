@@ -37,7 +37,7 @@ extension Package.Dependency.Requirement: Equatable {
         return .rangeItem(version..<Version(version.major, version.minor + 1, 0))
     }
 
-    public static func ==(
+    public static func == (
         lhs: Package.Dependency.Requirement,
         rhs: Package.Dependency.Requirement
     ) -> Bool {

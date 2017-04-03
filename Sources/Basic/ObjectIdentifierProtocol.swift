@@ -18,7 +18,7 @@ extension ObjectIdentifierProtocol {
         return ObjectIdentifier(self).hashValue
     }
 
-    public static func ==(lhs: Self, rhs: Self) -> Bool {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
         return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }

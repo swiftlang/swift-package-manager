@@ -25,9 +25,9 @@
 ///
 ///     func whereCanIGo(from here: Airport) -> [Airport] {
 ///         let closure = transitiveClosure([KeyedPair(airport, key: airport.name]) {
-///             return $0.destinations.map{ KeyedPair($0, key: $0.name) }
+///             return $0.destinations.map({ KeyedPair($0, key: $0.name) })
 ///         }
-///         return closure.map{ $0.item }
+///         return closure.map({ $0.item })
 ///     }
 public struct KeyedPair<T, K: Hashable>: Hashable {
     /// The wrapped item.
@@ -41,11 +41,11 @@ public struct KeyedPair<T, K: Hashable>: Hashable {
         self.item = item
         self.key = key
     }
-    
+
     public var hashValue: Int {
         return key.hashValue
     }
-}    
+}
 public func ==<T, K>(lhs: KeyedPair<T, K>, rhs: KeyedPair<T, K>) -> Bool {
     return lhs.key == rhs.key
 }

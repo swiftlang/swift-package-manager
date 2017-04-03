@@ -13,11 +13,11 @@ import Basic
 public enum Platform {
     case darwin
     case linux(LinuxFlavor)
-    
+
     public enum LinuxFlavor {
         case debian
     }
-    
+
     // Lazily return current platform.
     public static var currentPlatform = Platform.findCurrentPlatform()
     private static func findCurrentPlatform() -> Platform? {

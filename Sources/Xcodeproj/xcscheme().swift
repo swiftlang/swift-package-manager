@@ -26,7 +26,7 @@ func xcscheme(container: String, graph: PackageGraph, codeCoverageEnabled: Bool,
         if module.type == .systemModule {
             continue
         }
-        
+
         print("      <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">")
         print("        <BuildableReference")
         print("          BuildableIdentifier = \"primary\"")

@@ -25,7 +25,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     public init(processSet: ProcessSet? = nil) {
         self.processSet = processSet
     }
-    
+
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         // Perform a bare clone.
         //
@@ -34,7 +34,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // shallow clone.
 
         precondition(!exists(path))
-        
+
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
@@ -197,7 +197,7 @@ public class GitRepository: Repository, WorkingCheckout {
             /// The name of the object.
             let name: String
         }
-        
+
         /// The object hash.
         let hash: Hash
 
@@ -248,12 +248,12 @@ public class GitRepository: Repository, WorkingCheckout {
             let remoteNamesOutput = try Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.asString, "remote").chomp()
             let remoteNames = remoteNamesOutput.characters.split(separator: "\n").map(String.init)
-            return try remoteNames.map { name in
+            return try remoteNames.map({ name in
                 // For each remote get the url.
                 let url = try Process.checkNonZeroExit(
                     args: Git.tool, "-C", path.asString, "config", "--get", "remote.\(name).url").chomp()
                 return (name, url)
-            }
+            })
         }
     }
 
@@ -272,7 +272,7 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Cache for the tags.
-    private var tagsCache: [String]? = nil
+    private var tagsCache: [String]?
 
     /// Returns the tags present in repository.
     private func getTags() -> [String] {
@@ -361,10 +361,10 @@ public class GitRepository: Repository, WorkingCheckout {
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
     private func updateSubmoduleAndClean() throws {
-        try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "submodule", "update", "--init", "--recursive", environment: Git.environment)
-        try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "clean", "-ffdx")
+        try Process.checkNonZeroExit(args: Git.tool,
+            "-C", path.asString, "submodule", "update", "--init", "--recursive", environment: Git.environment)
+        try Process.checkNonZeroExit(args: Git.tool,
+            "-C", path.asString, "clean", "-ffdx")
     }
 
     /// Returns true if a revision exists.
@@ -429,7 +429,7 @@ public class GitRepository: Repository, WorkingCheckout {
         for line in treeInfo.components(separatedBy: "\n") {
             // Ignore empty lines.
             if line == "" { continue }
-            
+
             // Each line in the response should match:
             //
             //   `mode type hash\tname`
@@ -461,7 +461,7 @@ public class GitRepository: Repository, WorkingCheckout {
             if name.hasPrefix("\"") {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
             }
-            
+
             contents.append(Tree.Entry(hash: hash, type: type, name: name))
         }
 
@@ -481,11 +481,11 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 }
 
-func ==(_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
+func == (_ lhs: GitRepository.Commit, _ rhs: GitRepository.Commit) -> Bool {
     return lhs.hash == rhs.hash && lhs.tree == rhs.tree
 }
 
-func ==(_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
+func == (_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
     return lhs.bytes == rhs.bytes
 }
 
@@ -496,12 +496,12 @@ func ==(_ lhs: GitRepository.Hash, _ rhs: GitRepository.Hash) -> Bool {
 private class GitFileSystemView: FileSystem {
     typealias Hash = GitRepository.Hash
     typealias Tree = GitRepository.Tree
-    
+
     // MARK: Git Object Model
 
     // The map of loaded trees.
     var trees: [Hash: Tree] = [:]
-    
+
     /// The underlying repository.
     let repository: GitRepository
 
@@ -526,7 +526,7 @@ private class GitFileSystemView: FileSystem {
         for component in path.components.dropFirst(1) {
             // Skip the root pseudo-component.
             if component == "/" { continue }
-            
+
             // We have a component to resolve, so the current entry must be a tree.
             guard current.type == .tree else {
                 throw FileSystemError.notDirectory
@@ -559,7 +559,7 @@ private class GitFileSystemView: FileSystem {
         trees[hash] = tree
         return tree
     }
-    
+
     func exists(_ path: AbsolutePath) -> Bool {
         do {
             return try getEntry(path) != nil
@@ -567,7 +567,7 @@ private class GitFileSystemView: FileSystem {
             return false
         }
     }
-    
+
     func isFile(_ path: AbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type != .tree {
@@ -578,7 +578,7 @@ private class GitFileSystemView: FileSystem {
             return false
         }
     }
-    
+
     func isDirectory(_ path: AbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type == .tree {
@@ -589,7 +589,7 @@ private class GitFileSystemView: FileSystem {
             return false
         }
     }
-    
+
     func isSymlink(_ path: AbsolutePath) -> Bool {
         do {
             if let entry = try getEntry(path), entry.type == .symlink {
@@ -600,14 +600,14 @@ private class GitFileSystemView: FileSystem {
             return false
         }
     }
-    
+
     func isExecutableFile(_ path: AbsolutePath) -> Bool {
         if let entry = try? getEntry(path), entry?.type == .executableBlob {
             return true
         }
         return false
     }
-    
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry
@@ -616,9 +616,9 @@ private class GitFileSystemView: FileSystem {
             throw FileSystemError.notDirectory
         }
 
-        return try getTree(entry.hash).contents.map{ $0.name }
+        return try getTree(entry.hash).contents.map({ $0.name })
     }
-    
+
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry
@@ -633,14 +633,14 @@ private class GitFileSystemView: FileSystem {
     }
 
     // MARK: Unsupported methods.
-    
+
     func createDirectory(_ path: AbsolutePath) throws {
         throw FileSystemError.unsupported
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         throw FileSystemError.unsupported
-    }        
+    }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         throw FileSystemError.unsupported

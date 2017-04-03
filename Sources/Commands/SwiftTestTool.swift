@@ -64,7 +64,7 @@ public class TestToolOptions: ToolOptions {
 
     /// List the tests and exit.
     var shouldListTests = false
-    
+
     /// Run only these specified tests.
     var specifier: String?
 }
@@ -127,24 +127,26 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         if options.shouldBuildTests {
             try build(graph: graph, includingTests: true, config: options.config)
         }
-                
+
         // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
         //
         // FIXME: We should also check if the package has any test
         // modules, which isn't trivial (yet).
-        let testProducts = graph.products.filter{
+        let testProducts = graph.products.filter({
             if case .test = $0.type {
                 return true
             } else {
                 return false
             }
-        }
+        })
         if testProducts.count == 0 {
             throw TestError.testsExecutableNotFound
         } else if testProducts.count > 1 {
             throw TestError.multipleTestProducts
         } else {
-            return buildPath.appending(RelativePath(options.config.dirname)).appending(component: testProducts[0].name + ".xctest")
+            return buildPath
+                .appending(RelativePath(options.config.dirname))
+                .appending(component: testProducts[0].name + ".xctest")
         }
     }
 
@@ -172,7 +174,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
-                usage: "Run a specific test class or method, Format: <test-module>.<test-case> or <test-module>.<test-case>/<test>"),
+                usage: "Run a specific test class or method, Format: <test-module>.<test-case> or " +
+                    "<test-module>.<test-case>/<test>"),
             to: { $0.specifier = $1 })
     }
 
@@ -182,7 +185,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Returns: Path to XCTestHelper tool.
     private static func xctestHelperPath() -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(CommandLine.arguments.first!, relativeTo: currentWorkingDirectory).parentDirectory
+        let binDirectory = AbsolutePath(CommandLine.arguments.first!,
+            relativeTo: currentWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
         if isFile(maybePath) {
@@ -192,9 +196,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(component: xctestHelperBin)
         if isFile(path) {
-            return path 
+            return path
         }
-        fatalError("XCTestHelper binary not found.") 
+        fatalError("XCTestHelper binary not found.")
     }
 
     /// Runs the corresponding tool to get tests JSON and create TestSuite array.
@@ -392,7 +396,7 @@ final class ParallelTestRunner {
         try enqueueTests(testSuites)
 
         // Create the worker threads.
-        let workers: [Thread] = (0..<numJobs).map { _ in
+        let workers: [Thread] = (0..<numJobs).map({ _ in
             let thread = Thread {
                 // Dequeue a specifier and run it till we encounter nil.
                 while let test = self.pendingTests.dequeue() {
@@ -409,7 +413,7 @@ final class ParallelTestRunner {
             }
             thread.start()
             return thread
-        }
+        })
 
         // Holds the output of test cases which failed.
         var failureOutput = [String]()
@@ -488,29 +492,30 @@ struct TestSuite {
             throw TestError.invalidListTestJSONData
         }
 
-        return try testSuites.map { testSuite in
+        return try testSuites.map({ testSuite in
             guard case let .dictionary(testSuiteData) = testSuite,
                   case let .string(name)? = testSuiteData["name"],
                   case let .array(allTestsData)? = testSuiteData["tests"] else {
                 throw TestError.invalidListTestJSONData
             }
 
-            let testCases: [TestSuite.TestCase] = try allTestsData.map { testCase in
+            let testCases: [TestSuite.TestCase] = try allTestsData.map({ testCase in
                 guard case let .dictionary(testCaseData) = testCase,
                       case let .string(name)? = testCaseData["name"],
                       case let .array(tests)? = testCaseData["tests"] else {
                     throw TestError.invalidListTestJSONData
                 }
-                let testMethods: [String] = try tests.map { test in
+                let testMethods: [String] = try tests.map({ test in
                     guard case let .dictionary(testData) = test,
                           case let .string(testMethod)? = testData["name"] else {
                         throw TestError.invalidListTestJSONData
                     }
                     return testMethod
-                }
+                })
                 return TestSuite.TestCase(name: name, tests: testMethods)
-            }
+            })
+            
             return TestSuite(name: name, tests: testCases)
-        }
+        })
     }
 }

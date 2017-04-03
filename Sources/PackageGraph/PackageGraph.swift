@@ -30,7 +30,7 @@ public struct PackageGraph {
     /// Returns true if a given module is present in root packages.
     public func isInRootPackages(_ module: ResolvedModule) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap{$0.modules}.contains(module)
+        return rootPackages.flatMap({ $0.modules }).contains(module)
     }
 
     /// Construct a package graph directly.
@@ -40,14 +40,14 @@ public struct PackageGraph {
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
 
         // Compute the input targets.
-        let inputTargets = inputPackages.flatMap{$0.modules}.map(ResolvedModule.Dependency.target)
+        let inputTargets = inputPackages.flatMap({ $0.modules }).map(ResolvedModule.Dependency.target)
         // Find all the dependencies of the root targets.
         let dependencies = try! topologicalSort(inputTargets, successors: { $0.dependencies })
 
         // Separate out the products and targets but maintain their topological order.
         var targets: [ResolvedModule] = []
-        var products = inputPackages.flatMap{$0.products}
-        let rootDependencyProductSet = Set(rootDependencies.flatMap{$0.products})
+        var products = inputPackages.flatMap({ $0.products })
+        let rootDependencyProductSet = Set(rootDependencies.flatMap({ $0.products }))
 
         for dependency in dependencies {
             switch dependency {

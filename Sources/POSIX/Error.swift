@@ -60,7 +60,7 @@ extension SystemError: CustomStringConvertible {
             }
             fatalError("strerror_r error: \(ERANGE)")
         }
-        
+
         switch self {
         case .chdir(let errno, let path):
             return "chdir error: \(strerror(errno)): \(path)"

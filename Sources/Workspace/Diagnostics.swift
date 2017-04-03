@@ -29,7 +29,7 @@ public struct ManifestParseDiagnostic: DiagnosticData {
 }
 
 extension ManifestParseError: DiagnosticDataConvertible {
-    public var diagnosticData: DiagnosticData { 
+    public var diagnosticData: DiagnosticData {
         switch self {
         case .emptyManifestFile:
             return ManifestParseDiagnostic(["manifest file is empty"])

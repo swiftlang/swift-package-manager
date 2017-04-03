@@ -33,7 +33,7 @@ public struct SwiftVersion {
     public var minor: Int { return version.minor }
     /// The patch component of the version number.
     public var patch: Int { return version.patch }
-    
+
     /// The version as a readable string.
     public var displayString: String {
         var result = "\(major).\(minor).\(patch)"
@@ -62,7 +62,7 @@ public struct SwiftVersion {
         return [
             "@swift-\(major).\(minor).\(patch)",
             "@swift-\(major).\(minor)",
-            "@swift-\(major)"
+            "@swift-\(major)",
         ]
     }
 

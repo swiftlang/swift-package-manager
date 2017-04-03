@@ -27,7 +27,7 @@ import Basic
 import PackageModel
 import PackageLoading
 
-extension ResolvedModule  {
+extension ResolvedModule {
 
     var infoPlistFileName: String {
         return "\(c99name)_Info.plist"

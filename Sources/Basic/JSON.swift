@@ -25,7 +25,7 @@ public enum JSON {
 
     /// A boolean value.
     case bool(Bool)
-    
+
     /// An integer value.
     ///
     /// While not strictly present in JSON, we use this as a convenience to
@@ -47,7 +47,7 @@ public enum JSON {
 
 /// A JSON representation of an element.
 public protocol JSONSerializable {
-    
+
     /// Return a JSON representation.
     func toJSON() -> JSON
 }
@@ -68,7 +68,7 @@ extension JSON: CustomStringConvertible {
 
 /// Equatable conformance.
 extension JSON: Equatable { }
-public func ==(lhs: JSON, rhs: JSON) -> Bool {
+public func == (lhs: JSON, rhs: JSON) -> Bool {
     switch (lhs, rhs) {
     case (.null, .null): return true
     case (.null, _): return false
@@ -99,7 +99,7 @@ extension JSON {
         }
         return stream.bytes
     }
-    
+
     /// Encode a JSON item into a JSON string
     public func toString(prettyPrint: Bool = false) -> String {
         guard let contents = self.toBytes(prettyPrint: prettyPrint).asString else {
@@ -117,7 +117,7 @@ extension JSON: ByteStreamable {
 
     public func write(to stream: OutputByteStream, indent: Int?) {
         func indentStreamable(offset: Int? = nil) -> ByteStreamable {
-            return Format.asRepeating(string: " ", count: indent.flatMap {$0 + (offset ?? 0)} ?? 0)
+            return Format.asRepeating(string: " ", count: indent.flatMap({ $0 + (offset ?? 0) }) ?? 0)
         }
         let shouldIndent = indent != nil
         switch self {
@@ -137,7 +137,7 @@ extension JSON: ByteStreamable {
             for (i, item) in contents.enumerated() {
                 if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
                 stream <<< indentStreamable(offset: 2)
-                item.write(to: stream, indent: indent.flatMap {$0 + 2})
+                item.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
             stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "]"
         case .dictionary(let contents):
@@ -145,8 +145,8 @@ extension JSON: ByteStreamable {
             stream <<< "{" <<< (shouldIndent ? "\n" : "")
             for (i, key) in contents.keys.sorted().enumerated() {
                 if i != 0 { stream <<< "," <<< (shouldIndent ? "\n" : " ") }
-                stream <<<  indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": " 
-                contents[key]!.write(to: stream, indent: indent.flatMap{ $0 + 2})
+                stream <<<  indentStreamable(offset: 2) <<< Format.asJSON(key) <<< ": "
+                contents[key]!.write(to: stream, indent: indent.flatMap({ $0 + 2 }))
             }
             stream <<< (shouldIndent ? "\n" : "") <<< indentStreamable() <<< "}"
         }
@@ -175,7 +175,7 @@ extension JSON {
     private static func convertToJSON(_ object: Any) -> JSON {
         switch object {
         case is NSNull:
-            return .null            
+            return .null
         case let value as String:
             return .string(value)
 
@@ -208,7 +208,7 @@ extension JSON {
             var result = [String: JSON]()
             value.forEach { result[$0 as! String] = convertToJSON($1) }
             return .dictionary(result)
-            
+
             // On Linux, the JSON deserialization handles this.
         case let asBool as Bool: // This is true on Linux.
             return .bool(asBool)
@@ -227,14 +227,14 @@ extension JSON {
             fatalError("unexpected object: \(object) \(type(of: object))")
         }
     }
-    
+
     /// Load a JSON item from a byte string.
     ///
     //
     public init(bytes: ByteString) throws {
         do {
             let result = try JSONSerialization.jsonObject(with: Data(bytes: bytes.contents), options: [.allowFragments])
-            
+
             // Convert to a native representation.
             //
             // FIXME: This is inefficient; eventually, we want a way to do the
@@ -255,11 +255,11 @@ extension JSON {
     }
 }
 
-// MARK:- JSONSerializable helpers.
+// MARK: - JSONSerializable helpers.
 
 extension JSON {
     public init(_ dict: [String: JSONSerializable]) {
-        self = .dictionary(Dictionary(items: dict.map{($0.0, $0.1.toJSON())}))
+        self = .dictionary(Dictionary(items: dict.map({ ($0.0, $0.1.toJSON()) })))
     }
 }
 
@@ -310,7 +310,7 @@ extension Optional where Wrapped: JSONSerializable {
 
 extension Sequence where Iterator.Element: JSONSerializable {
     public func toJSON() -> JSON {
-        return .array(map{$0.toJSON()})
+        return .array(map({ $0.toJSON() }))
     }
 }
 

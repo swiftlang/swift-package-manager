@@ -16,15 +16,18 @@ public enum DependencyResolverError: Error, Equatable {
     case unsatisfiable
 
     /// The resolver encountered a versioned container which has a revision dependency.
-    case revisionConstraints(dependency: AnyPackageContainerIdentifier, revisions: [(AnyPackageContainerIdentifier, String)])
+    case revisionConstraints(
+        dependency: AnyPackageContainerIdentifier,
+        revisions: [(AnyPackageContainerIdentifier, String)])
 
-    public static func ==(lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
+    public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
         switch (lhs, rhs) {
         case (.unsatisfiable, .unsatisfiable):
             return true
         case (.unsatisfiable, _):
             return false
-        case (.revisionConstraints(let lDependency, let lRevisions), .revisionConstraints(let rDependency, let rRevisions)):
+        case (.revisionConstraints(let lDependency, let lRevisions),
+              .revisionConstraints(let rDependency, let rRevisions)):
             return lDependency == rDependency && lRevisions == rRevisions
         case (.revisionConstraints, _):
             return false
@@ -95,7 +98,7 @@ public enum VersionSetSpecifier: Equatable {
         }
     }
 }
-public func ==(_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
+public func == (_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
     switch (lhs, rhs) {
     case (.any, .any):
         return true
@@ -137,7 +140,7 @@ public struct AnyPackageContainerIdentifier: PackageContainerIdentifier {
         return identifier.hashValue
     }
 
-    public static func ==(lhs: AnyPackageContainerIdentifier, rhs: AnyPackageContainerIdentifier) -> Bool {
+    public static func == (lhs: AnyPackageContainerIdentifier, rhs: AnyPackageContainerIdentifier) -> Bool {
         return lhs.identifier == rhs.identifier
     }
 }
@@ -229,7 +232,7 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
         /// Un-versioned requirement i.e. a version should not resolved.
         case unversioned([PackageContainerConstraint<Identifier>])
 
-        public static func ==(lhs: Requirement, rhs: Requirement) -> Bool {
+        public static func == (lhs: Requirement, rhs: Requirement) -> Bool {
             switch (lhs, rhs) {
             case (.unversioned(let lhs), .unversioned(let rhs)):
                 return lhs == rhs
@@ -270,7 +273,7 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
         return "Constraint(\(identifier), \(requirement))"
     }
 
-    public static func ==(lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
+    public static func == (lhs: PackageContainerConstraint, rhs: PackageContainerConstraint) -> Bool {
         return lhs.identifier == rhs.identifier && lhs.requirement == rhs.requirement
     }
 }
@@ -316,7 +319,7 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
         }
     }
 }
-public func ==(_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
+public func == (_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
     switch (lhs, rhs) {
     case (.excluded, .excluded):
         return true
@@ -386,8 +389,7 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
     private func merging(
         requirement: Requirement, for identifier: Identifier
-    ) -> PackageContainerConstraintSet<C>?
-    {
+    ) -> PackageContainerConstraintSet<C>? {
         switch (requirement, self[identifier]) {
         case (.versionSet(let newSet), .versionSet(let currentSet)):
             // Try to intersect two version set requirements.
@@ -448,8 +450,7 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     /// when the resulting set is satisfiable, if it was already so.
     func merging(
         _ constraints: PackageContainerConstraintSet<Container>
-    ) -> PackageContainerConstraintSet<C>?
-    {
+    ) -> PackageContainerConstraintSet<C>? {
         var result = self
         for (key, requirement) in constraints {
             guard let merged = result.merging(requirement: requirement, for: key) else {
@@ -470,8 +471,8 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
         return constraints.endIndex
     }
 
-    func index(after i: Index) -> Index {
-        return constraints.index(after: i)
+    func index(after index: Index) -> Index {
+        return constraints.index(after: index)
     }
 
     subscript(position: Index) -> Element {
@@ -541,7 +542,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         // FIXME: This is very inefficient; we should decide whether it is right
         // to handle it here or force the main resolver loop to handle the
         // discovery of this property.
-        guard let _ = constraints.merging(assignment.constraints) else {
+        guard constraints.merging(assignment.constraints) != nil else {
             return nil
         }
 
@@ -676,7 +677,7 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
 
     func makeIterator() -> Iterator {
         var it = assignments.values.makeIterator()
-        return AnyIterator{
+        return AnyIterator {
             if let next = it.next() {
                 return (next.container, next.binding)
             } else {
@@ -685,7 +686,8 @@ struct VersionAssignmentSet<C: PackageContainer>: Equatable, Sequence {
         }
     }
 }
-func ==<C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
+
+func == <C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
     if lhs.assignments.count != rhs.assignments.count { return false }
     for (container, lhsBinding) in lhs {
         switch rhs[container] {
@@ -754,8 +756,7 @@ func ==<C>(lhs: VersionAssignmentSet<C>, rhs: VersionAssignmentSet<C>) -> Bool {
 public class DependencyResolver<
     P: PackageContainerProvider,
     D: DependencyResolverDelegate
-> where P.Container.Identifier == D.Identifier
-{
+> where P.Container.Identifier == D.Identifier {
     public typealias Provider = P
     public typealias Delegate = D
     public typealias Container = Provider.Container
@@ -810,7 +811,7 @@ public class DependencyResolver<
     /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        return try resolveAssignment(constraints: constraints).map{ ($0.identifier, $1) }
+        return try resolveAssignment(constraints: constraints).map({ ($0.identifier, $1) })
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -822,15 +823,21 @@ public class DependencyResolver<
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     func resolveAssignment(constraints: [Constraint]) throws -> AssignmentSet {
         // Create an assignment for the input constraints.
-        guard let assignment = merge(
-                constraints: constraints, into: AssignmentSet(),
-                subjectTo: ConstraintSet(), excluding: [:]).first(where: { _ in true }) else {
+        let mergedConstraints = merge(
+            constraints: constraints,
+            into: AssignmentSet(),
+            subjectTo: ConstraintSet(),
+            excluding: [:])
+
+        guard let assignment = mergedConstraints.first(where: { _ in true }) else {
             // Throw any error encountered during resolution.
             if let error = error {
                 throw error
             }
+
             throw DependencyResolverError.unsatisfiable
         }
+
         return assignment
     }
 
@@ -860,9 +867,9 @@ public class DependencyResolver<
     ) -> AnySequence<AssignmentSet> {
         func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
-            return AnySequence(container.versions.lazy.filter {
+            return AnySequence(container.versions.lazy.filter({
                 versionSet.contains($0) && !exclusions.contains($0)
-            })
+            }))
         }
 
         // Helper method to abstract passing common parameters to merge().
@@ -875,13 +882,13 @@ public class DependencyResolver<
 
             return AnySequence(self.merge(
                 constraints: constraints,
-                into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map{ result in
+                into: assignment, subjectTo: allConstraints, excluding: allExclusions).lazy.map({ result in
                 // We might not have a complete result in incomplete mode.
                 if !self.isInIncompleteMode {
                     assert(result.checkIfValidAndComplete())
                 }
                 return result
-            })
+            }))
         }
 
         switch allConstraints[container.identifier] {
@@ -900,44 +907,46 @@ public class DependencyResolver<
             var previousVersion: Version? = nil
 
             // Attempt to select each valid version in the preferred order.
-            return AnySequence(validVersions(container, in: versionSet).lazy.flatMap{ version -> AnySequence<AssignmentSet> in
-                assert(previousVersion != nil ? previousVersion! > version : true, "container versions are improperly ordered")
-                previousVersion = version
+            return AnySequence(validVersions(container, in: versionSet).lazy
+                .flatMap({ version -> AnySequence<AssignmentSet> in
+                    assert(previousVersion != nil ? previousVersion! > version : true,
+                           "container versions are improperly ordered")
+                    previousVersion = version
 
-                // If we had encountered any error, return early.
-                guard self.error == nil else { return AnySequence([]) }
+                    // If we had encountered any error, return early.
+                    guard self.error == nil else { return AnySequence([]) }
 
-                // Get the constraints for this container version and update the assignment to include each one.
-                // FIXME: Making these methods throwing will kill the lazy behavior.
-                guard var constraints = self.safely({ try container.getDependencies(at: version) }) else {
-                    return AnySequence([])
-                }
-
-                // Since we don't want to request additional containers in incomplete
-                // mode, remove any dependency that we don't already have.
-                if self.isInIncompleteMode {
-                    constraints = constraints.filter{ self.containers[$0.identifier] != nil }
-                }
-
-                // Since this is a versioned container, none of its
-                // dependencies can have a revision constraints.
-                let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
-                revisionConstraints = constraints.flatMap{
-                    if case .revision(let revision) = $0.requirement {
-                        return (AnyPackageContainerIdentifier($0.identifier), revision)
+                    // Get the constraints for this container version and update the assignment to include each one.
+                    // FIXME: Making these methods throwing will kill the lazy behavior.
+                    guard var constraints = self.safely({ try container.getDependencies(at: version) }) else {
+                        return AnySequence([])
                     }
-                    return nil
-                }
-                // If we have any revision constraints, set the error and abort.
-                guard revisionConstraints.isEmpty else {
-                    self.error = DependencyResolverError.revisionConstraints(
-                        dependency: AnyPackageContainerIdentifier(container.identifier),
-                        revisions: revisionConstraints)
-                    return AnySequence([])
-                }
 
-                return merge(constraints: constraints, binding: .version(version))
-            })
+                    // Since we don't want to request additional containers in incomplete
+                    // mode, remove any dependency that we don't already have.
+                    if self.isInIncompleteMode {
+                        constraints = constraints.filter({ self.containers[$0.identifier] != nil })
+                    }
+
+                    // Since this is a versioned container, none of its
+                    // dependencies can have a revision constraints.
+                    let revisionConstraints: [(AnyPackageContainerIdentifier, String)]
+                    revisionConstraints = constraints.flatMap({
+                        if case .revision(let revision) = $0.requirement {
+                            return (AnyPackageContainerIdentifier($0.identifier), revision)
+                        }
+                        return nil
+                    })
+                    // If we have any revision constraints, set the error and abort.
+                    guard revisionConstraints.isEmpty else {
+                        self.error = DependencyResolverError.revisionConstraints(
+                            dependency: AnyPackageContainerIdentifier(container.identifier),
+                            revisions: revisionConstraints)
+                        return AnySequence([])
+                    }
+
+                    return merge(constraints: constraints, binding: .version(version))
+                }))
         }
     }
 
@@ -987,55 +996,64 @@ public class DependencyResolver<
         // sequence is effectively one which has all of the constraints
         // merged. Thus, the reduce itself can be eager since the result is
         // lazy.
-        return AnySequence(constraints.map{ $0.identifier }.reduce(AnySequence([(assignment, allConstraints)])) { (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
-                    // If we had encountered any error, return early.
-                    guard self.error == nil else { return AnySequence([]) }
+        return AnySequence(constraints
+            .map({ $0.identifier })
+            .reduce(AnySequence([(assignment, allConstraints)]), {
+                (possibleAssignments, identifier) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                // If we had encountered any error, return early.
+                guard self.error == nil else { return AnySequence([]) }
 
-                    // Get the container.
-                    //
-                    // Failures here will immediately abort the solution, although in
-                    // theory one could imagine attempting to find a solution not
-                    // requiring this container. It isn't clear that is something we
-                    // would ever want to handle at this level.
-                    //
-                    // FIXME: Making these methods throwing will kill the lazy behavior,
-                    guard let container = safely({ try getContainer(for: identifier) }) else {
-                        return AnySequence([])
-                    }
+                // Get the container.
+                //
+                // Failures here will immediately abort the solution, although in
+                // theory one could imagine attempting to find a solution not
+                // requiring this container. It isn't clear that is something we
+                // would ever want to handle at this level.
+                //
+                // FIXME: Making these methods throwing will kill the lazy behavior,
+                guard let container = safely({ try getContainer(for: identifier) }) else {
+                    return AnySequence([])
+                }
 
-                    // Return a new lazy sequence merging all possible subtree solutions into all possible incoming assignments.
-                    return AnySequence(possibleAssignments.lazy.flatMap{ (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
-                            return AnySequence(self.resolveSubtree(
-                                    container, subjectTo: allConstraints, excluding: allExclusions).lazy.flatMap{ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
-                                    // We found a valid subtree assignment, attempt to merge it with the
-                                    // current solution.
-                                    guard let newAssignment = assignment.merging(subtreeAssignment) else {
-                                        // The assignment couldn't be merged with the current
-                                        // assignment, or the constraint sets couldn't be merged.
-                                        //
-                                        // This happens when (a) the subtree has a package overlapping
-                                        // with a previous subtree assignment, and (b) the subtrees
-                                        // needed to resolve different versions due to constraints not
-                                        // present in the top-down constraint set.
-                                        return nil
-                                    }
+                // Return a new lazy sequence merging all possible subtree solutions into all possible incoming
+                //  assignments.
+                return AnySequence(possibleAssignments.lazy.flatMap({
+                    (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                    return AnySequence(self
+                        .resolveSubtree(container, subjectTo: allConstraints, excluding: allExclusions)
+                        .lazy
+                        .flatMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
+                            // We found a valid subtree assignment, attempt to merge it with the
+                            // current solution.
+                            guard let newAssignment = assignment.merging(subtreeAssignment) else {
+                                // The assignment couldn't be merged with the current
+                                // assignment, or the constraint sets couldn't be merged.
+                                //
+                                // This happens when (a) the subtree has a package overlapping
+                                // with a previous subtree assignment, and (b) the subtrees
+                                // needed to resolve different versions due to constraints not
+                                // present in the top-down constraint set.
+                                return nil
+                            }
 
-                                    // Update the working assignment and constraint set.
-                                    //
-                                    // This should always be feasible, because all prior constraints
-                                    // were part of the input constraint request (see comment around
-                                    // initial `merge` outside the loop).
-                                    guard let merged = allConstraints.merging(subtreeAssignment.constraints) else {
-                                        preconditionFailure("unsatisfiable constraints while merging subtree")
-                                    }
+                            // Update the working assignment and constraint set.
+                            //
+                            // This should always be feasible, because all prior constraints
+                            // were part of the input constraint request (see comment around
+                            // initial `merge` outside the loop).
+                            guard let merged = allConstraints.merging(subtreeAssignment.constraints) else {
+                                preconditionFailure("unsatisfiable constraints while merging subtree")
+                            }
 
-                                    // We found a valid assignment and updated constraint set.
-                                    return (newAssignment, merged)
-                                })
-                        })
-            }.lazy.map{ $0.0 })
+                            // We found a valid assignment and updated constraint set.
+                            return (newAssignment, merged)
+                        }))
+                }))
+            })
+            .lazy
+            .map({ $0.0 }))
     }
-    
+
     /// Executes the body and return the value if the body doesn't throw.
     /// Returns nil if the body throws and save the error.
     private func safely<T>(_ body: () throws -> T) -> T? {

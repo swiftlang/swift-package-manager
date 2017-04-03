@@ -24,14 +24,14 @@ public protocol RepositoryManagerDelegate: class {
 public class RepositoryManager {
 
     public typealias LookupResult = Result<RepositoryHandle, AnyError>
-    public typealias LookupCompletion = (LookupResult) -> ()
+    public typealias LookupCompletion = (LookupResult) -> Void
 
     /// Handle to a managed repository.
     public class RepositoryHandle {
         enum Status: String {
             /// The repository has not been requested.
             case uninitialized
-            
+
             /// The repository is being fetched.
             case pending
 
@@ -41,7 +41,7 @@ public class RepositoryManager {
             /// The repository was unable to be fetched.
             case error
         }
-        
+
         /// The manager this repository is owned by.
         private unowned let manager: RepositoryManager
 
@@ -89,7 +89,7 @@ public class RepositoryManager {
             self.status = try Status(rawValue: json.get("status"))!
             self.needsFetch = true
         }
-        
+
         /// Open the given repository.
         public func open() throws -> Repository {
             precondition(status == .available, "open() called in invalid state")
@@ -132,7 +132,7 @@ public class RepositoryManager {
     // full specifier but then is capable of efficiently determining if two
     // repositories map to the same location.
     fileprivate var repositories: [String: RepositoryHandle] = [:]
-        
+
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
 
@@ -157,7 +157,12 @@ public class RepositoryManager {
     ///   - provider: The repository provider.
     ///   - delegate: The repository manager delegate.
     ///   - fileSystem: The filesystem to operate on.
-    public init(path: AbsolutePath, provider: RepositoryProvider, delegate: RepositoryManagerDelegate, fileSystem: FileSystem = localFileSystem) {
+    public init(
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        delegate: RepositoryManagerDelegate,
+        fileSystem: FileSystem = localFileSystem
+    ) {
         self.path = path
         self.provider = provider
         self.delegate = delegate
@@ -231,13 +236,13 @@ public class RepositoryManager {
                         result = Result(error)
                     }
                     // Save the manager state.
-                    self.serialQueue.sync { 
+                    self.serialQueue.sync {
                         do {
                             try self.persistence.saveState(self)
                         } catch {
                             // FIXME: Handle failure gracefully, somehow.
                             fatalError("unable to save manager state \(error)")
-                            
+
                         }
                     }
                 }
@@ -277,7 +282,7 @@ public class RepositoryManager {
                 lookupCondition.signal()
             }
         }
-        lookupCondition.whileLocked { 
+        lookupCondition.whileLocked {
             while result == nil {
                 lookupCondition.wait()
             }
@@ -333,16 +338,16 @@ public class RepositoryManager {
 extension RepositoryManager: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
-        self.repositories = try Dictionary(items: json.get("repositories").map{
+        self.repositories = try Dictionary(items: json.get("repositories").map({
             try ($0.get("key"), RepositoryHandle(manager: self, json: $0.get("handle")))
-        })
+        }))
     }
-    
+
     public func toJSON() -> JSON {
         return JSON([
-            "repositories": repositories.map{
+            "repositories": repositories.map({
                 JSON(["key": $0.0, "handle": $0.1.toJSON()])
-            }.toJSON(),
+            }).toJSON()
         ])
     }
 }

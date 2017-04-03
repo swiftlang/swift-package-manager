@@ -95,7 +95,7 @@ public func topologicalSort<T: Hashable>(
         let popped = stack.removeLast()
         assert(popped == node)
     }
-    
+
     return result.reversed()
 }
 
@@ -110,7 +110,8 @@ public func topologicalSort<T: Hashable>(
 ///
 /// - Returns: nil if a cycle is not found or a tuple with the path to the start of the cycle and the cycle itself.
 public func findCycle<T: Hashable>(
-    _ nodes: [T], successors: (T) throws -> [T]
+    _ nodes: [T],
+    successors: (T) throws -> [T]
 ) rethrows -> (path: [T], cycle: [T])? {
     // Ordered set to hold the current traversed path.
     var path = OrderedSet<T>()

@@ -16,7 +16,7 @@ import PackageGraph
 public struct WorkspaceRoot {
 
     public typealias PackageDependency = PackageGraphRoot.PackageDependency
-    
+
     /// The list of root packages.
     public let packages: [AbsolutePath]
 
@@ -24,10 +24,10 @@ public struct WorkspaceRoot {
     public let dependencies: [PackageDependency]
 
     public var constraints: [RepositoryPackageConstraint] {
-        return dependencies.map{
+        return dependencies.map({
             RepositoryPackageConstraint(
                 container: RepositorySpecifier(url: $0.url), requirement: $0.requirement)
-        }
+        })
     }
 
     /// Create a package graph root.

@@ -52,8 +52,11 @@ extension Version {
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
         let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
-        let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).flatMap{Int($0)}.filter{$0 >= 0}
+        let requiredComponents = requiredCharacters
+            .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+            .map(String.init)
+            .flatMap({ Int($0) })
+            .filter({ $0 >= 0 })
 
         guard requiredComponents.count == 3 else { return nil }
 
@@ -67,7 +70,9 @@ extension Version {
             return identifiers.split(separator: ".").map(String.init)
         }
 
-        self.prereleaseIdentifiers = identifiers(start: prereleaseStartIndex, end: metadataStartIndex ?? characters.endIndex)
+        self.prereleaseIdentifiers = identifiers(
+            start: prereleaseStartIndex,
+            end: metadataStartIndex ?? characters.endIndex)
         self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: characters.endIndex)
     }
 }

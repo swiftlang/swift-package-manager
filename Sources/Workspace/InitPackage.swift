@@ -19,32 +19,32 @@ public final class InitPackage {
         case library = "library"
         case executable = "executable"
         case systemModule = "system-module"
-        
+
         public var description: String {
             return rawValue
         }
     }
-    
+
     /// A block that will be called to report progress during package creation
     public var progressReporter: ((String) -> Void)?
-    
+
     /// Where to crerate the new package
     let destinationPath: AbsolutePath
-    
+
     /// The type of package to create.
     let packageType: PackageType
-    
+
     /// The name of the package to create.
     let pkgname: String
-    
+
     /// The name of the module to create.
     var moduleName: String
-    
+
     /// The name of the type to create (within the package).
     var typeName: String {
         return moduleName
     }
-    
+
     /// Create an instance that can create a package of the given packageType at the given destinationPath
     public init(destinationPath: AbsolutePath, packageType: PackageType) throws {
         self.packageType = packageType
@@ -58,7 +58,7 @@ public final class InitPackage {
     /// Actually creates the new package at the destinationPath
     public func writePackageStructure() throws {
         progressReporter?("Creating \(packageType) package: \(pkgname)")
-        
+
         // FIXME: We should form everything we want to write, then validate that
         // none of it exists, and then act.
         try writeManifestFile()
@@ -68,18 +68,18 @@ public final class InitPackage {
         try writeModuleMap()
         try writeTests()
     }
-    
-    private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> ()) throws {
+
+    private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
         progressReporter?("Creating \(path.relative(to: destinationPath).asString)")
         try localFileSystem.writeFileContents(path, body: body)
     }
-    
+
     private func writeManifestFile() throws {
         let manifest = destinationPath.appending(component: Manifest.filename)
         guard exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
-        
+
         try writePackageFile(manifest) { stream in
             stream <<< "\nimport PackageDescription\n"
             stream <<< "\n"
@@ -87,36 +87,36 @@ public final class InitPackage {
             stream <<< "    name: \"\(pkgname)\"\n"
             stream <<< ")\n"
         }
-        
+
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
         let version = ToolsVersion.currentToolsVersion.zeroedPatch
-        
+
         // Write the current tools version.
         try writeToolsVersion(
             at: manifest.parentDirectory, version: version, fs: &localFileSystem)
     }
-    
+
     private func writeREADMEFile() throws {
         let readme = destinationPath.appending(component: "README.md")
         guard exists(readme) == false else {
             return
         }
-        
+
         try writePackageFile(readme) { stream in
             stream <<< "# \(pkgname)\n"
             stream <<< "\n"
             stream <<< "A description of this package.\n"
         }
     }
-    
+
     private func writeGitIgnore() throws {
         let gitignore = destinationPath.appending(component: ".gitignore")
         guard exists(gitignore) == false else {
             return
         }
-        
+
         try writePackageFile(gitignore) { stream in
             stream <<< ".DS_Store\n"
             stream <<< "/.build\n"
@@ -124,7 +124,7 @@ public final class InitPackage {
             stream <<< "/*.xcodeproj\n"
         }
     }
-    
+
     private func writeSources() throws {
         if packageType == .systemModule {
             return
@@ -135,14 +135,14 @@ public final class InitPackage {
         }
         progressReporter?("Creating \(sources.relative(to: destinationPath).asString)/")
         try makeDirectories(sources)
-        
+
         if packageType == .empty {
             return
         }
-        
+
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = sources.appending(RelativePath(sourceFileName))
-        
+
         try writePackageFile(sourceFile) { stream in
             switch packageType {
             case .library:
@@ -156,7 +156,7 @@ public final class InitPackage {
             }
         }
     }
-    
+
     private func writeModuleMap() throws {
         if packageType != .systemModule {
             return
@@ -165,7 +165,7 @@ public final class InitPackage {
         guard exists(modulemap) == false else {
             return
         }
-        
+
         try writePackageFile(modulemap) { stream in
             stream <<< "module \(moduleName) [system] {\n"
             stream <<< "  header \"/usr/include/\(moduleName).h\"\n"
@@ -174,7 +174,7 @@ public final class InitPackage {
             stream <<< "}\n"
         }
     }
-    
+
     private func writeTests() throws {
         if packageType == .systemModule {
             return
@@ -185,14 +185,14 @@ public final class InitPackage {
         }
         progressReporter?("Creating \(tests.relative(to: destinationPath).asString)/")
         try makeDirectories(tests)
-        
+
         // Only libraries are testable for now.
         if packageType == .library {
             try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
         }
     }
-    
+
     private func writeLinuxMain(testsPath: AbsolutePath) throws {
         try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
             stream <<< "import XCTest\n"
@@ -202,12 +202,12 @@ public final class InitPackage {
             stream <<< "])\n"
         }
     }
-    
+
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
         let testModule = testsPath.appending(RelativePath(pkgname + Module.testModuleNameSuffix))
         progressReporter?("Creating \(testModule.relative(to: destinationPath).asString)/")
         try makeDirectories(testModule)
-        
+
         try writePackageFile(testModule.appending(RelativePath("\(moduleName)Tests.swift"))) { stream in
             stream <<< "import XCTest\n"
             stream <<< "@testable import \(moduleName)\n"
@@ -215,7 +215,8 @@ public final class InitPackage {
             stream <<< "class \(moduleName)Tests: XCTestCase {\n"
             stream <<< "    func testExample() {\n"
             stream <<< "        // This is an example of a functional test case.\n"
-            stream <<< "        // Use XCTAssert and related functions to verify your tests produce the correct results.\n"
+            stream <<< "        // Use XCTAssert and related functions to verify your tests produce the correct\n"
+            stream <<< "        // results.\n"
             stream <<< "        XCTAssertEqual(\(typeName)().text, \"Hello, World!\")\n"
             stream <<< "    }\n"
             stream <<< "\n"

@@ -38,9 +38,12 @@ extension Plist {
         case .string(let str):
             return "\"" + Plist.escape(string: str) + "\""
         case .array(let items):
-            return "(" + items.map { $0.serialize() }.joined(separator: ", ") + ")"
+            return "(" + items.map({ $0.serialize() }).joined(separator: ", ") + ")"
         case .dictionary(let items):
-            return "{" + items.sorted(by: { (lhs, rhs) in lhs.0 < rhs.0 }).map { " \($0) = \($1.serialize()) " }.joined(separator: "; ") + "; };"
+            return "{" + items
+                .sorted(by: { (lhs, rhs) in lhs.0 < rhs.0 })
+                .map({ " \($0) = \($1.serialize()) " })
+                .joined(separator: "; ") + "; };"
         }
     }
 

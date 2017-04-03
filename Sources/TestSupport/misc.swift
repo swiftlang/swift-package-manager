@@ -25,14 +25,19 @@ import Workspace
 import class Foundation.Bundle
 #endif
 
-
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is
 /// given a path to that directory.  The block is permitted to modify the copy.
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-public func fixture(name: String, tags: [String] = [], file: StaticString = #file, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
+public func fixture(
+    name: String,
+    tags: [String] = [],
+    file: StaticString = #file,
+    line: UInt = #line,
+    body: (AbsolutePath) throws -> Void
+) {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = RelativePath(name)
@@ -95,12 +100,25 @@ public func fixture(name: String, tags: [String] = [], file: StaticString = #fil
 }
 
 /// Test-helper function that creates a new Git repository in a directory.  The new repository will contain
-/// exactly one empty file unless `addFile` is `false`, and if a tag name is provided, a tag with that name will be created.
-public func initGitRepo(_ dir: AbsolutePath, tag: String? = nil, addFile: Bool = true, file: StaticString = #file, line: UInt = #line) {
-    initGitRepo(dir, tags: tag.flatMap{ [$0] } ?? [], addFile: addFile, file: file, line: line)
+/// exactly one empty file unless `addFile` is `false`, and if a tag name is provided, a tag with that name will be
+/// created.
+public func initGitRepo(
+    _ dir: AbsolutePath,
+    tag: String? = nil,
+    addFile: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    initGitRepo(dir, tags: tag.flatMap({ [$0] }) ?? [], addFile: addFile, file: file, line: line)
 }
 
-public func initGitRepo(_ dir: AbsolutePath, tags: [String], addFile: Bool = true, file: StaticString = #file, line: UInt = #line) {
+public func initGitRepo(
+    _ dir: AbsolutePath,
+    tags: [String],
+    addFile: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line
+) {
     do {
         if addFile {
             let file = dir.appending(component: "file.swift")
@@ -117,8 +135,7 @@ public func initGitRepo(_ dir: AbsolutePath, tags: [String], addFile: Bool = tru
         for tag in tags {
             try repo.tag(name: tag)
         }
-    }
-    catch {
+    } catch {
         XCTFail("\(error)", file: file, line: line)
     }
 }
@@ -131,7 +148,15 @@ public enum Configuration {
 private var globalSymbolInMainBinary = 0
 
 @discardableResult
-public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuration = .Debug, printIfError: Bool = false, Xcc: [String] = [], Xld: [String] = [], Xswiftc: [String] = [], env: [String: String]? = nil) throws -> String {
+public func executeSwiftBuild(
+    _ chdir: AbsolutePath,
+    configuration: Configuration = .Debug,
+    printIfError: Bool = false,
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: [String: String]? = nil
+) throws -> String {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -139,15 +164,20 @@ public func executeSwiftBuild(_ chdir: AbsolutePath, configuration: Configuratio
     case .Release:
         args.append("release")
     }
-    args += Xcc.flatMap{ ["-Xcc", $0] }
-    args += Xld.flatMap{ ["-Xlinker", $0] }
-    args += Xswiftc.flatMap{ ["-Xswiftc", $0] }
+    args += Xcc.flatMap({ ["-Xcc", $0] })
+    args += Xld.flatMap({ ["-Xlinker", $0] })
+    args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
 
     return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
 }
 
 /// Test helper utility for executing a block with a temporary directory.
-public func mktmpdir(function: StaticString = #function, file: StaticString = #file, line: UInt = #line, body: (AbsolutePath) throws -> Void) {
+public func mktmpdir(
+    function: StaticString = #function,
+    file: StaticString = #file,
+    line: UInt = #line,
+    body: (AbsolutePath) throws -> Void
+) {
     do {
         let cleanedFunction = function.description
             .replacingOccurrences(of: "(", with: "")
@@ -231,8 +261,8 @@ public func loadMockPackageGraph4(
 ///
 /// - throws: errors thrown in `body`, POSIX.SystemError.setenv and 
 ///           POSIX.SystemError.unsetenv
-public func withCustomEnv(_ env: [String: String], body: () throws -> ()) throws {
-    let state = Array(env.keys).map { ($0, getenv($0)) }
+public func withCustomEnv(_ env: [String: String], body: () throws -> Void) throws {
+    let state = Array(env.keys).map({ ($0, getenv($0)) })
     let restore = {
         for (key, value) in state {
             if let value = value {

@@ -29,7 +29,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     public init() {
         _bytes = []
     }
-    
+
     /// Create a byte string from a byte array literal.
     public init(arrayLiteral contents: UInt8...) {
         _bytes = contents
@@ -39,12 +39,12 @@ public struct ByteString: ExpressibleByArrayLiteral {
     public init(_ contents: [UInt8]) {
         _bytes = contents
     }
-    
+
     /// Create a byte string from an byte buffer.
-    public init<S : Sequence> (_ contents: S) where S.Iterator.Element == UInt8 {
+    public init<S: Sequence> (_ contents: S) where S.Iterator.Element == UInt8 {
         _bytes = [UInt8](contents)
     }
-    
+
     /// Create a byte string from the UTF8 encoding of a string.
     public init(encodingAsUTF8 string: String) {
         _bytes = [UInt8](string.utf8)
@@ -59,7 +59,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
     public var count: Int {
         return _bytes.count
     }
-    
+
     /// Return the string decoded as a UTF8 sequence, if possible.
     public var asString: String? {
         // FIXME: This is very inefficient, we need a way to pass a buffer. It
@@ -69,7 +69,7 @@ public struct ByteString: ExpressibleByArrayLiteral {
             return String(validatingUTF8: unsafeBitCast(ptr.baseAddress, to: UnsafePointer<CChar>.self))
         }
     }
-    
+
     /// Return the string decoded as a UTF8 sequence, substituting replacement
     /// characters for ill-formed UTF8 sequences.
     public var asReadableString: String {
@@ -101,7 +101,7 @@ extension ByteString: Hashable {
         return result
     }
 }
-public func ==(lhs: ByteString, rhs: ByteString) -> Bool {
+public func == (lhs: ByteString, rhs: ByteString) -> Bool {
     return lhs.contents == rhs.contents
 }
 

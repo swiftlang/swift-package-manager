@@ -49,7 +49,7 @@ extension Package.Dependency: Equatable {
         return .package(url: url, range.lowerBound..<upperBound)
     }
 
-    public static func ==(lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
+    public static func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
         return lhs.url == rhs.url && lhs.requirement == rhs.requirement
     }
 

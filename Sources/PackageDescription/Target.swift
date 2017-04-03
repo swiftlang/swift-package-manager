@@ -35,26 +35,26 @@ extension Target.Dependency : ExpressibleByStringLiteral {
   public init(unicodeScalarLiteral value: String) {
     self = .Target(name: value)
   }
-  
+
   public init(extendedGraphemeClusterLiteral value: String) {
     self = .Target(name: value)
   }
 
   public init(stringLiteral value: String) {
     self = .Target(name: value)
-  } 
+  }
 }
 
 // MARK: Equatable
 
 extension Target : Equatable { }
-public func ==(lhs: Target, rhs: Target) -> Bool {
+public func == (lhs: Target, rhs: Target) -> Bool {
     return (lhs.name == rhs.name &&
         lhs.dependencies == rhs.dependencies)
 }
 
 extension Target.Dependency : Equatable { }
-public func ==(lhs: Target.Dependency, rhs: Target.Dependency) -> Bool {
+public func == (lhs: Target.Dependency, rhs: Target.Dependency) -> Bool {
     switch (lhs, rhs) {
     case (.Target(let a), .Target(let b)):
         return a == b

@@ -18,7 +18,7 @@ public struct Lock {
     /// Create a new lock.
     public init() {
     }
-    
+
     /// Execute the given block while holding the lock.
     public mutating func withLock<T> (_ body: () throws -> T) rethrows -> T {
         _lock.lock()
@@ -42,7 +42,7 @@ public final class FileLock {
     let cachePath: AbsolutePath
 
     /// File descriptor to the lock file.
-    private var fd: Int32? = nil
+    private var fd: Int32?
 
     /// Path to the lock file.
     private var lockFile: AbsolutePath {

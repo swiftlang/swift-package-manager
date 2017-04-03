@@ -27,7 +27,7 @@ public struct Version {
 
     /// The build metadata.
     public let buildMetadataIdentifiers: [String]
-    
+
     /// Create a version object.
     public init(
         _ major: Int,
@@ -47,9 +47,9 @@ public struct Version {
 
 extension Version: Hashable {
 
-    static public func ==(lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major && 
-               lhs.minor == rhs.minor && 
+    static public func == (lhs: Version, rhs: Version) -> Bool {
+        return lhs.major == rhs.major &&
+               lhs.minor == rhs.minor &&
                lhs.patch == rhs.patch &&
                lhs.prereleaseIdentifiers == rhs.prereleaseIdentifiers &&
                lhs.buildMetadataIdentifiers == rhs.buildMetadataIdentifiers
@@ -71,7 +71,7 @@ extension Version: Hashable {
 
 extension Version: Comparable {
 
-    public static func <(lhs: Version, rhs: Version) -> Bool {
+    public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
 
@@ -87,7 +87,8 @@ extension Version: Comparable {
             return true // Prerelease lhs < non-prerelease rhs 
         }
 
-        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
+        let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)
+        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zippedIdentifiers {
             if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
                 continue
             }
@@ -135,8 +136,9 @@ public extension Version {
 
         let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? characters.endIndex
         let requiredCharacters = characters.prefix(upTo: requiredEndIndex)
-        let requiredComponents = requiredCharacters.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init).flatMap{Int($0)}.filter{$0 >= 0}
+        let requiredComponents = requiredCharacters
+            .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+            .map(String.init).flatMap({ Int($0) }).filter({ $0 >= 0 })
 
         guard requiredComponents.count == 3 else { return nil }
 
@@ -150,8 +152,12 @@ public extension Version {
             return identifiers.split(separator: ".").map(String.init)
         }
 
-        self.prereleaseIdentifiers = identifiers(start: prereleaseStartIndex, end: metadataStartIndex ?? characters.endIndex)
-        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: characters.endIndex)
+        self.prereleaseIdentifiers = identifiers(
+            start: prereleaseStartIndex,
+            end: metadataStartIndex ?? characters.endIndex)
+        self.buildMetadataIdentifiers = identifiers(
+            start: metadataStartIndex,
+            end: characters.endIndex)
     }
 }
 

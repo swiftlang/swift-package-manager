@@ -23,7 +23,7 @@ public func build(yamlPath: AbsolutePath, llbuild: AbsolutePath, target: String?
     let process = Process(arguments: args, redirectOutput: false)
     try process.launch()
     try processSet.add(process)
-    let result = try process.waitUntilExit() 
+    let result = try process.waitUntilExit()
     guard result.exitStatus == .terminated(code: 0) else {
         throw ProcessResult.Error.nonZeroExit(result)
     }

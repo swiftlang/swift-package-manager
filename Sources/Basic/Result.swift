@@ -71,7 +71,7 @@ extension Result: CustomStringConvertible {
 }
 
 /// A type erased error enum.
-public struct AnyError: Swift.Error, CustomStringConvertible  {
+public struct AnyError: Swift.Error, CustomStringConvertible {
     /// The underlying error.
     public let underlyingError: Swift.Error
 

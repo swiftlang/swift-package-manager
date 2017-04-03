@@ -25,7 +25,7 @@ public enum PkgConfigError: Swift.Error {
 private let pkgConfigSearchPaths: [AbsolutePath] = {
     let searchPaths = try? Process.checkNonZeroExit(
         args: "pkg-config", "--variable", "pc_path", "pkg-config").chomp()
-    return searchPaths?.characters.split(separator: ":").map{ AbsolutePath(String($0)) } ?? []
+    return searchPaths?.characters.split(separator: ":").map({ AbsolutePath(String($0)) }) ?? []
 }()
 
 /// Information on an individual `pkg-config` supported package.
@@ -65,16 +65,23 @@ public struct PkgConfig {
     /// - parameter fileSystem: The file system to use, defaults to local file system.
     ///
     /// - throws: PkgConfigError
-    public init(name: String, additionalSearchPaths: [AbsolutePath] = [], fileSystem: FileSystem = localFileSystem) throws {
+    public init(
+        name: String,
+        additionalSearchPaths: [AbsolutePath] = [],
+        fileSystem: FileSystem = localFileSystem
+    ) throws {
         self.name = name
-        self.pcFile = try PkgConfig.locatePCFile(name: name, customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths, fileSystem: fileSystem)
+        self.pcFile = try PkgConfig.locatePCFile(
+            name: name,
+            customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
+            fileSystem: fileSystem)
 
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
-        
+
         var cFlags = parser.cFlags
         var libs = parser.libs
-        
+
         // If parser found dependencies in pc file, get their flags too.
         if !parser.dependencies.isEmpty {
             for dep in parser.dependencies {
@@ -84,19 +91,23 @@ public struct PkgConfig {
                 libs += pkg.libs
             }
         }
-        
+
         self.cFlags = cFlags
         self.libs = libs
     }
-    
+
     private static var envSearchPaths: [AbsolutePath] {
         if let configPath = POSIX.getenv("PKG_CONFIG_PATH") {
-            return configPath.characters.split(separator: ":").map{ AbsolutePath(String($0)) }
+            return configPath.characters.split(separator: ":").map({ AbsolutePath(String($0)) })
         }
         return []
     }
-    
-    static func locatePCFile(name: String, customSearchPaths: [AbsolutePath], fileSystem: FileSystem) throws -> AbsolutePath {
+
+    static func locatePCFile(
+        name: String,
+        customSearchPaths: [AbsolutePath],
+        fileSystem: FileSystem
+    ) throws -> AbsolutePath {
         // FIXME: We should consider building a registry for all items in the
         // search paths, which is likely to be substantially more efficient if
         // we end up searching for a reasonably sized number of packages.
@@ -122,13 +133,13 @@ struct PkgConfigParser {
     var dependencies = [String]()
     var cFlags = [String]()
     var libs = [String]()
-    
+
     init(pcFile: AbsolutePath, fileSystem: FileSystem) {
         precondition(fileSystem.isFile(pcFile))
         self.pcFile = pcFile
         self.fileSystem = fileSystem
     }
-    
+
     mutating func parse() throws {
         func removeComment(line: String) -> String {
             if let commentIndex = line.characters.index(of: "#") {
@@ -136,7 +147,7 @@ struct PkgConfigParser {
             }
             return line
         }
-        
+
         let fileContents = try fileSystem.readFileContents(pcFile)
         // FIXME: Should we error out instead if content is not UTF8 representable?
         for line in fileContents.asString?.components(separatedBy: "\n") ?? [] {
@@ -144,7 +155,7 @@ struct PkgConfigParser {
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.
             guard let line = uncommentedLine.chuzzle() else { continue }
-            
+
             if line.characters.contains(":") {
                 // Found a key-value pair.
                 try parseKeyValue(line: line)
@@ -159,7 +170,7 @@ struct PkgConfigParser {
             }
         }
     }
-    
+
     private mutating func parseKeyValue(line: String) throws {
         precondition(line.characters.contains(":"))
         let (key, maybeValue) = line.split(around: ":")
@@ -175,7 +186,7 @@ struct PkgConfigParser {
             break
         }
     }
-    
+
     /// Parses `Requires: ` string into array of dependencies.
     ///
     /// The dependency string has seperator which can be (multiple) space or a
@@ -184,13 +195,13 @@ struct PkgConfigParser {
     private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
         let separators = [" ", ","]
-        
+
         // Look at a char at an index if present.
         func peek(idx: Int) -> Character? {
             guard idx <= depString.characters.count - 1 else { return nil }
             return depString.characters[depString.characters.index(depString.characters.startIndex, offsetBy: idx)]
         }
-        
+
         // This converts the string which can be separated by comma or spaces
         // into an array of string.
         func tokenize() -> [String] {
@@ -219,8 +230,10 @@ struct PkgConfigParser {
             // If we encounter an operator then we need to skip the next token.
             if operators.contains(arg) {
                 // We should have a version number next, skip.
-                guard let _ = it.next() else {
-                    throw PkgConfigError.parsingError("Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in \(pcFile.asString)")
+                guard it.next() != nil else {
+                    throw PkgConfigError.parsingError(
+                        "Expected version number after \(deps.last.debugDescription) \(arg) in \"\(depString)\" in " +
+                        "\(pcFile.asString)")
                 }
             } else {
                 // Otherwise it is a dependency.
@@ -229,7 +242,7 @@ struct PkgConfigParser {
         }
         return deps
     }
-    
+
     /// Perform variable expansion on the line by processing the each fragment
     /// of the string until complete.
     ///
@@ -240,7 +253,8 @@ struct PkgConfigParser {
         typealias Fragment = String.CharacterView
         // Returns variable name, start index and end index of a variable in a string if present.
         // We make sure it of form ${name} otherwise it is not a variable.
-        func findVariable(_ fragment: Fragment) -> (name: String, startIndex: Fragment.Index, endIndex: Fragment.Index)? {
+        func findVariable(_ fragment: Fragment)
+            -> (name: String, startIndex: Fragment.Index, endIndex: Fragment.Index)? {
             guard let dollar = fragment.index(of: "$"),
                   dollar != fragment.endIndex && fragment[fragment.index(after: dollar)] == "{",
                   let variableEndIndex = fragment.index(of: "}")
@@ -270,7 +284,7 @@ struct PkgConfigParser {
         }
         return String(result)
     }
-    
+
     /// Split line on unescaped spaces.
     ///
     /// Will break on space in "abc def" and "abc\\ def" but not in "abc\ def"
@@ -279,14 +293,14 @@ struct PkgConfigParser {
     private func splitEscapingSpace(_ line: String) throws -> [String] {
         var splits = [String]()
         var fragment = [Character]()
-        
+
         func saveFragment() {
             if !fragment.isEmpty {
                 splits.append(String(fragment))
                 fragment.removeAll()
             }
         }
-        
+
         var it = line.characters.makeIterator()
         // Indicates if we're in a quoted fragment, we shouldn't append quote.
         var inQuotes = false
@@ -304,7 +318,8 @@ struct PkgConfigParser {
             }
         }
         guard !inQuotes else {
-            throw PkgConfigError.parsingError("Text ended before matching quote was found in line: \(line) file: \(pcFile.asString)")
+            throw PkgConfigError.parsingError(
+                "Text ended before matching quote was found in line: \(line) file: \(pcFile.asString)")
         }
         saveFragment()
         return splits

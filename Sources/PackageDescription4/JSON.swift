@@ -35,7 +35,7 @@ extension JSON {
         case .string(let value):
             return "\"" + value + "\""
         case .array(let contents):
-            return "[" + contents.map{ $0.toString() }.joined(separator: ", ") + "]"
+            return "[" + contents.map({ $0.toString() }).joined(separator: ", ") + "]"
         case .dictionary(let contents):
             var output = "{"
             for (i, key) in contents.keys.sorted().enumerated() {

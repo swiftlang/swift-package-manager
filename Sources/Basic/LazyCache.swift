@@ -34,8 +34,8 @@ public struct LazyCache<Class, T> {
     // a reader-writer lock or something similar here.
     private var lock = Lock()
     let body: (Class) -> () -> T
-    var cachedValue: T? = nil
-    
+    var cachedValue: T?
+
     /// Create a lazy cache from a method value.
     public init(_ body: @escaping (Class) -> () -> T) {
         self.body = body

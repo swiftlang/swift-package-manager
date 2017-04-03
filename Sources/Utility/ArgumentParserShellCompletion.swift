@@ -51,10 +51,9 @@ extension ArgumentParser {
         stream.flush()
     }
 
+    // MARK: - BASH
 
-    // MARK:- BASH
-
-    fileprivate func generateBashSwiftTool(name: String, on stream: OutputByteStream) -> () {
+    fileprivate func generateBashSwiftTool(name: String, on stream: OutputByteStream) {
 
         // Suggest positional arguments. Beware that this forces positional arguments
         // before options. For example [swift package pin <TAB>] expects a name as the
@@ -110,7 +109,7 @@ extension ArgumentParser {
     fileprivate func generateBashCasePrev(on stream: OutputByteStream) {
         stream <<< "    case $prev in\n"
         for option in options {
-            let flags = [option.name] + (option.shortName.map({[$0]}) ?? [])
+            let flags = [option.name] + (option.shortName.map({ [$0] }) ?? [])
             stream <<< "        (\(flags.joined(separator: "|")))\n"
             generateBashCompletion(option, on: stream)
             stream <<< "        ;;\n"
@@ -126,7 +125,8 @@ extension ArgumentParser {
         case .unspecified:
             break
         case .values(let values):
-            stream <<< "            COMPREPLY=( $(compgen -W \"\(values.map({$0.value}).joined(separator: " "))\" -- $cur) )\n"
+            let x = values.map({ $0.value }).joined(separator: " ")
+            stream <<< "            COMPREPLY=( $(compgen -W \"\(x)\" -- $cur) )\n"
             stream <<< "            return\n"
         case .filename:
             stream <<< "            _filedir\n"
@@ -134,8 +134,7 @@ extension ArgumentParser {
         }
     }
 
-
-    // MARK:- ZSH
+    // MARK: - ZSH
 
     private func generateZshSwiftTool(name: String, on stream: OutputByteStream) {
         // Completions are provided by zsh's _arguments builtin.
@@ -198,7 +197,9 @@ extension ArgumentParser {
         case let shortName?: stream <<< "(\(argument.name) \(shortName))\"{\(argument.name),\(shortName)}\""
         }
 
-        let description = removeDefaultRegex.replace(in: argument.usage ?? "", with: "").replacingOccurrences(of: "\"", with: "\\\"")
+        let description = removeDefaultRegex
+            .replace(in: argument.usage ?? "", with: "")
+            .replacingOccurrences(of: "\"", with: "\\\"")
         stream <<< "[\(description)]"
 
         generateZshCompletion(argument, on: stream)
@@ -207,7 +208,9 @@ extension ArgumentParser {
 
     /// Generates completion values, as part of an item for `_arguments`.
     fileprivate func generateZshCompletion(_ argument: AnyArgument, on stream: OutputByteStream) {
-        let message = removeDefaultRegex.replace(in: argument.usage ?? " ", with: "").replacingOccurrences(of: "\"", with: "\\\"")
+        let message = removeDefaultRegex
+            .replace(in: argument.usage ?? " ", with: "")
+            .replacingOccurrences(of: "\"", with: "\\\"")
 
         switch argument.kind.completion {
         case .none: stream <<< ":\(message): "
@@ -225,6 +228,10 @@ extension ArgumentParser {
 
 fileprivate extension NSRegularExpression {
     func replace(`in` original: String, with replacement: String) -> String {
-        return stringByReplacingMatches(in: original, options: [], range: NSRange(location: 0, length: original.characters.count), withTemplate: replacement)
+        return stringByReplacingMatches(
+            in: original,
+            options: [],
+            range: NSRange(location: 0, length: original.characters.count),
+            withTemplate: replacement)
     }
 }

@@ -65,7 +65,7 @@ final class TerminalControllerTests: XCTestCase {
         XCTAssertEqual(pty.readMaster(), "\r\n")
 
         // Test move cursor.
-        term.moveCursor(y: 3)
+        term.moveCursor(up: 3)
         XCTAssertEqual(pty.readMaster(), "\u{1B}[3A")
 
         // Test color wrapping.

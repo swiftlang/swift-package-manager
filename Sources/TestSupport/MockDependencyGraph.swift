@@ -103,7 +103,7 @@ public struct MockManifestGraph {
         repoProvider = inMemory?.provider
         // Create the test repositories, we don't need them to have actual
         // contents (the manifests are mocked).
-        let repos = Dictionary(items: try packages.map { package -> (String, RepositorySpecifier) in
+        let repos = Dictionary(items: try packages.map({ package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
             let tag = package.version?.description ?? "initial"
             let specifier = RepositorySpecifier(url: repoPath.asString)
@@ -127,7 +127,7 @@ public struct MockManifestGraph {
                 }
             }
             return (package.name, specifier)
-            })
+        }))
 
         let src = path.appending(component: "Sources")
         if let fs = inMemory?.fs {
@@ -150,17 +150,19 @@ public struct MockManifestGraph {
         )
 
         // Create the manifests from mock packages.
-        var manifests = Dictionary(items: packages.map { package -> (MockManifestLoader.Key, Manifest) in
+        var manifests = Dictionary(items: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 package: .v3(PackageDescription.Package(
                     name: package.name,
-                    dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies))),
+                    dependencies: MockManifestGraph.createDependencies(
+                        repos: repos,
+                        dependencies: package.dependencies))),
                 version: package.version)
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
-        })
+        }))
         // Add the root manifest.
         manifests[MockManifestLoader.Key(url: path.asString, version: nil)] = rootManifest
 
@@ -170,12 +172,15 @@ public struct MockManifestGraph {
     }
 
     /// Maps MockDependencies into PackageDescription's Dependency array.
-    private static func createDependencies(repos: [String: RepositorySpecifier], dependencies: [MockDependency]) -> [PackageDescription.Package.Dependency] {
-        return dependencies.map { dependency in
+    private static func createDependencies(
+        repos: [String: RepositorySpecifier],
+        dependencies: [MockDependency]
+    ) -> [PackageDescription.Package.Dependency] {
+        return dependencies.map({ dependency in
             let version = dependency.version
             let range: Range<PackageDescription.Version> = Version(version.lowerBound) ..< Version(version.upperBound)
             return .Package(url: repos[dependency.name]?.url ?? "//\(dependency.name)", versions: range)
-        }
+        })
     }
 }
 

@@ -16,7 +16,7 @@ public struct Condition {
 
     /// Create a new condition.
     public init() {}
-    
+
     /// Wait for the condition to become available.
     public func wait() {
         _condition.wait()
@@ -40,7 +40,7 @@ public struct Condition {
     public func broadcast() {
         _condition.broadcast()
     }
-    
+
     /// A helper method to execute the given body while condition is locked.
     public func whileLocked<T>(_ body: () throws -> T) rethrows -> T {
         _condition.lock()

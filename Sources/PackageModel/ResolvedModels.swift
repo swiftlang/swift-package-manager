@@ -37,10 +37,10 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
     /// The transitive closure of the target dependencies. This will also include the
     /// targets which needs to be dynamically linked.
     public lazy var recursiveDependencies: [ResolvedModule] = {
-        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).flatMap {
+        return try! topologicalSort(self.dependencies, successors: { $0.dependencies }).flatMap({
             guard case .target(let target) = $0 else { return nil }
             return target
-        }
+        })
     }()
 
     /// The language-level module name.
@@ -99,7 +99,12 @@ public final class ResolvedPackage: CustomStringConvertible, ObjectIdentifierPro
     /// The dependencies of the package.
     public let dependencies: [ResolvedPackage]
 
-    public init(package: Package, dependencies: [ResolvedPackage], modules: [ResolvedModule], products: [ResolvedProduct]) {
+    public init(
+        package: Package,
+        dependencies: [ResolvedPackage],
+        modules: [ResolvedModule],
+        products: [ResolvedProduct]
+    ) {
         self.underlyingPackage = package
         self.dependencies = dependencies
         self.modules = modules
@@ -139,7 +144,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
     public lazy var linuxMainModule: ResolvedModule = {
         precondition(self.type == .test, "This property is only valid for test product type")
         // FIXME: This is hacky, we should get this from somewhere else.
-        let testDirectory = self.modules.first{ $0.type == .test }!.sources.root.parentDirectory
+        let testDirectory = self.modules.first { $0.type == .test }!.sources.root.parentDirectory
         // Path to the main file for test product on linux.
         let linuxMain = testDirectory.appending(component: "LinuxMain.swift")
         // Create an exectutable resolved module with the linux main, adding product's modules as dependencies.
@@ -154,11 +159,11 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
     /// Note: This property is only valid for executable products.
     public var executableModule: ResolvedModule {
         precondition(type == .executable, "This property should only be called for executable modules")
-        return modules.first{$0.type == .executable}!
+        return modules.first {$0.type == .executable}!
     }
 
     public init(product: Product, modules: [ResolvedModule]) {
-        assert(product.modules.count == modules.count && product.modules.map{$0.name} == modules.map{$0.name})
+        assert(product.modules.count == modules.count && product.modules.map({ $0.name }) == modules.map({ $0.name }))
         self.underlyingProduct = product
         self.modules = modules
     }
@@ -180,16 +185,16 @@ extension ResolvedModule.Dependency: Hashable, CustomStringConvertible {
         }
     }
 
-    // MARK:- Hashable, CustomStringConvertible conformance
+    // MARK: - Hashable, CustomStringConvertible conformance
 
-    public var hashValue: Int { 
+    public var hashValue: Int {
         switch self {
             case .product(let p): return p.hashValue
             case .target(let t): return t.hashValue
         }
     }
 
-    public static func ==(lhs: ResolvedModule.Dependency, rhs: ResolvedModule.Dependency) -> Bool {
+    public static func == (lhs: ResolvedModule.Dependency, rhs: ResolvedModule.Dependency) -> Bool {
         switch (lhs, rhs) {
         case (.product(let l), .product(let r)):
             return l == r
