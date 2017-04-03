@@ -162,8 +162,12 @@ extension ClangModule: ClangModuleCachable {
     func moduleCacheArgs(prefix: AbsolutePath) -> [String] {
         // FIXME: We use this hack to let swiftpm's functional test use shared cache
         // so it doesn't become painfully slow.
-        if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
-        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        let moduleCachePath: AbsolutePath
+        if let overridePath = getenv("SWIFTPM_TEST_MODULECACHE") {
+            moduleCachePath = AbsolutePath(overridePath)
+        } else {
+            moduleCachePath = moduleCacheDir(prefix: prefix)
+        }
         return ["-fmodules-cache-path=" + moduleCachePath.asString]
     }
 }
@@ -172,8 +176,12 @@ extension SwiftModule: ClangModuleCachable {
     func moduleCacheArgs(prefix: AbsolutePath) -> [String] {
         // FIXME: We use this hack to let swiftpm's functional test use shared cache
         // so it doesn't become painfully slow.
-        if let _ = getenv("IS_SWIFTPM_TEST") { return [] }
-        let moduleCachePath = moduleCacheDir(prefix: prefix)
+        let moduleCachePath: AbsolutePath
+        if let overridePath = getenv("SWIFTPM_TEST_MODULECACHE") {
+            moduleCachePath = AbsolutePath(overridePath)
+        } else {
+            moduleCachePath = moduleCacheDir(prefix: prefix)
+        }
         return ["-module-cache-path", moduleCachePath.asString]
     }
 }
