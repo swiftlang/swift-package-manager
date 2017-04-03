@@ -280,9 +280,7 @@ final class PackageToolTests: XCTestCase {
 
             // Fully clean.
             _ = try execute(["reset"], chdir: packageRoot)
-            XCTAssertTrue(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
-            // We preserve cache directories.
-            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
+            XCTAssertFalse(isDirectory(packageRoot.appending(component: ".build")))
         }
     }
 
