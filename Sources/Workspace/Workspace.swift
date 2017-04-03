@@ -17,7 +17,7 @@ import SourceControl
 import Utility
 
 /// An error in one of the workspace operations
-public enum WorkspaceOperationError: Swift.Error {
+public enum WorkspaceError: Swift.Error {
     /// The repository has uncommited changes.
     case hasUncommitedChanges(repo: AbsolutePath)
 
@@ -40,7 +40,7 @@ public enum WorkspaceOperationError: Swift.Error {
     case incompatibleToolsVersion(rootPackage: AbsolutePath, required: ToolsVersion, current: ToolsVersion)
 
     /// The package at edit destination is not the one user is trying to edit.
-    case mismatchingDestinationPackage(path: AbsolutePath, destPackage: String, expectedPackage: String)
+    case mismatchingDestinationPackage(path: AbsolutePath, destinationPackage: String, expectedPackage: String)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -60,9 +60,6 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
-
-    /// The workspace operation emitted this warning.
-    func warning(message: String)
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -290,9 +287,18 @@ public class Workspace {
     }
 
     /// Create the cache directories.
-    private func createCacheDirectories() throws {
-        try fileSystem.createDirectory(repositoryManager.path, recursive: true)
-        try fileSystem.createDirectory(checkoutsPath, recursive: true)
+    private func createCacheDirectories(engine: DiagnosticsEngine) {
+        do {
+            try fileSystem.createDirectory(repositoryManager.path, recursive: true)
+        } catch {
+            engine.emit(error)
+        }
+        
+        do {
+            try fileSystem.createDirectory(checkoutsPath, recursive: true)
+        } catch {
+            engine.emit(error)
+        }
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -302,15 +308,17 @@ public class Workspace {
             repositoryManager.path,
             checkoutsPath,
             try managedDependencies.load().statePath
-        ].map { path in
+        ].map({ path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
             return path.basename
-        })
+        }))
+        
         // If we have no data yet, we're done.
         guard fileSystem.exists(dataPath) else {
             return
         }
+        
         for name in try fileSystem.getDirectoryContents(dataPath) {
             guard !protectedAssets.contains(name) else { continue }
             fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
@@ -318,11 +326,11 @@ public class Workspace {
     }
 
     /// Resets the entire workspace by removing the data directory.
-    public func reset() throws {
+    public func reset(engine: DiagnosticsEngine) {
         try managedDependencies.load().reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
-        try createCacheDirectories()
+        createCacheDirectories(engine: engine)
     }
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
@@ -331,6 +339,7 @@ public class Workspace {
     ///     - dependency: The dependency to put in edit mode.
     ///     - packageName: The name of the package corresponding to the
     ///         dependency. This is used for the checkout directory name.
+    ///     - engine: The diagnostics engine that will collect warnings and errors.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///         should be checked out to otherwise current revision.
@@ -340,13 +349,15 @@ public class Workspace {
     public func edit(
         dependency: ManagedDependency,
         packageName: String,
+        engine: DiagnosticsEngine,
         path: AbsolutePath? = nil,
         revision: Revision?,
         checkoutBranch: String? = nil
     ) throws {
         // Check if we can edit this dependency.
         guard case .checkout(let checkoutState) = dependency.state else {
-            throw WorkspaceOperationError.dependencyAlreadyInEditMode
+            engine.emit(WorkspaceError.dependencyAlreadyInEditMode)
+            return
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -366,15 +377,19 @@ public class Workspace {
                 manifestVersion: toolsVersion.manifestVersion)
 
             guard manifest.name == packageName else {
-                throw WorkspaceOperationError.mismatchingDestinationPackage(
-                    path: destination, destPackage: manifest.name, expectedPackage: packageName)
+                engine.emit(WorkspaceError.mismatchingDestinationPackage(
+                    path: destination,
+                    destinationPackage: manifest.name,
+                    expectedPackage: packageName))
+                return
             }
+            
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                delegate.warning(message: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
+                engine.emit(warning: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
             }
             if let revision = revision {
-                delegate.warning(message: "not using revsion '\(revision.identifier)' for dependency '\(packageName)'")
+                engine.emit(warning: "not using revision '\(revision.identifier)' for dependency '\(packageName)'")
             }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
@@ -385,10 +400,12 @@ public class Workspace {
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
-                throw WorkspaceOperationError.branchAlreadyExists
+                engine.emit(WorkspaceError.branchAlreadyExists)
+                return
             }
             if let revision = revision, !repo.exists(revision: revision) {
-                throw WorkspaceOperationError.nonExistentRevision
+                engine.emit(WorkspaceError.nonExistentRevision)
+                return
             }
 
             try handle.cloneCheckout(to: destination, editable: true)
@@ -423,16 +440,21 @@ public class Workspace {
     /// - Parameters:
     ///     - dependency: The dependency to be unedited.
     ///     - forceRemove: If true, the dependency will be unedited even if has
-    /// unpushed and uncommited changes. Otherwise will throw respective errors.
+    ///       unpushed and uncommited changes. Otherwise will throw respective errors.
     ///
     /// - throws: WorkspaceOperationError
-    public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+    public func unedit(
+        dependency: ManagedDependency,
+        forceRemove: Bool,
+        engine: DiagnosticsEngine
+    ) throws {
         var forceRemove = forceRemove
 
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout:
-            throw WorkspaceOperationError.dependencyNotInEditMode
+            engine.emit(WorkspaceError.dependencyNotInEditMode)
+            return
         case .edited(let path):
             if path != nil {
                 // Set force remove to true for unmanaged dependencies.  Note that
@@ -448,10 +470,12 @@ public class Workspace {
         if !forceRemove {
             let workingRepo = try repositoryManager.provider.openCheckout(at: path)
             guard !workingRepo.hasUncommitedChanges() else {
-                throw WorkspaceOperationError.hasUncommitedChanges(repo: path)
+                engine.emit(WorkspaceError.hasUncommitedChanges(repo: path))
+                return
             }
             guard try !workingRepo.hasUnpushedCommits() else {
-                throw WorkspaceOperationError.hasUnpushedChanges(repo: path)
+                engine.emit(WorkspaceError.hasUnpushedChanges(repo: path))
+                return
             }
         }
         // Remove the editable checkout from disk.
@@ -478,6 +502,8 @@ public class Workspace {
     /// - Parameters:
     ///   - dependency: The dependency to pin.
     ///   - packageName: The name of the package which is being pinned.
+    ///   - rootPackages: The list of paths to root packages.
+    ///   - engine: The diagnostics engine that will collect warnings and errors.
     ///   - version: The version to pin at.
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
@@ -525,9 +551,9 @@ public class Workspace {
         var constraints = currentManifests.unversionedConstraints()
         constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
         constraints += pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
-        constraints.append(
-            RepositoryPackageConstraint(
-                container: dependency.repository, requirement: requirement))
+        constraints.append(RepositoryPackageConstraint(
+            container: dependency.repository,
+            requirement: requirement))
 
         // Resolve the dependencies.
         let results = try resolveDependencies(constraints: constraints)
@@ -551,6 +577,7 @@ public class Workspace {
             pinsStore: pinsStore,
             dependency: newDependency,
             package: packageName,
+            engine: engine,
             reason: reason)
     }
 
@@ -562,6 +589,7 @@ public class Workspace {
     public func pinAll(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
+        engine: DiagnosticsEngine,
         reason: String? = nil,
         reset: Bool = false
     ) throws {
@@ -574,6 +602,7 @@ public class Workspace {
                 pinsStore: pinsStore,
                 dependency: dependencyManifest.dependency,
                 package: dependencyManifest.manifest.name,
+                engine: engine,
                 reason: reason)
         }
     }
@@ -583,6 +612,7 @@ public class Workspace {
         pinsStore: PinsStore,
         dependency: ManagedDependency,
         package: String,
+        engine: DiagnosticsEngine,
         reason: String?
     ) throws {
         let checkoutState: CheckoutState
@@ -595,7 +625,7 @@ public class Workspace {
             if let basedOn = dependency.basedOn, case .checkout(let state) = basedOn.state {
                 checkoutState = state
             } else {
-                return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
+                return engine.emit(warning: "not pinning \(package). It is being edited but is no longer needed.")
             }
         }
         // Commit the pin.
@@ -762,7 +792,7 @@ public class Workspace {
                 rootManifests: rootManifests, engine: engine)
             // If we're repinning, update the pins store.
             if repin && !engine.hasErrors() {
-                try repinPackages(pinsStore, dependencyManifests: currentManifests)
+                try repinPackages(pinsStore, dependencyManifests: currentManifests, engine: engine)
             }
         } catch {
             engine.emit(error)
@@ -773,12 +803,17 @@ public class Workspace {
     ///
     /// This methods pins all packages if auto pinning is on.
     /// Otherwise, only currently pinned packages are repinned.
-    private func repinPackages(_ pinsStore: PinsStore, dependencyManifests: DependencyManifests) throws {
+    private func repinPackages(
+        _ pinsStore: PinsStore,
+        dependencyManifests: DependencyManifests,
+        engine: DiagnosticsEngine
+    ) throws {
         // If autopin is on, pin everything and return.
         if pinsStore.isAutoPinEnabled {
             return try pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: dependencyManifests,
+                engine: engine,
                 reset: true)
         }
 
@@ -787,9 +822,8 @@ public class Workspace {
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
             guard let dependency = managedDependencies[pin.repository] else {
-                // FIXME: Use diagnosics engine when we have that.
-                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
-                    "\(pin.state.description) but the dependency is not present.")
+                engine.emit(warning: "\(pin.package) is pinned at \(pin.state.description) " +
+                    "but the dependency is not present. Consider unpinning it.")
                 continue
             }
             // Pin this dependency.
@@ -797,6 +831,7 @@ public class Workspace {
                 pinsStore: pinsStore,
                 dependency: dependency,
                 package: pin.package,
+                engine: engine,
                 reason: pin.reason)
         }
     }
@@ -932,7 +967,7 @@ public class Workspace {
         // Try to load current managed dependencies, or emit and return.
         let managedDependencies: ManagedDependencies
         do {
-            try fixManagedDependencies()
+            try fixManagedDependencies(engine: engine)
             managedDependencies = try self.managedDependencies.load()
         } catch {
             engine.emit(error)
@@ -961,7 +996,7 @@ public class Workspace {
     /// If some checkout dependency is reomved form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    private func fixManagedDependencies() throws {
+    private func fixManagedDependencies(engine: DiagnosticsEngine) throws {
         let managedDependencies = try self.managedDependencies.load()
         for dependency in managedDependencies.values {
             let dependencyPath = path(for: dependency)
@@ -970,13 +1005,11 @@ public class Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(repository: dependency.repository, at: checkoutState)
-                    // FIXME: Use diagnosics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) is missing and has been cloned again.")
+                    engine.emit(warning: "\(dependency.subpath.asString) is missing and has been cloned again.")
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
                     try unedit(dependency: dependency, forceRemove: true)
-                    // FIXME: Use diagnosics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, " +
+                    engine.emit(warning: "\(dependency.subpath.asString) was being edited but has been removed, " +
                         "falling back to original checkout.")
                 }
             }
@@ -1016,11 +1049,7 @@ public class Workspace {
         createMultipleTestProducts: Bool = false
     ) -> PackageGraph {
         // Ensure the cache path exists and validate that edited dependencies.
-        do {
-            try createCacheDirectories()
-        } catch {
-            engine.emit(error)
-        }
+        createCacheDirectories(engine: engine)
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(
@@ -1073,6 +1102,7 @@ public class Workspace {
                 try self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
+                     engine: engine,
                      reset: true)
             }
         } catch {
@@ -1089,7 +1119,10 @@ public class Workspace {
     }
 
     /// Removes the clone and checkout of the provided specifier.
-    func remove(specifier: RepositorySpecifier) throws {
+    private func remove(
+        specifier: RepositorySpecifier,
+        engine: DiagnosticsEngine
+    ) throws {
         let managedDependencies = try self.managedDependencies.load()
         guard var dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
@@ -1119,7 +1152,8 @@ public class Workspace {
         let dependencyPath = checkoutsPath.appending(dependency.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
         guard !checkedOutRepo.hasUncommitedChanges() else {
-            throw WorkspaceOperationError.hasUncommitedChanges(repo: dependencyPath)
+            engine.emit(WorkspaceError.hasUncommitedChanges(repo: dependencyPath))
+            return
         }
         fileSystem.removeFileTree(dependencyPath)
 
@@ -1140,8 +1174,10 @@ public class Workspace {
         func load(_ package: AbsolutePath) throws -> Manifest {
             let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
             guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceOperationError.incompatibleToolsVersion(
-                    rootPackage: package, required: toolsVersion, current: currentToolsVersion)
+                throw WorkspaceError.incompatibleToolsVersion(
+                    rootPackage: package,
+                    required: toolsVersion,
+                    current: currentToolsVersion)
             }
             return try manifestLoader.load(
                 package: package, baseURL: package.asString, manifestVersion: toolsVersion.manifestVersion)
