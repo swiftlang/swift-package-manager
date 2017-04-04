@@ -92,9 +92,9 @@ public enum SwiftPMProduct {
         environment["XCTestConfigurationFilePath"] = nil
         environment["NSUnbufferedIO"] = nil
       #endif
-        // FIXME: We use this private environment variable hack to be able to
-        // create special conditions in swift-build for swiftpm tests.
-        environment["IS_SWIFTPM_TEST"] = "1"
+        // Unset the build path variable if present, otherwise the fixtures will
+        // end up building at this location.
+        environment["SWIFT_BUILD_PATH"] = nil
 
         var out = ""
         var completeArgs = [path.asString]

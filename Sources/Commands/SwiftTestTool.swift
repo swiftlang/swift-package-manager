@@ -15,6 +15,7 @@ import Build
 import Utility
 
 import func POSIX.exit
+import func POSIX.getenv
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
@@ -272,7 +273,8 @@ final class TestRunner {
         var output = ""
         var success = true
         do {
-            try popen(args(), redirectStandardError: true) { line in
+            let env = try TestRunner.environment()
+            try popen(args(), redirectStandardError: true, environment: env) { line in
                 output += line
             }
         } catch {
@@ -283,9 +285,29 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams.
     func test() -> Bool {
-        let result: Void? = try? system(args())
+        let result: Void? = try? system(args(), environment: TestRunner.environment())
         return result != nil
     }
+
+    /// Returns the environment to be used when executing a test.
+    private static func environment() throws -> [String: String] {
+        // If we already have computed the enviornment, we're done.
+        if let environment = _environment {
+            return environment
+        }
+
+        var env = ProcessInfo.processInfo.environment
+
+        // Override the ModuleCache for SwiftPM's own tests.
+        if getenv("IS_SWIFTPM_TEST") != nil {
+            let moduleCacheDir = try TemporaryDirectory(prefix: "swiftpm-tests")
+            env["SWIFTPM_TEST_MODULECACHE"] = moduleCacheDir.path.asString
+        }
+
+        _environment = env
+        return env
+    }
+    private static var _environment: [String: String]?
 }
 
 /// A class to run tests in parallel.

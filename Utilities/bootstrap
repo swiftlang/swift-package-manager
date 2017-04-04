@@ -946,7 +946,8 @@ def main():
         build_flags.extend(["--configuration", "release"])
 
     env_cmd = ["env", "SWIFT_EXEC=" + os.path.join(bindir, "swiftc"),
-                      "SWIFT_BUILD_PATH=" + build_path]
+                      "SWIFT_BUILD_PATH=" + build_path,
+                      "IS_SWIFTPM_TEST=1"]
     if args.sysroot:
         env_cmd.append("SYSROOT=" + args.sysroot)
     cmd = env_cmd + [bootstrapped_product] + build_flags
