@@ -285,16 +285,18 @@ private func sandboxProfile() -> String {
     stream <<< "(version 1)" <<< "\n"
     // Deny everything by default.
     stream <<< "(deny default)" <<< "\n"
+    // Import the system sandbox profile.
+    stream <<< "(import \"system.sb\")" <<< "\n"
     // Allow reading all files.
     stream <<< "(allow file-read*)" <<< "\n"
     // These are required by the Swift compiler.
     stream <<< "(allow process*)" <<< "\n"
     stream <<< "(allow sysctl*)" <<< "\n"
-    stream <<< "(allow mach*)" <<< "\n"
-    stream <<< "(allow signal)" <<< "\n"
     // Allow writing in temporary locations.
     stream <<< "(allow file-write*" <<< "\n"
-    stream <<< "    (subpath \"/private/var\")" <<< "\n"
+    for directory in Platform.darwinCacheDirectories() {
+        stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
+    }
     stream <<< ")" <<< "\n"
     return stream.bytes.asString!
 }
