@@ -33,13 +33,13 @@ public struct DeltaAlgorithm<Change: Hashable> {
     /// Minimizes the set `changes` by executing `predicate` on subsets of
     /// changes and returning the smallest set which still satisfies the test
     /// predicate.
-    public func run(changes: Set<Change>, predicate: (Set<Change>) -> Bool) -> Set<Change> {
+    public func run(changes: Set<Change>, predicate: (Set<Change>) throws -> Bool) rethrows -> Set<Change> {
         // Check empty set first to quickly find poor test functions.
-        if predicate(Set()) {
+        if try predicate(Set()) {
             return Set()
         }
         // Run the algorithm.
-        return delta(changes: changes, changeSets: split(changes), predicate: predicate)
+        return try delta(changes: changes, changeSets: split(changes), predicate: predicate)
     }
 
     /// Partition a set of changes into one or two subsets.
@@ -69,15 +69,15 @@ public struct DeltaAlgorithm<Change: Hashable> {
     func delta(
         changes: Set<Change>,
         changeSets: [Set<Change>],
-        predicate: (Set<Change>) -> Bool
-    ) -> Set<Change> {
+        predicate: (Set<Change>) throws -> Bool
+    ) rethrows -> Set<Change> {
         // If there is nothing left we can remove, we are done.
         if changeSets.count <= 1 {
             return changes
         }
 
         // Look for a passing subset.
-        if let result = search(changes: changes, changeSets: changeSets, predicate: predicate) {
+        if let result = try search(changes: changes, changeSets: changeSets, predicate: predicate) {
             return result
         }
 
@@ -86,7 +86,7 @@ public struct DeltaAlgorithm<Change: Hashable> {
         if splitSets.count == changeSets.count {
             return changes
         }
-        return delta(changes: changes, changeSets: splitSets, predicate: predicate)
+        return try delta(changes: changes, changeSets: splitSets, predicate: predicate)
     }
 
     /// Search for a subset (or subsets) in `changeSets` which can be
@@ -96,24 +96,24 @@ public struct DeltaAlgorithm<Change: Hashable> {
     func search(
         changes: Set<Change>,
         changeSets: [Set<Change>],
-        predicate: (Set<Change>) -> Bool
-    ) -> Set<Change>? {
+        predicate: (Set<Change>) throws -> Bool
+    ) rethrows -> Set<Change>? {
         for (idx, currentSet) in changeSets.enumerated() {
             // If the test passes on this subset alone, recurse.
-            if predicate(currentSet) {
-                return delta(
+            if try predicate(currentSet) {
+                return try delta(
                     changes: currentSet, changeSets: split(currentSet), predicate: predicate)
             }
 
             // Otherwise, if we have more than two sets, see if test passes on the complement.
             if changeSets.count > 2 {
                 let compliment = changes.subtracting(currentSet)
-                if predicate(compliment) {
+                if try predicate(compliment) {
                     var complimentSets = [Set<Change>]()
                     let idxIndex = changeSets.index(changeSets.startIndex, offsetBy: idx)
                     complimentSets += changeSets[changeSets.startIndex..<idxIndex]
                     complimentSets += changeSets[changeSets.index(after: idxIndex)..<changeSets.endIndex]
-                    return delta(
+                    return try delta(
                         changes: compliment,
                         changeSets: complimentSets,
                         predicate: predicate)
