@@ -52,7 +52,6 @@ class PackageGraphTests: XCTestCase {
                 "Sources/Bar/bar.swift",
                 "Sources/Sea/Sea.c",
                 "Sources/Sea/include/Sea.h",
-                "Sources/Sea/include/module.modulemap",
                 "Tests/BarTests/barTests.swift",
                 "Dependencies/Foo 1.0.0/foo.swift",
                 "Products/Foo.framework",
@@ -89,6 +88,8 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES, "YES")
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
@@ -97,6 +98,8 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea2") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.SKIP_INSTALL, "YES")
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
@@ -105,6 +108,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "BarTests") { targetResult in
                 targetResult.check(productType: .unitTest)
                 targetResult.check(dependencies: ["Foo", "Bar"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["@loader_path/../Frameworks", "@loader_path/Frameworks"])
                 XCTAssertEqual(targetResult.target.buildSettings.xcconfigFileRef?.path, "../Overrides.xcconfig")
             }
@@ -128,15 +132,13 @@ class PackageGraphTests: XCTestCase {
       XcodeProjectTester(project) { result in
           result.check(target: "swift") { targetResult in
               XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
-                  "$(inherited)", "-Xcc",
-                  "-fmodule-map-file=$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea/module.modulemap", 
+                  "$(inherited)",
                   "-Xcc", "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap"
               ])
               XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
                   "$(inherited)",
                   "$(SRCROOT)/Sources/Sea/include",
-                  "$(SRCROOT)/Sources/Sea2/include",
-                  "$(SRCROOT)/build/xcodeproj/GeneratedModuleMap/Sea"
+                  "$(SRCROOT)/Sources/Sea2/include"
               ])
           }
           result.check(target: "Sea") { targetResult in
