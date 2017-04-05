@@ -229,7 +229,7 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    let managedDependencies: LoadableResult<ManagedDependencies>
+    public let managedDependencies: LoadableResult<ManagedDependencies>
 
     /// Enable prefetching containers in resolver.
     let isResolverPrefetchingEnabled: Bool
