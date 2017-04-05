@@ -136,6 +136,9 @@ public class RepositoryManager {
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
 
+    /// Queue for dispatching callbacks like delegate and completion block.
+    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-callback")
+
     /// Operation queue to do concurrent operations on manager.
     ///
     /// We use operation queue (and not dispatch queue) to limit the amount of
@@ -191,6 +194,9 @@ public class RepositoryManager {
     /// Get a handle to a repository.
     ///
     /// This will initiate a clone of the repository automatically, if necessary.
+    ///
+    /// Note: Recursive lookups are not supported i.e. calling lookup inside
+    /// completion block of another lookup will block.
     public func lookup(repository: RepositorySpecifier, completion: @escaping LookupCompletion) {
         operationQueue.addOperation {
             // First look for the handle.
@@ -223,7 +229,7 @@ public class RepositoryManager {
                     // Fetch the repo.
                     do {
                         // Inform delegate.
-                        DispatchQueue.global().async {
+                        self.callbacksQueue.async {
                             self.delegate.fetching(handle: handle, to: repositoryPath)
                         }
                         // Start fetching.
@@ -242,13 +248,11 @@ public class RepositoryManager {
                         } catch {
                             // FIXME: Handle failure gracefully, somehow.
                             fatalError("unable to save manager state \(error)")
-
                         }
                     }
                 }
-                // Call the completion handler on the global queue otherwise,
-                // nested calls to lookup on same handle will block.
-                DispatchQueue.global().async {
+                // Call the completion handler.
+                self.callbacksQueue.async {
                     completion(result)
                 }
             }

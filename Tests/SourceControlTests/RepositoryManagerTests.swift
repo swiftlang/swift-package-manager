@@ -124,17 +124,14 @@ class RepositoryManagerTests: XCTestCase {
             let dummyRepo = RepositorySpecifier(url: "dummy")
             let lookupExpectation = expectation(description: "Repository lookup expectation")
 
+            var prevHandle: RepositoryManager.RepositoryHandle?
             manager.lookup(repository: dummyRepo) { result in
                 guard case .success(let handle) = result else {
                     XCTFail("Could not get handle")
                     return
                 }
 
-                XCTAssertEqual(provider.numFetches, 0)
-            
-                // We should always get back the same handle once fetched.
-                XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
-                // We should not have refetched because we just cloned this repo.
+                prevHandle = handle
                 XCTAssertEqual(provider.numFetches, 0)
             
                 // Open the repository.
@@ -146,8 +143,6 @@ class RepositoryManagerTests: XCTestCase {
                 try! handle.cloneCheckout(to: checkoutPath, editable: false)
             
                 XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
-                // Remove the repo.
-                try! manager.remove(repository: dummyRepo)
                 XCTAssert(localFileSystem.exists(checkoutPath))
                 lookupExpectation.fulfill()
             }
@@ -165,6 +160,21 @@ class RepositoryManagerTests: XCTestCase {
             }
 
             waitForExpectations(timeout: 1)
+
+            // We should always get back the same handle once fetched.
+            XCTNonNil(prevHandle) {
+                try XCTAssert($0 === manager.lookupSynchronously(repository: dummyRepo))
+            }
+            // We should not have refetched because we just cloned this repo.
+            XCTAssertEqual(provider.numFetches, 0)
+
+            // Remove the repo.
+            try manager.remove(repository: dummyRepo)
+            // We should get a new handle now because we deleted the exisiting repository.
+            XCTNonNil(prevHandle) {
+                try XCTAssert($0 !== manager.lookupSynchronously(repository: dummyRepo))
+            }
+            
             // We should have tried fetching these two.
             XCTAssertEqual(Set(delegate.fetched), [dummyRepo, badDummyRepo])
         }

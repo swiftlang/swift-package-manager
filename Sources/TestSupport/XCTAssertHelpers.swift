@@ -117,3 +117,19 @@ public func XCTAssertThrows<T: Swift.Error>(
         XCTFail("unexpected error thrown", file: file, line: line)
     }
 }
+
+public func XCTNonNil<T>( 
+   _ optional: T?,
+   file: StaticString = #file,
+   line: UInt = #line,
+   _ body: (T) throws -> Void
+) {
+    guard let optional = optional else {
+        return XCTFail("Unexpected nil value", file: file, line: line)
+    }
+    do {
+        try body(optional)
+    } catch {
+        XCTFail("Unexpected error \(error)", file: file, line: line)
+    }
+}
