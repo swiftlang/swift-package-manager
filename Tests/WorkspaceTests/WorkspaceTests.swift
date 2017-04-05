@@ -205,7 +205,7 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors())
-            XCTAssertEqual(manifests.roots[0], graph.rootManifest)
+            XCTAssertEqual(manifests.root.manifests[0], graph.rootManifest)
             // B should be missing.
             XCTAssertEqual(manifests.missingURLs(), ["//B"])
             XCTAssertEqual(manifests.dependencies.map{$0.manifest.name}.sorted(), ["A", "AA"])
@@ -1842,6 +1842,39 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testPackageGraphOnlyRootDependency() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [
+            ],
+            packages: [
+                MockPackage("B", version: v1),
+            ],
+            fs: fs
+        )
+        let provider = manifestGraph.repoProvider!
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: TestWorkspaceDelegate(),
+            fileSystem: fs,
+            repositoryProvider: provider
+        )
+        let diagnostics = DiagnosticsEngine()
+        let root = WorkspaceRoot(packages: [path], dependencies: [
+            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
+        ])
+
+        let graph = workspace.loadPackageGraph(root: root, diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors())
+        XCTAssertEqual(graph.rootPackages.map{$0.name}.sorted(), ["Root"])
+        XCTAssertEqual(graph.packages.map{$0.name}.sorted(), ["B", "Root"])
+        XCTAssertEqual(graph.modules.map{$0.name}.sorted(), ["B", "Root"])
+        XCTAssertEqual(graph.products.map{$0.name}.sorted(), ["B"])
+    }
+
     func testPackageGraphWithGraphRootDependencies() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -1924,6 +1957,7 @@ final class WorkspaceTests: XCTestCase {
         ("testTOTPackageEdit", testTOTPackageEdit),
         ("testLoadingRootManifests", testLoadingRootManifests),
         ("testPackageGraphWithGraphRootDependencies", testPackageGraphWithGraphRootDependencies),
+        ("testPackageGraphOnlyRootDependency", testPackageGraphOnlyRootDependency),
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory)
     ]
 }
