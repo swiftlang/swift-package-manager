@@ -99,8 +99,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 public class Workspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
     public struct DependencyManifests {
-        /// The root manifests.
-        let roots: [Manifest]
+        /// The package graph root.
+        let root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
@@ -108,16 +108,16 @@ public class Workspace {
         /// Computes the URLs which are declared in the manifests but aren't present in dependencies.
         func missingURLs() -> Set<String> {
             let manifestsMap = Dictionary(items:
-                roots.map({ ($0.url, $0) }) +
+                root.manifests.map({ ($0.url, $0) }) +
                 dependencies.map({ ($0.manifest.url, $0.manifest) }))
 
-            var requiredURLs = transitiveClosure(roots.map({ $0.url })) { url in
+            let inputURLs = root.manifests.map({ $0.url }) + root.dependencies.map({ $0.url })
+
+            var requiredURLs = transitiveClosure(inputURLs) { url in
                 guard let manifest = manifestsMap[url] else { return [] }
                 return manifest.package.dependencies.map({ $0.url })
             }
-            for root in roots {
-                requiredURLs.insert(root.url)
-            }
+            requiredURLs.formUnion(inputURLs)
 
             let availableURLs = Set<String>(manifestsMap.keys)
             // We should never have loaded a manifest we don't need.
@@ -189,8 +189,8 @@ public class Workspace {
             return constraints
         }
 
-        init(roots: [Manifest], dependencies: [(Manifest, ManagedDependency)]) {
-            self.roots = roots
+        init(root: PackageGraphRoot, dependencies: [(Manifest, ManagedDependency)]) {
+            self.root = root
             self.dependencies = dependencies
         }
     }
@@ -949,7 +949,7 @@ public class Workspace {
             managedDependencies = try self.managedDependencies.load()
         } catch {
             diagnostics.emit(error)
-            return DependencyManifests(roots: root.manifests, dependencies: [])
+            return DependencyManifests(root: root, dependencies: [])
         }
 
         let rootDependencyManifests = root.dependencies.flatMap({
@@ -967,7 +967,7 @@ public class Workspace {
         }
         // FIXME: Remove bang and emit errors (SR-4262).
         let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
-        return DependencyManifests(roots: root.manifests, dependencies: deps)
+        return DependencyManifests(root: root, dependencies: deps)
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
@@ -1032,10 +1032,11 @@ public class Workspace {
         createCacheDirectories(diagnostics: diagnostics)
 
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(
-            packages: root.packages, diagnostics: diagnostics)
-        let currentManifests = loadDependencyManifests(
-            rootManifests: rootManifests, diagnostics: diagnostics)
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Compute the missing URLs.
         let missingURLs = currentManifests.missingURLs()
@@ -1077,8 +1078,6 @@ public class Workspace {
             // Update the checkouts with dependency resolution result.
             try updateCheckouts(with: result)
 
-            let graphRoot = PackageGraphRoot(
-                manifests: rootManifests, dependencies: root.dependencies)
             // Load the updated manifests.
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
