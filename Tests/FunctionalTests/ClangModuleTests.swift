@@ -16,7 +16,7 @@ import PackageModel
 import SourceControl
 import Utility
 
-typealias Process = Utility.Process
+typealias Process = Basic.Process
 
 /// Asserts if a directory (recursively) contains a file.
 private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String, file: StaticString = #file, line: UInt = #line) {

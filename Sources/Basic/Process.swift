@@ -13,7 +13,6 @@ import class Foundation.ProcessInfo
 import enum POSIX.SystemError
 import func POSIX.getenv
 import libc
-import Basic
 import Dispatch
 
 /// Process result data which is available after process termination.
@@ -185,12 +184,12 @@ public final class Process: ObjectIdentifierProtocol {
                 return value
             }
             // FIXME: This can be cached.
-            let envSearchPaths = Utility.getEnvSearchPaths(
+            let envSearchPaths = getEnvSearchPaths(
                 pathString: getenv("PATH"),
                 currentWorkingDirectory: currentWorkingDirectory
             )
             // Lookup the executable.
-            let value = Utility.lookupExecutablePath(
+            let value = lookupExecutablePath(
                 filename: program, searchPaths: envSearchPaths) != nil
             Process.validatedExecutablesMap[program] = value
             return value

@@ -10,9 +10,6 @@
 
 import Dispatch
 import Foundation
-import Basic
-
-typealias Thread = Basic.Thread
 
 public enum ProcessSetError: Swift.Error {
     /// The process group was cancelled and doesn't allow adding more processes.
@@ -55,7 +52,7 @@ public final class ProcessSet {
     /// - Parameters:
     ///   - process: The process to add.
     /// - Throws: ProcessGroupError
-    public func add(_ process: Process) throws {
+    public func add(_ process: Basic.Process) throws {
         return try serialQueue.sync {
             guard !cancelled else {
                 throw ProcessSetError.cancelled

@@ -18,13 +18,11 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(InterruptHandlerTests.allTests),
         testCase(miscTests.allTests),
         testCase(PkgConfigParserTests.allTests),
-        testCase(ProcessSetTests.allTests),
         testCase(ProgressBarTests.allTests),
         testCase(SimplePersistenceTests.allTests),
         testCase(StringTests.allTests),
         testCase(StringConversionTests.allTests),
         testCase(URLTests.allTests),
-        testCase(ProcessTests.allTests),
         testCase(VersionTests.allTests),
     ]
 }
