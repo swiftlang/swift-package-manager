@@ -93,7 +93,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
                 rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors() else { return }
+            guard !diagnostics.hasErrors else { return }
             // Look for the package's manifest.
             guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
@@ -120,7 +120,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
                 rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors() else { return }
+            guard !diagnostics.hasErrors else { return }
             // Look for the package's manifest.
             guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
                 throw PackageToolOperationError.packageNotFound
@@ -216,7 +216,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 packages: [try getPackageRoot()], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(
                 rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors() else { return }
+            guard !diagnostics.hasErrors else { return }
 
             // Pin all dependencies if requested.
             if pinOptions.pinAll {

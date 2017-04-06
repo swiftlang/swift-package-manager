@@ -25,7 +25,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let graph = loadMockPackageGraph(["/": Package(name: "Foo")], root: "/", diagnostics: diagnostics, in: fileSystem)
-            XCTAssertFalse(diagnostics.hasErrors())
+            XCTAssertFalse(diagnostics.hasErrors)
 
             let projectName = "DummyProjectName"
             let outpath = try Xcodeproj.generate(outputDir: dstdir, projectName: projectName, graph: graph, options: XcodeprojOptions())
@@ -51,7 +51,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let diagnostics = DiagnosticsEngine()
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Bar/bar.swift")
         let graph = loadMockPackageGraph(["/Bar": Package(name: "Bar")], root: "/Bar", diagnostics: diagnostics, in: fileSystem)
-        XCTAssertFalse(diagnostics.hasErrors())
+        XCTAssertFalse(diagnostics.hasErrors)
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/doesntexist"))
         do {
@@ -71,7 +71,7 @@ class GenerateXcodeprojTests: XCTestCase {
         let warningStream = BufferedOutputByteStream()
         let fileSystem = InMemoryFileSystem(emptyFiles: "/Sources/\(moduleName)/example.swift")
         let graph = loadMockPackageGraph(["/Sources": Package(name: moduleName)], root: "/Sources", diagnostics: diagnostics, in: fileSystem)
-        XCTAssertFalse(diagnostics.hasErrors())
+        XCTAssertFalse(diagnostics.hasErrors)
 
         _ = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                              graph: graph, extraDirs: [], options: XcodeprojOptions(), fileSystem: fileSystem,

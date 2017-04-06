@@ -58,7 +58,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 diagnostics: diagnostics,
                 fileSystem: fs)
             XCTAssertEqual(g.packages.count, N)
-            XCTAssertFalse(diagnostics.hasErrors())
+            XCTAssertFalse(diagnostics.hasErrors)
         }
     }
 }

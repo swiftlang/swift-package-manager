@@ -240,7 +240,7 @@ public class SwiftTool<Options: ToolOptions> {
             verbosity = Verbosity(rawValue: options.verbosity)
             // Call the implementation.
             try runImpl()
-            guard !diagnostics.hasErrors() else {
+            guard !diagnostics.hasErrors else {
                 throw Error.hasFatalDiagnostics
             }
         } catch {
@@ -271,7 +271,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !diagnostics.hasErrors() else {
+        guard !diagnostics.hasErrors else {
             throw Error.hasFatalDiagnostics
         }
         return graph
