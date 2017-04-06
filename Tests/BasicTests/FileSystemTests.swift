@@ -11,10 +11,8 @@
 import XCTest
 
 import Basic
-import POSIX
-import Utility
-
 import TestSupport
+import libc
 
 class FileSystemTests: XCTestCase {
 
@@ -325,6 +323,47 @@ class FileSystemTests: XCTestCase {
         try rerootedFileSystem.createDirectory(AbsolutePath("/subdir2"))
         XCTAssert(baseFileSystem.isDirectory(AbsolutePath("/base/rootIsHere/subdir2")))
     }
+
+    func testSetAttribute() throws {
+      #if os(macOS)
+        mktmpdir { path in
+            var fs = Basic.localFileSystem
+
+            let dir = path.appending(component: "dir")
+            let foo = dir.appending(component: "foo")
+            let bar = dir.appending(component: "bar")
+
+            try fs.createDirectory(dir, recursive: true)
+            try fs.writeFileContents(foo, bytes: "")
+            try fs.writeFileContents(bar, bytes: "")
+
+            // Set foo to immutable.
+            try fs.set(attribute: .immutable, path: foo)
+            XCTAssertThrows(FileSystemError.unknownOSError) {
+                try fs.writeFileContents(foo, bytes: "test")
+            }
+
+            // Set the entire directory as mutable.
+            try fs.set(attribute: .mutable, path: dir, recursive: true)
+            try fs.writeFileContents(foo, bytes: "test")
+
+            // Set the directory as immutable.
+            try fs.set(attribute: .immutable, path: dir, recursive: true)
+            XCTAssertThrows(FileSystemError.unknownOSError) {
+                try fs.writeFileContents(bar, bytes: "test")
+            }
+            fs.removeFileTree(bar)
+            fs.removeFileTree(dir)
+            XCTAssertTrue(fs.exists(dir))
+            XCTAssertTrue(fs.exists(bar))
+
+            // Set the directory as mutable.
+            try fs.set(attribute: .mutable, path: dir, recursive: true)
+            fs.removeFileTree(dir)
+            XCTAssertFalse(fs.exists(dir))
+        }
+      #endif
+    }
     
     static var allTests = [
         ("testLocalBasics", testLocalBasics),
@@ -336,6 +375,7 @@ class FileSystemTests: XCTestCase {
         ("testInMemoryReadWriteFile", testInMemoryReadWriteFile),
         ("testRootedFileSystem", testRootedFileSystem),
         ("testRemoveFileTree", testRemoveFileTree),
+        ("testSetAttribute", testSetAttribute),
         ("testInMemRemoveFileTree", testInMemRemoveFileTree),
     ]
 }
