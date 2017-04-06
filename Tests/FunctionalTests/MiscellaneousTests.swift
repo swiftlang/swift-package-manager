@@ -16,7 +16,7 @@ import Utility
 import libc
 import class Foundation.ProcessInfo
 
-typealias ProcessID = Utility.Process.ProcessID
+typealias ProcessID = Basic.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
     func testPrintsSelectedDependencyVersion() {

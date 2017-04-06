@@ -10,13 +10,12 @@
 
 import TestSupport
 import XCTest
-import Basic
 import libc
 
-@testable import Utility
+@testable import Basic
 
-typealias ProcessID = Utility.Process.ProcessID
-typealias Process = Utility.Process
+typealias ProcessID = Basic.Process.ProcessID
+typealias Process = Basic.Process
 
 class ProcessTests: XCTestCase {
     func script(_ name: String) -> String {

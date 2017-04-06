@@ -62,11 +62,11 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
 
     public init(_ binDir: AbsolutePath) throws {
         // Get the search paths from PATH.
-        let envSearchPaths = Utility.getEnvSearchPaths(
+        let envSearchPaths = getEnvSearchPaths(
             pathString: getenv("PATH"), currentWorkingDirectory: currentWorkingDirectory)
 
         func lookup(fromEnv: String) -> AbsolutePath? {
-            return Utility.lookupExecutablePath(
+            return lookupExecutablePath(
                 filename: getenv(fromEnv),
                 searchPaths: envSearchPaths)
         }
@@ -108,7 +108,7 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
       #if os(macOS)
         let sdk: AbsolutePath
 
-        if let value = Utility.lookupExecutablePath(filename: getenv("SYSROOT")) {
+        if let value = lookupExecutablePath(filename: getenv("SYSROOT")) {
             sdk = value
         } else {
             // No value in env, so search for it.

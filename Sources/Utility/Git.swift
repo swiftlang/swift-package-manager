@@ -9,6 +9,7 @@
 */
 
 import class Foundation.ProcessInfo
+import Basic
 
 extension Version {
     static func vprefix(_ string: String) -> Version? {
