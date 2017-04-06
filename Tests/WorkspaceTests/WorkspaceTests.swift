@@ -447,7 +447,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(localFileSystem.exists(buildArtifact))
             XCTAssert(localFileSystem.exists(checkoutPath))
 
-            try workspace.clean()
+            let diagnostics = DiagnosticsEngine()
+            workspace.clean(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors())
 
             XCTAssertEqual(try workspace.managedDependencies.load().values.map{ $0.repository }, [testRepoSpec])
             XCTAssert(localFileSystem.exists(workspace.dataPath))

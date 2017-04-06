@@ -300,23 +300,38 @@ public class Workspace {
     }
 
     /// Cleans the build artefacts from workspace data.
-    public func clean() throws {
+    ///
+    /// - Parameters:
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
+    public func clean(with diagnostics: DiagnosticsEngine) {
+        guard let dependencies = diagnostics.wrap({ try managedDependencies.load() }) else {
+            return
+        }
+        
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            try managedDependencies.load().statePath
-        ].map { path in
+            dependencies.statePath
+        ].map({ path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
             return path.basename
-        })
+        }))
+        
         // If we have no data yet, we're done.
         guard fileSystem.exists(dataPath) else {
             return
         }
-        for name in try fileSystem.getDirectoryContents(dataPath) {
-            guard !protectedAssets.contains(name) else { continue }
+        
+        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(dataPath) }) else {
+            return
+        }
+        
+        // Remove all but protected paths.
+        let contentsToRemove = Set(contents).subtracting(protectedAssets)
+        for name in contentsToRemove {
             fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
         }
     }
@@ -743,7 +758,7 @@ public class Workspace {
 
         // Try to load pins store.
         // We can't proceed if there are errors at this point.
-        guard let pinsStore = self.pinsStore.load(diagnostics: diagnostics),
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }),
               !diagnostics.hasErrors() else {
             return
         }
@@ -1060,7 +1075,7 @@ public class Workspace {
 
         resolve: do {
             // Load the pins store.
-            guard let pinsStore = self.pinsStore.load(diagnostics: diagnostics) else {
+            guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
                 break resolve
             }
 
@@ -1234,15 +1249,6 @@ public final class LoadableResult<Value> {
     /// Load and return the value.
     public func load() throws -> Value {
         return try loadResult().dematerialize()
-    }
-
-    public func load(diagnostics: DiagnosticsEngine) -> Value? {
-        do {
-            return try load()
-        } catch {
-            diagnostics.emit(error)
-            return nil
-        }
     }
 }
 
