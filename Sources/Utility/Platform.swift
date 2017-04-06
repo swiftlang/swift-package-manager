@@ -59,7 +59,7 @@ public enum Platform {
             let value = try Process.checkNonZeroExit(args: "getconf", variable).chomp()
             // Value must be a valid path.
             guard value.hasSuffix(AbsolutePath.root.asString) else { return nil }
-            return AbsolutePath(value)
+            return resolveSymlinks(AbsolutePath(value))
         } catch {
             return nil
         }
