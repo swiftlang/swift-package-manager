@@ -248,21 +248,21 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let provider = createProvider(ToolsVersion(version: "3.1.0"))
             let container = try await { provider.getContainer(for: specifier, completion: $0) }
-            let v = container.versions.map{$0}
+            let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.1", "1.0.0"])
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let container = try await { provider.getContainer(for: specifier, completion: $0) }
-            let v = container.versions.map{$0}
+            let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, ["1.0.2", "1.0.1", "1.0.0"])
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
             let container = try await { provider.getContainer(for: specifier, completion: $0) }
-            let v = container.versions.map{$0}
+            let v = container.versions(filter: { _ in true }).map{$0}
             XCTAssertEqual(v, [])
         }
     }

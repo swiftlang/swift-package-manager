@@ -93,8 +93,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     public let identifier: RepositorySpecifier
 
     /// The available version list (in reverse order).
-    public var versions: AnySequence<Version> {
-        return AnySequence(reversedVersions.lazy.filter({
+    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
             guard let toolsVersion = try? self.toolsVersion(for: $0),
                   self.currentToolsVersion >= toolsVersion else {
                 return false

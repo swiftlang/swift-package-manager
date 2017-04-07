@@ -199,7 +199,7 @@ public protocol PackageContainer {
     /// The list will be returned in sorted order, with the latest version *first*.
     /// All versions will not be requested at once. Resolver will request the next one only 
     /// if the previous one did not satisfy all constraints.
-    var versions: AnySequence<Version> { get }
+    func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
 
     /// Fetch the declared dependencies for a particular version.
     ///
@@ -936,7 +936,7 @@ public class DependencyResolver<
     ) -> AnySequence<AssignmentSet> {
         func validVersions(_ container: Container, in versionSet: VersionSetSpecifier) -> AnySequence<Version> {
             let exclusions = allExclusions[container.identifier] ?? Set()
-            return AnySequence(container.versions.lazy.filter({
+            return AnySequence(container.versions(filter: {
                 versionSet.contains($0) && !exclusions.contains($0)
             }))
         }

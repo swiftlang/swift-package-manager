@@ -78,7 +78,10 @@ public final class MockPackageContainer: PackageContainer {
         return name
     }
 
-    public let versions: AnySequence<Version>
+    public let _versions: [Version]
+    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+        return AnySequence(_versions.filter(isIncluded))
+    }
 
     public func getDependencies(at version: Version) -> [MockPackageConstraint] {
         requestedVersions.insert(version)
@@ -110,7 +113,7 @@ public final class MockPackageContainer: PackageContainer {
     ) {
         self.name = name
         let versions = dependencies.keys.flatMap(Version.init(string:))
-        self.versions = AnySequence(versions.sorted().reversed())
+        self._versions = versions.sorted().reversed()
         self.dependencies = dependencies
     }
 }
