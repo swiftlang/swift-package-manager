@@ -260,14 +260,14 @@ public class DiagnosticsEngine {
     /// The diagnostics produced by the engine.
     public var diagnostics: [Diagnostic] = []
 
+    public var hasErrors: Bool {
+        return diagnostics.contains(where: { $0.behavior == .error })
+    }
+    
     public init() {
     }
 
     public func emit(data: DiagnosticData, location: DiagnosticLocation) {
         diagnostics.append(Diagnostic(id: type(of: data).id, location: location, data: data))
-    }
-
-    public func hasErrors() -> Bool {
-        return !diagnostics.filter({ $0.behavior == .error }).isEmpty
     }
 }

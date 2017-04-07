@@ -529,7 +529,7 @@ public class Workspace {
         let pinsStore = try self.pinsStore.load()
         let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors() else { return }
+        guard !diagnostics.hasErrors else { return }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -549,7 +549,7 @@ public class Workspace {
 
         // Resolve the dependencies.
         let results = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors() else { return }
+        guard !diagnostics.hasErrors else { return }
 
         // Update the checkouts based on new dependency resolution.
         try updateCheckouts(with: results)
@@ -759,7 +759,7 @@ public class Workspace {
         // Try to load pins store.
         // We can't proceed if there are errors at this point.
         guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }),
-              !diagnostics.hasErrors() else {
+              !diagnostics.hasErrors else {
             return
         }
 
@@ -774,7 +774,7 @@ public class Workspace {
 
         // Resolve the dependencies.
         let updateResults = resolveDependencies(constraints: updateConstraints, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors() else { return }
+        guard !diagnostics.hasErrors else { return }
 
         do {
             // Update the checkouts based on new dependency resolution.
@@ -783,7 +783,7 @@ public class Workspace {
             let currentManifests = loadDependencyManifests(
                 rootManifests: rootManifests, diagnostics: diagnostics)
             // If we're repinning, update the pins store.
-            if repin && !diagnostics.hasErrors() {
+            if repin && !diagnostics.hasErrors {
                 try repinPackages(pinsStore, dependencyManifests: currentManifests)
             }
         } catch {
@@ -1058,7 +1058,7 @@ public class Workspace {
 
         // Load the package graph if there are no missing URLs or if we
         // encountered some errors.
-        if diagnostics.hasErrors() || missingURLs.isEmpty {
+        if diagnostics.hasErrors || missingURLs.isEmpty {
             return PackageGraphLoader().load(
                 root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
                 externalManifests: currentManifests.dependencies.map({ $0.manifest }),
@@ -1088,7 +1088,7 @@ public class Workspace {
 
             // Perform dependency resolution.
             let result = resolveDependencies(constraints: constraints, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors() else { break resolve }
+            guard !diagnostics.hasErrors else { break resolve }
 
             // Update the checkouts with dependency resolution result.
             try updateCheckouts(with: result)
@@ -1097,7 +1097,7 @@ public class Workspace {
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
             // If autopin is enabled, reset and pin everything.
-            if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors() {
+            if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors {
                 try self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
