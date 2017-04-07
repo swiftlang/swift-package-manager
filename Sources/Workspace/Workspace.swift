@@ -977,7 +977,7 @@ public class Workspace {
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
             return node.item.package.dependencies.flatMap({ dependency in
                 let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
-                return manifest.flatMap { KeyedPair($0, key: $0.url) }
+                return manifest.flatMap({ KeyedPair($0, key: $0.url) })
             })
         }
         // FIXME: Remove bang and emit errors (SR-4262).
