@@ -69,9 +69,9 @@ public func pkgConfigArgs(for module: CModule) -> PkgConfigResult? {
     do {
         let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: additionalSearchPaths)
         // Run the whitelist checker.
-        try whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+        let filtered = whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
         // Remove any default flags which compiler adds automatically.
-        let (cFlags, libs) = removeDefaultFlags(cFlags: pkgConfig.cFlags, libs: pkgConfig.libs)
+        let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
         return PkgConfigResult(pkgConfigName: pkgConfigName, cFlags: cFlags, libs: libs)
     } catch {
         return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
@@ -111,9 +111,9 @@ extension Module {
             }
             do {
                 let pkgConfig = try PkgConfig(name: pkgConfigName, additionalSearchPaths: pkgConfigProviderSearchPaths)
-                cFlags += pkgConfig.cFlags
-                libs += pkgConfig.libs
-                try whitelist(pcFile: pkgConfigName, flags: (cFlags, libs))
+                let filtered = whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+                cFlags += filtered.cFlags
+                libs += filtered.libs
             }
             catch PkgConfigError.couldNotFindConfigFile {
                 if let providers = module.providers,
@@ -183,29 +183,31 @@ extension SystemPackageProvider {
 /// compiler/linker. List of allowed flags:
 /// cFlags: -I, -F
 /// libs: -L, -l, -F, -framework
-func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) throws {
+func whitelist(pcFile: String, flags: (cFlags: [String], libs: [String])) -> (cFlags: [String], libs: [String]) {
     // Returns an array of flags which doesn't match any filter.
     func filter(flags: [String], filters: [String]) -> [String] {
         var filtered = [String]()     
         var it = flags.makeIterator()
         while let flag = it.next() {
-            guard let filter = filters.filter({ flag.hasPrefix($0) }).first else {
+            if let filter = filters.filter({ flag.hasPrefix($0) }).first {
                 filtered += [flag]
-                continue
-            }
-            // If the flag and its value are separated, skip next flag.
-            if flag == filter {
-                guard let _ = it.next() else {
-                   fatalError("Expected associated value") 
+
+                // If the flag and its value are separated, skip next flag.
+                if flag == filter {
+                    guard let next = it.next() else {
+                       fatalError("Expected associated value") 
+                    }
+                    filtered += [next]
                 }
             }
         }
         return filtered
     }
-    let filtered = filter(flags: flags.cFlags, filters: ["-I", "-F"]) + filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
-    guard filtered.isEmpty else {
-        throw PkgConfigError.nonWhitelistedFlags("Non whitelisted flags found: \(filtered) in pc file \(pcFile)")
-    }
+
+    return (
+        filter(flags: flags.cFlags, filters: ["-I", "-F"]),
+        filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework"])
+    )
 }
 
 /// Remove the default flags which are already added by the compiler.
