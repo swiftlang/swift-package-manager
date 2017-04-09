@@ -10,7 +10,7 @@
 
 import Basic
 import Utility
-
+import PackageModel
 import PackageLoading
 import PackageGraph
 
@@ -104,5 +104,161 @@ public enum ResolverDiagnostics {
             self.dependencies = dependencies
             self.pins = pins
         }
+    }
+}
+
+public enum WorkspaceDiagnostics {
+
+    /// The diagnostic triggered when an operation fails because its completion
+    /// would loose the uncommited changes in a repository.
+    public struct UncommitedChanges: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: UncommitedChanges.self,
+            name: "org.swift.diags.workspace.uncommited-changes",
+            description: {
+                $0 <<< "The repository"
+                $0 <<< { "'\($0.repositoryPath.asString)'" }
+                $0 <<< "has uncommited changes"
+            })
+    
+        /// The local path to the repository.
+        public let repositoryPath: AbsolutePath
+    }
+    
+    /// The diagnostic triggered when an operation fails because its completion
+    /// would loose the unpushed changes in a repository.
+    public struct UnpushedChanges: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: UnpushedChanges.self,
+            name: "org.swift.diags.workspace.unpushed-changes",
+            description: {
+                $0 <<< "The repository"
+                $0 <<< { "'\($0.repositoryPath.asString)'" }
+                $0 <<< "has unpushed changes"
+            })
+        
+        /// The local path to the repository.
+        public let repositoryPath: AbsolutePath
+    }
+    
+    /// The diagnostic triggered when the edit operation fails because the dependency
+    /// is already in edit mode.
+    public struct DependencyAlreadyInEditMode: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: DependencyAlreadyInEditMode.self,
+            name: "org.swift.diags.workspace.dependency-already-in-edit-mode",
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.dependencyURL)'" }
+                $0 <<< "is already in edit mode"
+            })
+        
+        /// The URL of the dependency being edited.
+        public let dependencyURL: String
+    }
+    
+    /// The diagnostic triggered when the unedit operation fails because the dependency
+    /// is not in edit mode.
+    public struct DependencyNotInEditMode: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: DependencyNotInEditMode.self,
+            name: "org.swift.diags.workspace.dependency-not-in-edit-mode",
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.dependencyURL)'" }
+                $0 <<< "is not in edit mode"
+            })
+        
+        /// The URL of the dependency being unedited.
+        public let dependencyURL: String
+    }
+    
+    /// The diagnostic triggered when the edit operation fails because the branch
+    /// to be created already exists.
+    public struct BranchAlreadyExists: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: BranchAlreadyExists.self,
+            name: "org.swift.diags.workspace.branch-already-exists",
+            description: {
+                $0 <<< "The branch"
+                $0 <<< { $0.branch }
+                $0 <<< "already exists on dependency"
+                $0 <<< { "'\($0.dependencyURL)'" }
+            })
+        
+        /// The URL of the dependency being edited.
+        public let dependencyURL: String
+        
+        /// The branch to create.
+        public let branch: String
+    }
+    
+    /// The diagnostic triggered when the edit operation fails because the specified
+    /// revision does not exist.
+    public struct RevisionDoesNotExist: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: RevisionDoesNotExist.self,
+            name: "org.swift.diags.workspace.revision-does-not-exist",
+            description: {
+                $0 <<< "The revision"
+                $0 <<< { $0.revision }
+                $0 <<< "does not exist on dependency"
+                $0 <<< { "'\($0.dependencyURL)'" }
+            })
+        
+        /// The URL of the dependency being edited.
+        public let dependencyURL: String
+        
+        /// The revision requested.
+        public let revision: String
+    }
+
+    /// The diagnostic triggered when the root package has an incompatible tools version.
+    public struct IncompatibleToolsVersion: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: IncompatibleToolsVersion.self,
+            name: "org.swift.diags.workspace.incompatible-tools-version",
+            description: {
+                $0 <<< "The package at"
+                $0 <<< { "'\($0.rootPackagePath.asString)'" }
+                $0 <<< "requires a minimum Swift tools version of"
+                $0 <<< { $0.requiredToolsVersion.description }
+                $0 <<< "but currently at"
+                $0 <<< { $0.currentToolsVersion.description }
+            })
+        
+        /// The path of the package.
+        public let rootPackagePath: AbsolutePath
+        
+        /// The tools version required by the package.
+        public let requiredToolsVersion: ToolsVersion
+        
+        /// The current tools version.
+        public let currentToolsVersion: ToolsVersion
+    }
+    
+    /// The diagnostic triggered when the package at the edit destination is not the
+    /// one user is trying to edit.
+    public struct MismatchingDestinationPackage: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: MismatchingDestinationPackage.self,
+            name: "org.swift.diags.workspace.mismatching-destination-package",
+            description: {
+                $0 <<< "The package at"
+                $0 <<< { "'\($0.editPath.asString)'" }
+                $0 <<< "is"
+                $0 <<< { $0.destinationPackage }
+                $0 <<< "but was expecting"
+                $0 <<< { $0.expectedPackage }
+            })
+        
+        /// The path to be edited to.
+        public let editPath: AbsolutePath
+        
+        /// The package to edit.
+        public let expectedPackage: String
+        
+        /// The package found at the edit location.
+        public let destinationPackage: String
     }
 }

@@ -533,7 +533,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: editedDependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
                 XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
-            } catch WorkspaceError.dependencyAlreadyInEditMode {}
+            } catch _ as WorkspaceDiagnostics.DependencyAlreadyInEditMode {}
 
             do {
                 // Reopen workspace and check if we maintained the state.
@@ -584,7 +584,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: Revision(identifier: "non-existent-revision"))
                 XCTFail()
-            } catch WorkspaceError.nonExistentRevision{}
+            } catch _ as WorkspaceDiagnostics.RevisionDoesNotExist {}
 
             // Put the dependency in edit mode at its current revision on a new branch.
             try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "BugFix")
@@ -602,7 +602,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "master")
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceError.branchAlreadyExists {}
+            } catch _ as WorkspaceDiagnostics.BranchAlreadyExists {}
         }
     }
 
@@ -650,16 +650,16 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceError.hasUncommitedChanges(let repo) {
-                XCTAssertEqual(repo, editRepoPath)
+            } catch let error as WorkspaceDiagnostics.UncommitedChanges {
+                XCTAssertEqual(error.repositoryPath, editRepoPath)
             }
             // Commit and try to unedit.
             try editRepo.commit()
             do {
                 try workspace.unedit(dependency: editedDependency, forceRemove: false)
                 XCTFail("Unexpected edit success")
-            } catch WorkspaceError.hasUnpushedChanges(let repo) {
-                XCTAssertEqual(repo, editRepoPath)
+            } catch let error as WorkspaceDiagnostics.UnpushedChanges {
+                XCTAssertEqual(error.repositoryPath, editRepoPath)
             }
             // Force remove.
             try workspace.unedit(dependency: editedDependency, forceRemove: true)
@@ -1771,7 +1771,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
             let errorDesc = diagnostics.diagnostics[0].localizedDescription
-            XCTAssertEqual(errorDesc, "Package requires minimum Swift tools version 4.0.0. Current Swift tools version is 3.1.0")
+            XCTAssertEqual(errorDesc, "The package at '/root1' requires a minimum Swift tools version of 4.0.0 but currently at 3.1.0")
         }
     }
 

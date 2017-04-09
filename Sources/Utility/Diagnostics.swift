@@ -62,7 +62,9 @@ extension DiagnosticsEngine {
         _ error: Swift.Error,
         location: DiagnosticLocation = UnknownLocation.location
     ) {
-        if case let convertible as DiagnosticDataConvertible = error {
+        if let diagnosticData = error as? DiagnosticData {
+            emit(data: diagnosticData, location: location)
+        } else if case let convertible as DiagnosticDataConvertible = error {
             emit(convertible, location: location)
         } else {
             emit(data: AnyDiagnostic(error), location: location)
