@@ -482,7 +482,7 @@ class ConventionTests: XCTestCase {
 
     func testNoSources() throws {
         PackageBuilderTester("NoSources", in: InMemoryFileSystem()) { result in
-            result.checkDiagnostic("warning: module 'NoSources' does not contain any sources.")
+            result.checkDiagnostic("The target NoSources in package NoSources does not contain any valid source files.")
         }
     }
 
@@ -531,7 +531,7 @@ class ConventionTests: XCTestCase {
             }
 
           #if os(Linux)
-            result.checkDiagnostic("warning: Ignoring MyPackageTests as C language in tests is not yet supported on Linux.")
+            result.checkDiagnostic("Ignoring target MyPackageTests in package MyPackage as C language in tests is not supported yet.")
           #endif
         }
     }
@@ -760,7 +760,7 @@ class ConventionTests: XCTestCase {
             "/Sources/pkg2/readme.txt")
         package = PackageDescription4.Package(name: "pkg", targets: [.target(name: "pkg1", dependencies: ["pkg2"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("warning: module 'pkg2' does not contain any sources.")
+            result.checkDiagnostic("The target pkg2 in package pkg does not contain any valid source files.")
             result.checkModule("pkg1") { moduleResult in
                 moduleResult.check(c99name: "pkg1", type: .library)
                 moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
@@ -997,14 +997,14 @@ class ConventionTests: XCTestCase {
         var fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath("/Sources/Module"), recursive: true)
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("warning: module 'Module' does not contain any sources.")
+            result.checkDiagnostic("The target Module in package MyPackage does not contain any valid source files.")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Module/foo.swift")
         try fs.createDirectory(AbsolutePath("/Tests/ModuleTests"), recursive: true)
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("warning: module 'ModuleTests' does not contain any sources.")
+            result.checkDiagnostic("The target ModuleTests in package MyPackage does not contain any valid source files.")
             result.checkModule("Module")
         }
     }
@@ -1174,12 +1174,12 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester) -> Void
     ) {
-        let warningStream = BufferedOutputByteStream()
+        let diagnostics = DiagnosticsEngine()
         do {
             let manifest = Manifest(path: path.appending(component: Manifest.filename), url: "", package: package, version: nil)
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
-                manifest: manifest, path: path, fileSystem: fs, warningStream: warningStream,
+                manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,
                 isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
@@ -1189,8 +1189,7 @@ final class PackageBuilderTester {
             result = .error(errorStr)
             uncheckedDiagnostics.insert(errorStr)
         }
-        // FIXME: Use diagnostic manager whenever we have that.
-        uncheckedDiagnostics.formUnion(warningStream.bytes.asReadableString.characters.split(separator: "\n").map(String.init))
+        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.localizedDescription }))
         body(self)
         validateDiagnostics(file: file, line: line)
         validateCheckedModules(file: file, line: line)

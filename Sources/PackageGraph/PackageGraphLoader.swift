@@ -108,6 +108,7 @@ public struct PackageGraphLoader {
                 manifest: manifest,
                 path: packagePath,
                 fileSystem: fileSystem,
+                diagnostics: diagnostics,
                 isRootPackage: isRootPackage,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts
             )

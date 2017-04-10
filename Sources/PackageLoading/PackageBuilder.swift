@@ -207,8 +207,8 @@ public struct PackageBuilder {
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
 
-    /// The stream to which warnings should be published.
-    private let warningStream: OutputByteStream
+    /// The diagnostics engine.
+    private let diagnostics: DiagnosticsEngine
 
     /// True if this is the root package.
     private let isRootPackage: Bool
@@ -232,7 +232,7 @@ public struct PackageBuilder {
     ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
     ///   - fileSystem: The file system on which the builder should be run.
-    ///   - warningStream: The stream on which warnings should be emitted.
+    ///   - diagnostics: The diagnostics engine.
     ///   - isRootPackage: If this is a root package.
     ///   - createMultipleTestProducts: If enabled, create one test product for
     ///     each test target.
@@ -240,7 +240,7 @@ public struct PackageBuilder {
         manifest: Manifest,
         path: AbsolutePath,
         fileSystem: FileSystem = localFileSystem,
-        warningStream: OutputByteStream = stdoutStream,
+        diagnostics: DiagnosticsEngine,
         isRootPackage: Bool,
         shouldCreateMultipleTestProducts: Bool = false
     ) {
@@ -248,7 +248,7 @@ public struct PackageBuilder {
         self.manifest = manifest
         self.packagePath = path
         self.fileSystem = fileSystem
-        self.warningStream = warningStream
+        self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
     }
 
@@ -538,8 +538,7 @@ public struct PackageBuilder {
                 modules[createdModule.name] = createdModule
             } else {
                 emptyModules.insert(potentialModule.name)
-                warningStream <<< "warning: module '\(potentialModule.name)' does not contain any sources.\n"
-                warningStream.flush()
+                diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(package: manifest.name, target: potentialModule.name))
             }
         }
         return modules.values.map({ $0 })
@@ -654,9 +653,8 @@ public struct PackageBuilder {
           #if os(Linux)
             // FIXME: Ignore C language test modules on linux for now.
             if module is ClangModule {
-                warningStream <<< ("warning: Ignoring \(module.name) as C language in tests is not yet supported " +
-                    "on Linux.")
-                warningStream.flush()
+                diagnostics.emit(data: PackageBuilderDiagnostics.UnsupportedCTarget(
+                    package: manifest.name, target: module.name))
                 return false
             }
           #endif
