@@ -55,6 +55,7 @@ class StringConversionTests: XCTestCase {
 }
 
     static var allTests = [
+        ("testManglingToBundleIdentifier", testManglingToBundleIdentifier),
         ("testManglingToC99ExtendedIdentifier", testManglingToC99ExtendedIdentifier),
     ]
 }

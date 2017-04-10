@@ -56,7 +56,7 @@ class ReaddirTests: XCTestCase {
         }
     }
     
-    static var allTests: [(String, (ReaddirTests) -> () throws -> Void)] = [
+    static var allTests = [
         ("testName", testName),
     ]
 }

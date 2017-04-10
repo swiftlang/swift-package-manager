@@ -51,4 +51,10 @@ class EnvTests: XCTestCase {
         }
         XCTAssertNil(POSIX.getenv(key))
     }
+
+    static var allTests = [
+        ("testGet", testGet),
+        ("testSet", testSet),
+        ("testWithCustomEnv", testWithCustomEnv),
+    ]
 }

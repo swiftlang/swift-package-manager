@@ -215,9 +215,10 @@ class PackageGraphTests: XCTestCase {
     }
     
     static var allTests = [
+        ("testAggregateTarget", testAggregateTarget),
         ("testBasics", testBasics),
-        ("testModulemap", testModulemap),
         ("testModuleLinkage", testModuleLinkage),
+        ("testModulemap", testModulemap),
     ]
 }
 

@@ -565,17 +565,18 @@ class GitRepositoryTests: XCTestCase {
 
     static var allTests = [
         ("testBranchOperations", testBranchOperations),
-        ("testFetch", testFetch),
-        ("testRepositorySpecifier", testRepositorySpecifier),
-        ("testProvider", testProvider),
-        ("testGitRepositoryHash", testGitRepositoryHash),
-        ("testRawRepository", testRawRepository),
-        ("testSetRemote", testSetRemote),
-        ("testGitFileView", testGitFileView),
+        ("testCheckoutRevision", testCheckoutRevision),
         ("testCheckouts", testCheckouts),
+        ("testFetch", testFetch),
+        ("testGitFileView", testGitFileView),
+        ("testGitRepositoryHash", testGitRepositoryHash),
         ("testHasUnpushedCommits", testHasUnpushedCommits),
-        ("testUncommitedChanges", testUncommitedChanges),
-        ("testSubmodules", testSubmodules),
+        ("testProvider", testProvider),
+        ("testRawRepository", testRawRepository),
+        ("testRepositorySpecifier", testRepositorySpecifier),
+        ("testSetRemote", testSetRemote),
         ("testSubmoduleRead", testSubmoduleRead),
+        ("testSubmodules", testSubmodules),
+        ("testUncommitedChanges", testUncommitedChanges),
     ]
 }

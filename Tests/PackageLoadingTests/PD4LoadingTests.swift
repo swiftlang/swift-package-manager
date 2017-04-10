@@ -226,10 +226,11 @@ class PackageDescription4LoadingTests: XCTestCase {
 
     static var allTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
-        ("testTargetDependencies", testTargetDependencies),
-        ("testTrivial", testTrivial),
+        ("testManiestVersionToToolsVersion", testManiestVersionToToolsVersion),
         ("testPackageDependencies", testPackageDependencies),
         ("testProducts", testProducts),
         ("testSystemPackage", testSystemPackage),
+        ("testTargetDependencies", testTargetDependencies),
+        ("testTrivial", testTrivial),
     ]
 }

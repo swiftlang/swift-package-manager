@@ -97,11 +97,12 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testGTK3PCFile", testGTK3PCFile),
-        ("testEmptyCFlags", testEmptyCFlags),
-        ("testVariableinDependency", testVariableinDependency),
-        ("testUnresolvablePCFile", testUnresolvablePCFile),
-        ("testEscapedSpaces", testEscapedSpaces),
         ("testCustomPcFileSearchPath", testCustomPcFileSearchPath),
+        ("testEmptyCFlags", testEmptyCFlags),
+        ("testEscapedSpaces", testEscapedSpaces),
+        ("testGTK3PCFile", testGTK3PCFile),
+        ("testUnevenQuotes", testUnevenQuotes),
+        ("testUnresolvablePCFile", testUnresolvablePCFile),
+        ("testVariableinDependency", testVariableinDependency),
     ]
 }
