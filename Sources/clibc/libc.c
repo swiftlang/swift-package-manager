@@ -8,10 +8,4 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-#if os(Linux)
-@_exported import Glibc
-#else
-@_exported import Darwin.C
-#endif
-
-@_exported import clibc
+// This file is intentionally empty.
