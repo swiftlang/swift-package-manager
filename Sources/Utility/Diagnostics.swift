@@ -49,6 +49,11 @@ public final class UnknownLocation: DiagnosticLocation {
 
 extension DiagnosticsEngine {
 
+    /// Emit a diagnostic with an unknown location.
+    public func emit(data: DiagnosticData) {
+        emit(data: data, location: UnknownLocation.location)
+    }
+
     /// Emit a Swift error.
     ///
     /// Errors will be converted into diagnostic data if possible.
