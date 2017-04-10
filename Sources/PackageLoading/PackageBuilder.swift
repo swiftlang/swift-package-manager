@@ -195,8 +195,9 @@ extension Product.Error: FixableError {
 }
 
 /// Helper for constructing a package following the convention system.
-/// FIXME: This is a very confusing name, in light of the fact that SwiftPM has
-/// a build system; we should avoid using the word "build" here.
+///
+/// The 'builder' here refers to the builder pattern and not any build system
+/// related function.
 public struct PackageBuilder {
     /// The manifest for the package being constructed.
     private let manifest: Manifest
