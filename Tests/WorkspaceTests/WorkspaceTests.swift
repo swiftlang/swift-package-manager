@@ -1230,7 +1230,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             let diagnostics = DiagnosticsEngine()
             newWorkspace().loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.0..<1.0.1"))
+            // This output diagnostics isn't stable. It could be either A or B.
+            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("@ 1.0.0..<1.0.1"))
         }
     }
 
