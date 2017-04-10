@@ -58,8 +58,8 @@ class ClangModulesTestCase: XCTestCase {
             XCTAssertEqual(output, "5")
         }
 
-        // This has legacy style headers and the swift module imports clang module.
-        // This also has a user provided module map i.e. package manager will not generate it.
+        // This has legacy style headers and the swift target imports clang target.
+        // This also has a user provided modulemap i.e. package manager will not generate it.
         fixture(name: "ClangModules/SwiftCMixed2") { prefix in
             XCTAssertBuilds(prefix)
             let debugPath = prefix.appending(components: ".build", "debug")

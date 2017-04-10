@@ -46,10 +46,10 @@ public final class Package {
 
     /// pkgconfig name to use for C Modules. If present, swiftpm will try to
     /// search for <name>.pc file to get the additional flags needed for the
-    /// system module.
+    /// system target.
     public var pkgConfig: String?
 
-    /// Providers array for System module
+    /// Providers array for System target
     public var providers: [SystemPackageProvider]?
 
     /// The list of targets.
@@ -230,9 +230,9 @@ func manifestToJSON(_ package: Package) -> String {
     return JSON.dictionary(dict).toString()
 }
 
-// FIXME: This function is public to let other modules access JSON string
+// FIXME: This function is public to let other targets access JSON string
 // representation of the package without exposing the enum JSON defined in this
-// module because that'll leak to clients of PackageDescription i.e every
+// target because that'll leak to clients of PackageDescription i.e every
 // Package.swift file.
 public func jsonString(package: Package) -> String {
     return package.toJSON().toString()

@@ -19,7 +19,7 @@ let package = Package(
      succeeds! Thanks.
     */
     targets: [
-        // The `PackageDescription` modules are special, they define the API which
+        // The `PackageDescription` targets are special, they define the API which
         // is available to the `Package.swift` manifest files.
         Target(
             /** Package Definition API version 3 */
@@ -172,7 +172,7 @@ let package = Package(
 )
 
 
-// The executable products are automatically determined by SwiftPM; any module
+// The executable products are automatically determined by SwiftPM; any target
 // that contains a `main.swift` source file results in an implicit executable
 // product.
 

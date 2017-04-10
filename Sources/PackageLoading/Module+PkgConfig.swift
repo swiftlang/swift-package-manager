@@ -57,12 +57,12 @@ public struct PkgConfigResult {
     }
 }
 
-/// Get pkgConfig result for a CModule.
-public func pkgConfigArgs(for module: CModule, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
+/// Get pkgConfig result for a CTarget.
+public func pkgConfigArgs(for target: CTarget, fileSystem: FileSystem = localFileSystem) -> PkgConfigResult? {
     // If there is no pkg config name defined, we're done.
-    guard let pkgConfigName = module.pkgConfig else { return nil }
+    guard let pkgConfigName = target.pkgConfig else { return nil }
     // Compute additional search paths for the provider, if any.
-    let provider = module.providers?.first { $0.isAvailable }
+    let provider = target.providers?.first { $0.isAvailable }
     let additionalSearchPaths = provider?.pkgConfigSearchPath() ?? []
     // Get the pkg config flags.
     do {

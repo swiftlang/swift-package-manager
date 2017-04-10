@@ -18,7 +18,7 @@
  (as opposed to the generated UUIDs Xcode typically generates)
 
  We create identifiers with a constant-length unique prefix and
- a unique suffix where the suffix is the filename or module name
+ a unique suffix where the suffix is the filename or target name
  and since we guarantee uniqueness at the PackageDescription
  layer for these properties we satisfy the above constraints.
 */
@@ -27,7 +27,7 @@ import Basic
 import PackageModel
 import PackageLoading
 
-extension ResolvedModule {
+extension ResolvedTarget {
 
     var infoPlistFileName: String {
         return "\(c99name)_Info.plist"

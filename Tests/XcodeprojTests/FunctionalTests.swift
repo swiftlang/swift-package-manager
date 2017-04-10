@@ -102,7 +102,7 @@ class FunctionalTests: XCTestCase {
     
     func testSystemModule() {
 #if os(macOS)
-        // Because there isn't any one system module that we can depend on for testing purposes, we build our own.
+        // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
         try! write(path: AbsolutePath("/tmp/fake.h")) { stream in
             stream <<< "extern const char GetFakeString(void);\n"
         }

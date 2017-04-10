@@ -35,8 +35,8 @@ extension Package: JSONSerializable {
         stream <<< "Name: " <<< name <<< "\n"
         stream <<< "Path: " <<< path.asString <<< "\n"
         stream <<< "Modules: " <<< "\n"
-        for module in modules {
-            module.describe(on: stream, indent: 4)
+        for target in targets {
+            target.describe(on: stream, indent: 4)
             stream <<< "\n"
         }
     }
@@ -45,12 +45,12 @@ extension Package: JSONSerializable {
         return .dictionary([
             "name": .string(name),
             "path": .string(path.asString),
-            "modules": .array(modules.map({ $0.toJSON() })),
+            "targets": .array(targets.map({ $0.toJSON() })),
         ])
     }
 }
 
-extension Module: JSONSerializable {
+extension Target: JSONSerializable {
 
     func describe(on stream: OutputByteStream, indent: Int = 0) {
         stream <<< Format.asRepeating(string: " ", count: indent)
@@ -85,7 +85,7 @@ extension Sources: JSONSerializable {
     }
 }
 
-extension Module.Kind: JSONSerializable {
+extension Target.Kind: JSONSerializable {
     public func toJSON() -> JSON {
         return .string(rawValue)
     }

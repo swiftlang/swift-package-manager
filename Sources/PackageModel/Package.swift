@@ -29,7 +29,7 @@ import Utility
 /// declarative specification for (part of) the package but not the object that
 /// the package manager itself is typically working with internally. Rather,
 /// that specification is primarily used to load the package (see the
-/// `PackageLoading` module).
+/// `PackageLoading` target).
 ///
 /// 3. A loaded `PackageModel.Manifest` is an abstract representation of a
 /// package, and is used during package dependency resolution. It contains the
@@ -39,7 +39,7 @@ import Utility
 /// 4. A loaded `PackageModel.Package` which has had dependencies loaded and
 /// resolved. This is the result after `Get.get()`.
 ///
-/// 5. A loaded package, as in #4, for which the modules have also been
+/// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
 public final class Package {
@@ -54,16 +54,16 @@ public final class Package {
         return manifest.name
     }
 
-    /// The modules contained in the package.
-    public let modules: [Module]
+    /// The targets contained in the package.
+    public let targets: [Target]
 
     /// The products produced by the package.
     public let products: [Product]
 
-    public init(manifest: Manifest, path: AbsolutePath, modules: [Module], products: [Product]) {
+    public init(manifest: Manifest, path: AbsolutePath, targets: [Target], products: [Product]) {
         self.manifest = manifest
         self.path = path
-        self.modules = modules
+        self.targets = targets
         self.products = products
     }
 

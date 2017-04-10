@@ -13,14 +13,14 @@ import PackageModel
 
 public let moduleMapFilename = "module.modulemap"
 
-/// A protocol for modules which might have a modulemap.
+/// A protocol for targets which might have a modulemap.
 protocol ModuleMapProtocol {
     var moduleMapPath: AbsolutePath { get }
 
     var moduleMapDirectory: AbsolutePath { get }
 }
 
-extension CModule: ModuleMapProtocol {
+extension CTarget: ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath {
         return path
     }
@@ -30,7 +30,7 @@ extension CModule: ModuleMapProtocol {
     }
 }
 
-extension ClangModule: ModuleMapProtocol {
+extension ClangTarget: ModuleMapProtocol {
     var moduleMapDirectory: AbsolutePath {
         return includeDir
     }
@@ -40,7 +40,7 @@ extension ClangModule: ModuleMapProtocol {
     }
 }
 
-/// A modulemap generator for clang modules.
+/// A modulemap generator for clang targets.
 ///
 /// Modulemap is generated under the following rules provided it is not already present in include directory:
 ///
@@ -52,8 +52,8 @@ extension ClangModule: ModuleMapProtocol {
 ///    Generates: `umbrella "path/to/include"`
 public struct ModuleMapGenerator {
 
-    /// The clang module to operate on.
-    private let module: ClangModule
+    /// The clang target to operate on.
+    private let target: ClangTarget
 
     /// The file system to be used.
     private var fileSystem: FileSystem
@@ -62,11 +62,11 @@ public struct ModuleMapGenerator {
     private let warningStream: OutputByteStream
 
     public init(
-        for module: ClangModule,
+        for target: ClangTarget,
         fileSystem: FileSystem = localFileSystem,
         warningStream: OutputByteStream = stdoutStream
     ) {
-        self.module = module
+        self.target = target
         self.fileSystem = fileSystem
         self.warningStream = warningStream
     }
@@ -81,20 +81,20 @@ public struct ModuleMapGenerator {
         }
     }
 
-    /// Create the synthesized module map, if necessary.
-    /// Note: modulemap is not generated for test modules.
+    /// Create the synthesized modulemap, if necessary.
+    /// Note: modulemap is not generated for test targets.
     public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
-        assert(module.type == .library)
+        assert(target.type == .library)
 
-        ///Return if module map is already present
-        guard !fileSystem.isFile(module.moduleMapPath) else {
+        // Return if modulemap is already present.
+        guard !fileSystem.isFile(target.moduleMapPath) else {
             return
         }
 
-        let includeDir = module.includeDir
+        let includeDir = target.includeDir
         // Warn and return if no include directory.
         guard fileSystem.isDirectory(includeDir) else {
-            warningStream <<< ("warning: No include directory found for module '\(module.name)'. " +
+            warningStream <<< ("warning: No include directory found for target '\(target.name)'. " +
                 "A library can not be imported without any public headers.")
             warningStream.flush()
             return
@@ -105,11 +105,11 @@ public struct ModuleMapGenerator {
         let files = walked.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
         let dirs = walked.filter({ fileSystem.isDirectory($0) })
 
-        let umbrellaHeaderFlat = includeDir.appending(component: module.c99name + ".h")
+        let umbrellaHeaderFlat = includeDir.appending(component: target.c99name + ".h")
         if fileSystem.isFile(umbrellaHeaderFlat) {
             guard dirs.isEmpty else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
-                    module.name,
+                    target.name,
                     .umbrellaHeaderWithAdditionalNonEmptyDirectories(umbrellaHeaderFlat, dirs))
             }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat))
@@ -117,32 +117,32 @@ public struct ModuleMapGenerator {
         }
         diagnoseInvalidUmbrellaHeader(includeDir)
 
-        let umbrellaHeader = includeDir.appending(components: module.c99name, module.c99name + ".h")
+        let umbrellaHeader = includeDir.appending(components: target.c99name, target.c99name + ".h")
         if fileSystem.isFile(umbrellaHeader) {
             guard dirs.count == 1 else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
-                    module.name,
+                    target.name,
                     .umbrellaHeaderWithAdditionalDirectoriesInIncludeDirectory(umbrellaHeader, dirs))
             }
             guard files.isEmpty else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
-                    module.name,
+                    target.name,
                     .umbrellaHeaderWithAdditionalFilesInIncludeDirectory(umbrellaHeader, files))
             }
             try createModuleMap(inDir: wd, type: .header(umbrellaHeader))
             return
         }
-        diagnoseInvalidUmbrellaHeader(includeDir.appending(component: module.c99name))
+        diagnoseInvalidUmbrellaHeader(includeDir.appending(component: target.c99name))
 
         try createModuleMap(inDir: wd, type: .directory(includeDir))
     }
 
-    /// Warn user if in case module name and c99name are different and there is a
+    /// Warn user if in case target name and c99name are different and there is a
     /// `name.h` umbrella header.
     private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) {
-        let umbrellaHeader = path.appending(component: module.c99name + ".h")
-        let invalidUmbrellaHeader = path.appending(component: module.name + ".h")
-        if module.c99name != module.name && fileSystem.isFile(invalidUmbrellaHeader) {
+        let umbrellaHeader = path.appending(component: target.c99name + ".h")
+        let invalidUmbrellaHeader = path.appending(component: target.name + ".h")
+        if target.c99name != target.name && fileSystem.isFile(invalidUmbrellaHeader) {
             warningStream <<< ("warning: \(invalidUmbrellaHeader.asString) should be renamed to " +
                 "\(umbrellaHeader.asString) to be used as an umbrella header")
             warningStream.flush()
@@ -156,7 +156,7 @@ public struct ModuleMapGenerator {
 
     private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType) throws {
         let stream = BufferedOutputByteStream()
-        stream <<< "module \(module.c99name) {\n"
+        stream <<< "module \(target.c99name) {\n"
         switch type {
         case .header(let header):
             stream <<< "    umbrella header \"\(header.asString)\"\n"
@@ -184,7 +184,7 @@ extension ModuleMapGenerator.ModuleMapError: FixableError {
     public var error: String {
         switch self {
         case .unsupportedIncludeLayoutForModule(let (name, problem)):
-            return "could not generate module map for module '\(name)', the file layout is not " +
+            return "could not generate modulemap for target '\(name)', the file layout is not " +
                 "supported: \(problem.error)"
         }
     }

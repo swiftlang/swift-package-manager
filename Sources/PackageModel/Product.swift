@@ -44,21 +44,21 @@ public class Product {
     /// The type of product to create.
     public let type: ProductType
 
-    /// The list of modules to combine to form the product.
+    /// The list of targets to combine to form the product.
     ///
-    /// This is never empty, and is only the modules which are required to be in
+    /// This is never empty, and is only the targets which are required to be in
     /// the product, but not necessarily their transitive dependencies.
-    public let modules: [Module]
+    public let targets: [Target]
 
-    public init(name: String, type: ProductType, modules: [Module]) {
-        precondition(!modules.isEmpty)
+    public init(name: String, type: ProductType, targets: [Target]) {
+        precondition(!targets.isEmpty)
         if type == .executable {
-            assert(modules.filter({ $0.type == .executable }).count == 1,
-                   "Executable products should have exactly one executable module.")
+            assert(targets.filter({ $0.type == .executable }).count == 1,
+                   "Executable products should have exactly one executable target.")
         }
         self.name = name
         self.type = type
-        self.modules = modules
+        self.targets = targets
     }
 
     public var outname: RelativePath {

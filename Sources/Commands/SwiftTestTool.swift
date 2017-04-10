@@ -26,7 +26,7 @@ extension TestError: CustomStringConvertible {
     var description: String {
         switch self {
         case .testsExecutableNotFound:
-            return "no tests found to execute, create a module in your `Tests' directory"
+            return "no tests found to execute, create a target in your `Tests' directory"
         case .invalidListTestJSONData:
             return "Invalid list test JSON structure."
         case .multipleTestProducts:
@@ -131,7 +131,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
         //
         // FIXME: We should also check if the package has any test
-        // modules, which isn't trivial (yet).
+        // targets, which isn't trivial (yet).
         let testProducts = graph.products.filter({
             if case .test = $0.type {
                 return true
@@ -174,8 +174,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
-                usage: "Run a specific test class or method, Format: <test-module>.<test-case> or " +
-                    "<test-module>.<test-case>/<test>"),
+                usage: "Run a specific test class or method, Format: <test-target>.<test-case> or " +
+                    "<test-target>.<test-case>/<test>"),
             to: { $0.specifier = $1 })
     }
 

@@ -72,17 +72,17 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
             // Path should be an absolute path.
             XCTAssert(json["path"]?.string?.hasPrefix("/") == true)
-            // Sort the module.
-            let modules = json["modules"]?.array?.sorted {
+            // Sort the target.
+            let targets = json["targets"]?.array?.sorted {
                 guard let first = $0["name"], let second = $1["name"] else {
                     return false
                 }
                 return first.stringValue < second.stringValue
             }
 
-            XCTAssertEqual(modules?[0]["name"]?.stringValue, "CExec")
-            XCTAssertEqual(modules?[2]["type"]?.stringValue, "library")
-            XCTAssertEqual(modules?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
+            XCTAssertEqual(targets?[0]["name"]?.stringValue, "CExec")
+            XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
+            XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
             let textOutput = try execute(["describe"], chdir: prefix)
             

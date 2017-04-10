@@ -38,11 +38,11 @@ class PackageGraphTests: XCTestCase {
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
-            result.check(modules: "Bar", "Foo", "Baz", "FooDep")
+            result.check(targets: "Bar", "Foo", "Baz", "FooDep")
             result.check(testModules: "BazTests", "FooTests")
-            result.check(dependencies: "FooDep", module: "Foo")
-            result.check(dependencies: "Foo", module: "Bar")
-            result.check(dependencies: "Bar", module: "Baz")
+            result.check(dependencies: "FooDep", target: "Foo")
+            result.check(dependencies: "Foo", target: "Bar")
+            result.check(dependencies: "Bar", target: "Baz")
         }
     }
 
@@ -64,8 +64,8 @@ class PackageGraphTests: XCTestCase {
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
-            result.check(modules: "Bar", "Foo")
-            result.check(dependencies: "Bar", module: "Foo")
+            result.check(targets: "Bar", "Foo")
+            result.check(dependencies: "Bar", target: "Foo")
         }
     }
 
@@ -103,7 +103,7 @@ class PackageGraphTests: XCTestCase {
 
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
-            result.check(modules: "Bar", "Foo")
+            result.check(targets: "Bar", "Foo")
             result.check(testModules: "BarTests", "SomeTests")
         }
     }
@@ -120,7 +120,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple modules with the name Bar found fix: modules should have a unique name across dependencies")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets with the name Bar found fix: targets should have a unique name across dependencies")
     }
 
     static var allTests = [
@@ -147,42 +147,42 @@ private class PackageGraphResult {
         XCTAssertEqual(graph.packages.map {$0.name}.sorted(), packages.sorted(), file: file, line: line)
     }
 
-    func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
+    func check(targets: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.packages
-                .flatMap{ $0.modules }
+                .flatMap{ $0.targets }
                 .filter{ $0.type != .test }
                 .map{ $0.name }
-                .sorted(), modules.sorted(), file: file, line: line)
+                .sorted(), targets.sorted(), file: file, line: line)
     }
 
     func check(testModules: String..., file: StaticString = #file, line: UInt = #line) {
         XCTAssertEqual(
             graph.packages
-                .flatMap{ $0.modules }
+                .flatMap{ $0.targets }
                 .filter{ $0.type == .test }
                 .map{ $0.name }
                 .sorted(), testModules.sorted(), file: file, line: line)
     }
 
-    func find(module: String) -> ResolvedModule? {
+    func find(target: String) -> ResolvedTarget? {
         for pkg in graph.packages {
-            if let module = pkg.modules.first(where: { $0.name == module }) {
-                return module
+            if let target = pkg.targets.first(where: { $0.name == target }) {
+                return target
             }
         }
         return nil
     }
 
-    func check(dependencies: String..., module name: String, file: StaticString = #file, line: UInt = #line) {
-        guard let module = find(module: name) else {
+    func check(dependencies: String..., target name: String, file: StaticString = #file, line: UInt = #line) {
+        guard let target = find(target: name) else {
             return XCTFail("Module \(name) not found", file: file, line: line)
         }
-        XCTAssertEqual(dependencies.sorted(), module.dependencies.map{$0.name}.sorted(), file: file, line: line)
+        XCTAssertEqual(dependencies.sorted(), target.dependencies.map{$0.name}.sorted(), file: file, line: line)
     }
 }
 
-extension ResolvedModule.Dependency {
+extension ResolvedTarget.Dependency {
     var name: String {
         switch self {
         case .target(let target):
