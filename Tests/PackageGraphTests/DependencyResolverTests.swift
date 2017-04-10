@@ -680,9 +680,14 @@ class DependencyResolverTests: XCTestCase {
                 MockPackageConstraint(container: "A", versionRequirement: v1Range),
                 MockPackageConstraint(container: "C", versionRequirement: v2Range),
             ], pins: [])
-            XCTAssertEqual(result, constraints: [
-                MockPackageConstraint(container: "C", versionRequirement: v2Range),
-            ])
+
+            // FIXME: Unfortunately the output is not stable.
+            switch result {
+            case .unsatisfiable(let dependencies, let resultPins):
+                XCTAssertEqual(dependencies.count, 1)
+                XCTAssertEqual(resultPins, [])
+            default: XCTFail()
+            }
         }
     }
 
