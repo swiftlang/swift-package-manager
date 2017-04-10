@@ -10,6 +10,7 @@
 
 import Basic
 import struct Utility.Version
+import class Foundation.NSDate
 
 public enum DependencyResolverError: Error, Equatable {
     /// The resolver was unable to find a solution to the input constraints.
@@ -36,7 +37,7 @@ public enum DependencyResolverError: Error, Equatable {
 }
 
 /// An abstract definition for a set of versions.
-public enum VersionSetSpecifier: Equatable {
+public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
     /// The universal set.
     case any
 
@@ -95,6 +96,28 @@ public enum VersionSetSpecifier: Equatable {
             return true
         case .exact(let v):
             return v == version
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .any:
+            return "any"
+        case .empty:
+            return "empty"
+        case .range(let range):
+            var upperBound = range.upperBound
+            // Patch the version range representation. This shouldn't be
+            // required once we have custom version range structure.
+            if upperBound.minor == .max && upperBound.patch == .max {
+                upperBound = Version(upperBound.major + 1, 0, 0)
+            }
+            if upperBound.minor != .max && upperBound.patch == .max {
+                upperBound = Version(upperBound.major, upperBound.minor + 1, 0)
+            }
+            return range.lowerBound.description + "..<" + upperBound.description
+        case .exact(let version):
+            return version.description
         }
     }
 }
@@ -761,6 +784,7 @@ public class DependencyResolver<
     public typealias Delegate = D
     public typealias Container = Provider.Container
     public typealias Identifier = Container.Identifier
+    public typealias Binding = (container: Identifier, binding: BoundVersion)
 
     /// The type of the constraints the resolver operates on.
     ///
@@ -801,6 +825,51 @@ public class DependencyResolver<
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
+    }
+
+    /// The dependency resolver result.
+    public enum Result {
+        /// A valid and complete assignment was found.
+        case success([Binding])
+
+        /// The dependency graph was unsatisfiable.
+        ///
+        /// The payload may contain conflicting constraints and pins.
+        ///
+        /// - parameters:
+        ///     - dependencies: The package dependencies which make the graph unsatisfiable.
+        ///     - pins: The pins which make the graph unsatisfiable.
+        case unsatisfiable(dependencies: [Constraint], pins: [Constraint])
+
+        /// The resolver encountered an error during resolution.
+        case error(Swift.Error)
+    }
+
+    /// Execute the resolution algorithm to find a valid assignment of versions.
+    ///
+    /// If a valid assignment is not found, the resolver will go into incomplete
+    /// mode and try to find the conflicting constraints.
+    public func resolve(
+        dependencies: [Constraint],
+        pins: [Constraint]
+    ) -> Result {
+        do {
+            // Run the resolver.
+            let constraints = dependencies + pins
+            return try .success(resolve(constraints: constraints))
+        } catch DependencyResolverError.unsatisfiable {
+            // FIXME: can we avoid this do..catch nesting?
+            do {
+                // If the result is unsatisfiable, try to debug.
+                let debugger = ResolverDebugger(self)
+                let badConstraints = try debugger.debug(dependencies: dependencies, pins: pins)
+                return .unsatisfiable(dependencies: badConstraints.dependencies, pins: badConstraints.pins)
+            } catch {
+                return .error(error)
+            }
+        } catch {
+            return .error(error)
+        }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -1092,5 +1161,172 @@ public class DependencyResolver<
         delegate.added(container: identifier)
 
         return container
+    }
+}
+
+/// The resolver debugger.
+///
+/// Finds the constraints which results in graph being unresolvable.
+private struct ResolverDebugger<
+    Provider: PackageContainerProvider,
+    Delegate: DependencyResolverDelegate
+> where Provider.Container.Identifier == Delegate.Identifier {
+
+    typealias Identifier = Provider.Container.Identifier
+    typealias Constraint = PackageContainerConstraint<Identifier>
+
+    enum Error: Swift.Error {
+        /// Reached the time limit without completing the algorithm.
+        case reachedTimeLimit
+    }
+
+    /// Reference to the resolver.
+    unowned let resolver: DependencyResolver<Provider, Delegate>
+
+    /// Create a new debugger.
+    init(_ resolver: DependencyResolver<Provider, Delegate>) {
+        self.resolver = resolver
+    }
+
+    /// The time limit in seconds after which we abort finding a solution.
+    let timeLimit = 10.0
+
+    /// Returns the constraints which should be removed in order to make the
+    /// graph resolvable.
+    ///
+    /// We use delta debugging algoritm to find the smallest set of constraints
+    /// which can be removed from the input in order to make the graph
+    /// satisfiable.
+    ///
+    /// This algorithm can be exponential, so we abort after the predefined time limit.
+    func debug(
+        dependencies: [Constraint],
+        pins: [Constraint]
+    ) throws -> (dependencies: [Constraint], pins: [Constraint]) {
+        // Put the resolver in incomplete mode to avoid cloning new repositories.
+        resolver.isInIncompleteMode = true
+
+        let deltaAlgo = DeltaAlgorithm<ResolverChange>()
+        let allPackages = Set(dependencies.map({ $0.identifier }))
+
+        // Compute the set of changes.
+        let allChanges: Set<ResolverChange> = {
+            var set = Set<ResolverChange>()
+            set.formUnion(dependencies.map({ ResolverChange.allowPackage($0.identifier) }))
+            set.formUnion(pins.map({ ResolverChange.allowPin($0.identifier) }))
+            return set
+        }()
+
+        // Compute the current time.
+        let startTime = NSDate().timeIntervalSince1970
+        var timeLimitReached = false
+
+        // Run the delta debugging algorithm.
+        let badChanges = try deltaAlgo.run(changes: allChanges) { changes in
+            // Check if we reached the time limits.
+            timeLimitReached = timeLimitReached || (NSDate().timeIntervalSince1970 - startTime) >= timeLimit
+            // If we reached the time limit, throw.
+            if timeLimitReached {
+                throw Error.reachedTimeLimit
+            }
+
+            // Find the set of changes we want to allow in this predicate.
+            let allowedChanges = allChanges.subtracting(changes)
+
+            // Find the packages which are allowed and disallowed to participate
+            // in this changeset.
+            let allowedPackages = Set(allowedChanges.flatMap({ $0.allowedPackage }))
+            let disallowedPackages = allPackages.subtracting(allowedPackages)
+
+            // Start creating constraints.
+            //
+            // First, add all the package dependencies.
+            var constraints = dependencies
+
+            // Set all disallowed packages to unversioned, so they stay out of resolution.
+            constraints += disallowedPackages.map({
+                Constraint(container: $0, requirement: .unversioned([]))
+            })
+
+            let allowedPins = Set(allowedChanges.flatMap({ $0.allowedPin }))
+
+            // It is always a failure if this changeset contains a pin of
+            // a disallowed package.
+            if allowedPins.first(where: disallowedPackages.contains) != nil {
+                return false
+            }
+
+            // Finally, add the allowed pins.
+            constraints += pins.filter({ allowedPins.contains($0.identifier) })
+
+            return try satisfies(constraints)
+        }
+
+        // Filter the input with found result and return.
+        let badDependencies = Set(badChanges.flatMap({ $0.allowedPackage }))
+        let badPins = Set(badChanges.flatMap({ $0.allowedPin }))
+        return (
+            dependencies: dependencies.filter({ badDependencies.contains($0.identifier) }),
+            pins: pins.filter({ badPins.contains($0.identifier) })
+        )
+    }
+
+    /// Returns true if the constraints are satisfiable.
+    func satisfies(_ constraints: [Constraint]) throws -> Bool {
+        do {
+            _ = try resolver.resolve(constraints: constraints)
+            return true
+        } catch DependencyResolverError.unsatisfiable {
+            return false
+        }
+    }
+
+    /// Represents a single change which should introduced during delta debugging.
+    enum ResolverChange: Hashable {
+
+        /// Allow the package with the given identifier.
+        case allowPackage(Identifier)
+
+        /// Allow the pins with the given identifier.
+        case allowPin(Identifier)
+
+        /// Returns the allowed pin identifier.
+        var allowedPin: Identifier? {
+            if case let .allowPin(identifier) = self {
+                return identifier
+            }
+            return nil
+        }
+
+        // Returns the allowed package identifier.
+        var allowedPackage: Identifier? {
+            if case let .allowPackage(identifier) = self {
+                return identifier
+            }
+            return nil
+        }
+
+        var hashValue: Int {
+            // FIXME: Is this hash function good enough?
+            switch self {
+            case .allowPackage(let identifier):
+                return "package".hashValue &+ identifier.hashValue
+            case .allowPin(let identifier):
+                return "pin".hashValue &+ identifier.hashValue
+            }
+        }
+
+        static func ==(lhs: ResolverChange, rhs: ResolverChange) -> Bool {
+            switch (lhs, rhs) {
+            case (.allowPackage(let lhs), .allowPackage(let rhs)):
+                return lhs == rhs
+            case (.allowPackage, _):
+                return false
+            case (.allowPin(let lhs), .allowPin(let rhs)):
+                return lhs == rhs
+            case (.allowPin, _):
+                return false
+            }
+        }
     }
 }
