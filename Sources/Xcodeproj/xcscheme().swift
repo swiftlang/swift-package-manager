@@ -17,21 +17,21 @@ func xcscheme(container: String, graph: PackageGraph, codeCoverageEnabled: Bool,
     print("  <BuildAction parallelizeBuildables = \"YES\" buildImplicitDependencies = \"YES\">")
     print("    <BuildActionEntries>")
 
-    // Create buildable references for non-test modules.
-    for module in graph.modules where module.type != .test {
-        // Ignore system modules.
+    // Create buildable references for non-test targets.
+    for target in graph.targets where target.type != .test {
+        // Ignore system targets.
         //
         // FIXME: We shouldn't need to manually do this here, instead this
         // should be phrased in terms of the set of targets we computed.
-        if module.type == .systemModule {
+        if target.type == .systemModule {
             continue
         }
 
         print("      <BuildActionEntry buildForTesting = \"YES\" buildForRunning = \"YES\" buildForProfiling = \"YES\" buildForArchiving = \"YES\" buildForAnalyzing = \"YES\">")
         print("        <BuildableReference")
         print("          BuildableIdentifier = \"primary\"")
-        print("          BuildableName = \"\(module.buildableName)\"")
-        print("          BlueprintName = \"\(module.blueprintName)\"")
+        print("          BuildableName = \"\(target.buildableName)\"")
+        print("          BlueprintName = \"\(target.blueprintName)\"")
         print("          ReferencedContainer = \"container:\(container)\">")
         print("        </BuildableReference>")
         print("      </BuildActionEntry>")
@@ -48,13 +48,13 @@ func xcscheme(container: String, graph: PackageGraph, codeCoverageEnabled: Bool,
     print("    <Testables>")
 
     // Create testable references.
-    for module in graph.modules where module.type == .test {
+    for target in graph.targets where target.type == .test {
         print("    <TestableReference")
         print("      skipped = \"NO\">")
         print("      <BuildableReference")
         print("        BuildableIdentifier = \"primary\"")
-        print("        BuildableName = \"\(module.buildableName)\"")
-        print("        BlueprintName = \"\(module.blueprintName)\"")
+        print("        BuildableName = \"\(target.buildableName)\"")
+        print("        BlueprintName = \"\(target.blueprintName)\"")
         print("        ReferencedContainer = \"container:\(container)\">")
         print("      </BuildableReference>")
         print("    </TestableReference>")

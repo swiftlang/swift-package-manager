@@ -105,10 +105,10 @@ public func generate(
         print("</plist>")
     }
 
-    for module in graph.modules where module.type == .library || module.type == .test {
-        ///// For framework targets, generate module.c99Name_Info.plist files in the 
+    for target in graph.targets where target.type == .library || target.type == .test {
+        ///// For framework targets, generate target.c99Name_Info.plist files in the 
         ///// directory that Xcode project is generated
-        let name = module.infoPlistFileName
+        let name = target.infoPlistFileName
         try open(xcodeprojPath.appending(RelativePath(name))) { print in
             print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
             print("<plist version=\"1.0\">")
@@ -124,7 +124,7 @@ public func generate(
             print("  <key>CFBundleName</key>")
             print("  <string>$(PRODUCT_NAME)</string>")
             print("  <key>CFBundlePackageType</key>")
-            if module.type == .test {
+            if target.type == .test {
                 print("  <string>BNDL</string>")
             } else {
                 print("  <string>FMWK</string>")

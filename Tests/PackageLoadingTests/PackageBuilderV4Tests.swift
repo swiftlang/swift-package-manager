@@ -41,7 +41,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { _ in }
             result.checkModule("exec") { _ in }
             result.checkProduct("exec") { productResult in
-                productResult.check(type: .executable, modules: ["exec", "foo"])
+                productResult.check(type: .executable, targets: ["exec", "foo"])
             }
         }
 
@@ -50,7 +50,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("foo") { _ in }
             result.checkModule("exec") { _ in }
             result.checkProduct("exec") { productResult in
-                productResult.check(type: .executable, modules: ["exec"])
+                productResult.check(type: .executable, targets: ["exec"])
             }
         }
     }
@@ -107,10 +107,10 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
             result.checkProduct("fooTests") { product in
-                product.check(type: .test, modules: ["fooTests"])
+                product.check(type: .test, targets: ["fooTests"])
             }
             result.checkProduct("barTests") { product in
-                product.check(type: .test, modules: ["barTests"])
+                product.check(type: .test, targets: ["barTests"])
             }
         }
 
@@ -119,7 +119,7 @@ class PackageBuilderV4Tests: XCTestCase {
             result.checkModule("fooTests") { _ in }
             result.checkModule("barTests") { _ in }
             result.checkProduct("pkgPackageTests") { product in
-                product.check(type: .test, modules: ["barTests", "fooTests"])
+                product.check(type: .test, targets: ["barTests", "fooTests"])
             }
         }
     }
@@ -139,10 +139,10 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(dependencies: ["Bar"])
             }
 
-            for module in ["Bar", "Baz"] {
-                result.checkModule(module) { moduleResult in
-                    moduleResult.check(c99name: module, type: .library)
-                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+            for target in ["Bar", "Baz"] {
+                result.checkModule(target) { moduleResult in
+                    moduleResult.check(c99name: target, type: .library)
+                    moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
         }
@@ -198,10 +198,10 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(productDeps: [(name: "Bam", package: nil)])
             }
 
-            for module in ["Bar", "Baz"] {
-                result.checkModule(module) { moduleResult in
-                    moduleResult.check(c99name: module, type: .library)
-                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+            for target in ["Bar", "Baz"] {
+                result.checkModule(target) { moduleResult in
+                    moduleResult.check(c99name: target, type: .library)
+                    moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
         }
@@ -213,13 +213,13 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Foo.swift")
         var package = Package(name: "pkg", targets: [.target(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
+            result.checkDiagnostic("these referenced targets could not be found: Random fix: reference only valid targets")
         }
 
         // Reference an invalid dependency.
         package = Package(name: "pkg", targets: [.target(name: "pkg", dependencies: [.target(name: "Foo")])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
+            result.checkDiagnostic("these referenced targets could not be found: Foo fix: reference only valid targets")
         }
 
         // Reference self in dependencies.

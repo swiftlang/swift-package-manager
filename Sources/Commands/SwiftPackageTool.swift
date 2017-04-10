@@ -63,7 +63,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // NOTE: This command is currently undocumented, and is for
             // bringup of the new dependency resolution logic. This is *NOT*
             // the code currently used to resolve dependencies (which runs
-            // off of the infrastructure in the `Get` module).
+            // off of the infrastructure in the `Get` target).
             try executeResolve(options)
             break
 

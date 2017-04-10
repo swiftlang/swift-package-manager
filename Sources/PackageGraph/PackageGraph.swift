@@ -21,16 +21,16 @@ public struct PackageGraph {
     public let packages: [ResolvedPackage]
 
     /// Returns list of all targets (reachable from root targets) in the graph.
-    public let modules: [ResolvedModule]
+    public let targets: [ResolvedTarget]
 
     /// Contains all the products of the root packages and the product dependencies of the root targets.
     /// i.e. this array will not contain the products which are not needed to be built.
     public let products: [ResolvedProduct]
 
-    /// Returns true if a given module is present in root packages.
-    public func isInRootPackages(_ module: ResolvedModule) -> Bool {
+    /// Returns true if a given target is present in root packages.
+    public func isInRootPackages(_ target: ResolvedTarget) -> Bool {
         // FIXME: This can be easily cached.
-        return rootPackages.flatMap({ $0.modules }).contains(module)
+        return rootPackages.flatMap({ $0.targets }).contains(target)
     }
 
     /// Construct a package graph directly.
@@ -40,12 +40,12 @@ public struct PackageGraph {
         self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
 
         // Compute the input targets.
-        let inputTargets = inputPackages.flatMap({ $0.modules }).map(ResolvedModule.Dependency.target)
+        let inputTargets = inputPackages.flatMap({ $0.targets }).map(ResolvedTarget.Dependency.target)
         // Find all the dependencies of the root targets.
         let dependencies = try! topologicalSort(inputTargets, successors: { $0.dependencies })
 
         // Separate out the products and targets but maintain their topological order.
-        var targets: [ResolvedModule] = []
+        var targets: [ResolvedTarget] = []
         var products = inputPackages.flatMap({ $0.products })
         let rootDependencyProductSet = Set(rootDependencies.flatMap({ $0.products }))
 
@@ -60,7 +60,7 @@ public struct PackageGraph {
             }
         }
 
-        self.modules = targets
+        self.targets = targets
         self.products = products
     }
 }

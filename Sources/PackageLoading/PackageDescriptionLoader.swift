@@ -166,11 +166,11 @@ extension PackageDescription.Product {
         guard case .string(let productType)? = dict["type"] else { fatalError("missing item") }
         guard case .array(let targetsJSON)? = dict["modules"] else { fatalError("missing item") }
 
-        let targets: [String] = targetsJSON.map({
+        let modules: [String] = targetsJSON.map({
             guard case JSON.string(let string) = $0 else { fatalError("invalid item") }
             return string
         })
-        self.init(name: name, type: ProductType(productType), modules: targets)
+        self.init(name: name, type: ProductType(productType), modules: modules)
     }
 }
 

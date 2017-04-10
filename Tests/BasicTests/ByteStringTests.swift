@@ -12,7 +12,7 @@ import XCTest
 
 import Basic
 
-// Allow simple conversion from String, in the tests module.
+// Allow simple conversion from String, in the tests target.
 extension ByteString {
     init(_ string: String) {
         self.init(encodingAsUTF8: string)

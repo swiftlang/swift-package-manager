@@ -46,7 +46,7 @@ public func pbxproj(
     return "// !$*UTF8*$!\n" + project.generatePlist().description
 }
 
-/// A set of c99 module names that are invalid for Xcode Framework targets.
+/// A set of c99 target names that are invalid for Xcode Framework targets.
 /// They will conflict with the required Framework directory structure,
 /// and cause a linker error (SR-3398).
 // FIXME: Handle case insensitive filesystems.
@@ -228,27 +228,27 @@ func xcodeProject(
     srcPathsToGroups[sourceRootDir] = project.mainGroup
 
     // Private helper function that creates a source group for one or more
-    // modules (which could be regular modules, tests, etc).  If there is a
-    // single module whose source directory's basename is not equal to the
-    // module name (i.e. the "flat" form of a single-module package), then
-    // the top-level group will itself represent that module; otherwise, it
-    // will have one subgroup for each module.
+    // targets (which could be regular targets, tests, etc).  If there is a
+    // single target whose source directory's basename is not equal to the
+    // target name (i.e. the "flat" form of a single-target package), then
+    // the top-level group will itself represent that target; otherwise, it
+    // will have one subgroup for each target.
     //
     // The provided name is always used for the top-level group, whether or
-    // not it represents a single module or is the parent of a collection of
-    // modules.
+    // not it represents a single target or is the parent of a collection of
+    // targets.
     //
     // Regardless of the layout case, this function adds a mapping from the
-    // source directory of each module to the corresponding group, so that
+    // source directory of each target to the corresponding group, so that
     // source files added later will be able to find the right group.
-    func createSourceGroup(named groupName: String, for modules: [ResolvedModule], in parentGroup: Xcode.Group) {
-        // Look for the special case of a single module in a flat layout.
+    func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) {
+        // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
-        if modules.count == 1, let module = modules.first {
+        if targets.count == 1, let target = targets.first {
             // FIXME: This is somewhat flaky; packages should have a notion of
             // what kind of layout they have.  But at least this is just a
             // heuristic and won't affect the functioning of the Xcode project.
-            needsSourcesGroup = (module.sources.root.basename == module.name)
+            needsSourcesGroup = (target.sources.root.basename == target.name)
         } else {
             needsSourcesGroup = true
         }
@@ -257,25 +257,25 @@ func xcodeProject(
         let sourcesGroup = needsSourcesGroup ?
             parentGroup.addGroup(path: "", pathBase: .projectDir, name: groupName) : nil
 
-        // Create a group for each module.
-        for module in modules {
+        // Create a group for each target.
+        for target in targets {
             // The sources could be anywhere, so we use a project-relative path.
-            let path = module.sources.root.relative(to: sourceRootDir).asString
-            let name = (sourcesGroup == nil ? groupName : module.name)
+            let path = target.sources.root.relative(to: sourceRootDir).asString
+            let name = (sourcesGroup == nil ? groupName : target.name)
             let group = (sourcesGroup ?? parentGroup)
                 .addGroup(path: (path == "." ? "" : path), pathBase: .projectDir, name: name)
 
-            // Associate the group with the module's root path.
-            srcPathsToGroups[module.sources.root] = group
+            // Associate the group with the target's root path.
+            srcPathsToGroups[target.sources.root] = group
         }
     }
 
-    let (rootModules, testModules) = graph.rootPackages[0].modules.split { $0.type != .test }
+    let (rootModules, testModules) = graph.rootPackages[0].targets.split{ $0.type != .test }
 
-    // Create a `Sources` group for the source modules in the root package.
+    // Create a `Sources` group for the source targets in the root package.
     createSourceGroup(named: "Sources", for: rootModules, in: project.mainGroup)
 
-    // Create a `Tests` group for the source modules in the root package.
+    // Create a `Tests` group for the source targets in the root package.
     createSourceGroup(named: "Tests", for: testModules, in: project.mainGroup)
 
     // Add "blue folders" for any other directories at the top level (note that
@@ -300,9 +300,9 @@ func xcodeProject(
             if let version = package.manifest.version {
                 groupName += " " + version.description
             }
-            // Create the source group for all the modules in the package.
+            // Create the source group for all the targets in the package.
             // FIXME: Eliminate filtering test from here.
-            createSourceGroup(named: groupName, for: package.modules.filter({ $0.type != .test }), in: dependenciesGroup)
+            createSourceGroup(named: groupName, for: package.targets.filter({ $0.type != .test }), in: dependenciesGroup)
         }
     }
 
@@ -314,25 +314,25 @@ func xcodeProject(
     // the project.
     project.productGroup = productsGroup
 
-    // Determine the set of modules to generate in the project by excluding
-    // any system modules.
-    let modules = graph.modules.filter({ $0.type != .systemModule })
+    // Determine the set of targets to generate in the project by excluding
+    // any system targets.
+    let targets = graph.targets.filter({ $0.type != .systemModule })
 
-    // We'll need a mapping of modules to the corresponding targets.
-    var modulesToTargets: [ResolvedModule: Xcode.Target] = [:]
+    // We'll need a mapping of targets to the corresponding targets.
+    var modulesToTargets: [ResolvedTarget: Xcode.Target] = [:]
 
-    // Mapping of modules to the path of their module map path, if they one.
+    // Mapping of targets to the path of their modulemap path, if they one.
     // It also records if the modulemap is generated by SwiftPM.
-    var modulesToModuleMap: [ResolvedModule: (path: AbsolutePath, isGenerated: Bool)] = [:]
+    var modulesToModuleMap: [ResolvedTarget: (path: AbsolutePath, isGenerated: Bool)] = [:]
 
-    // Go through all the modules, creating targets and adding file references
+    // Go through all the targets, creating targets and adding file references
     // to the group tree (the specific top-level group under which they are
-    // added depends on whether or not the module is a test module).
-    for module in modules {
-        // Determine the appropriate product type based on the kind of module.
+    // added depends on whether or not the target is a test target).
+    for target in targets {
+        // Determine the appropriate product type based on the kind of target.
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
-        switch module.type {
+        switch target.type {
         case .executable:
             productType = .executable
         case .library:
@@ -343,34 +343,34 @@ func xcodeProject(
             fatalError()
         }
 
-        // Warn if the module name is invalid.
-        if module.type == .library && invalidXcodeModuleNames.contains(module.c99name) {
-            warningStream <<< ("warning: Target '\(module.name)' conflicts with required framework filenames, rename " +
+        // Warn if the target name is invalid.
+        if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
+            warningStream <<< ("warning: Target '\(target.name)' conflicts with required framework filenames, rename " +
                 "this target to avoid conflicts.\n")
             warningStream.flush()
         }
 
-        // Create a target for the module.
-        let target = project.addTarget(productType: productType, name: module.name)
+        // Create a Xcode target for the target.
+        let xcodeTarget = project.addTarget(productType: productType, name: target.name)
 
-        // Set the product name to the C99-mangled form of the module name.
-        target.productName = module.c99name
+        // Set the product name to the C99-mangled form of the target name.
+        xcodeTarget.productName = target.c99name
 
-        // Configure the target settings based on the module.  We set only the
+        // Configure the target settings based on the target.  We set only the
         // minimum settings required, because anything we set on the target is
         // not overridable by the user-supplied .xcconfig file.
-        let targetSettings = target.buildSettings
+        let targetSettings = xcodeTarget.buildSettings
 
         // Set the target's base .xcconfig file to the user-supplied override
         // .xcconfig, if we have one.  This lets it override project settings.
         targetSettings.xcconfigFileRef = xcconfigOverridesFileRef
 
-        targetSettings.common.TARGET_NAME = module.name
+        targetSettings.common.TARGET_NAME = target.name
 
-        let infoPlistFilePath = xcodeprojPath.appending(component: module.infoPlistFileName)
+        let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).asString
 
-        if module.type == .test {
+        if target.type == .test {
             targetSettings.common.EMBEDDED_CONTENT_CONTAINS_SWIFT = "YES"
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/../Frameworks", "@loader_path/Frameworks"]
         } else {
@@ -380,11 +380,11 @@ func xcodeProject(
             // Note that this means that the built binaries are not suitable for
             // distribution, among other things.
             targetSettings.common.LD_RUNPATH_SEARCH_PATHS = ["$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"]
-            if module.type == .library {
+            if target.type == .library {
                 targetSettings.common.ENABLE_TESTABILITY = "YES"
                 targetSettings.common.PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)"
                 targetSettings.common.PRODUCT_MODULE_NAME = "$(TARGET_NAME:c99extidentifier)"
-                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = module.c99name.mangledToBundleIdentifier()
+                targetSettings.common.PRODUCT_BUNDLE_IDENTIFIER = target.c99name.mangledToBundleIdentifier()
                 targetSettings.common.SKIP_INSTALL = "YES"
             } else {
                 targetSettings.common.SWIFT_FORCE_STATIC_LINK_STDLIB = "NO"
@@ -397,26 +397,26 @@ func xcodeProject(
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
 
-        // Add header search paths for any C module on which we depend.
+        // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in [module] + module.recursiveDependencies {
+        for depModule in [target] + target.recursiveDependencies {
             // FIXME: Possibly factor this out into a separate protocol; the
-            // idea would be that we would ask the module how it contributes
-            // to the overall build environment for client modules, which can
+            // idea would be that we would ask the target how it contributes
+            // to the overall build environment for client targets, which can
             // affect search paths and other flags.  This should be done in a
             // way that allows SwiftPM to detect incompatibilities.
 
             // FIXME: We don't need SRCROOT macro below but there is an issue with sourcekit.
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
-            switch depModule.underlyingModule {
-              case let cModule as CModule:  // System module
-                hdrInclPaths.append("$(SRCROOT)/" + cModule.path.relative(to: sourceRootDir).asString)
-                if let pkgArgs = pkgConfigArgs(for: cModule) {
+            switch depModule.underlyingTarget {
+              case let cTarget as CTarget:
+                hdrInclPaths.append("$(SRCROOT)/" + cTarget.path.relative(to: sourceRootDir).asString)
+                if let pkgArgs = pkgConfigArgs(for: cTarget) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                 }
-              case let clangModule as ClangModule:
-                hdrInclPaths.append("$(SRCROOT)/" + clangModule.includeDir.relative(to: sourceRootDir).asString)
+            case let clangTarget as ClangTarget:
+                hdrInclPaths.append("$(SRCROOT)/" + clangTarget.includeDir.relative(to: sourceRootDir).asString)
               default:
                 continue
             }
@@ -427,13 +427,13 @@ func xcodeProject(
         targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
 
         // Add a file reference for the target's product.
-        let productRef = productsGroup.addFileReference(path: module.productPath.asString, pathBase: .buildDir)
+        let productRef = productsGroup.addFileReference(path: target.productPath.asString, pathBase: .buildDir)
 
         // Set that file reference as the target's product reference.
-        target.productReference = productRef
+        xcodeTarget.productReference = productRef
 
         // Add a compile build phase (which Xcode calls "Sources").
-        let compilePhase = target.addSourcesBuildPhase()
+        let compilePhase = xcodeTarget.addSourcesBuildPhase()
 
         // We don't add dependencies yet — we do so in a separate pass, since
         // some dependencies might be on targets that we have not yet created.
@@ -441,16 +441,16 @@ func xcodeProject(
         // We also don't add the link phase yet, since we'll do so at the same
         // time as we set up dependencies.
 
-        // Record the target that we created for this module, for later passes.
-        modulesToTargets[module] = target
+        // Record the target that we created for this target, for later passes.
+        modulesToTargets[target] = xcodeTarget
 
-        // Go through the module source files.  As we do, we create groups for
+        // Go through the target source files.  As we do, we create groups for
         // any path components other than the last one.  We also add build files
         // to the compile phase of the target we created.
-        for sourceFile in module.sources.paths {
+        for sourceFile in target.sources.paths {
             // Find or make a group for the parent directory of the source file.
             // We know that there will always be one, because we created groups
-            // for the source directories of all the modules.
+            // for the source directories of all the targets.
             let group = makeGroup(for: sourceFile.parentDirectory)
 
             // Create a reference for the source file.  We don't set its file
@@ -462,10 +462,10 @@ func xcodeProject(
         }
 
         // Add the `include` group for a libary C language target.
-        if case let clangModule as ClangModule = module.underlyingModule,
-            clangModule.type == .library,
-            fileSystem.isDirectory(clangModule.includeDir) {
-            let includeDir = clangModule.includeDir
+        if case let clangTarget as ClangTarget = target.underlyingTarget,
+            clangTarget.type == .library,
+            fileSystem.isDirectory(clangTarget.includeDir) {
+            let includeDir = clangTarget.includeDir
             let includeGroup = makeGroup(for: includeDir)
             // FIXME: Support C++ headers.
             for header in try walk(includeDir, fileSystem: fileSystem) where header.extension == "h" {
@@ -473,75 +473,75 @@ func xcodeProject(
                 group.addFileReference(path: header.basename)
             }
 
-            // Disable defines module for clang module because our clang modules are not proper framework modules.
+            // Disable defines target for clang target because our clang targets are not proper framework targets.
             // Also see: <rdar://problem/29825757> 
             targetSettings.common.DEFINES_MODULE = "NO"
-            // Generate a module map for ClangModule (if not provided by user) and
+            // Generate a modulemap for clangTarget (if not provided by user) and
             // add to the build settings.
             let moduleMapPath: AbsolutePath
 
             // If the modulemap is generated (as opposed to user provided).
             let isGenerated: Bool
             // If user provided the modulemap no need to generate.
-            if fileSystem.isFile(clangModule.moduleMapPath) {
-                moduleMapPath = clangModule.moduleMapPath
+            if fileSystem.isFile(clangTarget.moduleMapPath) {
+                moduleMapPath = clangTarget.moduleMapPath
                 isGenerated = false
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
-                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangModule.c99name)
-                var moduleMapGenerator = ModuleMapGenerator(for: clangModule, fileSystem: fileSystem)
+                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
+                var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem)
                 try moduleMapGenerator.generateModuleMap(inDir: path)
                 moduleMapPath = path.appending(component: moduleMapFilename)
                 isGenerated = true
             }
             includeGroup.addFileReference(path: moduleMapPath.asString, name: moduleMapPath.basename)
-            // Save this modulemap path mapped to module so we can later wire it up for its dependees.
-            modulesToModuleMap[module] = (moduleMapPath, isGenerated)
+            // Save this modulemap path mapped to target so we can later wire it up for its dependees.
+            modulesToModuleMap[target] = (moduleMapPath, isGenerated)
         }
     }
 
-    // Go through all the module/target pairs again, and add target dependencies
-    // for any module dependencies.  As we go, we also add link phases and set
+    // Go through all the target/target pairs again, and add target dependencies
+    // for any target dependencies.  As we go, we also add link phases and set
     // up the targets to link against the products of the dependencies.
-    for (module, target) in modulesToTargets {
+    for (target, xcodeTarget) in modulesToTargets {
         // Add link build phase (which Xcode calls "Frameworks & Libraries").
         // We need to do this whether or not there are dependencies on other
-        // modules.
-        let linkPhase = target.addFrameworksBuildPhase()
+        // targets.
+        let linkPhase = xcodeTarget.addFrameworksBuildPhase()
 
-        // For each module on which this one depends, add a target dependency
+        // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for dependency in module.recursiveDependencies {
+        for dependency in target.recursiveDependencies {
             // We should never find ourself in the list of dependencies.
-            assert(dependency != module)
+            assert(dependency != target)
 
-            // Find the target that corresponds to the other module.
+            // Find the target that corresponds to the other target.
             guard let otherTarget = modulesToTargets[dependency] else {
-                // FIXME: We're depending on a module for which we didn't create
+                // FIXME: We're depending on a target for which we didn't create
                 // a target.  This is unexpected, and we should report this as
                 // an error.
-                // FIXME: Or is it?  What about system modules, can we depend
+                // FIXME: Or is it?  What about system targets, can we depend
                 // on those?  If so, we would just link and not depend, right?
                 continue
             }
 
             // Add a dependency on the other target.
-            target.addDependency(on: otherTarget)
+            xcodeTarget.addDependency(on: otherTarget)
 
             // If it's a library, we also add want to link against its product.
             if dependency.type == .library {
                 _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
             }
-            // For swift modules, if a clang dependency has a module map, add it via -fmodule-map-file.
-            if let moduleMap = modulesToModuleMap[dependency], module.underlyingModule is SwiftModule {
-                assert(dependency.underlyingModule is ClangModule)
-                target.buildSettings.common.OTHER_SWIFT_FLAGS += [
+            // For swift targets, if a clang dependency has a modulemap, add it via -fmodule-map-file.
+            if let moduleMap = modulesToModuleMap[dependency], target.underlyingTarget is SwiftTarget {
+                assert(dependency.underlyingTarget is ClangTarget)
+                xcodeTarget.buildSettings.common.OTHER_SWIFT_FLAGS += [
                     "-Xcc",
                     "-fmodule-map-file=$(SRCROOT)/" + moduleMap.path.relative(to: sourceRootDir).asString,
                 ]
                 // Workaround for a interface generation bug. <rdar://problem/30071677>
                 if moduleMap.isGenerated {
-                    target.buildSettings.common.HEADER_SEARCH_PATHS += [
+                    xcodeTarget.buildSettings.common.HEADER_SEARCH_PATHS += [
                         "$(SRCROOT)/" + moduleMap.path.parentDirectory.relative(to: sourceRootDir).asString
                     ]
                 }
@@ -556,26 +556,26 @@ func xcodeProject(
         // Go on to next product if we already have a target with the same name.
         if targetNames.contains(product.name) { continue }
         // Otherwise, create an aggreate target.
-        let target = project.addTarget(productType: nil, name: product.name)
+        let aggregateTarget = project.addTarget(productType: nil, name: product.name)
         // Add dependencies on the targets created for each of the dependencies.
-        for module in product.modules {
-            // Find the target that corresponds to the module.  There might not
-            // be one, since we don't create targets for every kind of module
-            // (such as system modules).
+        for target in product.targets {
+            // Find the target that corresponds to the target.  There might not
+            // be one, since we don't create targets for every kind of target
+            // (such as system targets).
             // TODO: We will need to decide how this should best be handled; it
             // would make sense to at least emit a warning.
-            guard let depTarget = modulesToTargets[module] else {
+            guard let depTarget = modulesToTargets[target] else {
                 continue
             }
             // Add a dependency on the dependency target.
-            target.addDependency(on: depTarget)
+            aggregateTarget.addDependency(on: depTarget)
         }
     }
 
     return project
 }
 
-extension ResolvedModule {
+extension ResolvedTarget {
 
     var buildableName: String {
         return productName
@@ -603,14 +603,14 @@ private extension SupportedLanguageExtension {
     }
 }
 
-private extension ResolvedModule {
+private extension ResolvedTarget {
     func fileType(forSource source: RelativePath) -> String {
-        switch underlyingModule {
-        case is SwiftModule:
+        switch underlyingTarget {
+        case is SwiftTarget:
             // SwiftModules only has one type of source so just always return this.
             return SupportedLanguageExtension.swift.xcodeFileType
 
-        case is ClangModule:
+        case is ClangTarget:
             guard let suffix = source.suffix else {
                 fatalError("Source \(source) doesn't have an extension in ClangModule \(name)")
             }
@@ -623,7 +623,7 @@ private extension ResolvedModule {
             return ext.xcodeFileType
 
         default:
-            fatalError("unexpected module type")
+            fatalError("unexpected target type")
         }
     }
 }

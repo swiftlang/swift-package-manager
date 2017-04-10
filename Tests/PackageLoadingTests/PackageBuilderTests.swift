@@ -39,7 +39,7 @@ class PackageBuilderTests: XCTestCase {
         var fs = InMemoryFileSystem(emptyFiles:
             "/Foo.swift")
 
-        let name = "SingleSwiftModule"
+        let name = "SingleSwiftTarget"
         PackageBuilderTester(name, in: fs) { result in
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .library)
@@ -47,7 +47,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift module inside Sources.
+        // Single swift target inside Sources.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo.swift",
             "/Sources/Bar.swift")
@@ -59,7 +59,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift module inside its own directory.
+        // Single swift target inside its own directory.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/lib/Foo.swift",
             "/Sources/lib/Bar.swift")
@@ -98,7 +98,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single clang module inside Sources.
+        // Single clang target inside Sources.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo.h",
             "/Sources/Foo.c")
@@ -110,7 +110,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single clang module inside its own directory.
+        // Single clang target inside its own directory.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/lib/Foo.h",
             "/Sources/lib/Foo.c")
@@ -123,8 +123,8 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSingleExecutableSwiftModule() throws {
-        // Single swift executable module.
+    func testSingleExecutableSwiftTarget() throws {
+        // Single swift executable target.
         var fs = InMemoryFileSystem(emptyFiles:
             "/main.swift",
             "/Bar.swift")
@@ -138,7 +138,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift executable module inside Sources.
+        // Single swift executable target inside Sources.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/main.swift")
 
@@ -149,7 +149,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift executable module inside its own directory.
+        // Single swift executable target inside its own directory.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec/main.swift")
 
@@ -162,7 +162,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCompatibleSwiftVersions() throws {
-        // Single swift executable module.
+        // Single swift executable target.
         let fs = InMemoryFileSystem(emptyFiles:
             "/foo/main.swift",
             "/bar/bar.swift",
@@ -192,7 +192,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSingleExecutableClangModule() throws {
-        // Single swift executable module.
+        // Single swift executable target.
         var fs = InMemoryFileSystem(emptyFiles:
             "/main.c",
             "/Bar.c")
@@ -205,7 +205,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift executable module inside Sources.
+        // Single swift executable target inside Sources.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/main.cpp")
 
@@ -216,7 +216,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        // Single swift executable module inside its own directory.
+        // Single swift executable target inside its own directory.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/c/main.c")
 
@@ -270,7 +270,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testMultipleSwiftModules() throws {
+    func testMultipleSwiftTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
             "/Sources/A/foo.swift",
@@ -326,7 +326,7 @@ class PackageBuilderTests: XCTestCase {
     func testTestsLayoutsv3() throws {
         // We expect auto dependency between Foo and FooTests.
         //
-        // Single module layout.
+        // Single target layout.
         for singleModuleSource in ["/", "/Sources/", "/Sources/Foo/"].lazy.map(AbsolutePath.init) {
             let fs = InMemoryFileSystem(emptyFiles:
                 singleModuleSource.appending(component: "Foo.swift").asString,
@@ -422,7 +422,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Sources/main.c")
         PackageBuilderTester("MixedSources", in: fs) { result in
-            result.checkDiagnostic("the module at /Sources contains mixed language source files fix: use only a single language within a module")
+            result.checkDiagnostic("the target at /Sources contains mixed language source files fix: use only a single language within a target")
         }
     }
 
@@ -501,10 +501,10 @@ class PackageBuilderTests: XCTestCase {
                 moduleResult.check(dependencies: ["Bar"])
             }
 
-            for module in ["Bar", "Baz"] {
-                result.checkModule(module) { moduleResult in
-                    moduleResult.check(c99name: module, type: .library)
-                    moduleResult.checkSources(root: "/Sources/\(module)", paths: "\(module).swift")
+            for target in ["Bar", "Baz"] {
+                result.checkModule(target) { moduleResult in
+                    moduleResult.check(c99name: target, type: .library)
+                    moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
         }
@@ -553,7 +553,7 @@ class PackageBuilderTests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced modules could not be found: Bam fix: reference only valid modules")
+            result.checkDiagnostic("these referenced targets could not be found: Bam fix: reference only valid targets")
         }
     }
 
@@ -585,19 +585,19 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testInvalidTestTargets() throws {
-        // Test module in Sources/
+        // Test target in Sources/
         var fs = InMemoryFileSystem(emptyFiles:
             "/Sources/FooTests/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test module has a 'Tests' suffix fix: rename the directory 'Sources/FooTests' to not have a 'Tests' suffix")
+            result.checkDiagnostic("the directory Sources/FooTests has an invalid name (\'FooTests\'): the name of a non-test target has a 'Tests' suffix fix: rename the directory 'Sources/FooTests' to not have a 'Tests' suffix")
         }
 
-        // Normal module in Tests/
+        // Normal target in Tests/
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/main.swift",
             "/Tests/Foo/source.swift")
         PackageBuilderTester("TestsInSources", in: fs) { result in
-            result.checkDiagnostic("the directory Tests/Foo has an invalid name (\'Foo\'): the name of a test module has no 'Tests' suffix fix: rename the directory 'Tests/Foo' to have a 'Tests' suffix")
+            result.checkDiagnostic("the directory Tests/Foo has an invalid name (\'Foo\'): the name of a test target has no 'Tests' suffix fix: rename the directory 'Tests/Foo' to have a 'Tests' suffix")
         }
     }
 
@@ -607,7 +607,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Tests/source.swift")
         PackageBuilderTester("LooseSourceFileInTestsDir", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Tests/source.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Tests/source.swift fix: move the file(s) inside a target")
         }
     }
     
@@ -617,13 +617,13 @@ class PackageBuilderTests: XCTestCase {
             "/Foo.swift")
         var package = PackageDescription.Package(name: "pkg", targets: [.init(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced modules could not be found: Random fix: reference only valid modules")
+            result.checkDiagnostic("these referenced targets could not be found: Random fix: reference only valid targets")
         }
 
         // Reference an invalid dependency.
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg", dependencies: ["Foo"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced modules could not be found: Foo fix: reference only valid modules")
+            result.checkDiagnostic("these referenced targets could not be found: Foo fix: reference only valid targets")
         }
 
         // Reference self in dependencies.
@@ -688,7 +688,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testTestsProduct() throws {
-        // Make sure product name and test module name are different in single module package.
+        // Make sure product name and test target name are different in single target package.
         var fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo.swift",
             "/Tests/FooTests/Bar.swift")
@@ -705,11 +705,11 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkProduct("FooPackageTests") { productResult in
-                productResult.check(type: .test, modules: ["FooTests"])
+                productResult.check(type: .test, targets: ["FooTests"])
             }
         }
 
-        // Multi module tests package.
+        // Multi target tests package.
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/Foo.swift",
             "/Sources/Bar/Bar.swift",
@@ -738,7 +738,7 @@ class PackageBuilderTests: XCTestCase {
             }
 
             result.checkProduct("FooPackageTests") { productResult in
-                productResult.check(type: .test, modules: ["BarTests", "FooTests"])
+                productResult.check(type: .test, targets: ["BarTests", "FooTests"])
             }
         }
     }
@@ -766,7 +766,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Foo.swift, /main.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Foo.swift, /main.swift fix: move the file(s) inside a target")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -791,7 +791,7 @@ class PackageBuilderTests: XCTestCase {
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -803,13 +803,13 @@ class PackageBuilderTests: XCTestCase {
              └── Sources
                  └── File2.swift
         */
-        // FIXME: We should allow this by not making modules at root and only inside Sources/.
+        // FIXME: We should allow this by not making targets at root and only inside Sources/.
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/Files2.swift",
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -826,7 +826,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/main.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/main.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -843,7 +843,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -864,7 +864,7 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /File1.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /File1.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -875,7 +875,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/file.swift fix: move the file(s) inside a module")
+            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/file.swift fix: move the file(s) inside a target")
         }
     }
 
@@ -988,14 +988,14 @@ class PackageBuilderTests: XCTestCase {
         ("testModuleMapLayout", testModuleMapLayout),
         ("testMultipleClangModules", testMultipleClangModules),
         ("testMultipleRoots", testMultipleRoots),
-        ("testMultipleSwiftModules", testMultipleSwiftModules),
+        ("testMultipleSwiftTargets", testMultipleSwiftTargets),
         ("testNoSources", testNoSources),
         ("testNoSourcesInModule", testNoSourcesInModule),
         ("testResolvesSingleClangLibraryModule", testResolvesSingleClangLibraryModule),
         ("testResolvesSingleSwiftLibraryModule", testResolvesSingleSwiftLibraryModule),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testSingleExecutableClangModule", testSingleExecutableClangModule),
-        ("testSingleExecutableSwiftModule", testSingleExecutableSwiftModule),
+        ("testSingleExecutableSwiftTarget", testSingleExecutableSwiftTarget),
         ("testTargetDependencies2", testTargetDependencies2),
         ("testTestTargetDependencies", testTestTargetDependencies),
         ("testTestsLayoutsv3", testTestsLayoutsv3),
@@ -1018,8 +1018,8 @@ final class PackageBuilderTester {
     /// Contains the diagnostics which have not been checked yet.
     private var uncheckedDiagnostics = Set<String>()
 
-    /// Contains the modules which have not been checked yet.
-    private var uncheckedModules = Set<Module>()
+    /// Contains the targets which have not been checked yet.
+    private var uncheckedModules = Set<PackageModel.Target>()
 
     @discardableResult
     convenience init(
@@ -1076,7 +1076,7 @@ final class PackageBuilderTester {
                 isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
-            uncheckedModules = Set(loadedPackage.modules)
+            uncheckedModules = Set(loadedPackage.targets)
         } catch {
             let errorStr = String(describing: error)
             result = .error(errorStr)
@@ -1095,7 +1095,7 @@ final class PackageBuilderTester {
 
     private func validateCheckedModules(file: StaticString, line: UInt) {
         guard !uncheckedModules.isEmpty else { return }
-        XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
+        XCTFail("Unchecked targets: \(uncheckedModules)", file: file, line: line)
     }
 
     func checkDiagnostic(_ str: String, file: StaticString = #file, line: UInt = #line) {
@@ -1110,11 +1110,11 @@ final class PackageBuilderTester {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
         }
-        guard let module = package.modules.first(where: {$0.name == name}) else {
+        guard let target = package.targets.first(where: {$0.name == name}) else {
             return XCTFail("Module: \(name) not found", file: file, line: line)
         }
-        uncheckedModules.remove(module)
-        body?(ModuleResult(module))
+        uncheckedModules.remove(target)
+        body?(ModuleResult(target))
     }
 
     func checkProduct(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: ((ProductResult) -> Void)? = nil) {
@@ -1135,34 +1135,34 @@ final class PackageBuilderTester {
             self.product = product
         }
 
-        func check(type: PackageModel.ProductType, modules: [String], file: StaticString = #file, line: UInt = #line) {
+        func check(type: PackageModel.ProductType, targets: [String], file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(product.type, type, file: file, line: line)
-            XCTAssertEqual(product.modules.map{$0.name}.sorted(), modules.sorted(), file: file, line: line)
+            XCTAssertEqual(product.targets.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
         }
     }
 
     final class ModuleResult {
-        private let module: Module
+        private let target: PackageModel.Target
 
-        fileprivate init(_ module: Module) {
-            self.module = module
+        fileprivate init(_ target: PackageModel.Target) {
+            self.target = target
         }
 
-        func check(c99name: String? = nil, type: Module.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
+        func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
-                XCTAssertEqual(module.c99name, c99name, file: file, line: line)
+                XCTAssertEqual(target.c99name, c99name, file: file, line: line)
             }
             if let type = type {
-                XCTAssertEqual(module.type, type, file: file, line: line)
+                XCTAssertEqual(target.type, type, file: file, line: line)
             }
         }
 
         func checkSources(root: String? = nil, sources paths: [String], file: StaticString = #file, line: UInt = #line) {
             if let root = root {
-                XCTAssertEqual(module.sources.root, AbsolutePath(root), file: file, line: line)
+                XCTAssertEqual(target.sources.root, AbsolutePath(root), file: file, line: line)
             }
-            let sources = Set(self.module.sources.relativePaths.map{$0.asString})
-            XCTAssertEqual(sources, Set(paths), "unexpected source files in \(module.name)", file: file, line: line)
+            let sources = Set(self.target.sources.relativePaths.map{$0.asString})
+            XCTAssertEqual(sources, Set(paths), "unexpected source files in \(target.name)", file: file, line: line)
         }
 
         func checkSources(root: String? = nil, paths: String..., file: StaticString = #file, line: UInt = #line) {
@@ -1170,15 +1170,15 @@ final class PackageBuilderTester {
         }
 
         func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(Set(depsToCheck), Set(module.dependencies.map{$0.name}), "unexpected dependencies in \(module.name)", file: file, line: line)
+            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.map{$0.name}), "unexpected dependencies in \(target.name)", file: file, line: line)
         }
 
         func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
-            guard depsToCheck.count == module.productDependencies.count else {
+            guard depsToCheck.count == target.productDependencies.count else {
                 return XCTFail("Incorrect product dependencies", file: file, line: line)
             }
             for (idx, element) in depsToCheck.enumerated() {
-                let rhs = module.productDependencies[idx]
+                let rhs = target.productDependencies[idx]
                 guard element.name == rhs.name && element.package == rhs.package else {
                     return XCTFail("Incorrect product dependencies", file: file, line: line)
                 }
@@ -1186,16 +1186,16 @@ final class PackageBuilderTester {
         }
 
         func check(swiftCompatibleVersions versions: [Int]? = nil, file: StaticString = #file, line: UInt = #line) {
-            guard case let swiftModule as SwiftModule = module else {
-                return XCTFail("\(module) is not a swift module", file: file, line: line)
+            guard case let swiftTarget as SwiftTarget = target else {
+                return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            switch (swiftModule.swiftLanguageVersions, versions) {
+            switch (swiftTarget.swiftLanguageVersions, versions) {
             case (nil, nil):
                 break
             case (let lhs?, let rhs?):
                 XCTAssertEqual(lhs, rhs, file: file, line: line)
             default:
-                XCTFail("\(swiftModule.swiftLanguageVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
+                XCTFail("\(swiftTarget.swiftLanguageVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
             }
         }
     }

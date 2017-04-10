@@ -16,7 +16,7 @@ import PackageLoading
 import Utility
 import TestSupport
 
-extension CModule {
+extension CTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProvider] = []) {
         self.init(
             name: "Foo",
@@ -31,20 +31,20 @@ class PkgConfigTests: XCTestCase {
     func testBasics() throws {
         // No pkgConfig name.
         do {
-            let result = pkgConfigArgs(for: CModule(pkgConfig: ""))
+            let result = pkgConfigArgs(for: CTarget(pkgConfig: ""))
             XCTAssertNil(result)
         }
 
         // No pc file.
         do {
-            let module = CModule(
+            let target = CTarget(
                 pkgConfig: "Foo",
                 providers: [
                     .brew(["libFoo"]),
                     .apt(["libFoo-dev"]),
                 ]
             )
-            let result = pkgConfigArgs(for: module)!
+            let result = pkgConfigArgs(for: target)!
             XCTAssertEqual(result.pkgConfigName, "Foo")
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])
@@ -67,7 +67,7 @@ class PkgConfigTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CModule(pkgConfig: "Foo"))!
+            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Foo"))!
             XCTAssertEqual(result.pkgConfigName, "Foo")
             XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
             XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -78,7 +78,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with non whitelisted flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.asString]) {
-            let result = pkgConfigArgs(for: CModule(pkgConfig: "Bar"))!
+            let result = pkgConfigArgs(for: CTarget(pkgConfig: "Bar"))!
             XCTAssertEqual(result.pkgConfigName, "Bar")
             XCTAssertEqual(result.cFlags, [])
             XCTAssertEqual(result.libs, [])

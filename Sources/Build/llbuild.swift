@@ -113,11 +113,11 @@ public struct LLbuildManifestGenerator {
     /// Create command for Swift target description.
     private func createSwiftCommand(_ target: SwiftTargetDescription) -> Command {
         // Compute inital inputs.
-        var inputs = target.module.sources.paths.map({ $0.asString })
+        var inputs = target.target.sources.paths.map({ $0.asString })
 
-        func addStaticTargetInputs(_ target: ResolvedModule) {
+        func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
-            if target.underlyingModule is CModule { return }
+            if target.underlyingTarget is CTarget { return }
             switch plan.targetMap[target] {
             case .swift(let target)?:
                 inputs += [target.moduleOutputPath.asString]
@@ -128,7 +128,7 @@ public struct LLbuildManifestGenerator {
             }
         }
 
-        for dependency in target.module.dependencies {
+        for dependency in target.target.dependencies {
             switch dependency {
             case .target(let target):
                 addStaticTargetInputs(target)
@@ -141,7 +141,7 @@ public struct LLbuildManifestGenerator {
 
                 // For automatic and static libraries, add their targets as static input.
                 case .library(.automatic), .library(.static):
-                    for target in product.modules {
+                    for target in product.targets {
                         addStaticTargetInputs(target)
                     }
                 case .test:
@@ -151,7 +151,7 @@ public struct LLbuildManifestGenerator {
         }
 
         let tool = SwiftCompilerTool(target: target, inputs: inputs)
-        return Command(name: target.module.targetName, tool: tool)
+        return Command(name: target.target.targetName, tool: tool)
     }
 
     /// Create commands for Clang targets.
@@ -160,8 +160,8 @@ public struct LLbuildManifestGenerator {
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
-            let clang = ClangTool(desc: "Compile \(target.module.name) \(path.filename.asString)",
-                                  //FIXME: Should we add build time dependency on dependent modules?
+            let clang = ClangTool(desc: "Compile \(target.target.name) \(path.filename.asString)",
+                                  //FIXME: Should we add build time dependency on dependent targets?
                                   inputs: [path.source.asString],
                                   outputs: [path.object.asString],
                                   args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
@@ -171,7 +171,7 @@ public struct LLbuildManifestGenerator {
     }
 }
 
-extension ResolvedModule {
+extension ResolvedTarget {
     var targetName: String {
         return "<\(name).module>"
     }
@@ -221,7 +221,7 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    executable: "
             <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.asString) <<< "\n"
         stream <<< "    module-name: "
-            <<< Format.asJSON(target.module.c99name) <<< "\n"
+            <<< Format.asJSON(target.target.c99name) <<< "\n"
         stream <<< "    module-output-path: "
             <<< Format.asJSON(target.moduleOutputPath.asString) <<< "\n"
         stream <<< "    inputs: "
@@ -237,9 +237,9 @@ struct SwiftCompilerTool: ToolProtocol {
         stream <<< "    other-args: "
             <<< Format.asJSON(target.compileArguments()) <<< "\n"
         stream <<< "    sources: "
-            <<< Format.asJSON(target.module.sources.paths.map({ $0.asString })) <<< "\n"
+            <<< Format.asJSON(target.target.sources.paths.map({ $0.asString })) <<< "\n"
         stream <<< "    is-library: "
-            <<< Format.asJSON(target.module.type == .library || target.module.type == .test) <<< "\n"
+            <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
         stream <<< "    enable-whole-module-optimization: "
             <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
         stream <<< "    num-threads: "

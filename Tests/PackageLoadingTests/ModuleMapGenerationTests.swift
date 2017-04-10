@@ -87,7 +87,7 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
-            result.checkDiagnostics("warning: No include directory found for module \'Foo\'. A library can not be imported without any public headers.")
+            result.checkDiagnostics("warning: No include directory found for target \'Foo\'. A library can not be imported without any public headers.")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -116,12 +116,12 @@ class ModuleMapGeneration: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("could not generate module map for module 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo/Foo.h, but more than 1 directories exist: /include/Bar, /include/Foo fix: reduce these directories to a single directory: /include/Bar, /include/Foo")
+        checkExpected("could not generate modulemap for target 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo/Foo.h, but more than 1 directories exist: /include/Bar, /include/Foo fix: reduce these directories to a single directory: /include/Bar, /include/Foo")
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("could not generate module map for module 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo.h, but the following directories exist: /include/Bar fix: remove these directories: /include/Bar")
+        checkExpected("could not generate modulemap for target 'Foo', the file layout is not supported: an umbrella header is defined at /include/Foo.h, but the following directories exist: /include/Bar fix: remove these directories: /include/Bar")
     }
 
     static var allTests = [
@@ -134,9 +134,9 @@ class ModuleMapGeneration: XCTestCase {
 }
 
 func ModuleMapTester(_ name: String, in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let module = ClangModule(name: name, isTest: false, sources: Sources(paths: [], root: .root))
+    let target = ClangTarget(name: name, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
-    var generator = ModuleMapGenerator(for: module, fileSystem: fileSystem, warningStream: warningStream)
+    var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
     do {
         try generator.generateModuleMap(inDir: .root)

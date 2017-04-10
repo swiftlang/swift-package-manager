@@ -13,12 +13,12 @@ import Basic
 
 import PackageModel
 
-private extension ResolvedModule {
-    convenience init(name: String, deps: ResolvedModule...) {
+private extension ResolvedTarget {
+    convenience init(name: String, deps: ResolvedTarget...) {
         self.init(
-            module: SwiftModule(
+            target: SwiftTarget(
                 name: name, isTest: false, sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: []),
-            dependencies: deps.map(ResolvedModule.Dependency.target))
+            dependencies: deps.map(ResolvedTarget.Dependency.target))
     }
 }
 
@@ -34,9 +34,9 @@ class ModuleDependencyTests: XCTestCase {
 
     func test1() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2)
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2)
 
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
             XCTAssertEqual(t2.recursiveDeps, [t1])
@@ -45,10 +45,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test2() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2, t1)
-            let t4 = ResolvedModule(name: "t4", deps: t2, t3, t1)
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
+            let t4 = ResolvedTarget(name: "t4", deps: t2, t3, t1)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -58,10 +58,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test3() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2, t1)
-            let t4 = ResolvedModule(name: "t4", deps: t1, t2, t3)
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2, t1)
+            let t4 = ResolvedTarget(name: "t4", deps: t1, t2, t3)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -71,10 +71,10 @@ class ModuleDependencyTests: XCTestCase {
 
     func test4() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2)
-            let t4 = ResolvedModule(name: "t4", deps: t3)
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2)
+            let t4 = ResolvedTarget(name: "t4", deps: t3)
 
             XCTAssertEqual(t4.recursiveDeps, [t3, t2, t1])
             XCTAssertEqual(t3.recursiveDeps, [t2, t1])
@@ -84,12 +84,12 @@ class ModuleDependencyTests: XCTestCase {
 
     func test5() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2)
-            let t4 = ResolvedModule(name: "t4", deps: t3)
-            let t5 = ResolvedModule(name: "t5", deps: t2)
-            let t6 = ResolvedModule(name: "t6", deps: t5, t4)
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2)
+            let t4 = ResolvedTarget(name: "t4", deps: t3)
+            let t5 = ResolvedTarget(name: "t5", deps: t2)
+            let t6 = ResolvedTarget(name: "t6", deps: t5, t4)
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps
@@ -108,12 +108,12 @@ class ModuleDependencyTests: XCTestCase {
 
     func test6() {
         testModules {
-            let t1 = ResolvedModule(name: "t1")
-            let t2 = ResolvedModule(name: "t2", deps: t1)
-            let t3 = ResolvedModule(name: "t3", deps: t2)
-            let t4 = ResolvedModule(name: "t4", deps: t3)
-            let t5 = ResolvedModule(name: "t5", deps: t2)
-            let t6 = ResolvedModule(name: "t6", deps: t4, t5) // same as above, but these two swapped
+            let t1 = ResolvedTarget(name: "t1")
+            let t2 = ResolvedTarget(name: "t2", deps: t1)
+            let t3 = ResolvedTarget(name: "t3", deps: t2)
+            let t4 = ResolvedTarget(name: "t4", deps: t3)
+            let t5 = ResolvedTarget(name: "t5", deps: t2)
+            let t6 = ResolvedTarget(name: "t6", deps: t4, t5) // same as above, but these two swapped
 
             // precise order is not important, but it is important that the following are true
             let t6rd = t6.recursiveDeps
@@ -140,8 +140,8 @@ class ModuleDependencyTests: XCTestCase {
     ]
 }
 
-private extension ResolvedModule {
-    var recursiveDeps: [ResolvedModule] {
+private extension ResolvedTarget {
+    var recursiveDeps: [ResolvedTarget] {
         return recursiveDependencies
     }
 }

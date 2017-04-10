@@ -37,7 +37,7 @@ extension AbsolutePath {
     }
 }
 
-extension ClangModule {
+extension ClangTarget {
     var containsCppFiles: Bool {
         return sources.paths.contains { $0.isCpp }
     }

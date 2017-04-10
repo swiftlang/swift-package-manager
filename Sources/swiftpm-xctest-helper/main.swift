@@ -56,7 +56,7 @@ func run() throws {
     for case let testCaseSuite as XCTestSuite in suite.tests {
         let testSuite: [[String: AnyObject]] = testCaseSuite.tests.flatMap({
             guard case let testCaseSuite as XCTestSuite = $0 else { return nil }
-            // Get the name of the XCTest subclass with its module name if possible.
+            // Get the name of the XCTest subclass with its target name if possible.
             // If the subclass contains atleast one test get the name using reflection,
             // otherwise use the name property (which only gives subclass name).
             let name: String

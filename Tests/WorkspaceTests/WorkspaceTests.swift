@@ -1874,7 +1874,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(diagnostics.hasErrors)
         XCTAssertEqual(graph.rootPackages.map{$0.name}.sorted(), ["Root"])
         XCTAssertEqual(graph.packages.map{$0.name}.sorted(), ["B", "Root"])
-        XCTAssertEqual(graph.modules.map{$0.name}.sorted(), ["B", "Root"])
+        XCTAssertEqual(graph.targets.map{$0.name}.sorted(), ["B", "Root"])
         XCTAssertEqual(graph.products.map{$0.name}.sorted(), ["B"])
     }
 
@@ -1913,7 +1913,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(graph.rootPackages.map{$0.name}.sorted(), ["Root"])
         XCTAssertEqual(graph.lookup("A").manifest.version, v1)
         XCTAssertEqual(graph.packages.map{$0.name}.sorted(), ["A", "B", "Root"])
-        XCTAssertEqual(graph.modules.map{$0.name}.sorted(), ["A", "B", "Root"])
+        XCTAssertEqual(graph.targets.map{$0.name}.sorted(), ["A", "B", "Root"])
         XCTAssertEqual(graph.products.map{$0.name}.sorted(), ["A", "B"])
     }
 

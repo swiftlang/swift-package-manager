@@ -14,7 +14,7 @@ import PackageModel
 import Utility
 
 enum PackageGraphError: Swift.Error {
-    /// Indicates a non-root package with no modules.
+    /// Indicates a non-root package with no targets.
     case noModules(Package)
 
     /// The package dependency declaration has cycle in it.
@@ -31,7 +31,7 @@ extension PackageGraphError: FixableError {
     var error: String {
         switch self {
         case .noModules(let package):
-            return "the package \(package) contains no modules"
+            return "the package \(package) contains no targets"
 
         case .cycleDetected(let cycle):
             return "found cyclic dependency declaration: " +
@@ -49,7 +49,7 @@ extension PackageGraphError: FixableError {
     var fix: String? {
         switch self {
         case .noModules:
-            return "create at least one module"
+            return "create at least one target"
         case .cycleDetected, .productDependencyNotFound, .productDependencyIncorrectPackage:
             return nil
         }
@@ -118,7 +118,7 @@ public struct PackageGraphLoader {
                 manifestToPackage[manifest] = package
 
                 // Throw if any of the non-root package is empty.
-                if package.modules.isEmpty && !isRootPackage {
+                if package.targets.isEmpty && !isRootPackage {
                     throw PackageGraphError.noModules(package)
                 }
             } catch {
@@ -160,28 +160,28 @@ private func createResolvedPackages(
         // dependency we couldn't load.
         let dependencies = manifest.package.dependencies.flatMap({ packageURLMap[$0.url] })
 
-        // Topologically Sort all the local modules in this package.
-        let modules = try! topologicalSort(package.modules, successors: { $0.dependencies })
+        // Topologically Sort all the local targets in this package.
+        let targets = try! topologicalSort(package.targets, successors: { $0.dependencies })
 
-        // Make sure these module names are unique in the graph.
-        let dependencyModuleNames = dependencies.lazy.flatMap({ $0.modules }).map({ $0.name })
-        if let duplicateModules = dependencyModuleNames.duplicates(modules.lazy.map({ $0.name })) {
+        // Make sure these target names are unique in the graph.
+        let dependencyModuleNames = dependencies.lazy.flatMap({ $0.targets }).map({ $0.name })
+        if let duplicateModules = dependencyModuleNames.duplicates(targets.lazy.map({ $0.name })) {
             diagnostics.emit(ModuleError.duplicateModule(duplicateModules.first!))
         }
 
-        // Add system module dependencies directly to the target's dependencies
+        // Add system target dependencies directly to the target's dependencies
         // because they are not representable as a product.
         let systemModulesDependencies = dependencies
-            .flatMap({ $0.modules })
+            .flatMap({ $0.targets })
             .filter({ $0.type == .systemModule })
-            .map(ResolvedModule.Dependency.target)
+            .map(ResolvedTarget.Dependency.target)
 
         let allProducts = dependencies.flatMap({ $0.products }).filter({ $0.type != .test })
         let allProductsMap = Dictionary(items: allProducts.map({ ($0.name, $0) }))
 
-        // Resolve the modules.
-        var moduleToResolved = [Module: ResolvedModule]()
-        let resolvedModules: [ResolvedModule] = modules.lazy.reversed().map({ module in
+        // Resolve the targets.
+        var moduleToResolved = [Target: ResolvedTarget]()
+        let resolvedModules: [ResolvedTarget] = targets.lazy.reversed().map({ target in
 
             // Get the product dependencies for targets in this package.
             let productDependencies: [ResolvedProduct]
@@ -189,7 +189,7 @@ private func createResolvedPackages(
             case .v3:
                 productDependencies = allProducts
             case .v4:
-                productDependencies = module.productDependencies.flatMap({
+                productDependencies = target.productDependencies.flatMap({
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
                         diagnostics.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
@@ -210,25 +210,25 @@ private func createResolvedPackages(
                 })
             }
 
-            let moduleDependencies = module.dependencies
+            let moduleDependencies = target.dependencies
                 .map({ moduleToResolved[$0]! })
-                .map(ResolvedModule.Dependency.target)
+                .map(ResolvedTarget.Dependency.target)
             let dependencies =
                 moduleDependencies +
                 systemModulesDependencies +
-                productDependencies.map(ResolvedModule.Dependency.product)
-            let resolvedModule = ResolvedModule(module: module, dependencies: dependencies)
-            moduleToResolved[module] = resolvedModule
-            return resolvedModule
+                productDependencies.map(ResolvedTarget.Dependency.product)
+            let resolvedTarget = ResolvedTarget(target: target, dependencies: dependencies)
+            moduleToResolved[target] = resolvedTarget
+            return resolvedTarget
         })
 
         // Create resolved products.
         let resolvedProducts = package.products.map({ product in
-            return ResolvedProduct(product: product, modules: product.modules.map({ moduleToResolved[$0]! }))
+            return ResolvedProduct(product: product, targets: product.targets.map({ moduleToResolved[$0]! }))
         })
         // Create resolved package.
         let resolvedPackage = ResolvedPackage(
-            package: package, dependencies: dependencies, modules: resolvedModules, products: resolvedProducts)
+            package: package, dependencies: dependencies, targets: resolvedModules, products: resolvedProducts)
         packageURLMap[package.manifest.url] = resolvedPackage
         resolvedPackages.append(resolvedPackage)
     }

@@ -12,44 +12,44 @@ import Basic
 
 @_exported import enum PackageDescription4.SystemPackageProvider
 
-public class Module: ObjectIdentifierProtocol {
+public class Target: ObjectIdentifierProtocol {
     /// The target kind.
     public enum Kind: String {
         case executable
         case library
-        case systemModule = "system-module"
+        case systemModule = "system-target"
         case test
     }
 
-    /// The name of the module.
+    /// The name of the target.
     ///
-    /// NOTE: This name is not the language-level module (i.e., the importable
+    /// NOTE: This name is not the language-level target (i.e., the importable
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
 
-    /// The dependencies of this module.
-    public let dependencies: [Module]
+    /// The dependencies of this target.
+    public let dependencies: [Target]
 
-    /// The product dependencies of this module.
+    /// The product dependencies of this target.
     public let productDependencies: [(name: String, package: String?)]
 
-    /// The language-level module name.
+    /// The language-level target name.
     public let c99name: String
 
-    /// Suffix that's expected for test modules.
+    /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
 
     /// The kind of target.
     public let type: Kind
 
-    /// The sources for the module.
+    /// The sources for the target.
     public let sources: Sources
 
     fileprivate init(
         name: String,
         type: Kind,
         sources: Sources,
-        dependencies: [Module],
+        dependencies: [Target],
         productDependencies: [(name: String, package: String?)] = []
     ) {
         self.name = name
@@ -61,16 +61,16 @@ public class Module: ObjectIdentifierProtocol {
     }
 }
 
-public class SwiftModule: Module {
+public class SwiftTarget: Target {
 
-    /// Create an executable Swift module from linux main test manifest file.
-    init(linuxMain: AbsolutePath, name: String, dependencies: [Module]) {
+    /// Create an executable Swift target from linux main test manifest file.
+    init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
         self.swiftLanguageVersions = nil
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
 
-    /// The list of swift versions, this module is compatible with.
+    /// The list of swift versions, this target is compatible with.
     // FIXME: This should be lifted to a build settings structure once we have that.
     public let swiftLanguageVersions: [Int]?
 
@@ -78,7 +78,7 @@ public class SwiftModule: Module {
         name: String,
         isTest: Bool = false,
         sources: Sources,
-        dependencies: [Module] = [],
+        dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = [],
         swiftLanguageVersions: [Int]? = nil
     ) {
@@ -93,7 +93,7 @@ public class SwiftModule: Module {
     }
 }
 
-public class CModule: Module {
+public class CTarget: Target {
 
     /// The name of pkgConfig file, if any.
     public let pkgConfig: String?
@@ -119,7 +119,7 @@ public class CModule: Module {
     }
 }
 
-public class ClangModule: Module {
+public class ClangTarget: Target {
 
     public var includeDir: AbsolutePath {
         return sources.root.appending(component: "include")
@@ -129,7 +129,7 @@ public class ClangModule: Module {
         name: String,
         isTest: Bool = false,
         sources: Sources,
-        dependencies: [Module] = [],
+        dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = []
     ) {
         let type: Kind = isTest ? .test : sources.computeModuleType()
@@ -142,15 +142,15 @@ public class ClangModule: Module {
     }
 }
 
-extension Module: CustomStringConvertible {
+extension Target: CustomStringConvertible {
     public var description: String {
         return "\(type(of: self))(\(name))"
     }
 }
 
 extension Sources {
-    /// Determine module type based on the sources.
-    fileprivate func computeModuleType() -> Module.Kind {
+    /// Determine target type based on the sources.
+    fileprivate func computeModuleType() -> Target.Kind {
         let isLibrary = !relativePaths.contains { path in
             let file = path.basename.lowercased()
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
