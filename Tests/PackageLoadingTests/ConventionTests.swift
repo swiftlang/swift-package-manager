@@ -1131,14 +1131,8 @@ final class PackageBuilderTester {
     /// Contains the diagnostics which have not been checked yet.
     private var uncheckedDiagnostics = Set<String>()
 
-    /// Setting this to true will disable checking for any unchecked diagnostics prodcuted by PackageBuilder during loading process.
-    var ignoresDiagnostics: Bool = false
-
     /// Contains the modules which have not been checked yet.
     private var uncheckedModules = Set<Module>()
-
-    /// Setting this to true will disable checking for any unchecked module.
-    var ignoresOtherModules: Bool = false
 
     @discardableResult
     convenience init(
@@ -1196,12 +1190,12 @@ final class PackageBuilderTester {
     }
 
     private func validateDiagnostics(file: StaticString, line: UInt) {
-        guard !ignoresDiagnostics && !uncheckedDiagnostics.isEmpty else { return }
+        guard !uncheckedDiagnostics.isEmpty else { return }
         XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)", file: file, line: line)
     }
 
     private func validateCheckedModules(file: StaticString, line: UInt) {
-        guard !ignoresOtherModules && !uncheckedModules.isEmpty else { return }
+        guard !uncheckedModules.isEmpty else { return }
         XCTFail("Unchecked modules: \(uncheckedModules)", file: file, line: line)
     }
 
