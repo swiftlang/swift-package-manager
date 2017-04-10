@@ -64,15 +64,15 @@ extension ModuleError: FixableError {
 
     public var fix: String? {
         switch self {
-        case .duplicateModule(_):
+        case .duplicateModule:
             return "modules should have a unique name across dependencies"
-        case .modulesNotFound(_):
+        case .modulesNotFound:
             return "reference only valid modules"
         case .invalidLayout(let type):
             return type.fix
-        case .invalidManifestConfig(_):
+        case .invalidManifestConfig:
             return nil
-        case .cycleDetected(_):
+        case .cycleDetected:
             return nil
         }
     }
