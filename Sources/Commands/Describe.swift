@@ -85,7 +85,7 @@ extension Sources: JSONSerializable {
     }
 }
 
-extension ModuleType: JSONSerializable {
+extension Module.Kind: JSONSerializable {
     public func toJSON() -> JSON {
         return .string(rawValue)
     }

@@ -1148,7 +1148,7 @@ final class PackageBuilderTester {
             self.module = module
         }
 
-        func check(c99name: String? = nil, type: ModuleType? = nil, file: StaticString = #file, line: UInt = #line) {
+        func check(c99name: String? = nil, type: Module.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
                 XCTAssertEqual(module.c99name, c99name, file: file, line: line)
             }

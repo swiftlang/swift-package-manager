@@ -49,7 +49,7 @@ public final class ResolvedModule: CustomStringConvertible, ObjectIdentifierProt
     }
 
     /// The "type" of module.
-    public var type: ModuleType {
+    public var type: Module.Kind {
         return underlyingModule.type
     }
 

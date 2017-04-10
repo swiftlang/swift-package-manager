@@ -12,14 +12,15 @@ import Basic
 
 @_exported import enum PackageDescription4.SystemPackageProvider
 
-public enum ModuleType: String {
-    case executable
-    case library
-    case systemModule = "system-module"
-    case test
-}
-
 public class Module: ObjectIdentifierProtocol {
+    /// The target kind.
+    public enum Kind: String {
+        case executable
+        case library
+        case systemModule = "system-module"
+        case test
+    }
+
     /// The name of the module.
     ///
     /// NOTE: This name is not the language-level module (i.e., the importable
@@ -38,15 +39,15 @@ public class Module: ObjectIdentifierProtocol {
     /// Suffix that's expected for test modules.
     public static let testModuleNameSuffix = "Tests"
 
-    /// The "type" of module.
-    public let type: ModuleType
+    /// The kind of target.
+    public let type: Kind
 
     /// The sources for the module.
     public let sources: Sources
 
     fileprivate init(
         name: String,
-        type: ModuleType,
+        type: Kind,
         sources: Sources,
         dependencies: [Module],
         productDependencies: [(name: String, package: String?)] = []
@@ -81,7 +82,7 @@ public class SwiftModule: Module {
         productDependencies: [(name: String, package: String?)] = [],
         swiftLanguageVersions: [Int]? = nil
     ) {
-        let type: ModuleType = isTest ? .test : sources.computeModuleType()
+        let type: Kind = isTest ? .test : sources.computeModuleType()
         self.swiftLanguageVersions = swiftLanguageVersions
         super.init(
             name: name,
@@ -131,7 +132,7 @@ public class ClangModule: Module {
         dependencies: [Module] = [],
         productDependencies: [(name: String, package: String?)] = []
     ) {
-        let type: ModuleType = isTest ? .test : sources.computeModuleType()
+        let type: Kind = isTest ? .test : sources.computeModuleType()
         super.init(
             name: name,
             type: type,
@@ -149,7 +150,7 @@ extension Module: CustomStringConvertible {
 
 extension Sources {
     /// Determine module type based on the sources.
-    fileprivate func computeModuleType() -> ModuleType {
+    fileprivate func computeModuleType() -> Module.Kind {
         let isLibrary = !relativePaths.contains { path in
             let file = path.basename.lowercased()
             // Look for a main.xxx file avoiding cases like main.xxx.xxx
