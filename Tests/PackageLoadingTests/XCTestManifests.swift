@@ -13,10 +13,11 @@ import XCTest
 #if !os(macOS)
 public func allTests() -> [XCTestCaseEntry] {
     return [
-        testCase(ConventionTests.allTests),
         testCase(JSONSerializationTests.allTests),
         testCase(ManifestTests.allTests),
         testCase(ModuleMapGeneration.allTests),
+        testCase(PackageBuilderTests.allTests),
+        testCase(PackageBuilderV4Tests.allTests),
         testCase(PackageDescription4LoadingTests.allTests),
         testCase(PkgConfigTests.allTests),
         testCase(PkgConfigWhitelistTests.allTests),
