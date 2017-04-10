@@ -240,9 +240,11 @@ public class SwiftTool<Options: ToolOptions> {
             verbosity = Verbosity(rawValue: options.verbosity)
             // Call the implementation.
             try runImpl()
-            guard !diagnostics.hasErrors else {
+            if diagnostics.hasErrors {
                 throw Error.hasFatalDiagnostics
             }
+            // Print any non fatal diagnostics like warnings, notes.
+            printDiagnostics()
         } catch {
             printDiagnostics()
             handle(error: error)
@@ -250,8 +252,8 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     private func printDiagnostics() {
-        for diag in diagnostics.diagnostics {
-            print(error: diag.localizedDescription)
+        for diagnostic in diagnostics.diagnostics {
+            print(diagnostic: diagnostic)
         }
     }
 

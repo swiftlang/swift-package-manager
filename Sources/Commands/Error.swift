@@ -88,23 +88,65 @@ private func _handle(_ error: Any) {
 }
 
 func print(error: Any) {
-    // FIXME: We should generalize this.
-    if let stdStream = stderrStream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
-        term.write("error: ", inColor: .red, bold: true)
-    } else {
-        stderrStream <<< "error: "
-    }
-    stderrStream <<< "\(error)" <<< "\n"
-    stderrStream.flush()
+    let writer = InteractiveWriter.stderr
+    writer.write("error: ", inColor: .red, bold: true)
+    writer.write("\(error)")
+    writer.write("\n")
 }
 
 private func print(fix: String) {
-    // FIXME: We should generalize this.
-    if let stdStream = stderrStream as? LocalFileOutputByteStream, let term = TerminalController(stream: stdStream) {
-        term.write("fix: ", inColor: .yellow, bold: true)
-    } else {
-        stderrStream <<< "fix: "
+    let writer = InteractiveWriter.stderr
+    writer.write("fix: ", inColor: .yellow, bold: true)
+    writer.write(fix)
+    writer.write("\n")
+}
+
+func print(diagnostic: Diagnostic) {
+    let writer = InteractiveWriter.stderr
+
+    switch diagnostic.behavior {
+    case .error:
+        writer.write("error: ", inColor: .red, bold: true)
+    case .warning:
+        writer.write("warning: ", inColor: .yellow, bold: true)
+    case .note:
+        writer.write("note: ", inColor: .white, bold: true)
+    case .ignored:
+        return
     }
-    stderrStream <<< fix <<< "\n"
-    stderrStream.flush()
+
+    writer.write(diagnostic.localizedDescription)
+    writer.write("\n")
+}
+
+/// This class is used to write on the underlying stream.
+///
+/// If underlying stream is a not tty, the string will be written in without any
+/// formatting.
+private final class InteractiveWriter {
+
+    /// The standard error writer.
+    static let stderr = InteractiveWriter(stream: stderrStream)
+
+    /// The terminal controller, if present.
+    let term: TerminalController?
+
+    /// The output byte stream reference.
+    let stream: OutputByteStream
+
+    /// Create an instance with the given stream.
+    init(stream: OutputByteStream) {
+        self.term = (stream as? LocalFileOutputByteStream).flatMap(TerminalController.init(stream:))
+        self.stream = stream
+    }
+
+    /// Write the string to the contained terminal or stream.
+    func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
+        if let term = term {
+            term.write(string, inColor: color, bold: bold)
+        } else {
+            stream <<< string
+            stream.flush()
+        }
+    }
 }
