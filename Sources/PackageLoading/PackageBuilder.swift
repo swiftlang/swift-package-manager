@@ -379,7 +379,7 @@ public struct PackageBuilder {
     private func constructTargets() throws -> [Target] {
 
         // Check for a modulemap file, which indicates a system target.
-        let moduleMapPath = packagePath.appending(component: "module.modulemap")
+        let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system target.
             return [
@@ -585,7 +585,7 @@ public struct PackageBuilder {
             fileSystem: fileSystem,
             recursing: shouldConsiderDirectory).map({ $0 })
         // Make sure there is no modulemap mixed with the sources.
-        if let path = walked.first(where: { $0.basename == "module.modulemap"}) {
+        if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
             throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
         }
         // Select any source files for the C-based languages and for Swift.
