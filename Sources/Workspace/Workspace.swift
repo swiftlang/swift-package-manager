@@ -1173,7 +1173,6 @@ public class Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-        precondition(!packages.isEmpty, "There should be at least one package.")
 
         func load(_ package: AbsolutePath) throws -> Manifest {
             let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
