@@ -470,6 +470,14 @@ extension AbsolutePath {
         assert(base.appending(result) == self)
         return result
     }
+
+    /// Returns true if the path contains the given path.
+    ///
+    /// This method is strictly syntactic and does not access the file system
+    /// in any way.
+    public func contains(_ other: AbsolutePath) -> Bool {
+        return self.components.starts(with: other.components)
+    }
 }
 
 // FIXME: We should consider whether to merge the two `normalize()` functions.
