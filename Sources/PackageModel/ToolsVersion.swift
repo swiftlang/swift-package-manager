@@ -17,7 +17,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable {
     public static let toolsVersionFileName = Manifest.filename
 
     /// The default tool version if a the tools version file is absent.
-    public static let defaultToolsVersion = ToolsVersion(version: "3.1.0")
+    public static let defaultToolsVersion = ToolsVersion(version: "3.0.0")
 
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(
