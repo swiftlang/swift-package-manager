@@ -46,6 +46,9 @@ public enum ModuleError: Swift.Error {
 
     /// The public headers directory is at an invalid path.
     case invalidPublicHeadersDirectory(String)
+
+    /// The sources of a target are overlapping with another target.
+    case overlappingSources(target: String, sources: [AbsolutePath])
 }
 
 extension ModuleError: FixableError {
@@ -65,6 +68,8 @@ extension ModuleError: FixableError {
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
             return "The public headers diretory path for \(name) is invalid or not contained in the target"
+        case .overlappingSources(let target, let sources):
+            return "The target \(target) has sources overlapping sources: \(sources.map({$0.asString}).joined(separator: ", "))"
         }
     }
 
@@ -81,6 +86,8 @@ extension ModuleError: FixableError {
         case .cycleDetected:
             return nil
         case .invalidPublicHeadersDirectory:
+            return nil
+        case .overlappingSources:
             return nil
         }
     }
@@ -206,7 +213,7 @@ extension Product.Error: FixableError {
 ///
 /// The 'builder' here refers to the builder pattern and not any build system
 /// related function.
-public struct PackageBuilder {
+public final class PackageBuilder {
     /// The manifest for the package being constructed.
     private let manifest: Manifest
 
@@ -427,6 +434,17 @@ public struct PackageBuilder {
     fileprivate func constructV4Targets() throws -> [Target] {
         /// Returns the path of the given target.
         func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {
+            // If there is a custom path defined, use that.
+            if let subpath = target.path {
+                if subpath == "" || subpath == "." {
+                    return packagePath
+                }
+                let path = packagePath.appending(RelativePath(subpath))
+                if fileSystem.isDirectory(path) {
+                    return path
+                }
+                throw ModuleError.modulesNotFound([target.name])
+            }
             // Select the correct predefined directory list.
             let predefinedDirs = target.isTest ? predefinedTestDirectories : predefinedSourceDirectories
             for directory in predefinedDirs {
@@ -644,35 +662,75 @@ public struct PackageBuilder {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
-        // Find all the files under the target path.
-        let walked = try walk(potentialModule.path, fileSystem: fileSystem, recursing: { path in
-            // Exclude the public header directory.
-            if path == publicHeadersPath { return false }
+        // Compute the excluded paths in the target.
+        let targetExcludedPaths: Set<AbsolutePath>
+        if let excludedSubPaths = manifestTarget?.exclude {
+            let excludedPaths = excludedSubPaths.map({ potentialModule.path.appending(RelativePath($0)) })
+            targetExcludedPaths = Set(excludedPaths)
+        } else {
+            targetExcludedPaths = []
+        }
 
-            // Exclude if it in the excluded paths.
-            if self.excludedPaths.contains(path) { return false }
+        // Contains the set of sources for this target.
+        var walked = Set<AbsolutePath>()
 
-            // Exclude the directories that should never be walked.
-            let base = path.basename
-            if base.hasSuffix(".xcodeproj") || base.hasSuffix(".playground") || base.hasPrefix(".") { 
-                return false 
+        // Contains the paths we need to recursively iterate.
+        var pathsToWalk = [AbsolutePath]()
+
+        // If there are sources defined in the target use that.
+        if let definedSources = manifestTarget?.sources {
+            for definedSource in definedSources {
+                let definedSourcePath = potentialModule.path.appending(RelativePath(definedSource))
+                if fileSystem.isDirectory(definedSourcePath) {
+                    // If this is a directory, add it to the list of paths to walk.
+                    pathsToWalk.append(definedSourcePath)
+                } else if fileSystem.isFile(definedSourcePath) {
+                    // Otherwise, this is a sourcefile.
+                    walked.insert(definedSourcePath)
+                } else {
+                    // FIXME: Should we emit warning about this declared thing or silently ignore?
+                }
             }
+        } else {
+            // Use the top level target path as the path to be walked.
+            pathsToWalk.append(potentialModule.path)
+        }
 
-            // We have to support these checks for PackageDescription 3.
-            if self.isVersion3Manifest {
-                if base.lowercased() == "tests" { return false }
-                if path == self.packagesDirectory { return false }
-            }
+        // Walk each path and form our set of possible source files.
+        for pathToWalk in pathsToWalk {
+            let contents = try walk(pathToWalk, fileSystem: fileSystem, recursing: { path in
+                // Exclude the public header directory.
+                if path == publicHeadersPath { return false }
 
-            return true
-        }) .map({$0})
+                // Exclude if it in the excluded paths of the target.
+                if targetExcludedPaths.contains(path) { return false }
+
+                // Exclude if it in the excluded paths.
+                if self.excludedPaths.contains(path) { return false }
+
+                // Exclude the directories that should never be walked.
+                let base = path.basename
+                if base.hasSuffix(".xcodeproj") || base.hasSuffix(".playground") || base.hasPrefix(".") {
+                    return false
+                }
+
+                // We have to support these checks for PackageDescription 3.
+                if self.isVersion3Manifest {
+                    if base.lowercased() == "tests" { return false }
+                    if path == self.packagesDirectory { return false }
+                }
+
+                return true
+            }).map({$0})
+            walked.formUnion(contents)
+        }
 
         // Make sure there is no modulemap mixed with the sources.
         if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
             throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
         }
         // Select any source files for the C-based languages and for Swift.
-        let sources = walked.filter(isValidSource)
+        let sources = walked.filter(isValidSource).filter({ !targetExcludedPaths.contains($0) })
         let cSources = sources.filter({ SupportedLanguageExtension.cFamilyExtensions.contains($0.extension!) })
         let swiftSources = sources.filter({ SupportedLanguageExtension.swiftExtensions.contains($0.extension!) })
         assert(sources.count == cSources.count + swiftSources.count)
@@ -680,6 +738,7 @@ public struct PackageBuilder {
         // Create and return the right kind of target depending on what kind of sources we found.
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
+            try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
                 name: potentialModule.name,
@@ -691,6 +750,7 @@ public struct PackageBuilder {
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
+            try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
             return ClangTarget(
                 name: potentialModule.name,
                 includeDir: publicHeadersPath,
@@ -698,6 +758,25 @@ public struct PackageBuilder {
                 sources: Sources(paths: cSources, root: potentialModule.path),
                 dependencies: moduleDependencies,
                 productDependencies: productDeps)
+        }
+    }
+
+    /// The set of the sources computed so far.
+    private var allSources = Set<AbsolutePath>()
+
+    /// Validates that the sources of a target are not already present in another target.
+    private func validateSourcesOverlapping(forTarget target: String, sources: [AbsolutePath]) throws {
+        // Compute the sources which overlap with already computed targets.
+        var overlappingSources = [AbsolutePath]()
+        for source in sources {
+            if !allSources.insert(source).inserted {
+                overlappingSources.append(source)
+            }
+        }
+
+        // Throw if we found any overlapping sources.
+        if !overlappingSources.isEmpty {
+            throw ModuleError.overlappingSources(target: target, sources: overlappingSources)
         }
     }
 

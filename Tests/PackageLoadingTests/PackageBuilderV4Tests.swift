@@ -59,6 +59,99 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+	func testCustomTargetPaths() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/mah/target/exe/swift/exe/main.swift",
+            "/mah/target/exe/swift/exe/foo.swift",
+            "/mah/target/exe/swift/bar.swift",
+            "/mah/target/exe/shouldBeIgnored.swift",
+            "/mah/target/exe/foo.c",
+            "/Sources/foo/foo.swift",
+            "/bar/bar/foo.swift",
+            "/bar/bar/excluded.swift",
+            "/bar/bar/fixture/fix1.swift",
+            "/bar/bar/fixture/fix2.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(
+                    name: "exe",
+                    path: "mah/target/exe",
+                    sources: ["swift"]),
+                .target(
+                    name: "clib",
+                    path: "mah/target/exe",
+                    sources: ["foo.c"]),
+                .target(
+                    name: "foo"),
+                .target(
+                    name: "bar",
+                    path: "bar",
+                    exclude: ["bar/excluded.swift", "bar/fixture"],
+                    sources: ["bar"]),
+            ]
+        )
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("exe") { moduleResult in
+                moduleResult.check(c99name: "exe", type: .executable)
+                moduleResult.checkSources(root: "/mah/target/exe",
+                    paths: "swift/exe/main.swift", "swift/exe/foo.swift", "swift/bar.swift")
+            }
+
+            result.checkModule("clib") { moduleResult in
+                moduleResult.check(c99name: "clib", type: .library)
+                moduleResult.checkSources(root: "/mah/target/exe", paths: "foo.c")
+            }
+
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(c99name: "foo", type: .library)
+                moduleResult.checkSources(root: "/Sources/foo", paths: "foo.swift")
+            }
+
+            result.checkModule("bar") { moduleResult in
+                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.checkSources(root: "/bar", paths: "bar/foo.swift")
+            }
+        }
+    }
+
+    func testCustomTargetPathsOverlap() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/target/bar/bar.swift",
+            "/target/bar/Tests/barTests.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(
+                    name: "bar",
+                    path: "target/bar"),
+                .testTarget(
+                    name: "barTests",
+                    path: "target/bar/Tests"),
+            ]
+        )
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("The target barTests has sources overlapping sources: /target/bar/Tests/barTests.swift")
+        }
+
+        package.targets[0].exclude = ["Tests"]
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("bar") { moduleResult in
+                moduleResult.check(c99name: "bar", type: .library)
+                moduleResult.checkSources(root: "/target/bar", paths: "bar.swift")
+            }
+
+            result.checkModule("barTests") { moduleResult in
+                moduleResult.check(c99name: "barTests", type: .test)
+                moduleResult.checkSources(root: "/target/bar/Tests", paths: "barTests.swift")
+            }
+        }
+    }
+
     func testPublicHeadersPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/inc/module.modulemap",
@@ -436,14 +529,16 @@ class PackageBuilderV4Tests: XCTestCase {
 
     static var allTests = [
         ("testCustomTargetDependencies", testCustomTargetDependencies),
+        ("testCustomTargetPaths", testCustomTargetPaths),
+        ("testCustomTargetPathsOverlap", testCustomTargetPathsOverlap),
         ("testDeclaredExecutableProducts", testDeclaredExecutableProducts),
         ("testExecutableAsADep", testExecutableAsADep),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testMultipleTestProducts", testMultipleTestProducts),
+        ("testPublicHeadersPath", testPublicHeadersPath),
+        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testTargetDependencies", testTargetDependencies),
         ("testTestsLayoutsv4", testTestsLayoutsv4),
-        ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
-        ("testPublicHeadersPath", testPublicHeadersPath),
     ]
 }
