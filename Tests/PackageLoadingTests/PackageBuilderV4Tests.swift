@@ -59,6 +59,38 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testPublicHeadersPath() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/inc/module.modulemap",
+            "/Sources/Foo/inc/Foo.h",
+            "/Sources/Foo/Foo.c",
+            "/Sources/Bar/include/module.modulemap",
+            "/Sources/Bar/include/Bar.h",
+            "/Sources/Bar/Bar.c"
+        )
+
+        let package = Package(
+            name: "Foo",
+            targets: [
+                .target(name: "Foo", publicHeadersPath: "inc"),
+                .target(name: "Bar"),
+            ])
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("Foo") { moduleResult in
+                moduleResult.check(c99name: "Foo", type: .library)
+                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.c")
+                moduleResult.check(includeDir: "/Sources/Foo/inc")
+            }
+
+            result.checkModule("Bar") { moduleResult in
+                moduleResult.check(c99name: "Bar", type: .library)
+                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.c")
+                moduleResult.check(includeDir: "/Sources/Bar/include")
+            }
+        }
+    }
+
     func testTestsLayoutsv4() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
@@ -322,6 +354,27 @@ class PackageBuilderV4Tests: XCTestCase {
                 }
             }
         }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Sources/Foo/Foo.c",
+                "/Sources/Bar/Bar.c")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", publicHeadersPath: "../inc"),
+                ])
+
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("The public headers diretory path for Foo is invalid or not contained in the target")
+            }
+
+            package.targets = [.target(name: "Bar", publicHeadersPath: "inc/../../../foo")]
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("The public headers diretory path for Bar is invalid or not contained in the target")
+            }
+        }
     }
 
     func testExecutableAsADep() {
@@ -391,5 +444,6 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testTargetDependencies", testTargetDependencies),
         ("testTestsLayoutsv4", testTestsLayoutsv4),
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
+        ("testPublicHeadersPath", testPublicHeadersPath),
     ]
 }

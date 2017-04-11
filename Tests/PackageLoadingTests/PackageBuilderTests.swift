@@ -1148,6 +1148,13 @@ final class PackageBuilderTester {
             self.target = target
         }
 
+        func check(includeDir: String, file: StaticString = #file, line: UInt = #line) {
+            guard case let target as ClangTarget = target else {
+                return XCTFail("Include directory is being checked on a non clang target", file: file, line: line)
+            }
+            XCTAssertEqual(target.includeDir.asString, includeDir, file: file, line: line)
+        }
+
         func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
             if let c99name = c99name {
                 XCTAssertEqual(target.c99name, c99name, file: file, line: line)

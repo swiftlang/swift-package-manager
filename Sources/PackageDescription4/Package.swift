@@ -174,6 +174,7 @@ extension Target {
         return .dictionary([
             "name": .string(name),
             "isTest": .bool(isTest),
+            "publicHeadersPath": publicHeadersPath.map(JSON.string) ?? JSON.null,
             "dependencies": .array(dependencies.map({ $0.toJSON() })),
         ])
     }

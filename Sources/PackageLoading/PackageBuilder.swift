@@ -43,6 +43,9 @@ public enum ModuleError: Swift.Error {
 
     /// The target dependency declaration has cycle in it.
     case cycleDetected((path: [String], cycle: [String]))
+
+    /// The public headers directory is at an invalid path.
+    case invalidPublicHeadersDirectory(String)
 }
 
 extension ModuleError: FixableError {
@@ -60,6 +63,8 @@ extension ModuleError: FixableError {
             return "found cyclic dependency declaration: " +
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
+        case .invalidPublicHeadersDirectory(let name):
+            return "The public headers diretory path for \(name) is invalid or not contained in the target"
         }
     }
 
@@ -74,6 +79,8 @@ extension ModuleError: FixableError {
         case .invalidManifestConfig:
             return nil
         case .cycleDetected:
+            return nil
+        case .invalidPublicHeadersDirectory:
             return nil
         }
     }
@@ -558,9 +565,12 @@ public struct PackageBuilder {
                 }
             }
 
+            // Get the target from the manifest.
+            let manifestTarget = targetMap[potentialModule.name]
+
             // Figure out the product dependencies.
             let productDeps: [(String, String?)]
-            productDeps = targetMap[potentialModule.name]?.dependencies.flatMap({
+            productDeps = manifestTarget?.dependencies.flatMap({
                 switch $0 {
                 case .targetItem:
                     return nil
@@ -574,7 +584,10 @@ public struct PackageBuilder {
 
             // Create the target.
             let target = try createTarget(
-                potentialModule: potentialModule, moduleDependencies: deps, productDeps: productDeps)
+                potentialModule: potentialModule,
+                manifestTarget: manifestTarget,
+                moduleDependencies: deps, 
+                productDeps: productDeps)
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
                 targets[createdTarget.name] = createdTarget
@@ -616,15 +629,44 @@ public struct PackageBuilder {
     /// Private function that constructs a single Target object for the potential target.
     private func createTarget(
         potentialModule: PotentialModule,
+        manifestTarget: PackageDescription4.Target?,
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
     ) throws -> Target? {
 
+        // Compute the path to public headers directory.
+        let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
+        guard AbsolutePath.isValidComponent(publicHeaderComponent) else {
+            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+        }
+        let publicHeadersPath = potentialModule.path.appending(component: publicHeaderComponent)
+        guard publicHeadersPath.contains(potentialModule.path) else {
+            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+        }
+
         // Find all the files under the target path.
-        let walked = try walk(
-            potentialModule.path,
-            fileSystem: fileSystem,
-            recursing: shouldConsiderDirectory).map({ $0 })
+        let walked = try walk(potentialModule.path, fileSystem: fileSystem, recursing: { path in
+            // Exclude the public header directory.
+            if path == publicHeadersPath { return false }
+
+            // Exclude if it in the excluded paths.
+            if self.excludedPaths.contains(path) { return false }
+
+            // Exclude the directories that should never be walked.
+            let base = path.basename
+            if base.hasSuffix(".xcodeproj") || base.hasSuffix(".playground") || base.hasPrefix(".") { 
+                return false 
+            }
+
+            // We have to support these checks for PackageDescription 3.
+            if self.isVersion3Manifest {
+                if base.lowercased() == "tests" { return false }
+                if path == self.packagesDirectory { return false }
+            }
+
+            return true
+        }) .map({$0})
+
         // Make sure there is no modulemap mixed with the sources.
         if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
             throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
@@ -651,6 +693,7 @@ public struct PackageBuilder {
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
             return ClangTarget(
                 name: potentialModule.name,
+                includeDir: publicHeadersPath,
                 isTest: potentialModule.isTest,
                 sources: Sources(paths: cSources, root: potentialModule.path),
                 dependencies: moduleDependencies,
