@@ -403,6 +403,12 @@ public struct PackageBuilder {
                 manifest.name, "providers should only be used with a System Module Package")
         }
 
+        return try constructV3Targets()
+    }
+
+    /// Construct targets according to PackageDescription 3 conventions.
+    fileprivate func constructV3Targets() throws -> [Target] {
+
         // If everything is excluded, just return an empty array.
         if manifest.package.exclude.contains(".") {
             return []
@@ -548,7 +554,6 @@ public struct PackageBuilder {
 
     /// Private function that checks whether a target name is valid.  This method doesn't return anything, but rather,
     /// if there's a problem, it throws an error describing what the problem is.
-    // FIXME: We will eventually be loosening this restriction to allow test-only libraries etc
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
             throw Target.Error.invalidName(
