@@ -364,7 +364,7 @@ public class Workspace {
     ) throws {
         // Check if we can edit this dependency.
         guard case .checkout(let checkoutState) = dependency.state else {
-            throw WorkspaceError.dependencyAlreadyInEditMode
+            throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -384,8 +384,10 @@ public class Workspace {
                 manifestVersion: toolsVersion.manifestVersion)
 
             guard manifest.name == packageName else {
-                throw WorkspaceError.mismatchingDestinationPackage(
-                    path: destination, destPackage: manifest.name, expectedPackage: packageName)
+                throw WorkspaceDiagnostics.MismatchingDestinationPackage(
+                    editPath: destination,
+                    expectedPackage: packageName,
+                    destinationPackage: manifest.name)
             }
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
@@ -403,10 +405,14 @@ public class Workspace {
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
-                throw WorkspaceError.branchAlreadyExists
+                throw WorkspaceDiagnostics.BranchAlreadyExists(
+                    dependencyURL: dependency.repository.url,
+                    branch: branch)
             }
             if let revision = revision, !repo.exists(revision: revision) {
-                throw WorkspaceError.nonExistentRevision
+                throw WorkspaceDiagnostics.RevisionDoesNotExist(
+                    dependencyURL: dependency.repository.url,
+                    revision: revision.identifier)
             }
 
             try handle.cloneCheckout(to: destination, editable: true)
@@ -450,7 +456,7 @@ public class Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout:
-            throw WorkspaceError.dependencyNotInEditMode
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
         case .edited(let path):
             if path != nil {
                 // Set force remove to true for unmanaged dependencies.  Note that
@@ -466,10 +472,10 @@ public class Workspace {
         if !forceRemove {
             let workingRepo = try repositoryManager.provider.openCheckout(at: path)
             guard !workingRepo.hasUncommitedChanges() else {
-                throw WorkspaceError.hasUncommitedChanges(repo: path)
+                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
             guard try !workingRepo.hasUnpushedCommits() else {
-                throw WorkspaceError.hasUnpushedChanges(repo: path)
+                throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
             }
         }
         // Remove the editable checkout from disk.
@@ -1157,7 +1163,7 @@ public class Workspace {
         let dependencyPath = checkoutsPath.appending(dependency.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
         guard !checkedOutRepo.hasUncommitedChanges() else {
-            throw WorkspaceError.hasUncommitedChanges(repo: dependencyPath)
+            throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
         fileSystem.removeFileTree(dependencyPath)
 
@@ -1177,8 +1183,10 @@ public class Workspace {
         func load(_ package: AbsolutePath) throws -> Manifest {
             let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
             guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceError.incompatibleToolsVersion(
-                    rootPackage: package, required: toolsVersion, current: currentToolsVersion)
+                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
+                    rootPackagePath: package,
+                    requiredToolsVersion: toolsVersion,
+                    currentToolsVersion: currentToolsVersion)
             }
             return try manifestLoader.load(
                 package: package, baseURL: package.asString, manifestVersion: toolsVersion.manifestVersion)
@@ -1258,28 +1266,5 @@ public final class LoadableResult<Value> {
     /// Load and return the value.
     public func load() throws -> Value {
         return try loadResult().dematerialize()
-    }
-}
-
-extension WorkspaceError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .hasUncommitedChanges(let repo):
-            return "The repository '\(repo.asString)' has uncommited changes"
-        case .hasUnpushedChanges(let repo):
-            return "The repository '\(repo.asString)' has unpushed changes"
-        case .dependencyAlreadyInEditMode:
-            return "The dependency is already in edit mode"
-        case .dependencyNotInEditMode:
-            return "The dependency is not in edit mode"
-        case .branchAlreadyExists:
-            return "The branch already exists in repository"
-        case .nonExistentRevision:
-            return "The revision doesn't exists in repository"
-        case .incompatibleToolsVersion(_, let required, let current):
-            return "Package requires minimum Swift tools version \(required). Current Swift tools version is \(current)"
-        case .mismatchingDestinationPackage(let path, let destPackage, let expectedPackage):
-            return "Trying to edit '\(expectedPackage)' but the package at '\(path.asString)' is '\(destPackage)'"
-        }
     }
 }

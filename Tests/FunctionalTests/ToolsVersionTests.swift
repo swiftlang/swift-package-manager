@@ -80,7 +80,7 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: Package requires minimum Swift tools version 10000.1.0. Current Swift tools version is 3.1.0\n")
+                XCTAssert(stderr.hasPrefix("error: The package at '") && stderr.hasSuffix("\(primaryPath.asString)' requires a minimum Swift tools version of 10000.1.0 but currently at 3.1.0\n"))
             }
 
             // Write the manifest with incompatible sources.
