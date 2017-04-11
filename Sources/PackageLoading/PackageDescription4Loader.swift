@@ -74,17 +74,6 @@ extension PackageDescription4.Package {
             })
         }
 
-        // Parse the exclude folders.
-        var exclude: [String] = []
-        if case .array(let array)? = package["exclude"] {
-            exclude = array.map({ element in
-                guard case .string(let excludeString) = element else {
-                    fatalError("exclude contains non string element")
-                }
-                return excludeString
-            })
-        }
-
         return PackageDescription4.Package(
             name: name,
             pkgConfig: pkgConfig,
@@ -92,8 +81,7 @@ extension PackageDescription4.Package {
             products: products,
             dependencies: dependencies,
             targets: targets,
-            swiftLanguageVersions: swiftLanguageVersions,
-            exclude: exclude)
+            swiftLanguageVersions: swiftLanguageVersions)
     }
 }
 
