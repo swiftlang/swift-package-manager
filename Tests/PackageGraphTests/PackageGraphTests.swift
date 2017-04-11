@@ -13,6 +13,7 @@ import XCTest
 import Basic
 @testable import PackageGraph
 import PackageDescription
+import PackageDescription4
 import PackageModel
 import TestSupport
 import enum PackageLoading.ModuleError
@@ -47,19 +48,31 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testProductDependencies() throws {
+        typealias Package = PackageDescription4.Package
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
-            "/Bar/source.swift"
+            "/Bar/Source/Bar/source.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
         let g = loadMockPackageGraph4([
-            "/Bar": .init(name: "Bar", products: [.library(name: "Bar", targets: ["Bar"])]),
+            "/Bar": Package(
+                name: "Bar",
+                products: [
+                    .library(name: "Bar", targets: ["Bar"]),
+                ],
+                targets: [
+                    .target(name: "Bar"),
+                ]),
             "/Foo": .init(
                 name: "Foo",
-                dependencies: [.package(url: "/Bar", from: "1.0.0")],
-                targets: [.target(name: "Foo", dependencies: ["Bar"])]
-                ),
+                dependencies: [
+                    .package(url: "/Bar", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(name: "Foo", dependencies: ["Bar"]),
+                ]),
         ], root: "/Foo", diagnostics: diagnostics, in: fs)
 
         PackageGraphTester(g) { result in

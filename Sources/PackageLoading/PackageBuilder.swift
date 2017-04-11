@@ -256,7 +256,7 @@ public struct PackageBuilder {
 
     /// Build a new package following the conventions.
     public func construct() throws -> Package {
-        let targets = try constructModules()
+        let targets = try constructTargets()
         let products = try constructProducts(targets)
         return Package(
             manifest: manifest,
@@ -375,11 +375,11 @@ public struct PackageBuilder {
         return pathComponent.lowercased() == "tests"
     }
 
-    /// Private function that creates and returns a list of non-test Modules defined by a package.
-    private func constructModules() throws -> [Target] {
+    /// Private function that creates and returns a list of targets defined by a package.
+    private func constructTargets() throws -> [Target] {
 
         // Check for a modulemap file, which indicates a system target.
-        let moduleMapPath = packagePath.appending(component: "module.modulemap")
+        let moduleMapPath = packagePath.appending(component: moduleMapFilename)
         if fileSystem.isFile(moduleMapPath) {
             // Package contains a modulemap at the top level, so we assuming it's a system target.
             return [
@@ -402,6 +402,45 @@ public struct PackageBuilder {
             throw ModuleError.invalidManifestConfig(
                 manifest.name, "providers should only be used with a System Module Package")
         }
+
+        // Depending on the manifest version, use the correct convention system.
+        if isVersion3Manifest {
+            return try constructV3Targets()
+        }
+        return try constructV4Targets()
+    }
+
+    /// Predefined source directories.
+    private let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+
+    /// Predefined test directories.
+    private let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+
+    /// Construct targets according to PackageDescription 4 conventions.
+    fileprivate func constructV4Targets() throws -> [Target] {
+        /// Returns the path of the given target.
+        func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {
+            let predefinedDirectories = predefinedSourceDirectories
+            for directory in predefinedDirectories {
+                let path = packagePath.appending(components: directory, target.name)
+                if fileSystem.isDirectory(path) {
+                    return path
+                }
+            }
+            throw ModuleError.modulesNotFound([target.name])
+        }
+
+        // Create potential targets.
+        let potentialTargets: [PotentialModule]
+        potentialTargets = try manifest.package.targets.map({ target in
+            let path = try findPath(for: target)
+            return PotentialModule(name: target.name, path: path, isTest: false)
+        })
+        return try createModules(potentialTargets)
+    }
+
+    /// Construct targets according to PackageDescription 3 conventions.
+    fileprivate func constructV3Targets() throws -> [Target] {
 
         // If everything is excluded, just return an empty array.
         if manifest.package.exclude.contains(".") {
@@ -533,11 +572,11 @@ public struct PackageBuilder {
             }) ?? []
 
             // Create the target.
-            let target = try createModule(
+            let target = try createTarget(
                 potentialModule: potentialModule, moduleDependencies: deps, productDeps: productDeps)
             // Add the created target to the map or print no sources warning.
-            if let createdModule = target {
-                targets[createdModule.name] = createdModule
+            if let createdTarget = target {
+                targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
                 diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(package: manifest.name, target: potentialModule.name))
@@ -548,7 +587,6 @@ public struct PackageBuilder {
 
     /// Private function that checks whether a target name is valid.  This method doesn't return anything, but rather,
     /// if there's a problem, it throws an error describing what the problem is.
-    // FIXME: We will eventually be loosening this restriction to allow test-only libraries etc
     private func validateModuleName(_ path: AbsolutePath, _ name: String, isTest: Bool) throws {
         if name.isEmpty {
             throw Target.Error.invalidName(
@@ -572,8 +610,8 @@ public struct PackageBuilder {
         }
     }
 
-    /// Private function that constructs a single Module object for the potential target.
-    private func createModule(
+    /// Private function that constructs a single Target object for the potential target.
+    private func createTarget(
         potentialModule: PotentialModule,
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
@@ -585,7 +623,7 @@ public struct PackageBuilder {
             fileSystem: fileSystem,
             recursing: shouldConsiderDirectory).map({ $0 })
         // Make sure there is no modulemap mixed with the sources.
-        if let path = walked.first(where: { $0.basename == "module.modulemap"}) {
+        if let path = walked.first(where: { $0.basename == moduleMapFilename }) {
             throw ModuleError.invalidLayout(.modulemapInSources(path.asString))
         }
         // Select any source files for the C-based languages and for Swift.

@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import class PackageDescription.Package
+import class PackageDescription4.Package
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -1326,12 +1327,14 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBranchAndRevision() throws {
+        typealias Package = PackageDescription4.Package
+
         mktmpdir { path in
             let root = path.appending(component: "root")
             let dep1 = path.appending(component: "dep")
             let dep2 = path.appending(component: "dep2")
-            let dep1File = dep1.appending(component: "develop.swift")
-            let dep2File = dep2.appending(component: "develop.swift")
+            let dep1File = dep1.appending(components: "Sources", "dep", "develop.swift")
+            let dep2File = dep2.appending(components: "Sources", "dep2", "develop.swift")
 
             var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
@@ -1339,22 +1342,35 @@ final class WorkspaceTests: XCTestCase {
                 try makeDirectories(dep)
                 initGitRepo(dep)
                 let name = dep.basename
+
+                // Create package manifest.
+                let pkg = Package(
+                    name: name,
+                    products: [
+                        .library(name: name, targets: [name]),
+                    ],
+                    targets: [
+                        .target(name: name),
+                    ]
+                )
                 let manifest = Manifest(
                     path: dep.appending(component: Manifest.filename),
                     url: dep.asString,
-                    package: .v4(.init(name: name, products: [.library(name: name, targets: [name])])),
+                    package: .v4(pkg),
                     version: nil)
                 manifests[MockManifestLoader.Key(url: dep.asString)] = manifest
             }
 
             let repo1 = GitRepository(path: dep1)
             try repo1.checkout(newBranch: "develop")
+            try localFileSystem.createDirectory(dep1File.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(dep1File, bytes: "")
             try repo1.stageEverything()
             try repo1.commit()
             let dep1Revision = try repo1.getCurrentRevision()
 
             let repo2 = GitRepository(path: dep2)
+            try localFileSystem.createDirectory(dep2File.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(dep2File, bytes: "")
             try repo2.stageEverything()
             try repo2.commit()
@@ -1363,6 +1379,9 @@ final class WorkspaceTests: XCTestCase {
             do {
                 try makeDirectories(root)
                 initGitRepo(root)
+                let sourceFile = root.appending(components: "Sources", "root", "source.swift")
+                try localFileSystem.createDirectory(sourceFile.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(sourceFile, bytes: "")
                 let manifest = Manifest(
                     path: root.appending(component: Manifest.filename),
                     url: root.asString,
