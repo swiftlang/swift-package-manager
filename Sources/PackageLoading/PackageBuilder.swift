@@ -256,7 +256,7 @@ public struct PackageBuilder {
 
     /// Build a new package following the conventions.
     public func construct() throws -> Package {
-        let targets = try constructModules()
+        let targets = try constructTargets()
         let products = try constructProducts(targets)
         return Package(
             manifest: manifest,
@@ -375,8 +375,8 @@ public struct PackageBuilder {
         return pathComponent.lowercased() == "tests"
     }
 
-    /// Private function that creates and returns a list of non-test Modules defined by a package.
-    private func constructModules() throws -> [Target] {
+    /// Private function that creates and returns a list of targets defined by a package.
+    private func constructTargets() throws -> [Target] {
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: "module.modulemap")
@@ -533,11 +533,11 @@ public struct PackageBuilder {
             }) ?? []
 
             // Create the target.
-            let target = try createModule(
+            let target = try createTarget(
                 potentialModule: potentialModule, moduleDependencies: deps, productDeps: productDeps)
             // Add the created target to the map or print no sources warning.
-            if let createdModule = target {
-                targets[createdModule.name] = createdModule
+            if let createdTarget = target {
+                targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
                 diagnostics.emit(data: PackageBuilderDiagnostics.NoSources(package: manifest.name, target: potentialModule.name))
@@ -572,8 +572,8 @@ public struct PackageBuilder {
         }
     }
 
-    /// Private function that constructs a single Module object for the potential target.
-    private func createModule(
+    /// Private function that constructs a single Target object for the potential target.
+    private func createTarget(
         potentialModule: PotentialModule,
         moduleDependencies: [Target],
         productDeps: [(name: String, package: String?)]
