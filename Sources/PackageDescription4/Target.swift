@@ -28,16 +28,21 @@ public final class Target {
     /// The name of the target.
     public var name: String
 
+    /// If this is a test target.
+    public var isTest: Bool
+
     /// Dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
 
     /// Construct a target.
     init(
         name: String,
-        dependencies: [Dependency]
+        dependencies: [Dependency],
+        isTest: Bool
     ) {
         self.name = name
         self.dependencies = dependencies
+        self.isTest = isTest
     }
 
     public static func target(
@@ -46,7 +51,19 @@ public final class Target {
     ) -> Target {
         return Target(
             name: name,
-            dependencies: dependencies
+            dependencies: dependencies,
+            isTest: false
+        )
+    }
+
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = []
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            isTest: true
         )
     }
 }

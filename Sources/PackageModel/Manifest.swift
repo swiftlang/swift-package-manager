@@ -109,7 +109,7 @@ extension Manifest.RawPackage {
     public var exclude: [String] {
         switch self {
             case .v3(let package): return package.exclude
-            case .v4(let package): return package.exclude
+            case .v4: return []
         }
     }
 

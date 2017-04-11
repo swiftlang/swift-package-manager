@@ -74,17 +74,6 @@ extension PackageDescription4.Package {
             })
         }
 
-        // Parse the exclude folders.
-        var exclude: [String] = []
-        if case .array(let array)? = package["exclude"] {
-            exclude = array.map({ element in
-                guard case .string(let excludeString) = element else {
-                    fatalError("exclude contains non string element")
-                }
-                return excludeString
-            })
-        }
-
         return PackageDescription4.Package(
             name: name,
             pkgConfig: pkgConfig,
@@ -92,8 +81,7 @@ extension PackageDescription4.Package {
             products: products,
             dependencies: dependencies,
             targets: targets,
-            swiftLanguageVersions: swiftLanguageVersions,
-            exclude: exclude)
+            swiftLanguageVersions: swiftLanguageVersions)
     }
 }
 
@@ -163,12 +151,16 @@ extension PackageDescription4.Target {
     fileprivate static func fromJSON(_ json: JSON) -> PackageDescription4.Target {
         guard case .dictionary(let dict) = json else { fatalError("unexpected item") }
         guard case .string(let name)? = dict["name"] else { fatalError("missing name") }
+        guard case .bool(let isTest)? = dict["isTest"] else { fatalError("missing name") }
 
         var dependencies: [PackageDescription4.Target.Dependency] = []
         if case .array(let array)? = dict["dependencies"] {
             dependencies = array.map(PackageDescription4.Target.Dependency.fromJSON)
         }
 
+        if isTest {
+            return PackageDescription4.Target.testTarget(name: name, dependencies: dependencies)
+        }
         return PackageDescription4.Target.target(name: name, dependencies: dependencies)
     }
 }

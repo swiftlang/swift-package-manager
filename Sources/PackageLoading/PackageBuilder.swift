@@ -420,8 +420,9 @@ public struct PackageBuilder {
     fileprivate func constructV4Targets() throws -> [Target] {
         /// Returns the path of the given target.
         func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {
-            let predefinedDirectories = predefinedSourceDirectories
-            for directory in predefinedDirectories {
+            // Select the correct predefined directory list.
+            let predefinedDirs = target.isTest ? predefinedTestDirectories : predefinedSourceDirectories
+            for directory in predefinedDirs {
                 let path = packagePath.appending(components: directory, target.name)
                 if fileSystem.isDirectory(path) {
                     return path
@@ -434,7 +435,7 @@ public struct PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try manifest.package.targets.map({ target in
             let path = try findPath(for: target)
-            return PotentialModule(name: target.name, path: path, isTest: false)
+            return PotentialModule(name: target.name, path: path, isTest: target.isTest)
         })
         return try createModules(potentialTargets)
     }
@@ -594,6 +595,8 @@ public struct PackageBuilder {
                 name: name,
                 problem: .emptyName)
         }
+        // We only need to do the below checks for PackageDescription 3.
+        if !isVersion3Manifest { return }
 
         if name.hasSuffix(Target.testModuleNameSuffix) && !isTest {
             throw Target.Error.invalidName(

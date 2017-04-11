@@ -96,12 +96,19 @@ class PackageDescription4LoadingTests: XCTestCase {
         stream <<< "                .product(name: \"dep3\", package: \"Pkg\"),"
         stream <<< "                .product(name: \"dep4\"),"
         stream <<< "            ]),"
+        stream <<< "        .testTarget("
+        stream <<< "            name: \"bar\","
+        stream <<< "            dependencies: ["
+        stream <<< "                \"foo\","
+        stream <<< "            ]),"
         stream <<< "    ]"
         stream <<< ")"
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            let foo = manifest.package.targets[0]
+            let targets = Dictionary(items:
+                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+            let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
 
             let expectedDependencies: [PackageDescription4.Target.Dependency]
@@ -112,6 +119,10 @@ class PackageDescription4LoadingTests: XCTestCase {
                 .product(name: "dep4"),
             ]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
+
+            let bar = targets["bar"]!
+            XCTAssertEqual(bar.name, "bar")
+            XCTAssertEqual(bar.dependencies, ["foo"])
         }
     }
 
