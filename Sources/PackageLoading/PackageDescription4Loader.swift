@@ -159,11 +159,30 @@ extension PackageDescription4.Target {
         let isTest: Bool = try! json.get("isTest")
         let publicHeadersPath: String? = json.get("publicHeadersPath")
 
+        let path: String? = json.get("path")
+        let exclude: [String] = try! json.get("exclude")
+
+        let sourcesJSON: JSON = try! json.get("sources")
+        var sources: [String]? = nil
+        if case JSON.array(let sourcesData) = sourcesJSON {
+            sources = try! sourcesData.map(String.init)
+        }
+
         if isTest {
-            return PackageDescription4.Target.testTarget(name: name, dependencies: dependencies)
+            return PackageDescription4.Target.testTarget(
+                name: name,
+                dependencies: dependencies,
+                path: path,
+                exclude: exclude,
+                sources: sources)
         }
         return PackageDescription4.Target.target(
-            name: name, dependencies: dependencies, publicHeadersPath: publicHeadersPath)
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: publicHeadersPath)
     }
 }
 

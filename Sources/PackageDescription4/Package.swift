@@ -176,6 +176,9 @@ extension Target {
             "isTest": .bool(isTest),
             "publicHeadersPath": publicHeadersPath.map(JSON.string) ?? JSON.null,
             "dependencies": .array(dependencies.map({ $0.toJSON() })),
+            "path": path.map(JSON.string) ?? JSON.null,
+            "exclude": .array(exclude.map(JSON.string)),
+            "sources": sources.map({ JSON.array($0.map(JSON.string)) }) ?? JSON.null,
         ])
     }
 }

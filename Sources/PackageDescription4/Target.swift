@@ -28,6 +28,28 @@ public final class Target {
     /// The name of the target.
     public var name: String
 
+    /// The path of the target, relative to the package root.
+    ///
+    /// If nil, package manager will search the predefined paths to look
+    /// for this target.
+    public var path: String?
+
+    /// The source files in this target.
+    ///
+    /// If nil, all valid source files found in the target's path will be included.
+    ///
+    /// This can contain directories and individual source files. Directories
+    /// will be searched recursively for valid source files.
+    ///
+    /// Paths specified are relative to the target path.
+    public var sources: [String]?
+
+    /// List of paths to be excluded from source inference.
+    ///
+    /// Exclude paths are relative to the target path.
+    /// This property has more precedence than sources property.
+    public var exclude: [String]
+
     /// If this is a test target.
     public var isTest: Bool
 
@@ -43,38 +65,54 @@ public final class Target {
     init(
         name: String,
         dependencies: [Dependency],
+        path: String?,
+        exclude: [String],
+        sources: [String]?,
         publicHeadersPath: String?,
         isTest: Bool
     ) {
         self.name = name
         self.dependencies = dependencies
+        self.path = path
         self.publicHeadersPath = publicHeadersPath
+        self.sources = sources
+        self.exclude = exclude
         self.isTest = isTest
     }
 
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
         publicHeadersPath: String? = nil
     ) -> Target {
         return Target(
             name: name,
             dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
             publicHeadersPath: publicHeadersPath,
-            isTest: false
-        )
+            isTest: false)
     }
 
     public static func testTarget(
         name: String,
-        dependencies: [Dependency] = []
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil
     ) -> Target {
         return Target(
             name: name,
             dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
             publicHeadersPath: nil,
-            isTest: true
-        )
+            isTest: true)
     }
 }
 
