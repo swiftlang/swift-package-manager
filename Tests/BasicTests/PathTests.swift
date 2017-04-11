@@ -253,6 +253,15 @@ class PathTests: XCTestCase {
         XCTAssertTrue(AbsolutePath("/2") >= AbsolutePath("/2"));
         XCTAssertTrue(AbsolutePath("/2.1") >= AbsolutePath("/2"));
     }
+
+    func testContains() {
+        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f").contains(AbsolutePath("/a/b/c/d")))
+        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f.swift").contains(AbsolutePath("/a/b/c")))
+        XCTAssertTrue(AbsolutePath("/").contains(AbsolutePath("/")))
+        XCTAssertTrue(AbsolutePath("/foo/bar").contains(AbsolutePath("/")))
+        XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/foo/bar/baz")))
+        XCTAssertFalse(AbsolutePath("/foo/bar").contains(AbsolutePath("/bar")))
+    }
     
     // FIXME: We also need tests for join() operations.
     
@@ -262,6 +271,7 @@ class PathTests: XCTestCase {
         
     static var allTests = [
         ("testBasics",                        testBasics),
+        ("testContains",                      testContains),
         ("testStringInitialization",          testStringInitialization),
         ("testStringLiteralInitialization",   testStringLiteralInitialization),
         ("testRepeatedPathSeparators",        testRepeatedPathSeparators),
