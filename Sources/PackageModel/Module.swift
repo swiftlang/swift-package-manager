@@ -121,18 +121,21 @@ public class CTarget: Target {
 
 public class ClangTarget: Target {
 
-    public var includeDir: AbsolutePath {
-        return sources.root.appending(component: "include")
-    }
+    public static let defaultPublicHeadersComponent = "include"
+
+    public let includeDir: AbsolutePath
 
     public init(
         name: String,
+        includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
         dependencies: [Target] = [],
         productDependencies: [(name: String, package: String?)] = []
     ) {
+        assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
         let type: Kind = isTest ? .test : sources.computeModuleType()
+        self.includeDir = includeDir
         super.init(
             name: name,
             type: type,

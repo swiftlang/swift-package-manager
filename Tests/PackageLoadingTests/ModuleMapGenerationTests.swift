@@ -133,8 +133,9 @@ class ModuleMapGeneration: XCTestCase {
     ]
 }
 
-func ModuleMapTester(_ name: String, in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let target = ClangTarget(name: name, isTest: false, sources: Sources(paths: [], root: .root))
+func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
+    let includeDir = AbsolutePath.root.appending(component: includeDir)
+    let target = ClangTarget(name: name, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
     let warningStream = BufferedOutputByteStream()
     var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
     var diagnostics = Set<String>()
