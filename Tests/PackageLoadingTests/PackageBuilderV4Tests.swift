@@ -60,17 +60,37 @@ class PackageBuilderV4Tests: XCTestCase {
     }
 
     func testTestsLayoutsv4() throws {
-        // Disabled while the custom target proposal is being implemented.
-      #if false
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
-            "/Tests/ATests/Foo.swift")
+            "/Sources/B/Foo.swift",
+            "/Tests/ATests/Foo.swift",
+            "/Tests/TheTestOfA/Foo.swift")
 
-        var package = Package(name: "Foo")
+        let package = Package(
+            name: "Foo",
+            targets: [
+                .target(name: "A"),
+                .testTarget(name: "TheTestOfA", dependencies: ["A"]),
+                .testTarget(name: "ATests"),
+                .testTarget(name: "B"),
+            ])
+
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("A") { moduleResult in
                 moduleResult.check(c99name: "A", type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+            }
+
+            result.checkModule("TheTestOfA") { moduleResult in
+                moduleResult.check(c99name: "TheTestOfA", type: .test)
+                moduleResult.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
+                moduleResult.check(dependencies: ["A"])
+            }
+
+            result.checkModule("B") { moduleResult in
+                moduleResult.check(c99name: "B", type: .test)
+                moduleResult.checkSources(root: "/Sources/B", paths: "Foo.swift")
+                moduleResult.check(dependencies: [])
             }
 
             result.checkModule("ATests") { moduleResult in
@@ -79,38 +99,22 @@ class PackageBuilderV4Tests: XCTestCase {
                 moduleResult.check(dependencies: [])
             }
         }
-
-        package = Package(
-            name: "Foo",
-            targets: [
-                .target(name: "ATests", dependencies: ["A"]),
-            ]
-        )
-
-        PackageBuilderTester(package, in: fs) { result in
-            result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .executable)
-                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
-            }
-
-            result.checkModule("ATests") { moduleResult in
-                moduleResult.check(c99name: "ATests", type: .test)
-                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["A"])
-            }
-        }
-      #endif
     }
 
     func testMultipleTestProducts() {
-        // Disabled while the custom target proposal is being implemented.
-      #if false
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift",
             "/Tests/fooTests/foo.swift",
             "/Tests/barTests/bar.swift"
         )
-        let package = Package(name: "pkg")
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(name: "foo"),
+                .testTarget(name: "fooTests"),
+                .testTarget(name: "barTests"),
+            ]
+        )
         PackageBuilderTester(.v4(package), shouldCreateMultipleTestProducts: true, in: fs) { result in
             result.checkModule("foo") { _ in }
             result.checkModule("fooTests") { _ in }
@@ -131,7 +135,6 @@ class PackageBuilderV4Tests: XCTestCase {
                 product.check(type: .test, targets: ["barTests", "fooTests"])
             }
         }
-      #endif
     }
 
     func testCustomTargetDependencies() throws {

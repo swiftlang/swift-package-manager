@@ -179,6 +179,7 @@ extension Target {
     func toJSON() -> JSON {
         return .dictionary([
             "name": .string(name),
+            "isTest": .bool(isTest),
             "dependencies": .array(dependencies.map({ $0.toJSON() })),
         ])
     }
