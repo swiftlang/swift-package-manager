@@ -110,6 +110,7 @@ class PackageDescription4LoadingTests: XCTestCase {
                 manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
             let foo = targets["foo"]!
             XCTAssertEqual(foo.name, "foo")
+            XCTAssertFalse(foo.isTest)
 
             let expectedDependencies: [PackageDescription4.Target.Dependency]
             expectedDependencies = [
@@ -122,6 +123,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
             let bar = targets["bar"]!
             XCTAssertEqual(bar.name, "bar")
+            XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
         }
     }
@@ -235,7 +237,33 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testCTarget() {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"libyaml\"," <<< "\n"
+        stream <<< "   targets: [" <<< "\n"
+        stream <<< "       .target(" <<< "\n"
+        stream <<< "           name: \"Foo\"," <<< "\n"
+        stream <<< "           publicHeadersPath: \"inc\")," <<< "\n"
+        stream <<< "       .target(" <<< "\n"
+        stream <<< "       name: \"Bar\")," <<< "\n"
+        stream <<< "   ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            let targets = Dictionary(items:
+                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+
+            let foo = targets["Foo"]!
+            XCTAssertEqual(foo.publicHeadersPath, "inc")
+
+            let bar = targets["Bar"]!
+            XCTAssertEqual(bar.publicHeadersPath, nil)
+        }
+    }
+
     static var allTests = [
+        ("testCTarget", testCTarget),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testManiestVersionToToolsVersion", testManiestVersionToToolsVersion),
         ("testPackageDependencies", testPackageDependencies),

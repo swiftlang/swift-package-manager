@@ -34,24 +34,33 @@ public final class Target {
     /// Dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
 
+    /// The path to the directory containing public headers of a C language target.
+    ///
+    /// If a value is not provided, the directory will be set to "include".
+    public var publicHeadersPath: String?
+
     /// Construct a target.
     init(
         name: String,
         dependencies: [Dependency],
+        publicHeadersPath: String?,
         isTest: Bool
     ) {
         self.name = name
         self.dependencies = dependencies
+        self.publicHeadersPath = publicHeadersPath
         self.isTest = isTest
     }
 
     public static func target(
         name: String,
-        dependencies: [Dependency] = []
+        dependencies: [Dependency] = [],
+        publicHeadersPath: String? = nil
     ) -> Target {
         return Target(
             name: name,
             dependencies: dependencies,
+            publicHeadersPath: publicHeadersPath,
             isTest: false
         )
     }
@@ -63,6 +72,7 @@ public final class Target {
         return Target(
             name: name,
             dependencies: dependencies,
+            publicHeadersPath: nil,
             isTest: true
         )
     }
