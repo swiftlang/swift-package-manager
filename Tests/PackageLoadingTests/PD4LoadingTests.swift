@@ -262,6 +262,40 @@ class PackageDescription4LoadingTests: XCTestCase {
         }
     }
 
+    func testTargetProperties() {
+        let stream = BufferedOutputByteStream()
+        stream <<< "import PackageDescription" <<< "\n"
+        stream <<< "let package = Package(" <<< "\n"
+        stream <<< "   name: \"libyaml\"," <<< "\n"
+        stream <<< "   targets: [" <<< "\n"
+        stream <<< "       .target(" <<< "\n"
+        stream <<< "           name: \"Foo\"," <<< "\n"
+        stream <<< "           path: \"foo/z\"," <<< "\n"
+        stream <<< "           exclude: [\"bar\"]," <<< "\n"
+        stream <<< "           sources: [\"bar.swift\"]," <<< "\n"
+        stream <<< "           publicHeadersPath: \"inc\")," <<< "\n"
+        stream <<< "       .target(" <<< "\n"
+        stream <<< "       name: \"Bar\")," <<< "\n"
+        stream <<< "   ]" <<< "\n"
+        stream <<< ")" <<< "\n"
+        loadManifest(stream.bytes) { manifest in
+            let targets = Dictionary(items:
+                manifest.package.targets.map({ ($0.name, $0 as PackageDescription4.Target ) }))
+
+            let foo = targets["Foo"]!
+            XCTAssertEqual(foo.publicHeadersPath, "inc")
+            XCTAssertEqual(foo.path, "foo/z")
+            XCTAssertEqual(foo.exclude, ["bar"])
+            XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
+
+            let bar = targets["Bar"]!
+            XCTAssertEqual(bar.publicHeadersPath, nil)
+            XCTAssertEqual(bar.path, nil)
+            XCTAssertEqual(bar.exclude, [])
+            XCTAssert(bar.sources == nil)
+        }
+    }
+
     static var allTests = [
         ("testCTarget", testCTarget),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
@@ -270,6 +304,7 @@ class PackageDescription4LoadingTests: XCTestCase {
         ("testProducts", testProducts),
         ("testSystemPackage", testSystemPackage),
         ("testTargetDependencies", testTargetDependencies),
+        ("testTargetProperties", testTargetProperties),
         ("testTrivial", testTrivial),
     ]
 }
