@@ -17,6 +17,7 @@ import PackageModel
 
 @testable import Build
 import PackageDescription
+import PackageDescription4
 
 private struct MockToolchain: Toolchain {
     let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
@@ -254,11 +255,22 @@ final class BuildPlanTests: XCTestCase {
     func testDynamicProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/main.swift",
-            "/Bar/source.swift"
+            "/Bar/Source/Bar/source.swift"
         )
 
+        typealias Package = PackageDescription4.Package
+
+        let bar = Package(
+            name: "Bar", 
+            products: [
+                .library(name: "Bar", type: .dynamic, targets: ["Bar"])
+            ],
+            targets: [
+                .target(name: "Bar")
+            ]
+        )
         let g = loadMockPackageGraph4([
-            "/Bar": .init(name: "Bar", products: [.library(name: "Bar", type: .dynamic, targets: ["Bar"])]),
+            "/Bar": bar,
             "/Foo": .init(
                 name: "Foo",
                 dependencies: [.package(url: "/Bar", from: "1.0.0")],
@@ -280,6 +292,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testCompatibleSwiftVersions() throws {
+        typealias Package = PackageDescription.Package
 
         func mockBuildParameters(_ toolsVersion: ToolsVersion) -> BuildParameters {
             return BuildParameters(

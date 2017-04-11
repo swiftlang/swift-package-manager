@@ -403,7 +403,40 @@ public struct PackageBuilder {
                 manifest.name, "providers should only be used with a System Module Package")
         }
 
-        return try constructV3Targets()
+        // Depending on the manifest version, use the correct convention system.
+        if isVersion3Manifest {
+            return try constructV3Targets()
+        }
+        return try constructV4Targets()
+    }
+
+    /// Predefined source directories.
+    private let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+
+    /// Predefined test directories.
+    private let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+
+    /// Construct targets according to PackageDescription 4 conventions.
+    fileprivate func constructV4Targets() throws -> [Target] {
+        /// Returns the path of the given target.
+        func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {
+            let predefinedDirectories = predefinedSourceDirectories
+            for directory in predefinedDirectories {
+                let path = packagePath.appending(components: directory, target.name)
+                if fileSystem.isDirectory(path) {
+                    return path
+                }
+            }
+            throw ModuleError.modulesNotFound([target.name])
+        }
+
+        // Create potential targets.
+        let potentialTargets: [PotentialModule]
+        potentialTargets = try manifest.package.targets.map({ target in
+            let path = try findPath(for: target)
+            return PotentialModule(name: target.name, path: path, isTest: false)
+        })
+        return try createModules(potentialTargets)
     }
 
     /// Construct targets according to PackageDescription 3 conventions.

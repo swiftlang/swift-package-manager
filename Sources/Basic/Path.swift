@@ -146,7 +146,7 @@ public struct AbsolutePath {
     /// to be a valid path component (i.e., it cannot be empty, contain a path
     /// separator, or be a pseudo-path like '.' or '..').
     public func appending(component name: String) -> AbsolutePath {
-        assert(AbsolutePath.isValidComponent(name))
+        assert(AbsolutePath.isValidComponent(name), "\(name) is invalid path component")
         if self == AbsolutePath.root {
             return AbsolutePath(PathImpl(string: "/" + name))
         } else {
