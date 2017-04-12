@@ -169,7 +169,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
     /// persistence helper
     let persistence: SimplePersistence
 
-    init(dataPath: AbsolutePath, fileSystem: FileSystem) throws {
+    init(dataPath: AbsolutePath, fileSystem: FileSystem) {
         let statePath = dataPath.appending(component: "dependencies-state.json")
 
         self.dependencyMap = [:]
@@ -180,11 +180,22 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
             statePath: statePath)
 
         // Load the state from disk, if possible.
-        if try !self.persistence.restoreState(self) {
-            var fileSystem = fileSystem
-            try fileSystem.createDirectory(dataPath, recursive: true)
-            // There was no state, write the default state immediately.
-            try self.persistence.saveState(self)
+        //
+        // If the disk operation here fails, we ignore the error here.
+        // This means if managed dependencies data is corrupted or out of date,
+        // clients will not see the old data and managed dependencies will be
+        // reset.  However there could be other errors, like permission issues,
+        // these errors will also be ignored but will surface when clients try
+        // to save the state.
+        do {
+            if try !self.persistence.restoreState(self) {
+                var fileSystem = fileSystem
+                try fileSystem.createDirectory(dataPath, recursive: true)
+                // There was no state, write the default state immediately.
+                try self.persistence.saveState(self)
+            }
+        } catch {
+            // FIXME: We should emit a warning here.
         }
     }
 
@@ -201,8 +212,9 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         }
     }
 
-    func reset() {
+    func reset() throws {
         dependencyMap = [:]
+        try saveState()
     }
 
     func saveState() throws {

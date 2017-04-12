@@ -229,7 +229,7 @@ public class Workspace {
     private let containerProvider: RepositoryPackageContainerProvider
 
     /// The current state of managed dependencies.
-    public let managedDependencies: LoadableResult<ManagedDependencies>
+    public let managedDependencies: ManagedDependencies
 
     /// Enable prefetching containers in resolver.
     let isResolverPrefetchingEnabled: Bool
@@ -284,9 +284,7 @@ public class Workspace {
         self.pinsStore = LoadableResult {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
-        self.managedDependencies = LoadableResult {
-            try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
-        }
+        self.managedDependencies = ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
     }
 
     /// Create the cache directories.
@@ -305,15 +303,12 @@ public class Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func clean(with diagnostics: DiagnosticsEngine) {
-        guard let dependencies = diagnostics.wrap({ try managedDependencies.load() }) else {
-            return
-        }
         
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = Set<String>([
             repositoryManager.path,
             checkoutsPath,
-            dependencies.statePath
+            managedDependencies.statePath,
         ].map({ path in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == dataPath)
@@ -338,7 +333,7 @@ public class Workspace {
 
     /// Resets the entire workspace by removing the data directory.
     public func reset() throws {
-        try managedDependencies.load().reset()
+        try managedDependencies.reset()
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
     }
@@ -435,8 +430,6 @@ public class Workspace {
         }
 
         // Save the new state.
-        // FIXME: We shouldn't need to reload the managed dependencies here.
-        let managedDependencies = try self.managedDependencies.load()
         managedDependencies[dependency.repository] = dependency.editedDependency(
             subpath: RelativePath(packageName), unmanagedPath: path)
         try managedDependencies.saveState()
@@ -486,7 +479,6 @@ public class Workspace {
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
             fileSystem.removeFileTree(editablesPath)
         }
-        let managedDependencies = try self.managedDependencies.load()
         // Restore the dependency state.
         managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
@@ -562,7 +554,6 @@ public class Workspace {
         try updateCheckouts(with: results)
 
         // Get the updated dependency.
-        let managedDependencies = try self.managedDependencies.load()
         let newDependency = managedDependencies[dependency.repository]!
 
         // Assert that the dependency is at the pinned checkout state now.
@@ -641,10 +632,7 @@ public class Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetch(
-        repository: RepositorySpecifier,
-        managedDependencies: ManagedDependencies
-    ) throws -> AbsolutePath {
+    private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
@@ -688,9 +676,8 @@ public class Workspace {
         repository: RepositorySpecifier,
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
-        let managedDependencies = try self.managedDependencies.load()
         // Get the repository.
-        let path = try fetch(repository: repository, managedDependencies: managedDependencies)
+        let path = try fetch(repository: repository)
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
@@ -818,7 +805,6 @@ public class Workspace {
         }
 
         // Otherwise, we need to repin only the previous pins.
-        let managedDependencies = try self.managedDependencies.load()
         for pin in pinsStore.pins {
             // Check if this is a stray pin.
             guard let dependency = managedDependencies[pin.repository] else {
@@ -871,7 +857,6 @@ public class Workspace {
     ) throws -> [RepositorySpecifier: PackageStateChange] {
         // Load pins store and managed dependendencies.
         let pinsStore = try self.pinsStore.load()
-        let managedDependencies = try self.managedDependencies.load()
 
         var packageStateChanges = [RepositorySpecifier: PackageStateChange]()
         // Set the states from resolved dependencies results.
@@ -977,10 +962,8 @@ public class Workspace {
     ) -> DependencyManifests {
 
         // Try to load current managed dependencies, or emit and return.
-        let managedDependencies: ManagedDependencies
         do {
             try fixManagedDependencies()
-            managedDependencies = try self.managedDependencies.load()
         } catch {
             diagnostics.emit(error)
             return DependencyManifests(root: root, dependencies: [])
@@ -988,14 +971,14 @@ public class Workspace {
 
         let rootDependencyManifests = root.dependencies.flatMap({
             // FIXME: We need to emit any errors here to the diagnostics (SR-4262).
-            return loadManifest(forDependencyURL: $0.url, managedDependencies: managedDependencies)
+            return loadManifest(forDependencyURL: $0.url)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
             return node.item.package.dependencies.flatMap({ dependency in
-                let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
+                let manifest = loadManifest(forDependencyURL: dependency.url)
                 return manifest.flatMap({ KeyedPair($0, key: $0.url) })
             })
         }
@@ -1009,7 +992,6 @@ public class Workspace {
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     private func fixManagedDependencies() throws {
-        let managedDependencies = try self.managedDependencies.load()
         for dependency in managedDependencies.values {
             let dependencyPath = path(for: dependency)
             if !fileSystem.isDirectory(dependencyPath) {
@@ -1139,7 +1121,6 @@ public class Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     func remove(specifier: RepositorySpecifier) throws {
-        let managedDependencies = try self.managedDependencies.load()
         guard var dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
@@ -1209,10 +1190,7 @@ public class Workspace {
     }
 
     /// Loads the given manifest, if it is present in the managed dependencies.
-    private func loadManifest(
-        forDependencyURL url: String,
-        managedDependencies: ManagedDependencies
-    ) -> Manifest? {
+    private func loadManifest(forDependencyURL url: String) -> Manifest? {
         // Check if this dependency is available.
         guard let managedDependency = managedDependencies[url] else {
             return nil
