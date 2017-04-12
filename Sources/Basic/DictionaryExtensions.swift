@@ -11,19 +11,17 @@
 extension Dictionary {
     /// Convenience initializer to create dictionary from tuples.
     public init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Value) {
-        var result = Dictionary()
+        self.init(minimumCapacity: items.underestimatedCount)
         for (key, value) in items {
-            result[key] = value
+            self[key] = value
         }
-        self = result
     }
 
     /// Convenience initializer to create dictionary from tuples.
     public init<S: Sequence>(items: S) where S.Iterator.Element == (Key, Optional<Value>) {
-        var result = Dictionary()
+        self.init(minimumCapacity: items.underestimatedCount)
         for (key, value) in items {
-            result[key] = value
+            self[key] = value
         }
-        self = result
     }
 }
