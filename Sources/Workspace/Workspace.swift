@@ -285,7 +285,7 @@ public class Workspace {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
         self.managedDependencies = LoadableResult {
-            try ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
+            ManagedDependencies(dataPath: dataPath, fileSystem: fileSystem)
         }
     }
 
