@@ -212,8 +212,9 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         }
     }
 
-    func reset() {
+    func reset() throws {
         dependencyMap = [:]
+        try saveState()
     }
 
     func saveState() throws {
