@@ -632,10 +632,7 @@ public class Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetch(
-        repository: RepositorySpecifier,
-        managedDependencies: ManagedDependencies
-    ) throws -> AbsolutePath {
+    private func fetch(repository: RepositorySpecifier) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = managedDependencies[repository] {
             let path = checkoutsPath.appending(dependency.subpath)
@@ -680,7 +677,7 @@ public class Workspace {
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
         // Get the repository.
-        let path = try fetch(repository: repository, managedDependencies: managedDependencies)
+        let path = try fetch(repository: repository)
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
@@ -974,14 +971,14 @@ public class Workspace {
 
         let rootDependencyManifests = root.dependencies.flatMap({
             // FIXME: We need to emit any errors here to the diagnostics (SR-4262).
-            return loadManifest(forDependencyURL: $0.url, managedDependencies: managedDependencies)
+            return loadManifest(forDependencyURL: $0.url)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
             return node.item.package.dependencies.flatMap({ dependency in
-                let manifest = loadManifest(forDependencyURL: dependency.url, managedDependencies: managedDependencies)
+                let manifest = loadManifest(forDependencyURL: dependency.url)
                 return manifest.flatMap({ KeyedPair($0, key: $0.url) })
             })
         }
@@ -1193,10 +1190,7 @@ public class Workspace {
     }
 
     /// Loads the given manifest, if it is present in the managed dependencies.
-    private func loadManifest(
-        forDependencyURL url: String,
-        managedDependencies: ManagedDependencies
-    ) -> Manifest? {
+    private func loadManifest(forDependencyURL url: String) -> Manifest? {
         // Check if this dependency is available.
         guard let managedDependency = managedDependencies[url] else {
             return nil
