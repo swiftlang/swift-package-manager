@@ -104,20 +104,31 @@ private let v1: Version = "1.0.0"
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
         mktmpdir { path in
+
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath, tag: "initial")
-            let initialRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            initGitRepo(testRepoPath)
+            let testRepo = GitRepository(path: testRepoPath)
+
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
+                $0 <<< "import PackageDescription" <<< "\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"test-repo\"" <<< "\n"
+                $0 <<< ")" <<< "\n"
+            }
+            try testRepo.stage(file: "Package.swift")
+            try testRepo.commit()
+            try testRepo.tag(name: "initial")
+            let initialRevision = try testRepo.getCurrentRevision()
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
-            let testRepo = GitRepository(path: testRepoPath)
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
-            let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            let currentRevision = try testRepo.getCurrentRevision()
 
             // Create the initial workspace.
             do {
@@ -136,6 +147,7 @@ final class WorkspaceTests: XCTestCase {
                 let dependencies = try workspace.managedDependencies.load()
                 XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
                 if let dependency = dependencies[testRepoSpec] {
+                    XCTAssertEqual(dependency.name, "test-repo")
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, currentRevision)
                 }
@@ -154,6 +166,7 @@ final class WorkspaceTests: XCTestCase {
                 statePath = dependencies.statePath
                 XCTAssertEqual(dependencies.values.map{ $0.repository }, [testRepoSpec])
                 if let dependency = dependencies[testRepoSpec] {
+                    XCTAssertEqual(dependency.name, "test-repo")
                     XCTAssertEqual(dependency.repository, testRepoSpec)
                     XCTAssertEqual(dependency.checkoutState?.revision, initialRevision)
                 }
@@ -433,7 +446,18 @@ final class WorkspaceTests: XCTestCase {
             let testRepoPath = path.appending(component: "test-repo")
             let testRepoSpec = RepositorySpecifier(url: testRepoPath.asString)
             try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath, tag: "initial")
+            initGitRepo(testRepoPath)
+
+            let testRepo = GitRepository(path: testRepoPath)
+            try localFileSystem.writeFileContents(testRepoPath.appending(component: "Package.swift")) {
+                $0 <<< "import PackageDescription" <<< "\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"test-repo\"" <<< "\n"
+                $0 <<< ")" <<< "\n"
+            }
+            try testRepo.stage(file: "Package.swift")
+            try testRepo.commit()
+            try testRepo.tag(name: "initial")
 
             let workspace = Workspace.createWith(rootPackage: path)
             let state = CheckoutState(revision: Revision(identifier: "initial"))
@@ -506,6 +530,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Get the dependency for package A.
             let dependency = getDependency(aManifest)
+            XCTAssertEqual(dependency.name, "A")
             // It should not be in edit mode.
             XCTAssert(dependency.state.isCheckout)
             // Put the dependency in edit mode at its current revision.

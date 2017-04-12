@@ -698,10 +698,15 @@ public class Workspace {
         delegate.checkingOut(repository: repository.url, at: checkoutState.description)
         try workingRepo.checkout(revision: checkoutState.revision)
 
+        // Load the manifest.
+        let manifest = try loadManifest(packagePath: path, url: repository.url, version: checkoutState.version)
+
         // Write the state record.
         managedDependencies[repository] = ManagedDependency(
-                repository: repository, subpath: path.relative(to: checkoutsPath),
-                checkoutState: checkoutState)
+            name: manifest.name,
+            repository: repository,
+            subpath: path.relative(to: checkoutsPath), 
+            checkoutState: checkoutState)
         try managedDependencies.saveState()
 
         return path
@@ -1213,8 +1218,6 @@ public class Workspace {
             return nil
         }
 
-        let packagePath = path(for: managedDependency)
-
         // The version, if known.
         let version: Version?
         switch managedDependency.state {
@@ -1224,18 +1227,35 @@ public class Workspace {
             version = nil
         }
 
+        // Get the path of the package.
+        let packagePath = path(for: managedDependency)
+
+        // FIXME: We need to emit errors if this fails (SR-4262).
+        return try! loadManifest(
+            packagePath: packagePath,
+            url: url,
+            version: version
+        )
+    }
+
+    /// Load the manifest at a given path.
+    ///
+    /// This is just a helper wrapper to the manifest loader.
+    private func loadManifest(
+        packagePath: AbsolutePath,
+        url: String,
+        version: Version?
+    ) throws -> Manifest {
+
         // Load the tools version for the package.
-        let toolsVersion = try! toolsVersionLoader.load(
+        let toolsVersion = try toolsVersionLoader.load(
             at: packagePath, fileSystem: localFileSystem)
 
         // Load the manifest.
-        //
-        // FIXME: We need to emit errors if this fails (SR-4262).
-        //
         // FIXME: We should have a cache for this.
-        let manifest: Manifest = try! manifestLoader.load(
+        let manifest: Manifest = try manifestLoader.load(
             package: packagePath,
-            baseURL: managedDependency.repository.url,
+            baseURL: url,
             version: version,
             manifestVersion: toolsVersion.manifestVersion)
         return manifest

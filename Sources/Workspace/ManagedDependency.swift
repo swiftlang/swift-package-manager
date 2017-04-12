@@ -39,6 +39,9 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         }
     }
 
+    /// The name of the dependency i.e. the package name.
+    public let name: String
+
     /// The specifier for the dependency.
     public let repository: RepositorySpecifier
 
@@ -56,10 +59,12 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
     let basedOn: ManagedDependency?
 
     init(
+        name: String,
         repository: RepositorySpecifier,
         subpath: RelativePath,
         checkoutState: CheckoutState
     ) {
+        self.name = name
         self.repository = repository
         self.state = .checkout(checkoutState)
         self.basedOn = nil
@@ -72,6 +77,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
         unmanagedPath: AbsolutePath?
     ) {
         assert(dependency.state.isCheckout)
+        self.name = dependency.name
         self.basedOn = dependency
         self.repository = dependency.repository
         self.subpath = subpath
@@ -89,6 +95,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
     }
 
     public init(json: JSON) throws {
+        self.name = try json.get("name")
         self.repository = try json.get("repositoryURL")
         self.subpath = try RelativePath(json.get("subpath"))
         self.basedOn = json.get("basedOn")
@@ -97,6 +104,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
 
     public func toJSON() -> JSON {
         return .init([
+            "name": name,
             "repositoryURL": repository.url,
             "subpath": subpath.asString,
             "basedOn": basedOn.toJSON(),
