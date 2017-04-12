@@ -16,6 +16,9 @@ class DictionaryExtensionTests: XCTestCase {
     func testBasics() {
         XCTAssertEqual(Dictionary(items: [("foo", 1), ("bar", 2)]), ["foo": 1, "bar": 2])
         XCTAssertEqual(Dictionary(items: [(1, 1), (1, 2)]), [1: 2])
+
+        XCTAssertEqual(Dictionary(items: [(1, 1), (1, nil)]), [:])
+        XCTAssertEqual(Dictionary(items: [(1, 1), (2, nil), (3, 4)]), [1: 1, 3: 4])
     }
     
     static var allTests = [
