@@ -38,6 +38,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     var checkedOut = [String: String]()
     var removed = [String]()
     var warnings = [String]()
+    var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
     func fetchingMissingRepositories(_ urls: Set<String>) {
     }
@@ -60,6 +61,10 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
     func warning(message: String) {
         warnings.append(message)
+    }
+
+    func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
+        managedDependenciesData.append(dependencies)
     }
 }
 
@@ -1977,6 +1982,61 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testGraphData() throws {
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [],
+            packages: [
+                MockPackage("A", version: v1),
+                MockPackage("A", version: "1.5.1"),
+                MockPackage("B", version: v1),
+            ],
+            fs: fs)
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.5.1")
+
+        let delegate = TestWorkspaceDelegate()
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: delegate,
+            fileSystem: fs,
+            repositoryProvider: provider)
+        let diagnostics = DiagnosticsEngine()
+        let root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
+            .init(url: "/RootPkg/A", requirement: .versionSet(.exact(v1)), location: "rootA"),
+        ])
+
+        let data = workspace.loadGraphData(root: root, diagnostics: diagnostics)
+
+        // Sanity.
+        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(data.graph.rootPackages, [])
+        XCTAssertEqual(data.graph.packages.map{$0.name}.sorted(), ["A", "B"])
+
+        // Check package association.
+        XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.name, "A")
+        XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.name, "B")
+
+        let currentDeps = workspace.managedDependencies.values.map{$0.name}
+        // Check delegates.
+        XCTAssert(delegate.managedDependenciesData[0].map{$0}.isEmpty)
+        XCTAssertEqual(delegate.managedDependenciesData[1].map{$0.name}, currentDeps)
+
+        do {
+            let data = workspace.loadGraphData(root: root, diagnostics: diagnostics)
+
+            // Check package association.
+            XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.name, "A")
+            XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.name, "B")
+
+            XCTAssertEqual(delegate.managedDependenciesData[2].map{$0.name}, currentDeps)
+            XCTAssertEqual(delegate.managedDependenciesData[3].map{$0.name}, currentDeps)
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
@@ -2005,7 +2065,8 @@ final class WorkspaceTests: XCTestCase {
         ("testLoadingRootManifests", testLoadingRootManifests),
         ("testPackageGraphWithGraphRootDependencies", testPackageGraphWithGraphRootDependencies),
         ("testPackageGraphOnlyRootDependency", testPackageGraphOnlyRootDependency),
-        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory)
+        ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
+        ("testGraphData", testGraphData),
     ]
 }
 

@@ -44,6 +44,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func warning(message: String) {
         print("warning: " + message)
     }
+
+    func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
+    }
 }
 
 public class SwiftTool<Options: ToolOptions> {
