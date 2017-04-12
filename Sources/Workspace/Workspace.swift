@@ -335,8 +335,15 @@ public class Workspace {
     }
 
     /// Resets the entire workspace by removing the data directory.
-    public func reset() throws {
-        try managedDependencies.reset()
+    ///
+    /// - Parameters:
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
+    public func reset(with diagnostics: DiagnosticsEngine) {
+        guard diagnostics.wrap({ try managedDependencies.reset() }) else {
+            return
+        }
+        
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
     }
@@ -346,18 +353,43 @@ public class Workspace {
     /// - Parameters:
     ///     - dependency: The dependency to put in edit mode.
     ///     - packageName: The name of the package corresponding to the
-    ///         dependency. This is used for the checkout directory name.
+    ///       dependency. This is used for the checkout directory name.
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
-    ///         should be checked out to otherwise current revision.
+    ///       should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
-    ///         created from the revision provided.
+    ///       created from the revision provided.
     /// - throws: WorkspaceError
     public func edit(
         dependency: ManagedDependency,
         packageName: String,
+        diagnostics: DiagnosticsEngine,
         path: AbsolutePath? = nil,
-        revision: Revision?,
+        revision: Revision? = nil,
+        checkoutBranch: String? = nil
+    ) {
+        do {
+            try _edit(
+                dependency: dependency,
+                packageName: packageName,
+                diagnostics: diagnostics,
+                path: path,
+                revision: revision,
+                checkoutBranch: checkoutBranch)
+        } catch {
+            diagnostics.emit(error)
+        }
+    }
+    
+    /// Throwing version of edit
+    private func _edit(
+        dependency: ManagedDependency,
+        packageName: String,
+        diagnostics: DiagnosticsEngine,
+        path: AbsolutePath? = nil,
+        revision: Revision? = nil,
         checkoutBranch: String? = nil
     ) throws {
         // Check if we can edit this dependency.
@@ -372,21 +404,15 @@ public class Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            // Get tools version and try to load the manifest.
-            let toolsVersion = try toolsVersionLoader.load(
-                at: destination, fileSystem: fileSystem)
-
-            let manifest = try manifestLoader.load(
-                package: destination,
-                baseURL: dependency.repository.url,
-                manifestVersion: toolsVersion.manifestVersion)
-
+            let manifest = try loadManifest(packagePath: destination, url: dependency.repository.url, version: nil)
+            
             guard manifest.name == packageName else {
                 throw WorkspaceDiagnostics.MismatchingDestinationPackage(
                     editPath: destination,
                     expectedPackage: packageName,
                     destinationPackage: manifest.name)
             }
+
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
                 delegate.warning(message: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
@@ -416,6 +442,7 @@ public class Workspace {
             try handle.cloneCheckout(to: destination, editable: true)
             let workingRepo = try repositoryManager.provider.openCheckout(at: destination)
             try workingRepo.checkout(revision: revision ?? checkoutState.revision)
+
             // Checkout to the new branch if provided.
             if let branch = checkoutBranch {
                 try workingRepo.checkout(newBranch: branch)
@@ -427,9 +454,9 @@ public class Workspace {
             try fileSystem.createDirectory(editablesPath)
             // FIXME: We need this to work with InMem file system too.
             try createSymlink(
-                    editablesPath.appending(component: packageName),
-                    pointingAt: path,
-                    relative: false)
+                editablesPath.appending(component: packageName),
+                pointingAt: path,
+                relative: false)
         }
 
         // Save the new state.
