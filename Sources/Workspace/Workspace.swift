@@ -63,6 +63,9 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace operation emitted this warning.
     func warning(message: String)
+
+    /// Called when the managed dependencies are updated.
+    func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1117,6 +1120,41 @@ public class Workspace {
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
         )
+    }
+
+	/// Load the package graph data.
+	///
+	/// This method returns the package graph, and the mapping between each
+	/// package and its corresponding managed dependency.
+	///
+	/// The current managed dependencies will be reported via the delegate
+	/// before and after loading the package graph.
+    public func loadGraphData(
+        root: WorkspaceRoot,
+        diagnostics: DiagnosticsEngine,
+        createMultipleTestProducts: Bool = false
+    ) -> (graph: PackageGraph, dependencyMap: [ResolvedPackage: ManagedDependency]) {
+
+        // Report the current managed dependencies.
+        //
+        // This is useful so clients can get the data before starting the
+        // costly operation of loading the package graph.
+        delegate.managedDependenciesDidUpdate(managedDependencies.values)
+
+        // Load the package graph.
+        let graph = loadPackageGraph(
+            root: root, diagnostics: diagnostics, createMultipleTestProducts: createMultipleTestProducts)
+
+        // Report the updated managed dependencies.
+        delegate.managedDependenciesDidUpdate(managedDependencies.values)
+
+        // Create the dependency map by associating each resolved package with its corresponding managed dependency.
+        let managedDependenciesByName = Dictionary(items: managedDependencies.values.map({ ($0.name, $0) }))
+        let dependencyMap = Dictionary(items: graph.packages.map({ package in
+            (package, managedDependenciesByName[package.name])
+        }))
+
+        return (graph, dependencyMap)
     }
 
     /// Removes the clone and checkout of the provided specifier.
