@@ -20,7 +20,7 @@ open class XCTestCasePerf: XCTestCase {
 
   #if os(macOS) && !ENABLE_PERF_TESTS
     override open class func defaultTestSuite() -> XCTestSuite {
-        return XCTestSuite()
+        return XCTestSuite(name: String(describing: type(of: self)))
     }
   #endif
 }
