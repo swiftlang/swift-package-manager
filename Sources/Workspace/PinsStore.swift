@@ -182,21 +182,40 @@ extension PinsStore: SimplePersistanceProtocol {
 
 // JSON.
 extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
+
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
-        self.package = try json.get("package")
-        self.repository = try json.get("repositoryURL")
-        self.reason = json.get("reason")
-        self.state = try json.get("state")
+
+      // If it's a relative path then convert it into
+      // absolute path relative to the woking directory.
+      let repoUrl: String = try json.get("repositoryURL")
+      let absPath = AbsolutePath(repoUrl, relativeTo: currentWorkingDirectory).asString
+
+      self.package = try json.get("package")
+      self.repository =  RepositorySpecifier(url: absPath)
+      self.reason = json.get("reason")
+      self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
-        return .init([
-            "package": package,
-            "repositoryURL": repository,
-            "state": state,
-            "reason": reason.toJSON(),
+
+      // If it's a local path then convert it into
+      // relative path relative to the working directory.
+      var path = repository.url
+      if repository.url.characters.first == "/" {
+        let absPath = AbsolutePath(repository.url)
+
+        if localFileSystem.exists(absPath) {
+          path = absPath.relative(to: currentWorkingDirectory).asString
+        }
+      }
+
+      return .init([
+        "package": package,
+        "repositoryURL": path,
+        "state": state,
+        "reason": reason.toJSON(),
         ])
     }
 
