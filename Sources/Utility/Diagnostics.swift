@@ -94,4 +94,21 @@ extension DiagnosticsEngine {
             return nil
         }
     }
+    
+    /// Wrap a throwing closure, returning a success boolean and
+    /// emitting any thrown errors.
+    ///
+    /// - Parameters:
+    ///     - closure: Closure to wrap.
+    /// - Returns: Returns true if the wrapped closure did not throw
+    ///   and false otherwise.
+    public func wrap(_ closure: () throws -> Void) -> Bool {
+        do {
+            try closure()
+            return true
+        } catch {
+            emit(error)
+            return false
+        }
+    }
 }

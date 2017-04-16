@@ -492,8 +492,9 @@ final class WorkspaceTests: XCTestCase {
             try localFileSystem.writeFileContents(buildArtifact, bytes: "Hi")
             XCTAssert(localFileSystem.exists(buildArtifact))
 
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
             // Everything should go away.
+            XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertFalse(localFileSystem.exists(buildArtifact))
             XCTAssertFalse(localFileSystem.exists(checkoutPath))
             XCTAssertFalse(localFileSystem.exists(workspace.dataPath))
@@ -539,7 +540,12 @@ final class WorkspaceTests: XCTestCase {
             // It should not be in edit mode.
             XCTAssert(dependency.state.isCheckout)
             // Put the dependency in edit mode at its current revision.
-            try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision)
+            XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
             // It should be in edit mode.
@@ -560,10 +566,15 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try popen([Git.tool, "-C", editRepoPath.asString, "rev-parse", "--abbrev-ref", "HEAD"]).chomp(), "HEAD")
           #endif
 
-            do {
-                try workspace.edit(dependency: editedDependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
-                XCTFail("Unexpected success, \(editedDependency) is already in edit mode")
-            } catch _ as WorkspaceDiagnostics.DependencyAlreadyInEditMode {}
+            workspace.edit(
+                dependency: editedDependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision)
+            XCTAssert(diagnostics.hasErrors)
+            XCTAssert(diagnostics.diagnostics.contains(where: {
+                $0.id == WorkspaceDiagnostics.DependencyAlreadyInEditMode.id
+            }))
 
             do {
                 // Reopen workspace and check if we maintained the state.
@@ -611,13 +622,24 @@ final class WorkspaceTests: XCTestCase {
             let dependency = getDependency(aManifest)
 
             // We should error out if we try to edit on a non existent revision.
-            do {
-                try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: Revision(identifier: "non-existent-revision"))
-                XCTFail()
-            } catch _ as WorkspaceDiagnostics.RevisionDoesNotExist {}
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: Revision(identifier: "non-existent-revision"))
+            XCTAssert(diagnostics.hasErrors)
+            XCTAssert(diagnostics.diagnostics.contains(where: {
+                $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
+            }))
 
             // Put the dependency in edit mode at its current revision on a new branch.
-            try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "BugFix")
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision,
+                checkoutBranch: "BugFix")
+            XCTAssert(diagnostics.hasErrors)
             let editedDependency = getDependency(aManifest)
             XCTAssert(editedDependency.state == .edited(nil))
 
@@ -629,10 +651,16 @@ final class WorkspaceTests: XCTestCase {
             try workspace.unedit(dependency: editedDependency, forceRemove: false)
             XCTAssert(getDependency(aManifest).state.isCheckout)
 
-            do {
-                try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "master")
-                XCTFail("Unexpected edit success")
-            } catch _ as WorkspaceDiagnostics.BranchAlreadyExists {}
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision,
+                checkoutBranch: "master")
+            XCTAssert(diagnostics.hasErrors)
+            XCTAssert(diagnostics.diagnostics.contains(where: {
+                $0.id == WorkspaceDiagnostics.BranchAlreadyExists.id
+            }))
         }
     }
 
@@ -668,7 +696,13 @@ final class WorkspaceTests: XCTestCase {
             }
             let dependency = getDependency(aManifest)
             // Put the dependency in edit mode.
-            try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision, checkoutBranch: "bugfix")
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision,
+                checkoutBranch: "bugfix")
+            XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
             let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
@@ -742,7 +776,12 @@ final class WorkspaceTests: XCTestCase {
         // It should not be in edit mode.
         XCTAssert(dependency.state.isCheckout)
         // Put the dependency in edit mode at its current revision.
-        try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
+        workspace.edit(
+            dependency: dependency,
+            packageName: aManifest.name,
+            diagnostics: diagnostics,
+            revision: dependency.checkoutState!.revision)
+        XCTAssertFalse(diagnostics.hasErrors)
 
         let editedDependency = getDependency(aManifest)
         // It should be in edit mode.
@@ -794,7 +833,8 @@ final class WorkspaceTests: XCTestCase {
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(graph.lookup("A").version == v1)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
@@ -806,7 +846,7 @@ final class WorkspaceTests: XCTestCase {
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(graph.lookup("A").version == v1)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
         }
 
         // Updating dependencies shouldn't matter.
@@ -840,7 +880,9 @@ final class WorkspaceTests: XCTestCase {
             let workspace = newWorkspace()
             try workspace.pinsStore.load().unpinAll()
             // Reset so we have a clean workspace.
-            try workspace.reset()
+            let diagnostics = DiagnosticsEngine()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
             try workspace.pinsStore.load().setAutoPin(on: false)
         }
 
@@ -956,7 +998,9 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             try workspace.pinsStore.load().unpin(package: "A")
-            try workspace.reset()
+            let diagnostics = DiagnosticsEngine()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Package graph should load 1.0.1.
@@ -1043,7 +1087,8 @@ final class WorkspaceTests: XCTestCase {
 
             try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
             // Reset so we have a clean workspace.
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Add a new version of dependencies.
@@ -1075,7 +1120,9 @@ final class WorkspaceTests: XCTestCase {
             let workspace = newWorkspace()
             try workspace.pinsStore.load().unpinAll()
             // Reset so we have a clean workspace.
-            try workspace.reset()
+            let diagnostics = DiagnosticsEngine()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Loading the workspace now should load 1.0.1 of both dependencies.
@@ -1129,7 +1176,8 @@ final class WorkspaceTests: XCTestCase {
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Add a new version of dependencies.
@@ -1197,7 +1245,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             try pin(at: v1, diagnostics: diagnostics)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Add a the tag which will make resolution unstatisfiable.
@@ -1310,7 +1359,8 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package B not found")
             }
             try workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], diagnostics: diagnostics, version: v1)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Try updating with repin and versions shouldn't change.
@@ -1324,7 +1374,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(g.lookup("A").version == v1)
             XCTAssert(g.lookup("B").version == v1)
-            try workspace.reset()
+            workspace.reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
@@ -1475,7 +1526,9 @@ final class WorkspaceTests: XCTestCase {
             try repo1.commit()
 
             // Reset workspace.
-            try getWorkspace().reset()
+            let diagnostics = DiagnosticsEngine()
+            getWorkspace().reset(with: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
 
             // Loading package graph shouldn't update the branches because of pin.
             do {
@@ -1602,7 +1655,9 @@ final class WorkspaceTests: XCTestCase {
             // we constraint old manifests to previously resolved versions.
             do {
                 let workspace = try createWorkspace()
-                try workspace.reset()
+                let diagnostics = DiagnosticsEngine()
+                workspace.reset(with: diagnostics)
+                XCTAssertFalse(diagnostics.hasErrors)
             }
 
             do {
@@ -1616,7 +1671,8 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(graph.lookup("A").version, v1)
 
                 // FIXME: We need to reset because we apply constraints for current checkouts (see the above note).
-                try workspace.reset()
+                workspace.reset(with: diagnostics)
+                XCTAssertFalse(diagnostics.hasErrors)
 
                 // Remove one of the packages.
                 let newGraph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), diagnostics: diagnostics)
@@ -1652,7 +1708,12 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             let aManifest = manifests.lookup(manifest: "A")!
             let dependency = workspace.managedDependencies[aManifest.url]!
-            try workspace.edit(dependency: dependency, packageName: aManifest.name, revision: dependency.checkoutState!.revision)
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                revision: dependency.checkoutState!.revision)
+            XCTAssertFalse(diagnostics.hasErrors)
 
             // We should retain the original pin for a package which is in edit mode.
             XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
@@ -1695,7 +1756,12 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertFalse(diagnostics.hasErrors)
 
                 let bDependency = manifests.lookup(package: "B")!.dependency
-                try workspace.edit(dependency: bDependency, packageName: "B", revision: bDependency.checkoutState!.revision)
+                workspace.edit(
+                    dependency: bDependency,
+                    packageName: "B",
+                    diagnostics: diagnostics,
+                    revision: bDependency.checkoutState!.revision)
+                XCTAssertFalse(diagnostics.hasErrors)
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, v1)
@@ -1862,8 +1928,12 @@ final class WorkspaceTests: XCTestCase {
 
             // Edit it at ToT path.
             let tot = path.appending(component: "tot")
-            try workspace.edit(
-                dependency: dependency, packageName: aManifest.name, path: tot, revision: nil)
+            workspace.edit(
+                dependency: dependency,
+                packageName: aManifest.name,
+                diagnostics: diagnostics,
+                path: tot)
+            XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
 

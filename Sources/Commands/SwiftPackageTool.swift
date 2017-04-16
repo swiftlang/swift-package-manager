@@ -57,7 +57,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try getActiveWorkspace().clean(with: diagnostics)
 
         case .reset:
-            try getActiveWorkspace().reset()
+            try getActiveWorkspace().reset(with: diagnostics)
 
         case .resolve:
             // NOTE: This command is currently undocumented, and is for
@@ -101,13 +101,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
             // Put the dependency in edit mode.
-            try workspace.edit(
+            workspace.edit(
                 dependency: dependency,
                 packageName: manifest.name,
+                diagnostics: diagnostics,
                 path: options.editOptions.path,
                 revision: revision,
-                checkoutBranch: options.editOptions.checkoutBranch
-            )
+                checkoutBranch: options.editOptions.checkoutBranch)
 
         case .unedit:
             let packageName = options.editOptions.packageName!
