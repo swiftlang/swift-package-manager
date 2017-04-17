@@ -347,10 +347,16 @@ public class Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
-        guard diagnostics.wrap({ try managedDependencies.reset() }) else {
-            return
-        }
-        
+        let removed = diagnostics.wrap({ 
+            // Make all checkouts mutable.
+            try fileSystem.set(attribute: .mutable, path: checkoutsPath, recursive: true)
+
+            // Reset manaked dependencies.
+            try managedDependencies.reset()
+        })
+
+        guard removed else { return }
+
         repositoryManager.reset()
         fileSystem.removeFileTree(dataPath)
     }
@@ -679,7 +685,13 @@ public class Workspace {
             if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
                 let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+
+                // The fetch operation may update contents of the checkout, so
+                // we need do mutable-immutable dance.
+                try fileSystem.set(attribute: .mutable, path: path, recursive: true)
                 try workingRepo.fetch()
+                try fileSystem.set(attribute: .immutable, path: path, recursive: true)
+
                 return path
             }
         }
@@ -689,8 +701,11 @@ public class Workspace {
 
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
-        // Ensure the destination is free.
+
+        // Ensure the destination is writable and free.
+        try fileSystem.set(attribute: .mutable, path: path, recursive: true)
         fileSystem.removeFileTree(path)
+
         // Inform the delegate that we're starting cloning.
         delegate.cloning(repository: handle.repository.url)
         try handle.cloneCheckout(to: path, editable: false)
@@ -720,7 +735,11 @@ public class Workspace {
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         // Inform the delegate.
         delegate.checkingOut(repository: repository.url, at: checkoutState.description)
+
+        // Do mutable-immutable dance because checkout operation modifies the disk state.
+        try fileSystem.set(attribute: .mutable, path: path, recursive: true)
         try workingRepo.checkout(revision: checkoutState.revision)
+        try fileSystem.set(attribute: .immutable, path: path, recursive: true)
 
         // Load the manifest.
         let manifest = try loadManifest(packagePath: path, url: repository.url, version: checkoutState.version)
@@ -1230,6 +1249,8 @@ public class Workspace {
         guard !checkedOutRepo.hasUncommitedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
+
+        try fileSystem.set(attribute: .mutable, path: dependencyPath, recursive: true)
         fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.

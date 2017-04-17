@@ -2065,8 +2065,12 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             let delegate = TestWorkspaceDelegate()
             let workspace = Workspace.createWith(rootPackage: barRoot, delegate: delegate)
+
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
+
+            try localFileSystem.set(attribute: .mutable, path: workspace.checkoutsPath, recursive: true)
             try removeFileTree(workspace.checkoutsPath)
+
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssertTrue(delegate.warnings.contains(where: { $0.hasPrefix("Foo") && $0.hasSuffix(" is missing and has been cloned again.") }))
