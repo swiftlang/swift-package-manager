@@ -186,36 +186,36 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
 
-      // If it's a relative path then convert it into
-      // absolute path relative to the woking directory.
-      let repoUrl: String = try json.get("repositoryURL")
-      let absPath = AbsolutePath(repoUrl, relativeTo: currentWorkingDirectory).asString
+        // If it's a relative path then convert it into
+        // absolute path relative to the woking directory.
+        let repoUrl: String = try json.get("repositoryURL")
+        let absPath = AbsolutePath(repoUrl, relativeTo: currentWorkingDirectory).asString
 
-      self.package = try json.get("package")
-      self.repository =  RepositorySpecifier(url: absPath)
-      self.reason = json.get("reason")
-      self.state = try json.get("state")
+        self.package = try json.get("package")
+        self.repository =  RepositorySpecifier(url: absPath)
+        self.reason = json.get("reason")
+        self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
 
-      // If it's a local path then convert it into
-      // relative path relative to the working directory.
-      var path = repository.url
-      if repository.url.characters.first == "/" {
-        let absPath = AbsolutePath(repository.url)
+        // If it's a local path then convert it into
+        // relative path relative to the working directory.
+        var path = repository.url
+        if repository.url.characters.first == "/" {
+            let absPath = AbsolutePath(repository.url)
 
-        if localFileSystem.exists(absPath) {
-          path = absPath.relative(to: currentWorkingDirectory).asString
+            if localFileSystem.exists(absPath) {
+                path = absPath.relative(to: currentWorkingDirectory).asString
+            }
         }
-      }
 
-      return .init([
-        "package": package,
-        "repositoryURL": path,
-        "state": state,
-        "reason": reason.toJSON(),
+        return .init([
+            "package": package,
+            "repositoryURL": path,
+            "state": state,
+            "reason": reason.toJSON(),
         ])
     }
 
