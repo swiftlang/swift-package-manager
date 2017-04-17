@@ -232,7 +232,7 @@ class Target(object):
         print("    objects: %s" % json.dumps(swift_objects), file=output)
         import_paths = [module_dir, include_dir]
 
-        # For C interpolation add import path to where modulemap is located.
+        # To import C target, add import path to where modulemap is located.
         for dependency in self.dependencies:
             dep_target = target_map[dependency]
             if dep_target.is_c:
@@ -533,11 +533,9 @@ class llbuild(object):
                 link_output_path = os.path.join(self.lib_dir, "%s.a" % (target.name,))
                 link_command = [] # Archive tool auto infers objects from inputs.
             elif target.is_c and target.is_library:
-                # We have to use shared library for interpolation between Swift and C so we can't use static library for C Targets.
-                link_output_path = os.path.join(lib_dir, target.name + g_shared_lib_ext)
-                link_command = ['clang']
-                link_command.extend(objects)
-                link_command.extend(['-shared', '-o', link_output_path])
+                tool = "archive"
+                link_output_path = os.path.join(self.lib_dir, "%s.a" % (target.name,))
+                link_command = [] # Archive tool auto infers objects from inputs.
             elif target.is_c and not target.is_library:
                 error("Executable C target not supported by bootstrap yet")
             elif target.is_swift and not target.is_library:
@@ -552,10 +550,7 @@ class llbuild(object):
                 link_command.extend(objects)
                 for dependency in target.dependencies:
                     dep_target = self.target_map[dependency]
-                    if dep_target.is_swift:
-                        dependency_lib_path = os.path.join(self.lib_dir, "%s.a" % dependency)
-                    else:
-                        dependency_lib_path = os.path.join(self.lib_dir, dependency + g_shared_lib_ext)
+                    dependency_lib_path = os.path.join(self.lib_dir, "%s.a" % dependency)
                     link_command.append(dependency_lib_path)
                     linked_libraries.append(dependency_lib_path)
                 if platform.system() == 'Darwin':
