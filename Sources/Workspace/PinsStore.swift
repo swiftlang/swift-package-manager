@@ -188,7 +188,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
 
         // If it's a relative path then convert it into
         // absolute path relative to the woking directory.
-        let repoUrl: String = try json.get("repositoryURL")
+        let repoUrl: String = try json.get("repository")
         let absPath = AbsolutePath(repoUrl, relativeTo: currentWorkingDirectory).asString
 
         self.package = try json.get("package")
@@ -209,7 +209,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
 
         return .init([
             "package": package,
-            "repositoryURL": repositoryPath,
+            "repository": repositoryPath,
             "state": state,
             "reason": reason.toJSON(),
         ])
