@@ -215,6 +215,10 @@ extension InMemoryGitRepository: FileSystem {
     public func removeFileTree(_ path: AbsolutePath) {
         head.fileSystem.removeFileTree(path)
     }
+
+    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+        try head.fileSystem.set(attribute: attribute, path: path, recursive: recursive)
+    }
 }
 
 extension InMemoryGitRepository: Repository {

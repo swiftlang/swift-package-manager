@@ -83,6 +83,25 @@ extension FileSystemError {
     }
 }
 
+/// Defines the file attributes.
+public enum FileAttribute {
+    /// The file can be mutated.
+    case mutable
+
+    /// The file can't be mutated.
+    case immutable
+
+    /// The commandline argument for the attribute.
+    public var cliArgument: String {
+        switch self {
+        case .mutable:
+            return "nouimmutable"
+        case .immutable:
+            return "uimmutable"
+        }
+    }
+}
+
 /// Abstracted access to file system operations.
 ///
 /// This protocol is used to allow most of the codebase to interact with a
@@ -138,6 +157,9 @@ public protocol FileSystem {
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
     /// to be an error).
     mutating func removeFileTree(_ path: AbsolutePath)
+
+    /// Sets the given attribute to a file.
+    func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -146,6 +168,10 @@ public extension FileSystem {
     /// Default implementation of createDirectory(_:)
     mutating func createDirectory(_ path: AbsolutePath) throws {
         try createDirectory(path, recursive: false)
+    }
+
+    func set(attribute: FileAttribute, path: AbsolutePath)  throws {
+        try set(attribute: attribute, path: path, recursive: false)
     }
 
     /// Write to a file from a stream producer.
@@ -305,6 +331,94 @@ private class LocalFileSystem: FileSystem {
         if self.exists(path) {
             try? Basic.removeFileTree(path)
         }
+    }
+
+    func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool = false) throws {
+      #if os(macOS)
+        // Create appropriate variables for calling the posix functions.
+        //
+        // FIXME: We should have a utility for this.
+        let paths = [path.asString.withCString(strdup), nil]
+        var fileFlagString = attribute.cliArgument.withCString(strdup)
+
+        // Free the allocation we did above.
+        defer {
+            for case let path? in paths { free(path) }
+            free(fileFlagString)
+        }
+
+        // Get the clear and set flags from the  string of file flags.
+        var clearFlag = UInt()
+        var setFlag = UInt()
+        guard strtofflags(&fileFlagString, &setFlag, &clearFlag) == 0 else {
+            throw FileSystemError(errno: errno)
+        }
+        clearFlag = ~clearFlag
+
+        // If we're in recursive mode, do physical walk otherwise logical.
+        let ftsOptions = recursive ? FTS_PHYSICAL : FTS_LOGICAL
+
+        // Get handle to the file hierarchy we want to traverse.
+        guard let ftsp = fts_open(paths, ftsOptions, nil) else {
+            throw FileSystemError(errno: errno)
+        }
+
+        // Start traversing.
+        while let p = fts_read(ftsp) {
+
+            switch Int32(p.pointee.fts_info) {
+
+            // A directory being visited in pre-order.
+            case FTS_D:
+                // If we're not recursing, skip the contents of the directory.
+                if !recursive {
+                    fts_set(ftsp, p, FTS_SKIP)
+                }
+                continue
+
+            // A directory couldn't be read.
+            case FTS_DNR:
+                // FIXME: We should warn here.
+                break
+
+            // There was an error.
+            case FTS_ERR:
+                fallthrough
+
+            // No stat(2) information was available.
+            case FTS_NS:
+                // FIXME: We should warn here.
+                continue
+
+            // A symbolic link.
+            case FTS_SL:
+                fallthrough
+
+            // A symbolic link with a non-existent target.
+            case FTS_SLNONE:
+                // The only symlinks that end up here are ones that don't point
+                // to anything and ones that we found doing a physical walk.  
+                continue
+
+            default:
+                break
+            }
+
+            // Compute the new flag for this file.
+            let newFlags = UInt32((UInt(p.pointee.fts_statp.pointee.st_flags) | setFlag) & clearFlag)
+
+            // If new and old flags are same for this file, no need to do anything.
+            if newFlags == p.pointee.fts_statp.pointee.st_flags {
+                continue
+            }
+
+            // Update the flags.
+            //
+            // We ignore the errors for now but we should have a way to report back.
+            chflags(p.pointee.fts_accpath, newFlags)
+        }
+      #endif
+        // FIXME: We only support macOS right now.
     }
 }
 
@@ -553,6 +667,10 @@ public class InMemoryFileSystem: FileSystem {
         // Set it to nil to release the contents.
         contents.entries[path.basename] = nil
     }
+
+    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+        // FIXME: We don't have these semantics in InMemoryFileSystem.
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -629,6 +747,10 @@ public struct RerootedFileSystemView: FileSystem {
 
     public mutating func removeFileTree(_ path: AbsolutePath) {
         underlyingFileSystem.removeFileTree(path)
+    }
+
+    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+        try underlyingFileSystem.set(attribute: attribute, path: path, recursive: recursive)
     }
 }
 

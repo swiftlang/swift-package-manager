@@ -649,6 +649,10 @@ private class GitFileSystemView: FileSystem {
     func removeFileTree(_ path: AbsolutePath) {
         fatalError("unsupported")
     }
+
+    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+        throw FileSystemError.unsupported
+    }
 }
 
 extension GitRepositoryProviderError: CustomStringConvertible {
