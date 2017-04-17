@@ -9,13 +9,18 @@
  */
 
 import Basic
+import Utility
+
 import PackageModel
+import PackageDescription4
 
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
     /// Represents a top level package dependencies.
     public struct PackageDependency {
+
+        public typealias Requirement = PackageDescription4.Package.Dependency.Requirement
 
         // Location of this dependency.
         //
@@ -28,11 +33,11 @@ public struct PackageGraphRoot {
         public let url: String
 
         /// The requirement of the package.
-        public let requirement: RepositoryPackageConstraint.Requirement
+        public let requirement: Requirement
 
         public init(
             url: String,
-            requirement: RepositoryPackageConstraint.Requirement,
+            requirement: Requirement,
             location: String
         ) {
             self.url = url
@@ -51,5 +56,30 @@ public struct PackageGraphRoot {
     public init(manifests: [Manifest], dependencies: [PackageDependency] = []) {
         self.manifests = manifests
         self.dependencies = dependencies
+    }
+}
+
+extension PackageDescription4.Package.Dependency.Requirement {
+
+    /// Returns the constraint requirement representation.
+    public func toConstraintRequirement() -> RepositoryPackageConstraint.Requirement {
+        switch self {
+        case .rangeItem(let range):
+            return .versionSet(.range(range.asUtilityVersion))
+
+        case .revisionItem(let identifier):
+            assert(identifier.characters.count == 40)
+            assert(Git.checkRefFormat(ref: identifier))
+
+            return .revision(identifier)
+
+        case .branchItem(let identifier):
+            assert(Git.checkRefFormat(ref: identifier))
+
+            return .revision(identifier)
+
+        case .exactItem(let version):
+            return .versionSet(.exact(Version(pdVersion: version)))
+        }
     }
 }

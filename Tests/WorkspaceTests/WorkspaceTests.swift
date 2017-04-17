@@ -1986,7 +1986,7 @@ final class WorkspaceTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let root = WorkspaceRoot(packages: [path], dependencies: [
-            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
+            .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
         ])
 
         let graph = workspace.loadPackageGraph(root: root, diagnostics: diagnostics)
@@ -2023,8 +2023,8 @@ final class WorkspaceTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let root = WorkspaceRoot(packages: [path], dependencies: [
-            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
-            .init(url: "/RootPkg/A", requirement: .versionSet(.exact(v1)), location: "rootA"),
+            .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "rootA"),
         ])
 
         let graph = workspace.loadPackageGraph(root: root, diagnostics: diagnostics)
@@ -2075,8 +2075,8 @@ final class WorkspaceTests: XCTestCase {
             repositoryProvider: provider)
         let diagnostics = DiagnosticsEngine()
         let root = WorkspaceRoot(packages: [], dependencies: [
-            .init(url: "/RootPkg/B", requirement: .versionSet(.exact(v1)), location: "rootB"),
-            .init(url: "/RootPkg/A", requirement: .versionSet(.exact(v1)), location: "rootA"),
+            .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "rootB"),
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "rootA"),
         ])
 
         let data = workspace.loadGraphData(root: root, diagnostics: diagnostics)

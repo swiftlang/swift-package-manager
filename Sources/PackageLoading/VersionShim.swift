@@ -12,14 +12,20 @@ import Utility
 import PackageDescription4
 
 extension Utility.Version {
-    /// Create Utility.Version object from PackageDescription.Version object.
+    /// Create Utility.Version object from PackageDescription4.Version object.
     public init(pdVersion version: PackageDescription4.Version) {
         self.init(
-            version.major,
-            version.minor,
-            version.patch,
+            version.major, version.minor, version.patch,
             prereleaseIdentifiers: version.prereleaseIdentifiers,
             buildMetadataIdentifiers: version.buildMetadataIdentifiers)
+    }
+
+    /// Returns PackageDescription4.Version representation.
+    public var asPD4Version: PackageDescription4.Version {
+        return PackageDescription4.Version(
+            major, minor, patch,
+            prereleaseIdentifiers: prereleaseIdentifiers,
+            buildMetadataIdentifiers: buildMetadataIdentifiers)
     }
 }
 
