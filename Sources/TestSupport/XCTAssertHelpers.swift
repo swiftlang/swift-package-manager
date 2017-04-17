@@ -133,3 +133,9 @@ public func XCTNonNil<T>(
         XCTFail("Unexpected error \(error)", file: file, line: line)
     }
 }
+
+public func XCTAssertNoDiagnostics(_ engine: DiagnosticsEngine, file: StaticString = #file, line: UInt = #line) {
+    if engine.diagnostics.isEmpty { return }
+    let diagnostics = engine.diagnostics.map({ "- " + $0.localizedDescription }).joined(separator: "\n")
+    XCTFail("Found unexpected diagnostics: \n\(diagnostics)", file: file, line: line)
+}

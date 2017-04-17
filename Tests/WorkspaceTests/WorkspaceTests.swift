@@ -40,7 +40,11 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     var warnings = [String]()
     var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
-    func fetchingMissingRepositories(_ urls: Set<String>) {
+    typealias PartialGraphData = (currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
+    var partialGraphs = [PartialGraphData]()
+
+    func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
+        partialGraphs.append((currentGraph, dependencies, missingURLs))
     }
 
     func fetching(repository: String) {
@@ -284,12 +288,22 @@ final class WorkspaceTests: XCTestCase {
             ],
             fs: fs
         )
-        let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate(), fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
+        let delegate = TestWorkspaceDelegate()
+        let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: delegate, fileSystem: fs, repositoryProvider: manifestGraph.repoProvider!)
         let diagnostics = DiagnosticsEngine()
         let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
         XCTAssertEqual(graph.packages.count, 2)
         XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "Root"])
+
+        let partialGraph = delegate.partialGraphs[0]
+        XCTAssertEqual(partialGraph.currentGraph.packages.map{$0.name}, ["Root"])
+        XCTAssertEqual(partialGraph.missingURLs, ["/RootPkg/A"])
+        XCTAssertTrue(partialGraph.dependencies.map{$0}.isEmpty)
+
+        workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(delegate.partialGraphs.count, 1)
     }
 
 
@@ -581,6 +595,14 @@ final class WorkspaceTests: XCTestCase {
                 let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
                 let dependency = workspace.managedDependencies[aManifest.url]!
                 XCTAssert(dependency.state == .edited(nil))
+            }
+
+            // Make the edited package "invalid" and ensure we can get the errors.
+            do {
+                localFileSystem.removeFileTree(path.appending(components: "A", "file.swift"))
+                let diagnostics = DiagnosticsEngine()
+                workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
+                XCTAssertTrue(diagnostics.hasErrors)
             }
 
             // We should be able to unedit the dependency.
@@ -1488,7 +1510,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let diagnostics = DiagnosticsEngine()
                 getWorkspace().loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
+                XCTAssertNoDiagnostics(diagnostics)
             }
 
             // Check dep1.
@@ -2092,19 +2114,18 @@ final class WorkspaceTests: XCTestCase {
 
         let currentDeps = workspace.managedDependencies.values.map{$0.name}
         // Check delegates.
-        XCTAssert(delegate.managedDependenciesData[0].map{$0}.isEmpty)
-        XCTAssertEqual(delegate.managedDependenciesData[1].map{$0.name}, currentDeps)
+        XCTAssertEqual(delegate.managedDependenciesData[0].map{$0.name}, currentDeps)
 
+        // Load graph data again.
         do {
             let data = workspace.loadGraphData(root: root, diagnostics: diagnostics)
-
             // Check package association.
             XCTAssertEqual(data.dependencyMap[data.graph.lookup("A")]?.name, "A")
             XCTAssertEqual(data.dependencyMap[data.graph.lookup("B")]?.name, "B")
-
-            XCTAssertEqual(delegate.managedDependenciesData[2].map{$0.name}, currentDeps)
-            XCTAssertEqual(delegate.managedDependenciesData[3].map{$0.name}, currentDeps)
         }
+
+        XCTAssertEqual(delegate.managedDependenciesData[1].map{$0.name}, currentDeps)
+        XCTAssertEqual(delegate.managedDependenciesData.count, 2)
     }
 
     static var allTests = [

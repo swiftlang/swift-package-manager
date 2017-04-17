@@ -45,9 +45,16 @@ public enum WorkspaceError: Swift.Error {
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
-    /// The workspace is fetching additional repositories in support of
-    /// loading a complete package.
-    func fetchingMissingRepositories(_ urls: Set<String>)
+
+    /// The workspace is about to load the complete package graph.
+    ///
+    /// This delegate will only be called if we actually need to fetch and resolve dependencies. 
+    ///
+    /// - Parameters:
+    ///   - currentGraph: The current package graph. This is most likely a partial package graph.
+    ///   - dependencies: The current managed dependencies in the workspace.
+    ///   - missingURLs: The top-level missing packages we need to fetch. This will never be empty.
+    func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
 
     /// The workspace has started fetching this repository.
     func fetching(repository: String)
@@ -1087,20 +1094,33 @@ public class Workspace {
         // Compute the missing URLs.
         let missingURLs = currentManifests.missingURLs()
 
-        // Load the package graph if there are no missing URLs or if we
-        // encountered some errors.
+        // When loading current package graph, we can't use the diagnostic
+        // engine passed by clients because we will end up adding diagnostics
+        // which might go away after a complete loading.
+        let partialDiagnostics = DiagnosticsEngine()
+
+        // Load the current package graph.
+        let currentGraph = PackageGraphLoader().load(
+            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
+            externalManifests: currentManifests.dependencies.map({ $0.manifest }),
+            diagnostics: partialDiagnostics,
+            fileSystem: fileSystem,
+            shouldCreateMultipleTestProducts: createMultipleTestProducts)
+
+        // If there are no missing URLs or if we encountered some errors, return the current graph.
         if diagnostics.hasErrors || missingURLs.isEmpty {
-            return PackageGraphLoader().load(
-                root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
-                externalManifests: currentManifests.dependencies.map({ $0.manifest }),
-                diagnostics: diagnostics,
-                fileSystem: fileSystem,
-                shouldCreateMultipleTestProducts: createMultipleTestProducts
-            )
+            // FIXME: Add API to append one engine to another.
+            for diag in partialDiagnostics.diagnostics {
+                diagnostics.emit(data: diag.data, location: diag.location)
+            }
+            return currentGraph
         }
 
         // Start by informing the delegate of what is happening.
-        delegate.fetchingMissingRepositories(missingURLs)
+        delegate.packageGraphWillLoad(
+            currentGraph: currentGraph,
+            dependencies: managedDependencies.values,
+            missingURLs: missingURLs)
 
         var updatedManifests: DependencyManifests? = nil
 
@@ -1161,12 +1181,6 @@ public class Workspace {
         diagnostics: DiagnosticsEngine,
         createMultipleTestProducts: Bool = false
     ) -> (graph: PackageGraph, dependencyMap: [ResolvedPackage: ManagedDependency]) {
-
-        // Report the current managed dependencies.
-        //
-        // This is useful so clients can get the data before starting the
-        // costly operation of loading the package graph.
-        delegate.managedDependenciesDidUpdate(managedDependencies.values)
 
         // Load the package graph.
         let graph = loadPackageGraph(

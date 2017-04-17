@@ -20,7 +20,12 @@ import Workspace
 import libc
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
-    func fetchingMissingRepositories(_ urls: Set<String>) {
+
+    func packageGraphWillLoad(
+        currentGraph: PackageGraph,
+        dependencies: AnySequence<ManagedDependency>,
+        missingURLs: Set<String>
+    ) {
     }
 
     func fetching(repository: String) {
