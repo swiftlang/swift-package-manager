@@ -26,7 +26,7 @@ public struct WorkspaceRoot {
     public var constraints: [RepositoryPackageConstraint] {
         return dependencies.map({
             RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url), requirement: $0.requirement)
+                container: RepositorySpecifier(url: $0.url), requirement: $0.requirement.toConstraintRequirement())
         })
     }
 
