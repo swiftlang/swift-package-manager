@@ -33,9 +33,13 @@ let package = Package(
         // MARK: Support libraries
         
         Target(
+            /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
+            name: "clibc",
+            dependencies: []),
+        Target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "libc",
-            dependencies: []),
+            dependencies: ["clibc"]),
         Target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
