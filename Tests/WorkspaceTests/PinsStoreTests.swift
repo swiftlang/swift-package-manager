@@ -31,7 +31,24 @@ final class PinsStoreTests: XCTestCase {
         let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
-        
+
+        var lsf = Basic.localFileSystem
+        let tmpDir = try TemporaryDirectory(prefix: #function, removeTreeOnDeinit: true)
+        let newPath = tmpDir.path.appending(component: "new-dir")
+        try lsf.createDirectory(newPath)
+        let newRepo = RepositorySpecifier(url: newPath.asString)
+        let newPin = PinsStore.Pin(package: "new-dir", repository: newRepo, state: state, reason: "bad")
+
+        // This should be equal as converting to JSON returns a
+        // relative path but when loading Pinstore it converts
+        // back to an absolute path.
+        XCTAssertEqual(try PinsStore.Pin(json: newPin.toJSON()), newPin)
+
+        // JSON returns relative path but pinstore has absolute path.
+        let newPinJson = newPin.toJSON()
+        let pathFromJson: String = try newPinJson.get("repository")
+        XCTAssertNotEqual(pathFromJson, newPin.repository.url)
+
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
