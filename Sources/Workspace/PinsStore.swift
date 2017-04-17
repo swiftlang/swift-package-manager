@@ -202,18 +202,18 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
 
         // If it's a local path then convert it into
         // relative path relative to the working directory.
-        var path = repository.url
+        var repositoryPath = repository.url
         if repository.url.characters.first == "/" {
             let absPath = AbsolutePath(repository.url)
 
             if localFileSystem.exists(absPath) {
-                path = absPath.relative(to: currentWorkingDirectory).asString
+                repositoryPath = absPath.relative(to: currentWorkingDirectory).asString
             }
         }
 
         return .init([
             "package": package,
-            "repositoryURL": path,
+            "repositoryURL": repositoryPath,
             "state": state,
             "reason": reason.toJSON(),
         ])
