@@ -186,6 +186,7 @@ products.append(
         name: "SwiftPM",
         type: .Library(.Dynamic),
         modules: [
+            "clibc",
             "libc",
             "POSIX",
             "Basic",

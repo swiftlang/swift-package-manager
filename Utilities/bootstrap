@@ -1140,16 +1140,34 @@ def main():
         # Copy the libSwiftPM modules.
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
-        for target in libswiftpm_product.targets:
-            for suffix in [".swiftmodule", ".swiftdoc"]:
-                src_path = os.path.join(build_path, conf, target + suffix)
-                if os.path.exists(src_path):
-                    dst_path = os.path.join(libswiftpm_modules_dir, target + suffix)
-                    cmd = ["rsync", "-a", src_path, dst_path]
-                    note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+        target_map = dict((t.name, t) for t in targets)
+        for target_name in libswiftpm_product.targets:
+            target = target_map[target_name]
+            if target.is_c:
+                # Copy headers of the C target.
+                include_dir = os.path.join(target.module_root_dir, "include/")
+                if not os.path.exists(include_dir):
+                    continue
+                dst_path = os.path.join(libswiftpm_modules_dir, target.name)
+                cmd = ["rsync", "-a", include_dir, dst_path]
+                note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
                 result = subprocess.call(cmd)
                 if result != 0:
                     error("copying failed with exit status %d" % result)
+            elif target.is_swift:
+                # Copy swiftmodule and swiftdoc i.e. headers of the Swift target.
+                for suffix in [".swiftmodule", ".swiftdoc"]:
+                    src_path = os.path.join(build_path, conf, target.name + suffix)
+                    if not os.path.exists(src_path):
+                        continue
+                    dst_path = os.path.join(libswiftpm_modules_dir, target.name + suffix)
+                    cmd = ["rsync", "-a", src_path, dst_path]
+                    note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
+                    result = subprocess.call(cmd)
+                    if result != 0:
+                        error("copying failed with exit status %d" % result)
+            else:
+                error("Unknown target type " + target)
         
         # Also emit the version info, if appropriate.  This appears as a module
         # consisting of a header file and a module map.
