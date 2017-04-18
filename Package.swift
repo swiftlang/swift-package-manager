@@ -126,7 +126,7 @@ let package = Package(
         
         Target(
             name: "BasicTests",
-            dependencies: ["TestSupport", "TestSupportExecutable"]),
+            dependencies: ["TestSupport"]),
         Target(
             name: "BasicPerformanceTests",
             dependencies: ["Basic", "TestSupport"]),
