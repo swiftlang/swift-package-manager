@@ -185,14 +185,14 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
 
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
-
-        // If it's a relative path then convert it into
-        // absolute path relative to the woking directory.
-        let repoUrl: String = try json.get("repository")
-        let absPath = AbsolutePath(repoUrl, relativeTo: currentWorkingDirectory).asString
+        var repository: String = try json.get("repository")
+        // If the repository is a local file path, convert it to path.
+        if URL.scheme(repository) == nil {
+            repository = AbsolutePath(repository, relativeTo: currentWorkingDirectory).asString
+        }
 
         self.package = try json.get("package")
-        self.repository =  RepositorySpecifier(url: absPath)
+        self.repository =  RepositorySpecifier(url: repository)
         self.reason = json.get("reason")
         self.state = try json.get("state")
     }
