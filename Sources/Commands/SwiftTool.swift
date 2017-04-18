@@ -135,9 +135,9 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.shouldEnableResolverPrefetching = $1 })
 
         binder.bind(
-            option: parser.add(option: "--disable-manifest-sandbox", kind: Bool.self,
-            usage: "Disable using the sandbox when parsing manifests on macOS"),
-            to: { $0.shouldDisableManifestSandbox = $1 })
+            option: parser.add(option: "--disable-sandbox", kind: Bool.self,
+            usage: "Disable using the sandbox when executing subprocesses"),
+            to: { $0.shouldDisableSandbox = $1 })
 
         binder.bind(
             option: parser.add(option: "--version", kind: Bool.self),
@@ -312,12 +312,37 @@ public class SwiftTool<Options: ToolOptions> {
         let llbuild = LLbuildManifestGenerator(buildPlan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
+
         // Run the swift-build-tool with the generated manifest.
-        try Commands.build(
-            yamlPath: yaml,
-            llbuild: getToolchain().llbuild,
-            target: includingTests ? "test" : nil,
-            processSet: processSet)
+        var args = [String]()
+
+      #if os(macOS)
+        // If enabled, use sandbox-exec on macOS. This provides some safety
+        // against arbitrary code execution. We only allow the permissions which
+        // are absolutely necessary for performing a build.
+        if !options.shouldDisableSandbox {
+            let allowedDirectories = [buildPath, resolveSymlinks(BuildParameters.swiftpmTestCache)]
+            args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
+        }
+      #endif
+
+        args += [try getToolchain().llbuild.asString, "-f", yaml.asString]
+        if includingTests {
+            args.append("test")
+        }
+        if verbosity != .concise {
+            args.append("-v")
+        }
+
+        // Run llbuild and print output on standard streams.
+        let process = Process(arguments: args, redirectOutput: false)
+        try process.launch()
+        try processSet.add(process)
+        let result = try process.waitUntilExit()
+
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
     }
 
     /// Lazily compute the toolchain.
@@ -347,7 +372,7 @@ public class SwiftTool<Options: ToolOptions> {
         return Result(anyError: {
             try ManifestLoader(
                 resources: self.getToolchain(),
-                isManifestSandboxEnabled: !self.options.shouldDisableManifestSandbox
+                isManifestSandboxEnabled: !self.options.shouldDisableSandbox
             )
         })
     }()
@@ -380,4 +405,32 @@ private func getEnvBuildPath() -> AbsolutePath? {
     guard POSIX.getenv("IS_SWIFTPM_TEST") == nil else { return nil }
     guard let env = POSIX.getenv("SWIFT_BUILD_PATH") else { return nil }
     return AbsolutePath(env, relativeTo: currentWorkingDirectory)
+}
+
+/// Returns the sandbox profile to be used when parsing manifest on macOS.
+private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
+    let stream = BufferedOutputByteStream()
+    stream <<< "(version 1)" <<< "\n"
+    // Deny everything by default.
+    stream <<< "(deny default)" <<< "\n"
+    // Import the system sandbox profile.
+    stream <<< "(import \"system.sb\")" <<< "\n"
+    // Allow reading all files.
+    stream <<< "(allow file-read*)" <<< "\n"
+    // These are required by the Swift compiler.
+    stream <<< "(allow process*)" <<< "\n"
+    stream <<< "(allow sysctl*)" <<< "\n"
+    // Allow writing in temporary locations.
+    stream <<< "(allow file-write*" <<< "\n"
+    for directory in Platform.darwinCacheDirectories() {
+        // For compiler module cache.
+        stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
+        // For archive tool.
+        stream <<< "    (regex #\"^\(directory.asString)/ar.*\")" <<< "\n"
+    }
+    for directory in allowedDirectories {
+        stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"
+    }
+    stream <<< ")" <<< "\n"
+    return stream.bytes.asString!
 }
