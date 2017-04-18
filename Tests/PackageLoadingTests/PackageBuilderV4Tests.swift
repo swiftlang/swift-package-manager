@@ -59,6 +59,66 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testLinuxMain() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/swift/exe/foo.swift",
+            "/LinuxMain.swift",
+            "/swift/tests/footests.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .target(
+                    name: "exe",
+                    path: "swift/exe"
+                ),
+                .testTarget(
+                    name: "tests",
+                    path: "swift/tests"
+                ),
+            ]
+        )
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("exe") { moduleResult in
+                moduleResult.check(c99name: "exe", type: .library)
+                moduleResult.checkSources(root: "/swift/exe", paths: "foo.swift")
+            }
+
+            result.checkModule("tests") { moduleResult in
+                moduleResult.check(c99name: "tests", type: .test)
+                moduleResult.checkSources(root: "/swift/tests", paths: "footests.swift")
+            }
+
+            result.checkProduct("pkgPackageTests") { productResult in
+                productResult.check(type: .test, targets: ["tests"])
+                productResult.check(linuxMainPath: "/LinuxMain.swift")
+            }
+        }
+    }
+
+    func testLinuxMainError() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/LinuxMain.swift",
+            "/swift/LinuxMain.swift",
+            "/swift/tests/footests.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [
+                .testTarget(
+                    name: "tests",
+                    path: "swift/tests"
+                ),
+            ]
+        )
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("The package pkg has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift")
+        }
+    }
+
 	func testCustomTargetPaths() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
@@ -534,6 +594,8 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testDeclaredExecutableProducts", testDeclaredExecutableProducts),
         ("testExecutableAsADep", testExecutableAsADep),
         ("testInvalidManifestConfigForNonSystemModules", testInvalidManifestConfigForNonSystemModules),
+        ("testLinuxMain", testLinuxMain),
+        ("testLinuxMainError", testLinuxMainError),
         ("testManifestTargetDeclErrors", testManifestTargetDeclErrors),
         ("testMultipleTestProducts", testMultipleTestProducts),
         ("testPublicHeadersPath", testPublicHeadersPath),

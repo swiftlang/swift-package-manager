@@ -140,19 +140,8 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         return underlyingProduct.outname
     }
 
-    /// Create an executable target for linux main test manifest file.
-    public lazy var linuxMainTarget: ResolvedTarget = {
-        precondition(self.type == .test, "This property is only valid for test product type")
-        // FIXME: This is hacky, we should get this from somewhere else.
-        let testDirectory = self.targets.first(where: { $0.type == .test })!.sources.root.parentDirectory
-        // Path to the main file for test product on linux.
-        let linuxMain = testDirectory.appending(component: "LinuxMain.swift")
-        // Create an exectutable resolved target with the linux main, adding product's targets as dependencies.
-        let swiftTarget = SwiftTarget(
-            linuxMain: linuxMain, name: self.name, dependencies: self.underlyingProduct.targets)
-
-        return ResolvedTarget(target: swiftTarget, dependencies: self.targets.map(ResolvedTarget.Dependency.target))
-    }()
+    /// Executable target for linux main test manifest file.
+    public let linuxMainTarget: ResolvedTarget?
 
     /// The main executable target of product.
     ///
@@ -166,6 +155,13 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
         self.underlyingProduct = product
         self.targets = targets
+
+        self.linuxMainTarget = underlyingProduct.linuxMain.map({ linuxMain in
+            // Create an exectutable resolved target with the linux main, adding product's targets as dependencies.
+            let swiftTarget = SwiftTarget(
+                linuxMain: linuxMain, name: product.name, dependencies: product.targets)
+            return ResolvedTarget(target: swiftTarget, dependencies: targets.map(ResolvedTarget.Dependency.target))
+        })
     }
 
     public var description: String {

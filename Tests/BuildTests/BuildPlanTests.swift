@@ -182,6 +182,7 @@ final class BuildPlanTests: XCTestCase {
     func testTestModule() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
+            "/Pkg/Tests/LinuxMain.swift",
             "/Pkg/Tests/FooTests/foo.swift"
         )
         let graph = loadMockPackageGraph(["/Pkg": Package(name: "Pkg")], root: "/Pkg", in: fs)

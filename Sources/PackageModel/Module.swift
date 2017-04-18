@@ -63,6 +63,9 @@ public class Target: ObjectIdentifierProtocol {
 
 public class SwiftTarget: Target {
 
+    /// The file name of linux main file.
+    public static let linuxMainBasename = "LinuxMain.swift"
+
     /// Create an executable Swift target from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
         self.swiftLanguageVersions = nil
