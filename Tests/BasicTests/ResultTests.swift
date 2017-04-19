@@ -17,6 +17,11 @@ private enum DummyError: Swift.Error {
     case somethingWentWrong
 }
 
+private enum OtherDummyError: Swift.Error {
+    case somethingElseWentWrong
+    case andYetAnotherThingToGoWrong
+}
+
 class ResultTests: XCTestCase {
 
     func testBasics() throws {
@@ -160,11 +165,36 @@ class ResultTests: XCTestCase {
         }
     }
 
+    func testFlatMap() throws {
+        XCTAssertEqual(try Result<String, DummyError>("Hello").flatMap { .success($0.utf8.count ) }.dematerialize(), 5)
+
+        XCTAssertThrows(DummyError.somethingWentWrong) {
+            _ = try Result<String, DummyError>.failure(.somethingWentWrong).flatMap { .success($0 + " World") }.dematerialize()
+        }
+
+        XCTAssertThrows(DummyError.somethingWentWrong) {
+            _ = try Result<String, DummyError>.failure(.somethingWentWrong).flatMap { (x: String) -> Result<String, DummyError> in
+                XCTFail("should not be executed")
+                return .success(x + " World")
+            }.dematerialize()
+        }
+
+        XCTAssertThrows(DummyError.somethingWentWrong) {
+            _ = try Result<String, DummyError>("Hello").flatMap { String -> Result<Int, DummyError> in .failure(.somethingWentWrong) }.dematerialize()
+        }
+
+        XCTAssertThrows(OtherDummyError.somethingElseWentWrong) {
+            _ = try Result<String, OtherDummyError>.failure(.somethingElseWentWrong)
+                .flatMap { String -> Result<String, OtherDummyError> in .failure(.andYetAnotherThingToGoWrong) }.dematerialize()
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testAnyError", testAnyError),
         ("testMap", testMap),
         ("testMapAny", testMapAny),
+        ("testFlatMap", testFlatMap)
     ]
 }
 
