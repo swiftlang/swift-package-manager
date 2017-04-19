@@ -315,7 +315,6 @@ extension  Workspace {
     ///       should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
     ///       created from the revision provided.
-    /// - throws: WorkspaceError
     public func edit(
         dependency: ManagedDependency,
         packageName: String,
@@ -454,7 +453,8 @@ extension  Workspace {
         guard !diagnostics.hasErrors else { return }
 
         // Update the checkouts based on new dependency resolution.
-        try updateCheckouts(with: results)
+        updateCheckouts(with: results, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else { return }
 
         // Get the updated dependency.
         let newDependency = managedDependencies[dependency.repository]!
@@ -561,7 +561,7 @@ extension  Workspace {
         createCacheDirectories(diagnostics: diagnostics)
         // Load the root manifest and current manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        var currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
 
         // Try to load pins store.
         // We can't proceed if there are errors at this point.
@@ -585,18 +585,19 @@ extension  Workspace {
         let updateResults = resolveDependencies(dependencies: updateConstraints, pins: pins, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
-        do {
-            // Update the checkouts based on new dependency resolution.
-            try updateCheckouts(with: updateResults, updateBranches: true)
-            // Get updated manifests.
-            let currentManifests = loadDependencyManifests(
-                rootManifests: rootManifests, diagnostics: diagnostics)
-            // If we're repinning, update the pins store.
-            if repin && !diagnostics.hasErrors {
+		// Update the checkouts based on new dependency resolution.
+        updateCheckouts(with: updateResults, updateBranches: true, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else { return }
+
+        // Get updated manifests.
+        currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        // If we're repinning, update the pins store.
+        if repin && !diagnostics.hasErrors {
+            guard diagnostics.wrap({
                 try repinPackages(pinsStore, dependencyManifests: currentManifests)
+            }) else {
+                return
             }
-        } catch {
-            diagnostics.emit(error)
         }
     }
 
@@ -724,7 +725,8 @@ extension  Workspace {
             guard !diagnostics.hasErrors else { break resolve }
 
             // Update the checkouts with dependency resolution result.
-            try updateCheckouts(with: result)
+            updateCheckouts(with: result, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors else { break resolve }
 
             // Load the updated manifests.
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
@@ -1193,25 +1195,33 @@ extension Workspace {
     ///
     /// - Parameters:
     ///   - updateResults: The updated results from dependency resolution.
-    ///   - ignoreRemovals: Do not remove any checkouts.
+    ///   - diagnostics: The diagnostics engine that reports errors, warnings
+    ///     and notes.
     ///   - updateBranches: If the branches should be updated in case they're pinned.
     fileprivate func updateCheckouts(
         with updateResults: [(RepositorySpecifier, BoundVersion)],
-        updateBranches: Bool = false
-    ) throws {
+        updateBranches: Bool = false,
+        diagnostics: DiagnosticsEngine
+    ) {
         // Get the update package states from resolved results.
-        let packageStateChanges = try computePackageStateChanges(
-            resolvedDependencies: updateResults, updateBranches: updateBranches)
+        guard let packageStateChanges = diagnostics.wrap({
+            try computePackageStateChanges(resolvedDependencies: updateResults, updateBranches: updateBranches)
+        }) else {
+            return
+        }
+
         // Update or clone new packages.
         for (specifier, state) in packageStateChanges {
-            switch state {
-            case .added(let requirement):
-                _ = try clone(specifier: specifier, requirement: requirement)
-            case .updated(let requirement):
-                _ = try clone(specifier: specifier, requirement: requirement)
-            case .removed:
-                try remove(specifier: specifier)
-            case .unchanged: break
+            diagnostics.wrap {
+                switch state {
+                case .added(let requirement):
+                    _ = try clone(specifier: specifier, requirement: requirement)
+                case .updated(let requirement):
+                    _ = try clone(specifier: specifier, requirement: requirement)
+                case .removed:
+                    try remove(specifier: specifier)
+                case .unchanged: break
+                }
             }
         }
     }
