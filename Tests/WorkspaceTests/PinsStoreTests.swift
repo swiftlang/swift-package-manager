@@ -31,19 +31,17 @@ final class PinsStoreTests: XCTestCase {
         let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
-        mktmpdir { tmpPath in
-            let path = tmpPath.appending(component: "new-dir")
-            let repo = RepositorySpecifier(url: path.asString)
-            let pinsStore = PinsStore.Pin(package: "new-dir", repository: repo, state: state, reason: "bad")
-            // Converting to JSON returns a relative path
-            // but when loading the store it converts
-            // back to an absolute path.
-            XCTAssertEqual(try PinsStore.Pin(json: pinsStore.toJSON()), pinsStore)
 
-            let pinsJson = pinsStore.toJSON()
-            let pathFromJson: String = try pinsJson.get("repository")
-            XCTAssertNotEqual(pathFromJson, pinsStore.repository.url)
-        }
+        let repo = RepositorySpecifier(url: "/new")
+        let pinsStore = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad")
+        // Converting to JSON returns a relative path
+        // but when loading the store it converts
+        // back to an absolute path.
+        XCTAssertEqual(try PinsStore.Pin(json: pinsStore.toJSON()), pinsStore)
+
+        let pinsJson = pinsStore.toJSON()
+        let pathFromJson: String = try pinsJson.get("repository")
+        XCTAssertNotEqual(pathFromJson, pinsStore.repository.url)
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
