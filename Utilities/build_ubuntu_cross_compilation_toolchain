@@ -1,0 +1,254 @@
+#!/bin/bash
+
+set -eu
+
+export PATH="/bin:/usr/bin"
+
+function usage() {
+    echo >&2 "Usage: $0 SWIFT-FOR-MACOS.pkg SWIFT-FOR-LINUX.tar.gz"
+    echo >&2
+    echo >&2 "Example: $0 /tmp/ ~/Downloads/swift-3.1-RELEASE-osx.pkg ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
+    echo >&2
+    echo >&2 "Complete example:"
+    echo >&2 "  # Download the Swift binaries for Ubuntu and macOS"
+    echo >&2 "  curl -o ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz https://swift.org/builds/swift-3.1-release/ubuntu1604/swift-3.1-RELEASE/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
+    echo >&2 "  curl -o ~/Downloads/swift-3.1-RELEASE-osx.pkg https://swift.org/builds/swift-3.1-release/xcode/swift-3.1-RELEASE/swift-3.1-RELEASE-osx.pkg"
+    echo >&2 "  # Compile the SDK and toolchain from that"
+    echo >&2 "  $0 /tmp/ ~/Downloads/swift-3.1-RELEASE-osx.pkg ~/Downloads/swift-3.1-RELEASE-ubuntu16.04.tar.gz"
+    echo >&2 "  # Create a test application"
+    echo >&2 "  mkdir my-test-app"
+    echo >&2 "  cd my-test-app"
+    echo >&2 "  swift package init --type=executable"
+    echo >&2 "  # Build it for Ubuntu"
+    echo >&2 "  swift build --destination /tmp/cross-toolchain/ubuntu-xenial-destination.json"
+
+}
+
+if [[ $# -ne 3 ]]; then
+    usage
+    exit 1
+fi
+
+function realpath() {
+    if [[ "${1:0:1}" = / ]]; then
+        echo "$1"
+    else
+        (
+        cd "$(dirname "$1")"
+        echo "$(pwd)/$(basename "$1")"
+        )
+    fi
+}
+
+function fix_glibc_modulemap() {
+    local glc_mm
+    local tmp
+    local inc_dir
+
+    glc_mm="$1"
+    echo "glibc.modulemap at '$glc_mm'"
+    test -f "$glc_mm"
+
+    tmp=$(mktemp "$glc_mm"_orig_XXXXXX)
+    inc_dir="$(dirname "$glc_mm")/private_includes"
+    cat "$glc_mm" >> "$tmp"
+    echo "Paths:"
+    echo " - original glibc.modulemap: $tmp"
+    echo " - new      glibc.modulemap: $glc_mm"
+    echo " - private includes dir    : $inc_dir"
+    echo -n > "$glc_mm"
+    rm -rf "$inc_dir"
+    mkdir "$inc_dir"
+    cat "$tmp" | while IFS='' read line; do
+        if [[ "$line" =~ ^(\ *header\ )\"\/\/\/usr\/include\/(x86_64-linux-gnu\/)?([^\"]+)\" ]]; then
+            local orig_inc
+            local rel_repl_inc
+            local repl_inc
+
+            orig_inc="${BASH_REMATCH[3]}"
+            rel_repl_inc="$(echo "$orig_inc" | tr / _)"
+            repl_inc="$inc_dir/$rel_repl_inc"
+            echo "${BASH_REMATCH[1]} \"$(basename "$inc_dir")/$rel_repl_inc\"" >> "$glc_mm"
+            if [[ "$orig_inc" == "uuid/uuid.h" ]]; then
+                # no idea why ;)
+                echo "#include <linux/uuid.h>" >> "$repl_inc"
+            else
+                echo "#include <$orig_inc>" >> "$repl_inc"
+            fi
+            true
+        else
+            echo "$line" >> "$glc_mm"
+        fi
+    done
+}
+
+# set -xv
+# where to get stuff from
+dest=$(realpath "$1")
+macos_swift_pkg=$(realpath "$2")
+linux_swift_pkg=$(realpath "$3")
+test -f "$macos_swift_pkg"
+test -f "$linux_swift_pkg"
+
+# config
+blocks_h_url="https://raw.githubusercontent.com/apple/swift-corelibs-libdispatch/master/src/BlocksRuntime/Block.h"
+xc_tc_name="swift.xctoolchain"
+linux_sdk_name="ubuntu-xenial.sdk"
+cross_tc_basename="cross-toolchain"
+binutils_pkg_url="https://ftp.gnu.org/gnu/binutils/binutils-2.27.tar.gz"
+ubuntu_mirror="http://gb.archive.ubuntu.com/ubuntu"
+packages_file="$ubuntu_mirror/dists/xenial/main/binary-amd64/Packages.gz"
+pkg_names=( libc6-dev linux-libc-dev libicu55 libgcc-5-dev libicu-dev libc6 libgcc1 libstdc++-5-dev libstdc++6 )
+pkgs=()
+
+# url
+function download_stdout() {
+    curl --fail -s "$1"
+}
+
+# url, key
+function download_with_cache() {
+    mkdir -p "$dest/cache"
+    local out
+    out="$dest/cache/$2"
+    if [[ ! -f "$out" ]]; then
+        curl --fail -s -o "$out" "$1"
+    fi
+    echo "$out"
+}
+
+# dst, file
+function unpack_deb() {
+    local tmp
+    tmp=$(mktemp -d /tmp/.unpack_deb_XXXXXX)
+    (
+    cd "$tmp"
+    ar -x "$2"
+    tar -C "$1" -xf data.tar.*
+    )
+    rm -rf "$tmp"
+}
+
+# dst, file
+function unpack_pkg() {
+    local tmp
+    tmp=$(mktemp -d /tmp/.unpack_pkg_XXXXXX)
+    (
+    cd "$tmp"
+    xar -xf "$2"
+    )
+    (
+    cd "$1"
+    cat "$tmp"/*.pkg/Payload | gunzip -dc | cpio -i
+    )
+    rm -rf "$tmp"
+}
+
+# dst, file
+function unpack() {
+    ext=${2##*.}
+    "unpack_$ext" "$@"
+}
+
+cd "$dest"
+
+rm -rf $cross_tc_basename
+mkdir -p "$cross_tc_basename/$linux_sdk_name"
+
+# oopsie, this is slow but seemingly fast enough :)
+while read -r line; do
+    for pkg_name in "${pkg_names[@]}"; do
+        if [[ "$line" =~ ^Filename:\ (.*\/([^/_]+)_.*$) ]]; then
+            # echo "${BASH_REMATCH[2]}"
+            if [[ "${BASH_REMATCH[2]}" == "$pkg_name" ]]; then
+                new_pkg="$ubuntu_mirror/${BASH_REMATCH[1]}"
+                pkgs+=( "$new_pkg" )
+                echo "- will download $new_pkg"
+            fi
+        fi
+    done
+done < <(download_stdout "$packages_file" | gunzip -d -c | grep ^Filename:)
+
+tmp=$(mktemp -d "$dest/tmp_pkgs_XXXXXX")
+(
+cd "$tmp"
+for f in "${pkgs[@]}"; do
+    name="$(basename "$f")"
+    archive="$(download_with_cache "$f" "$name")"
+    unpack "$dest/$cross_tc_basename/$linux_sdk_name" "$archive"
+done
+)
+rm -rf "$tmp"
+(
+cd $cross_tc_basename
+mkdir -p "$xc_tc_name/usr/bin"
+
+binutils_pkg="$(download_with_cache "$binutils_pkg_url" binutils.tar.gz)"
+tmp=$(mktemp -d "$dest/tmp_pkgs_XXXXXX")
+(
+cd "$tmp"
+tar -xf "$binutils_pkg"
+cd binutils-*
+./configure --enable-gold
+make
+cd gold
+./configure --enable-gold
+make -j
+)
+cp "$tmp"/binutils-*/gold/ld-new "$xc_tc_name/usr/bin/ld.gold"
+rm -rf "$tmp"
+
+# fix absolute symlinks
+find "$linux_sdk_name" -type l | while read -r line; do
+    dst=$(readlink "$line")
+    if [[ "${dst:0:1}" = / ]]; then
+        rm "$line"
+        echo ln -s "$dest/$cross_tc_basename/$linux_sdk_name$dst" "$line"
+        ln -s "$dest/$cross_tc_basename/$linux_sdk_name$dst" "$line"
+    fi
+done
+ln -s 5 "$linux_sdk_name/usr/lib/gcc/x86_64-linux-gnu/5.4.0"
+
+tmp=$(mktemp -d "$dest/tmp_pkgs_XXXXXX")
+unpack "$tmp" "$macos_swift_pkg"
+rsync -a "$tmp/" "$xc_tc_name"
+rm -rf "$tmp"
+
+tmp=$(mktemp -d "$dest/tmp_pkgs_XXXXXX")
+tar -C "$tmp" --strip-components 1 -xf "$linux_swift_pkg"
+rsync -a "$tmp/usr/lib/swift/linux" "$xc_tc_name/usr/lib/swift/"
+rsync -a "$tmp/usr/lib/swift_static/linux" "$xc_tc_name/usr/lib/swift_static/"
+rsync -a "$tmp/usr/lib/swift/dispatch" "$linux_sdk_name/usr/include/"
+rsync -a "$tmp/usr/lib/swift/os" "$linux_sdk_name/usr/include/"
+rsync -a "$tmp/usr/lib/swift/CoreFoundation" "$linux_sdk_name/usr/include/"
+rm -rf "$tmp"
+curl --fail -s -o "$linux_sdk_name/usr/include/Block.h" "$blocks_h_url"
+ln -s swift "$xc_tc_name/usr/bin/swift-autolink-extract"
+ln -s "$dest/$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/libdispatch.so" "$linux_sdk_name/usr/lib/"
+ln -s "$dest/$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/libdispatch.a" "$linux_sdk_name/usr/lib/"
+
+# fix up
+)
+fix_glibc_modulemap "$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/x86_64/glibc.modulemap"
+
+cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
+{
+    "version": "1",
+    "sdk": "$(pwd)/$cross_tc_basename/$linux_sdk_name",
+    "toolchain": "$(pwd)/$cross_tc_basename/$xc_tc_name",
+    "target": "linux-unknown-x86_64",
+    "dynamic-library-extension": "so",
+    "extra-cc-flags": [
+        "-fPIC"
+    ],
+    "extra-swiftc-flags": [
+        "-use-ld=gold"
+    ]
+}
+EOF
+
+echo
+echo "OK, your cross compilation toolchain for Ubuntu Xenial is now ready to be used"
+echo " - SDK: $(pwd)/$cross_tc_basename/$linux_sdk_name"
+echo " - toolchain: $(pwd)/$cross_tc_basename/$xc_tc_name"
+echo " - SwiftPM destination.json: $(pwd)/$cross_tc_basename/ubuntu-xenial-destination.json"
