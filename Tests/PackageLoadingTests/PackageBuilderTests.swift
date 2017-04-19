@@ -1139,6 +1139,10 @@ final class PackageBuilderTester {
             XCTAssertEqual(product.type, type, file: file, line: line)
             XCTAssertEqual(product.targets.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
         }
+
+        func check(linuxMainPath: String, file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(product.linuxMain, AbsolutePath(linuxMainPath), file: file, line: line)
+        }
     }
 
     final class ModuleResult {

@@ -49,6 +49,9 @@ public enum ModuleError: Swift.Error {
 
     /// The sources of a target are overlapping with another target.
     case overlappingSources(target: String, sources: [AbsolutePath])
+
+    /// We found multiple LinuxMain.swift files.
+    case multipleLinuxMainFound(package: String, linuxMainFiles: [AbsolutePath])
 }
 
 extension ModuleError: FixableError {
@@ -70,6 +73,9 @@ extension ModuleError: FixableError {
             return "The public headers diretory path for \(name) is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "The target \(target) has sources overlapping sources: \(sources.map({$0.asString}).joined(separator: ", "))"
+        case .multipleLinuxMainFound(let package, let linuxMainFiles):
+            let files = linuxMainFiles.map({ $0.asString }).joined(separator: ", ")
+            return "The package \(package) has multiple linux main files: \(files)"
         }
     }
 
@@ -88,6 +94,8 @@ extension ModuleError: FixableError {
         case .invalidPublicHeadersDirectory:
             return nil
         case .overlappingSources:
+            return nil
+        case .multipleLinuxMainFound:
             return nil
         }
     }
@@ -288,9 +296,13 @@ public final class PackageBuilder {
             return false
         }
 
-        // Ignore dotfiles.
         let basename = path.basename
+
+        // Ignore dotfiles.
         if basename.hasPrefix(".") { return false }
+
+        // Ignore linux main.
+        if basename == SwiftTarget.linuxMainBasename { return false }
 
         // Ignore symlinks to non-files.
         if !fileSystem.isFile(path) { return false }
@@ -793,12 +805,7 @@ public final class PackageBuilder {
         let testsDirContents = try directoryContents(testsPath)
 
         // Check that the Tests directory doesn't contain any loose source files.
-        // FIXME: Right now we just check for source files.  We need to decide whether we should check for other kinds
-        // of files too.
-        // FIXME: We should factor out the checking for the `LinuxMain.swift` source file.  So ugly...
-        let looseSourceFiles = testsDirContents
-            .filter(isValidSource)
-            .filter({ $0.basename.lowercased() != "linuxmain.swift" })
+        let looseSourceFiles = testsDirContents.filter(isValidSource)
         guard looseSourceFiles.isEmpty else {
             throw ModuleError.invalidLayout(.unexpectedSourceFiles(looseSourceFiles.map({ $0.asString })))
         }
@@ -806,6 +813,38 @@ public final class PackageBuilder {
         return testsDirContents
             .filter(shouldConsiderDirectory)
             .map({ PotentialModule(name: $0.basename, path: $0, isTest: true) })
+    }
+
+    /// Find the linux main file for the package.
+    private func findLinuxMain(in testTargets: [Target]) throws -> AbsolutePath? {
+        var linuxMainFiles = Set<AbsolutePath>()
+        var pathsSearched = Set<AbsolutePath>()
+
+        // Look for linux main file adjacent to each test target root, iterating upto package root.
+        for target in testTargets {
+            var searchPath = target.sources.root.parentDirectory
+            while true {
+                // If we have already searched this path, skip.
+                if !pathsSearched.contains(searchPath) {
+                    let linuxMain = searchPath.appending(component: SwiftTarget.linuxMainBasename)
+                    if fileSystem.isFile(linuxMain) {
+                        linuxMainFiles.insert(linuxMain)
+                    }
+                    pathsSearched.insert(searchPath)
+                }
+                // Break if we reached all the way to package root.
+                if searchPath == packagePath { break }
+                // Go one level up.
+                searchPath = searchPath.parentDirectory
+            }
+        }
+
+        // It is an error if there are multiple linux main files.
+        if linuxMainFiles.count > 1 {
+            throw ModuleError.multipleLinuxMainFound(
+                package: manifest.name, linuxMainFiles: linuxMainFiles.map({ $0 }))
+        }
+        return linuxMainFiles.first
     }
 
     /// Collects the products defined by a package.
@@ -833,11 +872,16 @@ public final class PackageBuilder {
                 products.append(product)
             }
         } else if !testModules.isEmpty {
-            // Otherwise we only need to create one test product for all of the test targets.
+            // Otherwise we only need to create one test product for all of the
+            // test targets.
             //
-            // Add suffix 'PackageTests' to test product so the target name of linux executable don't collide with
-            // main package, if present.
-            let product = Product(name: manifest.name + "PackageTests", type: .test, targets: testModules)
+            // Add suffix 'PackageTests' to test product name so the target name
+            // of linux executable don't collide with main package, if present.
+            let productName = manifest.name + "PackageTests"
+            let linuxMain = try findLinuxMain(in: testModules)
+
+            let product = Product(
+                name: productName, type: .test, targets: testModules, linuxMain: linuxMain)
             products.append(product)
         }
 

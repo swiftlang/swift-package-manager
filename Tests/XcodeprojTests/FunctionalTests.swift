@@ -37,8 +37,7 @@ class FunctionalTests: XCTestCase {
             XCTAssertXcodeprojGen(prefix)
             let pbx = prefix.appending(component: "SwiftCMixed.xcodeproj")
             XCTAssertDirectoryExists(pbx)
-            // Ensure we have plists for library and test targets.
-            XCTAssertFileExists(pbx.appending(component: "SeaLibTests_Info.plist"))
+            // Ensure we have plist for the library target.
             XCTAssertFileExists(pbx.appending(component: "SeaLib_Info.plist"))
 
             XCTAssertXcodeBuild(project: pbx)

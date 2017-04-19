@@ -379,6 +379,9 @@ public class BuildPlan {
     public enum Error: Swift.Error {
         /// The tools version in use not compatible with target's sources.
         case incompatibleToolsVersions(target: String, required: [Int], current: Int)
+
+        /// The linux main file is missing.
+        case missingLinuxMain
     }
 
     /// The build parameters.
@@ -439,20 +442,28 @@ public class BuildPlan {
              }
         }
 
+      #if os(Linux)
+        // FIXME: Create a target for LinuxMain file on linux.
+        // This will go away once it is possible to auto detect tests.
+        let testProducts = graph.products.filter({ $0.type == .test })
+        if testProducts.count > 1 {
+            fatalError("It is not possible to have multiple test products on linux \(testProducts)")
+        }
+
+        for product in testProducts {
+            guard let linuxMainTarget = product.linuxMainTarget else {
+                throw Error.missingLinuxMain
+            }
+            let target = SwiftTargetDescription(
+                target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
+            targetMap[linuxMainTarget] = .swift(target)
+        }
+      #endif
+
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
         // for automatic libraries because they don't produce any output.
         for product in graph.products where product.type != .library(.automatic) {
-          #if os(Linux)
-            // FIXME: Create a target for LinuxMain file on linux.
-            // This will go away once it is possible to auto detect tests.
-            if product.type == .test {
-                let linuxMainTarget = product.linuxMainTarget
-                let target = SwiftTargetDescription(
-                    target: linuxMainTarget, buildParameters: buildParameters, isTestTarget: true)
-                targetMap[linuxMainTarget] = .swift(target)
-            }
-          #endif
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters)
         }
@@ -577,7 +588,7 @@ public class BuildPlan {
 
       #if os(Linux)
         if product.type == .test {
-            staticTargets.append(product.linuxMainTarget)
+            product.linuxMainTarget.map({ staticTargets.append($0) })
         }
       #endif
 

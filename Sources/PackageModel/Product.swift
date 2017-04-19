@@ -50,15 +50,22 @@ public class Product {
     /// the product, but not necessarily their transitive dependencies.
     public let targets: [Target]
 
-    public init(name: String, type: ProductType, targets: [Target]) {
+    /// The path to linux main file.
+    public let linuxMain: AbsolutePath?
+
+    public init(name: String, type: ProductType, targets: [Target], linuxMain: AbsolutePath? = nil) {
         precondition(!targets.isEmpty)
         if type == .executable {
             assert(targets.filter({ $0.type == .executable }).count == 1,
                    "Executable products should have exactly one executable target.")
         }
+        if linuxMain != nil {
+            assert(type == .test, "Linux main should only be set on test products")
+        }
         self.name = name
         self.type = type
         self.targets = targets
+        self.linuxMain = linuxMain 
     }
 
     public var outname: RelativePath {
