@@ -57,6 +57,18 @@ public enum Result<Value, ErrorType: Swift.Error> {
         }
     }
 
+    /// Evaluates the given closure when this Result instance has a value, passing the unwrapped value as a parameter.
+    ///
+    /// The closure returns a Result instance itself which can have value or not.
+    public func flatMap<U>(_ transform: (Value) -> Result<U, ErrorType>) -> Result<U, ErrorType> {
+        switch self {
+            case .success(let value):
+                return transform(value)
+            case .failure(let error):
+                return Result<U, ErrorType>(error)
+        }
+    }
+
 }
 
 extension Result: CustomStringConvertible {

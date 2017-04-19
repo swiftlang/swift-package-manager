@@ -624,19 +624,17 @@ extension  Workspace {
         }
 
         let rootDependencyManifests = root.dependencies.flatMap({
-            // FIXME: We need to emit any errors here to the diagnostics (SR-4262).
-            return loadManifest(forDependencyURL: $0.url)
+            return loadManifest(forDependencyURL: $0.url, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Compute the transitive closure of available dependencies.
         let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
             return node.item.package.dependencies.flatMap({ dependency in
-                let manifest = loadManifest(forDependencyURL: dependency.url)
+                let manifest = loadManifest(forDependencyURL: dependency.url, diagnostics: diagnostics)
                 return manifest.flatMap({ KeyedPair($0, key: $0.url) })
             })
         }
-        // FIXME: Remove bang and emit errors (SR-4262).
         let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
         return DependencyManifests(root: root, dependencies: deps)
     }
@@ -986,7 +984,7 @@ extension Workspace {
     }
 
     /// Loads the given manifest, if it is present in the managed dependencies.
-    fileprivate func loadManifest(forDependencyURL url: String) -> Manifest? {
+    fileprivate func loadManifest(forDependencyURL url: String, diagnostics: DiagnosticsEngine) -> Manifest? {
         // Check if this dependency is available.
         guard let managedDependency = managedDependencies[url] else {
             return nil
@@ -1004,12 +1002,10 @@ extension Workspace {
         // Get the path of the package.
         let packagePath = path(for: managedDependency)
 
-        // FIXME: We need to emit errors if this fails (SR-4262).
-        return try! loadManifest(
-            packagePath: packagePath,
-            url: url,
-            version: version
-        )
+        // Load and return the manifest.
+        return diagnostics.wrap({
+            try loadManifest(packagePath: packagePath, url: url, version: version)
+        })
     }
 
     /// Load the manifest at a given path.

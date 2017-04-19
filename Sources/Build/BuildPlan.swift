@@ -240,9 +240,9 @@ public final class SwiftTargetDescription {
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
 
-    /// The compatible swift versions for this target.
-    var swiftLanguageVersions: [Int]? {
-        return (target.underlyingTarget as! SwiftTarget).swiftLanguageVersions
+    /// The swift version for this target.
+    var swiftVersion: Int {
+        return (target.underlyingTarget as! SwiftTarget).swiftVersion
     }
 
     /// If this target is a test target.
@@ -260,6 +260,7 @@ public final class SwiftTargetDescription {
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
+        args += ["-swift-version", String(swiftVersion)]
         args += buildParameters.toolchain.swiftPlatformArgs
         args += buildParameters.swiftCompilerFlags
         args += optimizationArguments
@@ -377,9 +378,6 @@ public protocol BuildPlanDelegate: class {
 public class BuildPlan {
 
     public enum Error: Swift.Error {
-        /// The tools version in use not compatible with target's sources.
-        case incompatibleToolsVersions(target: String, required: [Int], current: Int)
-
         /// The linux main file is missing.
         case missingLinuxMain
     }
@@ -615,18 +613,6 @@ public class BuildPlan {
 
     /// Plan a Swift target.
     private func plan(swiftTarget: SwiftTargetDescription) throws {
-
-        // Ensure that the target sources are compatible with current version of tools.
-        // Note that we don't actually make use of these flags during compilation because
-        // of the compiler bug https://bugs.swift.org/browse/SR-3791.
-        if let swiftLanguageVersions = swiftTarget.swiftLanguageVersions {
-            let majorToolsVersion = buildParameters.toolsVersion.major
-            guard swiftLanguageVersions.contains(majorToolsVersion) else {
-                throw Error.incompatibleToolsVersions(
-                    target: swiftTarget.target.name, required: swiftLanguageVersions, current: majorToolsVersion)
-            }
-        }
-
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
         for dependency in swiftTarget.target.recursiveDependencies {

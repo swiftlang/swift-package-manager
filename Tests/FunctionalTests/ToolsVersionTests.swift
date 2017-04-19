@@ -56,7 +56,11 @@ class ToolsVersionTests: XCTestCase {
             let primaryPath = path.appending(component: "Primary")
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)])\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"Primary\"," <<< "\n"
+                $0 <<< "    dependencies: [.package(url: \"../Dep\", from: \"1.0.0\")]," <<< "\n"
+                $0 <<< "    targets: [.target(name: \"Primary\", dependencies: [\"Dep\"], path: \".\")]" <<< "\n"
+                $0 <<< ")\n"
             }
             // Create a file.
             try fs.writeFileContents(primaryPath.appending(component: "main.swift")) {
@@ -80,14 +84,17 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssert(stderr.hasPrefix("error: The package at '") && stderr.hasSuffix("\(primaryPath.asString)' requires a minimum Swift tools version of 10000.1.0 but currently at 3.1.0\n"))
+                XCTAssert(stderr.contains("equires a minimum Swift tools version of 10000.1.0 but currently at 4.0.0"))
             }
 
             // Write the manifest with incompatible sources.
             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)], "
-                $0 <<< "swiftLanguageVersions: [1000])"
+                $0 <<< "let package = Package("
+                $0 <<< "    name: \"Primary\","
+                $0 <<< "    dependencies: [.package(url: \"../Dep\", from: \"1.0.0\")], "
+                $0 <<< "    targets: [.target(name: \"Primary\", dependencies: [\"Dep\"], path: \".\")],"
+                $0 <<< "    swiftLanguageVersions: [1000])"
             }
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set-current"], chdir: primaryPath).chomp()
@@ -96,17 +103,20 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertTrue(stderr.hasPrefix("error: incompatibleToolsVersions"))
+                XCTAssertTrue(stderr.contains("is not compatible with the package Primary. It supports swift versions: 1000."))
             }
 
-            try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
+             try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {
                 $0 <<< "import PackageDescription\n"
-                $0 <<< "let package = Package(name: \"Primary\", dependencies: [.Package(url: \"../Dep\", majorVersion: 1)], "
-                $0 <<< "swiftLanguageVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])"
-            }
-            _ = try SwiftPMProduct.SwiftPackage.execute(
-                ["tools-version", "--set-current"], chdir: primaryPath).chomp()
-            _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
+                $0 <<< "let package = Package("
+                $0 <<< "    name: \"Primary\","
+                $0 <<< "    dependencies: [.package(url: \"../Dep\", from: \"1.0.0\")], "
+                $0 <<< "    targets: [.target(name: \"Primary\", dependencies: [\"Dep\"], path: \".\")],"
+                $0 <<< "    swiftLanguageVersions: [\(ToolsVersion.currentToolsVersion.major), 1000])"
+             }
+             _ = try SwiftPMProduct.SwiftPackage.execute(
+                 ["tools-version", "--set-current"], chdir: primaryPath).chomp()
+             _ = try SwiftPMProduct.SwiftBuild.execute([], chdir: primaryPath)
         }
     }
 

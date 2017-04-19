@@ -587,7 +587,56 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testCompatibleSwiftVersions() throws {
+        // Single swift executable target.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/foo/main.swift"
+        )
+
+        let package = Package(
+            name: "pkg",
+            targets: [.target(name: "foo", path: "foo")],
+            swiftLanguageVersions: [3, 4])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 4)
+            }
+        }
+
+        package.swiftLanguageVersions = [3]
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 3)
+            }
+        }
+
+        package.swiftLanguageVersions = [4]
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 4)
+            }
+        }
+
+        package.swiftLanguageVersions = nil
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 4)
+            }
+        }
+
+        package.swiftLanguageVersions = []
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("The supported Swift language versions should not be empty.")
+        }
+
+        package.swiftLanguageVersions = [500, 600]
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("The current tools version (4) is not compatible with the package pkg. It supports swift versions: 500, 600.")
+        }
+    }
+
     static var allTests = [
+        ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
         ("testCustomTargetPaths", testCustomTargetPaths),
         ("testCustomTargetPathsOverlap", testCustomTargetPathsOverlap),
