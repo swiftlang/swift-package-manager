@@ -901,8 +901,8 @@ def main():
     # Compute the build flags, needed for swift-build and swift-test.
     build_flags = []
 
-    # Disable manifest sandboxing when bootstraping.
-    build_flags.append("--disable-manifest-sandbox")
+    # Disable sandboxing when bootstraping.
+    build_flags.append("--disable-sandbox")
     
     # We need to embed an RPATH so swift-{build,test} can find the core
     # libraries.
