@@ -436,11 +436,11 @@ public final class PackageBuilder {
         return try constructV4Targets()
     }
 
-    /// Predefined source directories.
-    private let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+    /// Predefined source directories, in order of preference.
+    public static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
 
-    /// Predefined test directories.
-    private let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    /// Predefined test directories, in order of preference.
+    public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
 
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
@@ -458,7 +458,7 @@ public final class PackageBuilder {
                 throw ModuleError.modulesNotFound([target.name])
             }
             // Select the correct predefined directory list.
-            let predefinedDirs = target.isTest ? predefinedTestDirectories : predefinedSourceDirectories
+            let predefinedDirs = target.isTest ? PackageBuilder.predefinedTestDirectories : PackageBuilder.predefinedSourceDirectories
             for directory in predefinedDirs {
                 let path = packagePath.appending(components: directory, target.name)
                 if fileSystem.isDirectory(path) {
