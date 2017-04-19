@@ -79,21 +79,9 @@ private func getBuildIdentifier() -> String? {
 /// Version support for the package manager.
 public struct Versioning {
 
-    /// Simulates current tools version to 4.0.0
-    ///
-    /// Temporary until compiler bumps their major version on master.
-    public static var simulateVersionFour = false
-
     /// The current version of the package manager.
-    public static var currentVersion: SwiftVersion {
-        if simulateVersionFour {
-            return SwiftVersion(version: (4, 0, 0), isDevelopment: true, buildIdentifier: getBuildIdentifier())
-        }
-        return _currentVersion
-    }
-
-    private static let _currentVersion = SwiftVersion(
-        version: (3, 1, 0),
+    public static let currentVersion = SwiftVersion(
+        version: (4, 0, 0),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier())
 

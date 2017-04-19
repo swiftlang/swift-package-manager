@@ -65,7 +65,7 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).asString!
-            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            let version = "\(ToolsVersion.defaultToolsVersion.major).\(ToolsVersion.defaultToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
             
             let readme = path.appending(component: "README.md")
@@ -104,7 +104,7 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).asString!
-            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            let version = "\(ToolsVersion.defaultToolsVersion.major).\(ToolsVersion.defaultToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
 
             let readme = path.appending(component: "README.md")

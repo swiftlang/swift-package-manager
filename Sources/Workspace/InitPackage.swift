@@ -91,7 +91,8 @@ public final class InitPackage {
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
-        let version = ToolsVersion.currentToolsVersion.zeroedPatch
+        // FIXME: <rdar://problem/31709046> Generate v4 manifests from `swift package init`
+        let version = ToolsVersion.defaultToolsVersion.zeroedPatch
 
         // Write the current tools version.
         try writeToolsVersion(
