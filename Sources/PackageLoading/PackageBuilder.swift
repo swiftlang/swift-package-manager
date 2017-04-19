@@ -74,7 +74,7 @@ extension ModuleError: FixableError {
         case .overlappingSources(let target, let sources):
             return "The target \(target) has sources overlapping sources: \(sources.map({$0.asString}).joined(separator: ", "))"
         case .multipleLinuxMainFound(let package, let linuxMainFiles):
-            let files = linuxMainFiles.map({ $0.asString }).joined(separator: ", ")
+            let files = linuxMainFiles.map({ $0.asString }).sorted().joined(separator: ", ")
             return "The package \(package) has multiple linux main files: \(files)"
         }
     }
