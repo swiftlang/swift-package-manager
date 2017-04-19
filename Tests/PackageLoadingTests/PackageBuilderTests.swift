@@ -134,7 +134,7 @@ class PackageBuilderTests: XCTestCase {
             result.checkModule(name) { moduleResult in
                 moduleResult.check(c99name: name, type: .executable)
                 moduleResult.checkSources(root: "/", paths: "main.swift", "Bar.swift")
-                moduleResult.check(swiftCompatibleVersions: nil)
+                moduleResult.check(swiftVersion: 3)
             }
         }
 
@@ -162,31 +162,35 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testCompatibleSwiftVersions() throws {
+        typealias Package = PackageDescription.Package
         // Single swift executable target.
         let fs = InMemoryFileSystem(emptyFiles:
-            "/foo/main.swift",
-            "/bar/bar.swift",
-            "/Tests/fooTests/bar.swift"
-            )
+            "/foo/main.swift"
+        )
 
-        let package = PackageDescription.Package(name: "pkg", swiftLanguageVersions: [3, 4])
+        var package = Package(name: "pkg", swiftLanguageVersions: [3, 4])
         PackageBuilderTester(package, in: fs) { result in
             result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .executable)
-                moduleResult.checkSources(root: "/foo", paths: "main.swift")
-                moduleResult.check(swiftCompatibleVersions: [3, 4])
+                moduleResult.check(swiftVersion: 4)
             }
+        }
 
-            result.checkModule("fooTests") { moduleResult in
-                moduleResult.check(c99name: "fooTests", type: .test)
-                moduleResult.checkSources(root: "/Tests/fooTests", paths: "bar.swift")
-                moduleResult.check(swiftCompatibleVersions: [3, 4])
+        package = Package(name: "pkg", swiftLanguageVersions: [3])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 3)
             }
+        }
 
-            result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
-                moduleResult.checkSources(root: "/bar", paths: "bar.swift")
-                moduleResult.check(swiftCompatibleVersions: [3, 4])
+        package = Package(name: "pkg", swiftLanguageVersions: [4])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("The package pkg should support Swift 3 because its minimum tools version is 3.")
+        }
+
+        package = Package(name: "pkg")
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkModule("foo") { moduleResult in
+                moduleResult.check(swiftVersion: 3)
             }
         }
     }
@@ -1196,18 +1200,11 @@ final class PackageBuilderTester {
             }
         }
 
-        func check(swiftCompatibleVersions versions: [Int]? = nil, file: StaticString = #file, line: UInt = #line) {
+        func check(swiftVersion: Int, file: StaticString = #file, line: UInt = #line) {
             guard case let swiftTarget as SwiftTarget = target else {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
-            switch (swiftTarget.swiftLanguageVersions, versions) {
-            case (nil, nil):
-                break
-            case (let lhs?, let rhs?):
-                XCTAssertEqual(lhs, rhs, file: file, line: line)
-            default:
-                XCTFail("\(swiftTarget.swiftLanguageVersions.debugDescription) is not equal to \(versions.debugDescription)", file: file, line: line)
-            }
+            XCTAssertEqual(swiftVersion, swiftTarget.swiftVersion, file: file, line: line)
         }
     }
 }

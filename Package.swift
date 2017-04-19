@@ -170,6 +170,7 @@ let package = Package(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
     ],
+    swiftLanguageVersions: [3],
     exclude: [
         "Tests/PackageLoadingTests/Inputs",
     ]

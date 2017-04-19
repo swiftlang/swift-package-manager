@@ -145,7 +145,7 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).asString!
-            let version = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+            let version = "\(ToolsVersion.defaultToolsVersion.major).\(ToolsVersion.defaultToolsVersion.minor)"
             XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
