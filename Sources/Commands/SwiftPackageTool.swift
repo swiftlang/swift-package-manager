@@ -68,13 +68,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             break
 
         case .update:
-            let rootPackages = try [getPackageRoot()]
             let workspace = try getActiveWorkspace()
             let pinsStore = try workspace.pinsStore.load()
             // We repin either on explicit repin option or if autopin is enabled.
             let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
-            workspace.updateDependencies(
-                rootPackages: rootPackages,
+            try workspace.updateDependencies(
+                root: getWorkspaceRoot(),
                 diagnostics: diagnostics,
                 repin: repin
             )
@@ -89,21 +88,18 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
-            let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { return }
-            // Look for the package's manifest.
-            guard let (manifest, dependency) = manifests.lookup(package: packageName) else {
+
+            // Look for the package's dependency.
+            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
                 throw PackageToolOperationError.packageNotFound
             }
+
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
             // Put the dependency in edit mode.
             workspace.edit(
                 dependency: dependency,
-                packageName: manifest.name,
+                packageName: packageName,
                 diagnostics: diagnostics,
                 path: options.editOptions.path,
                 revision: revision,
@@ -116,16 +112,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try loadPackageGraph()
 
             let workspace = try getActiveWorkspace()
-            let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { return }
-            // Look for the package's manifest.
-            guard let editedDependency = manifests.lookup(package: packageName)?.dependency else {
+
+            // Look for the package's dependency.
+            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
                 throw PackageToolOperationError.packageNotFound
             }
-            try workspace.unedit(dependency: editedDependency, forceRemove: options.editOptions.shouldForceRemove)
+            try workspace.unedit(dependency: dependency, forceRemove: options.editOptions.shouldForceRemove)
 
         case .showDependencies:
             let graph = try loadPackageGraph()
@@ -242,7 +234,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.pin(
                 dependency: dependency,
                 packageName: packageName,
-                rootPackages: [getPackageRoot()],
+                root: getWorkspaceRoot(),
                 diagnostics: diagnostics,
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,

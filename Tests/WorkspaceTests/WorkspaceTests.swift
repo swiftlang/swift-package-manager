@@ -92,10 +92,34 @@ extension Workspace {
             repositoryProvider: repositoryProvider)
     }
 
-    // FIXME: Eliminate this.
     @discardableResult
     fileprivate func loadPackageGraph(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) -> PackageGraph {
         return loadPackageGraph(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
+    }
+
+    fileprivate func updateDependencies(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine, repin: Bool = false) {
+        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics, repin: repin)
+    }
+
+    fileprivate func pin(
+        dependency: ManagedDependency,
+        packageName: String,
+        rootPackages: [AbsolutePath],
+        diagnostics: DiagnosticsEngine,
+        version: Version? = nil,
+        branch: String? = nil,
+        revision: String? = nil,
+        reason: String? = nil
+    ) throws {
+        try pin(
+            dependency: dependency,
+            packageName: packageName,
+            root: WorkspaceRoot(packages: rootPackages),
+            diagnostics: diagnostics,
+            version: version,
+            branch: branch,
+            revision: revision,
+            reason: reason)
     }
 }
 
