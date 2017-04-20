@@ -177,19 +177,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
-        // Attempt to canonicalize the URL.
-        //
-        // This is important when the baseURL is a file system path, so that the
-        // URLs embedded into the manifest are canonical.
-        //
-        // FIXME: We really shouldn't be handling this here and in this fashion.
-        var baseURL = baseURL
-        if URL.scheme(baseURL) == nil {
-            if let resolved = try? realpath(baseURL) {
-                baseURL = resolved
-            }
-        }
-
         // Compute the actual input file path.
         let path: AbsolutePath = isDirectory(inputPath) ? inputPath.appending(component: Manifest.filename) : inputPath
 
