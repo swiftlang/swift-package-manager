@@ -242,7 +242,7 @@ cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
         "-fPIC"
     ],
     "extra-swiftc-flags": [
-        "-use-ld=gold"
+        "-use-ld=gold", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin"
     ]
 }
 EOF
