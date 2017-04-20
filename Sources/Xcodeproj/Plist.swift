@@ -42,7 +42,7 @@ extension Plist {
         case .dictionary(let items):
             return "{" + items
                 .sorted(by: { (lhs, rhs) in lhs.0 < rhs.0 })
-                .map({ " \($0) = \($1.serialize()) " })
+                .map({ " \($0.0) = \($0.1.serialize()) " })
                 .joined(separator: "; ") + "; };"
         }
     }

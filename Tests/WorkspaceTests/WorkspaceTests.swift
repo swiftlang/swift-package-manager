@@ -74,7 +74,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
 extension Workspace {
 
-    static func createWith(
+    fileprivate static func createWith(
         rootPackage path: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol = sharedManifestLoader,
         delegate: WorkspaceDelegate = TestWorkspaceDelegate(),
