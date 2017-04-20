@@ -792,6 +792,8 @@ def main():
                         help="Directory in which to put libSwiftPM library")
     parser.add_argument("--libswiftpm-modules-dir", dest="libswiftpm_modules_dir",
                         help="Directory in which to put libSwiftPM modules")
+    parser.add_argument("--libswiftpm-skip-c-headers", action="store_true",
+                        help="Skip installing C headers in libSwiftPM install directory")
     args = parser.parse_args()
 
     if not args.swiftc_path:
@@ -1144,6 +1146,9 @@ def main():
         for target_name in libswiftpm_product.targets:
             target = target_map[target_name]
             if target.is_c:
+                # Skip if requested.
+                if args.libswiftpm_skip_c_headers:
+                    continue
                 # Copy headers of the C target.
                 include_dir = os.path.join(target.module_root_dir, "include/")
                 if not os.path.exists(include_dir):
