@@ -157,7 +157,12 @@ public class ClangTarget: Target {
 
 extension Target: CustomStringConvertible {
     public var description: String {
-        return "\(type(of: self))(\(name))"
+      #if swift(>=4.0)
+        // https://bugs.swift.org/browse/SR-4642
+        return "<Target: \(name)>"
+      #else
+        return "<\(type(of: self)): \(name)>"
+      #endif
     }
 }
 

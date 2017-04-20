@@ -206,7 +206,9 @@ extension JSON {
             return .array(value.map(convertToJSON))
         case let value as NSDictionary:
             var result = [String: JSON]()
-            value.forEach { result[$0 as! String] = convertToJSON($1) }
+            for (key, val) in value {
+                result[key as! String] = convertToJSON(val)
+            }
             return .dictionary(result)
 
             // On Linux, the JSON deserialization handles this.
@@ -220,7 +222,9 @@ extension JSON {
             return .array(value.map(convertToJSON))
         case let value as [String: Any]:
             var result = [String: JSON]()
-            value.forEach { result[$0] = convertToJSON($1) }
+            for (key, val) in value {
+                result[key] = convertToJSON(val)
+            }
             return .dictionary(result)
 
         default:
