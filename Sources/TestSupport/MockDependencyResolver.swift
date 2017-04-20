@@ -89,7 +89,8 @@ public final class MockPackageContainer: PackageContainer {
     }
 
     public func getDependencies(at revision: String) -> [MockPackageConstraint] {
-        return dependencies[revision]!.map({ (name, requirement) in
+        return dependencies[revision]!.map({ value in
+            let (name, requirement) = value
             return MockPackageConstraint(container: name, requirement: requirement)
         })
     }
@@ -210,7 +211,8 @@ public struct MockGraph {
         guard case let .array(containers)? = dict["containers"] else { fatalError() }
         guard case let .dictionary(result)? = dict["result"] else { fatalError() }
 
-        self.result = Dictionary(items: result.map({ (container, version) in
+        self.result = Dictionary(items: result.map({ value in
+            let (container, version) = value
             guard case let .string(str) = version else { fatalError() }
             return (container, Version(string: str)!)
         }))

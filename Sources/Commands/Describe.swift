@@ -60,7 +60,7 @@ extension Target: JSONSerializable {
         stream <<< Format.asRepeating(string: " ", count: indent)
             <<< "Type: " <<< type.rawValue <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
-            <<< "Module type: " <<< String(describing: type(of: self)) <<< "\n"
+            <<< "Module type: " <<< String(describing: Swift.type(of: self)) <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
             <<< "Path: " <<< sources.root.asString <<< "\n"
         stream <<< Format.asRepeating(string: " ", count: indent)
@@ -72,7 +72,7 @@ extension Target: JSONSerializable {
             "name": .string(name),
             "c99name": .string(c99name),
             "type": type.toJSON(),
-            "module_type": .string(String(describing: type(of: self))),
+            "module_type": .string(String(describing: Swift.type(of: self))),
             "path": .string(sources.root.asString),
             "sources": sources.toJSON(),
         ])

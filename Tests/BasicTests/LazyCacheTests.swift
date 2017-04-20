@@ -18,7 +18,7 @@ class LazyCacheTests: XCTestCase {
             var numCalls = 0
             
             var bar: Int { return barCache.getValue(self) }
-            var barCache = LazyCache(someExpensiveMethod)
+            var barCache = LazyCache<Foo, Int>(someExpensiveMethod)
             func someExpensiveMethod() -> Int {
                 numCalls += 1
                 return 42

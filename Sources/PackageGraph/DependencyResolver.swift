@@ -880,7 +880,7 @@ public class DependencyResolver<
     /// - Returns: A satisfying assignment of containers and their version binding.
     /// - Throws: DependencyResolverError, or errors from the underlying package provider.
     public func resolve(constraints: [Constraint]) throws -> [(container: Identifier, binding: BoundVersion)] {
-        return try resolveAssignment(constraints: constraints).map({ ($0.identifier, $1) })
+        return try resolveAssignment(constraints: constraints).map({ ($0.0.identifier, $0.1) })
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -1086,12 +1086,10 @@ public class DependencyResolver<
 
                 // Return a new lazy sequence merging all possible subtree solutions into all possible incoming
                 //  assignments.
-                return AnySequence(possibleAssignments.lazy.flatMap({
-                    (assignment, allConstraints) -> AnySequence<(AssignmentSet, ConstraintSet)> in
-                    return AnySequence(self
-                        .resolveSubtree(container, subjectTo: allConstraints, excluding: allExclusions)
-                        .lazy
-                        .flatMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
+                return AnySequence(possibleAssignments.lazy.flatMap({ value -> AnySequence<(AssignmentSet, ConstraintSet)> in
+                    let (assignment, allConstraints) = value
+                    let subtree = self.resolveSubtree(container, subjectTo: allConstraints, excluding: allExclusions)
+                    return AnySequence(subtree.lazy.flatMap({ subtreeAssignment -> (AssignmentSet, ConstraintSet)? in
                             // We found a valid subtree assignment, attempt to merge it with the
                             // current solution.
                             guard let newAssignment = assignment.merging(subtreeAssignment) else {

@@ -319,7 +319,7 @@ private struct BuildPlanResult {
     init(plan: BuildPlan) {
         self.plan = plan
         self.productMap = Dictionary(items: plan.buildProducts.map{ ($0.product.name, $0) })
-        self.targetMap = Dictionary(items: plan.targetMap.map{ ($0.name, $1) })
+        self.targetMap = Dictionary(items: plan.targetMap.map{ ($0.0.name, $0.1) })
     }
 
     func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
