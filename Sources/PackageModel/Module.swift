@@ -68,7 +68,15 @@ public class SwiftTarget: Target {
 
     /// Create an executable Swift target from linux main test manifest file.
     init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
-        self.swiftVersion = ToolsVersion.currentToolsVersion.major
+        // Look for the first swift test target and use the same swift version
+        // for linux main target. This will need to change if we move to a model
+        // where we allow per target swift language version build settings.
+        let swiftTestTarget = dependencies.first(where: {
+            guard case let target as SwiftTarget = $0 else { return false }
+            return target.type == .test
+        }).flatMap({ $0 as? SwiftTarget })
+
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? ToolsVersion.currentToolsVersion.major
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
         super.init(name: name, type: .executable, sources: sources, dependencies: dependencies)
     }
