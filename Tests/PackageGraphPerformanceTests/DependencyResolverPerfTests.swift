@@ -12,6 +12,7 @@ import XCTest
 
 import Basic
 import PackageGraph
+import PackageLoading
 import SourceControl
 
 import struct Utility.Version
@@ -48,6 +49,62 @@ class DependencyResolverPerfTests: XCTestCasePerf {
             for _ in 0..<N {
                 let result = try! resolver.resolveToVersion(constraints: [MockPackageConstraint(container: "A", versionRequirement: v1Range)])
                 XCTAssertEqual(result, ["A": v1, "B": v1, "C": v1, "D": v1])
+            }
+        }
+    }
+
+    func testPrefilterPerf() {
+        mktmpdir { path in
+            var fs = localFileSystem
+            let dep = path.appending(components: "dep")
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< "// swift-tools-version:4.0" <<< "\n"
+                $0 <<< "import PackageDescription" <<< "\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"dep\"," <<< "\n"
+                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
+                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
+                $0 <<< ")" <<< "\n"
+            }
+
+            let depGit = GitRepository(path: dep)
+            try depGit.create()
+
+            // Create v1 tag.
+            try depGit.stageEverything()
+            try depGit.commit()
+            try depGit.tag(name: "1.0.2")
+
+            // Create v2 tags.
+            let v2Versions = (0...5).map({ "2.0.\($0)" })
+            for version in v2Versions {
+                try depGit.stageEverything()
+                try? depGit.commit()
+                try depGit.tag(name: version)
+            }
+
+            let repositoryManager = RepositoryManager(
+                path: path.appending(component: "repositories"),
+                provider: GitRepositoryProvider(),
+                delegate: GitRepositoryResolutionHelper.DummyRepositoryManagerDelegate()
+            )
+
+            let containerProvider = RepositoryPackageContainerProvider(
+                repositoryManager: repositoryManager, manifestLoader: ManifestLoader(resources: Resources.default))
+
+            let resolver = DependencyResolver(containerProvider, GitRepositoryResolutionHelper.DummyResolverDelegate())
+            let constraints = RepositoryPackageConstraint(container: RepositorySpecifier(url: dep.asString), versionRequirement: .range("1.0.0"..<"2.0.0"))
+            let result = try! resolver.resolve(constraints: [constraints])
+            XCTAssert(result.count == 1)
+
+            measure {
+                for _ in 0..<2 {
+                    let result = try! resolver.resolve(constraints: [constraints])
+                    XCTAssert(result.count == 1)
+                }
             }
         }
     }

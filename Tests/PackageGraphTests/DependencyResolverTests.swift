@@ -816,7 +816,7 @@ private func allPossibleAssignments(for provider: MockPackagesProvider) -> AnySe
         //
         // FIXME: It would be nice to be lazy here...
         let otherAssignments = allPossibleAssignments(for: containers)
-        return otherAssignments + container.versions.reversed().flatMap{ version in
+        return otherAssignments + container.versions(filter: { _ in true }).reversed().flatMap{ version in
             return otherAssignments.map{ assignment in
                 var assignment = assignment
                 assignment[container] = .version(version)

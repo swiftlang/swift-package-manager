@@ -121,7 +121,7 @@ extension VersionSetSpecifier: JSONSerializable {
 
 extension RepositoryPackageContainer: JSONSerializable {
     public func toJSON() -> JSON {
-        let depByVersions = versions.flatMap({ version -> (String, JSON)? in
+        let depByVersions = versions(filter: { _ in true }).flatMap({ version -> (String, JSON)? in
             // Ignore if we can't load the dependencies.
             guard let deps = try? getDependencies(at: version) else { return nil }
             return (version.description, JSON.array(deps.map({ $0.toJSON() })))
