@@ -68,13 +68,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             break
 
         case .update:
-            let rootPackages = try [getPackageRoot()]
             let workspace = try getActiveWorkspace()
             let pinsStore = try workspace.pinsStore.load()
             // We repin either on explicit repin option or if autopin is enabled.
             let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
-            workspace.updateDependencies(
-                rootPackages: rootPackages,
+            try workspace.updateDependencies(
+                root: getWorkspaceRoot(),
                 diagnostics: diagnostics,
                 repin: repin
             )
@@ -242,7 +241,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try workspace.pin(
                 dependency: dependency,
                 packageName: packageName,
-                rootPackages: [getPackageRoot()],
+                root: getWorkspaceRoot(),
                 diagnostics: diagnostics,
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,

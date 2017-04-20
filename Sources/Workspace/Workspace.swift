@@ -404,7 +404,7 @@ extension  Workspace {
     public func pin(
         dependency: ManagedDependency,
         packageName: String,
-        rootPackages: [AbsolutePath],
+        root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine,
         version: Version? = nil,
         branch: String? = nil,
@@ -427,7 +427,7 @@ extension  Workspace {
         }
 
         let pinsStore = try self.pinsStore.load()
-        let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
@@ -442,6 +442,7 @@ extension  Workspace {
         // * The constraint for the new pin we're trying to add.
         var constraints = currentManifests.unversionedConstraints()
         constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
+        constraints += root.constraints
 
         var pins = pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
         pins.append(
@@ -553,13 +554,13 @@ extension  Workspace {
 
     /// Updates the current dependencies.
     public func updateDependencies(
-        rootPackages: [AbsolutePath],
+        root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine,
         repin: Bool = false
     ) {
         createCacheDirectories(diagnostics: diagnostics)
         // Load the root manifest and current manifests.
-        let rootManifests = loadRootManifests(packages: rootPackages, diagnostics: diagnostics)
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
 
         // Try to load pins store.
@@ -571,6 +572,7 @@ extension  Workspace {
 
         // Create constraints based on root manifest and pins for the update resolution.
         var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
+        updateConstraints += root.constraints
         // Add unversioned constraints for edited packages.
         updateConstraints += currentManifests.unversionedConstraints()
 
@@ -599,6 +601,7 @@ extension  Workspace {
     }
 
     // FIXME: Temporary shim while we transition to the new methods.
+    // FIXME: This shouldn't be public API.
     public func loadDependencyManifests(
         rootManifests: [Manifest],
         diagnostics: DiagnosticsEngine
@@ -610,6 +613,7 @@ extension  Workspace {
     ///
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
+    // FIXME: This shouldn't be public API.
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
