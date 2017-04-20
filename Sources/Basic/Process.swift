@@ -114,6 +114,11 @@ public final class Process: ObjectIdentifierProtocol {
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
 
+    /// The current environment.
+    static var env: [String: String] {
+        return ProcessInfo.processInfo.environment
+    }
+
     /// The arguments to execute.
     public let arguments: [String]
 
@@ -168,7 +173,7 @@ public final class Process: ObjectIdentifierProtocol {
     ///     will be inherited.
     ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
     ///     printing on the standard streams. Default value is true.
-    public init(arguments: [String], environment: [String: String] = env(), redirectOutput: Bool = true) {
+    public init(arguments: [String], environment: [String: String] = env, redirectOutput: Bool = true) {
         self.arguments = arguments
         self.environment = environment
         self.redirectOutput = redirectOutput
@@ -412,14 +417,14 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process result.
     @discardableResult
-    static public func popen(arguments: [String], environment: [String: String] = env()) throws -> ProcessResult {
+    static public func popen(arguments: [String], environment: [String: String] = env) throws -> ProcessResult {
         let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
         try process.launch()
         return try process.waitUntilExit()
     }
 
     @discardableResult
-    static public func popen(args: String..., environment: [String: String] = env()) throws -> ProcessResult {
+    static public func popen(args: String..., environment: [String: String] = env) throws -> ProcessResult {
         return try Process.popen(arguments: args, environment: environment)
     }
 
@@ -431,7 +436,7 @@ extension Process {
     ///     will be inherited.
     /// - Returns: The process output (stdout + stderr).
     @discardableResult
-    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env()) throws -> String {
+    static public func checkNonZeroExit(arguments: [String], environment: [String: String] = env) throws -> String {
         let process = Process(arguments: arguments, environment: environment, redirectOutput: true)
         try process.launch()
         let result = try process.waitUntilExit()
@@ -443,11 +448,11 @@ extension Process {
     }
 
     @discardableResult
-    static public func checkNonZeroExit(args: String..., environment: [String: String] = env()) throws -> String {
+    static public func checkNonZeroExit(args: String..., environment: [String: String] = env) throws -> String {
         return try checkNonZeroExit(arguments: args, environment: environment)
     }
 
-    public convenience init(args: String..., environment: [String: String] = env(), redirectOutput: Bool = true) {
+    public convenience init(args: String..., environment: [String: String] = env, redirectOutput: Bool = true) {
         self.init(arguments: args, environment: environment, redirectOutput: redirectOutput)
     }
 }
@@ -459,11 +464,6 @@ private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_
 #else
 private typealias swiftpm_posix_spawn_file_actions_t = posix_spawn_file_actions_t
 #endif
-
-/// The current environment.
-private func env() -> [String: String] {
-    return ProcessInfo.processInfo.environment
-}
 
 private func WIFEXITED(_ status: Int32) -> Bool {
     return _WSTATUS(status) == 0
