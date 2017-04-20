@@ -215,6 +215,9 @@ class Target(object):
 
         if args.libdispatch_source_dir:
             other_args.extend(["-Xcc", "-fblocks"])
+
+	# FIXME: Default to swift version 3 for now.
+        other_args.extend(["-swift-version", "3"])
         
         print("  %s:" % json.dumps(compile_swift_node), file=output)
         print("    tool: swift-compiler", file=output)
