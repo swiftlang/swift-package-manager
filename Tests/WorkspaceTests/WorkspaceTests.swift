@@ -366,6 +366,57 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testSymlinkedDependency() {
+        mktmpdir { path in
+            var fs = localFileSystem
+            let root = path.appending(components: "root")
+            let dep = path.appending(components: "dep")
+            let depSym = path.appending(components: "depSym")
+
+            // Create root package.
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
+            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+                $0 <<< "// swift-tools-version:4.0" <<< "\n"
+                $0 <<< "import PackageDescription" <<< "\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"root\"," <<< "\n"
+                $0 <<< "    dependencies: [.package(url: \"../depSym\", from: \"1.0.0\")]," <<< "\n"
+                $0 <<< "    targets: [.target(name: \"root\", dependencies: [\"dep\"])]" <<< "\n"
+                $0 <<< ")" <<< "\n"
+            }
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< "// swift-tools-version:4.0" <<< "\n"
+                $0 <<< "import PackageDescription" <<< "\n"
+                $0 <<< "let package = Package(" <<< "\n"
+                $0 <<< "    name: \"dep\"," <<< "\n"
+                $0 <<< "    products: [.library(name: \"dep\", targets: [\"dep\"])]," <<< "\n"
+                $0 <<< "    targets: [.target(name: \"dep\")]" <<< "\n"
+                $0 <<< ")" <<< "\n"
+            }
+            do {
+                let depGit = GitRepository(path: dep)
+                try depGit.create()
+                try depGit.stageEverything()
+                try depGit.commit()
+                try depGit.tag(name: "1.0.0")
+            }
+
+            // Create symlink to the dependency.
+            try createSymlink(depSym, pointingAt: dep)
+
+            // Try to load.
+            let workspace = Workspace.createWith(rootPackage: root)
+            let diagnostics = DiagnosticsEngine()
+            let graph = workspace.loadPackageGraph(rootPackages: [root], diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertEqual(graph.lookup("dep").version, v1)
+        }
+    }
+
+
     func testUpdate() {
         // We mock up the following dep graph:
         //
@@ -2162,6 +2213,7 @@ final class WorkspaceTests: XCTestCase {
         ("testPackageGraphOnlyRootDependency", testPackageGraphOnlyRootDependency),
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testGraphData", testGraphData),
+        ("testSymlinkedDependency", testSymlinkedDependency),
     ]
 }
 

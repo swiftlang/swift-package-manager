@@ -48,3 +48,14 @@ extension InMemoryFileSystem {
         }
     }
 }
+
+extension FileSystem {
+    /// Print the contents of the directory. Only for debugging purposes.
+    public func dump(directory path: AbsolutePath) {
+        do {
+        print(try getDirectoryContents(path))
+        } catch {
+            print(String(describing: error))
+        }
+    }
+}
