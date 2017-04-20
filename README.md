@@ -89,9 +89,9 @@ The Package Manager project is itself a Swift Package and can be used to build i
         swift/utils/build-script --swiftpm --llbuild
 
 2. Independently with the bootstrap script:
-  1. [Download and install a Swift snapshot](https://swift.org/download)
-  2. Locate its `usr/bin` directory
-  3. Run the bootstrap script:
+    1. [Download and install a Swift snapshot](https://swift.org/download)
+    2. Locate its `usr/bin` directory
+    3. Run the bootstrap script:
 
           swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool
 
