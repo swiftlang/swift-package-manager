@@ -145,11 +145,11 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).asString!
-            let version = "\(ToolsVersion.defaultToolsVersion.major).\(ToolsVersion.defaultToolsVersion.minor)"
+            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
     }
@@ -161,7 +161,7 @@ final class PackageToolTests: XCTestCase {
             try fs.createDirectory(path)
             _ = try execute(["-C", path.asString, "init"])
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["Foo.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
                 ["FooTests", "LinuxMain.swift"])

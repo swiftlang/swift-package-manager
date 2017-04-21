@@ -13,6 +13,9 @@ import PackageModel
 
 /// Create an initial template package.
 public final class InitPackage {
+    /// The tool version to be used for new packages.
+    public static let newPackageToolsVersion = ToolsVersion(version: "4.0.0")
+    
     /// Represents a package type for the purposes of initialization.
     public enum PackageType: String, CustomStringConvertible {
         case empty = "empty"
@@ -84,15 +87,35 @@ public final class InitPackage {
             stream <<< "\nimport PackageDescription\n"
             stream <<< "\n"
             stream <<< "let package = Package(\n"
-            stream <<< "    name: \"\(pkgname)\"\n"
+            stream <<< "    name: \"\(pkgname)\",\n"
+            if packageType == .library {
+                stream <<< "    products: [\n"
+                stream <<< "        .library(\n"
+                stream <<< "            name: \"\(pkgname)\",\n"
+                stream <<< "            targets: [\"\(pkgname)\"]),\n"
+                stream <<< "    ],\n"
+                stream <<< "    targets: [\n"
+                stream <<< "        .target(\n"
+                stream <<< "            name: \"\(pkgname)\",\n"
+                stream <<< "            dependencies: []),\n"
+                stream <<< "        .testTarget(\n"
+                stream <<< "            name: \"\(pkgname)Tests\",\n"
+                stream <<< "            dependencies: []),\n"
+                stream <<< "    ]\n"
+            } else if packageType == .executable {
+                stream <<< "    targets: [\n"
+                stream <<< "        .target(\n"
+                stream <<< "            name: \"\(pkgname)\",\n"
+                stream <<< "            dependencies: []),\n"
+                stream <<< "    ]\n"
+            }
             stream <<< ")\n"
         }
 
         // Create a tools version with current version but with patch set to zero.
         // We do this to avoid adding unnecessary constraints to patch versions, if
         // the package really needs it, they should add it manually.
-        // FIXME: <rdar://problem/31709046> Generate v4 manifests from `swift package init`
-        let version = ToolsVersion.defaultToolsVersion.zeroedPatch
+        let version = InitPackage.newPackageToolsVersion.zeroedPatch
 
         // Write the current tools version.
         try writeToolsVersion(
@@ -140,9 +163,12 @@ public final class InitPackage {
         if packageType == .empty {
             return
         }
-
+        
+        let moduleDir = sources.appending(component: "\(pkgname)")
+        try makeDirectories(moduleDir)
+        
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
-        let sourceFile = sources.appending(RelativePath(sourceFileName))
+        let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
 
         try writePackageFile(sourceFile) { stream in
             switch packageType {
