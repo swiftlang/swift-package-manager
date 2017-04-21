@@ -100,7 +100,7 @@ public final class InitPackage {
                 stream <<< "            dependencies: []),\n"
                 stream <<< "        .testTarget(\n"
                 stream <<< "            name: \"\(pkgname)Tests\",\n"
-                stream <<< "            dependencies: []),\n"
+                stream <<< "            dependencies: [\"\(pkgname)\"]),\n"
                 stream <<< "    ]\n"
             } else if packageType == .executable {
                 stream <<< "    targets: [\n"
@@ -248,7 +248,8 @@ public final class InitPackage {
             stream <<< "    }\n"
             stream <<< "\n"
             stream <<< "\n"
-            stream <<< "    static var allTests = [\n"
+            // FIXME: <rdar://problem/31725325> Swift compiler does not infer XCTest related types in -swift-version 4
+            stream <<< "    static var allTests: [(String, (\(moduleName)Tests) -> () -> Void)] = [\n"
             stream <<< "        (\"testExample\", testExample),\n"
             stream <<< "    ]\n"
             stream <<< "}\n"
