@@ -1134,19 +1134,32 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
         let resolverDelegate = WorkspaceResolverDelegate()
-        let resolver = DependencyResolver(
-            containerProvider,
-            resolverDelegate,
+
+        // Run the resolver.
+        let resolver = DependencyResolver(containerProvider, resolverDelegate,
             isPrefetchingEnabled: isResolverPrefetchingEnabled)
         let result = resolver.resolve(dependencies: dependencies, pins: pins)
+
+        // Take an action based on the result.
         switch result {
         case .success(let bindings):
             return bindings
+
         case .unsatisfiable(let dependencies, let pins):
             diagnostics.emit(data: ResolverDiagnostics.Unsatisfiable(dependencies: dependencies, pins: pins))
             return []
+
         case .error(let error):
-            diagnostics.emit(error)
+            switch error {
+            // Emit proper error if we were not able to parse some manifest during dependency resolution.
+            case let error as RepositoryPackageContainer.GetDependenciesErrorWrapper:
+                let location = DependencyLocation(dependency: error.containerIdentifier, ref: error.reference)
+                diagnostics.emit(error.underlyingError, location: location)
+
+            default:
+                diagnostics.emit(error)
+            }
+
             return []
         }
     }
