@@ -86,11 +86,14 @@ extension DiagnosticsEngine {
     ///     - closure: Closure to wrap.
     /// - Returns: Returns the return value of the closure wrapped
     ///   into an optional. If the closure throws, nil is returned.
-    public func wrap<T>(_ closure: () throws -> T) -> T? {
+    public func wrap<T>(
+        with constuctLocation: @autoclosure () -> (DiagnosticLocation) = UnknownLocation.location,
+        _ closure: () throws -> T
+    ) -> T? {
         do {
             return try closure()
         } catch {
-            emit(error)
+            emit(error, location: constuctLocation())
             return nil
         }
     }

@@ -256,7 +256,7 @@ public protocol DiagnosticsScope {
     func url(describing id: DiagnosticID, for diagnostic: Diagnostic?) -> String?
 }
 
-public class DiagnosticsEngine {
+public class DiagnosticsEngine: CustomStringConvertible {
     /// The diagnostics produced by the engine.
     public var diagnostics: [Diagnostic] = []
 
@@ -269,5 +269,15 @@ public class DiagnosticsEngine {
 
     public func emit(data: DiagnosticData, location: DiagnosticLocation) {
         diagnostics.append(Diagnostic(id: type(of: data).id, location: location, data: data))
+    }
+
+    public var description: String {
+        let stream = BufferedOutputByteStream()
+        stream <<< "["
+        for diag in diagnostics {
+            stream <<< diag.localizedDescription <<< ", "
+        }
+        stream <<< "]"
+        return stream.bytes.asString!
     }
 }
