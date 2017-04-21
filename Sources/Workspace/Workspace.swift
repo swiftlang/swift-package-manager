@@ -62,8 +62,8 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
 
-    /// The workspace is checking out this repository at a version or revision.
-    func checkingOut(repository: String, at reference: String)
+    /// The workspace is checking out a repository.
+    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
@@ -73,6 +73,12 @@ public protocol WorkspaceDelegate: class {
 
     /// Called when the managed dependencies are updated.
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
+}
+
+extension WorkspaceDelegate {
+    func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {
+        // Empty default implementation.
+    }
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -1297,7 +1303,7 @@ extension Workspace {
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
         // Inform the delegate.
-        delegate.checkingOut(repository: repository.url, at: checkoutState.description)
+        delegate.checkingOut(repository: repository.url, atReference: checkoutState.description, to: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.set(attribute: .mutable, path: path, recursive: true)
