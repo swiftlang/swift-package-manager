@@ -262,18 +262,3 @@ public enum WorkspaceDiagnostics {
         public let destinationPackage: String?
     }
 }
-
-/// Represents the location of a package.
-public struct PackageLocation: DiagnosticLocation {
-
-    /// The path to the package.
-    public let packagePath: AbsolutePath
-
-    public init(packagePath: AbsolutePath) {
-        self.packagePath = packagePath
-    }
-
-    public var localizedDescription: String {
-        return packagePath.asString
-    }
-}

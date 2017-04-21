@@ -106,13 +106,40 @@ extension DiagnosticsEngine {
     /// - Returns: Returns true if the wrapped closure did not throw
     ///   and false otherwise.
     @discardableResult
-    public func wrap(_ closure: () throws -> Void) -> Bool {
+    public func wrap(
+        with constuctLocation: @autoclosure () -> (DiagnosticLocation) = UnknownLocation.location,
+        _ closure: () throws -> Void
+    ) -> Bool {
         do {
             try closure()
             return true
         } catch {
-            emit(error)
+            emit(error, location: constuctLocation())
             return false
         }
+    }
+}
+
+/// Represents the location of a package.
+public struct PackageLocation: DiagnosticLocation {
+
+    /// The name of the package, if known.
+    public let name: String?
+
+    /// The path to the package.
+    public let packagePath: AbsolutePath
+
+    public init(name: String? = nil, packagePath: AbsolutePath) {
+        self.name = name
+        self.packagePath = packagePath
+    }
+
+    public var localizedDescription: String {
+        let stream = BufferedOutputByteStream()
+        if let name = name {
+            stream <<< "Package: " <<< name <<< " "
+        }
+        stream <<< packagePath.asString
+        return stream.bytes.asString!
     }
 }
