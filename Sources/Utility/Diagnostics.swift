@@ -77,7 +77,7 @@ extension DiagnosticsEngine {
         location: DiagnosticLocation = UnknownLocation.location
      ) {
         emit(data: convertible.diagnosticData, location: location)
-	}
+    }
 
     /// Wrap a throwing closure, returning an optional value and
     /// emitting any thrown errors.
@@ -141,5 +141,22 @@ public struct PackageLocation: DiagnosticLocation {
         }
         stream <<< packagePath.asString
         return stream.bytes.asString!
+    }
+}
+
+/// Represents the location of a package.
+public struct DependencyLocation: DiagnosticLocation {
+
+    /// The specifier of the dependency.
+    public let dependency: String
+    public let ref: String
+
+    public init(dependency: String, ref: String) {
+        self.dependency = dependency
+        self.ref = ref
+    }
+
+    public var localizedDescription: String {
+        return dependency + " @ " + ref
     }
 }
