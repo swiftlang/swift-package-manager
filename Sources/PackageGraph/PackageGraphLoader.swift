@@ -113,7 +113,7 @@ public struct PackageGraphLoader {
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts
             )
 
-            do {
+            diagnostics.wrap(with: PackageLocation(name: manifest.name, packagePath: packagePath), {
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
 
@@ -121,9 +121,7 @@ public struct PackageGraphLoader {
                 if package.targets.isEmpty && !isRootPackage {
                     throw PackageGraphError.noModules(package)
                 }
-            } catch {
-                diagnostics.emit(error)
-            }
+            })
         }
 
         // Resolve dependencies and create resolved packages.
@@ -150,6 +148,10 @@ private func createResolvedPackages(
 
     // Resolve each package in reverse topological order of their manifest.
     for manifest in allManifests.lazy.reversed() {
+
+        // The diagnostics location for this manifest.
+        let diagnosicLocation = { PackageLocation(name: manifest.name, packagePath: manifest.path) }
+
         // We might not have a package for this manifest because we couldn't
         // load it.  So, just skip it.
         guard let package = manifestToPackage[manifest] else {
@@ -166,7 +168,7 @@ private func createResolvedPackages(
         // Make sure these target names are unique in the graph.
         let dependencyModuleNames = dependencies.lazy.flatMap({ $0.targets }).map({ $0.name })
         if let duplicateModules = dependencyModuleNames.duplicates(targets.lazy.map({ $0.name })) {
-            diagnostics.emit(ModuleError.duplicateModule(duplicateModules.first!))
+            diagnostics.emit(ModuleError.duplicateModule(duplicateModules.first!), location: diagnosicLocation())
         }
 
         // Add system target dependencies directly to the target's dependencies
@@ -192,17 +194,20 @@ private func createResolvedPackages(
                 productDependencies = target.productDependencies.flatMap({
                     // Find the product in this package's dependency products.
                     guard let product = allProductsMap[$0.name] else {
-                        diagnostics.emit(PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package))
+                        let error = PackageGraphError.productDependencyNotFound(name: $0.name, package: $0.package)
+                        diagnostics.emit(error, location: diagnosicLocation())
                         return nil
                     }
+
                     // If package name is mentioned, ensure it is valid.
                     if let packageName = $0.package {
                         // Find the declared package and check that it contains
                         // the product we found above.
                         guard let package = dependencies.first(where: { $0.name == packageName }),
                               package.products.contains(product) else {
-                            diagnostics.emit(PackageGraphError.productDependencyIncorrectPackage(
-                                name: $0.name, package: packageName))
+                            let error = PackageGraphError.productDependencyIncorrectPackage(
+                                name: $0.name, package: packageName)
+                            diagnostics.emit(error, location: diagnosicLocation())
                             return nil
                         }
                     }
@@ -210,13 +215,14 @@ private func createResolvedPackages(
                 })
             }
 
-            let moduleDependencies = target.dependencies
-                .map({ moduleToResolved[$0]! })
+            let moduleDependencies = target.dependencies.map({ moduleToResolved[$0]! })
                 .map(ResolvedTarget.Dependency.target)
+
             let dependencies =
                 moduleDependencies +
                 systemModulesDependencies +
                 productDependencies.map(ResolvedTarget.Dependency.product)
+
             let resolvedTarget = ResolvedTarget(target: target, dependencies: dependencies)
             moduleToResolved[target] = resolvedTarget
             return resolvedTarget
