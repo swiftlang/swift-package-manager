@@ -89,6 +89,20 @@ public typealias RepositoryPackageConstraint = PackageContainerConstraint<Reposi
 public class RepositoryPackageContainer: PackageContainer, CustomStringConvertible {
     public typealias Identifier = RepositorySpecifier
 
+    // A wrapper for getDependencies() errors. This adds additional information
+    // about the container to identify it for diagnostics.
+    public struct GetDependenciesErrorWrapper: Swift.Error {
+
+        /// The container which had this error.
+        public let containerIdentifier: String
+
+        /// The source control reference i.e. version, branch, revsion etc.
+        public let reference: String
+
+        /// The actual error that occurred.
+        public let underlyingError: Swift.Error
+    }
+
     /// The identifier of the repository.
     public let identifier: RepositorySpecifier
 
@@ -171,18 +185,28 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
-        return try cachedDependencies(forIdentifier: version.description) {
-            let tag = knownVersions[version]!
-            let revision = try repository.resolveRevision(tag: tag)
-            return try getDependencies(at: revision, version: version)
+        do {
+            return try cachedDependencies(forIdentifier: version.description) {
+                let tag = knownVersions[version]!
+                let revision = try repository.resolveRevision(tag: tag)
+                return try getDependencies(at: revision, version: version)
+            }
+        } catch {
+            throw GetDependenciesErrorWrapper(
+                containerIdentifier: identifier.url, reference: version.description, underlyingError: error)
         }
     }
 
     public func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
-        return try cachedDependencies(forIdentifier: revision) {
-            // resolve the revision identifier and return its dependencies.
-            let revision = try repository.resolveRevision(identifier: revision)
-            return try getDependencies(at: revision)
+        do {
+            return try cachedDependencies(forIdentifier: revision) {
+                // resolve the revision identifier and return its dependencies.
+                let revision = try repository.resolveRevision(identifier: revision)
+                return try getDependencies(at: revision)
+            }
+        } catch {
+            throw GetDependenciesErrorWrapper(
+                containerIdentifier: identifier.url, reference: revision, underlyingError: error)
         }
     }
 
