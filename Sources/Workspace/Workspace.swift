@@ -75,7 +75,7 @@ public protocol WorkspaceDelegate: class {
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
 }
 
-extension WorkspaceDelegate {
+public extension WorkspaceDelegate {
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {
         // Empty default implementation.
     }
