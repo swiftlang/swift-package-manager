@@ -1010,7 +1010,7 @@ extension Workspace {
         version: Version? = nil,
         diagnostics: DiagnosticsEngine
     ) -> Manifest? {
-        return diagnostics.wrap(with: PackageLocation(packagePath: packagePath), {
+        return diagnostics.wrap(with: PackageLocation.Local(packagePath: packagePath), {
             // Load the tools version for the package.
             let toolsVersion = try toolsVersionLoader.load(
                 at: packagePath, fileSystem: fileSystem)
@@ -1159,7 +1159,7 @@ extension Workspace {
             switch error {
             // Emit proper error if we were not able to parse some manifest during dependency resolution.
             case let error as RepositoryPackageContainer.GetDependenciesErrorWrapper:
-                let location = DependencyLocation(dependency: error.containerIdentifier, ref: error.reference)
+                let location = PackageLocation.Remote(url: error.containerIdentifier, reference: error.reference)
                 diagnostics.emit(error.underlyingError, location: location)
 
             default:
