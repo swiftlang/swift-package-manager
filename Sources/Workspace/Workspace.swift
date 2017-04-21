@@ -785,28 +785,9 @@ extension  Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-
-        func load(_ package: AbsolutePath) throws -> Manifest {
-            let toolsVersion = try toolsVersionLoader.load(at: package, fileSystem: fileSystem)
-            guard currentToolsVersion >= toolsVersion else {
-                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
-                    rootPackagePath: package,
-                    requiredToolsVersion: toolsVersion,
-                    currentToolsVersion: currentToolsVersion)
-            }
-            return try manifestLoader.load(
-                package: package, baseURL: package.asString, manifestVersion: toolsVersion.manifestVersion)
-        }
-
-        var manifests = [Manifest]()
-        for package in packages {
-            do {
-                try manifests.append(load(package))
-            } catch {
-                diagnostics.emit(error)
-            }
-        }
-        return manifests
+        return packages.flatMap({ package in
+            loadManifest(packagePath: package, url: package.asString, diagnostics: diagnostics)
+        })
     }
 }
 
@@ -835,13 +816,15 @@ extension Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            let manifest = try loadManifest(packagePath: destination, url: dependency.repository.url, version: nil)
+            let manifest = loadManifest(
+                packagePath: destination, url: dependency.repository.url, diagnostics: diagnostics)
 
-            guard manifest.name == packageName else {
-                throw WorkspaceDiagnostics.MismatchingDestinationPackage(
+            guard manifest?.name == packageName else {
+                let error = WorkspaceDiagnostics.MismatchingDestinationPackage(
                     editPath: destination,
                     expectedPackage: packageName,
-                    destinationPackage: manifest.name)
+                    destinationPackage: manifest?.name)
+                return diagnostics.emit(error)
             }
 
             // Emit warnings for branch and revision, if they're present.
@@ -1009,9 +992,7 @@ extension Workspace {
         let packagePath = path(for: managedDependency)
 
         // Load and return the manifest.
-        return diagnostics.wrap({
-            try loadManifest(packagePath: packagePath, url: url, version: version)
-        })
+        return loadManifest(packagePath: packagePath, url: url, version: version, diagnostics: diagnostics)
     }
 
     /// Load the manifest at a given path.
@@ -1020,21 +1001,31 @@ extension Workspace {
     fileprivate func loadManifest(
         packagePath: AbsolutePath,
         url: String,
-        version: Version?
-    ) throws -> Manifest {
+        version: Version? = nil,
+        diagnostics: DiagnosticsEngine
+    ) -> Manifest? {
+        return diagnostics.wrap(with: PackageLocation(packagePath: packagePath), {
+            // Load the tools version for the package.
+            let toolsVersion = try toolsVersionLoader.load(
+                at: packagePath, fileSystem: fileSystem)
 
-        // Load the tools version for the package.
-        let toolsVersion = try toolsVersionLoader.load(
-            at: packagePath, fileSystem: localFileSystem)
+            // Ensure that the tools version is compatible.
+            guard currentToolsVersion >= toolsVersion else {
+                throw WorkspaceDiagnostics.IncompatibleToolsVersion(
+                    rootPackagePath: packagePath,
+                    requiredToolsVersion: toolsVersion,
+                    currentToolsVersion: currentToolsVersion)
+            }
 
-        // Load the manifest.
-        // FIXME: We should have a cache for this.
-        let manifest: Manifest = try manifestLoader.load(
-            package: packagePath,
-            baseURL: url,
-            version: version,
-            manifestVersion: toolsVersion.manifestVersion)
-        return manifest
+            // Load the manifest.
+            // FIXME: We should have a cache for this.
+            return try manifestLoader.load(
+                package: packagePath,
+                baseURL: url,
+                version: version,
+                manifestVersion: toolsVersion.manifestVersion
+            )
+        })
     }
 }
 
@@ -1301,11 +1292,18 @@ extension Workspace {
         try fileSystem.set(attribute: .immutable, path: path, recursive: true)
 
         // Load the manifest.
-        let manifest = try loadManifest(packagePath: path, url: repository.url, version: checkoutState.version)
+        let diagnostics = DiagnosticsEngine()
+        let manifest = loadManifest(
+            packagePath: path, url: repository.url, version: checkoutState.version, diagnostics: diagnostics)
+
+        // FIXME: We don't really expect to ever fail here but we should still handle any errors gracefully.
+        guard let loadedManifest = manifest else {
+            fatalError("Unexpected manifest loading failure \(diagnostics)")
+        }
 
         // Write the state record.
         managedDependencies[repository] = ManagedDependency(
-            name: manifest.name,
+            name: loadedManifest.name,
             repository: repository,
             subpath: path.relative(to: checkoutsPath),
             checkoutState: checkoutState)

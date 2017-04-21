@@ -247,7 +247,7 @@ public enum WorkspaceDiagnostics {
                 $0 <<< "The package at"
                 $0 <<< { "'\($0.editPath.asString)'" }
                 $0 <<< "is"
-                $0 <<< { $0.destinationPackage }
+                $0 <<< { $0.destinationPackage ?? "<unknown>" }
                 $0 <<< "but was expecting"
                 $0 <<< { $0.expectedPackage }
             })
@@ -259,6 +259,21 @@ public enum WorkspaceDiagnostics {
         public let expectedPackage: String
         
         /// The package found at the edit location.
-        public let destinationPackage: String
+        public let destinationPackage: String?
+    }
+}
+
+/// Represents the location of a package.
+public struct PackageLocation: DiagnosticLocation {
+
+    /// The path to the package.
+    public let packagePath: AbsolutePath
+
+    public init(packagePath: AbsolutePath) {
+        self.packagePath = packagePath
+    }
+
+    public var localizedDescription: String {
+        return packagePath.asString
     }
 }

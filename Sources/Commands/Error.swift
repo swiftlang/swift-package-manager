@@ -115,6 +115,10 @@ func print(diagnostic: Diagnostic) {
         return
     }
 
+    if !(diagnostic.location is UnknownLocation) {
+        writer.write(diagnostic.location.localizedDescription)
+        writer.write("\n")
+    }
     writer.write(diagnostic.localizedDescription)
     writer.write("\n")
 }
