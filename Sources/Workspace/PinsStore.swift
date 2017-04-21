@@ -180,7 +180,7 @@ extension PinsStore: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
         self.isAutoPinEnabled = try json.get("autoPin")
         let pinsJSON: [JSON] = try json.get("pins")
-        let pins = try pinsJSON.map({ try Pin(json: $0, currentWorkingDirectory: Basic.currentWorkingDirectory) })
+        let pins = try pinsJSON.map({ try Pin(json: $0, currentWorkingDirectory: currentWorkingDirectory) })
         self.pinsMap = Dictionary(items: pins.map({ ($0.package, $0) }))
     }
 
