@@ -157,20 +157,20 @@ final class PinsStoreTests: XCTestCase {
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
         let state = CheckoutState(revision: revision, version: v1)
         let repo = RepositorySpecifier(url: "/new")
-        let pinsStore = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/"))
+        let pin = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/"))
 
         // Test that path returned from the JSON data is updated.
-        let pinsJson = pinsStore.toJSON()
-        let pathFromJson: String = try pinsJson.get("repository")
-        XCTAssertNotEqual(pathFromJson, pinsStore.repository.url)
+        let pinJson = pin.toJSON()
+        let pathFromJson: String = try pinJson.get("repository")
+        XCTAssertNotEqual(pathFromJson, pin.repository.url)
 
         // Test that path returned from the JSON data starts with `../`
         XCTAssertTrue(pathFromJson.hasPrefix("../"))
 
         // Compare same package with different current working directory.
-        let newPinsStore = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/tmp/"))
-        let newPinsJson = newPinsStore.toJSON()
-        let newPathFromJson: String = try newPinsJson.get("repository")
+        let newPin = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/tmp/"))
+        let newPinJson = newPin.toJSON()
+        let newPathFromJson: String = try newPinJson.get("repository")
         XCTAssertNotEqual(pathFromJson, newPathFromJson)
     }
 
