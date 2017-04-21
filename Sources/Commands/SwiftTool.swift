@@ -36,7 +36,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         print("Cloning \(repository)")
     }
 
-    func checkingOut(repository: String, at reference: String) {
+    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
         // FIXME: This is temporary output similar to old one, we will need to figure
         // out better reporting text.
         print("Resolving \(repository) at \(reference)")

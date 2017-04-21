@@ -55,7 +55,7 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
         cloned.append(repository)
     }
 
-    func checkingOut(repository: String, at reference: String) {
+    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
         checkedOut[repository] = reference
     }
 
