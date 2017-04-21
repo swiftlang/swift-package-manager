@@ -134,12 +134,6 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         return underlyingProduct.type
     }
 
-    /// The outname of this product.
-    // FIXME: Should be lifted to build plan.
-    public var outname: RelativePath {
-        return underlyingProduct.outname
-    }
-
     /// Executable target for linux main test manifest file.
     public let linuxMainTarget: ResolvedTarget?
 

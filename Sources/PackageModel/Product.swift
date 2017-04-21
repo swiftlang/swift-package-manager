@@ -68,26 +68,6 @@ public class Product {
         self.linuxMain = linuxMain 
     }
 
-    public var outname: RelativePath {
-        switch type {
-        case .executable:
-            return RelativePath(name)
-        case .library(.static):
-            return RelativePath("lib\(name).a")
-        case .library(.dynamic):
-            return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
-        case .library(.automatic):
-            fatalError()
-        case .test:
-            let base = "\(name).xctest"
-            #if os(macOS)
-                return RelativePath("\(base)/Contents/MacOS/\(name)")
-            #else
-                return RelativePath(base)
-            #endif
-        }
-    }
-
     // FIXME: This needs to be come from a toolchain object, not the host
     // configuration.
 #if os(macOS)
@@ -99,13 +79,7 @@ public class Product {
 
 extension Product: CustomStringConvertible {
     public var description: String {
-        let base = outname.basename
-        switch type {
-        case .test:
-            return "\(base).xctest"
-        default:
-            return base
-        }
+        return "<Product: \(name)"
     }
 }
 
