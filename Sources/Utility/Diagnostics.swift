@@ -120,43 +120,50 @@ extension DiagnosticsEngine {
     }
 }
 
-/// Represents the location of a package.
-public struct PackageLocation: DiagnosticLocation {
+/// Namespace for representing diagnostic location of a package.
+public enum PackageLocation {
 
-    /// The name of the package, if known.
-    public let name: String?
+    /// Represents location of a locally available package. This could be root
+    /// package, edited dependency or checked out dependency.
+    public struct Local: DiagnosticLocation {
 
-    /// The path to the package.
-    public let packagePath: AbsolutePath
+        /// The name of the package, if known.
+        public let name: String?
 
-    public init(name: String? = nil, packagePath: AbsolutePath) {
-        self.name = name
-        self.packagePath = packagePath
-    }
+        /// The path to the package.
+        public let packagePath: AbsolutePath
 
-    public var localizedDescription: String {
-        let stream = BufferedOutputByteStream()
-        if let name = name {
-            stream <<< "Package: " <<< name <<< " "
+        public init(name: String? = nil, packagePath: AbsolutePath) {
+            self.name = name
+            self.packagePath = packagePath
         }
-        stream <<< packagePath.asString
-        return stream.bytes.asString!
-    }
-}
 
-/// Represents the location of a package.
-public struct DependencyLocation: DiagnosticLocation {
-
-    /// The specifier of the dependency.
-    public let dependency: String
-    public let ref: String
-
-    public init(dependency: String, ref: String) {
-        self.dependency = dependency
-        self.ref = ref
+        public var localizedDescription: String {
+            let stream = BufferedOutputByteStream()
+            if let name = name {
+                stream <<< "Package: " <<< name <<< " "
+            }
+            stream <<< packagePath.asString
+            return stream.bytes.asString!
+        }
     }
 
-    public var localizedDescription: String {
-        return dependency + " @ " + ref
+    /// Represents location a remote package with no checkout on disk.
+    public struct Remote: DiagnosticLocation {
+
+        /// The URL of the package.
+        public let url: String
+
+        /// The source control reference of the package. It could be version, branch, revision etc.
+        public let reference: String
+
+        public init(url: String, reference: String) {
+            self.url = url
+            self.reference = reference
+        }
+
+        public var localizedDescription: String {
+            return url + " @ " + reference
+        }
     }
 }

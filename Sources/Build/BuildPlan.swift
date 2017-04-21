@@ -297,7 +297,30 @@ public final class ProductBuildDescription {
 
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
-        return buildParameters.buildPath.appending(product.outname)
+        return buildParameters.buildPath.appending(outname)
+    }
+
+    /// The output name of the product.
+    public var outname: RelativePath {
+        let name = product.name
+
+        switch product.type {
+        case .executable:
+            return RelativePath(name)
+        case .library(.static):
+            return RelativePath("lib\(name).a")
+        case .library(.dynamic):
+            return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
+        case .library(.automatic):
+            fatalError()
+        case .test:
+            let base = "\(name).xctest"
+            #if os(macOS)
+                return RelativePath("\(base)/Contents/MacOS/\(name)")
+            #else
+                return RelativePath(base)
+            #endif
+        }
     }
 
     /// The objects in this product.

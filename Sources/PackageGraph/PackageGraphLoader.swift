@@ -113,7 +113,7 @@ public struct PackageGraphLoader {
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts
             )
 
-            diagnostics.wrap(with: PackageLocation(name: manifest.name, packagePath: packagePath), {
+            diagnostics.wrap(with: PackageLocation.Local(name: manifest.name, packagePath: packagePath), {
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
 
@@ -150,7 +150,7 @@ private func createResolvedPackages(
     for manifest in allManifests.lazy.reversed() {
 
         // The diagnostics location for this manifest.
-        let diagnosicLocation = { PackageLocation(name: manifest.name, packagePath: manifest.path) }
+        let diagnosicLocation = { PackageLocation.Local(name: manifest.name, packagePath: manifest.path) }
 
         // We might not have a package for this manifest because we couldn't
         // load it.  So, just skip it.
