@@ -25,11 +25,11 @@ private func bundleRoot() -> AbsolutePath {
 public class Resources: ManifestResourceProvider {
 
     public var swiftCompiler: AbsolutePath {
-        return toolchain.swiftCompiler
+        return toolchain.manifestResources.swiftCompiler
     }
 
     public var libDir: AbsolutePath {
-        return toolchain.libDir
+        return toolchain.manifestResources.libDir
     }
 
   #if os(macOS)

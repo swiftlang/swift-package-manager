@@ -38,6 +38,19 @@ public protocol ManifestResourceProvider {
 
     /// The path of the library resources.
     var libDir: AbsolutePath { get }
+
+    /// The path to SDK root.
+    ///
+    /// If provided, it will be passed to the swift interpreter.
+    var sdkRoot: AbsolutePath? { get }
+}
+
+/// Default implemention for the resource provider.
+public extension ManifestResourceProvider {
+
+    var sdkRoot: AbsolutePath? {
+        return nil
+    }
 }
 
 /// The supported manifest versions.
@@ -241,6 +254,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
     #endif
+
+        // Add sdk, if provided in the resources.
+        if let sdkRoot = resources.sdkRoot {
+            cmd += ["-sdk", sdkRoot.asString]
+        }
+
         cmd += [manifestPath.asString]
 
         // Create and open a temporary file to write json to.

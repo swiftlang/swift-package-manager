@@ -21,7 +21,18 @@ import Utility
     private let whichClangArgs = ["which", "clang"]
 #endif
 
-public struct UserToolchain: Toolchain, ManifestResourceProvider {
+/// Concrete object for manifest resource provider.
+private struct UserManifestResources: ManifestResourceProvider {
+    let swiftCompiler: AbsolutePath
+    let libDir: AbsolutePath
+    let sdkRoot: AbsolutePath?
+}
+
+public struct UserToolchain: Toolchain {
+
+    /// The manifest resource provider.
+    public let manifestResources: ManifestResourceProvider
+
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 
@@ -30,9 +41,6 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
 
     /// Path to llbuild.
     let llbuild: AbsolutePath
-
-    /// Path to SwiftPM library directory containing runtime libraries.
-    public let libDir: AbsolutePath
 
     /// Path of the default SDK (a.k.a. "sysroot"), if any.
     public let defaultSDK: AbsolutePath?
@@ -70,8 +78,6 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
                 filename: getenv(fromEnv),
                 searchPaths: envSearchPaths)
         }
-
-        libDir = binDir.parentDirectory.appending(components: "lib", "swift", "pm")
 
         // First look in env and then in bin dir.
         swiftCompiler = lookup(fromEnv: "SWIFT_EXEC") ?? binDir.appending(component: "swiftc")
@@ -138,6 +144,11 @@ public struct UserToolchain: Toolchain, ManifestResourceProvider {
       #else
         defaultSDK = nil
       #endif
-    }
 
+        manifestResources = UserManifestResources(
+            swiftCompiler: swiftCompiler,
+            libDir: binDir.parentDirectory.appending(components: "lib", "swift", "pm"),
+            sdkRoot: defaultSDK
+        )
+    }
 }
