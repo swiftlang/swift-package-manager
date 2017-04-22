@@ -213,9 +213,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Pin all dependencies if requested.
             if pinOptions.pinAll {
                 let pinsStore = try workspace.pinsStore.load()
-                return try workspace.pinAll(
+                return workspace.pinAll(
                     pinsStore: pinsStore,
-                    dependencyManifests: manifests)
+                    dependencyManifests: manifests,
+                    diagnostics: diagnostics)
             }
             // Ensure we have the package name at this point.
             guard let packageName = pinOptions.packageName else {
