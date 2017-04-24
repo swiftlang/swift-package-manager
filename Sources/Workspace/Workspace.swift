@@ -401,11 +401,13 @@ extension  Workspace {
     /// - Parameters:
     ///   - dependency: The dependency to pin.
     ///   - packageName: The name of the package which is being pinned.
+    ///   - root: The workspace's root input.
+    ///   - diagnostics: The diagnostics engine that reports errors, warnings
+    ///     and notes.
     ///   - version: The version to pin at.
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
     ///   - reason: The optional reason for pinning.
-    /// - Throws: WorkspaceError, PinOperationError
     public func pin(
         dependency: ManagedDependency,
         packageName: String,
@@ -415,7 +417,7 @@ extension  Workspace {
         branch: String? = nil,
         revision: String? = nil,
         reason: String? = nil
-    ) throws {
+    ) {
         assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
         guard case .checkout(let currentState) = dependency.state else { fatalError() }
 
@@ -431,10 +433,13 @@ extension  Workspace {
             requirement = currentState.requirement()
         }
 
-        let pinsStore = try self.pinsStore.load()
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else { return }
+        guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({
+            try self.pinsStore.load()
+        }) else {
+            return
+        }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -472,35 +477,45 @@ extension  Workspace {
             assertionFailure()
         }
 
-        // Add the record in pins store.
-        try pin(
-            pinsStore: pinsStore,
-            dependency: newDependency,
-            package: packageName,
-            reason: reason)
+        diagnostics.wrap {
+            // Add the record in pins store.
+            try pin(
+                pinsStore: pinsStore,
+                dependency: newDependency,
+                package: packageName,
+                reason: reason)
+        }
     }
 
     /// Pins all of the dependencies to the loaded version.
     ///
     /// - Parameters:
+    ///   - diagnostics: The diagnostics engine that reports errors, warnings
+    ///     and notes.
     ///   - reason: The optional reason for pinning.
     ///   - reset: Remove all current pins before pinning dependencies.
     public func pinAll(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
+        diagnostics: DiagnosticsEngine,
         reason: String? = nil,
         reset: Bool = false
-    ) throws {
+    ) {
         if reset {
-            try pinsStore.unpinAll()
+            guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
+                return
+            }
         }
+        
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
-            try pin(
-                pinsStore: pinsStore,
-                dependency: dependencyManifest.dependency,
-                package: dependencyManifest.manifest.name,
-                reason: reason)
+            diagnostics.wrap({
+                try pin(
+                    pinsStore: pinsStore,
+                    dependency: dependencyManifest.dependency,
+                    package: dependencyManifest.manifest.name,
+                    reason: reason)
+            })
         }
     }
 
@@ -599,11 +614,7 @@ extension  Workspace {
         currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
         // If we're repinning, update the pins store.
         if repin && !diagnostics.hasErrors {
-            guard diagnostics.wrap({
-                try repinPackages(pinsStore, dependencyManifests: currentManifests)
-            }) else {
-                return
-            }
+            repinPackages(pinsStore, dependencyManifests: currentManifests, diagnostics: diagnostics)
         }
     }
 
@@ -739,13 +750,12 @@ extension  Workspace {
 
             // If autopin is enabled, reset and pin everything.
             if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors {
-                try self.pinAll(
+                self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
+                     diagnostics: diagnostics,
                      reset: true)
             }
-        } catch {
-            diagnostics.emit(error)
         }
 
         return PackageGraphLoader().load(
@@ -910,6 +920,7 @@ extension Workspace {
                 return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
             }
         }
+
         // Commit the pin.
         try pinsStore.pin(
             package: package,
@@ -922,30 +933,37 @@ extension Workspace {
     ///
     /// This methods pins all packages if auto pinning is on.
     /// Otherwise, only currently pinned packages are repinned.
-    fileprivate func repinPackages(_ pinsStore: PinsStore, dependencyManifests: DependencyManifests) throws {
+    fileprivate func repinPackages(
+        _ pinsStore: PinsStore,
+        dependencyManifests: DependencyManifests,
+        diagnostics: DiagnosticsEngine
+    ) {
         // If autopin is on, pin everything and return.
         if pinsStore.isAutoPinEnabled {
-            return try pinAll(
+            return pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: dependencyManifests,
+                diagnostics: diagnostics,
                 reset: true)
         }
 
         // Otherwise, we need to repin only the previous pins.
         for pin in pinsStore.pins {
-            // Check if this is a stray pin.
-            guard let dependency = managedDependencies[pin.repository] else {
-                // FIXME: Use diagnostics engine when we have that.
-                delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
-                    "\(pin.state.description) but the dependency is not present.")
-                continue
+            diagnostics.wrap {
+                // Check if this is a stray pin.
+                guard let dependency = managedDependencies[pin.repository] else {
+                    // FIXME: Use diagnostics engine when we have that.
+                    delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
+                        "\(pin.state.description) but the dependency is not present.")
+                    return
+                }
+                // Pin this dependency.
+                try self.pin(
+                    pinsStore: pinsStore,
+                    dependency: dependency,
+                    package: pin.package,
+                    reason: pin.reason)
             }
-            // Pin this dependency.
-            try self.pin(
-                pinsStore: pinsStore,
-                dependency: dependency,
-                package: pin.package,
-                reason: pin.reason)
         }
     }
 }

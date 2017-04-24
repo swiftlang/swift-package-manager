@@ -110,8 +110,8 @@ extension Workspace {
         branch: String? = nil,
         revision: String? = nil,
         reason: String? = nil
-    ) throws {
-        try pin(
+    ) {
+        pin(
             dependency: dependency,
             packageName: packageName,
             root: WorkspaceRoot(packages: rootPackages),
@@ -888,7 +888,8 @@ final class WorkspaceTests: XCTestCase {
             return XCTFail("Expected manifest for package B not found")
         }
         // Attempt to pin dependency B.
-        try workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], diagnostics: diagnostics, version: v1)
+        workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], diagnostics: diagnostics, version: v1)
+        XCTAssertFalse(diagnostics.hasErrors)
         // Validate the versions.
         let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
@@ -997,7 +998,9 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+
+            workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+            XCTAssertFalse(diagnostics.hasErrors)
 
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1061,7 +1064,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertThrows(PinOperationError.notPinned) {
                 try workspace.pinsStore.load().unpin(package: "A")
             }
-            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+
+            workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
 
         // Turn off autopin.
@@ -1182,7 +1187,9 @@ final class WorkspaceTests: XCTestCase {
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
-            try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
+            workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests, diagnostics: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
+
             // Reset so we have a clean workspace.
             workspace.reset(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1272,7 +1279,8 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
-            try workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests)
+            workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests, diagnostics: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
             workspace.reset(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
@@ -1324,7 +1332,7 @@ final class WorkspaceTests: XCTestCase {
                 repositoryProvider: provider)
         }
 
-        func pin(at version: Version, diagnostics: DiagnosticsEngine) throws {
+        func pin(at version: Version, diagnostics: DiagnosticsEngine) {
             let workspace = newWorkspace()
             let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
             let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
@@ -1332,7 +1340,13 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            try workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: version)
+
+            workspace.pin(
+                dependency: dep,
+                packageName: "A",
+                rootPackages: [path],
+                diagnostics: diagnostics,
+                version: version)
         }
 
         // Pinning at v1 should work.
@@ -1341,7 +1355,8 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
-            try pin(at: v1, diagnostics: diagnostics)
+            pin(at: v1, diagnostics: diagnostics)
+            XCTAssertFalse(diagnostics.hasErrors)
             workspace.reset(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
@@ -1356,21 +1371,21 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(graph.lookup("A").version == v1)
             // Pinning non existant version should fail.
-            try pin(at: "1.0.2", diagnostics: diagnostics)
+            pin(at: "1.0.2", diagnostics: diagnostics)
             XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.2"))
 
             // Pinning an unstatisfiable version should fail.
             diagnostics = DiagnosticsEngine()
-            try pin(at: "1.0.1", diagnostics: diagnostics)
+            pin(at: "1.0.1", diagnostics: diagnostics)
 
             // But we should still be able to repin at v1.
             diagnostics = DiagnosticsEngine()
-            try pin(at: v1, diagnostics: diagnostics)
+            pin(at: v1, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             // And also after unpinning.
             try workspace.pinsStore.load().unpinAll()
-            try pin(at: v1, diagnostics: diagnostics)
+            pin(at: v1, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
     }
@@ -1455,7 +1470,15 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "B") else {
                 return XCTFail("Expected manifest for package B not found")
             }
-            try workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], diagnostics: diagnostics, version: v1)
+
+            workspace.pin(
+                dependency: dep,
+                packageName: "B",
+                rootPackages: [path],
+                diagnostics: diagnostics,
+                version: v1)
+            XCTAssertFalse(diagnostics.hasErrors)
+
             workspace.reset(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
