@@ -255,8 +255,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-target", "x86_64-apple-macosx10.10"]
     #endif
 
-        // Add sdk, if provided in the resources.
-        if let sdkRoot = resources.sdkRoot {
+        // Use SDK root from resources or try to compute one locally.
+        if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.asString]
         }
 
@@ -283,6 +283,27 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         return json.isEmpty ? nil : json
     }
+
+    /// Returns path to the sdk, if possible.
+    private func sdkRoot() -> AbsolutePath? {
+        if let sdkRoot = _sdkRoot {
+            return sdkRoot
+        }
+
+        // Find SDKROOT on macOS using xcrun.
+      #if os(macOS)
+        let foundPath = try? Process.checkNonZeroExit(
+            args: "xcrun", "--sdk", "macosx", "--show-sdk-path")
+        guard let sdkRoot = foundPath?.chomp(), !sdkRoot.isEmpty else {
+            return nil
+        }
+        _sdkRoot = AbsolutePath(sdkRoot)
+      #endif
+
+        return _sdkRoot
+    }
+    // Cache storage for computed sdk path.
+    private var _sdkRoot: AbsolutePath? = nil
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
