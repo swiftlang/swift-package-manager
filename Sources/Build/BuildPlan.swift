@@ -166,7 +166,7 @@ public final class ClangTargetDescription {
     /// Builds up basic compilation arguments for this target.
     public func basicArguments() -> [String] {
         var args = [String]()
-        args += buildParameters.toolchain.clangPlatformArgs
+        args += buildParameters.toolchain.extraCCFlags
         args += buildParameters.flags.cCompilerFlags
         args += optimizationArguments
         // Only enable ARC on macOS.
@@ -261,7 +261,7 @@ public final class SwiftTargetDescription {
     public func compileArguments() -> [String] {
         var args = [String]()
         args += ["-swift-version", String(swiftVersion)]
-        args += buildParameters.toolchain.swiftPlatformArgs
+        args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.swiftCompilerFlags
         args += optimizationArguments
         args += ["-j\(SwiftCompilerTool.numThreads)", "-DSWIFT_PACKAGE"]
@@ -310,7 +310,7 @@ public final class ProductBuildDescription {
         case .library(.static):
             return RelativePath("lib\(name).a")
         case .library(.dynamic):
-            return RelativePath("lib\(name).\(Product.dynamicLibraryExtension)")
+            return RelativePath("lib\(name).\(self.buildParameters.toolchain.dynamicLibraryExtension)")
         case .library(.automatic):
             fatalError()
         case .test:
@@ -354,7 +354,7 @@ public final class ProductBuildDescription {
     /// The arguments to link and create this product.
     public func linkArguments() -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.asString]
-        args += buildParameters.toolchain.swiftPlatformArgs
+        args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
         args += additionalFlags
@@ -533,11 +533,7 @@ public class BuildPlan {
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.containsCppFiles {
-              #if os(macOS)
-                buildProduct.additionalFlags += ["-lc++"]
-              #else
-                buildProduct.additionalFlags += ["-lstdc++"]
-              #endif
+                buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
             }
         }

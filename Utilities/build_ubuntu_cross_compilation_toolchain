@@ -233,9 +233,9 @@ fix_glibc_modulemap "$cross_tc_basename/$xc_tc_name/usr/lib/swift/linux/x86_64/g
 
 cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
 {
-    "version": "1",
+    "version": 1,
     "sdk": "$(pwd)/$cross_tc_basename/$linux_sdk_name",
-    "toolchain": "$(pwd)/$cross_tc_basename/$xc_tc_name",
+    "toolchain-bin-dir": "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin",
     "target": "linux-unknown-x86_64",
     "dynamic-library-extension": "so",
     "extra-cc-flags": [
@@ -243,6 +243,9 @@ cat > "$cross_tc_basename/ubuntu-xenial-destination.json" <<EOF
     ],
     "extra-swiftc-flags": [
         "-use-ld=gold", "-tools-directory", "$(pwd)/$cross_tc_basename/$xc_tc_name/usr/bin"
+    ],
+    "extra-cpp-flags": [
+        "-lstdc++"
     ]
 }
 EOF

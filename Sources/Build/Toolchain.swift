@@ -15,17 +15,20 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompiler: AbsolutePath { get }
 
-    /// Platform-specific arguments for Swift compiler.
-    var swiftPlatformArgs: [String] { get }
-
     /// Path of the `clang` compiler.
     var clangCompiler: AbsolutePath { get }
 
-    /// Platform-specific arguments for Clang compiler.
-    var clangPlatformArgs: [String] { get }
+    /// Additional flags to be passed to the C compiler.
+    var extraCCFlags: [String] { get }
 
-    /// Path of the default SDK (a.k.a. "sysroot"), if any.
-    var defaultSDK: AbsolutePath? { get }
+    /// Additional flags to be passed to the Swift compiler.
+    var extraSwiftCFlags: [String] { get }
+
+    /// Additional flags to be passed when compiling with C++.
+    var extraCPPFlags: [String] { get }
+
+    /// The dynamic library extension, for e.g. dylib, so.
+    var dynamicLibraryExtension: String { get }
 }
 
 extension AbsolutePath {

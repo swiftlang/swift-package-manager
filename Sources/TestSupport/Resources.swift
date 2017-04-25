@@ -9,6 +9,7 @@
 */
 
 import Basic
+import Build
 import Foundation
 import Commands
 import PackageLoading
@@ -34,7 +35,7 @@ public class Resources: ManifestResourceProvider {
 
   #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
-        return toolchain.sdkPlatformFrameworksPath!
+        return Destination.sdkPlatformFrameworkPath()!
     }
   #endif
 
@@ -53,6 +54,6 @@ public class Resources: ManifestResourceProvider {
       #else
         binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
       #endif
-        toolchain = try! UserToolchain(binDir)
+        toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir))
     }
 }

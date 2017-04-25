@@ -55,7 +55,7 @@ class FunctionalTests: XCTestCase {
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let output =  systemModule.appending(component: "libSystemModule.\(Product.dynamicLibraryExtension)")
+            let output =  systemModule.appending(component: "libSystemModule.dylib")
             try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")

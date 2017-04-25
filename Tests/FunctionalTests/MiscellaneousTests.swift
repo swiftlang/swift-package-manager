@@ -11,6 +11,7 @@
 import XCTest
 import TestSupport
 import Basic
+import struct Commands.Destination
 import PackageModel
 import Utility
 import libc
@@ -19,6 +20,11 @@ import class Foundation.ProcessInfo
 typealias ProcessID = Basic.Process.ProcessID
 
 class MiscellaneousTestCase: XCTestCase {
+
+    private var dynamicLibraryExtension: String {
+        return Destination.hostDynamicLibraryExtension
+    }
+
     func testPrintsSelectedDependencyVersion() {
 
         // verifies the stdout contains information about
@@ -328,7 +334,7 @@ class MiscellaneousTestCase: XCTestCase {
         }
         fixture(name: "Products/DynamicLibrary") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.\(Product.dynamicLibraryExtension)"))
+            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "libProductName.\(dynamicLibraryExtension)"))
         }
     }
 
@@ -397,7 +403,7 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let output =  systemModule.appending(component: "libSystemModule.\(Product.dynamicLibraryExtension)")
+            let output =  systemModule.appending(component: "libSystemModule.\(dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.asString, "-o", output.asString])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
