@@ -528,6 +528,22 @@ class PackageBuilderV4Tests: XCTestCase {
                 result.checkDiagnostic("The public headers diretory path for Bar is invalid or not contained in the target")
             }
         }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/Sources/Foo/Foo.c",
+                "/foo/Bar.c")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", path: "../foo"),
+                ])
+
+            PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+                result.checkDiagnostic("The target Foo in package Foo is outside the package root.")
+            }
+        }
     }
 
     func testExecutableAsADep() {
