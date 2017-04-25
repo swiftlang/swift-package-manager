@@ -58,6 +58,9 @@ public enum ModuleError: Swift.Error {
 
     /// The tools version in use is not compatible with target's sources.
     case incompatibleToolsVersions(package: String, required: [Int], current: Int)
+
+    /// The target path is outside the package.
+    case targetOutsidePackage(package: String, target: String)
 }
 
 extension ModuleError: FixableError {
@@ -90,6 +93,8 @@ extension ModuleError: FixableError {
             }
             let required = required.map(String.init).joined(separator: ", ")
             return "The current tools version (\(current)) is not compatible with the package \(package). It supports swift versions: \(required)."
+        case .targetOutsidePackage(let package, let target):
+            return "The target \(target) in package \(package) is outside the package root."
         }
     }
 
@@ -114,6 +119,8 @@ extension ModuleError: FixableError {
         case .mustSupportSwift3Compiler:
             return nil
         case .incompatibleToolsVersions:
+            return nil
+        case .targetOutsidePackage:
             return nil
         }
     }
@@ -470,6 +477,10 @@ public final class PackageBuilder {
                     return packagePath
                 }
                 let path = packagePath.appending(RelativePath(subpath))
+                // Make sure the target is inside the package root.
+                guard path.contains(packagePath) else {
+                    throw ModuleError.targetOutsidePackage(package: manifest.name, target: target.name)
+                }
                 if fileSystem.isDirectory(path) {
                     return path
                 }
