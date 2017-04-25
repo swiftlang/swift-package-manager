@@ -165,8 +165,8 @@ class RepositoryManagerTests: XCTestCase {
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 === manager.lookupSynchronously(repository: dummyRepo))
             }
-            // We should not have refetched because we just cloned this repo.
-            XCTAssertEqual(provider.numFetches, 0)
+            // Since we looked up this repo again, we should have made a fetch call.
+            XCTAssertEqual(provider.numFetches, 1)
 
             // Remove the repo.
             try manager.remove(repository: dummyRepo)

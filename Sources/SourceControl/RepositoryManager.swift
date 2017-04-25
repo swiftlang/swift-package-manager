@@ -65,20 +65,11 @@ public class RepositoryManager {
         /// be queued automatically.
         fileprivate let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repohandle-serial")
 
-        /// If the repository needs to be fetched, due to being possibly outdated.
-        ///
-        /// If we have just created this handle, we don't need to fetch the
-        /// repository handled by this instance. If we're loading this handle
-        /// from a saved state, it may be possible that the copy on disk has
-        /// become outdated and we should fetch it from remote.
-        fileprivate var needsFetch: Bool
-
         /// Create a handle.
         fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
-            self.needsFetch = false
         }
 
         /// Create a handle from JSON data.
@@ -87,7 +78,6 @@ public class RepositoryManager {
             self.repository = try json.get("repositoryURL")
             self.subpath = try RelativePath(json.get("subpath"))
             self.status = try Status(rawValue: json.get("status"))!
-            self.needsFetch = true
         }
 
         /// Open the given repository.
@@ -208,12 +198,8 @@ public class RepositoryManager {
                 case .available:
                     result = LookupResult(anyError: {
                         // Fetch and update the repository when it is being looked up.
-                        if handle.needsFetch {
-                            let repo = try handle.open()
-                            try repo.fetch()
-                            // Toggle so we don't fetch it again on next lookup.
-                            handle.needsFetch = false
-                        }
+                        let repo = try handle.open()
+                        try repo.fetch()
                         return handle
                     })
                 case .pending:
