@@ -730,7 +730,10 @@ def get_swift_build_tool_path():
 def get_swiftc_path():
     try:
         if os.getenv("SWIFT_EXEC"):
-            return os.path.realpath(os.getenv("SWIFT_EXEC"))
+            swiftc_path=os.path.realpath(os.getenv("SWIFT_EXEC"))
+            if os.path.basename(swiftc_path) == 'swift':
+                swiftc_path = swiftc_path + 'c'
+            return swiftc_path
         elif platform.system() == 'Darwin':
             return subprocess.check_output(["xcrun", "--find", "swiftc"],
                 stderr=subprocess.PIPE, universal_newlines=True).strip()
