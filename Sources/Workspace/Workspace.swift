@@ -224,10 +224,10 @@ public class Workspace {
     public let pinsStore: LoadableResult<PinsStore>
 
     /// The path for working repository clones (checkouts).
-    let checkoutsPath: AbsolutePath
+    public let checkoutsPath: AbsolutePath
 
     /// The path where packages which are put in edit mode are checked out.
-    let editablesPath: AbsolutePath
+    public let editablesPath: AbsolutePath
 
     /// The file system on which the workspace will operate.
     fileprivate var fileSystem: FileSystem
@@ -987,7 +987,7 @@ extension Workspace {
     /// Checkout dependencies will return the subpath inside `checkoutsPath` and
     /// edited dependencies will either return a subpath inside `editablesPath` or
     /// a custom path.
-    fileprivate func path(for dependency: ManagedDependency) -> AbsolutePath {
+    public func path(for dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
             return checkoutsPath.appending(dependency.subpath)
