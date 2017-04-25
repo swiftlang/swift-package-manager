@@ -68,9 +68,10 @@ public struct Destination {
         // doesn't seem urgent or extremely useful as of now.
         return AbsolutePath(#file).parentDirectory
             .parentDirectory.parentDirectory.appending(components: ".build", "debug")
+      #else
+        return AbsolutePath(
+            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
       #endif
-      return AbsolutePath(
-        CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
     }
 
     /// The destination describing the host OS.
