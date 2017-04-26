@@ -188,12 +188,7 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         // these errors will also be ignored but will surface when clients try
         // to save the state.
         do {
-            if try !self.persistence.restoreState(self) {
-                var fileSystem = fileSystem
-                try fileSystem.createDirectory(dataPath, recursive: true)
-                // There was no state, write the default state immediately.
-                try self.persistence.saveState(self)
-            }
+            try self.persistence.restoreState(self)
         } catch {
             // FIXME: We should emit a warning here.
         }

@@ -51,6 +51,7 @@ public final class SimplePersistence {
         self.prettyPrint = prettyPrint
     }
 
+    @discardableResult
     public func restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
         if !fileSystem.exists(statePath) {
