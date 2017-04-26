@@ -77,6 +77,7 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.manifestVersion, .four)
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
