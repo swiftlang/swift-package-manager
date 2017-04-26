@@ -74,8 +74,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
             try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
-                diagnostics: diagnostics,
-                repin: repin
+                repin: repin,
+                diagnostics: diagnostics
             )
 
         case .fetch:
@@ -100,10 +100,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             workspace.edit(
                 dependency: dependency,
                 packageName: packageName,
-                diagnostics: diagnostics,
                 path: options.editOptions.path,
                 revision: revision,
-                checkoutBranch: options.editOptions.checkoutBranch)
+                checkoutBranch: options.editOptions.checkoutBranch,
+                diagnostics: diagnostics)
 
         case .unedit:
             let packageName = options.editOptions.packageName!
@@ -236,12 +236,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 dependency: dependency,
                 packageName: packageName,
                 root: getWorkspaceRoot(),
-                diagnostics: diagnostics,
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,
                 revision: pinOptions.revision,
-                reason: options.pinOptions.message
-            )
+                reason: options.pinOptions.message,
+                diagnostics: diagnostics)
 
         case .unpin:
             guard let packageName = options.pinOptions.packageName else {

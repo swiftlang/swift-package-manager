@@ -97,29 +97,28 @@ extension Workspace {
         return loadPackageGraph(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
     }
 
-    fileprivate func updateDependencies(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine, repin: Bool = false) {
-        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics, repin: repin)
+    fileprivate func updateDependencies(rootPackages: [AbsolutePath], repin: Bool = false, diagnostics: DiagnosticsEngine) {
+        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), repin: repin, diagnostics: diagnostics)
     }
 
     fileprivate func pin(
         dependency: ManagedDependency,
         packageName: String,
         rootPackages: [AbsolutePath],
-        diagnostics: DiagnosticsEngine,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        diagnostics: DiagnosticsEngine
     ) {
-        pin(
-            dependency: dependency,
+        pin(dependency: dependency,
             packageName: packageName,
             root: WorkspaceRoot(packages: rootPackages),
-            diagnostics: diagnostics,
             version: version,
             branch: branch,
             revision: revision,
-            reason: reason)
+            reason: reason,
+            diagnostics: diagnostics)
     }
 }
 
@@ -632,8 +631,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
-                revision: dependency.checkoutState!.revision)
+                revision: dependency.checkoutState!.revision,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
@@ -658,8 +657,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: editedDependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
-                revision: dependency.checkoutState!.revision)
+                revision: dependency.checkoutState!.revision,
+                diagnostics: diagnostics)
             XCTAssert(diagnostics.hasErrors)
             XCTAssert(diagnostics.diagnostics.contains(where: {
                 $0.id == WorkspaceDiagnostics.DependencyAlreadyInEditMode.id
@@ -722,8 +721,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
-                revision: Revision(identifier: "non-existent-revision"))
+                revision: Revision(identifier: "non-existent-revision"),
+                diagnostics: diagnostics)
             XCTAssert(diagnostics.hasErrors)
             XCTAssert(diagnostics.diagnostics.contains(where: {
                 $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
@@ -733,9 +732,9 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
                 revision: dependency.checkoutState!.revision,
-                checkoutBranch: "BugFix")
+                checkoutBranch: "BugFix",
+                diagnostics: diagnostics)
             XCTAssert(diagnostics.hasErrors)
             let editedDependency = getDependency(aManifest)
             XCTAssert(editedDependency.state == .edited(nil))
@@ -751,9 +750,9 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
                 revision: dependency.checkoutState!.revision,
-                checkoutBranch: "master")
+                checkoutBranch: "master",
+                diagnostics: diagnostics)
             XCTAssert(diagnostics.hasErrors)
             XCTAssert(diagnostics.diagnostics.contains(where: {
                 $0.id == WorkspaceDiagnostics.BranchAlreadyExists.id
@@ -796,9 +795,9 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
                 revision: dependency.checkoutState!.revision,
-                checkoutBranch: "bugfix")
+                checkoutBranch: "bugfix",
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
@@ -876,8 +875,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.edit(
             dependency: dependency,
             packageName: aManifest.name,
-            diagnostics: diagnostics,
-            revision: dependency.checkoutState!.revision)
+            revision: dependency.checkoutState!.revision,
+            diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
 
         let editedDependency = getDependency(aManifest)
@@ -888,7 +887,7 @@ final class WorkspaceTests: XCTestCase {
             return XCTFail("Expected manifest for package B not found")
         }
         // Attempt to pin dependency B.
-        workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], diagnostics: diagnostics, version: v1)
+        workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
         // Validate the versions.
         let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -962,7 +961,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -999,7 +998,12 @@ final class WorkspaceTests: XCTestCase {
                 return XCTFail("Expected manifest for package A not found")
             }
 
-            workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+            workspace.pin(
+                dependency: dep,
+                packageName: "A",
+                rootPackages: [path],
+                version: v1,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -1011,7 +1015,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1065,7 +1069,12 @@ final class WorkspaceTests: XCTestCase {
                 try workspace.pinsStore.load().unpin(package: "A")
             }
 
-            workspace.pin(dependency: dep, packageName: "A", rootPackages: [path], diagnostics: diagnostics, version: v1)
+            workspace.pin(
+                dependency: dep,
+                packageName: "A",
+                rootPackages: [path],
+                version: v1,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
 
@@ -1132,7 +1141,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1293,7 +1302,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1345,8 +1354,8 @@ final class WorkspaceTests: XCTestCase {
                 dependency: dep,
                 packageName: "A",
                 rootPackages: [path],
-                diagnostics: diagnostics,
-                version: version)
+                version: version,
+                diagnostics: diagnostics)
         }
 
         // Pinning at v1 should work.
@@ -1475,8 +1484,8 @@ final class WorkspaceTests: XCTestCase {
                 dependency: dep,
                 packageName: "B",
                 rootPackages: [path],
-                diagnostics: diagnostics,
-                version: v1)
+                version: v1,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             workspace.reset(with: diagnostics)
@@ -1488,7 +1497,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = TestWorkspaceDelegate()
             let workspace = newWorkspace(with: delegate)
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let g = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1516,7 +1525,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = newWorkspace(with: delegate)
             XCTAssertTrue(delegate.warnings.isEmpty)
             let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(delegate.warnings.contains("Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."))
             let g = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -1831,8 +1840,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
-                revision: dependency.checkoutState!.revision)
+                revision: dependency.checkoutState!.revision,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             // We should retain the original pin for a package which is in edit mode.
@@ -1879,8 +1888,8 @@ final class WorkspaceTests: XCTestCase {
                 workspace.edit(
                     dependency: bDependency,
                     packageName: "B",
-                    diagnostics: diagnostics,
-                    revision: bDependency.checkoutState!.revision)
+                    revision: bDependency.checkoutState!.revision,
+                    diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
 
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, v1)
@@ -1900,7 +1909,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let workspace = createWorkspace()
                 let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics, repin: true)
+                workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
                 let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
                 let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
@@ -2051,8 +2060,8 @@ final class WorkspaceTests: XCTestCase {
             workspace.edit(
                 dependency: dependency,
                 packageName: aManifest.name,
-                diagnostics: diagnostics,
-                path: tot)
+                path: tot,
+                diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             let editedDependency = getDependency(aManifest)
