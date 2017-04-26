@@ -281,6 +281,9 @@ final class WorkspaceTests: XCTestCase {
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
 
+            // Just creating the workspace shouldn't result in ManagedDependencies state file being written out.
+            XCTAssertFalse(localFileSystem.exists(workspace.managedDependencies.statePath))
+
             // Ensure we have a checkout for A.
             for name in ["A"] {
                 let revision = try GitRepository(path: AbsolutePath(manifestGraph.repo(name).url)).getCurrentRevision()
@@ -292,6 +295,7 @@ final class WorkspaceTests: XCTestCase {
             let diagnostics = DiagnosticsEngine()
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertTrue(localFileSystem.exists(workspace.managedDependencies.statePath))
 
             // Validate the graph has the correct basic structure.
             XCTAssertEqual(graph.packages.count, 2)
