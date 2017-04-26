@@ -53,12 +53,6 @@ public extension ManifestResourceProvider {
     }
 }
 
-/// The supported manifest versions.
-public enum ManifestVersion: Int {
-    case three = 3
-    case four
-}
-
 extension ToolsVersion {
     /// Returns the manifest version for this tools version.
     public var manifestVersion: ManifestVersion {

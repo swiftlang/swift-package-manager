@@ -12,11 +12,18 @@ import Basic
 import PackageDescription
 import PackageDescription4
 
+/// The supported manifest versions.
+public enum ManifestVersion: Int {
+    case three = 3
+    case four
+}
+
 /**
  This contains the declarative specification loaded from package manifest
  files, and the tools for working with the manifest.
 */
 public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
+
     /// The standard filename for the manifest.
     public static var filename = basename + ".swift"
 
@@ -54,6 +61,14 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
     /// The name of the package.
     public var name: String {
         return package.name
+    }
+
+    /// The manifest version.
+    public var manifestVersion: ManifestVersion {
+        switch package {
+        case .v3: return .three
+        case .v4: return .four
+        }
     }
 
     public init(

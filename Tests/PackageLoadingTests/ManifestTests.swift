@@ -56,6 +56,7 @@ class ManifestTests: XCTestCase {
         // Check a trivial manifest.
         loadManifest("trivial-manifest.swift") { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.manifestVersion, .three)
             XCTAssertEqual(manifest.package.targets, [])
             XCTAssertEqual(manifest.package.dependencies, [])
         }
