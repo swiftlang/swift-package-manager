@@ -314,29 +314,29 @@ extension  Workspace {
     ///     - dependency: The dependency to put in edit mode.
     ///     - packageName: The name of the package corresponding to the
     ///       dependency. This is used for the checkout directory name.
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
     ///       created from the revision provided.
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
     public func edit(
         dependency: ManagedDependency,
         packageName: String,
-        diagnostics: DiagnosticsEngine,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
-        checkoutBranch: String? = nil
+        checkoutBranch: String? = nil,
+        diagnostics: DiagnosticsEngine
     ) {
         do {
             try _edit(
                 dependency: dependency,
                 packageName: packageName,
-                diagnostics: diagnostics,
                 path: path,
                 revision: revision,
-                checkoutBranch: checkoutBranch)
+                checkoutBranch: checkoutBranch,
+                diagnostics: diagnostics)
         } catch {
             diagnostics.emit(error)
         }
@@ -402,21 +402,21 @@ extension  Workspace {
     ///   - dependency: The dependency to pin.
     ///   - packageName: The name of the package which is being pinned.
     ///   - root: The workspace's root input.
-    ///   - diagnostics: The diagnostics engine that reports errors, warnings
-    ///     and notes.
     ///   - version: The version to pin at.
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
     ///   - reason: The optional reason for pinning.
+    ///   - diagnostics: The diagnostics engine that reports errors, warnings
+    ///     and notes.
     public func pin(
         dependency: ManagedDependency,
         packageName: String,
         root: WorkspaceRoot,
-        diagnostics: DiagnosticsEngine,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        diagnostics: DiagnosticsEngine
     ) {
         assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
         guard case .checkout(let currentState) = dependency.state else { fatalError() }
@@ -490,16 +490,16 @@ extension  Workspace {
     /// Pins all of the dependencies to the loaded version.
     ///
     /// - Parameters:
-    ///   - diagnostics: The diagnostics engine that reports errors, warnings
-    ///     and notes.
     ///   - reason: The optional reason for pinning.
     ///   - reset: Remove all current pins before pinning dependencies.
+    ///   - diagnostics: The diagnostics engine that reports errors, warnings
+    ///     and notes.
     public func pinAll(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
-        diagnostics: DiagnosticsEngine,
         reason: String? = nil,
-        reset: Bool = false
+        reset: Bool = false,
+        diagnostics: DiagnosticsEngine
     ) {
         if reset {
             guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
@@ -574,12 +574,16 @@ extension  Workspace {
     }
 
     /// Updates the current dependencies.
+    ///
+    /// - Parameters:
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
     public func updateDependencies(
         root: WorkspaceRoot,
-        diagnostics: DiagnosticsEngine,
-        repin: Bool = false
+        repin: Bool = false,
+        diagnostics: DiagnosticsEngine
     ) {
-        createCacheDirectories(diagnostics: diagnostics)
+        createCacheDirectories(with: diagnostics)
         // Load the root manifest and current manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         var currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
@@ -676,11 +680,11 @@ extension  Workspace {
     @discardableResult
     public func loadPackageGraph(
         root: WorkspaceRoot,
-        diagnostics: DiagnosticsEngine,
-        createMultipleTestProducts: Bool = false
+        createMultipleTestProducts: Bool = false,
+        diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
         // Ensure the cache path exists and validate that edited dependencies.
-        createCacheDirectories(diagnostics: diagnostics)
+        createCacheDirectories(with: diagnostics)
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
@@ -753,8 +757,8 @@ extension  Workspace {
                 self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
-                     diagnostics: diagnostics,
-                     reset: true)
+                     reset: true,
+                     diagnostics: diagnostics)
             }
         }
 
@@ -776,13 +780,15 @@ extension  Workspace {
 	/// before and after loading the package graph.
     public func loadGraphData(
         root: WorkspaceRoot,
-        diagnostics: DiagnosticsEngine,
-        createMultipleTestProducts: Bool = false
+        createMultipleTestProducts: Bool = false,
+        diagnostics: DiagnosticsEngine
     ) -> (graph: PackageGraph, dependencyMap: [ResolvedPackage: ManagedDependency]) {
 
         // Load the package graph.
         let graph = loadPackageGraph(
-            root: root, diagnostics: diagnostics, createMultipleTestProducts: createMultipleTestProducts)
+            root: root,
+            createMultipleTestProducts: createMultipleTestProducts,
+            diagnostics: diagnostics)
 
         // Report the updated managed dependencies.
         delegate.managedDependenciesDidUpdate(managedDependencies.values)
@@ -815,10 +821,10 @@ extension Workspace {
     func _edit(
         dependency: ManagedDependency,
         packageName: String,
-        diagnostics: DiagnosticsEngine,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
-        checkoutBranch: String? = nil
+        checkoutBranch: String? = nil,
+        diagnostics: DiagnosticsEngine
     ) throws {
         // Check if we can edit this dependency.
         guard case .checkout(let checkoutState) = dependency.state else {
@@ -943,8 +949,8 @@ extension Workspace {
             return pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: dependencyManifests,
-                diagnostics: diagnostics,
-                reset: true)
+                reset: true,
+                diagnostics: diagnostics)
         }
 
         // Otherwise, we need to repin only the previous pins.
@@ -973,7 +979,7 @@ extension Workspace {
 extension Workspace {
 
     /// Create the cache directories.
-    fileprivate func createCacheDirectories(diagnostics: DiagnosticsEngine) {
+    fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
         do {
             try fileSystem.createDirectory(repositoryManager.path, recursive: true)
             try fileSystem.createDirectory(checkoutsPath, recursive: true)
