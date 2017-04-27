@@ -244,6 +244,7 @@ public class SwiftTool<Options: ToolOptions> {
         do {
             // Setup the globals.
             verbosity = Verbosity(rawValue: options.verbosity)
+            Process.verbose = verbosity != .concise
             // Call the implementation.
             try runImpl()
             if diagnostics.hasErrors {
