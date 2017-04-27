@@ -304,6 +304,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) -> [String] {
         var cmd = [String]()
         let runtimePath = self.runtimePath(for: manifestVersion)
+        cmd += ["-swift-version", String(manifestVersion.rawValue)]
         cmd += ["-I", runtimePath.asString]
       #if os(macOS)
         cmd += ["-target", "x86_64-apple-macosx10.10"]
