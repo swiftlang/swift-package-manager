@@ -490,33 +490,33 @@ extension  Workspace {
     /// Pins all of the dependencies to the loaded version.
     ///
     /// - Parameters:
+    ///   - root: The workspace's root input.
     ///   - reason: The optional reason for pinning.
     ///   - reset: Remove all current pins before pinning dependencies.
     ///   - diagnostics: The diagnostics engine that reports errors, warnings
     ///     and notes.
     public func pinAll(
-        pinsStore: PinsStore,
-        dependencyManifests: DependencyManifests,
+        root: WorkspaceRoot,
         reason: String? = nil,
         reset: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        if reset {
-            guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
-                return
-            }
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
+            return
         }
-        
-        // Start pinning each dependency.
-        for dependencyManifest in dependencyManifests.dependencies {
-            diagnostics.wrap({
-                try pin(
-                    pinsStore: pinsStore,
-                    dependency: dependencyManifest.dependency,
-                    package: dependencyManifest.manifest.name,
-                    reason: reason)
-            })
+
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
+        let dependencyManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return
         }
+
+        pinAll(
+            pinsStore: pinsStore,
+            dependencyManifests: dependencyManifests,
+            reason: reason,
+            reset: reset,
+            diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -618,7 +618,10 @@ extension  Workspace {
         currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
         // If we're repinning, update the pins store.
         if repin && !diagnostics.hasErrors {
-            repinPackages(pinsStore, dependencyManifests: currentManifests, diagnostics: diagnostics)
+            repinPackages(
+                pinsStore: pinsStore,
+                dependencyManifests: currentManifests,
+                diagnostics: diagnostics)
         }
     }
 
@@ -935,12 +938,38 @@ extension Workspace {
             reason: reason)
     }
 
+    /// Pins all of the dependencies to the loaded version.
+    fileprivate func pinAll(
+        pinsStore: PinsStore,
+        dependencyManifests: DependencyManifests,
+        reason: String? = nil,
+        reset: Bool = false,
+        diagnostics: DiagnosticsEngine
+    ) {
+        if reset {
+            guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
+                return
+            }
+        }
+
+        // Start pinning each dependency.
+        for dependencyManifest in dependencyManifests.dependencies {
+            diagnostics.wrap({
+                try pin(
+                    pinsStore: pinsStore,
+                    dependency: dependencyManifest.dependency,
+                    package: dependencyManifest.manifest.name,
+                    reason: reason)
+            })
+        }
+    }
+
     /// Repin the packages.
     ///
     /// This methods pins all packages if auto pinning is on.
     /// Otherwise, only currently pinned packages are repinned.
     fileprivate func repinPackages(
-        _ pinsStore: PinsStore,
+        pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
         diagnostics: DiagnosticsEngine
     ) {
