@@ -71,12 +71,16 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         }
     }
 
+    /// The flags that were used to interprete the manifest.
+    public let interpreterFlags: [String]
+
     public init(
         path: AbsolutePath,
         url: String,
         package: RawPackage,
         legacyProducts: [PackageDescription.Product] = [],
-        version: Version?
+        version: Version?,
+        interpreterFlags: [String] = []
     ) {
         if case .v4 = package {
             precondition(legacyProducts.isEmpty, "Legacy products are not supported in v4 manifest.")
@@ -86,6 +90,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
         self.package = package
         self.legacyProducts = legacyProducts
         self.version = version
+        self.interpreterFlags = interpreterFlags
     }
 
     public var description: String {
