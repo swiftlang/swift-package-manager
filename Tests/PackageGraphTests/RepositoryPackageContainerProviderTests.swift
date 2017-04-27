@@ -129,7 +129,7 @@ private struct MockDependencyResolver {
     private let resolver: DependencyResolver<RepositoryPackageContainerProvider, MockResolverDelegate>
 
     init(repositories: MockRepository...) {
-        self.tmpDir = try! TemporaryDirectory()
+        self.tmpDir = try! TemporaryDirectory(removeTreeOnDeinit: true)
         self.repositories = MockRepositories(repositories: repositories)
         self.delegate = MockResolverDelegate()
         let repositoryManager = RepositoryManager(path: self.tmpDir.path, provider: self.repositories, delegate: self.delegate)
