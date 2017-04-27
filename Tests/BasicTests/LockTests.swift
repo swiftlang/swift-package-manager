@@ -31,7 +31,7 @@ class LockTests: XCTestCase {
         // Shared resource file.
         let sharedResource = try TemporaryFile()
         // Directory where lock file should be created.
-        let tempDir = try TemporaryDirectory()
+        let tempDir = try TemporaryDirectory(removeTreeOnDeinit: true)
 
         // Run the same executable multiple times and
         // we can expect the final result to be sum of the

@@ -44,7 +44,13 @@ public func fixture(
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        let tmpDir = try TemporaryDirectory(prefix: copyName, removeTreeOnDeinit: true)
+        let tmpDir = try TemporaryDirectory(prefix: copyName)
+
+        defer {
+            // Unblock and remove the tmp dir on deinit.
+            try? localFileSystem.set(attribute: .mutable, path: tmpDir.path, recursive: true)
+            localFileSystem.removeFileTree(tmpDir.path)
+        }
 
         // Construct the expected path of the fixture.
         // FIXME: This seems quite hacky; we should provide some control over where fixtures are found.
@@ -183,7 +189,12 @@ public func mktmpdir(
             .replacingOccurrences(of: "(", with: "")
             .replacingOccurrences(of: ")", with: "")
             .replacingOccurrences(of: ".", with: "")
-        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)", removeTreeOnDeinit: true)
+        let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)")
+        defer {
+            // Unblock and remove the tmp dir on deinit.
+            try? localFileSystem.set(attribute: .mutable, path: tmpDir.path, recursive: true)
+            localFileSystem.removeFileTree(tmpDir.path)
+        }
         try body(tmpDir.path)
     } catch {
         XCTFail("\(error)", file: file, line: line)

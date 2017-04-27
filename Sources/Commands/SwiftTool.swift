@@ -244,6 +244,7 @@ public class SwiftTool<Options: ToolOptions> {
         do {
             // Setup the globals.
             verbosity = Verbosity(rawValue: options.verbosity)
+            Process.verbose = verbosity != .concise
             // Call the implementation.
             try runImpl()
             if diagnostics.hasErrors {
@@ -422,6 +423,8 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
         stream <<< "    (regex #\"^\(directory.asString)/org\\.llvm\\.clang.*\")" <<< "\n"
         // For archive tool.
         stream <<< "    (regex #\"^\(directory.asString)/ar.*\")" <<< "\n"
+        // For xcrun cache.
+        stream <<< "    (regex #\"^\(directory.asString)/xcrun.*\")" <<< "\n"
         // For autolink files.
         stream <<< "    (regex #\"^\(directory.asString)/.*\\.swift-[0-9a-f]+\\.autolink\")" <<< "\n"
     }

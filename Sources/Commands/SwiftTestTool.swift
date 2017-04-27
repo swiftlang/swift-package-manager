@@ -284,7 +284,9 @@ final class TestRunner {
         var output = ""
         var success = true
         do {
-            let result = try Process.popen(arguments: args())
+            let process = Process(arguments: args(), redirectOutput: true, verbose: false)
+            try process.launch()
+            let result = try process.waitUntilExit()
             output = try (result.utf8Output() + result.utf8stderrOutput()).chuzzle() ?? ""
             success = result.exitStatus == .terminated(code: 0)
         } catch {

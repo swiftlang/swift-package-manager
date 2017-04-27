@@ -114,6 +114,12 @@ public final class Process: ObjectIdentifierProtocol {
     /// Typealias for process id type.
     public typealias ProcessID = pid_t
 
+    /// Global default setting for verbose.
+    public static var verbose = false
+
+    /// If true, prints the subprocess arguments before launching it.
+    public let verbose: Bool
+
     /// The current environment.
     static var env: [String: String] {
         return ProcessInfo.processInfo.environment
@@ -173,10 +179,17 @@ public final class Process: ObjectIdentifierProtocol {
     ///     will be inherited.
     ///   - redirectOutput: Redirect and store stdout/stderr output (of subprocess) in the process result, instead of
     ///     printing on the standard streams. Default value is true.
-    public init(arguments: [String], environment: [String: String] = env, redirectOutput: Bool = true) {
+    ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
+    public init(
+        arguments: [String],
+        environment: [String: String] = env,
+        redirectOutput: Bool = true,
+        verbose: Bool = Process.verbose
+    ) {
         self.arguments = arguments
         self.environment = environment
         self.redirectOutput = redirectOutput
+        self.verbose = verbose
     }
 
     /// Returns true if the given program is present and executable in search path.
@@ -208,6 +221,12 @@ public final class Process: ObjectIdentifierProtocol {
 
         // Set the launch bool to true.
         launched = true
+
+        // Print the arguments if we are verbose.
+        if self.verbose {
+            stdoutStream <<< arguments.map({ $0.shellEscaped() }).joined(separator: " ") <<< "\n"
+            stdoutStream.flush()
+        }
 
         // Look for executable.
         guard findExecutable(arguments[0]) else {
