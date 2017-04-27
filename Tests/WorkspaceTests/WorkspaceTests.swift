@@ -1162,6 +1162,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testPinAll() throws {
         let path = AbsolutePath("/RootPkg")
+        let root = WorkspaceRoot(packages: [path])
         let fs = InMemoryFileSystem()
         let manifestGraph = try MockManifestGraph(at: path,
             rootDeps: [
@@ -1202,12 +1203,7 @@ final class WorkspaceTests: XCTestCase {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
 
-            let pinsStore = try workspace.pinsStore.load()
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests, diagnostics: diagnostics)
+            workspace.pinAll(root: root, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
 
             // Reset so we have a clean workspace.
@@ -1291,15 +1287,12 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
+            let root = WorkspaceRoot(packages: [path])
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(graph.lookup("A").version == v1)
             XCTAssert(graph.lookup("B").version == v1)
-            let pinsStore = try workspace.pinsStore.load()
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            workspace.pinAll(pinsStore: pinsStore, dependencyManifests: manifests, diagnostics: diagnostics)
+            workspace.pinAll(root: root, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             workspace.reset(with: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
