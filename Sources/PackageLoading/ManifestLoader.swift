@@ -192,8 +192,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
         }
 
+        let parseResult = try parse(path: path, manifestVersion: manifestVersion)
+
         // Get the json from manifest.
-        guard let jsonString = try parse(path: path, manifestVersion: manifestVersion) else {
+        guard let jsonString = parseResult.jsonString else {
             throw ManifestParseError.emptyManifestFile
         }
         let json = try JSON(string: jsonString)
@@ -207,16 +209,22 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 url: baseURL,
                 package: .v3(pd.package),
                 legacyProducts: pd.products,
-                version: version)
+                version: version,
+                interpreterFlags: parseResult.interpreterFlags)
 
         case .four:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
-            return Manifest(path: path, url: baseURL, package: .v4(package), version: version)
+            return Manifest(
+                path: path, url: baseURL, package: .v4(package),
+                version: version, interpreterFlags: parseResult.interpreterFlags)
         }
     }
 
     /// Parse the manifest at the given path to JSON.
-    private func parse(path manifestPath: AbsolutePath, manifestVersion: ManifestVersion) throws -> String? {
+    private func parse(
+        path manifestPath: AbsolutePath,
+        manifestVersion: ManifestVersion
+    ) throws -> (jsonString: String?, interpreterFlags: [String]) {
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
         assert(manifestPath.extension == "swift",
@@ -228,7 +236,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // and validates it.
 
         // Compute the path to runtime we need to load.
-        let runtimePath = resources.libDir.appending(component: String(manifestVersion.rawValue)).asString
+        let runtimePath = self.runtimePath(for: manifestVersion).asString
+        let interpreterFlags = self.interpreterFlags(for: manifestVersion)
 
         var cmd = [String]()
       #if os(macOS)
@@ -242,18 +251,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += [resources.swiftCompiler.asString]
         cmd += ["--driver-mode=swift"]
         cmd += verbosity.ccArgs
-        cmd += ["-I", runtimePath]
         cmd += ["-L", runtimePath, "-lPackageDescription"]
-
-    #if os(macOS)
-        cmd += ["-target", "x86_64-apple-macosx10.10"]
-    #endif
-
-        // Use SDK root from resources or try to compute one locally.
-        if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
-            cmd += ["-sdk", sdkRoot.asString]
-        }
-
+        cmd += interpreterFlags
         cmd += [manifestPath.asString]
 
         // Create and open a temporary file to write json to.
@@ -275,7 +274,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.invalidEncoding
         }
 
-        return json.isEmpty ? nil : json
+        return (json.isEmpty ? nil : json, interpreterFlags)
     }
 
     /// Returns path to the sdk, if possible.
@@ -298,6 +297,27 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
     // Cache storage for computed sdk path.
     private var _sdkRoot: AbsolutePath? = nil
+
+    /// Returns the interpreter flags for a manifest.
+    public func interpreterFlags(
+        for manifestVersion: ManifestVersion
+    ) -> [String] {
+        var cmd = [String]()
+        let runtimePath = self.runtimePath(for: manifestVersion)
+        cmd += ["-I", runtimePath.asString]
+      #if os(macOS)
+        cmd += ["-target", "x86_64-apple-macosx10.10"]
+      #endif
+        if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
+            cmd += ["-sdk", sdkRoot.asString]
+        }
+        return cmd
+    }
+
+    /// Returns the runtime path given the manifest version and path to libDir.
+    private func runtimePath(for version: ManifestVersion) -> AbsolutePath {
+        return resources.libDir.appending(component: String(version.rawValue))
+    }
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.

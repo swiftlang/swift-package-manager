@@ -1002,6 +1002,17 @@ extension Workspace {
         }
     }
 
+    /// Returns manifest interpreter flags for a package.
+    public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
+        // We ignore all failures here and return empty array.
+        guard let manifestLoader = self.manifestLoader as? ManifestLoader,
+              let toolsVersion = try? toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem),
+              currentToolsVersion >= toolsVersion else {
+            return []
+        }
+        return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
+    }
+
     /// Loads the given manifest, if it is present in the managed dependencies.
     fileprivate func loadManifest(forDependencyURL url: String, diagnostics: DiagnosticsEngine) -> Manifest? {
         // Check if this dependency is available.

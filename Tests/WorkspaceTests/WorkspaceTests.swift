@@ -162,6 +162,13 @@ final class WorkspaceTests: XCTestCase {
             try testRepo.tag(name: "test-tag")
             let currentRevision = try testRepo.getCurrentRevision()
 
+            // Test interpreter flags.
+            do {
+                let workspace = Workspace.createWith(rootPackage: path)
+                let flags = workspace.interpreterFlags(for: path)
+                XCTAssertNotNil(flags.first(where: { $0.contains("/swift/pm/3") }))
+            }
+
             // Create the initial workspace.
             do {
                 let workspace = Workspace.createWith(rootPackage: path)
