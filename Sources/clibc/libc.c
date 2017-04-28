@@ -8,4 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-// This file is intentionally empty.
+// Stub method to avoid no debug symbol warning from compiler.
+int swiftpm_clibc_anchor() {
+    return 0;
+}
