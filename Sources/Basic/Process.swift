@@ -558,7 +558,13 @@ extension ProcessResult.Error: CustomStringConvertible {
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
             }
-            stream <<< result.arguments.map({ $0.shellEscaped() }).joined(separator: " ")
+            // Strip sandbox information from arguments to keep things pretty.
+            var args = result.arguments
+            // This seems a little fragile.
+            if args.first == "sandbox-exec", args.count > 3 {
+                args = args.suffix(from: 3).map({$0})
+            }
+            stream <<< args.map({ $0.shellEscaped() }).joined(separator: " ")
             return stream.bytes.asString!
         }
     }
