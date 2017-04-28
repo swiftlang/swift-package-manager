@@ -115,12 +115,13 @@ func print(diagnostic: Diagnostic) {
         return
     }
 
-    if !(diagnostic.location is UnknownLocation) {
-        writer.write(diagnostic.location.localizedDescription)
-        writer.write("\n")
-    }
     writer.write(diagnostic.localizedDescription)
     writer.write("\n")
+    if let fixit = fixit(for: diagnostic) {
+        writer.write("fix: ", inColor: .yellow, bold: true)
+        writer.write(fixit)
+        writer.write("\n")
+    }
 }
 
 /// This class is used to write on the underlying stream.
@@ -152,5 +153,25 @@ private final class InteractiveWriter {
             stream <<< string
             stream.flush()
         }
+    }
+}
+
+/// Returns the fixit for a diagnostic.
+fileprivate func fixit(for diagnostic: Diagnostic) -> String? {
+    switch diagnostic.data {
+    case let anyDiagnostic as AnyDiagnostic:
+        return fixit(for: anyDiagnostic.anyError)
+    default:
+        return nil
+    }
+}
+
+/// Returns the fixit for an error.
+fileprivate func fixit(for error: Swift.Error) -> String? {
+    switch error{
+    case ToolsVersionLoader.Error.malformed:
+        return "Run 'swift package tools-version --set-current' to set the current tools version in use"
+    default:
+        return nil
     }
 }
