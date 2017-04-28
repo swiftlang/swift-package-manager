@@ -1,10 +1,10 @@
-# Reference
+# PackageDescription API Version 3
 
 ## Table of Contents
 
 * [Overview](README.md)
 * [Usage](Usage.md)
-* [**Reference**](Reference.md)
+* [**PackageDescription API Version 3**](PackageDescriptionV3.md)
   * [Target Format Reference](#target-format-reference)
     * [Source Layouts](#source-layouts)
     * [Test Target Layouts](#test-target-layouts)

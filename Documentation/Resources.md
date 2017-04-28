@@ -4,7 +4,7 @@
 
 * [Overview](README.md)
 * [Usage](Usage.md)
-* [Reference](Reference.md)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [**Resources**](Resources.md)
   * [Support](#support)
   * [Reporting a good SwiftPM Bug](#reporting-a-good-swiftpm-bug)

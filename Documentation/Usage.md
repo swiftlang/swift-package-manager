@@ -23,7 +23,7 @@
     * [Release](#release)
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [C language targets](#c-language-targets)
-* [Reference](Reference.md)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
 * [Resources](Resources.md)
 
 ---
