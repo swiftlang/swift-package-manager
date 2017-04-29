@@ -21,7 +21,8 @@ public struct Sources {
     }
 
     public init(paths: [AbsolutePath], root: AbsolutePath) {
-        relativePaths = paths.map({ $0.relative(to: root) })
+        let relativePaths = paths.map({ $0.relative(to: root) })
+        self.relativePaths = relativePaths.sorted(by: { $0.asString < $1.asString })
         self.root = root
     }
 }

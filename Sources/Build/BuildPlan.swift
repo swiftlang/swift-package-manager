@@ -324,8 +324,9 @@ public final class ProductBuildDescription {
     }
 
     /// The objects in this product.
+    ///
     // Computed during build planning.
-    fileprivate(set) var objects: [AbsolutePath] = []
+    fileprivate(set) var objects = SortedArray<AbsolutePath>()
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.
@@ -539,8 +540,7 @@ public class BuildPlan {
         }
 
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
-        buildProduct.objects = dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
-
+        buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
     }
 
     /// Computes the dependencies of a product.
