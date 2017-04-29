@@ -430,6 +430,8 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCanKillSubprocessOnSigInt() throws {
+        // <rdar://problem/31890371> swift-pm: Spurious? failures of MiscellaneousTestCase.testCanKillSubprocessOnSigInt on linux
+      #if false
         fixture(name: "DependencyResolution/External/Simple") { prefix in
 
             let fakeGit = prefix.appending(components: "bin", "git")
@@ -476,6 +478,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertFalse(try Process.running(process.processID))
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }
+      #endif
     }
 
     func testReportingErrorFromGitCommand() throws {
