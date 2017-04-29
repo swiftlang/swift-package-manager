@@ -37,6 +37,11 @@ public struct SortedArray<Element>: CustomStringConvertible {
         elements.append(contentsOf: newElements)
         elements.sort(by: areInIncreasingOrder)
     }
+
+	/// Returns the values as an array.
+	public var values: [Element] {
+		return elements
+	}
     
     public var description: String {
         return "<SortedArray: \(elements)>"
@@ -70,5 +75,12 @@ extension SortedArray: RandomAccessCollection {
 extension SortedArray {
     public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == Element {
         lhs.insert(contentsOf: rhs)
+    }
+}
+
+extension SortedArray where Element: Comparable {
+    /// Create an empty sorted array with < as the comparison predicate.
+    public init() {
+		self.init(areInIncreasingOrder: <)
     }
 }
