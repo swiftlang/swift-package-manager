@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basic
+
 /// A command represents an atomic unit of build system work.
 struct Command {
     /// A unique name for the command.  This need not match any of the outputs
@@ -18,4 +20,27 @@ struct Command {
     /// A configured tool instance for the command.
     /// FIXME: Clean up the names here; tool, command, task, etc.
     let tool: ToolProtocol
+}
+
+/// A target is a grouping of commands that should be built together for a
+/// particular purpose.
+struct Target {
+    /// A unique name for the target.  These should be names that have meaning
+    /// to a client wanting to control the build.
+    let name: String
+
+    /// A list of commands to run when building the target.  A command may be
+    /// in multiple targets, or might not be in any target at all.
+    var cmds: SortedArray<Command>
+
+    init(name: String) {
+        self.name = name
+        self.cmds = SortedArray<Command>(areInIncreasingOrder: <)
+    }
+}
+
+extension Command {
+    static func < (lhs: Command, rhs: Command) -> Bool {
+        return lhs.name < rhs.name
+    }
 }

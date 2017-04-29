@@ -28,13 +28,13 @@ public struct LLbuildManifestGenerator {
     private struct Targets {
 
         /// Main target.
-        private(set) var main = Target(name: "main", cmds: [])
+        private(set) var main = Target(name: "main")
 
         /// Test target.
-        private(set) var test = Target(name: "test", cmds: [])
+        private(set) var test = Target(name: "test")
 
         /// All commands.
-        private(set) var allCommands: [Command] = []
+        private(set) var allCommands = SortedArray<Command>(areInIncreasingOrder: <)
 
         /// Append a command.
         mutating func append(_ command: Command, isTest: Bool) {
@@ -79,11 +79,11 @@ public struct LLbuildManifestGenerator {
         stream <<< "targets:\n"
         for target in [targets.test, targets.main] {
             stream <<< "  " <<< Format.asJSON(target.name)
-                <<< ": " <<< Format.asJSON(target.cmds.flatMap({ $0.tool.outputs })) <<< "\n"
+            stream <<< ": " <<< Format.asJSON(target.cmds.flatMap({ $0.tool.outputs })) <<< "\n"
         }
         stream <<< "default: " <<< Format.asJSON(targets.main.name) <<< "\n"
         stream <<< "commands: \n"
-        for command in targets.allCommands {
+        for command in targets.allCommands.sorted(by: { $0.name < $1.name }) {
             stream <<< "  " <<< Format.asJSON(command.name) <<< ":\n"
             command.tool.append(to: stream)
             stream <<< "\n"
@@ -113,14 +113,15 @@ public struct LLbuildManifestGenerator {
     /// Create command for Swift target description.
     private func createSwiftCommand(_ target: SwiftTargetDescription) -> Command {
         // Compute inital inputs.
-        var inputs = target.target.sources.paths.map({ $0.asString })
+        var inputs = SortedArray<String>()
+        inputs += target.target.sources.paths.map({ $0.asString })
 
         func addStaticTargetInputs(_ target: ResolvedTarget) {
             // Ignore C Modules.
             if target.underlyingTarget is CTarget { return }
             switch plan.targetMap[target] {
             case .swift(let target)?:
-                inputs += [target.moduleOutputPath.asString]
+                inputs.insert(target.moduleOutputPath.asString)
             case .clang(let target)?:
                 inputs += target.objects.map({ $0.asString })
             case nil:
@@ -150,7 +151,7 @@ public struct LLbuildManifestGenerator {
             }
         }
 
-        let tool = SwiftCompilerTool(target: target, inputs: inputs)
+        let tool = SwiftCompilerTool(target: target, inputs: inputs.values)
         return Command(name: target.target.targetName, tool: tool)
     }
 
@@ -160,12 +161,13 @@ public struct LLbuildManifestGenerator {
             var args = target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.asString]
             args += ["-c", path.source.asString, "-o", path.object.asString]
-            let clang = ClangTool(desc: "Compile \(target.target.name) \(path.filename.asString)",
-                                  //FIXME: Should we add build time dependency on dependent targets?
-                                  inputs: [path.source.asString],
-                                  outputs: [path.object.asString],
-                                  args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
-                                  deps: path.deps.asString)
+            let clang = ClangTool(
+                desc: "Compile \(target.target.name) \(path.filename.asString)",
+                //FIXME: Should we add build time dependency on dependent targets?
+                inputs: [path.source.asString],
+                outputs: [path.object.asString],
+                args: [plan.buildParameters.toolchain.clangCompiler.asString] + args,
+                deps: path.deps.asString)
             return Command(name: path.object.asString, tool: clang)
         })
     }
@@ -191,58 +193,5 @@ extension ProductBuildDescription {
         case .executable:
             return "<\(product.name).exe>"
         }
-    }
-}
-
-/// Swift compiler llbuild tool.
-// FIXME: Remove the old SwiftcTool once we completely shift to the new Build model.
-struct SwiftCompilerTool: ToolProtocol {
-
-    /// Inputs to the tool.
-    let inputs: [String]
-
-    /// Outputs produced by the tool.
-    var outputs: [String] {
-        return target.objects.map({ $0.asString }) + [target.moduleOutputPath.asString]
-    }
-
-    /// The underlying Swift build target.
-    let target: SwiftTargetDescription
-
-    static let numThreads = 8
-
-    init(target: SwiftTargetDescription, inputs: [String]) {
-        self.target = target
-        self.inputs = inputs
-    }
-
-    func append(to stream: OutputByteStream) {
-        stream <<< "    tool: swift-compiler\n"
-        stream <<< "    executable: "
-            <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.asString) <<< "\n"
-        stream <<< "    module-name: "
-            <<< Format.asJSON(target.target.c99name) <<< "\n"
-        stream <<< "    module-output-path: "
-            <<< Format.asJSON(target.moduleOutputPath.asString) <<< "\n"
-        stream <<< "    inputs: "
-            <<< Format.asJSON(inputs) <<< "\n"
-        stream <<< "    outputs: "
-            <<< Format.asJSON(outputs) <<< "\n"
-        stream <<< "    import-paths: "
-            <<< Format.asJSON([target.buildParameters.buildPath.asString]) <<< "\n"
-        stream <<< "    temps-path: "
-            <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
-        stream <<< "    objects: "
-            <<< Format.asJSON(target.objects.map({ $0.asString })) <<< "\n"
-        stream <<< "    other-args: "
-            <<< Format.asJSON(target.compileArguments()) <<< "\n"
-        stream <<< "    sources: "
-            <<< Format.asJSON(target.target.sources.paths.map({ $0.asString })) <<< "\n"
-        stream <<< "    is-library: "
-            <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
-        stream <<< "    enable-whole-module-optimization: "
-            <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
-        stream <<< "    num-threads: "
-            <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
     }
 }
