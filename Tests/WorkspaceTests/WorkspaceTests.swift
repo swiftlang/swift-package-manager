@@ -2179,7 +2179,7 @@ final class WorkspaceTests: XCTestCase {
 
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
 
-            try localFileSystem.set(attribute: .mutable, path: workspace.checkoutsPath, recursive: true)
+            try localFileSystem.chmod(.userWritable, path: workspace.checkoutsPath, options: [.recursive])
             try removeFileTree(workspace.checkoutsPath)
 
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)

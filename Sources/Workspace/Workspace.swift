@@ -533,9 +533,7 @@ extension  Workspace {
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
         let removed = diagnostics.wrap({
-            // Make all checkouts mutable.
-            try fileSystem.set(attribute: .mutable, path: checkoutsPath, recursive: true)
-
+            try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset manaked dependencies.
             try managedDependencies.reset()
         })
@@ -1293,9 +1291,9 @@ extension Workspace {
 
                 // The fetch operation may update contents of the checkout, so
                 // we need do mutable-immutable dance.
-                try fileSystem.set(attribute: .mutable, path: path, recursive: true)
+                try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
                 try workingRepo.fetch()
-                try fileSystem.set(attribute: .immutable, path: path, recursive: true)
+                try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
                 return path
             }
@@ -1307,8 +1305,7 @@ extension Workspace {
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
 
-        // Ensure the destination is writable and free.
-        try fileSystem.set(attribute: .mutable, path: path, recursive: true)
+        try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
@@ -1343,9 +1340,9 @@ extension Workspace {
         delegate.checkingOut(repository: repository.url, atReference: checkoutState.description, to: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
-        try fileSystem.set(attribute: .mutable, path: path, recursive: true)
+        try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try workingRepo.checkout(revision: checkoutState.revision)
-        try fileSystem.set(attribute: .immutable, path: path, recursive: true)
+        try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
         // Load the manifest.
         let diagnostics = DiagnosticsEngine()
@@ -1425,7 +1422,7 @@ extension Workspace {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
 
-        try fileSystem.set(attribute: .mutable, path: dependencyPath, recursive: true)
+        try fileSystem.chmod(.userWritable, path: dependencyPath, options: [.recursive, .onlyFiles])
         fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.

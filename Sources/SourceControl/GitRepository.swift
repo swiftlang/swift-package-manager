@@ -650,7 +650,7 @@ private class GitFileSystemView: FileSystem {
         fatalError("unsupported")
     }
 
-    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
     }
 }

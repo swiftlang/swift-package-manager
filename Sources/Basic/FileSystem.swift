@@ -83,21 +83,23 @@ extension FileSystemError {
     }
 }
 
-/// Defines the file attributes.
-public enum FileAttribute {
-    /// The file can be mutated.
-    case mutable
+/// Defines the file modes.
+public enum FileMode {
 
-    /// The file can't be mutated.
-    case immutable
+    public enum Option: Int {
+        case recursive
+        case onlyFiles
+    }
 
-    /// The commandline argument for the attribute.
+    case userUnWritable
+    case userWritable
+
     public var cliArgument: String {
         switch self {
-        case .mutable:
-            return "nouimmutable"
-        case .immutable:
-            return "uimmutable"
+        case .userUnWritable:
+            return "u-w"
+        case .userWritable:
+            return "u+w"
         }
     }
 }
@@ -158,8 +160,8 @@ public protocol FileSystem {
     /// to be an error).
     mutating func removeFileTree(_ path: AbsolutePath)
 
-    /// Sets the given attribute to a file.
-    func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws
+    /// Change file mode.
+    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -170,8 +172,9 @@ public extension FileSystem {
         try createDirectory(path, recursive: false)
     }
 
-    func set(attribute: FileAttribute, path: AbsolutePath)  throws {
-        try set(attribute: attribute, path: path, recursive: false)
+    // Change file mode.
+    func chmod(_ mode: FileMode, path: AbsolutePath) throws {
+        try chmod(mode, path: path, options: [])
     }
 
     /// Write to a file from a stream producer.
@@ -333,28 +336,26 @@ private class LocalFileSystem: FileSystem {
         }
     }
 
-    func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool = false) throws {
+    func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
       #if os(macOS)
         // Create appropriate variables for calling the posix functions.
         //
         // FIXME: We should have a utility for this.
         let paths = [path.asString.withCString(strdup), nil]
-        var fileFlagString = attribute.cliArgument.withCString(strdup)
+        var modeString = mode.cliArgument.withCString(strdup)
 
         // Free the allocation we did above.
         defer {
             for case let path? in paths { free(path) }
-            free(fileFlagString)
+            free(modeString)
         }
 
-        // Get the clear and set flags from the  string of file flags.
-        var clearFlag = UInt()
-        var setFlag = UInt()
-        guard strtofflags(&fileFlagString, &setFlag, &clearFlag) == 0 else {
+        // Get the mode we need to set.
+        guard let setMode = setmode(modeString) else {
             throw FileSystemError(errno: errno)
         }
-        clearFlag = ~clearFlag
 
+        let recursive = options.contains(.recursive)
         // If we're in recursive mode, do physical walk otherwise logical.
         let ftsOptions = recursive ? FTS_PHYSICAL : FTS_LOGICAL
 
@@ -404,18 +405,24 @@ private class LocalFileSystem: FileSystem {
                 break
             }
 
-            // Compute the new flag for this file.
-            let newFlags = UInt32((UInt(p.pointee.fts_statp.pointee.st_flags) | setFlag) & clearFlag)
+            // Compute the new mode for this file.
+            let currentMode = mode_t(p.pointee.fts_statp.pointee.st_mode)
 
-            // If new and old flags are same for this file, no need to do anything.
-            if newFlags == p.pointee.fts_statp.pointee.st_flags {
+            // Skip if only files should be changed.
+            if options.contains(.onlyFiles) && (currentMode & S_IFMT) == S_IFDIR {
                 continue
             }
 
-            // Update the flags.
+            // Compute the new mode.
+            let newMode = getmode(setMode, currentMode)
+            if newMode == currentMode {
+                continue
+            }
+
+            // Update the mode.
             //
             // We ignore the errors for now but we should have a way to report back.
-            chflags(p.pointee.fts_accpath, newFlags)
+            _ = libc.chmod(p.pointee.fts_accpath, newMode)
         }
       #endif
         // FIXME: We only support macOS right now.
@@ -668,7 +675,7 @@ public class InMemoryFileSystem: FileSystem {
         contents.entries[path.basename] = nil
     }
 
-    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
+    public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         // FIXME: We don't have these semantics in InMemoryFileSystem.
     }
 }
@@ -749,8 +756,8 @@ public struct RerootedFileSystemView: FileSystem {
         underlyingFileSystem.removeFileTree(path)
     }
 
-    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
-        try underlyingFileSystem.set(attribute: attribute, path: path, recursive: recursive)
+    public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+        try underlyingFileSystem.chmod(mode, path: path, options: options)
     }
 }
 

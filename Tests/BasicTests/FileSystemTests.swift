@@ -337,28 +337,34 @@ class FileSystemTests: XCTestCase {
             try fs.writeFileContents(foo, bytes: "")
             try fs.writeFileContents(bar, bytes: "")
 
-            // Set foo to immutable.
-            try fs.set(attribute: .immutable, path: foo)
-            XCTAssertThrows(FileSystemError.unknownOSError) {
+            // Set foo to unwritable.
+            try fs.chmod(.userUnWritable, path: foo)
+            XCTAssertThrows(FileSystemError.invalidAccess) {
                 try fs.writeFileContents(foo, bytes: "test")
             }
 
-            // Set the entire directory as mutable.
-            try fs.set(attribute: .mutable, path: dir, recursive: true)
-            try fs.writeFileContents(foo, bytes: "test")
-
-            // Set the directory as immutable.
-            try fs.set(attribute: .immutable, path: dir, recursive: true)
-            XCTAssertThrows(FileSystemError.unknownOSError) {
+            // Set the directory as unwritable.
+            try fs.chmod(.userUnWritable, path: dir, options: [.recursive, .onlyFiles])
+            XCTAssertThrows(FileSystemError.invalidAccess) {
                 try fs.writeFileContents(bar, bytes: "test")
             }
+            // It should be possible to add files.
+            try fs.writeFileContents(dir.appending(component: "new"), bytes: "")
+
+            // But not anymore.
+            try fs.chmod(.userUnWritable, path: dir, options: [.recursive])
+            XCTAssertThrows(FileSystemError.invalidAccess) {
+                try fs.writeFileContents(dir.appending(component: "new2"), bytes: "")
+            }
+
             fs.removeFileTree(bar)
             fs.removeFileTree(dir)
             XCTAssertTrue(fs.exists(dir))
             XCTAssertTrue(fs.exists(bar))
 
-            // Set the directory as mutable.
-            try fs.set(attribute: .mutable, path: dir, recursive: true)
+            // Set the entire directory as writable.
+            try fs.chmod(.userWritable, path: dir, options: [.recursive])
+            try fs.writeFileContents(foo, bytes: "test")
             fs.removeFileTree(dir)
             XCTAssertFalse(fs.exists(dir))
         }
