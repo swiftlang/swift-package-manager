@@ -60,11 +60,30 @@ public final class Package {
     /// The products produced by the package.
     public let products: [Product]
 
-    public init(manifest: Manifest, path: AbsolutePath, targets: [Target], products: [Product]) {
+    // The directory containing the targets which did not explicitly specify
+    // their path. If all targets are explicit, this is the preferred path for
+    // future targets.
+    public let targetSearchPath: AbsolutePath
+
+    // The directory containing the test targets which did not explicitly specify
+    // their path. If all test targets are explicit, this is the preferred path
+    // for future test targets.
+    public let testTargetSearchPath: AbsolutePath
+
+    public init(
+        manifest: Manifest,
+        path: AbsolutePath,
+        targets: [Target],
+        products: [Product],
+        targetSearchPath: AbsolutePath,
+        testTargetSearchPath: AbsolutePath
+    ) {
         self.manifest = manifest
         self.path = path
         self.targets = targets
         self.products = products
+        self.targetSearchPath = targetSearchPath
+        self.testTargetSearchPath = testTargetSearchPath
     }
 
     public enum Error: Swift.Error, Equatable {

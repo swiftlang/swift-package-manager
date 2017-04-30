@@ -305,12 +305,40 @@ public final class PackageBuilder {
     public func construct() throws -> Package {
         let targets = try constructTargets()
         let products = try constructProducts(targets)
+        // Find the special directory for targets.
+        let targetSpecialDirs = findTargetSpecialDirs(targets)
+
         return Package(
             manifest: manifest,
             path: packagePath,
             targets: targets,
-            products: products
+            products: products,
+            targetSearchPath: packagePath.appending(component: targetSpecialDirs.targetDir),
+            testTargetSearchPath: packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
+    }
+
+    /// Computes the special directory where targets are present or should be placed in future.
+    private func findTargetSpecialDirs(_ targets: [Target]) -> (targetDir: String, testTargetDir: String) {
+        let predefinedDirs = findPredefinedTargetDirectory()
+
+        // Select the preferred tests directory.
+        var testTargetDir = PackageBuilder.predefinedTestDirectories[0]
+
+        // If found predefined test directory is not same as preferred test directory,
+        // check if any of the test target is actually inside the predefined test directory.
+        if predefinedDirs.testTargetDir != testTargetDir {
+            let expectedTestsDir = packagePath.appending(component: predefinedDirs.testTargetDir)
+            for target in targets where target.type == .test {
+                // If yes, use the predefined test directory as preferred test directory.
+                if expectedTestsDir == target.sources.root.parentDirectory {
+                    testTargetDir = predefinedDirs.testTargetDir
+                    break
+                }
+            }
+        }
+
+        return (predefinedDirs.targetDir, testTargetDir)
     }
 
     // MARK: Utility Predicates
@@ -462,13 +490,29 @@ public final class PackageBuilder {
     }
 
     /// Predefined source directories, in order of preference.
-    public static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+    static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
 
     /// Predefined test directories, in order of preference.
-    public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+
+    /// Finds the predefined directories for regular and test targets.
+    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String) {
+        let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
+            fileSystem.isDirectory(packagePath.appending(component: $0))
+        }) ?? PackageBuilder.predefinedSourceDirectories[0]
+
+        let testTargetDir = PackageBuilder.predefinedTestDirectories.first(where: {
+            fileSystem.isDirectory(packagePath.appending(component: $0))
+        }) ?? PackageBuilder.predefinedTestDirectories[0]
+
+        return (targetDir, testTargetDir)
+    }
 
     /// Construct targets according to PackageDescription 4 conventions.
     fileprivate func constructV4Targets() throws -> [Target] {
+        // Select the correct predefined directory list.
+        let predefinedDirs = findPredefinedTargetDirectory()
+
         /// Returns the path of the given target.
         func findPath(for target: PackageDescription4.Target) throws -> AbsolutePath {
             // If there is a custom path defined, use that.
@@ -486,13 +530,12 @@ public final class PackageBuilder {
                 }
                 throw ModuleError.modulesNotFound([target.name])
             }
-            // Select the correct predefined directory list.
-            let predefinedDirs = target.isTest ? PackageBuilder.predefinedTestDirectories : PackageBuilder.predefinedSourceDirectories
-            for directory in predefinedDirs {
-                let path = packagePath.appending(components: directory, target.name)
-                if fileSystem.isDirectory(path) {
-                    return path
-                }
+
+            // Check if target is present in the predefined directory.
+            let predefinedDir = target.isTest ? predefinedDirs.testTargetDir : predefinedDirs.targetDir
+            let path = packagePath.appending(components: predefinedDir, target.name)
+            if fileSystem.isDirectory(path) {
+                return path
             }
             throw ModuleError.modulesNotFound([target.name])
         }
@@ -704,10 +747,7 @@ public final class PackageBuilder {
 
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget?.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
-        guard AbsolutePath.isValidComponent(publicHeaderComponent) else {
-            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-        }
-        let publicHeadersPath = potentialModule.path.appending(component: publicHeaderComponent)
+        let publicHeadersPath = potentialModule.path.appending(RelativePath(publicHeaderComponent))
         guard publicHeadersPath.contains(potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }

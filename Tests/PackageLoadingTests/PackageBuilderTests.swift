@@ -1110,6 +1110,14 @@ final class PackageBuilderTester {
         }
     }
 
+    func checkPredefinedPaths(target: String, testTarget: String, file: StaticString = #file, line: UInt = #line) {
+        guard case .package(let package) = result else {
+            return XCTFail("Expected package did not load \(self)", file: file, line: line)
+        }
+        XCTAssertEqual(target, package.targetSearchPath.asString, file: file, line: line)
+        XCTAssertEqual(testTarget, package.testTargetSearchPath.asString, file: file, line: line)
+    }
+
     func checkModule(_ name: String, file: StaticString = #file, line: UInt = #line, _ body: ((ModuleResult) -> Void)? = nil) {
         guard case .package(let package) = result else {
             return XCTFail("Expected package did not load \(self)", file: file, line: line)
