@@ -154,6 +154,9 @@ class PackageBuilderV4Tests: XCTestCase {
             ]
         )
         PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+
             result.checkModule("exe") { moduleResult in
                 moduleResult.check(c99name: "exe", type: .executable)
                 moduleResult.checkSources(root: "/mah/target/exe",
@@ -200,6 +203,9 @@ class PackageBuilderV4Tests: XCTestCase {
 
         package.targets[0].exclude = ["Tests"]
         PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+
             result.checkModule("bar") { moduleResult in
                 moduleResult.check(c99name: "bar", type: .library)
                 moduleResult.checkSources(root: "/target/bar", paths: "bar.swift")
@@ -230,6 +236,9 @@ class PackageBuilderV4Tests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.c")
@@ -247,7 +256,7 @@ class PackageBuilderV4Tests: XCTestCase {
     func testTestsLayoutsv4() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
-            "/Sources/B/Foo.swift",
+            "/Tests/B/Foo.swift",
             "/Tests/ATests/Foo.swift",
             "/Tests/TheTestOfA/Foo.swift")
 
@@ -261,6 +270,9 @@ class PackageBuilderV4Tests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+
             result.checkModule("A") { moduleResult in
                 moduleResult.check(c99name: "A", type: .executable)
                 moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
@@ -274,7 +286,7 @@ class PackageBuilderV4Tests: XCTestCase {
 
             result.checkModule("B") { moduleResult in
                 moduleResult.check(c99name: "B", type: .test)
-                moduleResult.checkSources(root: "/Sources/B", paths: "Foo.swift")
+                moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
                 moduleResult.check(dependencies: [])
             }
 
@@ -401,6 +413,9 @@ class PackageBuilderV4Tests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+
             result.checkModule("Foo") { moduleResult in
                 moduleResult.check(c99name: "Foo", type: .library)
                 moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
@@ -651,6 +666,86 @@ class PackageBuilderV4Tests: XCTestCase {
         }
     }
 
+    func testPredefinedTargetSearchError() {
+
+        do {
+            // We should look only in one of the predefined search paths.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Source/Foo/Foo.swift",
+                "/src/Bar/Bar.swift")
+
+            let package = Package(
+                name: "pkg",
+                targets: [
+                    .target(name: "Foo", dependencies: ["Bar"]),
+                    .target(name: "Bar"),
+                ]
+            )
+
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("these referenced targets could not be found: Bar fix: reference only valid targets")
+            }
+        }
+
+        do {
+            // We should look only in one of the predefined search paths.
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/Source/Foo/Foo.swift",
+                "/Tests/FooTests/Foo.swift",
+                "/Source/BarTests/Foo.swift")
+
+            let package = Package(
+                name: "pkg",
+                targets: [
+                    .testTarget(name: "BarTests"),
+                    .testTarget(name: "FooTests"),
+                ]
+            )
+
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("these referenced targets could not be found: BarTests fix: reference only valid targets")
+            }
+
+            // We should be able to fix this by using custom paths.
+            package.targets[0] = .testTarget(name: "BarTests", path: "Source/BarTests")
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkModule("BarTests") { moduleResult in
+                    moduleResult.check(c99name: "BarTests", type: .test)
+                }
+                result.checkModule("FooTests") { moduleResult in
+                    moduleResult.check(c99name: "FooTests", type: .test)
+                }
+            }
+        }
+    }
+
+    func testSpecialTargetDir() {
+        // Special directory should be src because both target and test target are under it.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/src/A/Foo.swift",
+            "/src/ATests/Foo.swift")
+
+        let package = Package(
+            name: "Foo",
+            targets: [
+                .target(name: "A"),
+                .testTarget(name: "ATests"),
+            ]
+        )
+
+        PackageBuilderTester(package, in: fs) { result in
+
+            result.checkPredefinedPaths(target: "/src", testTarget: "/src")
+
+            result.checkModule("A") { moduleResult in
+                moduleResult.check(c99name: "A", type: .library)
+            }
+            result.checkModule("ATests") { moduleResult in
+                moduleResult.check(c99name: "ATests", type: .test)
+            }
+        }
+    }
+
     static var allTests = [
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),
         ("testCustomTargetDependencies", testCustomTargetDependencies),
@@ -667,5 +762,7 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testResolvesSystemModulePackage", testResolvesSystemModulePackage),
         ("testTargetDependencies", testTargetDependencies),
         ("testTestsLayoutsv4", testTestsLayoutsv4),
+        ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
+        ("testSpecialTargetDir", testSpecialTargetDir),
     ]
 }

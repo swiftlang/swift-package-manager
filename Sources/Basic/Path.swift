@@ -34,7 +34,7 @@ public struct AbsolutePath {
     /// This only checks with regard to the semantics enforced by `AbsolutePath`
     /// and `RelativePath`; particular file systems may have their own
     /// additional requirements.
-    public static func isValidComponent(_ name: String) -> Bool {
+    static func isValidComponent(_ name: String) -> Bool {
         return name != "" && name != "." && name != ".." && !name.contains("/")
     }
 
@@ -142,11 +142,19 @@ public struct AbsolutePath {
 
     /// Returns the absolute path with an additional literal component appended.
     ///
-    /// This method should only be used in cases where the input is guaranteed
-    /// to be a valid path component (i.e., it cannot be empty, contain a path
-    /// separator, or be a pseudo-path like '.' or '..').
+    /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
     public func appending(component name: String) -> AbsolutePath {
-        assert(AbsolutePath.isValidComponent(name), "\(name) is invalid path component")
+        assert(!name.contains("/"), "\(name) is invalid path component")
+
+        // Handle pseudo paths.
+        switch name {
+        case "", ".":
+            return self
+        case "..":
+            return self.parentDirectory
+        default: break
+        }
+
         if self == AbsolutePath.root {
             return AbsolutePath(PathImpl(string: "/" + name))
         } else {

@@ -205,6 +205,15 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/a").appending(component: "b").asString, "/a/b")
         XCTAssertEqual(AbsolutePath("/").appending(components: "a", "b").asString, "/a/b")
         XCTAssertEqual(AbsolutePath("/a").appending(components: "b", "c").asString, "/a/b/c")
+
+        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "", "c").asString, "/a/b/c/c")
+        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "").asString, "/a/b/c")
+        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: ".").asString, "/a/b/c")
+        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "..").asString, "/a/b")
+        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "..", "d").asString, "/a/b/d")
+        XCTAssertEqual(AbsolutePath("/").appending(components: "..").asString, "/")
+        XCTAssertEqual(AbsolutePath("/").appending(components: ".").asString, "/")
+        XCTAssertEqual(AbsolutePath("/").appending(components: "..", "a").asString, "/a")
     }
     
     func testPathComponents() {
