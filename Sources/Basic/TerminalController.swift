@@ -78,11 +78,13 @@ public final class TerminalController {
             return width
         }
 
+#if TIOCGWINSZ
         // Try determining using ioctl.
         var ws = winsize()
         if ioctl(1, UInt(TIOCGWINSZ), &ws) == 0 {
             return Int(ws.ws_col)
         }
+#endif
         return nil
     }
 
