@@ -207,7 +207,7 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
             let buildOutput = try build()
 
-            XCTAssert(buildOutput.contains("baz was being edited but has been removed, falling back to original checkout."))
+            XCTAssert(buildOutput.contains("The dependency 'baz' was being edited but is missing. Falling back to original checkout."))
             // We should be able to see that modification now.
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.

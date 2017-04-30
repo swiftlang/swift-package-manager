@@ -37,7 +37,6 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     /// Map of checkedout repos with key as repository and value as the reference (version or revision).
     var checkedOut = [String: String]()
     var removed = [String]()
-    var warnings = [String]()
     var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
     typealias PartialGraphData = (currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
@@ -64,10 +63,6 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
     func removing(repository: String) {
         removed.append(repository)
-    }
-
-    func warning(message: String) {
-        warnings.append(message)
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -1027,7 +1022,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Pinning non existant version should fail.
             pin(at: "1.0.2", diagnostics: diagnostics)
-            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.2"))
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("A @ 1.0.2") }))
 
             // Pinning an unstatisfiable version should fail.
             diagnostics = DiagnosticsEngine()
@@ -1385,9 +1380,12 @@ final class WorkspaceTests: XCTestCase {
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
-            delegate.warnings.removeAll()
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertTrue(delegate.warnings[0].hasSuffix("A was being edited but has been removed, falling back to original checkout."))
+            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
+                $0.behavior == .warning &&
+                $0.localizedDescription == "The dependency 'A' was being edited but is missing. Falling back to original checkout."
+            }))
         }
     }
 
@@ -1712,7 +1710,10 @@ final class WorkspaceTests: XCTestCase {
 
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertTrue(delegate.warnings.contains(where: { $0.hasPrefix("Foo") && $0.hasSuffix(" is missing and has been cloned again.") }))
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
+                $0.behavior == .warning &&
+                $0.localizedDescription == "The dependency 'Foo' is missing and has been cloned again."
+            }))
             XCTAssertTrue(isDirectory(workspace.checkoutsPath))
         }
     }
