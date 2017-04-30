@@ -16,33 +16,6 @@ import PackageGraph
 import SourceControl
 import Utility
 
-/// An error in one of the workspace operations.
-public enum WorkspaceError: Swift.Error {
-    /// The repository has uncommited changes.
-    case hasUncommitedChanges(repo: AbsolutePath)
-
-    /// The repository has unpushed changes.
-    case hasUnpushedChanges(repo: AbsolutePath)
-
-    /// The dependency is already in edit mode.
-    case dependencyAlreadyInEditMode
-
-    /// The dependency is not in edit mode.
-    case dependencyNotInEditMode
-
-    /// The branch already exists in repository.
-    case branchAlreadyExists
-
-    /// The revision doesn't exists in repository.
-    case nonExistentRevision
-
-    /// The root package has incompatible tools version.
-    case incompatibleToolsVersion(rootPackage: AbsolutePath, required: ToolsVersion, current: ToolsVersion)
-
-    /// The package at edit destination is not the one user is trying to edit.
-    case mismatchingDestinationPackage(path: AbsolutePath, destPackage: String, expectedPackage: String)
-}
-
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: class {
 
