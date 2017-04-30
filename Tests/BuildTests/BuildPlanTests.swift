@@ -145,8 +145,8 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", 
             "/path/to/build/debug/exe.build/main.c.o",
-            "/path/to/build/debug/lib.build/lib.c.o",
             "/path/to/build/debug/extlib.build/extlib.c.o",
+            "/path/to/build/debug/lib.build/lib.c.o",
         ])
     }
 
@@ -211,9 +211,21 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(fooTests, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
       #if os(macOS)
-        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name", "PkgPackageTests", "-Xlinker", "-bundle", "/path/to/build/debug/FooTests.build/foo.swift.o", "/path/to/build/debug/Foo.build/foo.swift.o"])
+        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
+            "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o",
+            "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",
+            "PkgPackageTests", "-Xlinker", "-bundle",
+            "/path/to/build/debug/Foo.build/foo.swift.o",
+            "/path/to/build/debug/FooTests.build/foo.swift.o",
+        ])
       #else
-        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable", "/path/to/build/debug/FooTests.build/foo.swift.o", "/path/to/build/debug/Foo.build/foo.swift.o", "/path/to/build/debug/PkgPackageTests.build/LinuxMain.swift.o"])
+        XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
+            "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug", "-o",
+            "/path/to/build/debug/PkgPackageTests.xctest", "-module-name", "PkgPackageTests", "-emit-executable",
+            "/path/to/build/debug/Foo.build/foo.swift.o",
+            "/path/to/build/debug/FooTests.build/foo.swift.o",
+            "/path/to/build/debug/PkgPackageTests.build/LinuxMain.swift.o",
+        ])
       #endif
     }
 

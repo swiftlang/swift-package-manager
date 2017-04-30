@@ -48,18 +48,6 @@ struct ShellTool: ToolProtocol {
     }
 }
 
-/// A target is a grouping of commands that should be built together for a
-/// particular purpose.
-struct Target {
-    /// A unique name for the target.  These should be names that have meaning
-    /// to a client wanting to control the build.
-    let name: String
-
-    /// A list of commands to run when building the target.  A command may be
-    /// in multiple targets, or might not be in any target at all.
-    var cmds: [Command]
-}
-
 struct ClangTool: ToolProtocol {
     let desc: String
     let inputs: [String]
@@ -87,5 +75,57 @@ struct ArchiveTool: ToolProtocol {
         stream <<< "    tool: archive\n"
         stream <<< "    inputs: " <<< Format.asJSON(inputs) <<< "\n"
         stream <<< "    outputs: " <<< Format.asJSON(outputs) <<< "\n"
+    }
+}
+
+/// Swift compiler llbuild tool.
+struct SwiftCompilerTool: ToolProtocol {
+
+    /// Inputs to the tool.
+    let inputs: [String]
+
+    /// Outputs produced by the tool.
+    var outputs: [String] {
+        return target.objects.map({ $0.asString }) + [target.moduleOutputPath.asString]
+    }
+
+    /// The underlying Swift build target.
+    let target: SwiftTargetDescription
+
+    static let numThreads = 8
+
+    init(target: SwiftTargetDescription, inputs: [String]) {
+        self.target = target
+        self.inputs = inputs
+    }
+
+    func append(to stream: OutputByteStream) {
+        stream <<< "    tool: swift-compiler\n"
+        stream <<< "    executable: "
+            <<< Format.asJSON(target.buildParameters.toolchain.swiftCompiler.asString) <<< "\n"
+        stream <<< "    module-name: "
+            <<< Format.asJSON(target.target.c99name) <<< "\n"
+        stream <<< "    module-output-path: "
+            <<< Format.asJSON(target.moduleOutputPath.asString) <<< "\n"
+        stream <<< "    inputs: "
+            <<< Format.asJSON(inputs) <<< "\n"
+        stream <<< "    outputs: "
+            <<< Format.asJSON(outputs) <<< "\n"
+        stream <<< "    import-paths: "
+            <<< Format.asJSON([target.buildParameters.buildPath.asString]) <<< "\n"
+        stream <<< "    temps-path: "
+            <<< Format.asJSON(target.tempsPath.asString) <<< "\n"
+        stream <<< "    objects: "
+            <<< Format.asJSON(target.objects.map({ $0.asString })) <<< "\n"
+        stream <<< "    other-args: "
+            <<< Format.asJSON(target.compileArguments()) <<< "\n"
+        stream <<< "    sources: "
+            <<< Format.asJSON(target.target.sources.paths.map({ $0.asString })) <<< "\n"
+        stream <<< "    is-library: "
+            <<< Format.asJSON(target.target.type == .library || target.target.type == .test) <<< "\n"
+        stream <<< "    enable-whole-module-optimization: "
+            <<< Format.asJSON(target.buildParameters.configuration == .release) <<< "\n"
+        stream <<< "    num-threads: "
+            <<< Format.asJSON("\(SwiftCompilerTool.numThreads)") <<< "\n"
     }
 }
