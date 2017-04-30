@@ -216,8 +216,8 @@ extension InMemoryGitRepository: FileSystem {
         head.fileSystem.removeFileTree(path)
     }
 
-    public func set(attribute: FileAttribute, path: AbsolutePath, recursive: Bool) throws {
-        try head.fileSystem.set(attribute: attribute, path: path, recursive: recursive)
+    public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
+        try head.fileSystem.chmod(mode, path: path, options: options)
     }
 }
 

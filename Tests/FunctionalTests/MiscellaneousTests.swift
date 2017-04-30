@@ -291,7 +291,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             let path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
-            try localFileSystem.set(attribute: .mutable, path: path, recursive: true)
+            try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             XCTAssertBuilds(prefix.appending(component: "app"))
@@ -318,7 +318,7 @@ class MiscellaneousTestCase: XCTestCase {
             sleep(1)
 
             let path = try SwiftPMProduct.packagePath(for: "dep1", packageRoot: packageRoot)
-            try localFileSystem.set(attribute: .mutable, path: path, recursive: true)
+            try localFileSystem.chmod(.userWritable, path: path, options: [.recursive])
             try localFileSystem.writeFileContents(path.appending(components: "Foo.swift"), bytes: "public let foo = \"Goodbye\"")
 
             XCTAssertBuilds(prefix.appending(component: "root"))

@@ -48,7 +48,7 @@ public func fixture(
 
         defer {
             // Unblock and remove the tmp dir on deinit.
-            try? localFileSystem.set(attribute: .mutable, path: tmpDir.path, recursive: true)
+            try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
             localFileSystem.removeFileTree(tmpDir.path)
         }
 
@@ -192,7 +192,7 @@ public func mktmpdir(
         let tmpDir = try TemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)")
         defer {
             // Unblock and remove the tmp dir on deinit.
-            try? localFileSystem.set(attribute: .mutable, path: tmpDir.path, recursive: true)
+            try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
             localFileSystem.removeFileTree(tmpDir.path)
         }
         try body(tmpDir.path)
