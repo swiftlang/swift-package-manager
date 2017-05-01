@@ -100,9 +100,10 @@ extension ByteString: Hashable {
         }
         return result
     }
-}
-public func == (lhs: ByteString, rhs: ByteString) -> Bool {
-    return lhs.contents == rhs.contents
+    
+    public static func == (lhs: ByteString, rhs: ByteString) -> Bool {
+        return lhs.contents == rhs.contents
+    }
 }
 
 /// ByteStreamable conformance for a ByteString.

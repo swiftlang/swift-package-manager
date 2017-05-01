@@ -122,16 +122,18 @@ extension SystemPackageProvider {
 }
 
 // MARK: Equatable
-extension Package : Equatable { }
-public func == (lhs: Package, rhs: Package) -> Bool {
-    return (lhs.name == rhs.name &&
-        lhs.targets == rhs.targets &&
-        lhs.dependencies == rhs.dependencies)
+extension Package : Equatable {
+    public static func == (lhs: Package, rhs: Package) -> Bool {
+        return (lhs.name == rhs.name &&
+            lhs.targets == rhs.targets &&
+            lhs.dependencies == rhs.dependencies)
+    }
 }
 
-extension Package.Dependency : Equatable { }
-public func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
-    return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
+extension Package.Dependency : Equatable {
+    public static func == (lhs: Package.Dependency, rhs: Package.Dependency) -> Bool {
+        return lhs.url == rhs.url && lhs.versionRange == rhs.versionRange
+    }
 }
 
 // MARK: Package JSON serialization

@@ -67,23 +67,24 @@ extension JSON: CustomStringConvertible {
 }
 
 /// Equatable conformance.
-extension JSON: Equatable { }
-public func == (lhs: JSON, rhs: JSON) -> Bool {
-    switch (lhs, rhs) {
-    case (.null, .null): return true
-    case (.null, _): return false
-    case (.bool(let a), .bool(let b)): return a == b
-    case (.bool, _): return false
-    case (.int(let a), .int(let b)): return a == b
-    case (.int, _): return false
-    case (.double(let a), .double(let b)): return a == b
-    case (.double, _): return false
-    case (.string(let a), .string(let b)): return a == b
-    case (.string, _): return false
-    case (.array(let a), .array(let b)): return a == b
-    case (.array, _): return false
-    case (.dictionary(let a), .dictionary(let b)): return a == b
-    case (.dictionary, _): return false
+extension JSON: Equatable {
+    public static func == (lhs: JSON, rhs: JSON) -> Bool {
+        switch (lhs, rhs) {
+        case (.null, .null): return true
+        case (.null, _): return false
+        case (.bool(let a), .bool(let b)): return a == b
+        case (.bool, _): return false
+        case (.int(let a), .int(let b)): return a == b
+        case (.int, _): return false
+        case (.double(let a), .double(let b)): return a == b
+        case (.double, _): return false
+        case (.string(let a), .string(let b)): return a == b
+        case (.string, _): return false
+        case (.array(let a), .array(let b)): return a == b
+        case (.array, _): return false
+        case (.dictionary(let a), .dictionary(let b)): return a == b
+        case (.dictionary, _): return false
+        }
     }
 }
 

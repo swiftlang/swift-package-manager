@@ -120,25 +120,26 @@ public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
             return version.description
         }
     }
-}
-public func == (_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
-    switch (lhs, rhs) {
-    case (.any, .any):
-        return true
-    case (.any, _):
-        return false
-    case (.empty, .empty):
-        return true
-    case (.empty, _):
-        return false
-    case (.range(let lhs), .range(let rhs)):
-        return lhs == rhs
-    case (.range, _):
-        return false
-    case (.exact(let lhs), .exact(let rhs)):
-        return lhs == rhs
-    case (.exact, _):
-        return false
+    
+    public static func == (_ lhs: VersionSetSpecifier, _ rhs: VersionSetSpecifier) -> Bool {
+        switch (lhs, rhs) {
+        case (.any, .any):
+            return true
+        case (.any, _):
+            return false
+        case (.empty, .empty):
+            return true
+        case (.empty, _):
+            return false
+        case (.range(let lhs), .range(let rhs)):
+            return lhs == rhs
+        case (.range, _):
+            return false
+        case (.exact(let lhs), .exact(let rhs)):
+            return lhs == rhs
+        case (.exact, _):
+            return false
+        }
     }
 }
 
@@ -341,25 +342,26 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
             return identifier
         }
     }
-}
-public func == (_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
-    switch (lhs, rhs) {
-    case (.excluded, .excluded):
-        return true
-    case (.excluded, _):
-        return false
-    case (.version(let lhs), .version(let rhs)):
-        return lhs == rhs
-    case (.version, _):
-        return false
-    case (.revision(let lhs), .revision(let rhs)):
-        return lhs == rhs
-    case (.revision, _):
-        return false
-    case (.unversioned, .unversioned):
-        return true
-    case (.unversioned, _):
-        return false
+    
+    public static func == (_ lhs: BoundVersion, _ rhs: BoundVersion) -> Bool {
+        switch (lhs, rhs) {
+        case (.excluded, .excluded):
+            return true
+        case (.excluded, _):
+            return false
+        case (.version(let lhs), .version(let rhs)):
+            return lhs == rhs
+        case (.version, _):
+            return false
+        case (.revision(let lhs), .revision(let rhs)):
+            return lhs == rhs
+        case (.revision, _):
+            return false
+        case (.unversioned, .unversioned):
+            return true
+        case (.unversioned, _):
+            return false
+        }
     }
 }
 
@@ -1314,7 +1316,7 @@ private struct ResolverDebugger<
             }
         }
 
-        static func ==(lhs: ResolverChange, rhs: ResolverChange) -> Bool {
+        static func == (lhs: ResolverChange, rhs: ResolverChange) -> Bool {
             switch (lhs, rhs) {
             case (.allowPackage(let lhs), .allowPackage(let rhs)):
                 return lhs == rhs
