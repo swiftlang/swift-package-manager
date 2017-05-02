@@ -28,8 +28,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     ) {
     }
 
-    func fetching(repository: String) {
+    func fetchingWillBegin(repository: String) {
         print("Fetching \(repository)")
+    }
+
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func cloning(repository: String) {

@@ -117,8 +117,11 @@ private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManage
         addedContainers.append(identifier)
     }
 
-    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
         fetched += [handle.repository]
+    }
+
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
     }
 }
 

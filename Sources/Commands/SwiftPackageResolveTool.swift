@@ -20,8 +20,11 @@ private class ResolverToolDelegate: DependencyResolverDelegate, RepositoryManage
         print("note: considering repository: \(identifier.url)")
     }
 
-    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
-        print("note: fetching \(handle.repository.url) to \(path.asString)")
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+        print("note: fetching \(handle.repository.url)")
+    }
+
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
     }
 }
 

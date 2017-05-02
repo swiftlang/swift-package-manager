@@ -95,20 +95,27 @@ private class DummyRepositoryProvider: RepositoryProvider {
 }
 
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-    private var _fetched = [RepositorySpecifier]()
+    private var _willFetch = [RepositorySpecifier]()
+    private var _didFetch = [RepositorySpecifier]()
     private var fetchedLock = Lock() 
 
-    var fetched: [RepositorySpecifier] {
-        get {
-            return fetchedLock.withLock {
-                return _fetched
-            }
+    var willFetch: [RepositorySpecifier] {
+        return fetchedLock.withLock({ _willFetch })
+    }
+
+    var didFetch: [RepositorySpecifier] {
+        return fetchedLock.withLock({ _didFetch })
+    }
+
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+        fetchedLock.withLock {
+            _willFetch += [handle.repository]
         }
     }
 
-    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
         fetchedLock.withLock {
-            _fetched += [handle.repository]
+            _didFetch += [handle.repository]
         }
     }
 }
@@ -176,7 +183,8 @@ class RepositoryManagerTests: XCTestCase {
             }
             
             // We should have tried fetching these two.
-            XCTAssertEqual(Set(delegate.fetched), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.willFetch), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.didFetch), [dummyRepo, badDummyRepo])
         }
     }
 
@@ -190,12 +198,14 @@ class RepositoryManagerTests: XCTestCase {
             let dummyRepo = RepositorySpecifier(url: "dummy")
             _ = try manager.lookupSynchronously(repository: dummyRepo)
             _ = try manager.lookupSynchronously(repository: dummyRepo)
-            XCTAssertEqual(delegate.fetched.count, 1)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
             manager.reset()
             XCTAssertTrue(!isDirectory(repos))
             try localFileSystem.createDirectory(repos, recursive: true)
             _ = try manager.lookupSynchronously(repository: dummyRepo)
-            XCTAssertEqual(delegate.fetched.count, 2)
+            XCTAssertEqual(delegate.willFetch.count, 2)
+            XCTAssertEqual(delegate.didFetch.count, 2)
         }
     }
 
@@ -231,7 +241,8 @@ class RepositoryManagerTests: XCTestCase {
 
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
 
-                XCTAssertEqual(delegate.fetched, [dummyRepo])
+                XCTAssertEqual(delegate.willFetch, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch, [dummyRepo])
             }
             // We should have performed one fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -244,7 +255,7 @@ class RepositoryManagerTests: XCTestCase {
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
                 // This time fetch shouldn't be called.
-                XCTAssertEqual(delegate.fetched, [])
+                XCTAssertEqual(delegate.willFetch, [])
             }
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -260,7 +271,8 @@ class RepositoryManagerTests: XCTestCase {
 
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
 
-                XCTAssertEqual(delegate.fetched, [dummyRepo])
+                XCTAssertEqual(delegate.willFetch, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch, [dummyRepo])
             }
             // We should have re-fetched.
             XCTAssertEqual(provider.numClones, 2)

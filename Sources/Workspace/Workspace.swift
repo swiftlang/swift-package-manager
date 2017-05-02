@@ -30,7 +30,10 @@ public protocol WorkspaceDelegate: class {
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
 
     /// The workspace has started fetching this repository.
-    func fetching(repository: String)
+    func fetchingWillBegin(repository: String)
+
+    /// The workspace has finished fetching this repository.
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
 
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
@@ -68,8 +71,17 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
-        workspaceDelegate.fetching(repository: handle.repository.url)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url)
+    }
+
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
+        let diagnostic: Diagnostic? = error.flatMap({
+            let engine = DiagnosticsEngine()
+            engine.emit($0)
+            return engine.diagnostics.first
+        })
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, diagnostic: diagnostic)
     }
 }
 

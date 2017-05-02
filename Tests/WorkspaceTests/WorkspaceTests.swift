@@ -47,8 +47,11 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
         partialGraphs.append((currentGraph, dependencies, missingURLs))
     }
 
-    func fetching(repository: String) {
+    func fetchingWillBegin(repository: String) {
         fetched.append(repository)
+    }
+
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
     func cloning(repository: String) {
