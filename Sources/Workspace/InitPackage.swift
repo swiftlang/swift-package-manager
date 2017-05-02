@@ -84,17 +84,27 @@ public final class InitPackage {
         }
 
         try writePackageFile(manifest) { stream in
-            stream <<< "\nimport PackageDescription\n"
-            stream <<< "\n"
-            stream <<< "let package = Package(\n"
-            stream <<< "    name: \"\(pkgname)\",\n"
+            stream <<<     "// The swift-tools-version declares the minimum version of Swift required to build this package.\n"
+            stream <<<     "\n"
+            stream <<<     "\nimport PackageDescription\n"
+            stream <<<     "\n"
+            stream <<<     "let package = Package(\n"
+            stream <<<     "    name: \"\(pkgname)\",\n"
             if packageType == .library {
                 stream <<< "    products: [\n"
+                stream <<< "        // Products define the executables and libraries produced by a package, and make them visible to other packages.\n"
                 stream <<< "        .library(\n"
                 stream <<< "            name: \"\(pkgname)\",\n"
                 stream <<< "            targets: [\"\(pkgname)\"]),\n"
                 stream <<< "    ],\n"
+            }
+            stream <<<     "    dependencies: [\n"
+            stream <<<     "        // Dependencies declare other packages that this package depends on.\n"
+            stream <<<     "    ],\n"
+            if packageType == .library {
                 stream <<< "    targets: [\n"
+                stream <<< "        // Targets are the basic building blocks of a package. A target can define a module or a test suite.\n"
+                stream <<< "        // Targets can depend on other targets in this package, and on products in packages which this package depends on.\n"
                 stream <<< "        .target(\n"
                 stream <<< "            name: \"\(pkgname)\",\n"
                 stream <<< "            dependencies: []),\n"
@@ -102,14 +112,17 @@ public final class InitPackage {
                 stream <<< "            name: \"\(pkgname)Tests\",\n"
                 stream <<< "            dependencies: [\"\(pkgname)\"]),\n"
                 stream <<< "    ]\n"
-            } else if packageType == .executable {
+            }
+            if packageType == .executable {
                 stream <<< "    targets: [\n"
+                stream <<< "        // Targets are the basic building blocks of a package. A target can define a module or a test suite.\n"
+                stream <<< "        // Targets can depend on other targets in this package, and on products in packages which this package depends on.\n"
                 stream <<< "        .target(\n"
                 stream <<< "            name: \"\(pkgname)\",\n"
                 stream <<< "            dependencies: []),\n"
                 stream <<< "    ]\n"
             }
-            stream <<< ")\n"
+            stream <<<     ")\n"
         }
 
         // Create a tools version with current version but with patch set to zero.
