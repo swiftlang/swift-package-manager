@@ -11,7 +11,7 @@
 import Basic
 
 /// Specifies a repository address.
-public struct RepositorySpecifier: Hashable, CustomStringConvertible {
+public struct RepositorySpecifier {
     /// The URL of the repository.
     public let url: String
 
@@ -31,17 +31,22 @@ public struct RepositorySpecifier: Hashable, CustomStringConvertible {
         let basename = url.components(separatedBy: "/").last!
         return basename + "-" + String(url.hashValue)
     }
+}
 
+extension RepositorySpecifier: Hashable {
     public var hashValue: Int {
         return url.hashValue
     }
+    
+    public static func == (lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
+        return lhs.url == rhs.url
+    }
+}
 
+extension RepositorySpecifier: CustomStringConvertible {
     public var description: String {
         return "RepositorySpecifier(\(url))"
     }
-}
-public func == (lhs: RepositorySpecifier, rhs: RepositorySpecifier) -> Bool {
-    return lhs.url == rhs.url
 }
 
 extension RepositorySpecifier: JSONMappable, JSONSerializable {

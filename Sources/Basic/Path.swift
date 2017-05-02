@@ -296,24 +296,26 @@ extension AbsolutePath : Hashable {
 }
 
 // Make absolute paths Equatable.
-extension AbsolutePath : Equatable { }
-public func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString == rhs.asString
+extension AbsolutePath : Equatable {
+    public static func == (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+        return lhs.asString == rhs.asString
+    }
 }
 
 // Make absolute paths Comparable.
-extension AbsolutePath : Comparable { }
-public func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString < rhs.asString
-}
-public func <= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString <= rhs.asString
-}
-public func >= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString >= rhs.asString
-}
-public func > (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
-    return lhs.asString > rhs.asString
+extension AbsolutePath : Comparable {
+    public static func < (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+        return lhs.asString < rhs.asString
+    }
+    public static func <= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+        return lhs.asString <= rhs.asString
+    }
+    public static func >= (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+        return lhs.asString >= rhs.asString
+    }
+    public static func > (lhs: AbsolutePath, rhs: AbsolutePath) -> Bool {
+        return lhs.asString > rhs.asString
+    }
 }
 
 /// Make absolute paths CustomStringConvertible.
@@ -332,9 +334,10 @@ extension RelativePath : Hashable {
 }
 
 // Make relative paths Equatable.
-extension RelativePath : Equatable { }
-public func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
-    return lhs.asString == rhs.asString
+extension RelativePath : Equatable {
+    public static func == (lhs: RelativePath, rhs: RelativePath) -> Bool {
+        return lhs.asString == rhs.asString
+    }
 }
 
 /// Make relative paths CustomStringConvertible.

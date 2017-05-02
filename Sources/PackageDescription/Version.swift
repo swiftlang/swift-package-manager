@@ -33,18 +33,18 @@ public struct Version {
 
 // MARK: Equatable
 
-extension Version: Equatable {}
-
-public func == (v1: Version, v2: Version) -> Bool {
-    guard v1.major == v2.major && v1.minor == v2.minor && v1.patch == v2.patch else {
-        return false
+extension Version: Equatable {
+    public static func == (v1: Version, v2: Version) -> Bool {
+        guard v1.major == v2.major && v1.minor == v2.minor && v1.patch == v2.patch else {
+            return false
+        }
+        
+        if v1.prereleaseIdentifiers != v2.prereleaseIdentifiers {
+            return false
+        }
+        
+        return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
     }
-
-    if v1.prereleaseIdentifiers != v2.prereleaseIdentifiers {
-        return false
-    }
-
-    return v1.buildMetadataIdentifier == v2.buildMetadataIdentifier
 }
 
 // MARK: Hashable
@@ -68,44 +68,44 @@ extension Version: Hashable {
 
 // MARK: Comparable
 
-extension Version: Comparable {}
-
-public func < (lhs: Version, rhs: Version) -> Bool {
-    let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
-    let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
-
-    if lhsComparators != rhsComparators {
-        return lhsComparators.lexicographicallyPrecedes(rhsComparators)
-    }
-
-    guard lhs.prereleaseIdentifiers.count > 0 else {
-        return false // Non-prerelease lhs >= potentially prerelease rhs
-    }
-
-    guard rhs.prereleaseIdentifiers.count > 0 else {
-        return true // Prerelease lhs < non-prerelease rhs 
-    }
-
-    let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)
-    for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zippedIdentifiers {
-        if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
-            continue
+extension Version: Comparable {
+    public static func < (lhs: Version, rhs: Version) -> Bool {
+        let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
+        let rhsComparators = [rhs.major, rhs.minor, rhs.patch]
+        
+        if lhsComparators != rhsComparators {
+            return lhsComparators.lexicographicallyPrecedes(rhsComparators)
         }
-
-        let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
-        let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
-
-        switch (typedLhsIdentifier, typedRhsIdentifier) {
+        
+        guard lhs.prereleaseIdentifiers.count > 0 else {
+            return false // Non-prerelease lhs >= potentially prerelease rhs
+        }
+        
+        guard rhs.prereleaseIdentifiers.count > 0 else {
+            return true // Prerelease lhs < non-prerelease rhs
+        }
+        
+        let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)
+        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zippedIdentifiers {
+            if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
+                continue
+            }
+            
+            let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
+            let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
+            
+            switch (typedLhsIdentifier, typedRhsIdentifier) {
             case let (int1 as Int, int2 as Int): return int1 < int2
             case let (string1 as String, string2 as String): return string1 < string2
             case (is Int, is String): return true // Int prereleases < String prereleases
             case (is String, is Int): return false
-        default:
-            return false
+            default:
+                return false
+            }
         }
+        
+        return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
     }
-
-    return lhs.prereleaseIdentifiers.count < rhs.prereleaseIdentifiers.count
 }
 
 // MARK: BidirectionalIndexType

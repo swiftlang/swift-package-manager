@@ -41,6 +41,10 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         public var hashValue: Int {
             return url.hashValue ^ (version?.hashValue ?? 0)
         }
+        
+        public static func == (lhs: MockManifestLoader.Key, rhs: MockManifestLoader.Key) -> Bool {
+            return lhs.url == rhs.url && lhs.version == rhs.version
+        }
     }
 
     public let manifests: [Key: Manifest]
@@ -62,7 +66,4 @@ public struct MockManifestLoader: ManifestLoaderProtocol {
         }
         throw MockManifestLoaderError.unknownRequest("\(key)")
     }
-}
-public func == (lhs: MockManifestLoader.Key, rhs: MockManifestLoader.Key) -> Bool {
-    return lhs.url == rhs.url && lhs.version == rhs.version
 }

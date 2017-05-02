@@ -47,16 +47,18 @@ extension Target.Dependency : ExpressibleByStringLiteral {
 
 // MARK: Equatable
 
-extension Target : Equatable { }
-public func == (lhs: Target, rhs: Target) -> Bool {
-    return (lhs.name == rhs.name &&
-        lhs.dependencies == rhs.dependencies)
+extension Target : Equatable {
+    public static func == (lhs: Target, rhs: Target) -> Bool {
+        return (lhs.name == rhs.name &&
+            lhs.dependencies == rhs.dependencies)
+    }
 }
 
-extension Target.Dependency : Equatable { }
-public func == (lhs: Target.Dependency, rhs: Target.Dependency) -> Bool {
-    switch (lhs, rhs) {
-    case (.Target(let a), .Target(let b)):
-        return a == b
+extension Target.Dependency : Equatable {
+    public static func == (lhs: Target.Dependency, rhs: Target.Dependency) -> Bool {
+        switch (lhs, rhs) {
+        case (.Target(let a), .Target(let b)):
+            return a == b
+        }
     }
 }

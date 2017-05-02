@@ -45,7 +45,7 @@ public struct Version {
 
 extension Version: Hashable {
 
-    static public func == (lhs: Version, rhs: Version) -> Bool {
+    public static func == (lhs: Version, rhs: Version) -> Bool {
         return lhs.major == rhs.major &&
                lhs.minor == rhs.minor &&
                lhs.patch == rhs.patch &&
