@@ -150,7 +150,8 @@ private func createResolvedPackages(
     for manifest in allManifests.lazy.reversed() {
 
         // The diagnostics location for this manifest.
-        let diagnosicLocation = { PackageLocation.Local(name: manifest.name, packagePath: manifest.path) }
+        let packagePath = manifest.path.parentDirectory
+        let diagnosicLocation = { PackageLocation.Local(name: manifest.name, packagePath: packagePath) }
 
         // We might not have a package for this manifest because we couldn't
         // load it.  So, just skip it.
