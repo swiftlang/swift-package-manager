@@ -14,7 +14,6 @@ Note that at this time the Package Manager has no support for iOS, watchOS, or t
 * [System Requirements](#system-requirements)
 * [Installation](#installation)
   * [Managing Swift Environments](#managing-swift-environments)
-* [Development](#development)
   * [Choosing a Swift Version](#choosing-a-swift-version)
 * [Documentation](#documentation)
 * [Support](#support)
@@ -28,11 +27,7 @@ To learn about the policies and best practices that govern contributions to the 
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
 
-Tests are an important part of the development and evolution of this project, and new contributions are expected to include tests for any functionality change.  To run the tests, pass the `test` verb to the `bootstrap` script:
-
-    ./Utilities/bootstrap test
-
-> Long-term, we intend for testing to be an integral part of the Package Manager itself and to not require custom support.
+Instrutions for setting up the development environment is available [here](Documentation/Development.md).
 
 The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files.  It is also open source and part of the Swift project.
 
@@ -77,31 +72,6 @@ Swift version 3.0-dev
 ```
 
 To use a specific toolchain you can set `TOOLCHAINS` to the `CFBundleIdentifier` in an `.xctoolchain`’s Info.plist.
-
----
-
-## Development
-
-The Package Manager project is itself a Swift Package and can be used to build itself. If you are interested in contributing to the package manager, however, we recommend one of the three following options:
-
-1. Using the [Swift project `build-script`](https://github.com/apple/swift/blob/master/README.md):
-
-        swift/utils/build-script --swiftpm --llbuild
-
-2. Independently with the bootstrap script:
-    1. [Download and install a Swift snapshot](https://swift.org/download)
-    2. Locate its `usr/bin` directory
-    3. Run the bootstrap script:
-
-          swiftpm/Utilities/bootstrap --swiftc path/to/snapshot/usr/bin/swiftc --sbt path/to/snapshot/usr/bin/swift-build-tool
-
-     `swiftc` and `swift-build-tool` are both executables provided as part of Swift downloadable snapshots, _they are **not** built from the sources in this repository_.
-
-3. Using a Swift snapshot, it is possible to use the package manager's support for generating an Xcode project. This project can then be used with the snapshot to develop within Xcode.
-
-        swift package generate-xcodeproj
-
-Note that either of the latter two options may not be compatible with the `master` branch when Swift language changes have caused it to move ahead of the latest available snapshot.
 
 ### Choosing a Swift Version
 
