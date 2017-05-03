@@ -41,16 +41,21 @@ public final class PinsStore {
         /// The reason text for pinning this dependency.
         public let reason: String?
 
+        /// The current working directory.
+        public let currentWorkingDirectory: AbsolutePath
+
         init(
             package: String,
             repository: RepositorySpecifier,
             state: CheckoutState,
-            reason: String? = nil
+            reason: String? = nil,
+            currentWorkingDirectory: AbsolutePath = Basic.currentWorkingDirectory
         ) {
             self.package = package
             self.repository = repository
             self.state = state
             self.reason = reason
+            self.currentWorkingDirectory = currentWorkingDirectory
         }
     }
 
@@ -71,6 +76,9 @@ public final class PinsStore {
         return AnySequence<Pin>(pinsMap.values)
     }
 
+    /// The current working directory.
+    public let currentWorkingDirectory: AbsolutePath
+
     fileprivate let persistence: SimplePersistence
 
     /// Create a new pins store.
@@ -78,7 +86,8 @@ public final class PinsStore {
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem) throws {
+    ///   - currentWorkingDirectory: The current working directory.
+    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, currentWorkingDirectory: AbsolutePath = Basic.currentWorkingDirectory) throws {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
         self.persistence = SimplePersistence(
@@ -86,6 +95,7 @@ public final class PinsStore {
             schemaVersion: 1,
             statePath: pinsFile,
             prettyPrint: true)
+        self.currentWorkingDirectory = currentWorkingDirectory
         pinsMap = [:]
         isAutoPinEnabled = true
         _ = try self.persistence.restoreState(self)
@@ -117,7 +127,8 @@ public final class PinsStore {
             package: package,
             repository: repository,
             state: state,
-            reason: reason
+            reason: reason,
+            currentWorkingDirectory: currentWorkingDirectory
         )
         try saveState()
     }
@@ -168,7 +179,9 @@ extension PinsStore: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
         self.isAutoPinEnabled = try json.get("autoPin")
-        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.package, $0) }))
+        let pinsJSON: [JSON] = try json.get("pins")
+        let pins = try pinsJSON.map({ try Pin(json: $0, currentWorkingDirectory: currentWorkingDirectory) })
+        self.pinsMap = Dictionary(items: pins.map({ ($0.package, $0) }))
     }
 
     /// Saves the current state of pins.
@@ -181,22 +194,38 @@ extension PinsStore: SimplePersistanceProtocol {
 }
 
 // JSON.
-extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
+extension PinsStore.Pin: JSONSerializable, Equatable {
+
     /// Create an instance from JSON data.
-    public init(json: JSON) throws {
+    public init(json: JSON, currentWorkingDirectory: AbsolutePath = Basic.currentWorkingDirectory) throws {
+        var repository: String = try json.get("repository")
+        self.currentWorkingDirectory = currentWorkingDirectory
+        // If the repository is a local file path, convert it to path.
+        if URL.scheme(repository) == nil {
+            repository = AbsolutePath(repository, relativeTo: currentWorkingDirectory).asString
+        }
+
         self.package = try json.get("package")
-        self.repository = try json.get("repositoryURL")
+        self.repository =  RepositorySpecifier(url: repository)
         self.reason = json.get("reason")
         self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
+
+        // If it's a local path then convert it into
+        // relative path relative to the working directory.
+        var repositoryPath = repository.url
+        if URL.scheme(repositoryPath) == nil {
+            repositoryPath =  AbsolutePath(repositoryPath).relative(to: currentWorkingDirectory).asString
+        }
+
         return .init([
             "package": package,
-            "repositoryURL": repository,
+            "repository": repositoryPath,
             "state": state,
-            "reason": reason.toJSON(),
+            "reason": reason.toJSON()
         ])
     }
 

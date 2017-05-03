@@ -31,7 +31,7 @@ final class PinsStoreTests: XCTestCase {
         let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
-        
+
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
@@ -153,8 +153,30 @@ final class PinsStoreTests: XCTestCase {
       #endif
     }
 
+    func testLocalGitRepositories() throws {
+        let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        let state = CheckoutState(revision: revision, version: v1)
+        let repo = RepositorySpecifier(url: "/new")
+        let pin = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/"))
+
+        // Test that path returned from the JSON data is updated.
+        let pinJson = pin.toJSON()
+        let pathFromJson: String = try pinJson.get("repository")
+        XCTAssertNotEqual(pathFromJson, pin.repository.url)
+
+        // Test that path returned from the JSON data starts with `../`
+        XCTAssertTrue(pathFromJson.hasPrefix("../"))
+
+        // Compare same package with different current working directory.
+        let newPin = PinsStore.Pin(package: "new", repository: repo, state: state, reason: "bad", currentWorkingDirectory: AbsolutePath("/private/tmp/"))
+        let newPinJson = newPin.toJSON()
+        let newPathFromJson: String = try newPinJson.get("repository")
+        XCTAssertNotEqual(pathFromJson, newPathFromJson)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testLoadingV1", testLoadingV1),
+        ("testLocalGitRepositories", testLocalGitRepositories)
     ]
 }
