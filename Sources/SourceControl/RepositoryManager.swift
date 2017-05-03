@@ -17,7 +17,10 @@ import Utility
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: class {
     /// Called when a repository is about to be fetched.
-    func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle)
+
+    /// Called when a repository has finished fetching.
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?)
 }
 
 /// Manages a collection of bare repositories.
@@ -212,12 +215,14 @@ public class RepositoryManager {
                     // Make sure desination is free.
                     self.fileSystem.removeFileTree(repositoryPath)
 
+                    // Inform delegate.
+                    self.callbacksQueue.async {
+                        self.delegate.fetchingWillBegin(handle: handle)
+                    }
+
                     // Fetch the repo.
+                    var fetchError: Swift.Error? = nil
                     do {
-                        // Inform delegate.
-                        self.callbacksQueue.async {
-                            self.delegate.fetching(handle: handle, to: repositoryPath)
-                        }
                         // Start fetching.
                         try self.provider.fetch(repository: handle.repository, to: repositoryPath)
                         // Update status to available.
@@ -225,8 +230,15 @@ public class RepositoryManager {
                         result = Result(handle)
                     } catch {
                         handle.status = .error
+                        fetchError = error
                         result = Result(error)
                     }
+
+                    // Inform delegate.
+                    self.callbacksQueue.async {
+                        self.delegate.fetchingDidFinish(handle: handle, error: fetchError)
+                    }
+
                     // Save the manager state.
                     self.serialQueue.sync {
                         do {

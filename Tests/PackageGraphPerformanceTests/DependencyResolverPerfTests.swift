@@ -331,7 +331,10 @@ struct GitRepositoryResolutionHelper {
     }
 
     class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-        func fetching(handle: RepositoryManager.RepositoryHandle, to path: AbsolutePath) {
+        func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+        }
+
+        func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
         }
     }
 }
