@@ -469,36 +469,6 @@ extension  Workspace {
         }
     }
 
-    /// Pins all of the dependencies to the loaded version.
-    ///
-    /// - Parameters:
-    ///   - root: The workspace's root input.
-    ///   - reset: Remove all current pins before pinning dependencies.
-    ///   - diagnostics: The diagnostics engine that reports errors, warnings
-    ///     and notes.
-    // FIXME: Elimate this.
-    func pinAll(
-        root: WorkspaceRoot,
-        reset: Bool = false,
-        diagnostics: DiagnosticsEngine
-    ) {
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
-            return
-        }
-
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        let dependencyManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return
-        }
-
-        pinAll(
-            pinsStore: pinsStore,
-            dependencyManifests: dependencyManifests,
-            reset: reset,
-            diagnostics: diagnostics)
-    }
-
     /// Cleans the build artefacts from workspace data.
     ///
     /// - Parameters:

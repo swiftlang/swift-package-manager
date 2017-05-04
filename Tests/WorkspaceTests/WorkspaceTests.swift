@@ -980,102 +980,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPinAll() throws {
-        let path = AbsolutePath("/RootPkg")
-        let root = WorkspaceRoot(packages: [path])
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                MockDependency("B", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("B", version: v1),
-                MockPackage("A", version: "1.0.1"),
-                MockPackage("B", version: "1.0.1"),
-            ],
-            fs: fs
-        )
-        let provider = manifestGraph.repoProvider!
-
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        // Package graph should load v1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            XCTAssert(graph.lookup("B").version == v1)
-        }
-
-        // Pin the dependencies.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-
-            workspace.pinAll(root: root, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            // Reset so we have a clean workspace.
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Add a new version of dependencies.
-        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
-        try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "1.0.1")
-
-        // Loading the workspace now should load v1 of both dependencies.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            XCTAssert(graph.lookup("B").version == v1)
-        }
-
-        // Updating the dependencies shouldn't update to 1.0.1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            XCTAssert(graph.lookup("B").version == v1)
-        }
-
-        // Unpin all of the dependencies.
-        do {
-            let workspace = newWorkspace()
-            try workspace.pinsStore.load().unpinAll()
-            // Reset so we have a clean workspace.
-            let diagnostics = DiagnosticsEngine()
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Loading the workspace now should load 1.0.1 of both dependencies.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-            XCTAssert(graph.lookup("B").version == "1.0.1")
-        }
-    }
-
     func testPinFailure() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -1910,7 +1814,6 @@ final class WorkspaceTests: XCTestCase {
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
-        ("testPinAll", testPinAll),
         ("testPinning", testPinning),
         ("testPinFailure", testPinFailure),
         ("testPinAllFailure", testPinAllFailure),
