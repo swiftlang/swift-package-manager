@@ -13,6 +13,7 @@ import Utility
 
 import PackageModel
 import PackageDescription4
+import SourceControl
 
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
@@ -56,6 +57,15 @@ public struct PackageGraphRoot {
     public init(manifests: [Manifest], dependencies: [PackageDependency] = []) {
         self.manifests = manifests
         self.dependencies = dependencies
+    }
+
+    /// Returns the constraints imposed by root manifests + dependencies.
+    public var constraints: [RepositoryPackageConstraint] {
+        let constraints = manifests.flatMap({ $0.package.dependencyConstraints() })
+        return constraints + dependencies.map({
+            RepositoryPackageConstraint(
+                container: RepositorySpecifier(url: $0.url), requirement: $0.requirement.toConstraintRequirement())
+        })
     }
 }
 

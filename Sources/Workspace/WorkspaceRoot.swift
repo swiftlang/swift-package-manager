@@ -23,13 +23,6 @@ public struct WorkspaceRoot {
     /// Top level dependencies to the graph.
     public let dependencies: [PackageDependency]
 
-    public var constraints: [RepositoryPackageConstraint] {
-        return dependencies.map({
-            RepositoryPackageConstraint(
-                container: RepositorySpecifier(url: $0.url), requirement: $0.requirement.toConstraintRequirement())
-        })
-    }
-
     /// Create a package graph root.
     public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
         self.packages = packages

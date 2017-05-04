@@ -375,19 +375,19 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 // `PackageContainerConstraint`s. That won't work if we decide this should
 // eventually map based on the `Container` rather than the `Identifier`, though,
 // so they are separate for now.
-struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
-    typealias Container = C
-    typealias Identifier = Container.Identifier
-    typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
+public struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
+    public typealias Container = C
+    public typealias Identifier = Container.Identifier
+    public typealias Requirement = PackageContainerConstraint<Identifier>.Requirement
 
-    typealias Index = Dictionary<Identifier, Requirement>.Index
-    typealias Element = Dictionary<Identifier, Requirement>.Element
+    public typealias Index = Dictionary<Identifier, Requirement>.Index
+    public typealias Element = Dictionary<Identifier, Requirement>.Element
 
     /// The set of constraints.
     private var constraints: [Identifier: Requirement]
 
     /// Create an empty constraint set.
-    init() {
+    public init() {
         self.constraints = [:]
     }
 
@@ -465,7 +465,7 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
     /// Create a constraint set by merging `constraint`.
     ///
     /// - Returns: The new set, or nil the resulting set is unsatisfiable.
-    func merging(_ constraint: PackageContainerConstraint<Identifier>) -> PackageContainerConstraintSet<C>? {
+    public func merging(_ constraint: PackageContainerConstraint<Identifier>) -> PackageContainerConstraintSet<C>? {
         return merging(requirement: constraint.requirement, for: constraint.identifier)
     }
 
@@ -488,19 +488,19 @@ struct PackageContainerConstraintSet<C: PackageContainer>: Collection {
 
     // MARK: Collection Conformance
 
-    var startIndex: Index {
+    public var startIndex: Index {
         return constraints.startIndex
     }
 
-    var endIndex: Index {
+    public var endIndex: Index {
         return constraints.endIndex
     }
 
-    func index(after index: Index) -> Index {
+    public func index(after index: Index) -> Index {
         return constraints.index(after: index)
     }
 
-    subscript(position: Index) -> Element {
+    public subscript(position: Index) -> Element {
         return constraints[position]
     }
 }

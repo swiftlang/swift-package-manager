@@ -1770,6 +1770,98 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(delegate.managedDependenciesData.count, 2)
     }
 
+    func testIsResolutionRequired() throws {
+        let aRepo = RepositorySpecifier(url: "/A")
+        let bRepo = RepositorySpecifier(url: "/B")
+        let cRepo = RepositorySpecifier(url: "/C")
+        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
+        let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+
+        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+
+        let fs = InMemoryFileSystem()
+
+        let workspace = Workspace.createWith(rootPackage: .root, fileSystem: fs)
+        let pinsStore = try workspace.pinsStore.load()
+
+        // Test Empty case.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [], pinsStore: pinsStore)
+            XCTAssertEqual(result.resolve, false)
+        }
+
+        // Fill the pinsStore.
+        pinsStore.pin(package: "A", repository: aRepo, state: v1)
+        pinsStore.pin(package: "B", repository: bRepo, state: v1_5)
+        pinsStore.pin(package: "C", repository: cRepo, state: v2)
+
+        // Fill ManagedDependencies (all different than pins).
+        let managedDependencies = workspace.managedDependencies
+        managedDependencies[aRepo] = ManagedDependency(
+            name: "A", repository: aRepo, subpath: RelativePath("A"), checkoutState: v1_1)
+        managedDependencies[bRepo] = ManagedDependency(
+            name: "B", repository: bRepo, subpath: RelativePath("B"), checkoutState: v1_5)
+        managedDependencies[bRepo] = managedDependencies[bRepo]?.editedDependency(
+            subpath: RelativePath("B"), unmanagedPath: nil)
+
+        // We should need to resolve if input is not satisfiable.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: aRepo, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.count, 3)
+        }
+
+        // We should need to resolve when pins don't satisfy the inputs.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRepo, versionRequirement: v1Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.map({$0.identifier.url}).sorted(), ["/A", "/B"])
+        }
+
+        // We should need to resolve if managed dependencies is out of sync with pins.
+        do {
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRepo, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, true)
+            XCTAssertEqual(result.validPins.map({$0.identifier.url}).sorted(), ["/A", "/B", "/C"])
+        }
+
+        // We shouldn't need to resolve if everything is fine.
+        do {
+            managedDependencies[aRepo] = ManagedDependency(
+                name: "A", repository: aRepo, subpath: RelativePath("A"), checkoutState: v1)
+            managedDependencies[bRepo] = ManagedDependency(
+                name: "B", repository: bRepo, subpath: RelativePath("B"), checkoutState: v1_5)
+            managedDependencies[cRepo] = ManagedDependency(
+                name: "C", repository: cRepo, subpath: RelativePath("C"), checkoutState: v2)
+
+            let result = workspace.isResolutionRequired(dependencies: [
+                RepositoryPackageConstraint(container: aRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: bRepo, versionRequirement: v1Range),
+                RepositoryPackageConstraint(container: cRepo, versionRequirement: v2Range),
+            ], pinsStore: pinsStore)
+
+            XCTAssertEqual(result.resolve, false)
+            XCTAssertEqual(result.validPins, [])
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
@@ -1797,6 +1889,7 @@ final class WorkspaceTests: XCTestCase {
         ("testDeletedCheckoutDirectory", testDeletedCheckoutDirectory),
         ("testGraphData", testGraphData),
         ("testSymlinkedDependency", testSymlinkedDependency),
+        ("testIsResolutionRequired", testIsResolutionRequired),
     ]
 }
 
