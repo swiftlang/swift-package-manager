@@ -17,6 +17,18 @@ public protocol SimplePersistanceProtocol: class, JSONSerializable {
     func restore(from json: JSON) throws
 }
 
+extension SimplePersistence.Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case let .invalidSchemaVersion(version):
+            return "Unsupported schema version (\(version))"
+
+        case let .restoreFailure(stateFile, error):
+            return "Unable to restore state from \(stateFile.asString). \(error)"
+        }
+    }
+}
+
 /// A simple persistence helper.
 ///
 /// This class can be used to save and restore state of objects in simple JSON
@@ -25,6 +37,8 @@ public final class SimplePersistence {
     /// Describes a SimplePersistence errors.
     public enum Error: Swift.Error {
         case invalidSchemaVersion(Int)
+
+        case restoreFailure(stateFile: AbsolutePath, error: Swift.Error)
     }
 
     /// The fileSystem to operate on.
@@ -53,6 +67,14 @@ public final class SimplePersistence {
 
     @discardableResult
     public func restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
+        do {
+            return try _restoreState(object)
+        } catch {
+            throw Error.restoreFailure(stateFile: statePath, error: error)
+        }
+    }
+
+    private func _restoreState(_ object: SimplePersistanceProtocol) throws -> Bool {
         // If the state doesn't exist, don't try to load and fail.
         if !fileSystem.exists(statePath) {
             return false
@@ -69,13 +91,40 @@ public final class SimplePersistence {
         return true
     }
 
+    /// Merges the two given json if they both are dictionaries.
+    ///
+    /// In case of collisions, keep the value from new dictionary.
+    private func merge(old: JSON?, new: JSON) -> JSON {
+        guard case let .dictionary(oldDict)? = old,
+              case var .dictionary(newDict) = new else {
+            return new
+        }
+
+        // Merge the dictionaries, keeping new values in case of collisions.
+        for (key, value) in oldDict where newDict[key] == nil {
+            newDict[key] = value
+        }
+
+        return JSON(newDict)
+    }
+
     public func saveState(_ object: SimplePersistanceProtocol) throws {
-        let data = JSON([
-            "version": self.schemaVersion,
-            "object": object,
-        ])
+        var json = [String: JSON]()
+
+        // Load the current data.
+        let jsonData = try? JSON(bytes: fileSystem.readFileContents(statePath))
+        if case let .dictionary(dict)? = jsonData {
+            json = dict
+        }
+
+        // Set the schema version.
+        json["version"] = self.schemaVersion.toJSON()
+
+        // Set the object, keeping any keys in object which we don't know about.
+        json["object"] = merge(old: json["object"], new: object.toJSON())
+
         // FIXME: This should write atomically.
         try fileSystem.writeFileContents(
-            statePath, bytes: data.toBytes(prettyPrint: self.prettyPrint))
+            statePath, bytes: JSON(json).toBytes(prettyPrint: self.prettyPrint))
     }
 }
