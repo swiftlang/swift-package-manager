@@ -85,16 +85,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
 
-            // Look for the package's dependency.
-            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
             // Put the dependency in edit mode.
             workspace.edit(
-                dependency: dependency,
                 packageName: packageName,
                 path: options.editOptions.path,
                 revision: revision,
@@ -106,14 +100,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             // Load the package graph.
             try loadPackageGraph()
-
             let workspace = try getActiveWorkspace()
 
-            // Look for the package's dependency.
-            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-            try workspace.unedit(dependency: dependency, forceRemove: options.editOptions.shouldForceRemove)
+            try workspace.unedit(packageName: packageName, forceRemove: options.editOptions.shouldForceRemove)
 
         case .showDependencies:
             let graph = try loadPackageGraph()

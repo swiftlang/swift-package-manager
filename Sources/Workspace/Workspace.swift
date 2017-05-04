@@ -291,14 +291,12 @@ public class Workspace {
 
 // MARK: - Public API
 
-extension  Workspace {
+extension Workspace {
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
-    ///     - dependency: The dependency to put in edit mode.
-    ///     - packageName: The name of the package corresponding to the
-    ///       dependency. This is used for the checkout directory name.
+    ///     - packageName: The name of the package to edit.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
@@ -307,7 +305,6 @@ extension  Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func edit(
-        dependency: ManagedDependency,
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
@@ -316,7 +313,6 @@ extension  Workspace {
     ) {
         do {
             try _edit(
-                dependency: dependency,
                 packageName: packageName,
                 path: path,
                 revision: revision,
@@ -330,51 +326,14 @@ extension  Workspace {
     /// Ends the edit mode of a dependency which is in edit mode.
     ///
     /// - Parameters:
-    ///     - dependency: The dependency to be unedited.
+    ///     - packageName: The name of the package to edit.
     ///     - forceRemove: If true, the dependency will be unedited even if has
     /// unpushed and uncommited changes. Otherwise will throw respective errors.
     ///
     /// - throws: WorkspaceError
-    public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
-        var forceRemove = forceRemove
-
-        switch dependency.state {
-        // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
-        case .edited(let path):
-            if path != nil {
-                // Set force remove to true for unmanaged dependencies.  Note that
-                // this only removes the symlink under the editable directory and
-                // not the actual unmanaged package.
-                forceRemove = true
-            }
-        }
-
-        // Form the edit working repo path.
-        let path = editablesPath.appending(dependency.subpath)
-        // Check for uncommited and unpushed changes if force removal is off.
-        if !forceRemove {
-            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-            guard !workingRepo.hasUncommitedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
-            }
-            guard try !workingRepo.hasUnpushedCommits() else {
-                throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
-            }
-        }
-        // Remove the editable checkout from disk.
-        if fileSystem.exists(path) {
-            fileSystem.removeFileTree(path)
-        }
-        // If this was the last editable dependency, remove the editables directory too.
-        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
-            fileSystem.removeFileTree(editablesPath)
-        }
-        // Restore the dependency state.
-        managedDependencies[dependency.repository] = dependency.basedOn
-        // Save the state.
-        try managedDependencies.saveState()
+    public func unedit(packageName: String, forceRemove: Bool) throws {
+        let dependency = try managedDependencies.dependency(forName: packageName)
+        try unedit(dependency: dependency, forceRemove: forceRemove)
     }
 
     /// Pins a package at a given state.
@@ -765,15 +724,16 @@ extension  Workspace {
 extension Workspace {
 
     /// Edit implementation.
-    func _edit(
-        dependency: ManagedDependency,
+    fileprivate func _edit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         diagnostics: DiagnosticsEngine
     ) throws {
-        // Check if we can edit this dependency.
+        // Look up the dependency and check if we can edit it.
+        let dependency = try managedDependencies.dependency(forName: packageName)
+
         guard case .checkout(let checkoutState) = dependency.state else {
             throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
         }
@@ -847,6 +807,53 @@ extension Workspace {
             subpath: RelativePath(packageName), unmanagedPath: path)
         try managedDependencies.saveState()
     }
+
+    /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
+    fileprivate func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+
+        // Compute if we need to force remove.
+        var forceRemove = forceRemove
+
+        switch dependency.state {
+        // If the dependency isn't in edit mode, we can't unedit it.
+        case .checkout:
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
+
+        case .edited(let path):
+            if path != nil {
+                // Set force remove to true for unmanaged dependencies.  Note that
+                // this only removes the symlink under the editable directory and
+                // not the actual unmanaged package.
+                forceRemove = true
+            }
+        }
+
+        // Form the edit working repo path.
+        let path = editablesPath.appending(dependency.subpath)
+        // Check for uncommited and unpushed changes if force removal is off.
+        if !forceRemove {
+            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+            guard !workingRepo.hasUncommitedChanges() else {
+                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+            }
+            guard try !workingRepo.hasUnpushedCommits() else {
+                throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
+            }
+        }
+        // Remove the editable checkout from disk.
+        if fileSystem.exists(path) {
+            fileSystem.removeFileTree(path)
+        }
+        // If this was the last editable dependency, remove the editables directory too.
+        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
+            fileSystem.removeFileTree(editablesPath)
+        }
+        // Restore the dependency state.
+        managedDependencies[dependency.repository] = dependency.basedOn
+        // Save the state.
+        try managedDependencies.saveState()
+    }
+
 }
 
 // MARK: - Pinning Functions

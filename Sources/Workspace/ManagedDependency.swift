@@ -160,6 +160,10 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
 /// Represents a collection of managed dependency which are persisted on disk.
 public final class ManagedDependencies: SimplePersistanceProtocol {
 
+    enum Error: Swift.Error {
+        case dependencyNotFound(name: String)
+    }
+
     /// The current state of managed dependencies.
     private var dependencyMap: [RepositorySpecifier: ManagedDependency]
 
@@ -205,6 +209,20 @@ public final class ManagedDependencies: SimplePersistanceProtocol {
         set {
             dependencyMap[repository] = newValue
         }
+    }
+
+    /// Returns the dependency given a name, if found.
+    subscript(forName name: String) -> ManagedDependency? {
+        // FIXME: Improve complexity to O(1).
+        return dependencyMap.values.first(where: { $0.name == name })
+    }
+
+    /// Returns the dependency given a name.
+    func dependency(forName name: String) throws -> ManagedDependency {
+        guard let dependency = self[forName: name] else {
+            throw Error.dependencyNotFound(name: name)
+        }
+        return dependency 
     }
 
     func reset() throws {
