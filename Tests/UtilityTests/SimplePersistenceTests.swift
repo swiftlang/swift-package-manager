@@ -50,6 +50,60 @@ fileprivate class Foo: SimplePersistanceProtocol {
     }
 }
 
+fileprivate enum Bar {
+    class V1: SimplePersistanceProtocol {
+        var int: Int
+        let persistence: SimplePersistence
+
+        init(int: Int, fileSystem: FileSystem) {
+            self.int = int
+            self.persistence = SimplePersistence(
+                fileSystem: fileSystem,
+                schemaVersion: 1,
+                statePath: AbsolutePath.root.appending(component: "state.json")
+            )
+        }
+
+        func restore(from json: JSON) throws {
+            self.int = try json.get("int")
+        }
+
+        func toJSON() -> JSON {
+            return JSON([
+                "int": int,
+            ])
+        }
+    }
+
+    class V2: SimplePersistanceProtocol {
+        var int: Int
+        var string: String
+        let persistence: SimplePersistence
+
+        init(int: Int, string: String, fileSystem: FileSystem) {
+            self.int = int
+            self.string = string
+            self.persistence = SimplePersistence(
+                fileSystem: fileSystem,
+                schemaVersion: 1,
+                statePath: AbsolutePath.root.appending(component: "state.json")
+            )
+        }
+
+        func restore(from json: JSON) throws {
+            self.int = try json.get("int")
+            self.string = try json.get("string")
+        }
+
+        func toJSON() -> JSON {
+            return JSON([
+                "int": int,
+                "string": string
+            ])
+        }
+    }
+}
+
 class SimplePersistenceTests: XCTestCase {
     func testBasics() throws {
         let fs = InMemoryFileSystem()
@@ -77,12 +131,45 @@ class SimplePersistenceTests: XCTestCase {
         do {
             _ = try foo.restore()
             XCTFail()
-        } catch SimplePersistence.Error.invalidSchemaVersion(let v){
-            XCTAssertEqual(v, 2)
+        } catch {
+            let error = String(describing: error)
+            XCTAssert(error.contains("Unsupported schema version (2)"), error)
         }
+    }
+
+    func testBackwardsCompatibleStateFile() throws {
+        // Test that we don't overwrite the json in case we find keys we don't need.
+
+        let fs = InMemoryFileSystem()
+        let stateFile = AbsolutePath.root.appending(component: "state.json")
+
+        // Create and save v2 object.
+        let v2 = Bar.V2(int: 100, string: "hello", fileSystem: fs)
+        try v2.persistence.saveState(v2)
+
+        // Restore v1 object from v2 file.
+        let v1 = Bar.V1(int: 1, fileSystem: fs)
+        XCTAssertEqual(v1.int, 1)
+        XCTAssertTrue(try v1.persistence.restoreState(v1))
+        XCTAssertEqual(v1.int, 100)
+
+        // Check state file still has the old "string" key.
+        let json = try JSON(bytes: fs.readFileContents(stateFile))
+        XCTAssertEqual("hello", try json.get("object").get("string"))
+
+        // Update a value in v1 object and save.
+        v1.int = 500
+        try v1.persistence.saveState(v1)
+
+        v2.string = ""
+        // Now restore v2 and expect string to be present as well as the updated int value.
+        XCTAssertTrue(try v2.persistence.restoreState(v2))
+        XCTAssertEqual(v2.int, 500)
+        XCTAssertEqual(v2.string, "hello")
     }
 
     static var allTests = [
         ("testBasics", testBasics),
+        ("testBackwardsCompatibleStateFile", testBackwardsCompatibleStateFile),
     ]
 }
