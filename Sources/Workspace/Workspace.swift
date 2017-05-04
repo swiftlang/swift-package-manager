@@ -539,65 +539,67 @@ extension Workspace {
         let partialDiagnostics = DiagnosticsEngine()
 
         // Load the current package graph.
-        let currentGraph = PackageGraphLoader().load(
+        let currentPackageGraph = PackageGraphLoader().load(
             root: graphRoot,
             externalManifests: currentManifests.dependencies.map({ $0.manifest }),
             diagnostics: partialDiagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts)
 
-        // If there are no missing URLs or if we encountered some errors, return the current graph.
-        if diagnostics.hasErrors || missingURLs.isEmpty {
+        func currentGraph() -> PackageGraph {
             // FIXME: Add API to append one engine to another.
             for diag in partialDiagnostics.diagnostics {
                 diagnostics.emit(data: diag.data, location: diag.location)
             }
-            return currentGraph
+            return currentPackageGraph
+        }
+
+        // If there are no missing URLs or if we encountered some errors, return the current graph.
+        if diagnostics.hasErrors || missingURLs.isEmpty {
+            return currentGraph()
+        }
+
+        // Abort if pinsStore is unloadable.
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return currentGraph()
         }
 
         // Start by informing the delegate of what is happening.
         delegate.packageGraphWillLoad(
-            currentGraph: currentGraph,
+            currentGraph: currentPackageGraph,
             dependencies: managedDependencies.values,
             missingURLs: missingURLs)
 
-        var updatedManifests: DependencyManifests? = nil
+        // Create the constraints.
+        var constraints = [RepositoryPackageConstraint]()
+        constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
+        constraints += root.constraints
+        constraints += currentManifests.unversionedConstraints()
+        let pins = pinsStore.createConstraints()
 
-        resolve: do {
-            // Load the pins store.
-            guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
-                break resolve
-            }
-
-            // Create the constraints.
-            var constraints = [RepositoryPackageConstraint]()
-            constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
-            constraints += root.constraints
-
-            var pins = [RepositoryPackageConstraint]()
-            pins += pinsStore.createConstraints()
-            pins += currentManifests.unversionedConstraints()
-
-            // Perform dependency resolution.
-            let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { break resolve }
-
-            // Update the checkouts with dependency resolution result.
-            updateCheckouts(with: result, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { break resolve }
-
-            // Load the updated manifests.
-            updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
-            // Update the pinsStore.
-            self.pinAll(
-                 pinsStore: pinsStore,
-                 diagnostics: diagnostics)
+        // Perform dependency resolution.
+        let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentGraph()
         }
 
+        // Update the checkouts with dependency resolution result.
+        updateCheckouts(with: result, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentGraph()
+        }
+
+        // Update the pinsStore.
+        self.pinAll(
+             pinsStore: pinsStore,
+             diagnostics: diagnostics)
+
+        // Load the updated manifests.
+        let updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
         return PackageGraphLoader().load(
-            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
-            externalManifests: updatedManifests?.dependencies.map({ $0.manifest }) ?? [],
+            root: graphRoot,
+            externalManifests: updatedManifests.dependencies.map({ $0.manifest }),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
