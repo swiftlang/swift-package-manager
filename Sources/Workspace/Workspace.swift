@@ -563,7 +563,6 @@ extension  Workspace {
     ///       and notes.
     public func updateDependencies(
         root: WorkspaceRoot,
-        repin: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
         createCacheDirectories(with: diagnostics)
@@ -584,13 +583,8 @@ extension  Workspace {
         // Add unversioned constraints for edited packages.
         updateConstraints += currentManifests.unversionedConstraints()
 
-        var pins = [RepositoryPackageConstraint]()
-        if !repin {
-            pins += pinsStore.createConstraints()
-        }
-
         // Resolve the dependencies.
-        let updateResults = resolveDependencies(dependencies: updateConstraints, pins: pins, diagnostics: diagnostics)
+        let updateResults = resolveDependencies(dependencies: updateConstraints, pins: [], diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
 		// Update the checkouts based on new dependency resolution.
@@ -599,11 +593,13 @@ extension  Workspace {
 
         // Get updated manifests.
         currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        // If we're repinning, update the pins store.
-        if repin && !diagnostics.hasErrors {
-            repinPackages(
+
+        // Update the pins store.
+        if !diagnostics.hasErrors {
+            return pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: currentManifests,
+                reset: true,
                 diagnostics: diagnostics)
         }
     }
@@ -738,8 +734,8 @@ extension  Workspace {
             // Load the updated manifests.
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-            // If autopin is enabled, reset and pin everything.
-            if pinsStore.isAutoPinEnabled && !diagnostics.hasErrors {
+            // Reset and pin everything.
+            if !diagnostics.hasErrors {
                 self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
@@ -944,44 +940,6 @@ extension Workspace {
                     package: dependencyManifest.manifest.name,
                     reason: reason)
             })
-        }
-    }
-
-    /// Repin the packages.
-    ///
-    /// This methods pins all packages if auto pinning is on.
-    /// Otherwise, only currently pinned packages are repinned.
-    fileprivate func repinPackages(
-        pinsStore: PinsStore,
-        dependencyManifests: DependencyManifests,
-        diagnostics: DiagnosticsEngine
-    ) {
-        // If autopin is on, pin everything and return.
-        if pinsStore.isAutoPinEnabled {
-            return pinAll(
-                pinsStore: pinsStore,
-                dependencyManifests: dependencyManifests,
-                reset: true,
-                diagnostics: diagnostics)
-        }
-
-        // Otherwise, we need to repin only the previous pins.
-        for pin in pinsStore.pins {
-            diagnostics.wrap {
-                // Check if this is a stray pin.
-                guard let dependency = managedDependencies[pin.repository] else {
-                    // FIXME: Use diagnostics engine when we have that.
-                    delegate.warning(message: "Consider unpinning \(pin.package), it is pinned at " +
-                        "\(pin.state.description) but the dependency is not present.")
-                    return
-                }
-                // Pin this dependency.
-                try self.pin(
-                    pinsStore: pinsStore,
-                    dependency: dependency,
-                    package: pin.package,
-                    reason: pin.reason)
-            }
         }
     }
 }

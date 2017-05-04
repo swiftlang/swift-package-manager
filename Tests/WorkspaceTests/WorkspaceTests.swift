@@ -100,8 +100,8 @@ extension Workspace {
         return loadPackageGraph(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
     }
 
-    fileprivate func updateDependencies(rootPackages: [AbsolutePath], repin: Bool = false, diagnostics: DiagnosticsEngine) {
-        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), repin: repin, diagnostics: diagnostics)
+    fileprivate func updateDependencies(rootPackages: [AbsolutePath], diagnostics: DiagnosticsEngine) {
+        return updateDependencies(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
     }
 
     fileprivate func pin(
@@ -487,8 +487,6 @@ final class WorkspaceTests: XCTestCase {
                 // Create the workspace.
                 let workspace = try createWorkspace()
 
-                // Turn off auto pinning.
-                try workspace.pinsStore.load().setAutoPin(on: false)
                 // Ensure delegates haven't been called yet.
                 XCTAssert(delegate.fetched.isEmpty)
                 XCTAssert(delegate.cloned.isEmpty)
@@ -513,8 +511,10 @@ final class WorkspaceTests: XCTestCase {
                 // Validate the graph has the correct basic structure.
                 XCTAssertEqual(graph.packages.count, 3)
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "AA", "Root"])
+            }
 
-
+            // Add a new tag to dependency.
+            do {
                 let file = repoPath.appending(component: "update.swift")
                 try systemQuietly(["touch", file.asString])
                 let testRepo = GitRepository(path: repoPath)
@@ -523,6 +523,7 @@ final class WorkspaceTests: XCTestCase {
                 try testRepo.tag(name: "1.0.1")
             }
 
+            // Test update.
             do {
                 let workspace = try createWorkspace()
                 let diagnostics = DiagnosticsEngine()
@@ -910,137 +911,6 @@ final class WorkspaceTests: XCTestCase {
         XCTAssert(reloadedGraph.lookup("B").version == v1)
     }
 
-    func testAutoPinning() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("A", version: "1.0.1", dependencies: [
-                    MockDependency("AA", version: v1),
-                ]),
-                MockPackage("AA", version: v1),
-            ],
-            fs: fs
-        )
-
-        let provider = manifestGraph.repoProvider!
-
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
-
-        // We should still get v1 even though an update is available.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            workspace.reset(with: diagnostics)
-        }
-
-        // Updating dependencies shouldn't matter.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-        }
-
-        // Updating dependencies with repinning should do the actual update.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-            XCTAssert(graph.lookup("AA").version == v1)
-            // We should have pin for AA automatically.
-            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["A"])
-            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["AA"])
-        }
-
-        // Unpin all of the dependencies.
-        do {
-            let workspace = newWorkspace()
-            try workspace.pinsStore.load().unpinAll()
-            // Reset so we have a clean workspace.
-            let diagnostics = DiagnosticsEngine()
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            try workspace.pinsStore.load().setAutoPin(on: false)
-        }
-
-        // Pin at A at v1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            guard let (_, dep) = manifests.lookup(package: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-
-            workspace.pin(
-                dependency: dep,
-                packageName: "A",
-                rootPackages: [path],
-                version: v1,
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-        }
-
-        // Updating and repinning shouldn't pin new deps which are introduced.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-            XCTAssert(graph.lookup("AA").version == v1)
-            XCTAssertNotNil(try workspace.pinsStore.load().pinsMap["A"])
-            // We should not have pinned AA.
-            XCTAssertNil(try workspace.pinsStore.load().pinsMap["AA"])
-        }
-    }
-
     func testPinning() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -1078,10 +948,6 @@ final class WorkspaceTests: XCTestCase {
             guard let (_, dep) = manifests.lookup(package: "A") else {
                 return XCTFail("Expected manifest for package A not found")
             }
-            // Try unpinning something which is not pinned.
-            XCTAssertThrows(PinOperationError.notPinned) {
-                try workspace.pinsStore.load().unpin(package: "A")
-            }
 
             workspace.pin(
                 dependency: dep,
@@ -1092,12 +958,6 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
         }
 
-        // Turn off autopin.
-        do {
-            let workspace = newWorkspace()
-            try workspace.pinsStore.load().setAutoPin(on: false)
-        }
-
         // Package graph should load 1.0.1.
         do {
             let workspace = newWorkspace()
@@ -1110,52 +970,11 @@ final class WorkspaceTests: XCTestCase {
         // Pin package to v1.
         try pin()
 
-        // Package graph should load v1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.0")
-        }
-
-        // Unpin package.
-        do {
-            let workspace = newWorkspace()
-            try workspace.pinsStore.load().unpin(package: "A")
-            let diagnostics = DiagnosticsEngine()
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Package graph should load 1.0.1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-        }
-
-        // Pin package to v1.
-        try pin()
-
-        // Package *update* should load v1 after pinning.
+        // Package *update* should load 1.0.1.
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
             workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.0")
-        }
-
-        // Package *update* should load 1.0.1 with repinning.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1259,65 +1078,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testUpdateRepinning() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-                MockDependency("B", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1),
-                MockPackage("B", version: v1),
-                MockPackage("A", version: "1.0.1"),
-                MockPackage("B", version: "1.0.1"),
-            ],
-            fs: fs
-        )
-        let provider = manifestGraph.repoProvider!
-
-        func newWorkspace() -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: TestWorkspaceDelegate(),
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        // Load and pin the dependencies.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            let root = WorkspaceRoot(packages: [path])
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == v1)
-            XCTAssert(graph.lookup("B").version == v1)
-            workspace.pinAll(root: root, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Add a new version of dependencies.
-        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
-        try provider.specifierMap[manifestGraph.repo("B")]!.tag(name: "1.0.1")
-
-        // Updating the dependencies with repin should update to 1.0.1.
-        do {
-            let workspace = newWorkspace()
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(graph.lookup("A").version == "1.0.1")
-            XCTAssert(graph.lookup("B").version == "1.0.1")
-        }
-    }
-
     func testPinFailure() throws {
         let path = AbsolutePath("/RootPkg")
         let fs = InMemoryFileSystem()
@@ -1394,7 +1154,7 @@ final class WorkspaceTests: XCTestCase {
             diagnostics = DiagnosticsEngine()
             pin(at: "1.0.1", diagnostics: diagnostics)
 
-            // But we should still be able to repin at v1.
+            // But we should still be able to pin at v1.
             diagnostics = DiagnosticsEngine()
             pin(at: v1, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
@@ -1440,106 +1200,6 @@ final class WorkspaceTests: XCTestCase {
             newWorkspace().loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
             // This output diagnostics isn't stable. It could be either A or B.
             XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("@ 1.0.0..<1.0.1"))
-        }
-    }
-
-    func testStrayPin() throws {
-        let path = AbsolutePath("/RootPkg")
-        let fs = InMemoryFileSystem()
-        let manifestGraph = try MockManifestGraph(at: path,
-            rootDeps: [
-                MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
-            ],
-            packages: [
-                MockPackage("A", version: v1, dependencies: [
-                    MockDependency("B", version: v1)
-                ]),
-                MockPackage("A", version: "1.0.1"),
-                MockPackage("B", version: v1),
-            ],
-            fs: fs
-        )
-
-        let provider = manifestGraph.repoProvider!
-
-        func newWorkspace(with delegate: WorkspaceDelegate) -> Workspace {
-            return Workspace.createWith(
-                rootPackage: path,
-                manifestLoader: manifestGraph.manifestLoader,
-                delegate: delegate,
-                fileSystem: fs,
-                repositoryProvider: provider)
-        }
-
-        do {
-            let delegate = TestWorkspaceDelegate()
-            let workspace = newWorkspace(with: delegate)
-            try workspace.pinsStore.load().setAutoPin(on: false)
-
-            let diagnostics = DiagnosticsEngine()
-            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            guard let (_, dep) = manifests.lookup(package: "B") else {
-                return XCTFail("Expected manifest for package B not found")
-            }
-
-            workspace.pin(
-                dependency: dep,
-                packageName: "B",
-                rootPackages: [path],
-                version: v1,
-                diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        // Try updating with repin and versions shouldn't change.
-        do {
-            let delegate = TestWorkspaceDelegate()
-            let workspace = newWorkspace(with: delegate)
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            let g = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(g.lookup("A").version == v1)
-            XCTAssert(g.lookup("B").version == v1)
-            workspace.reset(with: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-        }
-
-        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
-
-        do {
-            let delegate = TestWorkspaceDelegate()
-            let workspace = newWorkspace(with: delegate)
-            let diagnostics = DiagnosticsEngine()
-            let g = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(g.lookup("A").version == "1.0.1")
-            // FIXME: We also cloned B because it has a pin.
-            XCTAssertNotNil(workspace.managedDependencies[manifestGraph.repo("B")])
-        }
-
-        do {
-            let delegate = TestWorkspaceDelegate()
-            let workspace = newWorkspace(with: delegate)
-            XCTAssertTrue(delegate.warnings.isEmpty)
-            let diagnostics = DiagnosticsEngine()
-            workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(delegate.warnings.contains("Consider unpinning B, it is pinned at 1.0.0 but the dependency is not present."))
-            let g = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssert(g.lookup("A").version == "1.0.1")
-            // This dependency should be removed on updating dependencies because it is not referenced anywhere.
-            XCTAssertNil(workspace.managedDependencies[manifestGraph.repo("B")])
         }
     }
 
@@ -1769,12 +1429,6 @@ final class WorkspaceTests: XCTestCase {
                 )
             }
 
-            // Set auto pinning off.
-            do {
-                let workspace = try createWorkspace()
-                try workspace.pinsStore.load().setAutoPin(on: false)
-            }
-
             do {
                 let workspace = try createWorkspace()
                 // Load first two packages.
@@ -1794,6 +1448,7 @@ final class WorkspaceTests: XCTestCase {
                 let diagnostics = DiagnosticsEngine()
                 workspace.reset(with: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
+                try workspace.pinsStore.load().unpinAll()
             }
 
             do {
@@ -1801,7 +1456,7 @@ final class WorkspaceTests: XCTestCase {
                 // Load all packages.
                 let diagnostics = DiagnosticsEngine()
                 let graph = workspace.loadPackageGraph(rootPackages: roots, diagnostics: diagnostics)
-                XCTAssertFalse(diagnostics.hasErrors)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTAssertEqual(graph.packages.map{ $0.name }.sorted(), ["A", "B", "C", "D", "root1", "root2", "root3"])
                 XCTAssertEqual(graph.rootPackages.map{ $0.name }.sorted(), ["root1", "root2", "root3"])
                 XCTAssertEqual(graph.lookup("A").version, v1)
@@ -1809,6 +1464,7 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: We need to reset because we apply constraints for current checkouts (see the above note).
                 workspace.reset(with: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
+                try workspace.pinsStore.load().unpinAll()
 
                 // Remove one of the packages.
                 let newGraph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), diagnostics: diagnostics)
@@ -1916,7 +1572,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let workspace = createWorkspace()
                 let diagnostics = DiagnosticsEngine()
-                workspace.updateDependencies(rootPackages: [path], repin: true, diagnostics: diagnostics)
+                workspace.updateDependencies(rootPackages: [path], diagnostics: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
                 let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
                 let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
@@ -2256,13 +1912,10 @@ final class WorkspaceTests: XCTestCase {
         ("testPackageGraphLoadingBasics", testPackageGraphLoadingBasics),
         ("testPackageGraphLoadingBasicsInMem", testPackageGraphLoadingBasicsInMem),
         ("testPackageGraphLoadingWithCloning", testPackageGraphLoadingWithCloning),
-        ("testAutoPinning", testAutoPinning),
         ("testPinAll", testPinAll),
         ("testPinning", testPinning),
-        ("testUpdateRepinning", testUpdateRepinning),
         ("testPinFailure", testPinFailure),
         ("testPinAllFailure", testPinAllFailure),
-        ("testStrayPin", testStrayPin),
         ("testUpdate", testUpdate),
         ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
