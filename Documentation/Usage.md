@@ -17,7 +17,14 @@
   * [Package Pinning](#package-pinning)
   * [Swift Tools Version](#swift-tools-version)
   * [Prefetching Dependencies](#prefetching-dependencies)
-* [Reference](Reference.md)
+  * [Testing](#testing)
+  * [Build Configurations](#build-configurations)
+    * [Debug](#debug)
+    * [Release](#release)
+  * [Depending on Apple Modules](#depending-on-apple-modules)
+  * [C language targets](#c-language-targets)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
+* [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [Resources](Resources.md)
 
 ---
@@ -708,3 +715,75 @@ dependencies will be cloned in parallel. For e.g.:
 ```sh
 $ swift build --enable-prefetching
 ```
+## Testing
+
+Use `swift test` tool to run tests of a Swift package. For more information on
+the test tool, run `swift test --help`.
+
+## Build Configurations
+
+SwiftPM allows two build configurations: Debug (default) and Release.
+
+### Debug
+
+By default, running `swift build` will build in debug configuration.
+Alternatively, you can also use `swift build -c debug`. The build artifacts are
+located in directory called `debug` under build folder.  A Swift target is built
+with following flags in debug mode:  
+
+* `-Onone`: Compile without any optimization.
+* `-g`: Generate debug information.
+* `-enable-testing`: Enable Swift compiler's testability feature.
+
+A C language target is build with following flags in debug mode:
+
+* `-O0`: Compile without any optimization.
+* `-g`: Generate debug information.
+
+### Release
+
+To build in release mode, type: `swift build -c release`. The build artifacts
+are located in directory called `release` under build folder.  A Swift target is
+built with following flags in release mode:  
+
+* `-O`: Compile with optimizations.
+* `-whole-module-optimization`: Optimize input files (per module) together
+  instead of individually.
+
+A C language target is build with following flags in release mode:
+
+* `-O2`: Compile with optimizations.
+
+## Depending on Apple Modules
+
+At this time there is no explicit support for depending on UIKit, AppKit, etc,
+though importing these modules should work if they are present in the proper
+system location. We will add explicit support for system dependencies in the
+future. Note that at this time the Package Manager has no support for iOS,
+watchOS, or tvOS platforms.
+
+## C language targets
+
+The C language targets are similar to Swift targets except that the C langauge
+libraries should contain a directory named `include` to hold the public headers.  
+
+To allow a Swift target to import a C language target, add a [target
+dependency](#targets) in the manifest file. Swift Package Manager will
+automatically generate a modulemap for each C language library target for these
+3 cases:
+
+* If `include/Foo/Foo.h` exists and `Foo` is the only directory under the
+  include directory then `include/Foo/Foo.h` becomes the umbrella header.
+
+* If `include/Foo.h` exists and `include` contains no other subdirectory then
+  `include/Foo.h` becomes the umbrella header.
+
+* Otherwise if the `include` directory only contains header files and no other
+  subdirectory, it becomes the umbrella directory.
+
+In case of complicated `include` layouts, a custom `module.modulemap` can be
+provided inside `include`. SwiftPM will error out if it can not generate
+a modulemap w.r.t the above rules.
+
+For executable targets, only one valid C language main file is allowed i.e. it
+is invalid to have `main.c` and `main.cpp` in the same target.

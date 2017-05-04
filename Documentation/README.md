@@ -16,7 +16,8 @@ We’ve designed the system to make it really easy to share packages on services
   * [About Dependencies](#about-dependencies)
     * [Dependency Hell](#dependency-hell)
 * [Usage](Usage.md)
-* [Reference](Reference.md)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
+* [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [Resources](Resources.md)
 
 ---

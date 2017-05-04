@@ -4,25 +4,12 @@
 
 * [Overview](README.md)
 * [Usage](Usage.md)
-* [Reference](Reference.md)
+* [PackageDescription API Version 3](PackageDescriptionV3.md)
+* [PackageDescription API Version 4](PackageDescriptionV4.md)
 * [**Resources**](Resources.md)
-  * [Known Issues](#known-issues)
-  * [Future Plans](#future-plans)
   * [Support](#support)
   * [Reporting a good SwiftPM Bug](#reporting-a-good-swiftpm-bug)
   * [Community Proposal](#community-proposal)
-
----
-
-## Known Issues
-
-*Content to come.*
-
----
-
-## Future Plans
-
-*Content to come.*
 
 ---
 
@@ -55,7 +42,3 @@ If the bug is with a generated Xcode project, include how the project was genera
 ## Project History
 
 To learn the original intentions for Swift Package Manager, read the [Community Proposal](PackageManagerCommunityProposal.md).
-
-
-
-
