@@ -1449,7 +1449,8 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
+                // We should not have a pin for B anymore.
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, nil)
             }
         }
     }

@@ -431,14 +431,9 @@ extension Workspace {
             assertionFailure()
         }
 
-        // Load the updated manifests.
-        let updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else { return }
-
         // Update the pins store.
         self.pinAll(
              pinsStore: pinsStore,
-             dependencyManifests: updatedManifests,
              diagnostics: diagnostics)
     }
 
@@ -511,7 +506,7 @@ extension Workspace {
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
-        var currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
@@ -535,16 +530,10 @@ extension Workspace {
         updateCheckouts(with: updateResults, updateBranches: true, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
-        // Get updated manifests.
-        currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
         // Update the pins store.
-        if !diagnostics.hasErrors {
-            return pinAll(
-                pinsStore: pinsStore,
-                dependencyManifests: currentManifests,
-                diagnostics: diagnostics)
-        }
+        return pinAll(
+            pinsStore: pinsStore,
+            diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -634,13 +623,10 @@ extension Workspace {
             // Load the updated manifests.
             updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-            // Reset and pin everything.
-            if !diagnostics.hasErrors {
-                self.pinAll(
-                     pinsStore: pinsStore,
-                     dependencyManifests: updatedManifests!,
-                     diagnostics: diagnostics)
-            }
+            // Update the pinsStore.
+            self.pinAll(
+                 pinsStore: pinsStore,
+                 diagnostics: diagnostics)
         }
 
         return PackageGraphLoader().load(
@@ -835,49 +821,16 @@ extension Workspace {
 
 extension Workspace {
 
-    /// Pins the managed dependency.
-    fileprivate func pin(
-        pinsStore: PinsStore,
-        dependency: ManagedDependency,
-        package: String
-    ) {
-        let checkoutState: CheckoutState
-
-        switch dependency.state {
-        case .checkout(let state):
-            checkoutState = state
-        case .edited:
-            // For editable dependencies, pin the underlying dependency if we have them.
-            if let basedOn = dependency.basedOn, case .checkout(let state) = basedOn.state {
-                checkoutState = state
-            } else {
-                return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
-            }
-        }
-
-        // Commit the pin.
-        pinsStore.pin(
-            package: package,
-            repository: dependency.repository,
-            state: checkoutState)
-    }
-
-    /// Pins all of the dependencies to the loaded version.
+    /// Pins all of the current managed dependencies at their checkout state.
     fileprivate func pinAll(
         pinsStore: PinsStore,
-        dependencyManifests: DependencyManifests,
         diagnostics: DiagnosticsEngine
     ) {
+        // Reset the pinsStore and start pinning each dependency.
 		pinsStore.unpinAll()
-
-        // Start pinning each dependency.
-        for dependencyManifest in dependencyManifests.dependencies {
-            pin(
-                pinsStore: pinsStore,
-                dependency: dependencyManifest.dependency,
-                package: dependencyManifest.manifest.name)
+        for dependency in managedDependencies.values {
+            pinsStore.pin(dependency)
         }
-
         diagnostics.wrap({ try pinsStore.saveState() })
     }
 }
