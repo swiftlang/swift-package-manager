@@ -380,13 +380,20 @@ extension Workspace {
             requirement = currentState.requirement()
         }
 
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({
-            try self.pinsStore.load()
-        }) else {
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Abort if we're unable to load the pinsStore or have any diagnostics.
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
             return
         }
+
+        // Ensure we don't have any error at this point.
+        guard !diagnostics.hasErrors else { return }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -494,17 +501,23 @@ extension Workspace {
         root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine
     ) {
+        // Create cache directories.
         createCacheDirectories(with: diagnostics)
-        // Load the root manifest and current manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        var currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
 
-        // Try to load pins store.
-        // We can't proceed if there are errors at this point.
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }),
-              !diagnostics.hasErrors else {
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        var currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Abort if we're unable to load the pinsStore or have any diagnostics.
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
             return
         }
+
+        // Ensure we don't have any error at this point.
+        guard !diagnostics.hasErrors else { return }
 
         // Create constraints based on root manifest and pins for the update resolution.
         var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
@@ -521,7 +534,7 @@ extension Workspace {
         guard !diagnostics.hasErrors else { return }
 
         // Get updated manifests.
-        currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Update the pins store.
         if !diagnostics.hasErrors {
@@ -531,49 +544,6 @@ extension Workspace {
                 reset: true,
                 diagnostics: diagnostics)
         }
-    }
-
-    // FIXME: Temporary shim while we transition to the new methods.
-    // FIXME: This shouldn't be public API.
-    public func loadDependencyManifests(
-        rootManifests: [Manifest],
-        diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
-        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
-    }
-
-    /// Load the manifests for the current dependency tree.
-    ///
-    /// This will load the manifests for the root package as well as all the
-    /// current dependencies from the working checkouts.
-    // FIXME: This shouldn't be public API.
-    public func loadDependencyManifests(
-        root: PackageGraphRoot,
-        diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
-
-        // Try to load current managed dependencies, or emit and return.
-        do {
-            try fixManagedDependencies()
-        } catch {
-            diagnostics.emit(error)
-            return DependencyManifests(root: root, dependencies: [])
-        }
-
-        let rootDependencyManifests = root.dependencies.flatMap({
-            return loadManifest(forDependencyURL: $0.url, diagnostics: diagnostics)
-        })
-        let inputManifests = root.manifests + rootDependencyManifests
-
-        // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
-            return node.item.package.dependencies.flatMap({ dependency in
-                let manifest = loadManifest(forDependencyURL: dependency.url, diagnostics: diagnostics)
-                return manifest.flatMap({ KeyedPair($0, key: $0.url) })
-            })
-        }
-        let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
-        return DependencyManifests(root: root, dependencies: deps)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -614,7 +584,7 @@ extension Workspace {
 
         // Load the current package graph.
         let currentGraph = PackageGraphLoader().load(
-            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
+            root: graphRoot,
             externalManifests: currentManifests.dependencies.map({ $0.manifest }),
             diagnostics: partialDiagnostics,
             fileSystem: fileSystem,
@@ -955,6 +925,41 @@ extension Workspace {
         }
         return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
     }
+
+    /// Load the manifests for the current dependency tree.
+    ///
+    /// This will load the manifests for the root package as well as all the
+    /// current dependencies from the working checkouts.
+    // @testable internal
+    func loadDependencyManifests(
+        root: PackageGraphRoot,
+        diagnostics: DiagnosticsEngine
+    ) -> DependencyManifests {
+
+        // Try to load current managed dependencies, or emit and return.
+        do {
+            try fixManagedDependencies()
+        } catch {
+            diagnostics.emit(error)
+            return DependencyManifests(root: root, dependencies: [])
+        }
+
+        let rootDependencyManifests = root.dependencies.flatMap({
+            return loadManifest(forDependencyURL: $0.url, diagnostics: diagnostics)
+        })
+        let inputManifests = root.manifests + rootDependencyManifests
+
+        // Compute the transitive closure of available dependencies.
+        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
+            return node.item.package.dependencies.flatMap({ dependency in
+                let manifest = loadManifest(forDependencyURL: dependency.url, diagnostics: diagnostics)
+                return manifest.flatMap({ KeyedPair($0, key: $0.url) })
+            })
+        }
+        let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
+        return DependencyManifests(root: root, dependencies: deps)
+    }
+
 
     /// Loads the given manifest, if it is present in the managed dependencies.
     fileprivate func loadManifest(forDependencyURL url: String, diagnostics: DiagnosticsEngine) -> Manifest? {

@@ -120,6 +120,13 @@ extension Workspace {
             revision: revision,
             diagnostics: diagnostics)
     }
+    
+    fileprivate func loadDependencyManifests(
+        rootManifests: [Manifest],
+        diagnostics: DiagnosticsEngine
+    ) -> DependencyManifests {
+        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
+    }
 }
 
 extension ManagedDependency {
