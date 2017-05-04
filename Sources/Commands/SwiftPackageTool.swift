@@ -182,9 +182,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             parser.printUsage(on: stdoutStream)
 
         case .pin:
-            // Get the pin options.
-            // FIXME: We should validate these options here and throw or warn appropriately.
             let pinOptions = options.pinOptions
+            // Ensure we have the package name.
+            guard let packageName = pinOptions.packageName else {
+                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
+            }
 
             // Load the package graph.
             try loadPackageGraph()
@@ -197,18 +199,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 rootManifests: rootManifests, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else { return }
 
-            // Pin all dependencies if requested.
-            if pinOptions.pinAll {
-                return try workspace.pinAll(root: getWorkspaceRoot(), diagnostics: diagnostics)
-            }
-            // Ensure we have the package name at this point.
-            guard let packageName = pinOptions.packageName else {
-                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
-            }
             // Lookup the dependency to pin.
             guard let (_, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
             }
+
             // We can't pin something which is in editable mode.
             guard case .checkout = dependency.state else {
                 throw PackageToolOperationError.packageInEditableState
@@ -222,7 +217,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,
                 revision: pinOptions.revision,
-                reason: options.pinOptions.message,
                 diagnostics: diagnostics)
         }
     }
@@ -365,17 +359,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         binder.bind(
             pinParser.add(
-                option: "--all", kind: Bool.self,
-                usage: "Pin all dependencies"),
-            pinParser.add(
-                option: "--message", kind: String.self,
-                usage: "The reason for pinning"),
-            to: {
-                $0.pinOptions.pinAll = $1 ?? false
-                $0.pinOptions.message = $2 })
-
-        binder.bind(
-            pinParser.add(
                 option: "--version", kind: String.self,
                 usage: "The version to pin at"),
             pinParser.add(
@@ -418,8 +401,6 @@ public class PackageToolOptions: ToolOptions {
     var xcodeprojOptions = XcodeprojOptions()
 
     struct PinOptions {
-        var pinAll = false
-        var message: String?
         var packageName: String?
         var version: String?
         var revision: String?

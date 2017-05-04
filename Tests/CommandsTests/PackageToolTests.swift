@@ -363,7 +363,6 @@ final class PackageToolTests: XCTestCase {
                     XCTAssertEqual(pin.package, pkg)
                     XCTAssert(pin.repository.url.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
-                    XCTAssertEqual(pin.reason, nil)
                 }
             }
 
@@ -397,9 +396,8 @@ final class PackageToolTests: XCTestCase {
 
             // We should be able to revert to a older version.
             do {
-                try execute("pin", "bar", "--version", "1.2.3", "--message", "bad deppy")
+                try execute("pin", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.reason, "bad deppy")
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
                 try checkBar(5)
             }

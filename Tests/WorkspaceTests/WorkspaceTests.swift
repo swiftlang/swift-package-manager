@@ -111,7 +111,6 @@ extension Workspace {
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        reason: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
         pin(dependency: dependency,
@@ -120,7 +119,6 @@ extension Workspace {
             version: version,
             branch: branch,
             revision: revision,
-            reason: reason,
             diagnostics: diagnostics)
     }
 }

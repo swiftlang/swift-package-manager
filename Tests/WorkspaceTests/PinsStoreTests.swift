@@ -28,7 +28,7 @@ final class PinsStoreTests: XCTestCase {
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
 
         let state = CheckoutState(revision: revision, version: v1)
-        let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state, reason: "bad")
+        let pin = PinsStore.Pin(package: foo, repository: fooRepo, state: state)
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
         
@@ -39,7 +39,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
 
-        try store.pin(package: foo, repository: fooRepo, state: state, reason: "bad")
+        try store.pin(package: foo, repository: fooRepo, state: state)
         XCTAssert(fs.exists(pinsFile))
 
         // Load the store again from disk.
@@ -52,7 +52,6 @@ final class PinsStoreTests: XCTestCase {
             XCTAssertEqual(fooPin.package, foo)
             XCTAssertEqual(fooPin.state.version, v1)
             XCTAssertEqual(fooPin.state.revision, revision)
-            XCTAssertEqual(fooPin.reason, "bad")
             XCTAssertEqual(fooPin.state.description, v1.description)
         }
         

@@ -35,19 +35,14 @@ public final class PinsStore {
         /// The pinned state.
         public let state: CheckoutState
 
-        /// The reason text for pinning this dependency.
-        public let reason: String?
-
         init(
             package: String,
             repository: RepositorySpecifier,
-            state: CheckoutState,
-            reason: String? = nil
+            state: CheckoutState
         ) {
             self.package = package
             self.repository = repository
             self.state = state
-            self.reason = reason
         }
     }
 
@@ -91,20 +86,17 @@ public final class PinsStore {
     ///   - package: The name of the package to pin.
     ///   - repository: The repository to pin.
     ///   - state: The state to pin at.
-    ///   - reason: The reason for pinning.
     /// - Throws: PinOperationError
     public func pin(
         package: String,
         repository: RepositorySpecifier,
-        state: CheckoutState,
-        reason: String? = nil
+        state: CheckoutState
     ) throws {
         // Add pin and save the state.
         pinsMap[package] = Pin(
             package: package,
             repository: repository,
-            state: state,
-            reason: reason
+            state: state
         )
         try saveState()
     }
@@ -151,7 +143,6 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     public init(json: JSON) throws {
         self.package = try json.get("package")
         self.repository = try json.get("repositoryURL")
-        self.reason = json.get("reason")
         self.state = try json.get("state")
     }
 
@@ -161,7 +152,6 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
             "package": package,
             "repositoryURL": repository,
             "state": state,
-            "reason": reason.toJSON(),
         ])
     }
 
