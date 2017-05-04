@@ -295,7 +295,7 @@ final class PackageToolTests: XCTestCase {
 
             try execute("update")
 
-            let pinsFile = fooPath.appending(component: "Package.pins")
+            let pinsFile = fooPath.appending(component: "Package.resolved")
             XCTAssert(exists(pinsFile))
 
             // Update bar repo.
@@ -351,7 +351,7 @@ final class PackageToolTests: XCTestCase {
             }
 
             // We should see a pin file now.
-            let pinsFile = fooPath.appending(component: "Package.pins")
+            let pinsFile = fooPath.appending(component: "Package.resolved")
             XCTAssert(exists(pinsFile))
 
             // Test pins file.
@@ -409,7 +409,7 @@ final class PackageToolTests: XCTestCase {
                     try execute("pin", "bar", printError: false)
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssertEqual(stderr, "error: The provided package is in editable state\n")
+                    XCTAssert(stderr.contains("bar' is already in edit mode"), stderr)
                 }
                 try execute("unedit", "bar")
             }

@@ -291,14 +291,12 @@ public class Workspace {
 
 // MARK: - Public API
 
-extension  Workspace {
+extension Workspace {
 
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
-    ///     - dependency: The dependency to put in edit mode.
-    ///     - packageName: The name of the package corresponding to the
-    ///       dependency. This is used for the checkout directory name.
+    ///     - packageName: The name of the package to edit.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
@@ -307,7 +305,6 @@ extension  Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func edit(
-        dependency: ManagedDependency,
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
@@ -316,7 +313,6 @@ extension  Workspace {
     ) {
         do {
             try _edit(
-                dependency: dependency,
                 packageName: packageName,
                 path: path,
                 revision: revision,
@@ -330,51 +326,14 @@ extension  Workspace {
     /// Ends the edit mode of a dependency which is in edit mode.
     ///
     /// - Parameters:
-    ///     - dependency: The dependency to be unedited.
+    ///     - packageName: The name of the package to edit.
     ///     - forceRemove: If true, the dependency will be unedited even if has
     /// unpushed and uncommited changes. Otherwise will throw respective errors.
     ///
     /// - throws: WorkspaceError
-    public func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
-        var forceRemove = forceRemove
-
-        switch dependency.state {
-        // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
-        case .edited(let path):
-            if path != nil {
-                // Set force remove to true for unmanaged dependencies.  Note that
-                // this only removes the symlink under the editable directory and
-                // not the actual unmanaged package.
-                forceRemove = true
-            }
-        }
-
-        // Form the edit working repo path.
-        let path = editablesPath.appending(dependency.subpath)
-        // Check for uncommited and unpushed changes if force removal is off.
-        if !forceRemove {
-            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-            guard !workingRepo.hasUncommitedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
-            }
-            guard try !workingRepo.hasUnpushedCommits() else {
-                throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
-            }
-        }
-        // Remove the editable checkout from disk.
-        if fileSystem.exists(path) {
-            fileSystem.removeFileTree(path)
-        }
-        // If this was the last editable dependency, remove the editables directory too.
-        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
-            fileSystem.removeFileTree(editablesPath)
-        }
-        // Restore the dependency state.
-        managedDependencies[dependency.repository] = dependency.basedOn
-        // Save the state.
-        try managedDependencies.saveState()
+    public func unedit(packageName: String, forceRemove: Bool) throws {
+        let dependency = try managedDependencies.dependency(forName: packageName)
+        try unedit(dependency: dependency, forceRemove: forceRemove)
     }
 
     /// Pins a package at a given state.
@@ -393,7 +352,6 @@ extension  Workspace {
     ///   - diagnostics: The diagnostics engine that reports errors, warnings
     ///     and notes.
     public func pin(
-        dependency: ManagedDependency,
         packageName: String,
         root: WorkspaceRoot,
         version: Version? = nil,
@@ -401,8 +359,14 @@ extension  Workspace {
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
-        assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
-        guard case .checkout(let currentState) = dependency.state else { fatalError() }
+        // Look up the dependency and check if we can pin it.
+        guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forName: packageName) }) else {
+            return
+        }
+        guard case .checkout(let currentState) = dependency.state else {
+            let error = WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
+            return diagnostics.emit(error)
+        }
 
         // Compute the requirement.
         let requirement: RepositoryPackageConstraint.Requirement
@@ -416,13 +380,20 @@ extension  Workspace {
             requirement = currentState.requirement()
         }
 
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        let currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({
-            try self.pinsStore.load()
-        }) else {
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Abort if we're unable to load the pinsStore or have any diagnostics.
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
             return
         }
+
+        // Ensure we don't have any error at this point.
+        guard !diagnostics.hasErrors else { return }
 
         // Compute constraints with the new pin and try to resolve
         // dependencies. We only commit the pin if the dependencies can be
@@ -467,36 +438,6 @@ extension  Workspace {
                 dependency: newDependency,
                 package: packageName)
         }
-    }
-
-    /// Pins all of the dependencies to the loaded version.
-    ///
-    /// - Parameters:
-    ///   - root: The workspace's root input.
-    ///   - reset: Remove all current pins before pinning dependencies.
-    ///   - diagnostics: The diagnostics engine that reports errors, warnings
-    ///     and notes.
-    // FIXME: Elimate this.
-    func pinAll(
-        root: WorkspaceRoot,
-        reset: Bool = false,
-        diagnostics: DiagnosticsEngine
-    ) {
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
-            return
-        }
-
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        let dependencyManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return
-        }
-
-        pinAll(
-            pinsStore: pinsStore,
-            dependencyManifests: dependencyManifests,
-            reset: reset,
-            diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -560,17 +501,23 @@ extension  Workspace {
         root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine
     ) {
+        // Create cache directories.
         createCacheDirectories(with: diagnostics)
-        // Load the root manifest and current manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
-        var currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
 
-        // Try to load pins store.
-        // We can't proceed if there are errors at this point.
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }),
-              !diagnostics.hasErrors else {
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        var currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Abort if we're unable to load the pinsStore or have any diagnostics.
+        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
             return
         }
+
+        // Ensure we don't have any error at this point.
+        guard !diagnostics.hasErrors else { return }
 
         // Create constraints based on root manifest and pins for the update resolution.
         var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
@@ -587,7 +534,7 @@ extension  Workspace {
         guard !diagnostics.hasErrors else { return }
 
         // Get updated manifests.
-        currentManifests = loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
+        currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Update the pins store.
         if !diagnostics.hasErrors {
@@ -597,49 +544,6 @@ extension  Workspace {
                 reset: true,
                 diagnostics: diagnostics)
         }
-    }
-
-    // FIXME: Temporary shim while we transition to the new methods.
-    // FIXME: This shouldn't be public API.
-    public func loadDependencyManifests(
-        rootManifests: [Manifest],
-        diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
-        return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
-    }
-
-    /// Load the manifests for the current dependency tree.
-    ///
-    /// This will load the manifests for the root package as well as all the
-    /// current dependencies from the working checkouts.
-    // FIXME: This shouldn't be public API.
-    public func loadDependencyManifests(
-        root: PackageGraphRoot,
-        diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
-
-        // Try to load current managed dependencies, or emit and return.
-        do {
-            try fixManagedDependencies()
-        } catch {
-            diagnostics.emit(error)
-            return DependencyManifests(root: root, dependencies: [])
-        }
-
-        let rootDependencyManifests = root.dependencies.flatMap({
-            return loadManifest(forDependencyURL: $0.url, diagnostics: diagnostics)
-        })
-        let inputManifests = root.manifests + rootDependencyManifests
-
-        // Compute the transitive closure of available dependencies.
-        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
-            return node.item.package.dependencies.flatMap({ dependency in
-                let manifest = loadManifest(forDependencyURL: dependency.url, diagnostics: diagnostics)
-                return manifest.flatMap({ KeyedPair($0, key: $0.url) })
-            })
-        }
-        let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
-        return DependencyManifests(root: root, dependencies: deps)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -680,7 +584,7 @@ extension  Workspace {
 
         // Load the current package graph.
         let currentGraph = PackageGraphLoader().load(
-            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
+            root: graphRoot,
             externalManifests: currentManifests.dependencies.map({ $0.manifest }),
             diagnostics: partialDiagnostics,
             fileSystem: fileSystem,
@@ -795,15 +699,16 @@ extension  Workspace {
 extension Workspace {
 
     /// Edit implementation.
-    func _edit(
-        dependency: ManagedDependency,
+    fileprivate func _edit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         diagnostics: DiagnosticsEngine
     ) throws {
-        // Check if we can edit this dependency.
+        // Look up the dependency and check if we can edit it.
+        let dependency = try managedDependencies.dependency(forName: packageName)
+
         guard case .checkout(let checkoutState) = dependency.state else {
             throw WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
         }
@@ -877,6 +782,53 @@ extension Workspace {
             subpath: RelativePath(packageName), unmanagedPath: path)
         try managedDependencies.saveState()
     }
+
+    /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
+    fileprivate func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+
+        // Compute if we need to force remove.
+        var forceRemove = forceRemove
+
+        switch dependency.state {
+        // If the dependency isn't in edit mode, we can't unedit it.
+        case .checkout:
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyURL: dependency.repository.url)
+
+        case .edited(let path):
+            if path != nil {
+                // Set force remove to true for unmanaged dependencies.  Note that
+                // this only removes the symlink under the editable directory and
+                // not the actual unmanaged package.
+                forceRemove = true
+            }
+        }
+
+        // Form the edit working repo path.
+        let path = editablesPath.appending(dependency.subpath)
+        // Check for uncommited and unpushed changes if force removal is off.
+        if !forceRemove {
+            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+            guard !workingRepo.hasUncommitedChanges() else {
+                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+            }
+            guard try !workingRepo.hasUnpushedCommits() else {
+                throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
+            }
+        }
+        // Remove the editable checkout from disk.
+        if fileSystem.exists(path) {
+            fileSystem.removeFileTree(path)
+        }
+        // If this was the last editable dependency, remove the editables directory too.
+        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
+            fileSystem.removeFileTree(editablesPath)
+        }
+        // Restore the dependency state.
+        managedDependencies[dependency.repository] = dependency.basedOn
+        // Save the state.
+        try managedDependencies.saveState()
+    }
+
 }
 
 // MARK: - Pinning Functions
@@ -973,6 +925,41 @@ extension Workspace {
         }
         return manifestLoader.interpreterFlags(for: toolsVersion.manifestVersion)
     }
+
+    /// Load the manifests for the current dependency tree.
+    ///
+    /// This will load the manifests for the root package as well as all the
+    /// current dependencies from the working checkouts.
+    // @testable internal
+    func loadDependencyManifests(
+        root: PackageGraphRoot,
+        diagnostics: DiagnosticsEngine
+    ) -> DependencyManifests {
+
+        // Try to load current managed dependencies, or emit and return.
+        do {
+            try fixManagedDependencies()
+        } catch {
+            diagnostics.emit(error)
+            return DependencyManifests(root: root, dependencies: [])
+        }
+
+        let rootDependencyManifests = root.dependencies.flatMap({
+            return loadManifest(forDependencyURL: $0.url, diagnostics: diagnostics)
+        })
+        let inputManifests = root.manifests + rootDependencyManifests
+
+        // Compute the transitive closure of available dependencies.
+        let dependencies = transitiveClosure(inputManifests.map({ KeyedPair($0, key: $0.url) })) { node in
+            return node.item.package.dependencies.flatMap({ dependency in
+                let manifest = loadManifest(forDependencyURL: dependency.url, diagnostics: diagnostics)
+                return manifest.flatMap({ KeyedPair($0, key: $0.url) })
+            })
+        }
+        let deps = (rootDependencyManifests + dependencies.map({ $0.item })).map({ ($0, managedDependencies[$0.url]!) })
+        return DependencyManifests(root: root, dependencies: deps)
+    }
+
 
     /// Loads the given manifest, if it is present in the managed dependencies.
     fileprivate func loadManifest(forDependencyURL url: String, diagnostics: DiagnosticsEngine) -> Manifest? {

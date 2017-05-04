@@ -85,16 +85,10 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             // Get the current workspace.
             let workspace = try getActiveWorkspace()
 
-            // Look for the package's dependency.
-            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
             // Put the dependency in edit mode.
             workspace.edit(
-                dependency: dependency,
                 packageName: packageName,
                 path: options.editOptions.path,
                 revision: revision,
@@ -106,14 +100,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             // Load the package graph.
             try loadPackageGraph()
-
             let workspace = try getActiveWorkspace()
 
-            // Look for the package's dependency.
-            guard let dependency = workspace.managedDependencies.values.first(where: { $0.name == packageName }) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-            try workspace.unedit(dependency: dependency, forceRemove: options.editOptions.shouldForceRemove)
+            try workspace.unedit(packageName: packageName, forceRemove: options.editOptions.shouldForceRemove)
 
         case .showDependencies:
             let graph = try loadPackageGraph()
@@ -192,26 +181,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try loadPackageGraph()
 
             let workspace = try getActiveWorkspace()
-            // Load the dependencies.
-            let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { return }
-
-            // Lookup the dependency to pin.
-            guard let (_, dependency) = manifests.lookup(package: packageName) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-
-            // We can't pin something which is in editable mode.
-            guard case .checkout = dependency.state else {
-                throw PackageToolOperationError.packageInEditableState
-            }
 
             // Pin the dependency.
             try workspace.pin(
-                dependency: dependency,
                 packageName: packageName,
                 root: getWorkspaceRoot(),
                 version: pinOptions.version.flatMap(Version.init(string:)),
