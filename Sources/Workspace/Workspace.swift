@@ -99,7 +99,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
-    public struct DependencyManifests {
+    struct DependencyManifests {
         /// The package graph root.
         let root: PackageGraphRoot
 
@@ -112,12 +112,12 @@ public class Workspace {
         }
 
         /// Find a package given its name.
-        public func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
+        func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
             return dependencies.first(where: { $0.manifest.name == name })
         }
 
         /// Find a manifest given its name.
-        public func lookup(manifest name: String) -> Manifest? {
+        func lookup(manifest name: String) -> Manifest? {
             return lookup(package: name)?.manifest
         }
 
