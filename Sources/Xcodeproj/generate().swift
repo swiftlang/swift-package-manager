@@ -77,9 +77,11 @@ public func generate(
         stream(str)
     }
 
-////// the scheme acts like an aggregate target for all our targets
-   /// it has all tests associated so CMD+U works
-    let schemeName = "\(projectName).xcscheme"
+    // The scheme acts like an aggregate target for all our targets it has all
+    // tests associated so testing works. We suffix the name of this scheme with
+    // -Package so its name doesn't collide with any products or target with
+    // same name.
+    let schemeName = "\(projectName)-Package.xcscheme"
     try open(schemesDir.appending(RelativePath(schemeName))) { stream in
         xcscheme(
             container: xcodeprojPath.relative(to: srcroot).asString,
@@ -88,8 +90,8 @@ public func generate(
             printer: stream)
     }
 
-////// we generate this file to ensure our main scheme is listed
-   /// before any inferred schemes Xcode may autocreate
+    // We generate this file to ensure our main scheme is listed before any
+    // inferred schemes Xcode may autocreate.
     try open(schemesDir.appending(component: "xcschememanagement.plist")) { print in
         print("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         print("<plist version=\"1.0\">")
