@@ -34,12 +34,14 @@ final class PinsStoreTests: XCTestCase {
         
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
-        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
 
-        try store.pin(package: foo, repository: fooRepo, state: state)
+        store.pin(package: foo, repository: fooRepo, state: state)
+        try store.saveState()
+
         XCTAssert(fs.exists(pinsFile))
 
         // Load the store again from disk.
@@ -56,15 +58,20 @@ final class PinsStoreTests: XCTestCase {
         }
         
         // We should be able to pin again.
-        try store.pin(package: foo, repository: fooRepo, state: state)
-        try store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
+        store.pin(package: foo, repository: fooRepo, state: state)
+        store.pin(package: foo, repository: fooRepo, state: CheckoutState(revision: revision, version: "1.0.2"))
+        store.pin(package: bar, repository: barRepo, state: state)
+        try store.saveState()
 
-        try store.pin(package: bar, repository: barRepo, state: state)
+        store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
         XCTAssert(store.pins.map{$0}.count == 2)
 
         // Test branch pin.
         do {
-            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
+            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision, branch: "develop"))
+            try store.saveState()
+            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, "develop")
             XCTAssertEqual(barPin.state.version, nil)
@@ -74,7 +81,10 @@ final class PinsStoreTests: XCTestCase {
 
         // Test revision pin.
         do {
-            try store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
+            store.pin(package: bar, repository: barRepo, state: CheckoutState(revision: revision))
+            try store.saveState()
+            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, nil)
             XCTAssertEqual(barPin.state.version, nil)

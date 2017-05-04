@@ -431,13 +431,15 @@ extension Workspace {
             assertionFailure()
         }
 
-        diagnostics.wrap {
-            // Add the record in pins store.
-            try pin(
-                pinsStore: pinsStore,
-                dependency: newDependency,
-                package: packageName)
-        }
+        // Load the updated manifests.
+        let updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else { return }
+
+        // Update the pins store.
+        self.pinAll(
+             pinsStore: pinsStore,
+             dependencyManifests: updatedManifests,
+             diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -838,7 +840,7 @@ extension Workspace {
         pinsStore: PinsStore,
         dependency: ManagedDependency,
         package: String
-    ) throws {
+    ) {
         let checkoutState: CheckoutState
 
         switch dependency.state {
@@ -854,7 +856,7 @@ extension Workspace {
         }
 
         // Commit the pin.
-        try pinsStore.pin(
+        pinsStore.pin(
             package: package,
             repository: dependency.repository,
             state: checkoutState)
@@ -866,19 +868,17 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         diagnostics: DiagnosticsEngine
     ) {
-        guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
-            return
-        }
+		pinsStore.unpinAll()
 
         // Start pinning each dependency.
         for dependencyManifest in dependencyManifests.dependencies {
-            diagnostics.wrap({
-                try pin(
-                    pinsStore: pinsStore,
-                    dependency: dependencyManifest.dependency,
-                    package: dependencyManifest.manifest.name)
-            })
+            pin(
+                pinsStore: pinsStore,
+                dependency: dependencyManifest.dependency,
+                package: dependencyManifest.manifest.name)
         }
+
+        diagnostics.wrap({ try pinsStore.saveState() })
     }
 }
 
