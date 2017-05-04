@@ -127,6 +127,12 @@ extension Workspace {
     ) -> DependencyManifests {
         return loadDependencyManifests(root: PackageGraphRoot(manifests: rootManifests), diagnostics: diagnostics)
     }
+
+    fileprivate func resetPinsStore() throws {
+        let pinsStore = try self.pinsStore.load()
+        pinsStore.unpinAll()
+        try pinsStore.saveState()
+    }
 }
 
 extension ManagedDependency {
@@ -1032,7 +1038,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(diagnostics.hasErrors)
 
             // And also after unpinning.
-            try workspace.pinsStore.load().unpinAll()
+            try workspace.resetPinsStore()
             pin(at: v1, diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
         }
@@ -1320,7 +1326,8 @@ final class WorkspaceTests: XCTestCase {
                 let diagnostics = DiagnosticsEngine()
                 workspace.reset(with: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
-                try workspace.pinsStore.load().unpinAll()
+
+                try workspace.resetPinsStore()
             }
 
             do {
@@ -1336,7 +1343,7 @@ final class WorkspaceTests: XCTestCase {
                 // FIXME: We need to reset because we apply constraints for current checkouts (see the above note).
                 workspace.reset(with: diagnostics)
                 XCTAssertFalse(diagnostics.hasErrors)
-                try workspace.pinsStore.load().unpinAll()
+                try workspace.resetPinsStore()
 
                 // Remove one of the packages.
                 let newGraph = workspace.loadPackageGraph(rootPackages: Array(roots[0..<2]), diagnostics: diagnostics)
@@ -1442,7 +1449,8 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertEqual(manifests.lookup(package: "A")!.dependency.checkoutState?.version, "1.0.1")
                 XCTAssertEqual(try workspace.pinsStore.load().pinsMap["A"]?.state.version, "1.0.1")
                 XCTAssertTrue(manifests.lookup(package: "B")!.dependency.state == .edited(nil))
-                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, v1)
+                // We should not have a pin for B anymore.
+                XCTAssertEqual(try workspace.pinsStore.load().pinsMap["B"]?.state.version, nil)
             }
         }
     }

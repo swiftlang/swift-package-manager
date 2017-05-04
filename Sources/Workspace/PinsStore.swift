@@ -81,32 +81,50 @@ public final class PinsStore {
 
     /// Pin a repository at a version.
     ///
-    /// - precodition: Both branch and version can't be provided.
+    /// This method does not automatically write to state file.
+    ///
     /// - Parameters:
     ///   - package: The name of the package to pin.
     ///   - repository: The repository to pin.
     ///   - state: The state to pin at.
-    /// - Throws: PinOperationError
     public func pin(
         package: String,
         repository: RepositorySpecifier,
         state: CheckoutState
-    ) throws {
-        // Add pin and save the state.
+    ) {
         pinsMap[package] = Pin(
             package: package,
             repository: repository,
             state: state
         )
-        try saveState()
     }
 
+	/// Pin a managed dependency at its checkout state.
+	///
+	/// This method does nothing if the dependency is in edited state.
+	func pin(_ dependency: ManagedDependency) {
+
+        // Get the checkout state.
+        let checkoutState: CheckoutState
+        switch dependency.state {
+        case .checkout(let state):
+            checkoutState = state
+        case .edited:
+            return
+        }
+
+        self.pin(
+            package: dependency.name,
+            repository: dependency.repository,
+            state: checkoutState)
+	}
+
     /// Unpin all of the currently pinnned dependencies.
-    public func unpinAll() throws {
+    ///
+    /// This method does not automatically write to state file.
+    public func unpinAll() {
         // Reset the pins map.
         pinsMap = [:]
-        // Save the state.
-        try saveState()
     }
 
     /// Creates constraints based on the pins in the store.
@@ -121,7 +139,7 @@ public final class PinsStore {
 /// Persistence.
 extension PinsStore: SimplePersistanceProtocol {
 
-    fileprivate func saveState() throws {
+    public func saveState() throws {
         try self.persistence.saveState(self)
     }
 

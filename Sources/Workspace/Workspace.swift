@@ -99,7 +99,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
-    public struct DependencyManifests {
+    struct DependencyManifests {
         /// The package graph root.
         let root: PackageGraphRoot
 
@@ -112,12 +112,12 @@ public class Workspace {
         }
 
         /// Find a package given its name.
-        public func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
+        func lookup(package name: String) -> (manifest: Manifest, dependency: ManagedDependency)? {
             return dependencies.first(where: { $0.manifest.name == name })
         }
 
         /// Find a manifest given its name.
-        public func lookup(manifest name: String) -> Manifest? {
+        func lookup(manifest name: String) -> Manifest? {
             return lookup(package: name)?.manifest
         }
 
@@ -142,41 +142,7 @@ public class Workspace {
             return requiredURLs.subtracting(availableURLs)
         }
 
-        /// Returns constraints of the dependencies.
-        fileprivate func createDependencyConstraints() -> [RepositoryPackageConstraint] {
-            var constraints = [RepositoryPackageConstraint]()
-            // Iterate and add constraints from dependencies.
-            for (externalManifest, managedDependency) in dependencies {
-                let specifier = RepositorySpecifier(url: externalManifest.url)
-                let constraint: RepositoryPackageConstraint
-
-                switch managedDependency.state {
-                case .edited:
-                    // Create unversioned constraints for editable dependencies.
-                    let dependencies = externalManifest.package.dependencyConstraints()
-
-                    constraint = RepositoryPackageConstraint(
-                        container: specifier, requirement: .unversioned(dependencies))
-
-                case .checkout(let checkoutState):
-                    // If we know the manifest is at a particular state, use that.
-                    //
-                    // FIXME: This backfires in certain cases when the
-                    // graph is resolvable but this constraint makes the
-                    // resolution unsatisfiable.
-                    let requirement = checkoutState.requirement()
-
-                    constraint = RepositoryPackageConstraint(
-                        container: specifier, requirement: requirement)
-                }
-
-                constraints.append(constraint)
-            }
-
-            return constraints
-        }
-
-        /// Returns a list of constraints for any packages 'edited' or 'unmanaged'.
+        /// Returns a list of constraints for any 'edited' package.
         fileprivate func unversionedConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
@@ -431,13 +397,10 @@ extension Workspace {
             assertionFailure()
         }
 
-        diagnostics.wrap {
-            // Add the record in pins store.
-            try pin(
-                pinsStore: pinsStore,
-                dependency: newDependency,
-                package: packageName)
-        }
+        // Update the pins store.
+        self.pinAll(
+             pinsStore: pinsStore,
+             diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -509,7 +472,7 @@ extension Workspace {
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
-        var currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
@@ -533,17 +496,10 @@ extension Workspace {
         updateCheckouts(with: updateResults, updateBranches: true, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
-        // Get updated manifests.
-        currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
         // Update the pins store.
-        if !diagnostics.hasErrors {
-            return pinAll(
-                pinsStore: pinsStore,
-                dependencyManifests: currentManifests,
-                reset: true,
-                diagnostics: diagnostics)
-        }
+        return pinAll(
+            pinsStore: pinsStore,
+            diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -583,69 +539,67 @@ extension Workspace {
         let partialDiagnostics = DiagnosticsEngine()
 
         // Load the current package graph.
-        let currentGraph = PackageGraphLoader().load(
+        let currentPackageGraph = PackageGraphLoader().load(
             root: graphRoot,
             externalManifests: currentManifests.dependencies.map({ $0.manifest }),
             diagnostics: partialDiagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts)
 
-        // If there are no missing URLs or if we encountered some errors, return the current graph.
-        if diagnostics.hasErrors || missingURLs.isEmpty {
+        func currentGraph() -> PackageGraph {
             // FIXME: Add API to append one engine to another.
             for diag in partialDiagnostics.diagnostics {
                 diagnostics.emit(data: diag.data, location: diag.location)
             }
-            return currentGraph
+            return currentPackageGraph
+        }
+
+        // If there are no missing URLs or if we encountered some errors, return the current graph.
+        if diagnostics.hasErrors || missingURLs.isEmpty {
+            return currentGraph()
+        }
+
+        // Abort if pinsStore is unloadable.
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return currentGraph()
         }
 
         // Start by informing the delegate of what is happening.
         delegate.packageGraphWillLoad(
-            currentGraph: currentGraph,
+            currentGraph: currentPackageGraph,
             dependencies: managedDependencies.values,
             missingURLs: missingURLs)
 
-        var updatedManifests: DependencyManifests? = nil
+        // Create the constraints.
+        var constraints = [RepositoryPackageConstraint]()
+        constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
+        constraints += root.constraints
+        constraints += currentManifests.unversionedConstraints()
+        let pins = pinsStore.createConstraints()
 
-        resolve: do {
-            // Load the pins store.
-            guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
-                break resolve
-            }
-
-            // Create the constraints.
-            var constraints = [RepositoryPackageConstraint]()
-            constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
-            constraints += root.constraints
-
-            var pins = [RepositoryPackageConstraint]()
-            pins += pinsStore.createConstraints()
-            pins += currentManifests.createDependencyConstraints()
-
-            // Perform dependency resolution.
-            let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { break resolve }
-
-            // Update the checkouts with dependency resolution result.
-            updateCheckouts(with: result, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { break resolve }
-
-            // Load the updated manifests.
-            updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
-            // Reset and pin everything.
-            if !diagnostics.hasErrors {
-                self.pinAll(
-                     pinsStore: pinsStore,
-                     dependencyManifests: updatedManifests!,
-                     reset: true,
-                     diagnostics: diagnostics)
-            }
+        // Perform dependency resolution.
+        let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentGraph()
         }
 
+        // Update the checkouts with dependency resolution result.
+        updateCheckouts(with: result, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentGraph()
+        }
+
+        // Update the pinsStore.
+        self.pinAll(
+             pinsStore: pinsStore,
+             diagnostics: diagnostics)
+
+        // Load the updated manifests.
+        let updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
         return PackageGraphLoader().load(
-            root: PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies),
-            externalManifests: updatedManifests?.dependencies.map({ $0.manifest }) ?? [],
+            root: graphRoot,
+            externalManifests: updatedManifests.dependencies.map({ $0.manifest }),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
@@ -835,55 +789,17 @@ extension Workspace {
 
 extension Workspace {
 
-    /// Pins the managed dependency.
-    fileprivate func pin(
-        pinsStore: PinsStore,
-        dependency: ManagedDependency,
-        package: String
-    ) throws {
-        let checkoutState: CheckoutState
-
-        switch dependency.state {
-        case .checkout(let state):
-            checkoutState = state
-        case .edited:
-            // For editable dependencies, pin the underlying dependency if we have them.
-            if let basedOn = dependency.basedOn, case .checkout(let state) = basedOn.state {
-                checkoutState = state
-            } else {
-                return delegate.warning(message: "not pinning \(package). It is being edited but is no longer needed.")
-            }
-        }
-
-        // Commit the pin.
-        try pinsStore.pin(
-            package: package,
-            repository: dependency.repository,
-            state: checkoutState)
-    }
-
-    /// Pins all of the dependencies to the loaded version.
+    /// Pins all of the current managed dependencies at their checkout state.
     fileprivate func pinAll(
         pinsStore: PinsStore,
-        dependencyManifests: DependencyManifests,
-        reset: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        if reset {
-            guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
-                return
-            }
+        // Reset the pinsStore and start pinning each dependency.
+		pinsStore.unpinAll()
+        for dependency in managedDependencies.values {
+            pinsStore.pin(dependency)
         }
-
-        // Start pinning each dependency.
-        for dependencyManifest in dependencyManifests.dependencies {
-            diagnostics.wrap({
-                try pin(
-                    pinsStore: pinsStore,
-                    dependency: dependencyManifest.dependency,
-                    package: dependencyManifest.manifest.name)
-            })
-        }
+        diagnostics.wrap({ try pinsStore.saveState() })
     }
 }
 
