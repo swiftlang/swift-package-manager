@@ -142,41 +142,7 @@ public class Workspace {
             return requiredURLs.subtracting(availableURLs)
         }
 
-        /// Returns constraints of the dependencies.
-        fileprivate func createDependencyConstraints() -> [RepositoryPackageConstraint] {
-            var constraints = [RepositoryPackageConstraint]()
-            // Iterate and add constraints from dependencies.
-            for (externalManifest, managedDependency) in dependencies {
-                let specifier = RepositorySpecifier(url: externalManifest.url)
-                let constraint: RepositoryPackageConstraint
-
-                switch managedDependency.state {
-                case .edited:
-                    // Create unversioned constraints for editable dependencies.
-                    let dependencies = externalManifest.package.dependencyConstraints()
-
-                    constraint = RepositoryPackageConstraint(
-                        container: specifier, requirement: .unversioned(dependencies))
-
-                case .checkout(let checkoutState):
-                    // If we know the manifest is at a particular state, use that.
-                    //
-                    // FIXME: This backfires in certain cases when the
-                    // graph is resolvable but this constraint makes the
-                    // resolution unsatisfiable.
-                    let requirement = checkoutState.requirement()
-
-                    constraint = RepositoryPackageConstraint(
-                        container: specifier, requirement: requirement)
-                }
-
-                constraints.append(constraint)
-            }
-
-            return constraints
-        }
-
-        /// Returns a list of constraints for any packages 'edited' or 'unmanaged'.
+        /// Returns a list of constraints for any 'edited' package.
         fileprivate func unversionedConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
@@ -610,7 +576,7 @@ extension Workspace {
 
             var pins = [RepositoryPackageConstraint]()
             pins += pinsStore.createConstraints()
-            pins += currentManifests.createDependencyConstraints()
+            pins += currentManifests.unversionedConstraints()
 
             // Perform dependency resolution.
             let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
