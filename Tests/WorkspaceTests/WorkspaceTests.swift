@@ -87,7 +87,7 @@ extension Workspace {
         return Workspace(
             dataPath: path.appending(component: ".build"),
             editablesPath: path.appending(component: "Packages"),
-            pinsFile: path.appending(component: "Package.pins"),
+            pinsFile: path.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
@@ -1325,7 +1325,7 @@ final class WorkspaceTests: XCTestCase {
                 return Workspace(
                     dataPath: buildPath,
                     editablesPath: buildPath.appending(component: "Packages"),
-                    pinsFile: path.appending(component: "Package.pins"),
+                    pinsFile: path.appending(component: "Package.resolved"),
                     manifestLoader: MockManifestLoader(manifests: manifests),
                     delegate: TestWorkspaceDelegate()
                 )
@@ -1518,7 +1518,7 @@ final class WorkspaceTests: XCTestCase {
             return Workspace(
                 dataPath: AbsolutePath.root.appending(component: ".build"),
                 editablesPath: AbsolutePath.root.appending(component: "Packages"),
-                pinsFile: AbsolutePath.root.appending(component: "Package.pins"),
+                pinsFile: AbsolutePath.root.appending(component: "Package.resolved"),
                 manifestLoader: manifestLoader,
                 currentToolsVersion: toolsVersion,
                 delegate: TestWorkspaceDelegate(),

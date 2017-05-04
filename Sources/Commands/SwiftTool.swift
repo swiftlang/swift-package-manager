@@ -231,7 +231,7 @@ public class SwiftTool<Options: ToolOptions> {
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: rootPackage.appending(component: "Packages"),
-            pinsFile: rootPackage.appending(component: "Package.pins"),
+            pinsFile: rootPackage.appending(component: "Package.resolved"),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,

@@ -295,7 +295,7 @@ final class PackageToolTests: XCTestCase {
 
             try execute("update")
 
-            let pinsFile = fooPath.appending(component: "Package.pins")
+            let pinsFile = fooPath.appending(component: "Package.resolved")
             XCTAssert(exists(pinsFile))
 
             // Update bar repo.
@@ -351,7 +351,7 @@ final class PackageToolTests: XCTestCase {
             }
 
             // We should see a pin file now.
-            let pinsFile = fooPath.appending(component: "Package.pins")
+            let pinsFile = fooPath.appending(component: "Package.resolved")
             XCTAssert(exists(pinsFile))
 
             // Test pins file.
