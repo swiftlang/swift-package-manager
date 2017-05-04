@@ -541,7 +541,6 @@ extension Workspace {
             return pinAll(
                 pinsStore: pinsStore,
                 dependencyManifests: currentManifests,
-                reset: true,
                 diagnostics: diagnostics)
         }
     }
@@ -638,7 +637,6 @@ extension Workspace {
                 self.pinAll(
                      pinsStore: pinsStore,
                      dependencyManifests: updatedManifests!,
-                     reset: true,
                      diagnostics: diagnostics)
             }
         }
@@ -866,13 +864,10 @@ extension Workspace {
     fileprivate func pinAll(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
-        reset: Bool = false,
         diagnostics: DiagnosticsEngine
     ) {
-        if reset {
-            guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
-                return
-            }
+        guard diagnostics.wrap({ try pinsStore.unpinAll() }) else {
+            return
         }
 
         // Start pinning each dependency.
