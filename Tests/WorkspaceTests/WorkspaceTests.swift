@@ -105,7 +105,6 @@ extension Workspace {
     }
 
     fileprivate func pin(
-        dependency: ManagedDependency,
         packageName: String,
         rootPackages: [AbsolutePath],
         version: Version? = nil,
@@ -113,7 +112,7 @@ extension Workspace {
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
-        pin(dependency: dependency,
+        pin(
             packageName: packageName,
             root: WorkspaceRoot(packages: rootPackages),
             version: version,
@@ -877,12 +876,9 @@ final class WorkspaceTests: XCTestCase {
         let editedDependency = getDependency(aManifest)
         // It should be in edit mode.
         XCTAssert(editedDependency.state == .edited(nil))
-        // Set up for pinning B to v1
-        guard let (_, dep) = manifests.lookup(package: "B") else {
-            return XCTFail("Expected manifest for package B not found")
-        }
+
         // Attempt to pin dependency B.
-        workspace.pin(dependency: dep, packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
+        workspace.pin(packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
         // Validate the versions.
         let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -922,15 +918,7 @@ final class WorkspaceTests: XCTestCase {
         func pin() throws {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            guard let (_, dep) = manifests.lookup(package: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-
             workspace.pin(
-                dependency: dep,
                 packageName: "A",
                 rootPackages: [path],
                 version: v1,
@@ -994,15 +982,7 @@ final class WorkspaceTests: XCTestCase {
 
         func pin(at version: Version, diagnostics: DiagnosticsEngine) {
             let workspace = newWorkspace()
-            let rootManifests = workspace.loadRootManifests(packages: [path], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(rootManifests: rootManifests, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
-            guard let (_, dep) = manifests.lookup(package: "A") else {
-                return XCTFail("Expected manifest for package A not found")
-            }
-
             workspace.pin(
-                dependency: dep,
                 packageName: "A",
                 rootPackages: [path],
                 version: version,
@@ -1013,11 +993,11 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
+
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
             pin(at: v1, diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
             workspace.reset(with: diagnostics)
+
             XCTAssertFalse(diagnostics.hasErrors)
         }
 
@@ -1027,9 +1007,10 @@ final class WorkspaceTests: XCTestCase {
         do {
             let workspace = newWorkspace()
             var diagnostics = DiagnosticsEngine()
+
             let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertFalse(diagnostics.hasErrors)
             XCTAssert(graph.lookup("A").version == v1)
+
             // Pinning non existant version should fail.
             pin(at: "1.0.2", diagnostics: diagnostics)
             XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.2"))

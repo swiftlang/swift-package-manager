@@ -352,7 +352,6 @@ extension Workspace {
     ///   - diagnostics: The diagnostics engine that reports errors, warnings
     ///     and notes.
     public func pin(
-        dependency: ManagedDependency,
         packageName: String,
         root: WorkspaceRoot,
         version: Version? = nil,
@@ -360,8 +359,14 @@ extension Workspace {
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
-        assert(dependency.state.isCheckout, "Can not pin a dependency which is in being edited.")
-        guard case .checkout(let currentState) = dependency.state else { fatalError() }
+        // Look up the dependency and check if we can pin it.
+        guard let dependency = diagnostics.wrap({ try managedDependencies.dependency(forName: packageName) }) else {
+            return
+        }
+        guard case .checkout(let currentState) = dependency.state else {
+            let error = WorkspaceDiagnostics.DependencyAlreadyInEditMode(dependencyURL: dependency.repository.url)
+            return diagnostics.emit(error)
+        }
 
         // Compute the requirement.
         let requirement: RepositoryPackageConstraint.Requirement

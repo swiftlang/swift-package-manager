@@ -181,26 +181,9 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try loadPackageGraph()
 
             let workspace = try getActiveWorkspace()
-            // Load the dependencies.
-            let rootManifests = workspace.loadRootManifests(
-                packages: [try getPackageRoot()], diagnostics: diagnostics)
-            let manifests = workspace.loadDependencyManifests(
-                rootManifests: rootManifests, diagnostics: diagnostics)
-            guard !diagnostics.hasErrors else { return }
-
-            // Lookup the dependency to pin.
-            guard let (_, dependency) = manifests.lookup(package: packageName) else {
-                throw PackageToolOperationError.packageNotFound
-            }
-
-            // We can't pin something which is in editable mode.
-            guard case .checkout = dependency.state else {
-                throw PackageToolOperationError.packageInEditableState
-            }
 
             // Pin the dependency.
             try workspace.pin(
-                dependency: dependency,
                 packageName: packageName,
                 root: getWorkspaceRoot(),
                 version: pinOptions.version.flatMap(Version.init(string:)),
