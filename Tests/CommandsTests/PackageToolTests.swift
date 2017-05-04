@@ -357,14 +357,12 @@ final class PackageToolTests: XCTestCase {
             // Test pins file.
             do {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssert(pinsStore.isAutoPinEnabled)
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let pin = pinsStore.pinsMap[pkg]!
                     XCTAssertEqual(pin.package, pkg)
                     XCTAssert(pin.repository.url.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
-                    XCTAssertEqual(pin.reason, nil)
                 }
             }
 
@@ -373,20 +371,6 @@ final class PackageToolTests: XCTestCase {
                 return try SwiftPMProduct.SwiftPackage.execute([] + args, chdir: fooPath, printIfError: printError)
             }
             
-            // Enable autopin.
-            do {
-                try execute("pin", "--enable-autopin")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssert(pinsStore.isAutoPinEnabled)
-            }
-
-            // Disable autopin.
-            do {
-                try execute("pin", "--disable-autopin")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertFalse(pinsStore.isAutoPinEnabled)
-            }
-
             // Try to pin bar.
             do {
                 try execute("pin", "bar")
@@ -404,33 +388,18 @@ final class PackageToolTests: XCTestCase {
                 try barRepo.tag(name: "1.2.4")
             }
 
-            // Run package update and ensure that it is not updated due to pinning.
-            do {
-                try execute("update")
-                try checkBar(5)
-            }
-
             // Running package update with --repin should update the package.
             do {
-                try execute("update", "--repin")
+                try execute("update")
                 try checkBar(6)
             }
 
             // We should be able to revert to a older version.
             do {
-                try execute("pin", "bar", "--version", "1.2.3", "--message", "bad deppy")
+                try execute("pin", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.reason, "bad deppy")
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
                 try checkBar(5)
-            }
-
-            // Unpinning bar and updating should get the latest version.
-            do {
-                try execute("unpin", "bar")
-                try execute("update")
-                XCTAssertEqual(try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem).pinsMap["bar"], nil)
-                try checkBar(6)
             }
 
             // Try pinning a dependency which is in edit mode.
@@ -443,14 +412,6 @@ final class PackageToolTests: XCTestCase {
                     XCTAssertEqual(stderr, "error: The provided package is in editable state\n")
                 }
                 try execute("unedit", "bar")
-            }
-
-            // Try pinning all the dependencies.
-            do {
-                try execute("pin", "--all")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.4")
-                XCTAssertEqual(pinsStore.pinsMap["baz"]!.state.version, "1.2.3")
             }
         }
     }

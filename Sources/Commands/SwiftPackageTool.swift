@@ -69,12 +69,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .update:
             let workspace = try getActiveWorkspace()
-            let pinsStore = try workspace.pinsStore.load()
-            // We repin either on explicit repin option or if autopin is enabled.
-            let repin = options.shouldRepin || pinsStore.isAutoPinEnabled
             try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
-                repin: repin,
                 diagnostics: diagnostics
             )
 
@@ -186,18 +182,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             parser.printUsage(on: stdoutStream)
 
         case .pin:
-            // FIXME: It would be nice to have mutual exclusion pinning options.
-            // Argument parser needs to provide that functionality.
-
-            // Toggle enable auto pinning if requested.
-            if let enableAutoPin = options.pinOptions.shouldAutoPin {
-                let workspace = try getActiveWorkspace()
-                return try workspace.pinsStore.load().setAutoPin(on: enableAutoPin)
-            }
-
-            // Get the pin options.
-            // FIXME: We should validate these options here and throw or warn appropriately.
             let pinOptions = options.pinOptions
+            // Ensure we have the package name.
+            guard let packageName = pinOptions.packageName else {
+                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
+            }
 
             // Load the package graph.
             try loadPackageGraph()
@@ -210,18 +199,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 rootManifests: rootManifests, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else { return }
 
-            // Pin all dependencies if requested.
-            if pinOptions.pinAll {
-                return try workspace.pinAll(root: getWorkspaceRoot(), diagnostics: diagnostics)
-            }
-            // Ensure we have the package name at this point.
-            guard let packageName = pinOptions.packageName else {
-                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
-            }
             // Lookup the dependency to pin.
             guard let (_, dependency) = manifests.lookup(package: packageName) else {
                 throw PackageToolOperationError.packageNotFound
             }
+
             // We can't pin something which is in editable mode.
             guard case .checkout = dependency.state else {
                 throw PackageToolOperationError.packageInEditableState
@@ -235,15 +217,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 version: pinOptions.version.flatMap(Version.init(string:)),
                 branch: pinOptions.branch,
                 revision: pinOptions.revision,
-                reason: options.pinOptions.message,
                 diagnostics: diagnostics)
-
-        case .unpin:
-            guard let packageName = options.pinOptions.packageName else {
-                fatalError("Expected package name from parser")
-            }
-            let workspace = try getActiveWorkspace()
-            try workspace.pinsStore.load().unpin(package: packageName)
         }
     }
 
@@ -303,12 +277,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 usage: "text|json"),
             to: { $0.resolveToolMode = $1 })
 
-        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
-        binder.bind(
-            option: updateParser.add(
-                option: "--repin", kind: Bool.self,
-                usage: "Update without applying pins and repin the updated versions"),
-            to: { $0.shouldRepin = $1 })
+        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
 
         let initPackageParser = parser.add(
             subparser: PackageMode.initPackage.rawValue,
@@ -387,27 +356,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 positional: "name", kind: String.self, optional: true,
                 usage: "The name of the package to pin"),
             to: { $0.pinOptions.packageName = $1 })
-        binder.bind(
-            option: pinParser.add(
-                option: "--enable-autopin", kind: Bool.self,
-                usage: "Enable automatic pinning"),
-            to: { $0.pinOptions.shouldAutoPin = $1 })
-        binder.bind(
-            option: pinParser.add(
-                option: "--disable-autopin", kind: Bool.self,
-                usage: "Disable automatic pinning"),
-            to: { $0.pinOptions.shouldAutoPin = !$1 })
-
-        binder.bind(
-            pinParser.add(
-                option: "--all", kind: Bool.self,
-                usage: "Pin all dependencies"),
-            pinParser.add(
-                option: "--message", kind: String.self,
-                usage: "The reason for pinning"),
-            to: {
-                $0.pinOptions.pinAll = $1 ?? false
-                $0.pinOptions.message = $2 })
 
         binder.bind(
             pinParser.add(
@@ -423,15 +371,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.pinOptions.version = $1
                 $0.pinOptions.branch = $2
                 $0.pinOptions.revision = $3 })
-
-        let unpinParser = parser.add(
-            subparser: PackageMode.unpin.rawValue,
-            overview: "Unpin a package. Note: This can only be used when auto-pinning is disabled.")
-        binder.bind(
-            positional: unpinParser.add(
-                positional: "name", kind: String.self,
-                usage: "The name of the package to unpin"),
-            to: { $0.pinOptions.packageName = $1 })
 
         binder.bind(
             parser: parser,
@@ -462,18 +401,12 @@ public class PackageToolOptions: ToolOptions {
     var xcodeprojOptions = XcodeprojOptions()
 
     struct PinOptions {
-        var shouldAutoPin: Bool?
-        var pinAll = false
-        var message: String?
         var packageName: String?
         var version: String?
         var revision: String?
         var branch: String?
     }
     var pinOptions = PinOptions()
-
-    /// Repin the dependencies when running package update.
-    var shouldRepin = false
 
     enum ResolveToolMode: String {
         case text
@@ -503,7 +436,6 @@ public enum PackageMode: String, StringEnumArgument {
     case showDependencies = "show-dependencies"
     case toolsVersion = "tools-version"
     case unedit
-    case unpin
     case update
     case version
     case help
