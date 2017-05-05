@@ -35,6 +35,12 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has finished fetching this repository.
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
 
+    /// The workspace has started updating this repository.
+    func repositoryWillUpdate(_ repository: String)
+
+    /// The workspace has finished finished this repository.
+    func repositoryDidUpdate(_ repository: String)
+
     /// The workspace has started cloning this repository.
     func cloning(repository: String)
 
@@ -52,9 +58,9 @@ public protocol WorkspaceDelegate: class {
 }
 
 public extension WorkspaceDelegate {
-    func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {
-        // Empty default implementation.
-    }
+    func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
+    func repositoryWillUpdate(_ repository: String) {}
+    func repositoryDidUpdate(_ repository: String) {}
 }
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
@@ -82,6 +88,14 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
             return engine.diagnostics.first
         })
         workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, diagnostic: diagnostic)
+    }
+
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
+        workspaceDelegate.repositoryWillUpdate(handle.repository.url)
+    }
+
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
+        workspaceDelegate.repositoryDidUpdate(handle.repository.url)
     }
 }
 

@@ -35,6 +35,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
     }
 
+    func repositoryWillUpdate(_ repository: String) {
+        print("Updating \(repository)")
+    }
+
+    func repositoryDidUpdate(_ repository: String) {
+    }
+
     func cloning(repository: String) {
         print("Cloning \(repository)")
     }
