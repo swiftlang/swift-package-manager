@@ -570,7 +570,7 @@ extension Workspace {
     /// manifests and pins file.  Pins are respected as long as they are
     /// satisfied by the root manifest closure requirements.  Any outdated
     /// checkout will be restored according to its pin.
-    func resolve(
+    public func resolve(
         root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine
     ) {

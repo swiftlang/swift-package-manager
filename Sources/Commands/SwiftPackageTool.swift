@@ -18,6 +18,17 @@ import Utility
 import Xcodeproj
 import Workspace
 
+struct FetchDeprecatedDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: AnyDiagnostic.self,
+        name: "org.swift.diags.fetch-deprecated",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "'fetch' command is deprecated, use 'resolve' command instead."
+        }
+    )
+}
+
 /// Errors encountered duing the package tool operations.
 enum PackageToolOperationError: Swift.Error {
     /// The provided package name doesn't exist in package graph.
@@ -59,13 +70,8 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
 
-        case .resolve:
-            // NOTE: This command is currently undocumented, and is for
-            // bringup of the new dependency resolution logic. This is *NOT*
-            // the code currently used to resolve dependencies (which runs
-            // off of the infrastructure in the `Get` target).
+        case .resolveTool:
             try executeResolve(options)
-            break
 
         case .update:
             let workspace = try getActiveWorkspace()
@@ -75,7 +81,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             )
 
         case .fetch:
-            try loadPackageGraph()
+            diagnostics.emit(data: FetchDeprecatedDiagnostic())
+            fallthrough
+
+        case .resolve:
+            let workspace = try getActiveWorkspace()
+            workspace.resolve(root: try getWorkspaceRoot(), diagnostics: diagnostics)
 
         case .edit:
             let packageName = options.editOptions.packageName!
@@ -239,10 +250,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.editOptions.path = $1.path })
 
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
-        parser.add(subparser: PackageMode.fetch.rawValue, overview: "Fetch package dependencies")
+        parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
+        parser.add(subparser: PackageMode.resolve.rawValue, overview: "Resolve package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
 
-        let resolveParser = parser.add(subparser: PackageMode.resolve.rawValue, overview: "")
+        let resolveParser = parser.add(subparser: PackageMode.resolveTool.rawValue, overview: "")
         binder.bind(
             option: resolveParser.add(
                 option: "--type", kind: PackageToolOptions.ResolveToolMode.self,
@@ -405,6 +417,7 @@ public enum PackageMode: String, StringEnumArgument {
     case pin
     case reset
     case resolve
+    case resolveTool = "resolve-tool"
     case showDependencies = "show-dependencies"
     case toolsVersion = "tools-version"
     case unedit
