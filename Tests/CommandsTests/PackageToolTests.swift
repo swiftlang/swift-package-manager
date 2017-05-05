@@ -318,7 +318,7 @@ final class PackageToolTests: XCTestCase {
 
             // Try to pin bar at a branch.
             do {
-                try execute("pin", "bar", "--branch", "YOLO")
+                try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 let state = CheckoutState(revision: yoloRevision, branch: "YOLO") 
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
@@ -326,7 +326,7 @@ final class PackageToolTests: XCTestCase {
 
             // Try to pin bar at a revision.
             do {
-                try execute("pin", "bar", "--revision", yoloRevision.identifier)
+                try execute("resolve", "bar", "--revision", yoloRevision.identifier)
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 let state = CheckoutState(revision: yoloRevision) 
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
@@ -334,7 +334,7 @@ final class PackageToolTests: XCTestCase {
 
             // Try to pin bar at a bad revision.
             do {
-                try execute("pin", "bar", "--revision", "xxxxx")
+                try execute("resolve", "bar", "--revision", "xxxxx")
                 XCTFail()
             } catch {}
         }
@@ -385,7 +385,7 @@ final class PackageToolTests: XCTestCase {
             
             // Try to pin bar.
             do {
-                try execute("pin", "bar")
+                try execute("resolve", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
             }
@@ -408,7 +408,7 @@ final class PackageToolTests: XCTestCase {
 
             // We should be able to revert to a older version.
             do {
-                try execute("pin", "bar", "--version", "1.2.3")
+                try execute("resolve", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
                 try checkBar(5)
@@ -418,7 +418,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("edit", "bar", "--branch", "bugfix")
                 do {
-                    try execute("pin", "bar", printError: false)
+                    try execute("resolve", "bar", printError: false)
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                     XCTAssert(stderr.contains("bar' is already in edit mode"), stderr)

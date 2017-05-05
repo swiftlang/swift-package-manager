@@ -104,7 +104,7 @@ extension Workspace {
         return updateDependencies(root: WorkspaceRoot(packages: rootPackages), diagnostics: diagnostics)
     }
 
-    fileprivate func pin(
+    fileprivate func resolve(
         packageName: String,
         rootPackages: [AbsolutePath],
         version: Version? = nil,
@@ -112,7 +112,7 @@ extension Workspace {
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
     ) {
-        pin(
+        resolve(
             packageName: packageName,
             root: WorkspaceRoot(packages: rootPackages),
             version: version,
@@ -861,10 +861,10 @@ final class WorkspaceTests: XCTestCase {
 
         // Create the workspace.
         let workspace = Workspace.createWith(rootPackage: path,
-                                             manifestLoader: manifestGraph.manifestLoader,
-                                             delegate: TestWorkspaceDelegate(),
-                                             fileSystem: fs,
-                                             repositoryProvider: provider)
+             manifestLoader: manifestGraph.manifestLoader,
+             delegate: TestWorkspaceDelegate(),
+             fileSystem: fs,
+             repositoryProvider: provider)
         // Load the package graph.
         let diagnostics = DiagnosticsEngine()
         let graph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -892,7 +892,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssert(editedDependency.state == .edited(nil))
 
         // Attempt to pin dependency B.
-        workspace.pin(packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
+        workspace.resolve(packageName: "B", rootPackages: [path], version: v1, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
         // Validate the versions.
         let reloadedGraph = workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
@@ -932,7 +932,7 @@ final class WorkspaceTests: XCTestCase {
         func pin() throws {
             let workspace = newWorkspace()
             let diagnostics = DiagnosticsEngine()
-            workspace.pin(
+            workspace.resolve(
                 packageName: "A",
                 rootPackages: [path],
                 version: v1,
@@ -996,7 +996,7 @@ final class WorkspaceTests: XCTestCase {
 
         func pin(at version: Version, diagnostics: DiagnosticsEngine) {
             let workspace = newWorkspace()
-            workspace.pin(
+            workspace.resolve(
                 packageName: "A",
                 rootPackages: [path],
                 version: version,
