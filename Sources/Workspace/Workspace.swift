@@ -543,12 +543,6 @@ extension Workspace {
     /// This will implicitly cause any dependencies not yet present in the
     /// working checkouts to be resolved, cloned, and checked out.
     ///
-    /// When fetching additional dependencies, the existing checkout versions
-    /// will never be re-bound (or even re-fetched) as a result of this
-    /// operation. This implies that the resulting local state may not match
-    /// what would be computed from a fresh clone, but this makes for a more
-    /// consistent command line development experience.
-    ///
     /// - Returns: The loaded package graph.
     @discardableResult
     public func loadPackageGraph(
@@ -556,173 +550,31 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
-        // Ensure the cache path exists and validate that edited dependencies.
-        createCacheDirectories(with: diagnostics)
 
-        // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+        // Perform dependency resolution, if required.
+        let manifests = self._resolve(root: root, diagnostics: diagnostics)
 
-        // Load the current manifests.
-        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
-        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
-        // When loading current package graph, we can't use the diagnostic
-        // engine passed by clients because we will end up adding diagnostics
-        // which might go away after a complete loading.
-        let partialDiagnostics = DiagnosticsEngine()
-
-        // Load the current package graph.
-        let currentPackageGraph = PackageGraphLoader().load(
-            root: graphRoot,
-            externalManifests: currentManifests.dependencies.map({ $0.manifest }),
-            diagnostics: partialDiagnostics,
-            fileSystem: fileSystem,
-            shouldCreateMultipleTestProducts: createMultipleTestProducts)
-
-        func currentGraph() -> PackageGraph {
-            // FIXME: Add API to append one engine to another.
-            for diag in partialDiagnostics.diagnostics {
-                diagnostics.emit(data: diag.data, location: diag.location)
-            }
-            return currentPackageGraph
-        }
-
-        // Abort if pinsStore is unloadable or if diagnostics has errors.
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }), !diagnostics.hasErrors else {
-            return currentGraph()
-        }
-
-        // Compute the missing URLs.
-        let missingURLs = currentManifests.missingURLs()
-
-        // The pins to use in case we need to run the resolution.
-        var validPins = pinsStore.createConstraints()
-
-        // Compute if we need to run the resolver.
-        if missingURLs.isEmpty {
-            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
-            let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
-
-            // Return the current graph if we don't need to resolve.
-            if !result.resolve {
-                return currentGraph()
-            }
-
-            validPins = result.validPins
-        }
-
-        // Start by informing the delegate of what is happening.
-        delegate.packageGraphWillLoad(
-            currentGraph: currentPackageGraph,
-            dependencies: managedDependencies.values,
-            missingURLs: missingURLs)
-
-        // Create the constraints.
-        var constraints = [RepositoryPackageConstraint]()
-        constraints += graphRoot.constraints
-        constraints += currentManifests.editedPackagesConstraints()
-
-        // Perform dependency resolution.
-        let result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return currentGraph()
-        }
-
-        // Update the checkouts with dependency resolution result.
-        updateCheckouts(with: result, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return currentGraph()
-        }
-
-        // Update the pinsStore.
-        self.pinAll(
-             pinsStore: pinsStore,
-             diagnostics: diagnostics)
-
-        // Load the updated manifests.
-        let updatedManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
+        // Load the graph.
         return PackageGraphLoader().load(
-            root: graphRoot,
-            externalManifests: updatedManifests.dependencies.map({ $0.manifest }),
+            root: manifests.root,
+            externalManifests: manifests.dependencies.map({ $0.manifest }),
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
         )
     }
 
-    /// Computes if dependency resolution is required based on input constraints and pins.
+    /// Perform dependency resolution if needed.
     ///
-    /// A resolution is required if:
-    ///
-    /// * The input dependencies are not mergable. E.g.: root manifest have
-    ///   unmergable constraints.
-    ///
-    /// * Pins are not mergable into the input dependencies. E.g.: if root
-    ///   manifest was updated with constraints such that the current pin does not
-    ///   statisfy it.
-    ///
-    /// * If any of the managed dependency is out of sync with its pin. E.g.:
-    ///   pulling from remote updates the pin file..
-    ///
-    /// - Returns: A tuple with two elements.
-    ///       resolve: If resolution is required.
-    ///       validPins: The pins which are still valid.
-    // @testable internal
-    func isResolutionRequired(
-        dependencies: [RepositoryPackageConstraint],
-        pinsStore: PinsStore
-    ) -> (resolve: Bool, validPins: [RepositoryPackageConstraint]) {
-
-        // Create pinned constraints.
-        let pinConstraints = pinsStore.createConstraints()
-
-        // Create a constraint set to check constraints are mergable.
-        var constraintSet = PackageContainerConstraintSet<RepositoryPackageContainer>()
-
-        // The input dependencies should be mergable, otherwise we have bigger problems.
-        for constraint in dependencies {
-            guard let mergedSet = constraintSet.merging(constraint) else {
-                return (true, pinConstraints)
-            }
-            constraintSet = mergedSet
-        }
-
-        // Compute the pins which are valid w.r.t dependencies.
-        let validPins: [RepositoryPackageConstraint]
-        validPins = pinConstraints.flatMap{ pin in
-            if let mergedSet = constraintSet.merging(pin) {
-                constraintSet = mergedSet
-                return pin
-            }
-            return nil
-        }
-
-        // If there are pins which are not valid anymore, we need to resolve.
-        if pinConstraints.count != validPins.count {
-            return (true, validPins)
-        }
-
-        // Otherwise, just check if all checkouts and pins are in sync.
-        for pin in pinsStore.pins {
-            let dependency = managedDependencies[pin.repository]
-
-            switch dependency?.state {
-            case let .checkout(dependencyState)?:
-                // If this pin is not same as the checkout state, we need to re-resolve.
-                if pin.state != dependencyState {
-                    return (true, validPins)
-                }
-            case .edited?:
-                // Ignore edited dependencies.
-                continue
-            case nil:
-                // We don't have a checkout.
-                return (true, validPins)
-            }
-        }
-
-        return (false, [])
+    /// This method will perform dependency resolution based on the root
+    /// manifests and pins file.  Pins are respected as long as they are
+    /// satisfied by the root manifest closure requirements.  Any outdated
+    /// checkout will be restored according to its pin.
+    public func resolve(
+        root: WorkspaceRoot,
+        diagnostics: DiagnosticsEngine
+    ) {
+        _ = _resolve(root: root, diagnostics: diagnostics)
     }
 
 	/// Load the package graph data.
@@ -1056,6 +908,143 @@ extension Workspace {
 // MARK: - Dependency Management
 
 extension Workspace {
+
+    /// Implementation of resolve(root:diagnostics:).
+    fileprivate func _resolve(
+        root: WorkspaceRoot,
+        diagnostics: DiagnosticsEngine
+    ) -> DependencyManifests {
+        // Ensure the cache path exists and validate that edited dependencies.
+        createCacheDirectories(with: diagnostics)
+
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
+
+        // Load the current manifests.
+        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
+        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+
+        // Abort if pinsStore is unloadable or if diagnostics has errors.
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }), !diagnostics.hasErrors else {
+            return currentManifests
+        }
+
+        // Compute the missing URLs.
+        let missingURLs = currentManifests.missingURLs()
+
+        // The pins to use in case we need to run the resolution.
+        var validPins = pinsStore.createConstraints()
+
+        // Compute if we need to run the resolver.
+        if missingURLs.isEmpty {
+            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
+            let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
+
+            // We're done if we don't need resolution.
+            guard result.resolve else {
+                return currentManifests
+            }
+
+            validPins = result.validPins
+        }
+
+        // Create the constraints.
+        var constraints = [RepositoryPackageConstraint]()
+        constraints += graphRoot.constraints
+        constraints += currentManifests.editedPackagesConstraints()
+
+        // Perform dependency resolution.
+        let result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentManifests
+        }
+
+        // Update the checkouts with dependency resolution result.
+        updateCheckouts(with: result, diagnostics: diagnostics)
+        guard !diagnostics.hasErrors else {
+            return currentManifests
+        }
+
+        // Update the pinsStore.
+        self.pinAll(pinsStore: pinsStore, diagnostics: diagnostics)
+
+        return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+    }
+
+    /// Computes if dependency resolution is required based on input constraints and pins.
+    ///
+    /// A resolution is required if:
+    ///
+    /// * The input dependencies are not mergable. E.g.: root manifest have
+    ///   unmergable constraints.
+    ///
+    /// * Pins are not mergable into the input dependencies. E.g.: if root
+    ///   manifest was updated with constraints such that the current pin does not
+    ///   statisfy it.
+    ///
+    /// * If any of the managed dependency is out of sync with its pin. E.g.:
+    ///   pulling from remote updates the pin file..
+    ///
+    /// - Returns: A tuple with two elements.
+    ///       resolve: If resolution is required.
+    ///       validPins: The pins which are still valid.
+    // @testable internal
+    func isResolutionRequired(
+        dependencies: [RepositoryPackageConstraint],
+        pinsStore: PinsStore
+    ) -> (resolve: Bool, validPins: [RepositoryPackageConstraint]) {
+
+        // Create pinned constraints.
+        let pinConstraints = pinsStore.createConstraints()
+
+        // Create a constraint set to check constraints are mergable.
+        var constraintSet = PackageContainerConstraintSet<RepositoryPackageContainer>()
+
+        // The input dependencies should be mergable, otherwise we have bigger problems.
+        for constraint in dependencies {
+            guard let mergedSet = constraintSet.merging(constraint) else {
+                return (true, pinConstraints)
+            }
+            constraintSet = mergedSet
+        }
+
+        // Compute the pins which are valid w.r.t dependencies.
+        let validPins: [RepositoryPackageConstraint]
+        validPins = pinConstraints.flatMap{ pin in
+            if let mergedSet = constraintSet.merging(pin) {
+                constraintSet = mergedSet
+                return pin
+            }
+            return nil
+        }
+
+        // If there are pins which are not valid anymore, we need to resolve.
+        if pinConstraints.count != validPins.count {
+            return (true, validPins)
+        }
+
+        // Otherwise, just check if all checkouts and pins are in sync.
+        for pin in pinsStore.pins {
+            let dependency = managedDependencies[pin.repository]
+
+            switch dependency?.state {
+            case let .checkout(dependencyState)?:
+                // If this pin is not same as the checkout state, we need to re-resolve.
+                if pin.state != dependencyState {
+                    return (true, validPins)
+                }
+            case .edited?:
+                // Ignore edited dependencies.
+                continue
+            case nil:
+                // We don't have a checkout.
+                return (true, validPins)
+            }
+        }
+
+        return (false, [])
+    }
+
 
     /// This enum represents state of an external package.
     fileprivate enum PackageStateChange {

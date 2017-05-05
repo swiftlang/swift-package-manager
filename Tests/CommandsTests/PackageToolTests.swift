@@ -33,14 +33,26 @@ final class PackageToolTests: XCTestCase {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
+    func testResolve() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+
+            // Check that `resolve` works.
+            _ = try execute(["resolve"], chdir: packageRoot)
+            let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
+            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+        }
+    }
+
     func testFetch() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
 
             // Check that `fetch` works.
-            _ = try execute(["fetch"], chdir: packageRoot)
+            let output = try execute(["fetch"], chdir: packageRoot)
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+            XCTAssert(output.contains("deprecated"), output)
         }
     }
 
@@ -421,6 +433,7 @@ final class PackageToolTests: XCTestCase {
         ("testUsage", testUsage),
         ("testVersion", testVersion),
         ("testFetch", testFetch),
+        ("testResolve", testResolve),
         ("testUpdate", testUpdate),
         ("testDumpPackage", testDumpPackage),
         ("testShowDependencies", testShowDependencies),
