@@ -741,7 +741,8 @@ public struct RerootedFileSystemView: FileSystem {
     }
 
     public mutating func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        return try underlyingFileSystem.createDirectory(formUnderlyingPath(path), recursive: recursive)
+        let path = formUnderlyingPath(path)
+        return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
 
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
@@ -749,7 +750,8 @@ public struct RerootedFileSystemView: FileSystem {
     }
 
     public mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        return try underlyingFileSystem.writeFileContents(formUnderlyingPath(path), bytes: bytes)
+        let path = formUnderlyingPath(path)
+        return try underlyingFileSystem.writeFileContents(path, bytes: bytes)
     }
 
     public mutating func removeFileTree(_ path: AbsolutePath) {
