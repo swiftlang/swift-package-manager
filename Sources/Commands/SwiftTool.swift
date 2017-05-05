@@ -279,6 +279,18 @@ public class SwiftTool<Options: ToolOptions> {
         fatalError("Must be implmented by subclasses")
     }
 
+    /// Resolve the dependencies.
+    func resolve() throws {
+        let workspace = try getActiveWorkspace()
+        workspace.resolve(root: try getWorkspaceRoot(), diagnostics: diagnostics)
+
+        // Throw if there were errors when loading the graph.
+        // The actual errors will be printed before exiting.
+        guard !diagnostics.hasErrors else {
+            throw Error.hasFatalDiagnostics
+        }
+    }
+
     /// Fetch and load the complete package graph.
     @discardableResult
     func loadPackageGraph() throws -> PackageGraph {

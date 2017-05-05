@@ -54,8 +54,16 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         for identifier: Container.Identifier,
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {
+        getContainer(for: identifier, skipUpdate: false, completion: completion)
+    }
+
+    public func getContainer(
+        for identifier: Container.Identifier,
+        skipUpdate: Bool,
+        completion: @escaping (Result<Container, AnyError>) -> Void
+    ) {
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier) { result in
+        repositoryManager.lookup(repository: identifier, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
             let container = result.mapAny { handle -> Container in
                 // Open the repository.

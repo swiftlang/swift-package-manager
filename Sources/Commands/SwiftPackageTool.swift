@@ -82,16 +82,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .fetch:
             diagnostics.emit(data: FetchDeprecatedDiagnostic())
-            let workspace = try getActiveWorkspace()
-            workspace.resolve(root: try getWorkspaceRoot(), diagnostics: diagnostics)
+            try resolve()
 
         case .resolve:
             let resolveOptions = options.resolveOptions
-            let workspace = try getActiveWorkspace()
-            let root = try getWorkspaceRoot()
 
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
+                let workspace = try getActiveWorkspace()
                 return try workspace.resolve(
                     packageName: packageName,
                     root: getWorkspaceRoot(),
@@ -102,18 +100,16 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             }
 
             // Otherwise, run a normal resolve.
-            workspace.resolve(root: root, diagnostics: diagnostics)
+            try resolve()
 
         case .edit:
             let packageName = options.editOptions.packageName!
-            // Load the package graph.
-            try loadPackageGraph()
-
-            // Get the current workspace.
+            try resolve()
             let workspace = try getActiveWorkspace()
 
             // Create revision object if provided by user.
             let revision = options.editOptions.revision.flatMap({ Revision(identifier: $0) })
+
             // Put the dependency in edit mode.
             workspace.edit(
                 packageName: packageName,
@@ -124,9 +120,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .unedit:
             let packageName = options.editOptions.packageName!
-
-            // Load the package graph.
-            try loadPackageGraph()
+            try resolve()
             let workspace = try getActiveWorkspace()
 
             try workspace.unedit(packageName: packageName, forceRemove: options.editOptions.shouldForceRemove)

@@ -621,7 +621,9 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            let handle = try repositoryManager.lookupSynchronously(repository: dependency.repository)
+            let handle = try await {
+                repositoryManager.lookup(repository: dependency.repository, skipUpdate: true, completion: $0)
+            }
             let repo = try handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
@@ -1077,7 +1079,9 @@ extension Workspace {
 
             case .revision(let identifier):
                 // Get the latest revision from the container.
-                let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+                let container = try await {
+                    containerProvider.getContainer(for: specifier, skipUpdate: true, completion: $0) 
+                }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
 
@@ -1256,7 +1260,9 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        let handle = try repositoryManager.lookupSynchronously(repository: repository)
+        let handle = try await {
+            repositoryManager.lookup(repository: repository, skipUpdate: true, completion: $0)
+        }
 
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
@@ -1329,7 +1335,7 @@ extension Workspace {
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
-        let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+        let container = try await { containerProvider.getContainer(for: specifier, skipUpdate: true, completion: $0) }
         let checkoutState: CheckoutState
 
         switch requirement {
