@@ -1079,7 +1079,9 @@ extension Workspace {
 
             case .revision(let identifier):
                 // Get the latest revision from the container.
-                let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+                let container = try await {
+                    containerProvider.getContainer(for: specifier, skipUpdate: true, completion: $0) 
+                }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = identifier == revision.identifier ? nil : identifier
 
@@ -1333,7 +1335,7 @@ extension Workspace {
         // way to get it back out of the resolver which is very
         // annoying. Maybe we should make an SPI on the provider for
         // this?
-        let container = try await { containerProvider.getContainer(for: specifier, completion: $0) }
+        let container = try await { containerProvider.getContainer(for: specifier, skipUpdate: true, completion: $0) }
         let checkoutState: CheckoutState
 
         switch requirement {
