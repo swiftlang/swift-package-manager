@@ -906,8 +906,9 @@ extension Workspace {
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
-            // We're done if we don't need resolution.
-            guard result.resolve else {
+            // If we don't need resolution, just validate pinsStore and return.
+            if !result.resolve {
+                validatePinsStore(with: diagnostics)
                 return currentManifests
             }
 
@@ -1011,6 +1012,23 @@ extension Workspace {
         return (false, [])
     }
 
+    /// Validates that each checked out managed dependency has an entry in pinsStore.
+    private func validatePinsStore(with diagnostics: DiagnosticsEngine) {
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return
+        }
+
+        for dependency in managedDependencies.values {
+            switch dependency.state {
+            case .checkout: break
+            case .edited: continue
+            }
+            // If we find any checkout that is not in pins store, invoke pin all and return.
+            if pinsStore.pinsMap[dependency.name] == nil {
+                return self.pinAll(pinsStore: pinsStore, diagnostics: diagnostics)
+            }
+        }
+    }
 
     /// This enum represents state of an external package.
     fileprivate enum PackageStateChange {
