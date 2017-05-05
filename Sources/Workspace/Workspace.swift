@@ -621,7 +621,9 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            let handle = try await { repositoryManager.lookup(repository: dependency.repository, completion: $0) }
+            let handle = try await {
+                repositoryManager.lookup(repository: dependency.repository, skipUpdate: true, completion: $0)
+            }
             let repo = try handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
@@ -1256,7 +1258,9 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        let handle = try await { repositoryManager.lookup(repository: repository, completion: $0) }
+        let handle = try await {
+            repositoryManager.lookup(repository: repository, skipUpdate: true, completion: $0)
+        }
 
         // Clone the repository into the checkouts.
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
