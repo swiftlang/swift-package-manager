@@ -203,7 +203,16 @@ public class RepositoryManager {
     ///
     /// Note: Recursive lookups are not supported i.e. calling lookup inside
     /// completion block of another lookup will block.
-    public func lookup(repository: RepositorySpecifier, completion: @escaping LookupCompletion) {
+    ///
+    /// - Parameters:
+    ///   - repository: The repository to look up.
+    ///   - skipUpdate: If a repository is availble, skip updating it.
+    ///   - completion: The completion block that should be called after lookup finishes.
+    public func lookup(
+        repository: RepositorySpecifier,
+        skipUpdate: Bool = false,
+        completion: @escaping LookupCompletion
+    ) {
         operationQueue.addOperation {
             // First look for the handle.
             let handle = self.getHandle(repository: repository)
@@ -216,6 +225,11 @@ public class RepositoryManager {
                     result = LookupResult(anyError: {
                         // Update the repository when it is being looked up.
                         let repo = try handle.open()
+
+                        // Skip update if asked to.
+                        if skipUpdate {
+                            return handle
+                        }
 
                         self.callbacksQueue.async {
                             self.delegate.handleWillUpdate(handle: handle)

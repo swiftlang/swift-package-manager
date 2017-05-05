@@ -330,10 +330,42 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testSkipUpdate() throws {
+        mktmpdir { path in
+            let repos = path.appending(component: "repo")
+            let provider = DummyRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+            try localFileSystem.createDirectory(repos, recursive: true)
+
+            let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
+            let dummyRepo = RepositorySpecifier(url: "dummy")
+
+            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 0)
+            XCTAssertEqual(delegate.didUpdate.count, 0)
+
+            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 2)
+            XCTAssertEqual(delegate.didUpdate.count, 2)
+
+            _ = try await { manager.lookup(repository: dummyRepo, skipUpdate: true, completion: $0) }
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 2)
+            XCTAssertEqual(delegate.didUpdate.count, 2)
+        }
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testParallelLookups", testParallelLookups),
         ("testPersistence", testPersistence),
         ("testReset", testReset),
+        ("testSkipUpdate", testSkipUpdate),
     ]
 }
