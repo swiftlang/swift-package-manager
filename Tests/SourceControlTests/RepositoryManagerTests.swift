@@ -97,6 +97,10 @@ private class DummyRepositoryProvider: RepositoryProvider {
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     private var _willFetch = [RepositorySpecifier]()
     private var _didFetch = [RepositorySpecifier]()
+
+    private var _willUpdate = [RepositorySpecifier]()
+    private var _didUpdate = [RepositorySpecifier]()
+
     private var fetchedLock = Lock() 
 
     var willFetch: [RepositorySpecifier] {
@@ -105,6 +109,14 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
 
     var didFetch: [RepositorySpecifier] {
         return fetchedLock.withLock({ _didFetch })
+    }
+
+    var willUpdate: [RepositorySpecifier] {
+        return fetchedLock.withLock({ _willUpdate })
+    }
+
+    var didUpdate: [RepositorySpecifier] {
+        return fetchedLock.withLock({ _didUpdate })
     }
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
@@ -116,6 +128,18 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
         fetchedLock.withLock {
             _didFetch += [handle.repository]
+        }
+    }
+
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
+        fetchedLock.withLock {
+            _willUpdate += [handle.repository]
+        }
+    }
+
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
+        fetchedLock.withLock {
+            _didUpdate += [handle.repository]
         }
     }
 }
@@ -168,12 +192,18 @@ class RepositoryManagerTests: XCTestCase {
 
             waitForExpectations(timeout: 1)
 
+            // We shouldn't have made any update call yet.
+            XCTAssert(delegate.willUpdate.isEmpty)
+            XCTAssert(delegate.didUpdate.isEmpty)
+
             // We should always get back the same handle once fetched.
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 === manager.lookupSynchronously(repository: dummyRepo))
             }
             // Since we looked up this repo again, we should have made a fetch call.
             XCTAssertEqual(provider.numFetches, 1)
+            XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+            XCTAssertEqual(delegate.didUpdate, [dummyRepo])
 
             // Remove the repo.
             try manager.remove(repository: dummyRepo)

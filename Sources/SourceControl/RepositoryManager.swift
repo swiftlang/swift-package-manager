@@ -21,6 +21,19 @@ public protocol RepositoryManagerDelegate: class {
 
     /// Called when a repository has finished fetching.
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?)
+
+    /// Called when a repository has started updating from its remote.
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
+
+    /// Called when a repository has finished updating from its remote.
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
+}
+
+public extension RepositoryManagerDelegate {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {}
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
 }
 
 /// Manages a collection of bare repositories.
@@ -197,17 +210,30 @@ public class RepositoryManager {
             // Dispatch the action we want to take on the serial queue of the handle.
             handle.serialQueue.sync {
                 let result: LookupResult
+
                 switch handle.status {
                 case .available:
                     result = LookupResult(anyError: {
-                        // Fetch and update the repository when it is being looked up.
+                        // Update the repository when it is being looked up.
                         let repo = try handle.open()
+
+                        self.callbacksQueue.async {
+                            self.delegate.handleWillUpdate(handle: handle)
+                        }
+
                         try repo.fetch()
+
+                        self.callbacksQueue.async {
+                            self.delegate.handleDidUpdate(handle: handle)
+                        }
+
                         return handle
                     })
+
                 case .pending:
                     precondition(false, "This should never have been called")
                     return
+
                 case .uninitialized, .error:
                     // Change the state to pending.
                     handle.status = .pending
