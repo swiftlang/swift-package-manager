@@ -339,22 +339,21 @@ extension Workspace {
         try unedit(dependency: dependency, forceRemove: forceRemove)
     }
 
-    /// Pins a package at a given state.
+    /// Resolve a package at the given state.
     ///
     /// Only one of version, branch and revision will be used and in the same
     /// order. If none of these is provided, the dependency will be pinned at
     /// the current checkout state.
     ///
     /// - Parameters:
-    ///   - dependency: The dependency to pin.
-    ///   - packageName: The name of the package which is being pinned.
+    ///   - packageName: The name of the package which is being resolved.
     ///   - root: The workspace's root input.
     ///   - version: The version to pin at.
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
     ///   - diagnostics: The diagnostics engine that reports errors, warnings
     ///     and notes.
-    public func pin(
+    public func resolve(
         packageName: String,
         root: WorkspaceRoot,
         version: Version? = nil,
@@ -371,72 +370,27 @@ extension Workspace {
             return diagnostics.emit(error)
         }
 
-        // Compute the requirement.
-        let requirement: RepositoryPackageConstraint.Requirement
-        if let version = version {
-            requirement = .versionSet(.exact(version))
-        } else if let branch = branch {
-            requirement = .revision(branch)
-        } else if let revision = revision {
-            requirement = .revision(revision)
-        } else {
-            requirement = currentState.requirement()
-        }
-
-        // Load the root manifests and currently checked out manifests.
-        let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics) 
-
-        // Load the current manifests.
-        let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
-        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-
-        // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else {
-            return
-        }
-
-        // Ensure we don't have any error at this point.
-        guard !diagnostics.hasErrors else { return }
-
-        // Compute constraints with the new pin and try to resolve
-        // dependencies. We only commit the pin if the dependencies can be
-        // resolved with new constraints.
+        // Compute the checkout state.
         //
-        // The constraints consist of three things:
-        // * Unversioned constraints for edited packages.
-        // * Root manifest contraints.
-        // * Exisiting pins except the dependency we're currently pinning.
-        // * The constraint for the new pin we're trying to add.
-        var constraints = currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints
-
-        var pins = pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
-        pins.append(
-            RepositoryPackageConstraint(
-                container: dependency.repository, requirement: requirement))
-
-        // Resolve the dependencies.
-        let results = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else { return }
-
-        // Update the checkouts based on new dependency resolution.
-        updateCheckouts(with: results, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else { return }
-
-        // Get the updated dependency.
-        let newDependency = managedDependencies[dependency.repository]!
-
-        // Assert that the dependency is at the pinned checkout state now.
-        if case .checkout(let checkoutState) = newDependency.state {
-            assert(checkoutState.requirement() == requirement)
+        // We use a dummy revision in case of version and branch because we
+        // might not know the needed revision at this point.
+        let checkoutState: CheckoutState
+        if let version = version {
+            checkoutState = CheckoutState(revision: Revision(identifier: ""), version: version)
+        } else if let branch = branch {
+            checkoutState = CheckoutState(revision: Revision(identifier: ""), branch: branch)
+        } else if let revision = revision {
+            checkoutState = CheckoutState(revision: Revision(identifier: revision))
         } else {
-            assertionFailure()
+            checkoutState = currentState
         }
 
-        // Update the pins store.
-        self.pinAll(
-             pinsStore: pinsStore,
-             diagnostics: diagnostics)
+        // Create a pin with above checkout state.
+        let pin = PinsStore.Pin(
+            package: dependency.name, repository: dependency.repository, state: checkoutState)
+
+        // Run the resolution.
+        _resolve(root: root, extraPins: [pin], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -574,7 +528,7 @@ extension Workspace {
         root: WorkspaceRoot,
         diagnostics: DiagnosticsEngine
     ) {
-        _ = _resolve(root: root, diagnostics: diagnostics)
+        _resolve(root: root, diagnostics: diagnostics)
     }
 
 	/// Load the package graph data.
@@ -910,10 +864,18 @@ extension Workspace {
 extension Workspace {
 
     /// Implementation of resolve(root:diagnostics:).
+    ///
+    /// The extra pins will override the pin of the same package in the
+    /// pinsStore.  It is useful in situations where a requirement is being
+    /// imposed outside of manifest and pins file. E.g., when using a command
+    /// like `$ swift package resolve foo --version 1.0.0`.
+    @discardableResult
     fileprivate func _resolve(
         root: WorkspaceRoot,
+        extraPins: [PinsStore.Pin] = [],
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
+
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
 
@@ -937,11 +899,16 @@ extension Workspace {
 
         // Compute if we need to run the resolver.
         if missingURLs.isEmpty {
+            // Use root constraints, dependency manifest constraints and extra
+            // pins to compute if a new resolution is required.
             let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
+            extraPins.forEach(pinsStore.add)
+
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
-            // We're done if we don't need resolution.
-            guard result.resolve else {
+            // If we don't need resolution, just validate pinsStore and return.
+            if !result.resolve {
+                validatePinsStore(with: diagnostics)
                 return currentManifests
             }
 
@@ -1045,6 +1012,23 @@ extension Workspace {
         return (false, [])
     }
 
+    /// Validates that each checked out managed dependency has an entry in pinsStore.
+    private func validatePinsStore(with diagnostics: DiagnosticsEngine) {
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+            return
+        }
+
+        for dependency in managedDependencies.values {
+            switch dependency.state {
+            case .checkout: break
+            case .edited: continue
+            }
+            // If we find any checkout that is not in pins store, invoke pin all and return.
+            if pinsStore.pinsMap[dependency.name] == nil {
+                return self.pinAll(pinsStore: pinsStore, diagnostics: diagnostics)
+            }
+        }
+    }
 
     /// This enum represents state of an external package.
     fileprivate enum PackageStateChange {

@@ -99,10 +99,17 @@ public final class PinsStore {
         )
     }
 
-	/// Pin a managed dependency at its checkout state.
-	///
-	/// This method does nothing if the dependency is in edited state.
-	func pin(_ dependency: ManagedDependency) {
+    /// Add a pin.
+    ///
+    /// This will replace any previous pin with same package name.
+    public func add(_ pin: Pin) {
+        pinsMap[pin.package] = pin
+    }
+
+    /// Pin a managed dependency at its checkout state.
+    ///
+    /// This method does nothing if the dependency is in edited state.
+    func pin(_ dependency: ManagedDependency) {
 
         // Get the checkout state.
         let checkoutState: CheckoutState
@@ -117,7 +124,7 @@ public final class PinsStore {
             package: dependency.name,
             repository: dependency.repository,
             state: checkoutState)
-	}
+    }
 
     /// Unpin all of the currently pinnned dependencies.
     ///

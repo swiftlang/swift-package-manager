@@ -82,11 +82,27 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .fetch:
             diagnostics.emit(data: FetchDeprecatedDiagnostic())
-            fallthrough
-
-        case .resolve:
             let workspace = try getActiveWorkspace()
             workspace.resolve(root: try getWorkspaceRoot(), diagnostics: diagnostics)
+
+        case .resolve:
+            let resolveOptions = options.resolveOptions
+            let workspace = try getActiveWorkspace()
+            let root = try getWorkspaceRoot()
+
+            // If a package is provided, use that to resolve the dependencies.
+            if let packageName = resolveOptions.packageName {
+                return try workspace.resolve(
+                    packageName: packageName,
+                    root: getWorkspaceRoot(),
+                    version: resolveOptions.version.flatMap(Version.init(string:)),
+                    branch: resolveOptions.branch,
+                    revision: resolveOptions.revision,
+                    diagnostics: diagnostics)
+            }
+
+            // Otherwise, run a normal resolve.
+            workspace.resolve(root: root, diagnostics: diagnostics)
 
         case .edit:
             let packageName = options.editOptions.packageName!
@@ -180,36 +196,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         case .help:
             parser.printUsage(on: stdoutStream)
-
-        case .pin:
-            let pinOptions = options.pinOptions
-            // Ensure we have the package name.
-            guard let packageName = pinOptions.packageName else {
-                throw PackageToolOperationError.insufficientOptions(usage: pinUsage)
-            }
-
-            // Load the package graph.
-            try loadPackageGraph()
-
-            let workspace = try getActiveWorkspace()
-
-            // Pin the dependency.
-            try workspace.pin(
-                packageName: packageName,
-                root: getWorkspaceRoot(),
-                version: pinOptions.version.flatMap(Version.init(string:)),
-                branch: pinOptions.branch,
-                revision: pinOptions.revision,
-                diagnostics: diagnostics)
         }
-    }
-
-    var pinUsage: String {
-        let stream = BufferedOutputByteStream()
-        stream <<< "Expected package pin format:\n"
-        stream <<< "swift package pin (--all | <packageName> [--version <version>])\n"
-        stream <<< "Note: Either provide a package to pin or provide pin all option to pin all dependencies."
-        return stream.bytes.asString!
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<PackageToolOptions>) {
@@ -251,12 +238,11 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
-        parser.add(subparser: PackageMode.resolve.rawValue, overview: "Resolve package dependencies")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
 
-        let resolveParser = parser.add(subparser: PackageMode.resolveTool.rawValue, overview: "")
+        let resolveToolParser = parser.add(subparser: PackageMode.resolveTool.rawValue, overview: "")
         binder.bind(
-            option: resolveParser.add(
+            option: resolveToolParser.add(
                 option: "--type", kind: PackageToolOptions.ResolveToolMode.self,
                 usage: "text|json"),
             to: { $0.resolveToolMode = $1 })
@@ -332,29 +318,29 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.outputPath = $3?.path
             })
 
-        let pinParser = parser.add(
-            subparser: PackageMode.pin.rawValue,
-            overview: "Perform pinning operations on a package.")
+        let resolveParser = parser.add(
+            subparser: PackageMode.resolve.rawValue,
+            overview: "Resolve package dependencies")
         binder.bind(
-            positional: pinParser.add(
+            positional: resolveParser.add(
                 positional: "name", kind: String.self, optional: true,
-                usage: "The name of the package to pin"),
-            to: { $0.pinOptions.packageName = $1 })
+                usage: "The name of the package to resolve"),
+            to: { $0.resolveOptions.packageName = $1 })
 
         binder.bind(
-            pinParser.add(
+            resolveParser.add(
                 option: "--version", kind: String.self,
-                usage: "The version to pin at"),
-            pinParser.add(
+                usage: "The version to resolve at"),
+            resolveParser.add(
                 option: "--branch", kind: String.self,
-                usage: "The branch to pin at"),
-            pinParser.add(
+                usage: "The branch to resolve at"),
+            resolveParser.add(
                 option: "--revision", kind: String.self,
-                usage: "The revision to pin at"),
+                usage: "The revision to resolve at"),
             to: {
-                $0.pinOptions.version = $1
-                $0.pinOptions.branch = $2
-                $0.pinOptions.revision = $3 })
+                $0.resolveOptions.version = $1
+                $0.resolveOptions.branch = $2
+                $0.resolveOptions.revision = $3 })
 
         binder.bind(
             parser: parser,
@@ -384,13 +370,13 @@ public class PackageToolOptions: ToolOptions {
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
 
-    struct PinOptions {
+    struct ResolveOptions {
         var packageName: String?
         var version: String?
         var revision: String?
         var branch: String?
     }
-    var pinOptions = PinOptions()
+    var resolveOptions = ResolveOptions()
 
     enum ResolveToolMode: String {
         case text
@@ -414,7 +400,6 @@ public enum PackageMode: String, StringEnumArgument {
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
     case initPackage = "init"
-    case pin
     case reset
     case resolve
     case resolveTool = "resolve-tool"
