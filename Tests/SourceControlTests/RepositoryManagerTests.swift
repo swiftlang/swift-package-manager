@@ -17,6 +17,12 @@ import TestSupport
 
 @testable import class SourceControl.RepositoryManager
 
+extension RepositoryManager {
+    fileprivate func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
+        return try await { self.lookup(repository: repository, completion: $0) }
+    }
+}
+
 private enum DummyError: Swift.Error {
     case invalidRepository
 }
@@ -239,25 +245,6 @@ class RepositoryManagerTests: XCTestCase {
         }
     }
 
-    func testSyncLookup() throws {
-        mktmpdir { path in
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(url: "dummy")
-            let handle = try manager.lookupSynchronously(repository: dummyRepo)
-            // Relookup should return same instance.
-            XCTAssert(handle === (try? manager.lookupSynchronously(repository: dummyRepo)))
-            // And async lookup should also return same instance.
-            let lookupExpectation = expectation(description: "Repository lookup expectation")
-            manager.lookup(repository: dummyRepo) { result in
-                XCTAssert(handle === (try? result.dematerialize()))
-                lookupExpectation.fulfill()
-            }
-            waitForExpectations(timeout: 1)
-        }
-    }
-
     /// Check that the manager is persistent.
     func testPersistence() {
         mktmpdir { path in
@@ -347,7 +334,6 @@ class RepositoryManagerTests: XCTestCase {
         ("testBasics", testBasics),
         ("testParallelLookups", testParallelLookups),
         ("testPersistence", testPersistence),
-        ("testSyncLookup", testSyncLookup),
         ("testReset", testReset),
     ]
 }

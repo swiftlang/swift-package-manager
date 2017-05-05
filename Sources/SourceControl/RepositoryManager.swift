@@ -300,24 +300,6 @@ public class RepositoryManager {
         }
     }
 
-    /// Synchronous variation of lookup(repository:) method.
-    public func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
-        let lookupCondition = Condition()
-        var result: Result<RepositoryHandle, AnyError>? = nil
-        lookup(repository: repository) { theResult in
-            lookupCondition.whileLocked {
-                result = theResult
-                lookupCondition.signal()
-            }
-        }
-        lookupCondition.whileLocked {
-            while result == nil {
-                lookupCondition.wait()
-            }
-        }
-        return try result!.dematerialize()
-    }
-
     /// Open a repository from a handle.
     private func open(_ handle: RepositoryHandle) throws -> Repository {
         return try provider.open(
