@@ -156,8 +156,32 @@ public class Workspace {
             return requiredURLs.subtracting(availableURLs)
         }
 
-        /// Returns a list of constraints for any 'edited' package.
-        fileprivate func unversionedConstraints() -> [RepositoryPackageConstraint] {
+        /// Returns constraints of the dependencies, including edited package constraints.
+        fileprivate func dependencyConstraints() -> [RepositoryPackageConstraint] {
+            var allConstraints = [RepositoryPackageConstraint]()
+
+            for (externalManifest, managedDependency) in dependencies {
+                // Get the constraints from the manifest.
+                let constraints = externalManifest.package.dependencyConstraints()
+
+                switch managedDependency.state {
+                case .edited:
+                    // Add an unversioned constraint if the dependency is in edited state.
+                    let constraint = RepositoryPackageConstraint(
+                        container: RepositorySpecifier(url: externalManifest.url),
+                        requirement: .unversioned(constraints))
+                    allConstraints.append(constraint)
+
+                case .checkout: 
+                    // For checkouts, add all the constraints in the manifest.
+                    allConstraints += constraints
+                }
+            }
+            return allConstraints
+        }
+
+        /// Returns a list of constraints for all 'edited' package.
+        fileprivate func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
             for (externalManifest, managedDependency) in dependencies {
@@ -165,10 +189,9 @@ public class Workspace {
                 case .checkout: continue
                 case .edited: break
                 }
-                let specifier = RepositorySpecifier(url: externalManifest.url)
                 let dependencies = externalManifest.package.dependencyConstraints()
                 constraints.append(RepositoryPackageConstraint(
-                    container: specifier,
+                    container: RepositorySpecifier(url: externalManifest.url),
                     requirement: .unversioned(dependencies))
                 )
             }
@@ -381,12 +404,11 @@ extension Workspace {
         //
         // The constraints consist of three things:
         // * Unversioned constraints for edited packages.
-        // * Root manifest contraints without pins.
+        // * Root manifest contraints.
         // * Exisiting pins except the dependency we're currently pinning.
         // * The constraint for the new pin we're trying to add.
-        var constraints = currentManifests.unversionedConstraints()
-        constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
-        constraints += root.constraints
+        var constraints = currentManifests.editedPackagesConstraints()
+        constraints += graphRoot.constraints
 
         var pins = pinsStore.createConstraints().filter({ $0.identifier != dependency.repository })
         pins.append(
@@ -497,10 +519,10 @@ extension Workspace {
         guard !diagnostics.hasErrors else { return }
 
         // Create constraints based on root manifest and pins for the update resolution.
-        var updateConstraints = rootManifests.flatMap({ $0.package.dependencyConstraints() })
-        updateConstraints += root.constraints
+        var updateConstraints = graphRoot.constraints
+
         // Add unversioned constraints for edited packages.
-        updateConstraints += currentManifests.unversionedConstraints()
+        updateConstraints += currentManifests.editedPackagesConstraints()
 
         // Resolve the dependencies.
         let updateResults = resolveDependencies(dependencies: updateConstraints, pins: [], diagnostics: diagnostics)
@@ -544,9 +566,6 @@ extension Workspace {
         let graphRoot = PackageGraphRoot(manifests: rootManifests, dependencies: root.dependencies)
         let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        // Compute the missing URLs.
-        let missingURLs = currentManifests.missingURLs()
-
         // When loading current package graph, we can't use the diagnostic
         // engine passed by clients because we will end up adding diagnostics
         // which might go away after a complete loading.
@@ -568,14 +587,28 @@ extension Workspace {
             return currentPackageGraph
         }
 
-        // If there are no missing URLs or if we encountered some errors, return the current graph.
-        if diagnostics.hasErrors || missingURLs.isEmpty {
+        // Abort if pinsStore is unloadable or if diagnostics has errors.
+        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }), !diagnostics.hasErrors else {
             return currentGraph()
         }
 
-        // Abort if pinsStore is unloadable.
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
-            return currentGraph()
+        // Compute the missing URLs.
+        let missingURLs = currentManifests.missingURLs()
+
+        // The pins to use in case we need to run the resolution.
+        var validPins = pinsStore.createConstraints()
+
+        // Compute if we need to run the resolver.
+        if missingURLs.isEmpty {
+            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
+            let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
+
+            // Return the current graph if we don't need to resolve.
+            if !result.resolve {
+                return currentGraph()
+            }
+
+            validPins = result.validPins
         }
 
         // Start by informing the delegate of what is happening.
@@ -586,13 +619,11 @@ extension Workspace {
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
-        constraints += rootManifests.flatMap({ $0.package.dependencyConstraints() })
-        constraints += root.constraints
-        constraints += currentManifests.unversionedConstraints()
-        let pins = pinsStore.createConstraints()
+        constraints += graphRoot.constraints
+        constraints += currentManifests.editedPackagesConstraints()
 
         // Perform dependency resolution.
-        let result = resolveDependencies(dependencies: constraints, pins: pins, diagnostics: diagnostics)
+        let result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else {
             return currentGraph()
         }
@@ -618,6 +649,80 @@ extension Workspace {
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts
         )
+    }
+
+    /// Computes if dependency resolution is required based on input constraints and pins.
+    ///
+    /// A resolution is required if:
+    ///
+    /// * The input dependencies are not mergable. E.g.: root manifest have
+    ///   unmergable constraints.
+    ///
+    /// * Pins are not mergable into the input dependencies. E.g.: if root
+    ///   manifest was updated with constraints such that the current pin does not
+    ///   statisfy it.
+    ///
+    /// * If any of the managed dependency is out of sync with its pin. E.g.:
+    ///   pulling from remote updates the pin file..
+    ///
+    /// - Returns: A tuple with two elements.
+    ///       resolve: If resolution is required.
+    ///       validPins: The pins which are still valid.
+    // @testable internal
+    func isResolutionRequired(
+        dependencies: [RepositoryPackageConstraint],
+        pinsStore: PinsStore
+    ) -> (resolve: Bool, validPins: [RepositoryPackageConstraint]) {
+
+        // Create pinned constraints.
+        let pinConstraints = pinsStore.createConstraints()
+
+        // Create a constraint set to check constraints are mergable.
+        var constraintSet = PackageContainerConstraintSet<RepositoryPackageContainer>()
+
+        // The input dependencies should be mergable, otherwise we have bigger problems.
+        for constraint in dependencies {
+            guard let mergedSet = constraintSet.merging(constraint) else {
+                return (true, pinConstraints)
+            }
+            constraintSet = mergedSet
+        }
+
+        // Compute the pins which are valid w.r.t dependencies.
+        let validPins: [RepositoryPackageConstraint]
+        validPins = pinConstraints.flatMap{ pin in
+            if let mergedSet = constraintSet.merging(pin) {
+                constraintSet = mergedSet
+                return pin
+            }
+            return nil
+        }
+
+        // If there are pins which are not valid anymore, we need to resolve.
+        if pinConstraints.count != validPins.count {
+            return (true, validPins)
+        }
+
+        // Otherwise, just check if all checkouts and pins are in sync.
+        for pin in pinsStore.pins {
+            let dependency = managedDependencies[pin.repository]
+
+            switch dependency?.state {
+            case let .checkout(dependencyState)?:
+                // If this pin is not same as the checkout state, we need to re-resolve.
+                if pin.state != dependencyState {
+                    return (true, validPins)
+                }
+            case .edited?:
+                // Ignore edited dependencies.
+                continue
+            case nil:
+                // We don't have a checkout.
+                return (true, validPins)
+            }
+        }
+
+        return (false, [])
     }
 
 	/// Load the package graph data.
