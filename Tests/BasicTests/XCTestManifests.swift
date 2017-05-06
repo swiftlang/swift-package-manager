@@ -40,6 +40,7 @@ public func allTests() -> [XCTestCaseEntry] {
         testCase(ResultTests.allTests),
         testCase(SortedArrayTests.allTests),
         testCase(StringConversionTests.allTests),
+        testCase(SHA256Tests.allTests),
         testCase(SyncronizedQueueTests.allTests),
         testCase(TemporaryFileTests.allTests),
         testCase(TerminalControllerTests.allTests),
