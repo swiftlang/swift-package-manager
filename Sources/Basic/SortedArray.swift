@@ -1,12 +1,12 @@
 /*
  This source file is part of the Swift.org open source project
-
+ 
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
-
+ 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 /// An array which is always in sorted state.
 public struct SortedArray<Element>: CustomStringConvertible {
@@ -26,22 +26,43 @@ public struct SortedArray<Element>: CustomStringConvertible {
     
     /// Insert the given element, maintaining the sort order.
     public mutating func insert(_ newElement: Element) {
-        elements.append(newElement)
-        // FIXME: It is way too costly to sort again for just one element.
-        // We can use binary search to find the index for this element.
-        elements.sort(by: areInIncreasingOrder)
+        elements.insert(newElement, at: self.insertionIndex(for: newElement))
     }
+    
+    fileprivate func insertionIndex(for element: Element) -> Index {
+        if self.isEmpty {
+            return 0
+        }
+        var (low, high) = (0, self.endIndex - 1)
+        var mid = 0
+        
+        while low < high {
+            mid = (low + high)/2
+            if areInIncreasingOrder(self[mid], element) {
+                low = mid + 1
+            } else {
+                high = mid
+            }
+        }
+        
+        if areInIncreasingOrder(element, self[low]) {
+            return low
+        }
+        
+        return self.endIndex
+    }
+    
     
     /// Insert the given sequence, maintaining the sort order.
     public mutating func insert<S: Sequence>(contentsOf newElements: S) where S.Iterator.Element == Element {
         elements.append(contentsOf: newElements)
         elements.sort(by: areInIncreasingOrder)
     }
-
-	/// Returns the values as an array.
-	public var values: [Element] {
-		return elements
-	}
+    
+    /// Returns the values as an array.
+    public var values: [Element] {
+        return elements
+    }
     
     public var description: String {
         return "<SortedArray: \(elements)>"
@@ -81,6 +102,6 @@ extension SortedArray {
 extension SortedArray where Element: Comparable {
     /// Create an empty sorted array with < as the comparison predicate.
     public init() {
-		self.init(areInIncreasingOrder: <)
+        self.init(areInIncreasingOrder: <)
     }
 }
