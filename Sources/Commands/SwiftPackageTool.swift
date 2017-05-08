@@ -123,7 +123,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             try resolve()
             let workspace = try getActiveWorkspace()
 
-            try workspace.unedit(packageName: packageName, forceRemove: options.editOptions.shouldForceRemove)
+            try workspace.unedit(
+                packageName: packageName,
+                forceRemove: options.editOptions.shouldForceRemove,
+                root: getWorkspaceRoot(),
+                diagnostics: diagnostics
+            )
 
         case .showDependencies:
             let graph = try loadPackageGraph()

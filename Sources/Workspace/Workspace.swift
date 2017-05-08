@@ -323,17 +323,26 @@ extension Workspace {
         }
     }
 
-    /// Ends the edit mode of a dependency which is in edit mode.
+    /// Ends the edit mode of an edited dependency.
+    ///
+    /// This will re-resolve the dependencies after ending edit as the original
+    /// checkout may be outdated.
     ///
     /// - Parameters:
     ///     - packageName: The name of the package to edit.
-    ///     - forceRemove: If true, the dependency will be unedited even if has
-    /// unpushed and uncommited changes. Otherwise will throw respective errors.
-    ///
-    /// - throws: WorkspaceError
-    public func unedit(packageName: String, forceRemove: Bool) throws {
+    ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
+    ///           or uncommited changes. Otherwise will throw respective errors.
+    ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///           and notes.
+    public func unedit(
+        packageName: String,
+        forceRemove: Bool,
+        root: WorkspaceRoot,
+        diagnostics: DiagnosticsEngine
+    ) throws {
         let dependency = try managedDependencies.dependency(forName: packageName)
-        try unedit(dependency: dependency, forceRemove: forceRemove)
+        try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
     /// Resolve a package at the given state.
@@ -666,7 +675,12 @@ extension Workspace {
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
-    fileprivate func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+    fileprivate func unedit(
+        dependency: ManagedDependency,
+        forceRemove: Bool,
+        root: WorkspaceRoot? = nil,
+        diagnostics: DiagnosticsEngine
+    ) throws {
 
         // Compute if we need to force remove.
         var forceRemove = forceRemove
@@ -709,6 +723,12 @@ extension Workspace {
         managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
         try managedDependencies.saveState()
+
+        // Resolve the dependencies if workspace root is provided. We do this to
+        // ensure the unedited version of this dependency is resolved properly.
+        if let root = root {
+            resolve(root: root, diagnostics: diagnostics)
+        }
     }
 
 }
@@ -1171,18 +1191,26 @@ extension Workspace {
     fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
         for dependency in managedDependencies.values {
             diagnostics.wrap {
+
+                // If the dependency is present, we're done.
                 let dependencyPath = path(for: dependency)
-                if !fileSystem.isDirectory(dependencyPath) {
-                    switch dependency.state {
-                    case .checkout(let checkoutState):
-                        // If some checkout dependency has been removed, clone it again.
-                        _ = try clone(repository: dependency.repository, at: checkoutState)
-                        diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.name))
-                    case .edited:
-                        // If some edited dependency has been removed, mark it as unedited.
-                        try unedit(dependency: dependency, forceRemove: true)
-                        diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.name))
-                    }
+                guard !fileSystem.isDirectory(dependencyPath) else { return }
+
+                switch dependency.state {
+                case .checkout(let checkoutState):
+                    // If some checkout dependency has been removed, clone it again.
+                    _ = try clone(repository: dependency.repository, at: checkoutState)
+                    diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.name))
+
+                case .edited:
+                    // If some edited dependency has been removed, mark it as unedited.
+                    //
+                    // Note: We don't resolve the dependencies when unediting
+                    // here because we expect this method to be called as part
+                    // of some other resolve operation (i.e. resolve, update, etc).
+                    try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
+
+                    diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.name))
                 }
             }
         }

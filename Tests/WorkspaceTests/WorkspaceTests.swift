@@ -622,6 +622,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -695,11 +696,15 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertTrue(diagnostics.hasErrors)
             }
 
-            // We should be able to unedit the dependency.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
+            do {
+                // We should be able to unedit the dependency.
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssert(getDependency(aManifest).state.isCheckout)
+                XCTAssertFalse(exists(editRepoPath))
+                XCTAssertFalse(exists(workspace.editablesPath))
+            }
         }
     }
 
@@ -714,6 +719,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -733,22 +739,25 @@ final class WorkspaceTests: XCTestCase {
             
             let dependency = getDependency(aManifest)
             
-            // We should error out if we try to edit on a non existent revision.
-            workspace.edit(
-                packageName: aManifest.name,
-                revision: Revision(identifier: "non-existent-revision"),
-                diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
-            XCTAssert(diagnostics.diagnostics.contains(where: {
-                $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
-            }))
+            do {
+                // We should error out if we try to edit on a non existent revision.
+                let diagnostics = DiagnosticsEngine()
+                workspace.edit(
+                    packageName: aManifest.name,
+                    revision: Revision(identifier: "non-existent-revision"),
+                    diagnostics: diagnostics)
+                XCTAssert(diagnostics.hasErrors)
+                XCTAssert(diagnostics.diagnostics.contains(where: {
+                    $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
+                }))
+            }
 
             // Put the dependency in edit mode at its current revision on a new branch.
             workspace.edit(
                 packageName: aManifest.name,
                 checkoutBranch: "BugFix",
                 diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
             let editedDependency = getDependency(aManifest)
             XCTAssert(editedDependency.state == .edited(nil))
 
@@ -757,7 +766,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.checkoutState?.revision)
             XCTAssertEqual(try editRepo.currentBranch(), "BugFix")
             // Unedit it.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(getDependency(aManifest).state.isCheckout)
 
             workspace.edit(
@@ -782,6 +792,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -817,7 +828,9 @@ final class WorkspaceTests: XCTestCase {
             try editRepo.stage(file: "test.txt")
             // Try to unedit.
             do {
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTFail("Unexpected edit success")
             } catch let error as WorkspaceDiagnostics.UncommitedChanges {
                 XCTAssertEqual(error.repositoryPath, editRepoPath)
@@ -825,16 +838,34 @@ final class WorkspaceTests: XCTestCase {
             // Commit and try to unedit.
             try editRepo.commit()
             do {
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTFail("Unexpected edit success")
             } catch let error as WorkspaceDiagnostics.UnpushedChanges {
                 XCTAssertEqual(error.repositoryPath, editRepoPath)
             }
+
+            // Run package update which should remove the entry from pins store.
+            do {
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+                let diagnostics = DiagnosticsEngine()
+                workspace.updateDependencies(root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssertNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+            }
+
             // Force remove.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: true)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
+            do {
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: true, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssert(getDependency(aManifest).state.isCheckout)
+                XCTAssertFalse(exists(editRepoPath))
+                XCTAssertFalse(exists(workspace.editablesPath))
+                // We should get the entry back in pinsStore.
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+            }
         }
     }
 
@@ -1565,6 +1596,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil),
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
@@ -1616,7 +1648,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try editRepo.currentBranch(), "HEAD")
 
             // We should be able to unedit the dependency.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(getDependency(aManifest).state.isCheckout)
             XCTAssertTrue(exists(tot))
             XCTAssertFalse(exists(workspace.editablesPath))
