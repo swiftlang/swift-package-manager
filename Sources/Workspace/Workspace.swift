@@ -376,27 +376,22 @@ extension Workspace {
             return diagnostics.emit(error)
         }
 
-        // Compute the checkout state.
-        //
-        // We use a dummy revision in case of version and branch because we
-        // might not know the needed revision at this point.
-        let checkoutState: CheckoutState
+        // Compute the custom or extra constraint we need to impose.
+        let requirement: RepositoryPackageConstraint.Requirement
         if let version = version {
-            checkoutState = CheckoutState(revision: Revision(identifier: ""), version: version)
+            requirement = .versionSet(.exact(version))
         } else if let branch = branch {
-            checkoutState = CheckoutState(revision: Revision(identifier: ""), branch: branch)
+            requirement = .revision(branch)
         } else if let revision = revision {
-            checkoutState = CheckoutState(revision: Revision(identifier: revision))
+            requirement = .revision(revision)
         } else {
-            checkoutState = currentState
+            requirement = currentState.requirement()
         }
-
-        // Create a pin with above checkout state.
-        let pin = PinsStore.Pin(
-            package: dependency.name, repository: dependency.repository, state: checkoutState)
+        let constraint = RepositoryPackageConstraint(
+                container: dependency.repository, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraPins: [pin], diagnostics: diagnostics)
+        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -886,14 +881,14 @@ extension Workspace {
 
     /// Implementation of resolve(root:diagnostics:).
     ///
-    /// The extra pins will override the pin of the same package in the
-    /// pinsStore.  It is useful in situations where a requirement is being
+    /// The extra constraints will be added to the main requirements.
+    /// It is useful in situations where a requirement is being
     /// imposed outside of manifest and pins file. E.g., when using a command
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
     fileprivate func _resolve(
         root: WorkspaceRoot,
-        extraPins: [PinsStore.Pin] = [],
+        extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
 
@@ -918,17 +913,18 @@ extension Workspace {
         // The pins to use in case we need to run the resolution.
         var validPins = pinsStore.createConstraints()
 
-        // Compute if we need to run the resolver.
+        // Compute if we need to run the resolver. We always run the resolver if
+        // there are extra constraints.
         if missingURLs.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
-            // pins to compute if a new resolution is required.
-            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
-            extraPins.forEach(pinsStore.add)
+            // constraints to compute if a new resolution is required.
+            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints() + extraConstraints
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
-            // If we don't need resolution, just validate pinsStore and return.
-            if !result.resolve {
+            // If we don't need resolution and there are no extra constraints,
+            // just validate pinsStore and return.
+            if !result.resolve && extraConstraints.isEmpty {
                 validatePinsStore(with: diagnostics)
                 return currentManifests
             }
@@ -938,13 +934,23 @@ extension Workspace {
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
-        constraints += graphRoot.constraints
+        constraints += graphRoot.constraints + extraConstraints
         constraints += currentManifests.editedPackagesConstraints()
 
         // Perform dependency resolution.
-        let result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return currentManifests
+        let resolverDiagnostics = DiagnosticsEngine()
+        var result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+
+        // If we fail, we just try again without any pins because the pins might
+        // be completely incompatible.
+        //
+        // FIXME: We should only do this if resolver emits "unresolvable" error.
+        // FIXME: We should merge the engine in case we get no errors but warnings or notes.
+        if resolverDiagnostics.hasErrors {
+            result = resolveDependencies(dependencies: constraints, pins: [], diagnostics: diagnostics)
+            guard !diagnostics.hasErrors else {
+                return currentManifests
+            }
         }
 
         // Update the checkouts with dependency resolution result.

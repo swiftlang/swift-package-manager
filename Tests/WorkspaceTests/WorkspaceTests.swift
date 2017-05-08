@@ -1897,6 +1897,57 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testCanResolveWithIncompatiblePins() throws {
+        let v2: Version = "2.0.0"
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [],
+            packages: [
+                MockPackage("A", version: v1, dependencies: [
+                    MockDependency("AA", version: v1)
+                ]),
+                MockPackage("A", version: "1.0.1", dependencies: [
+                    MockDependency("AA", version: v2)
+                ]),
+                MockPackage("AA", version: v1),
+                MockPackage("AA", version: v2),
+            ],
+            fs: fs)
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
+        try provider.specifierMap[manifestGraph.repo("AA")]!.tag(name: "2.0.0")
+
+        let delegate = TestWorkspaceDelegate()
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: delegate,
+            fileSystem: fs,
+            repositoryProvider: provider)
+
+        var root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
+        ])
+
+        let diagnostics = DiagnosticsEngine()
+        workspace.resolve(root: root, diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors)
+
+        // This pin will become unresolvable when A is at 1.0.1.
+        // We should still be able to resolve in that case.
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v1)
+
+        root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact("1.0.1"), location: "A"),
+        ])
+        workspace.resolve(root: root, diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v2)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
@@ -1913,6 +1964,7 @@ final class WorkspaceTests: XCTestCase {
         ("testUpdate", testUpdate),
         ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
+        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testWarnings", testWarnings),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
