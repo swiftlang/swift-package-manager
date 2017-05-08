@@ -109,6 +109,8 @@ public enum ResolverDiagnostics {
 
 public enum WorkspaceDiagnostics {
 
+    //MARK: - Errors
+
     /// The diagnostic triggered when an operation fails because its completion
     /// would loose the uncommited changes in a repository.
     public struct UncommitedChanges: DiagnosticData, Swift.Error {
@@ -260,5 +262,85 @@ public enum WorkspaceDiagnostics {
         
         /// The package found at the edit location.
         public let destinationPackage: String?
+    }
+
+    //MARK: - Warnings
+
+    /// The diagnostic triggered when a checked-out dependency is missing
+    /// from the file-system.
+    public struct CheckedOutDependencyMissing: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: CheckedOutDependencyMissing.self,
+            name: "org.swift.diags.workspace.checked-out-dependency-missing",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.packageName)'" }
+                $0 <<< "is missing and has been cloned again."
+            })
+
+        /// The package name of the dependency.
+        public let packageName: String
+    }
+
+    /// The diagnostic triggered when an edited dependency is missing
+    /// from the file-system.
+    public struct EditedDependencyMissing: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: EditedDependencyMissing.self,
+            name: "org.swift.diags.workspace.edited-dependency-missing",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.packageName)'" }
+                $0 <<< "was being edited but is missing. Falling back to original checkout."
+            })
+        
+        /// The package name of the dependency.
+        public let packageName: String
+    }
+
+    /// The diagnostic triggered when a dependency is edited from a revision
+    /// but the dependency already exists at the target location.
+    public struct EditRevisionNotUsed: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: EditRevisionNotUsed.self,
+            name: "org.swift.diags.workspace.edit-revision-not-used",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.packageName)'" }
+                $0 <<< "already exists at the edit destination. Not using revision"
+                $0 <<< { "'\($0.revisionIdentifier)'" }
+                $0 <<< "."
+            })
+        
+        /// The package name of the dependency.
+        public let packageName: String
+
+        /// The edit revision.
+        public let revisionIdentifier: String
+    }
+
+    /// The diagnostic triggered when a dependency is edited with a branch
+    /// but the dependency already exists at the target location.
+    public struct EditBranchNotCheckedOut: DiagnosticData, Swift.Error {
+        public static var id = DiagnosticID(
+            type: EditBranchNotCheckedOut.self,
+            name: "org.swift.diags.workspace.edit-branch-not-used",
+            defaultBehavior: .warning,
+            description: {
+                $0 <<< "The dependency"
+                $0 <<< { "'\($0.packageName)'" }
+                $0 <<< "already exists at the edit destination. Not checking-out branch"
+                $0 <<< { "'\($0.branchName)'" }
+                $0 <<< "."
+            })
+        
+        /// The package name of the dependency.
+        public let packageName: String
+
+        /// The branch name
+        public let branchName: String
     }
 }

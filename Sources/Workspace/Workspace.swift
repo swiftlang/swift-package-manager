@@ -50,9 +50,6 @@ public protocol WorkspaceDelegate: class {
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
 
-    /// The workspace operation emitted this warning.
-    func warning(message: String)
-
     /// Called when the managed dependencies are updated.
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
 }
@@ -612,10 +609,14 @@ extension Workspace {
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                delegate.warning(message: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
+                diagnostics.emit(WorkspaceDiagnostics.EditBranchNotCheckedOut(
+                    packageName: packageName,
+                    branchName: checkoutBranch))
             }
             if let revision = revision {
-                delegate.warning(message: "not using revsion '\(revision.identifier)' for dependency '\(packageName)'")
+                diagnostics.emit(WorkspaceDiagnostics.EditRevisionNotUsed(
+                    packageName: packageName,
+                    revisionIdentifier: revision.identifier))
             }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
@@ -780,10 +781,8 @@ extension Workspace {
     ) -> DependencyManifests {
 
         // Try to load current managed dependencies, or emit and return.
-        do {
-            try fixManagedDependencies()
-        } catch {
-            diagnostics.emit(error)
+        fixManagedDependencies(with: diagnostics)
+        guard !diagnostics.hasErrors else {
             return DependencyManifests(root: root, dependencies: [])
         }
 
@@ -1169,22 +1168,21 @@ extension Workspace {
     /// If some checkout dependency is reomved form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    fileprivate func fixManagedDependencies() throws {
+    fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
         for dependency in managedDependencies.values {
-            let dependencyPath = path(for: dependency)
-            if !fileSystem.isDirectory(dependencyPath) {
-                switch dependency.state {
-                case .checkout(let checkoutState):
-                    // If some checkout dependency has been removed, clone it again.
-                    _ = try clone(repository: dependency.repository, at: checkoutState)
-                    // FIXME: Use diagnostics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) is missing and has been cloned again.")
-                case .edited:
-                    // If some edited dependency has been removed, mark it as unedited.
-                    try unedit(dependency: dependency, forceRemove: true)
-                    // FIXME: Use diagnostics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, " +
-                        "falling back to original checkout.")
+            diagnostics.wrap {
+                let dependencyPath = path(for: dependency)
+                if !fileSystem.isDirectory(dependencyPath) {
+                    switch dependency.state {
+                    case .checkout(let checkoutState):
+                        // If some checkout dependency has been removed, clone it again.
+                        _ = try clone(repository: dependency.repository, at: checkoutState)
+                        diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.name))
+                    case .edited:
+                        // If some edited dependency has been removed, mark it as unedited.
+                        try unedit(dependency: dependency, forceRemove: true)
+                        diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.name))
+                    }
                 }
             }
         }
