@@ -244,11 +244,7 @@ public class RepositoryManager {
                         return handle
                     })
 
-                case .pending:
-                    precondition(false, "This should never have been called")
-                    return
-
-                case .uninitialized, .error:
+                case .pending, .uninitialized, .error:
                     // Change the state to pending.
                     handle.status = .pending
                     let repositoryPath = self.path.appending(handle.subpath)

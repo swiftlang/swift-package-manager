@@ -230,7 +230,11 @@ public protocol PackageContainerProvider {
     associatedtype Container: PackageContainer
 
     /// Get the container for a particular identifier asynchronously.
-    func getContainer(for identifier: Container.Identifier, completion: @escaping (Result<Container, AnyError>) -> Void)
+    func getContainer(
+        for identifier: Container.Identifier,
+        skipUpdate: Bool,
+        completion: @escaping (Result<Container, AnyError>) -> Void
+    )
 }
 
 /// An individual constraint onto a container.
@@ -1039,10 +1043,7 @@ public class DependencyResolver<
 
         // Never prefetch when running in incomplete mode.
         if !isInIncompleteMode && isPrefetchingEnabled {
-            // Ask all of these containers upfront to do async cloning.
-            for constraint in constraints {
-                provider.getContainer(for: constraint.identifier) { _ in }
-            }
+            prefetch(containers: constraints.map({ $0.identifier }))
         }
 
         // Update the active constraint set to include all active constraints.
@@ -1137,7 +1138,16 @@ public class DependencyResolver<
     // MARK: Container Management
 
     /// The active set of managed containers.
-    public private(set) var containers: [Identifier: Container] = [:]
+    public var containers: [Identifier: Container] {
+        return containersLock.withLock {
+            _containers
+        }
+    }
+    private var containersLock = Lock()
+    private var _containers: [Identifier: Container] = [:]
+
+    /// The set of containers requested so far.
+    private var requestedContainers: Set<Identifier> = []
 
     /// Get the container for the given identifier, loading it if necessary.
     private func getContainer(for identifier: Identifier) throws -> Container {
@@ -1152,15 +1162,40 @@ public class DependencyResolver<
 
     /// Add a managed container.
     private func addContainer(for identifier: Identifier) throws -> Container {
-        assert(!containers.keys.contains(identifier))
         // Get the container synchronously from provider.
-        let container = try await { provider.getContainer(for: identifier, completion: $0) }
-        containers[identifier] = container
+        let skipUpdate = requestedContainers.contains(identifier)
+        requestedContainers.insert(identifier)
+        let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
 
-        // Inform the delegate we are considering a new container.
-        delegate.added(container: identifier)
+        return set(container, for: identifier)
+    }
 
-        return container
+    /// Starts prefetching the given containers.
+    private func prefetch(containers identifiers: [Identifier]) {
+
+        // Prefetch the containers which are missing.
+        for identifier in identifiers where !requestedContainers.contains(identifier) {
+            requestedContainers.insert(identifier)
+            provider.getContainer(for: identifier, skipUpdate: false) {
+                // We ignore the errors here and expect them to be caught later.
+                guard case .success(let container) = $0 else { return }
+                self.set(container, for: identifier)
+            }
+        }
+    }
+
+    /// Set the container for the given identifier to containers store.
+    ///
+    /// If the container is already present, it is not inserted again and the old
+    /// copy is returned.
+    @discardableResult
+    private func set(_ container: Container, for identifier: Identifier) -> Container {
+        return containersLock.withLock {
+            if let container = _containers[identifier] { return container }
+            self._containers[identifier] = container
+            self.delegate.added(container: identifier)
+            return container
+        }
     }
 }
 
