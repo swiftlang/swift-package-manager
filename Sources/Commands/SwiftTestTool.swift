@@ -50,7 +50,7 @@ public class TestToolOptions: ToolOptions {
         if shouldRunInParallel {
             return .runInParallel
         }
-        return .run(specifier)
+        return .run(filterString)
     }
 
     /// If the test target should be built before testing.
@@ -66,7 +66,7 @@ public class TestToolOptions: ToolOptions {
     var shouldListTests = false
 
     /// Run only these specified tests.
-    var specifier: String?
+    var filterString: String?
 }
 
 public enum TestMode {
@@ -97,18 +97,27 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
             // Print the tests.
-            for testSuite in testSuites {
-                for testCase in testSuite.tests {
-                    for test in testCase.tests {
-                        print(testCase.name + "/" + test)
-                    }
+            testSuites.allTests.forEach{ print($0) }
+
+        case .run(let filterString):
+            let testPath = try buildTestsIfNeeded(options)
+            let ranSuccessfully: Bool
+
+            if let filterString = filterString {
+                let testSuites = try getTestSuites(path: testPath)
+                let filteredTests = testSuites.allTests.filter { testMethod in
+                    return testMethod.range(of: filterString, options: .regularExpression) != nil
                 }
+                ranSuccessfully = filteredTests.reduce(true) { (acc, method) in
+                    let result: Bool = TestRunner(path: testPath, xctestArg: method, processSet: processSet).test()
+                    return result && acc
+                }
+
+            } else {
+                ranSuccessfully = TestRunner(path: testPath, xctestArg: nil, processSet: processSet).test()
             }
 
-        case .run(let specifier):
-            let testPath = try buildTestsIfNeeded(options)
-            let success: Bool = TestRunner(path: testPath, xctestArg: specifier, processSet: processSet).test()
-            exit(success ? 0 : 1)
+            exit(ranSuccessfully ? 0 : 1)
 
         case .runInParallel:
             let testPath = try buildTestsIfNeeded(options)
@@ -173,10 +182,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.shouldRunInParallel = $1 })
 
         binder.bind(
-            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
-                usage: "Run a specific test class or method, Format: <test-target>.<test-case> or " +
+            option: parser.add(option: "--filter", kind: String.self,
+                usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0.specifier = $1 })
+            to: { $0.filterString = $1 })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
@@ -519,5 +528,14 @@ struct TestSuite {
             
             return TestSuite(name: name, tests: testCases)
         })
+    }
+}
+
+
+extension Sequence where Iterator.Element == TestSuite {
+    var allTests: [String] {
+        return flatMap { $0.tests }.flatMap{ testCase in
+            testCase.tests.map{ testCase.name + "/" + $0 }
+        }
     }
 }

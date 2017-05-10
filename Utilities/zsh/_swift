@@ -111,8 +111,8 @@ _swift_package() {
 
 _swift_test() {
     _arguments \
-        '(-s --specifier)'{-s,--specifier}'[Run a test case subclass <test-module>.<test-case>]: : ' \
-        '(-s --specifier)'{-s,--specifier}'[Run a specific test method <test-module>.<test-case>/<test>]: : ' \
+        '(--filter)'{--filter}'[Run a test case subclass <test-module>.<test-case>]: : ' \
+        '(--filter)'{--filter}'[Run a specific test method <test-module>.<test-case>/<test>]: : ' \
         '(-l --list-tests)'{-l,--list-tests}'[Lists test methods in specifier format]' \
         '--skip-build[Skip building the test target]' \
         "--version[Print the Swift Package Manager version]" \

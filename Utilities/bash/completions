@@ -114,11 +114,11 @@ _swift_package()
 _swift_test()
 {
     case $prev in
-        (-s|--specifier)
+        (--filter)
             return
             ;;
     esac
-    COMPREPLY=( $(compgen -W "-s --specifier -l --list-tests --skip-build --version $shared_options" -- $cur) )
+    COMPREPLY=( $(compgen -W "--filter -l --list-tests --skip-build --version $shared_options" -- $cur) )
 }
 
 _swift_compiler()
