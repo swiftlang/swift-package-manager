@@ -28,6 +28,20 @@ public enum ManifestParseError: Swift.Error {
     case runtimeManifestErrors([String])
 }
 
+extension ManifestParseError: Equatable {
+    public static func ==(lhs: ManifestParseError, rhs: ManifestParseError) -> Bool {
+        switch (lhs, rhs) {
+        case (.emptyManifestFile, .emptyManifestFile): return true
+        case (.invalidEncoding, .invalidEncoding): return true
+        case let (.invalidManifestFormat(errString1), .invalidManifestFormat(errString2)):
+            return errString1 == errString2
+        case let (runtimeManifestErrors(errStrings1), .runtimeManifestErrors(errStrings2)):
+            return errStrings1.elementsEqual(errStrings2)
+        default: return false
+        }
+    }
+}
+
 /// Resources required for manifest loading.
 ///
 /// These requirements are abstracted out to make it easier to add support for

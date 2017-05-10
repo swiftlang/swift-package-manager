@@ -158,6 +158,23 @@ extension Package {
         }
         dict["dependencies"] = .array(dependencies.map({ $0.toJSON() }))
         dict["targets"] = .array(targets.map({ $0.toJSON() }))
+
+        // Find duplicate targets
+        var uniqueTargetNames = Set<String>()
+        var duplicateTargets  = Array<Target>()
+        for target in targets {
+            guard !uniqueTargetNames.contains(target.name) else {
+                duplicateTargets.append(target)
+                continue
+            }
+
+            uniqueTargetNames.insert(target.name)
+        }
+
+        if !duplicateTargets.isEmpty {
+            errors.add("Duplicate targets found: " + duplicateTargets.map{ $0.name }.joined(separator: ", "))
+        }
+
         dict["products"] = .array(products.map({ $0.toJSON() }))
         if let providers = self.providers {
             dict["providers"] = .array(providers.map({ $0.toJSON() }))
