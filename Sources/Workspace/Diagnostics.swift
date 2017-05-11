@@ -32,10 +32,16 @@ public struct ManifestParseDiagnostic: DiagnosticData {
 extension ManifestParseError: DiagnosticDataConvertible {
     public var diagnosticData: DiagnosticData {
         switch self {
-        case .emptyManifestFile:
-            return ManifestParseDiagnostic(["manifest file is empty"])
+        case let .emptyManifestFile(url, version):
+            let stream = BufferedOutputByteStream()
+            stream <<< "The manifest file at " <<< url <<< " "
+            if let version = version {
+                stream <<< "(" <<< version <<< ") "
+            }
+            stream <<< "is empty"
+            return ManifestParseDiagnostic([stream.bytes.asString!])
         case .invalidEncoding:
-            return ManifestParseDiagnostic(["manifest has invalid encoding"])
+            return ManifestParseDiagnostic(["The manifest has invalid encoding"])
         case .invalidManifestFormat(let error):
             return ManifestParseDiagnostic([error])
         case .runtimeManifestErrors(let errors):
