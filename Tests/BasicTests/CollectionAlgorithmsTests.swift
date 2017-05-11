@@ -22,7 +22,14 @@ class CollectionAlgorithmsTests: XCTestCase {
         XCTAssertEqual(str.characters.rindex(of: "x"), nil)
     }
 
+    func testFindDuplicates() {
+        XCTAssertEqual([1, 2, 3, 2, 1].findDuplicates(), [2, 1])
+        XCTAssertEqual(["foo", "bar"].findDuplicates(), [])
+        XCTAssertEqual(["foo", "Foo"].findDuplicates(), [])
+    }
+
     static var allTests = [
         ("testRIndex", testRIndex),
+        ("testFindDuplicates", testFindDuplicates),
     ]
 }
