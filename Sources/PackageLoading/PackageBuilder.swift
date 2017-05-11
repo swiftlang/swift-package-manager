@@ -192,8 +192,8 @@ extension Target.Error: FixableError {
             return "rename the directory '\(path)'\(problem.fix ?? "")"
         case .mixedSources(_):
             return "use only a single language within a target"
-        case .duplicateTargets(let targets):
-            return "remove the duplicate target definitions in Package.swift: " + targets.joined(separator: ", ")
+        case .duplicateTargets:
+            return nil
         }
     }
 }
