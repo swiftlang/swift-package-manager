@@ -466,21 +466,10 @@ public final class PackageBuilder {
 
         // Ensure no dupicate target definitions are found
         // Find duplicate targets
-        var uniqueTargets = Set<String>()
-        var duplicateTargets  = Array<String>()
-        for target in manifest.package.targets {
-            guard !uniqueTargets.contains(target.name) else {
-                duplicateTargets.append(target.name)
-                continue
-            }
-
-            uniqueTargets.insert(target.name)
+        let duplicateTargetNames: [String] = manifest.package.targets.map{ $0.name }.duplicates()
+        if !duplicateTargetNames.isEmpty {
+            throw Target.Error.duplicateTargets(duplicateTargetNames)
         }
-
-        if !duplicateTargets.isEmpty {
-            throw Target.Error.duplicateTargets(duplicateTargets)
-        }
-
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
