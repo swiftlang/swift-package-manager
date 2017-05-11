@@ -191,22 +191,6 @@ class ManifestTests: XCTestCase {
         } catch ManifestParseError.emptyManifestFile {}
     }
 
-    func testDuplicateTargets() {
-        let stream = BufferedOutputByteStream()
-        stream <<< "import PackageDescription" <<< "\n"
-        stream <<< "let package = Package(   " <<< "\n"
-        stream <<< "    name: \"hello\",     " <<< "\n"
-        stream <<< "    targets: [           " <<< "\n"
-        stream <<< "       Target(name: \"hello\", dependencies: [])," <<< "\n"
-        stream <<< "       Target(name: \"hello\", dependencies: [])," <<< "\n"
-        stream <<< "    ]" <<< "\n"
-        stream <<< ")    " <<< "\n"
-
-        XCTAssertThrows(ManifestParseError.runtimeManifestErrors(["Duplicate targets found: hello"])) {
-            _ = try loadManifest(stream.bytes)
-        }
-    }
-
     func testCompatibleSwiftVersions() throws {
         var stream = BufferedOutputByteStream()
         stream <<< "import PackageDescription" <<< "\n"
@@ -309,7 +293,6 @@ class ManifestTests: XCTestCase {
         ("testManifestLoading", testManifestLoading),
         ("testNoManifest", testNoManifest),
         ("testNonexistentBaseURL", testNonexistentBaseURL),
-        ("testDuplicateTargets", testDuplicateTargets),
         ("testInvalidTargetName", testInvalidTargetName),
         ("testVersionSpecificLoading", testVersionSpecificLoading),
         ("testCompatibleSwiftVersions", testCompatibleSwiftVersions),

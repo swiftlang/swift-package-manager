@@ -930,6 +930,23 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testDuplicateTargets() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Sources/A/foo.swift",
+            "/Sources/B/bar.swift"
+        )
+
+        var package = PackageDescription.Package(name: "A",
+                                                 targets: [Target(name: "A", dependencies: []),
+                                                           Target(name: "B", dependencies: []),
+                                                           Target(name: "A", dependencies: [])])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkError("duplicate targets found: A fix: remove the duplicate target definitions in Package.swift: A")
+            result.checkDiagnostic("duplicate targets found: A fix: remove the duplicate target definitions in Package.swift: A")
+        }
+    }
+
     func testExcludes() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
@@ -1100,6 +1117,16 @@ final class PackageBuilderTester {
     private func validateCheckedModules(file: StaticString, line: UInt) {
         guard !uncheckedModules.isEmpty else { return }
         XCTFail("Unchecked targets: \(uncheckedModules)", file: file, line: line)
+    }
+
+    func checkError(_ error: String, file: StaticString = #file, line: UInt = #line) {
+        switch result {
+        case .error(let err) where err == error:
+            return
+        default:
+            XCTFail("Expected error: \(error)")
+        }
+
     }
 
     func checkDiagnostic(_ str: String, file: StaticString = #file, line: UInt = #line) {

@@ -168,6 +168,9 @@ extension Target {
 
         /// The target contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(String)
+
+        /// Duplicate targets
+        case duplicateTargets([String])
     }
 }
 
@@ -178,6 +181,8 @@ extension Target.Error: FixableError {
             return "the directory \(path) has an invalid name ('\(name)'): \(problem.error)"
           case .mixedSources(let path):
             return "the target at \(path) contains mixed language source files"
+        case .duplicateTargets(let targets):
+            return "duplicate targets found: " + targets.joined(separator: ", ")
         }
     }
 
@@ -187,6 +192,8 @@ extension Target.Error: FixableError {
             return "rename the directory '\(path)'\(problem.fix ?? "")"
         case .mixedSources(_):
             return "use only a single language within a target"
+        case .duplicateTargets(let targets):
+            return "remove the duplicate target definitions in Package.swift: " + targets.joined(separator: ", ")
         }
     }
 }
@@ -456,6 +463,24 @@ public final class PackageBuilder {
 
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
+
+        // Ensure no dupicate target definitions are found
+        // Find duplicate targets
+        var uniqueTargets = Set<String>()
+        var duplicateTargets  = Array<String>()
+        for target in manifest.package.targets {
+            guard !uniqueTargets.contains(target.name) else {
+                duplicateTargets.append(target.name)
+                continue
+            }
+
+            uniqueTargets.insert(target.name)
+        }
+
+        if !duplicateTargets.isEmpty {
+            throw Target.Error.duplicateTargets(duplicateTargets)
+        }
+
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
