@@ -1109,10 +1109,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBranchAndRevision() throws {
-        // This is failing on OS X package bots for some reason. However, it works locally and on incremental bots.
-        // 
-        // <rdar://problem/32076596> Test Case '-[WorkspaceTests.WorkspaceTests testBranchAndRevision]' started.--- bootstrap: error: tests failed with exit status 1
-      #if false
         typealias Package = PackageDescription4.Package
 
         mktmpdir { path in
@@ -1261,7 +1257,6 @@ final class WorkspaceTests: XCTestCase {
                     try GitRepository(path: workspace.checkoutsPath.appending(dependency.subpath)).getCurrentRevision())
             }
         }
-      #endif
     }
 
     func testMultipleRootPackages() throws {
