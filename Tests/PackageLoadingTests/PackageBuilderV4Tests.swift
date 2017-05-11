@@ -402,11 +402,15 @@ class PackageBuilderV4Tests: XCTestCase {
             "/Sources/C/baz.swift"
         )
 
-        let package = Package(name: "A",
-                              targets: [.target(name: "A", dependencies: []),
-                                        .target(name: "B", dependencies: []),
-                                        .target(name: "A", dependencies: []),
-                                        .target(name: "B", dependencies: []),])
+        let package = Package(
+            name: "A",
+            targets: [
+                .target(name: "A", dependencies: []),
+                .target(name: "B", dependencies: []),
+                .target(name: "A", dependencies: []),
+                .target(name: "B", dependencies: []),
+            ]
+        )
 
         PackageBuilderTester(package, in: fs) { result in
             result.checkDiagnostic("duplicate targets found: A, B")

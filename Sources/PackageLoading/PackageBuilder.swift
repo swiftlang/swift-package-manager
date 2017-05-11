@@ -169,7 +169,7 @@ extension Target {
         /// The target contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(String)
 
-        /// Duplicate targets
+        /// The manifest contains duplicate targets.
         case duplicateTargets([String])
     }
 }
@@ -464,9 +464,10 @@ public final class PackageBuilder {
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
 
-        // Ensure no dupicate target definitions are found
-        // Find duplicate targets
-        let duplicateTargetNames: [String] = manifest.package.targets.map{ $0.name }.duplicates()
+        // Ensure no dupicate target definitions are found.
+        let duplicateTargetNames: [String] = manifest.package.targets.map({ $0.name
+        }).findDuplicates()
+        
         if !duplicateTargetNames.isEmpty {
             throw Target.Error.duplicateTargets(duplicateTargetNames)
         }

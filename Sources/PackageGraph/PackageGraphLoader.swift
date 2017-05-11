@@ -242,3 +242,11 @@ private func createResolvedPackages(
     return resolvedPackages
 }
 
+// FIXME: Possibly lift this to Basic.
+private extension Sequence where Iterator.Element: Hashable {
+    // Returns the set of duplicate elements in two arrays, if any.
+    func duplicates(_ other: [Iterator.Element]) -> Set<Iterator.Element>? {
+        let dupes = Set(self).intersection(Set(other))
+        return dupes.isEmpty ? nil : dupes
+    }
+}
