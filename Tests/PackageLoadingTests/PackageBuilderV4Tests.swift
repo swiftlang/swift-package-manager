@@ -544,19 +544,71 @@ class PackageBuilderV4Tests: XCTestCase {
             }
         }
 
+        /// Invalid Target path edge cases
         do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/pkg/Sources/Foo/Foo.c",
-                "/foo/Bar.c")
+                "/Bar/Bar.swift")
 
             let package = Package(
                 name: "Foo",
                 targets: [
-                    .target(name: "Foo", path: "../foo"),
+                    .target(name: "Bar", path: "/Bar"),
                 ])
 
             PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
-                result.checkDiagnostic("The target Foo in package Foo is outside the package root.")
+                result.checkDiagnostic("The target Bar in package Foo is outside the package root.")
+            }
+        }
+
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/Sources/Foo/Foo.c",
+                "/Bar/Bar.swift")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Bar", path: "../Bar"),
+                ])
+
+            PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+                result.checkDiagnostic("The target Bar in package Foo is outside the package root.")
+            }
+        }
+
+        /// Note: We don't expand `~` in path
+        /// So, this target is invalid: `.target(name: "Foo", path: "~/Foo")`
+        do {
+            let fs = InMemoryFileSystem()
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", path: "~/Foo"),
+                ])
+
+            PackageBuilderTester(package, in: fs) { result in
+                result.checkDiagnostic("these referenced targets could not be found: Foo fix: reference only valid targets")
+            }
+        }
+
+        /// Valid target paths
+        do {
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/pkg/Sources/Foo/Foo.c",
+                "/pkg/Sources/Bar/Bar.c")
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo", path: "../pkg/Sources/Foo"),
+                    .target(name: "Bar", path: "/pkg/Sources/Bar"),
+                ])
+
+            PackageBuilderTester(package, path: AbsolutePath("/pkg"), in: fs) { result in
+                result.checkModule("Bar")
+                result.checkModule("Foo")
             }
         }
     }
