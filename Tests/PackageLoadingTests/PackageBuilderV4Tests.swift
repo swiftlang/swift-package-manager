@@ -393,6 +393,29 @@ class PackageBuilderV4Tests: XCTestCase {
             }
         }
     }
+    
+    func testDuplicateTargets() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Sources/A/foo.swift",
+            "/Sources/B/bar.swift",
+            "/Sources/C/baz.swift"
+        )
+
+        let package = Package(
+            name: "A",
+            targets: [
+                .target(name: "A", dependencies: []),
+                .target(name: "B", dependencies: []),
+                .target(name: "A", dependencies: []),
+                .target(name: "B", dependencies: []),
+            ]
+        )
+
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("duplicate targets found: A, B")
+        }
+    }
 
     func testTargetDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
@@ -764,5 +787,6 @@ class PackageBuilderV4Tests: XCTestCase {
         ("testTestsLayoutsv4", testTestsLayoutsv4),
         ("testPredefinedTargetSearchError", testPredefinedTargetSearchError),
         ("testSpecialTargetDir", testSpecialTargetDir),
+        ("testDuplicateTargets", testDuplicateTargets),
     ]
 }

@@ -930,6 +930,24 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testDuplicateTargets() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/main.swift",
+            "/Sources/A/foo.swift",
+            "/Sources/B/bar.swift",
+            "/Sources/C/baz.swift"
+        )
+
+        let package = PackageDescription.Package(name: "A",
+                                                 targets: [Target(name: "A", dependencies: []),
+                                                           Target(name: "B", dependencies: []),
+                                                           Target(name: "A", dependencies: []),
+                                                           Target(name: "B", dependencies: []),])
+        PackageBuilderTester(package, in: fs) { result in
+            result.checkDiagnostic("duplicate targets found: A, B")
+        }
+    }
+
     func testExcludes() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/main.swift",
@@ -1007,6 +1025,7 @@ class PackageBuilderTests: XCTestCase {
         ("testTwoModulesMixedLanguage", testTwoModulesMixedLanguage),
         ("testValidSources", testValidSources),
         ("testVersionSpecificManifests", testVersionSpecificManifests),
+        ("testDuplicateTargets", testDuplicateTargets),
     ]
 }
 
