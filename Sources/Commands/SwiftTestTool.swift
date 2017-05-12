@@ -56,27 +56,15 @@ public class TestToolOptions: ToolOptions {
             return .version
         }
 
-        if let specifier = specifier {
-            if shouldListTests {
-                return .listTests(.specific(specifier))
-            } else if shouldRunParallel {
-                return .runParallel(.specific(specifier))
-            } else {
-                return .runSpecific(.specific(specifier))
-            }
+        if shouldRunInParallel {
+            return .runParallel
         }
 
-        if let pattern = filterPattern {
-            if shouldListTests {
-                return .listTests(.regex(pattern))
-            } else if shouldRunParallel {
-                return .runParallel(.regex(pattern))
-            } else {
-                return .runSerial(.regex(pattern))
-            }
+        if shouldListTests {
+            return .listTests
         }
 
-        return .runSerial(.none)
+        return .runSerial
     }
 
     /// If the test target should be built before testing.
@@ -86,16 +74,12 @@ public class TestToolOptions: ToolOptions {
     var config: Build.Configuration = .debug
 
     /// If tests should run in parallel mode.
-    var shouldRunParallel = false
+    var shouldRunInParallel = false
 
     /// List the tests and exit.
     var shouldListTests = false
 
-    /// Run only tests matching this pattern
-    var filterPattern: String? = nil
-
-    /// Run only specific test
-    var specifier: String? = nil
+    var testCaseSpecifier: TestCaseSpecifier = .none
 }
 
 /// Tests filtering specifier
@@ -112,10 +96,9 @@ public enum TestCaseSpecifier {
 
 public enum TestMode {
     case version
-    case listTests(TestCaseSpecifier)
-    case runSpecific(TestCaseSpecifier)
-    case runSerial(TestCaseSpecifier)
-    case runParallel(TestCaseSpecifier)
+    case listTests
+    case runSerial
+    case runParallel
 }
 
 /// swift-test tool namespace
@@ -135,53 +118,49 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
 
-        case .listTests(let filter):
+        case .listTests:
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
-            let tests = testSuites.filteredTests(specifier: filter)
+            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
             // Print the tests.
             for test in tests {
                 print(test.specifier)
             }
 
-        case .runSpecific(let specifier):
-            // This is a deprecated option, so emit diagnostics accordingly
-            diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
-            let ranSuccessfully = try runTestsSerially(specifier: specifier)
-            exit(ranSuccessfully ? 0 : 1)
-
-        case .runSerial(let specifier):
-            let ranSuccessfully = try runTestsSerially(specifier: specifier)
-            exit(ranSuccessfully ? 0 : 1)
-
-        case .runParallel(let filterString):
+        case .runSerial:
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
-            let tests = testSuites.filteredTests(specifier: filterString)
+            var ranSuccessfully = true
+
+            if case .none = options.testCaseSpecifier {
+                let runner = TestRunner(path: testPath,
+                                        xctestArg: nil,
+                                        processSet: processSet)
+                ranSuccessfully = ranSuccessfully && runner.test()
+            } else {
+                if case .specific = options.testCaseSpecifier {
+                    diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
+                }
+                let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+                for test in tests {
+                    let runner = TestRunner(path: testPath,
+                                            xctestArg: test.specifier,
+                                            processSet: processSet)
+                    ranSuccessfully = ranSuccessfully && runner.test()
+                }
+            }
+
+            exit(ranSuccessfully ? 0 : 1)
+
+        case .runParallel:
+            let testPath = try buildTestsIfNeeded(options)
+            let testSuites = try getTestSuites(path: testPath)
+            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run(tests)
             exit(runner.ranSuccesfully ? 0 : 1)
         }
-    }
-
-    /// Executes the tests, optinally filtered by specifier, serially
-    /// - Returns: true if success, otherwise false
-    private func runTestsSerially(specifier: TestCaseSpecifier) throws -> Bool {
-        let testPath = try buildTestsIfNeeded(options)
-        let testSuites = try getTestSuites(path: testPath)
-        let tests = testSuites.filteredTests(specifier: specifier)
-
-        var isSuccess = true
-        for test in tests {
-            let runner = TestRunner(path: testPath,
-                                    xctestArg: test.specifier,
-                                    processSet: processSet)
-
-            isSuccess = isSuccess && runner.test()
-        }
-
-        return isSuccess
     }
 
     /// Builds the "test" target if enabled in options.
@@ -235,19 +214,19 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         binder.bind(
             option: parser.add(option: "--parallel", kind: Bool.self,
                 usage: "Run the tests in parallel."),
-            to: { $0.shouldRunParallel = $1 })
+            to: { $0.shouldRunInParallel = $1 })
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
                 usage: "[Deprecated] Run a specific test class or method, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0.specifier = $1 })
+            to: { $0.testCaseSpecifier = .specific($1) })
 
         binder.bind(
             option: parser.add(option: "--filter", kind: String.self,
                 usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0.filterPattern = $1 })
+            to: { $0.testCaseSpecifier = .regex($1) })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
