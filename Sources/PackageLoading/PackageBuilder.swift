@@ -521,13 +521,7 @@ public final class PackageBuilder {
                     return packagePath
                 }
 
-                let path: AbsolutePath
-
-                if subpath.hasPrefix("/") {
-                    path = AbsolutePath(subpath)
-                } else {
-                    path = AbsolutePath(subpath, relativeTo: packagePath)
-                }
+                let path = AbsolutePath(subpath, relativeTo: packagePath)
 
                 // Make sure the target is inside the package root.
                 guard path.contains(packagePath) else {
