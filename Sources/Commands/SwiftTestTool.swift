@@ -137,7 +137,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 let runner = TestRunner(path: testPath,
                                         xctestArg: nil,
                                         processSet: processSet)
-                ranSuccessfully = ranSuccessfully && runner.test()
+                ranSuccessfully = runner.test()
             } else {
                 if case .specific = options.testCaseSpecifier {
                     diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
@@ -217,9 +217,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.shouldRunInParallel = $1 })
 
         binder.bind(
-            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
-                usage: "[Deprecated] Run a specific test class or method, Format: <test-target>.<test-case> or " +
-                    "<test-target>.<test-case>/<test>"),
+            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
             to: { $0.testCaseSpecifier = .specific($1) })
 
         binder.bind(
@@ -570,13 +568,7 @@ struct TestSuite {
 
 
 fileprivate extension Sequence where Iterator.Element == TestSuite {
-    /// Return all tests
-    ///
-    /// `this` is a sequnce of TestSuites, which have number of TestCases.
-    /// Each TestCase inturn have multiple test methods.
-    ///
-    /// This is a convenience getter to walk through this heirarchy and
-    /// return all the test methods in TESTTARGET.TESTCASE/TESTMETHOD format.
+    /// Returns all the unit tests of the test suites.
     var allTests: [UnitTest] {
         return flatMap { $0.tests }.flatMap({ testCase in
             testCase.tests.map{ UnitTest(name: $0, testCase: testCase.name) }
@@ -584,8 +576,6 @@ fileprivate extension Sequence where Iterator.Element == TestSuite {
     }
 
     /// Return tests matching the provided specifier
-    ///
-    /// Test's format: TESTTARGET.TESTCASE/TESTMETHOD
     func filteredTests(specifier: TestCaseSpecifier) -> [UnitTest] {
         switch specifier {
         case .none:
