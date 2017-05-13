@@ -109,7 +109,7 @@ public struct Destination {
         )
       #else
         return Destination(
-            target: "linux-unknown-x86_64",
+            target: "x86_64-unknown-linux",
             sdk: .root,
             binDir: binDir,
             dynamicLibraryExtension: "so",
