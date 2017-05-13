@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Commands
 import TestSupport
 import Basic
 import Utility
@@ -44,7 +45,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
-            let product = app.appending(components: ".build", "debug", productString)
+            let product = app.appending(components: ".build", Destination.host.target, "debug", productString)
             try self.execute(packagePath: app)
             measure {
                 try! self.clean(packagePath: app)
@@ -57,7 +58,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
-            let product = app.appending(components: ".build", "debug", productString)
+            let product = app.appending(components: ".build", Destination.host.target, "debug", productString)
             try self.execute(packagePath: app)
             measure {
                 try! self.execute(packagePath: app)

@@ -36,7 +36,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             try build(includingTests: options.buildTests)
 
         case .binPath:
-            try print(buildPlan().buildParameters.buildPath.asString)
+            try print(buildParameters().buildPath.asString)
 
         case .version:
             print(Versioning.currentVersion.completeDisplayString)

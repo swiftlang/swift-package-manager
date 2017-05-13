@@ -11,7 +11,7 @@
 import XCTest
 
 import Basic
-
+import Commands
 import TestSupport
 import SourceControl
 
@@ -20,7 +20,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", "debug", "Foo").asString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").asString)
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -35,7 +35,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", "debug", "Foo").asString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Destination.host.target, "debug", "Foo").asString)
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
@@ -51,7 +51,7 @@ class DependencyResolutionTests: XCTestCase {
 
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", "debug", "Bar"))
+            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", Destination.host.target, "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(GitRepository(path: path).tags.contains("1.2.3"))
         }
@@ -60,7 +60,7 @@ class DependencyResolutionTests: XCTestCase {
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", "debug", "Dealer").asString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", Destination.host.target, "debug", "Dealer").asString)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
