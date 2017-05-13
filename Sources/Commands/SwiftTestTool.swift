@@ -133,12 +133,13 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let testSuites = try getTestSuites(path: testPath)
             var ranSuccessfully = true
 
-            if case .none = options.testCaseSpecifier {
+            switch options.testCaseSpecifier {
+            case .none:
                 let runner = TestRunner(path: testPath,
                                         xctestArg: nil,
                                         processSet: processSet)
                 ranSuccessfully = runner.test()
-            } else {
+            case .regex, .specific:
                 if case .specific = options.testCaseSpecifier {
                     diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
                 }
