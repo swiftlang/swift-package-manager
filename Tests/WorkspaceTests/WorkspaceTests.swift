@@ -42,8 +42,14 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     typealias PartialGraphData = (currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
     var partialGraphs = [PartialGraphData]()
 
+    var repoUpdates = [String]()
+
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
         partialGraphs.append((currentGraph, dependencies, missingURLs))
+    }
+
+    func repositoryWillUpdate(_ repository: String) {
+        repoUpdates.append(repository)
     }
 
     func fetchingWillBegin(repository: String) {
@@ -1897,6 +1903,53 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolverCanHaveError() throws {
+        let v2: Version = "2.0.0"
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [],
+            packages: [
+                MockPackage("A", version: v1, dependencies: [
+                    MockDependency("AA", version: v1)
+                ]),
+                MockPackage("B", version: v1, dependencies: [
+                    MockDependency("AA", version: v2)
+                ]),
+                MockPackage("AA", version: v1),
+                MockPackage("AA", version: v2),
+            ],
+            fs: fs)
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("AA")]!.tag(name: "2.0.0")
+
+        let delegate = TestWorkspaceDelegate()
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: delegate,
+            fileSystem: fs,
+            repositoryProvider: provider)
+
+        let root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
+            .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "B"),
+        ])
+
+        let diagnostics = DiagnosticsEngine()
+        workspace.resolve(root: root, diagnostics: diagnostics)
+
+        // Check that we produce error.
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: .contains("graph is unresolvable."), behavior: .error)
+        }
+
+        // There should be no extra fetches.
+        XCTAssertEqual(delegate.repoUpdates, [])
+    }
+
     func testCanResolveWithIncompatiblePins() throws {
         let v2: Version = "2.0.0"
         let path = AbsolutePath("/RootPkg")
@@ -1935,6 +1988,7 @@ final class WorkspaceTests: XCTestCase {
         let diagnostics = DiagnosticsEngine()
         workspace.resolve(root: root, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(delegate.repoUpdates, [])
 
         // This pin will become unresolvable when A is at 1.0.1.
         // We should still be able to resolve in that case.
@@ -1946,6 +2000,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.resolve(root: root, diagnostics: diagnostics)
         XCTAssertFalse(diagnostics.hasErrors)
         XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v2)
+        // There should be only one update per dependency.
+        XCTAssertEqual(delegate.repoUpdates.sorted(), ["/RootPkg/A", "/RootPkg/AA"])
     }
 
     static var allTests = [
@@ -1977,6 +2033,7 @@ final class WorkspaceTests: XCTestCase {
         ("testGraphData", testGraphData),
         ("testSymlinkedDependency", testSymlinkedDependency),
         ("testIsResolutionRequired", testIsResolutionRequired),
+        ("testResolverCanHaveError", testResolverCanHaveError),
     ]
 }
 
