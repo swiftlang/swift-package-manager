@@ -235,6 +235,9 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
+    /// Typealias for dependency resolver we use in the workspace.
+    fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -480,7 +483,7 @@ extension Workspace {
         updateConstraints += currentManifests.editedPackagesConstraints()
 
         // Resolve the dependencies.
-        let updateResults = resolveDependencies(dependencies: updateConstraints, pins: [], diagnostics: diagnostics)
+        let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
 		// Update the checkouts based on new dependency resolution.
@@ -939,15 +942,23 @@ extension Workspace {
 
         // Perform dependency resolution.
         let resolverDiagnostics = DiagnosticsEngine()
-        var result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+        let resolver = createResolver()
+        var result = resolveDependencies(
+            resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
 
         // If we fail, we just try again without any pins because the pins might
         // be completely incompatible.
         //
         // FIXME: We should only do this if resolver emits "unresolvable" error.
-        // FIXME: We should merge the engine in case we get no errors but warnings or notes.
         if resolverDiagnostics.hasErrors {
-            result = resolveDependencies(dependencies: constraints, pins: [], diagnostics: diagnostics)
+            // If there are no pins, merge diagnostics and return now.
+            if validPins.isEmpty {
+                diagnostics.merge(resolverDiagnostics)
+                return currentManifests
+            }
+
+            // Run using the same resolver so we don't re-add the containers, we already have.
+            result = resolveDependencies(resolver: resolver, dependencies: constraints, diagnostics: diagnostics)
             guard !diagnostics.hasErrors else {
                 return currentManifests
             }
@@ -1153,17 +1164,22 @@ extension Workspace {
         return packageStateChanges
     }
 
+    /// Creates resolver for the workspace.
+    fileprivate func createResolver() -> PackageDependencyResolver {
+        let resolverDelegate = WorkspaceResolverDelegate()
+        return DependencyResolver(containerProvider, resolverDelegate,
+            isPrefetchingEnabled: isResolverPrefetchingEnabled)
+    }
+
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
+        resolver: PackageDependencyResolver? = nil,
         dependencies: [RepositoryPackageConstraint],
-        pins: [RepositoryPackageConstraint],
+        pins: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
-        let resolverDelegate = WorkspaceResolverDelegate()
+        let resolver = resolver ?? createResolver()
 
-        // Run the resolver.
-        let resolver = DependencyResolver(containerProvider, resolverDelegate,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled)
         let result = resolver.resolve(dependencies: dependencies, pins: pins)
 
         // Take an action based on the result.

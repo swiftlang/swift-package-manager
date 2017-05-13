@@ -860,7 +860,8 @@ public class DependencyResolver<
         pins: [Constraint]
     ) -> Result {
         do {
-            // Run the resolver.
+            // Reset the incomplete mode and run the resolver.
+            self.isInIncompleteMode = false
             let constraints = dependencies + pins
             return try .success(resolve(constraints: constraints))
         } catch DependencyResolverError.unsatisfiable {

@@ -271,6 +271,13 @@ public class DiagnosticsEngine: CustomStringConvertible {
         diagnostics.append(Diagnostic(id: type(of: data).id, location: location, data: data))
     }
 
+    /// Merges contents of given engine.
+    public func merge(_ engine: DiagnosticsEngine) {
+        for diagnostic in engine.diagnostics {
+            emit(data: diagnostic.data, location: diagnostic.location)
+        }
+    }
+
     public var description: String {
         let stream = BufferedOutputByteStream()
         stream <<< "["

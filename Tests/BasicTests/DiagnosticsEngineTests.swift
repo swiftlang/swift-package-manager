@@ -69,7 +69,32 @@ class DiagnosticsEngineTests: XCTestCase {
         XCTAssertEqual(result, "literaldefaultfoo, bardefault2defaultstrdefaultbarhighstrlow")
     }
 
+    func testMerging() {
+        let engine1 = DiagnosticsEngine() 
+        engine1.emit(
+            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
+            location: FooLocation(name: "foo loc")
+        )
+        XCTAssertEqual(engine1.diagnostics.count, 1)
+
+        let engine2 = DiagnosticsEngine() 
+        engine2.emit(
+            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
+            location: FooLocation(name: "foo loc")
+        )
+        engine2.emit(
+            data: FooDiag(arr: ["foo", "bar"], str: "str", int: 2),
+            location: FooLocation(name: "foo loc")
+        )
+        XCTAssertEqual(engine2.diagnostics.count, 2)
+
+        engine1.merge(engine2)
+        XCTAssertEqual(engine1.diagnostics.count, 3)
+        XCTAssertEqual(engine2.diagnostics.count, 2)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
+        ("testMerging", testMerging),
     ]
 }
