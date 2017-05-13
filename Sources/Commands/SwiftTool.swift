@@ -318,19 +318,10 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Build the package graph using swift-build-tool.
-    func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
-        // Create build parameters.
-        let buildParameters = BuildParameters(
-            dataPath: buildPath,
-            configuration: config,
-            toolchain: try getToolchain(),
-            flags: options.buildFlags
-        )
-        let yaml = buildPath.appending(component: config.dirname + ".yaml")
-        // Create build plan.
-        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, delegate: self)
+    func build(plan: BuildPlan, includingTests: Bool) throws {
+        let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
         // Generate llbuild manifest.
-        let llbuild = LLbuildManifestGenerator(buildPlan)
+        let llbuild = LLbuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
@@ -364,6 +355,19 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
+    }
+
+    func buildPlan(graph: PackageGraph, config: Build.Configuration) throws -> BuildPlan {
+        // Create build parameters.
+        let toolchain = try getToolchain()
+        let buildParameters = BuildParameters(
+            dataPath: buildPath.appending(component: toolchain.destination.target),
+            configuration: config,
+            toolchain: toolchain,
+            flags: options.buildFlags
+        )
+        // Create build plan.
+        return try BuildPlan(buildParameters: buildParameters, graph: graph, delegate: self)
     }
 
     /// Lazily compute the destination toolchain.
