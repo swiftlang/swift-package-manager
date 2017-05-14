@@ -12,7 +12,6 @@ import Basic
 import TestSupport
 import XCTest
 import Utility
-import Commands
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() {
@@ -20,7 +19,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.hostTarget, "debug", "SwiftPMXCTestHelper.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
@@ -37,7 +36,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
             ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix.appending(components: ".build", Destination.hostTarget, "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
+            XCTAssertXCTestHelper(prefix.appending(components: ".build", "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
       #endif
     }
