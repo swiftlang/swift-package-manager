@@ -36,7 +36,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             let graph = try loadPackageGraph()
             // If we don't have any targets in root package, we're done.
             guard !graph.rootPackages[0].targets.isEmpty else { break }
-            try build(plan: buildPlan(graph: graph, config: options.config), includingTests: options.buildTests)
+            try build(graph: graph, includingTests: options.buildTests, config: options.config)
 
         case .version:
             print(Versioning.currentVersion.completeDisplayString)

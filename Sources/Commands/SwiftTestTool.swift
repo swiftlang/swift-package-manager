@@ -124,9 +124,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
         let graph = try loadPackageGraph()
-        let buildPlan = try self.buildPlan(graph: graph, config: options.config)
         if options.shouldBuildTests {
-            try build(plan: buildPlan, includingTests: true)
+            try build(graph: graph, includingTests: true, config: options.config)
         }
 
         // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
@@ -145,7 +144,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         } else if testProducts.count > 1 {
             throw TestError.multipleTestProducts
         } else {
-            return buildPlan.buildParameters.buildPath
+            return buildPath
+                .appending(RelativePath(options.config.dirname))
                 .appending(component: testProducts[0].name + ".xctest")
         }
     }

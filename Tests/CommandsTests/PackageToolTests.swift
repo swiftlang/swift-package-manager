@@ -192,7 +192,7 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", Destination.hostTarget, "debug", "foo").asString]
+            let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -265,8 +265,8 @@ final class PackageToolTests: XCTestCase {
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.hostTarget, "debug", "Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(components: ".build", Destination.hostTarget)))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], chdir: packageRoot)
@@ -282,12 +282,12 @@ final class PackageToolTests: XCTestCase {
 
             // Build it.
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(packageRoot.appending(components: ".build", Destination.hostTarget, "debug", "Bar"))
-            XCTAssert(isDirectory(packageRoot.appending(components: ".build", Destination.hostTarget)))
+            XCTAssertFileExists(packageRoot.appending(components: ".build", "debug", "Bar"))
+            XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
             // Clean, and check for removal of the build directory but not Packages.
 
             _ = try execute(["clean"], chdir: packageRoot)
-            XCTAssert(!exists(packageRoot.appending(components: ".build", Destination.hostTarget, "debug", "Bar")))
+            XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
 
             // Fully clean.
@@ -347,7 +347,7 @@ final class PackageToolTests: XCTestCase {
                 let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], chdir: fooPath, printIfError: true)
                 return buildOutput
             }
-            let exec = [fooPath.appending(components: ".build", Destination.hostTarget, "debug", "foo").asString]
+            let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
 
             // Build and sanity check.
             _ = try build()
