@@ -20,6 +20,7 @@ import POSIX
 import SourceControl
 import Utility
 import Workspace
+import Commands
 
 #if os(macOS)
 import class Foundation.Bundle
@@ -307,6 +308,13 @@ public func waitForFile(_ path: AbsolutePath) -> Bool {
         }
     }
     return false
+}
+
+fileprivate let _cachedHostTarget = try! Destination.hostDestination().target
+public extension Destination {
+    public static var hostTarget: String {
+        return _cachedHostTarget
+    }
 }
 
 extension Process {

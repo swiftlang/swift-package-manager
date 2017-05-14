@@ -10,8 +10,9 @@
 
 import XCTest
 
-import TestSupport
 import Basic
+import Commands
+import TestSupport
 import PackageModel
 import Utility
 import Xcodeproj
@@ -113,7 +114,7 @@ class FunctionalTests: XCTestCase {
         // Now we use a fixture for both the system library wrapper and the text executable.
         fixture(name: "Miscellaneous/SystemModules") { prefix in
             XCTAssertBuilds(prefix.appending(component: "TestExec"), Xld: ["-L/tmp/"])
-            XCTAssertFileExists(prefix.appending(components: "TestExec", ".build", "debug", "TestExec"))
+            XCTAssertFileExists(prefix.appending(components: "TestExec", ".build", Destination.hostTarget, "debug", "TestExec"))
             let fakeDir = prefix.appending(component: "CFake")
             XCTAssertDirectoryExists(fakeDir)
             let execDir = prefix.appending(component: "TestExec")
