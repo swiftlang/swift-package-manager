@@ -26,10 +26,35 @@ public struct SortedArray<Element>: CustomStringConvertible {
     
     /// Insert the given element, maintaining the sort order.
     public mutating func insert(_ newElement: Element) {
-        elements.append(newElement)
-        // FIXME: It is way too costly to sort again for just one element.
-        // We can use binary search to find the index for this element.
-        elements.sort(by: areInIncreasingOrder)
+        let index = self.index(for: newElement)
+        elements.insert(newElement, at: index)
+    }
+    
+    /// Returns the index to insert the element in the sorted array using binary search.
+    private func index(for element: Element) -> Index {
+        
+        if self.isEmpty {
+            return 0
+        }
+        var (low, high) = (0, self.endIndex - 1)
+        var mid = 0
+        
+        while low < high {
+            mid = (low + high)/2
+            if areInIncreasingOrder(self[mid], element) {
+                low = mid + 1
+            } else {
+                high = mid
+            }
+        }
+        
+        // At this point, low == high, low will never be greater than high, as low is incremented by just one or high is adjusted to mid.
+        
+        if areInIncreasingOrder(element, self[low]) {
+            return low
+        }
+        
+        return high + 1
     }
     
     /// Insert the given sequence, maintaining the sort order.
