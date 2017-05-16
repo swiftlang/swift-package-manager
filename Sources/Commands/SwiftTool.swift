@@ -129,6 +129,12 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(
+                option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
+                usage: "Build with configuration (debug|release) [default: debug]"),
+            to: { $0.configuration = $1 })
+        
+        binder.bind(
+            option: parser.add(
                 option: "--build-path", kind: PathArgument.self,
                 usage: "Specify build/cache directory [default: ./.build]"),
             to: { $0.buildPath = $1.path })
@@ -318,19 +324,20 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Build the package graph using swift-build-tool.
-    func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
-        // Create build parameters.
-        let buildParameters = BuildParameters(
-            dataPath: buildPath,
-            configuration: config,
-            toolchain: try getToolchain(),
-            flags: options.buildFlags
-        )
-        let yaml = buildPath.appending(component: config.dirname + ".yaml")
-        // Create build plan.
-        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, delegate: self)
+    func build(includingTests: Bool) throws {
+        try build(plan: buildPlan(), includingTests: includingTests)
+    }
+    
+    /// Build the package graph using swift-build-tool.
+    func build(plan: BuildPlan, includingTests: Bool) throws {
+        guard !plan.graph.rootPackages[0].targets.isEmpty else {
+            warning(message: "no targets to build in package")
+            return
+        }
+
+        let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
         // Generate llbuild manifest.
-        let llbuild = LLbuildManifestGenerator(buildPlan)
+        let llbuild = LLbuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
@@ -364,6 +371,18 @@ public class SwiftTool<Options: ToolOptions> {
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
         }
+    }
+
+    /// Generates a BuildPlan based on the tool's options.
+    func buildPlan() throws -> BuildPlan {
+        return try BuildPlan(
+            buildParameters: BuildParameters(
+                dataPath: buildPath,
+                configuration: options.configuration,
+                toolchain: try getToolchain(),
+                flags: options.buildFlags),
+            graph: try loadPackageGraph(),
+            delegate: self)
     }
 
     /// Lazily compute the destination toolchain.
@@ -455,4 +474,11 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.asString!
+}
+
+extension Build.Configuration: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (debug.rawValue, "build with DEBUG configuration"),
+        (release.rawValue, "build with RELEASE configuration"),
+    ])
 }

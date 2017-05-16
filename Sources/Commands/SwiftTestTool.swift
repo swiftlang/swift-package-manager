@@ -18,7 +18,6 @@ import func POSIX.exit
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
-    case multipleTestProducts
     case testsExecutableNotFound
 }
 
@@ -29,8 +28,6 @@ extension TestError: CustomStringConvertible {
             return "no tests found to execute, create a target in your `Tests' directory"
         case .invalidListTestJSONData:
             return "Invalid list test JSON structure."
-        case .multipleTestProducts:
-            return "cannot test packages with multiple test products defined"
         }
     }
 }
@@ -55,9 +52,6 @@ public class TestToolOptions: ToolOptions {
 
     /// If the test target should be built before testing.
     var shouldBuildTests = true
-
-    /// Build configuration.
-    var config: Build.Configuration = .debug
 
     /// If tests should run in parallel mode.
     var shouldRunInParallel = false
@@ -123,39 +117,24 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     ///
     /// - Returns: The path to the test binary.
     private func buildTestsIfNeeded(_ options: TestToolOptions) throws -> AbsolutePath {
-        let graph = try loadPackageGraph()
+        let buildPlan = try self.buildPlan()
         if options.shouldBuildTests {
-            try build(graph: graph, includingTests: true, config: options.config)
+            try build(plan: buildPlan, includingTests: true)
         }
 
-        // See the logic in `PackageLoading`'s `PackageExtensions.swift`.
-        //
-        // FIXME: We should also check if the package has any test
-        // targets, which isn't trivial (yet).
-        let testProducts = graph.products.filter({
-            if case .test = $0.type {
-                return true
-            } else {
-                return false
-            }
-        })
-        if testProducts.count == 0 {
+        guard let testProduct = buildPlan.buildProducts.first(where: { $0.product.type == .test }) else {
             throw TestError.testsExecutableNotFound
-        } else if testProducts.count > 1 {
-            throw TestError.multipleTestProducts
-        } else {
-            return buildPath
-                .appending(RelativePath(options.config.dirname))
-                .appending(component: testProducts[0].name + ".xctest")
         }
+
+        // Go up the folder hierarchy until we find the .xctest bundle.
+        return sequence(first: testProduct.binary, next: {
+            $0.isRoot ? nil : $0.parentDirectory
+        }).first(where: {
+            $0.basename.hasSuffix(".xctest")
+        })!
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<TestToolOptions>) {
-
-        binder.bind(
-            option: parser.add(option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
-                usage: "Build with configuration (debug|release) [default: debug]"),
-            to: { $0.config = $1 })
 
         binder.bind(
             option: parser.add(option: "--skip-build", kind: Bool.self,
