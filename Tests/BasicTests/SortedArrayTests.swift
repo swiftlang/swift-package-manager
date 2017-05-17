@@ -36,6 +36,9 @@ class SortedArrayTests: XCTestCase {
         
         arr.insert(198)
         XCTAssertEqual(arr.values, [-13, -13, 0, 0, 1, 2, 2, 3, 3, 9, 13, 14, 15, 100, 198, 198])
+        
+        arr.insert(contentsOf: [-15, -14])
+        XCTAssertEqual(arr.values, [-15, -14, -13, -13, 0, 0, 1, 2, 2, 3, 3, 9, 13, 14, 15, 100, 198, 198])
     }
     
     func testSortedArrayInDescendingOrder() throws {
