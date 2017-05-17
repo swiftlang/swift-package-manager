@@ -383,6 +383,15 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
+    func testSwiftTestFilter() throws {
+        #if os(macOS)
+            fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], chdir: prefix, printIfError: true)
+                XCTAssert(output.contains("testExample1"))
+            }
+        #endif
+    }
+
     func testExecutableAsBuildOrderDependency() throws {
         // Test that we can build packages which have modules depending on executable modules.
         fixture(name: "Miscellaneous/ExecDependency") { prefix in
@@ -530,6 +539,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSpaces", testSpaces),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testSwiftTestParallel", testSwiftTestParallel),
+        ("testSwiftTestFilter", testSwiftTestFilter),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),

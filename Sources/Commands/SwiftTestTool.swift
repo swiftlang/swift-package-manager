@@ -16,6 +16,19 @@ import Utility
 
 import func POSIX.exit
 
+
+/// Diagnostics info for deprecated `--specifier` option
+struct SpecifierDeprecatedDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: AnyDiagnostic.self,
+        name: "org.swift.diags.specifier-deprecated",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "'--specifier' option is deprecated, use '--filter' instead."
+        }
+    )
+}
+
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case multipleTestProducts
@@ -42,15 +55,16 @@ public class TestToolOptions: ToolOptions {
         if shouldPrintVersion {
             return .version
         }
-        // List the test cases.
+
+        if shouldRunInParallel {
+            return .runParallel
+        }
+
         if shouldListTests {
             return .listTests
         }
-        // Run tests in parallel.
-        if shouldRunInParallel {
-            return .runInParallel
-        }
-        return .run(specifier)
+
+        return .runSerial
     }
 
     /// If the test target should be built before testing.
@@ -65,15 +79,26 @@ public class TestToolOptions: ToolOptions {
     /// List the tests and exit.
     var shouldListTests = false
 
-    /// Run only these specified tests.
-    var specifier: String?
+    var testCaseSpecifier: TestCaseSpecifier = .none
+}
+
+/// Tests filtering specifier
+///
+/// This is used to filter tests to run
+///   .none     => No filtering
+///   .specific => Specify test with fully quantified name
+///   .regex    => RegEx pattern
+public enum TestCaseSpecifier {
+    case none
+    case specific(String)
+    case regex(String)
 }
 
 public enum TestMode {
     case version
     case listTests
-    case run(String?)
-    case runInParallel
+    case runSerial
+    case runParallel
 }
 
 /// swift-test tool namespace
@@ -96,25 +121,47 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         case .listTests:
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
+            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+
             // Print the tests.
-            for testSuite in testSuites {
-                for testCase in testSuite.tests {
-                    for test in testCase.tests {
-                        print(testCase.name + "/" + test)
-                    }
+            for test in tests {
+                print(test.specifier)
+            }
+
+        case .runSerial:
+            let testPath = try buildTestsIfNeeded(options)
+            let testSuites = try getTestSuites(path: testPath)
+            var ranSuccessfully = true
+
+            switch options.testCaseSpecifier {
+            case .none:
+                let runner = TestRunner(
+                    path: testPath,
+                    xctestArg: nil,
+                    processSet: processSet
+                )
+                ranSuccessfully = runner.test()
+            case .regex, .specific:
+                if case .specific = options.testCaseSpecifier {
+                    diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
+                }
+                let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+                for test in tests {
+                    let runner = TestRunner(path: testPath,
+                                            xctestArg: test.specifier,
+                                            processSet: processSet)
+                    ranSuccessfully = ranSuccessfully && runner.test()
                 }
             }
 
-        case .run(let specifier):
-            let testPath = try buildTestsIfNeeded(options)
-            let success: Bool = TestRunner(path: testPath, xctestArg: specifier, processSet: processSet).test()
-            exit(success ? 0 : 1)
+            exit(ranSuccessfully ? 0 : 1)
 
-        case .runInParallel:
+        case .runParallel:
             let testPath = try buildTestsIfNeeded(options)
             let testSuites = try getTestSuites(path: testPath)
+            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
-            try runner.run(testSuites)
+            try runner.run(tests)
             exit(runner.ranSuccesfully ? 0 : 1)
         }
     }
@@ -173,10 +220,14 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.shouldRunInParallel = $1 })
 
         binder.bind(
-            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self,
-                usage: "Run a specific test class or method, Format: <test-target>.<test-case> or " +
+            option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
+            to: { $0.testCaseSpecifier = .specific($1) })
+
+        binder.bind(
+            option: parser.add(option: "--filter", kind: String.self,
+                usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0.specifier = $1 })
+            to: { $0.testCaseSpecifier = .regex($1) })
     }
 
     /// Locates XCTestHelper tool inside the libexec directory and bin directory.
@@ -231,6 +282,20 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
       #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
+    }
+}
+
+/// A structure representing an individual unit test.
+struct UnitTest {
+    /// The name of the unit test.
+    let name: String
+
+    /// The name of the test case.
+    let testCase: String
+
+    /// The specifier argument which can be passed to XCTest.
+    var specifier: String {
+        return testCase + "/" + name
     }
 }
 
@@ -311,20 +376,6 @@ final class TestRunner {
 
 /// A class to run tests in parallel.
 final class ParallelTestRunner {
-    /// A structure representing an individual unit test.
-    struct UnitTest {
-        /// The name of the unit test.
-        let name: String
-
-        /// The name of the test case.
-        let testCase: String
-
-        /// The specifier argument which can be passed to XCTest.
-        var specifier: String {
-            return testCase + "/" + name
-        }
-    }
-
     /// An enum representing result of a unit test execution.
     enum TestResult {
         case success(UnitTest)
@@ -372,17 +423,13 @@ final class ParallelTestRunner {
         progressBar.update(percent: 100*numCurrentTest/numTests, text: test.specifier)
     }
 
-    func enqueueTests(_ testSuites: [TestSuite]) throws {
+    func enqueueTests(_ tests: [UnitTest]) throws {
         // FIXME: Add a count property in SynchronizedQueue.
         var numTests = 0
         // Enqueue all the tests.
-        for testSuite in testSuites {
-            for testCase in testSuite.tests {
-                for test in testCase.tests {
-                    numTests += 1
-                    pendingTests.enqueue(UnitTest(name: test, testCase: testCase.name))
-                }
-            }
+        for test in tests {
+            numTests += 1
+            pendingTests.enqueue(test)
         }
         self.numTests = numTests
         self.numCurrentTest = 0
@@ -393,9 +440,9 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ testSuites: [TestSuite]) throws {
+    func run(_ tests: [UnitTest]) throws {
         // Enqueue all the tests.
-        try enqueueTests(testSuites)
+        try enqueueTests(tests)
 
         // Create the worker threads.
         let workers: [Thread] = (0..<numJobs).map({ _ in
@@ -519,5 +566,30 @@ struct TestSuite {
             
             return TestSuite(name: name, tests: testCases)
         })
+    }
+}
+
+
+fileprivate extension Sequence where Iterator.Element == TestSuite {
+    /// Returns all the unit tests of the test suites.
+    var allTests: [UnitTest] {
+        return flatMap { $0.tests }.flatMap({ testCase in
+            testCase.tests.map{ UnitTest(name: $0, testCase: testCase.name) }
+        })
+    }
+
+    /// Return tests matching the provided specifier
+    func filteredTests(specifier: TestCaseSpecifier) -> [UnitTest] {
+        switch specifier {
+        case .none:
+            return allTests
+        case .regex(let pattern):
+            return allTests.filter({ test in
+                test.specifier.range(of: pattern,
+                                     options: .regularExpression) != nil
+            })
+        case .specific(let name):
+            return allTests.filter{ $0.specifier == name }
+        }
     }
 }
