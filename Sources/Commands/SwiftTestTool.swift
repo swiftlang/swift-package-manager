@@ -135,9 +135,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(path: testPath,
-                                        xctestArg: nil,
-                                        processSet: processSet)
+                let runner = TestRunner(
+                    path: testPath,
+                    xctestArg: nil,
+                    processSet: processSet
+                )
                 ranSuccessfully = runner.test()
             case .regex, .specific:
                 if case .specific = options.testCaseSpecifier {
