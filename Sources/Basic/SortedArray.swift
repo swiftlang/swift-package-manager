@@ -73,7 +73,7 @@ public struct SortedArray<Element>: CustomStringConvertible {
 
         elements.reserveCapacity(elements.count + newElements.count)
 
-        // TODO: If SortedArray moves to stdlib an _ArrayBuffer can be used
+        // NOTE: If SortedArray moves to stdlib an _ArrayBuffer can be used
         // instead, this can then be removed as _ArrayBuffer can be resized
         // without requiring instantiated elements.
         elements.append(contentsOf: newElements)
@@ -81,26 +81,27 @@ public struct SortedArray<Element>: CustomStringConvertible {
         var lhs = elements[lhsIndex], rhs = newElements[rhsIndex]
 
         // Equivalent to a merge sort, "pop" and append the max elemeent of
-        // each array until either array is empty
+        // each array until either array is empty.
         for index in elements.indices.reversed() {
             if areInIncreasingOrder(lhs, rhs) {
                 elements[index] = rhs
                 rhsIndex -= 1
                 guard rhsIndex >= 0 else { break }
                 rhs = newElements[rhsIndex]
-            }
-            else {
+            } else {
                 elements[index] = lhs
                 lhsIndex -= 1
                 guard lhsIndex >= 0 else { break }
                 lhs = elements[lhsIndex]
             }
         }
-        // any remaining new elements were smaller than all old elements
+
+        // Any remaining new elements were smaller than all old elements
         // so the remaining new elements can safely replace the prefix.
         if rhsIndex >= 0 {
-            elements.replaceSubrange(0 ... rhsIndex,
-                                     with: newElements[0 ... rhsIndex])
+            elements.replaceSubrange(
+                0 ... rhsIndex,
+                with: newElements[0 ... rhsIndex])
         }
     }
 

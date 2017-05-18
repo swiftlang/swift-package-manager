@@ -33,27 +33,23 @@ class SortedArrayPerfTests: XCTestCasePerf {
     }
 
     func testPerformanceOfSortedArrayInsertWithDuplicates() {
-        @inline(never)
-        func insert<T, S: Sequence>(_ sequence: S, into array: inout SortedArray<T>) where S.Iterator.Element == T {
-            for element in sequence {
-                array.insert(element)
-            }
-        }
-
-        var arr = SortedArray<Int>(areInIncreasingOrder: <)
-        arr.insert(contentsOf: firstSequence)
 
         measure() {
-            insert(self.secondSequence, into: &arr)
+            var arr = SortedArray<Int>(areInIncreasingOrder: <)
+            for element in self.firstSequence {
+                arr.insert(element)
+            }
+            for element in self.secondSequence {
+                arr.insert(element)
+            }
         }
     }
 
     func testPerformanceOfSortedArrayInsertContentsOfWithDuplicates() {
 
-        var arr = SortedArray<Int>(areInIncreasingOrder: <)
-        arr.insert(contentsOf: firstSequence)
-
         measure() {
+            var arr = SortedArray<Int>(areInIncreasingOrder: <)
+            arr.insert(contentsOf: self.firstSequence)
             arr.insert(contentsOf: self.secondSequence)
         }
     }
