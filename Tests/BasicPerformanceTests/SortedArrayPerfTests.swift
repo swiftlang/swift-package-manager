@@ -19,38 +19,36 @@ private func prng(_ seed: Int) -> Int {
 
 class SortedArrayPerfTests: XCTestCasePerf {
 
-    private let firstSequence = (0..<(magnitude*2)).map(prng)
-    private let secondSequence = ((magnitude*1)..<(magnitude*3)).map(prng)
+    private let startSequence = (0..<(magnitude*2)).map(prng)
+    private let overlappingSequence = ((magnitude*1)..<(magnitude*3)).map(prng)
+
+    private var arr: SortedArray<Int> = .init(areInIncreasingOrder: <)
+
+    override func setUp() {
+        arr = .init(areInIncreasingOrder: <)
+        arr.insert(contentsOf: startSequence)
+    }
 
     func testPerformanceOfSortedArrayInAscendingOrder() {
         
         measure() {
-            var arr = SortedArray<Int>(areInIncreasingOrder: <)
             for i in 1...1000 {
-                arr.insert(i)
+                self.arr.insert(i)
             }
         }
     }
 
     func testPerformanceOfSortedArrayInsertWithDuplicates() {
-
         measure() {
-            var arr = SortedArray<Int>(areInIncreasingOrder: <)
-            for element in self.firstSequence {
-                arr.insert(element)
-            }
-            for element in self.secondSequence {
-                arr.insert(element)
+            for element in self.overlappingSequence {
+                self.arr.insert(element)
             }
         }
     }
 
     func testPerformanceOfSortedArrayInsertContentsOfWithDuplicates() {
-
         measure() {
-            var arr = SortedArray<Int>(areInIncreasingOrder: <)
-            arr.insert(contentsOf: self.firstSequence)
-            arr.insert(contentsOf: self.secondSequence)
+            self.arr.insert(contentsOf: self.overlappingSequence)
         }
     }
 }
