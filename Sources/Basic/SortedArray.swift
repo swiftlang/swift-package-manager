@@ -74,8 +74,8 @@ public struct SortedArray<Element>: CustomStringConvertible {
         elements.reserveCapacity(elements.count + newElements.count)
 
         // NOTE: If SortedArray moves to stdlib an _ArrayBuffer can be used
-        // instead, this can then be removed as _ArrayBuffer can be resized
-        // without requiring instantiated elements.
+        // instead. This append can then be removed as _ArrayBuffer can be
+        // resized without requiring instantiated elements.
         elements.append(contentsOf: newElements)
 
         var lhs = elements[lhsIndex], rhs = newElements[rhsIndex]
