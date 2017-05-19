@@ -65,6 +65,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 }
 
 public class SwiftTool<Options: ToolOptions> {
+    /// The original working directory.
+    let originalWorkingDirectory: AbsolutePath
+    
     /// The options of this tool.
     let options: Options
 
@@ -104,7 +107,9 @@ public class SwiftTool<Options: ToolOptions> {
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(toolName: String, usage: String, overview: String, args: [String]) {
-
+        // Capture the original working directory ASAP.
+        originalWorkingDirectory = currentWorkingDirectory
+        
         // Create the parser.
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
@@ -400,7 +405,8 @@ public class SwiftTool<Options: ToolOptions> {
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, AnyError> = {
         return Result(anyError: {
-            try UserToolchain(destination: Destination.hostDestination())
+            try UserToolchain(destination: Destination.hostDestination(
+                        originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 
