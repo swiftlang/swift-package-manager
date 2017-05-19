@@ -75,8 +75,8 @@ public struct Xcode {
 
         /// Creates and adds a new target (which does not initially have any
         /// build phases).
-        public func addTarget(productType: Target.ProductType?, name: String) -> Target {
-            let target = Target(productType: productType, name: name)
+        public func addTarget(objectID: String? = nil, productType: Target.ProductType?, name: String) -> Target {
+            let target = Target(objectID: objectID, productType: productType, name: name)
             targets.append(target)
             return target
         }
@@ -119,10 +119,12 @@ public struct Xcode {
 
     /// A reference to a file system entity (a file, folder, etc).
     public class FileReference: Reference {
+        var objectID: String?
         var fileType: String?
 
-        init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil, fileType: String? = nil) {
+        init(path: String, pathBase: RefPathBase = .groupDir, name: String? = nil, fileType: String? = nil, objectID: String? = nil) {
             super.init(path: path, pathBase: pathBase, name: name)
+            self.objectID = objectID
             self.fileType = fileType
         }
     }
@@ -150,9 +152,10 @@ public struct Xcode {
             path: String,
             pathBase: RefPathBase = .groupDir,
             name: String? = nil,
-            fileType: String? = nil
+            fileType: String? = nil,
+            objectID: String? = nil
         ) -> FileReference {
-            let fref = FileReference(path: path, pathBase: pathBase, name: name, fileType: fileType)
+            let fref = FileReference(path: path, pathBase: pathBase, name: name, fileType: fileType, objectID: objectID)
             subitems.append(fref)
             return fref
         }
@@ -160,6 +163,7 @@ public struct Xcode {
 
     /// An Xcode target, representing a single entity to build.
     public class Target {
+        var objectID: String?
         var name: String
         var productName: String
         var productType: ProductType?
@@ -176,7 +180,8 @@ public struct Xcode {
             case unitTest = "com.apple.product-type.bundle.unit-test"
             var asString: String { return rawValue }
         }
-        init(productType: ProductType?, name: String) {
+        init(objectID: String?, productType: ProductType?, name: String) {
+            self.objectID = objectID
             self.name = name
             self.productType = productType
             self.productName = name
