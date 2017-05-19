@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
 import Foundation
 import libc
 
@@ -49,6 +50,9 @@ public final class FileLock {
         return cachePath.appending(component: name + ".lock")
     }
 
+    /// Indicates if the timer was fired.
+    private var timerTicked = false
+
     /// Create an instance of process lock with a name and the path where
     /// the lock file can be created.
     ///
@@ -58,10 +62,34 @@ public final class FileLock {
         self.cachePath = cachePath
     }
 
-    /// Try to aquire a lock. This method will block until lock the already aquired by other process.
+    /// Registers signal handler for SIGUSR1 and raises the signal
+    /// after the given number of seconds.
+    private func setupTimeout(seconds: Double) {
+        // Reset the timer indicator.
+        timerTicked = false
+        // Register signal handler to avoid process termination.
+        SignalManager.shared.register(.usr1) {}
+        // Raise the signal when we reach timeout.
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
+            // Tick the timer.
+            self.timerTicked = true
+            // Raise the signal.
+            SignalManager.shared.raise(.usr1)
+        }
+    }
+
+    /// Try to aquire a lock. This method will block if a lock is already aquired by other process.
     ///
     /// Note: This method can throw if underlying POSIX methods fail.
-    public func lock() throws {
+    ///
+    /// - Parameters:
+    ///   - timeout: If provided, the method will return in case the lock is not aquired within the timeout value.
+    /// - Returns: True if lock was aquired, false otherwise.
+    @discardableResult
+    public func lock(timeout seconds: Double? = nil) throws -> Bool {
+        if let seconds = seconds {
+            setupTimeout(seconds: seconds)
+        }
         // Open the lock file.
         let fp = libc.fopen(lockFile.asString, "w")
         if fp == nil {
@@ -74,10 +102,19 @@ public final class FileLock {
             if flock(fd!, LOCK_EX) == 0 {
                 break
             }
-            // Retry if interrupted.
-            if errno == EINTR { continue }
+            if errno == EINTR {
+                // We consider a timeout occurred if a timeout was provided and timer had ticked when we were interrupted.
+                if seconds != nil && timerTicked { 
+                    // If there is a timeout return false to indicate that
+                    // we couldn't aquire a lock.
+                    return false
+                }
+                // Otherwise, retry.
+                continue
+            }
             throw ProcessLockError.unableToAquireLock(errno: errno)
         }
+        return true
     }
 
     /// Unlock the held lock.
