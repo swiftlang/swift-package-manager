@@ -470,19 +470,19 @@ fileprivate class PropertyListSerializer {
     /// dictionary is what gets written to the property list.
     var idsToDicts = [String: PropertyList]()
 
-    /// Returns the identifier for the object, assigning one if needed.
+    /// Returns the quoted identifier for the object, assigning one if needed.
     func id(of object: PropertyListSerializable) -> String {
         // We need a "serialized object ref" wrapper for the `objsToIds` map.
         let serObjRef = SerializedObjectRef(object)
         if let id = objsToIds[serObjRef] {
-            return id
+            return "\"\(id)\""
         }
         // We currently always assign identifiers starting at 1 and going up.
         // FIXME: This is a suboptimal format for object identifier strings;
         // for debugging purposes they should at least sort in numeric order.
-        let id = "OBJ_\(objsToIds.count + 1)"
+        let id = object.objectID ?? "OBJ_\(objsToIds.count + 1)"
         objsToIds[serObjRef] = id
-        return id
+        return "\"\(id)\""
     }
 
     /// Serializes `object` by asking it to construct a plist dictionary and
@@ -546,11 +546,22 @@ fileprivate protocol PropertyListSerializable: class {
     /// matters.  So this is acceptable for now in the interest of getting it
     /// done.
 
+    /// A custom ID to use for the instance, if enabled.
+    ///
+    /// This ID must be unique across the entire serialized graph.
+    var objectID: String? { get }
+    
     /// Should create and return a property list dictionary of the object's
     /// attributes.  This function may also use the serializer's `serialize()`
     /// function to serialize other objects, and may use `id(of:)` to access
     /// ids of objects that either have or will be serialized.
     func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList]
+}
+
+extension PropertyListSerializable {
+    var objectID: String? {
+        return nil
+    }
 }
 
 /// A very simple representation of a property list.  Note that the `identifier`
