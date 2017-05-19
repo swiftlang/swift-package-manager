@@ -55,7 +55,11 @@ public struct Destination {
     public let extraCPPFlags: [String]
 
     /// Returns the bin directory for the host.
-    private static func hostBinDir() -> AbsolutePath {
+    ///
+    /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
+    private static func hostBinDir(
+        originalWorkingDirectory: AbsolutePath = currentWorkingDirectory
+    ) -> AbsolutePath {
       #if Xcode
         // For Xcode, set bin directory to the build directory containing the fake
         // toolchain created during bootstraping. This is obviously not production ready
@@ -70,14 +74,18 @@ public struct Destination {
             .parentDirectory.parentDirectory.appending(components: ".build", "debug")
       #else
         return AbsolutePath(
-            CommandLine.arguments[0], relativeTo: currentWorkingDirectory).parentDirectory
+            CommandLine.arguments[0], relativeTo: originalWorkingDirectory).parentDirectory
       #endif
     }
 
     /// The destination describing the host OS.
-    public static func hostDestination(_ binDir: AbsolutePath? = nil) throws -> Destination {
+    public static func hostDestination(
+        _ binDir: AbsolutePath? = nil,
+        originalWorkingDirectory: AbsolutePath = currentWorkingDirectory
+    ) throws -> Destination {
         // Select the correct binDir.
-        let binDir = binDir ?? Destination.hostBinDir()
+        let binDir = binDir ?? Destination.hostBinDir(
+            originalWorkingDirectory: originalWorkingDirectory)
 
       #if os(macOS)
         // Get the SDK.
