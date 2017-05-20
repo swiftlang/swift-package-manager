@@ -24,6 +24,7 @@ public struct SortedArray<Element>: CustomStringConvertible {
         self.areInIncreasingOrder = areInIncreasingOrder
     }
 
+    /// Create a sorted array with the given sequence and comparison predicate.
     public init<S: Sequence>(
         _ newElements: S,
         areInIncreasingOrder: @escaping (Element, Element) -> Bool)
