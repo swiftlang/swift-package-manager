@@ -559,6 +559,57 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
+    
+    func testCanUneditRemovedDependencies() throws {
+
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                ],
+                packages: [
+                    MockPackage("A", version: v1)
+                ]
+            )
+            
+            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader)
+            
+            // Load the package graph.
+            let diagnostics = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            // Put the dependency in edit mode at its current revision.
+            workspace.edit(packageName: "A", diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            let editedDependency = try workspace.managedDependencies.dependency(forName: "A")
+            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+            
+            // Its basedon should not be nil
+            XCTAssertNotNil(editedDependency.basedOn)
+            
+            // Create an empty root to remove the dependency requirement
+            let root = WorkspaceRoot(packages: [])
+            
+            workspace.updateDependencies(root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+            
+            // Its basedon should be nil
+            XCTAssertNil(editedDependency.basedOn)
+            
+            // Unedit the package
+            try workspace.unedit(
+                packageName: "A",
+                forceRemove: false,
+                root: root,
+                diagnostics: diagnostics
+            )
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertFalse(exists(editRepoPath))
+            XCTAssertFalse(exists(workspace.editablesPath))
+        }
+    }
 
     func testCleanAndReset() throws {
         mktmpdir { path in
@@ -2034,6 +2085,7 @@ final class WorkspaceTests: XCTestCase {
         ("testSymlinkedDependency", testSymlinkedDependency),
         ("testIsResolutionRequired", testIsResolutionRequired),
         ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies)
     ]
 }
 
