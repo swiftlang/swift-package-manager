@@ -64,9 +64,15 @@ class SortedArrayTests: XCTestCase {
         arr.insert(198)
         XCTAssertEqual(arr.values, [198, 198, 100, 15, 14, 13, 9, 3, 3, 2, 2, 1, 0, 0, -13, -13])
     }
+
+    func testSortedArrayWithValues() throws {
+        let arr = SortedArray<Int>([5, 4, 3, 2, 1], areInIncreasingOrder: <)
+        XCTAssertEqual(arr.values, [1, 2, 3, 4, 5])
+    }
     
     static var allTests = [
         ("testSortedArrayInAscendingOrder", testSortedArrayInAscendingOrder),
-        ("testSortedArrayInDescendingOrder", testSortedArrayInDescendingOrder)
+        ("testSortedArrayInDescendingOrder", testSortedArrayInDescendingOrder),
+        ("testSortedArrayWithValues", testSortedArrayWithValues)
     ]
 }

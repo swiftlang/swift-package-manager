@@ -23,6 +23,15 @@ public struct SortedArray<Element>: CustomStringConvertible {
         self.elements = []
         self.areInIncreasingOrder = areInIncreasingOrder
     }
+
+    public init<S: Sequence>(
+        _ newElements: S,
+        areInIncreasingOrder: @escaping (Element, Element) -> Bool)
+    where S.Iterator.Element == Element
+    {
+        self.elements = newElements.sorted(by: areInIncreasingOrder)
+        self.areInIncreasingOrder = areInIncreasingOrder
+    }
     
     /// Insert the given element, maintaining the sort order.
     public mutating func insert(_ newElement: Element) {
