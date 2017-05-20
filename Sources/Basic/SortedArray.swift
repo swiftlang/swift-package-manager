@@ -88,14 +88,6 @@ public struct SortedArray<Element>: CustomStringConvertible {
         // resized without requiring instantiated elements.
         elements.append(contentsOf: newElements)
 
-        // NOTE: Experimentally this seemed to be the inflection point where
-        // the constant overheads of this implementation outweighed the better
-        // O(n) versus O(n log(n)) complexity.
-        guard elements.count > 1000 else {
-            elements.sort(by: areInIncreasingOrder)
-            return
-        }
-
         var lhs = elements[lhsIndex], rhs = newElements[rhsIndex]
 
         // Equivalent to a merge sort, "pop" and append the max elemeent of

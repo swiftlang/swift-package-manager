@@ -40,4 +40,15 @@ class SortedArrayPerfTests: XCTestCasePerf {
             arr.insert(contentsOf: 60_000..<180_000)
         }
     }
+
+    func testPerformanceOfSmallSortedArrayInsertContentsOfWithDuplicates() {
+        let initial = SortedArray<Int>(0..<100, areInIncreasingOrder: <)
+
+        measure() {
+            for _ in 1...2000 {
+                var arr = initial
+                arr.insert(contentsOf: 50..<150)
+            }
+        }
+    }
 }
