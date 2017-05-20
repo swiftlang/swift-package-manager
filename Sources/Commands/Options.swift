@@ -22,7 +22,7 @@ public class ToolOptions {
     public var chdir: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
-    public var shouldEnableResolverPrefetching = false
+    public var shouldEnableResolverPrefetching = true
 
     /// If print version option was passed.
     public var shouldPrintVersion: Bool = false
