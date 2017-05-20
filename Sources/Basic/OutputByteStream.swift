@@ -104,8 +104,7 @@ public class OutputByteStream: TextOutputStream {
     /// Write a collection of bytes to the buffer.
     public final func write<C: Collection>(collection bytes: C) where
         C.IndexDistance == Int,
-        C.Iterator.Element == UInt8,
-        C.SubSequence: Collection {
+        C.Iterator.Element == UInt8 {
         // This is based on LLVM's raw_ostream.
         let availableBufferSize = self.availableBufferSize
 
@@ -277,8 +276,7 @@ public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputBy
 @discardableResult
 public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
     C.Iterator.Element == UInt8,
-    C.IndexDistance == Int,
-    C.SubSequence: Collection {
+    C.IndexDistance == Int {
     stream.write(collection: value)
     return stream
 }
