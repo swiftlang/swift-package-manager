@@ -199,10 +199,6 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
     }
 
     override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<PackageToolOptions>) {
-        binder.bind(
-            option: parser.add(option: "--version", kind: Bool.self),
-            to: { options, _ in options.mode = .version })
-
         let describeParser = parser.add(
             subparser: PackageMode.describe.rawValue,
             overview: "Describe the current package")
@@ -348,7 +344,15 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 }
 
 public class PackageToolOptions: ToolOptions {
-    var mode: PackageMode = .help
+    private var _mode: PackageMode = .help
+    var mode: PackageMode {
+        get {
+            return shouldPrintVersion ? .version : _mode
+        }
+        set {
+            _mode = newValue
+        }
+    }
 
     var describeMode: DescribeMode = .text
     var initMode: InitPackage.PackageType = .library

@@ -49,22 +49,39 @@ class ArgumentParserTests: XCTestCase {
         let package = parser.add(positional: "package name of the year", kind: String.self, usage: "The name of the package")
         let revision = parser.add(option: "--revision", kind: String.self, usage: "The revision")
         let branch = parser.add(option: "--branch", shortName:"-b", kind: String.self, usage: "The branch to checkout")
-        let xld = parser.add(option: "-Xld", kind: Array<String>.self, usage: "The xld arguments")
+        let xld = parser.add(option: "-Xld", kind: [String].self, strategy: .oneByOne, usage: "The xld arguments")
         let verbosity = parser.add(option: "--verbose", kind: Int.self, usage: "The verbosity level")
         let noFly = parser.add(option: "--no-fly", kind: Bool.self, usage: "If should fly")
         let sampleEnum = parser.add(positional: "enum", kind: SampleEnum.self)
         let foo = parser.add(option: "--foo", kind: String.self)
-
-        let args = try parser.parse(["Foo", "-b", "bugfix", "--verbose", "2", "-Xld", "foo", "-Xld", "bar",  "--no-fly", "Bar", "--foo=bar"])
+        let inputFiles = parser.add(positional: "input files", kind: [String].self, usage: "A list of input files")
+        let outputFiles = parser.add(option: "--output-files", kind: [String].self, usage: "A list of output files")
+        let remaining = parser.add(option: "--remaining", kind: [String].self, strategy: .remaining, usage: "Remaining arguments")
+        
+        let args = try parser.parse([
+            "Foo",
+            "-b", "bugfix",
+            "--verbose", "2",
+            "-Xld", "-Lfoo",
+            "-Xld", "-Lbar",
+            "--no-fly",
+            "Bar",
+            "--foo=bar",
+            "input1", "input2",
+            "--output-files", "output1", "output2",
+            "--remaining", "--foo", "-Xld", "bar"])
 
         XCTAssertEqual(args.get(package), "Foo")
         XCTAssert(args.get(revision) == nil)
         XCTAssertEqual(args.get(branch), "bugfix")
-        XCTAssertEqual(args.get(xld) ?? [], ["foo", "bar"])
+        XCTAssertEqual(args.get(xld) ?? [], ["-Lfoo", "-Lbar"])
         XCTAssertEqual(args.get(verbosity), 2)
         XCTAssertEqual(args.get(noFly), true)
         XCTAssertEqual(args.get(sampleEnum), .Bar)
         XCTAssertEqual(args.get(foo), "bar")
+        XCTAssertEqual(args.get(inputFiles) ?? [], ["input1", "input2"])
+        XCTAssertEqual(args.get(outputFiles) ?? [], ["output1", "output2"])
+        XCTAssertEqual(args.get(remaining) ?? [], ["--foo", "-Xld", "bar"])
 
         let stream = BufferedOutputByteStream()
         parser.printUsage(on: stream)
@@ -114,16 +131,17 @@ class ArgumentParserTests: XCTestCase {
         do {
             _ = try parser.parse(["foo", "--verbosity", "yes"])
             XCTFail("unexpected success")
-        } catch ArgumentParserError.typeMismatch(let error) {
-            XCTAssertEqual(error, "yes is not convertible to Int")
+        } catch ArgumentParserError.invalidValue(let option, let error) {
+            XCTAssertEqual(option, "--verbosity")
+            XCTAssertEqual(error, ArgumentConversionError.typeMismatch(value: "yes", expectedType: Int.self))
         }
 
         do {
             _ = try parser.parse(["foo", "--foo=hello"])
             XCTFail("unexpected success")
-        } catch ArgumentParserError.unknownValue(let option, let value) {
+        } catch ArgumentParserError.invalidValue(let option, let error) {
             XCTAssertEqual(option, "--foo")
-            XCTAssertEqual(value, "hello")
+            XCTAssertEqual(error, ArgumentConversionError.unknown(value: "hello"))
         }
     }
 
@@ -462,6 +480,184 @@ class ArgumentParserTests: XCTestCase {
             ""].joined(separator: "\n")))
     }
 
+    func testUpToNextOptionStrategy() throws {
+        let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
+
+        let option1 = parser.add(option: "--opt1", kind: [String].self)
+        let option2 = parser.add(option: "--opt2", kind: [String].self)
+        let positional = parser.add(positional: "positional", kind: [String].self, optional: true)
+
+        var args = try parser.parse(["--opt1", "val11", "val12", "--opt2", "val21"])
+
+        XCTAssertEqual(args.get(option1) ?? [], ["val11", "val12"])
+        XCTAssertEqual(args.get(option2) ?? [], ["val21"])
+        XCTAssertNil(args.get(positional))
+
+        args = try parser.parse(["posi1", "posi2", "--opt1", "val11"])
+
+        XCTAssertEqual(args.get(option1) ?? [], ["val11"])
+        XCTAssertNil(args.get(option2))
+        XCTAssertEqual(args.get(positional) ?? [], ["posi1", "posi2"])
+
+        args = try parser.parse(["--opt1=val", "--opt2", "val2"])
+        XCTAssertEqual(args.get(option1) ?? [], ["val"])
+        XCTAssertEqual(args.get(option2) ?? [], ["val2"])
+        XCTAssertNil(args.get(positional))
+
+        args = try parser.parse(["--opt1=val", "posi"])
+        XCTAssertEqual(args.get(option1) ?? [], ["val"])
+        XCTAssertNil(args.get(option2))
+        XCTAssertEqual(args.get(positional) ?? [], ["posi"])
+
+        do {
+            _ = try parser.parse(["--opt1", "--opt2", "val21"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.expectedValue("--opt1") { }
+
+        do {
+            _ = try parser.parse(["--opt1", "val11", "--opt2"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.expectedValue("--opt2") { }
+    }
+
+    func testRemainingStrategy() throws {
+        let parser = ArgumentParser(commandName: "SomeBinary", usage: "sample parser", overview: "Sample overview")
+        
+        let option1 = parser.add(option: "--foo", kind: String.self)
+        let option2 = parser.add(option: "--bar", kind: [String].self, strategy: .remaining)
+        let positional = parser.add(positional: "executable", kind: [String].self, optional: true, strategy: .remaining)
+        
+        var args = try parser.parse([
+            "--foo", "bar",
+            "exe", "--with", "options", "--foo", "notbar"
+        ])
+        
+        XCTAssertEqual(args.get(option1), "bar")
+        XCTAssertNil(args.get(option2))
+        XCTAssertEqual(args.get(positional) ?? [], ["exe", "--with", "options", "--foo", "notbar"])
+
+        args = try parser.parse([
+            "--foo", "bar",
+            "--bar", "--with", "options", "--foo", "notbar"
+        ])
+
+        XCTAssertEqual(args.get(option1), "bar")
+        XCTAssertEqual(args.get(option2) ?? [], ["--with", "options", "--foo", "notbar"])
+        XCTAssertNil(args.get(positional))
+
+        do {
+            _ = try parser.parse(["--foo", "bar", "--bar"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.expectedValue("--bar") { }
+    }
+
+    func testBoolParsing() throws {
+        var parser = ArgumentParser(usage: "sample", overview: "sample")
+        let option = parser.add(option: "--verbose", kind: Bool.self)
+
+        do {
+            _ = try parser.parse(["--verbose", "true"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.unexpectedArgument(let argument) {
+            XCTAssertEqual(argument, "true")
+        }
+
+        do {
+            _ = try parser.parse(["--verbose=yes"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let option, let error) {
+            XCTAssertEqual(option, "--verbose")
+            XCTAssertEqual(error, .unknown(value: "yes"))
+        }
+
+        var args = try parser.parse(["--verbose=true"])
+        XCTAssertEqual(args.get(option), true)
+
+        args = try parser.parse(["--verbose=false"])
+        XCTAssertEqual(args.get(option), false)
+
+        args = try parser.parse(["--verbose"])
+        XCTAssertEqual(args.get(option), true)
+
+        args = try parser.parse([])
+        XCTAssertEqual(args.get(option), nil)
+
+        parser = ArgumentParser(usage: "sample", overview: "sample")
+        let positional = parser.add(positional: "posi", kind: Bool.self)
+
+        do {
+            _ = try parser.parse(["yes"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let positional, let error) {
+            XCTAssertEqual(positional, "posi")
+            XCTAssertEqual(error, .unknown(value: "yes"))
+        }
+
+        args = try parser.parse(["true"])
+        XCTAssertEqual(args.get(positional), true)
+
+        args = try parser.parse(["false"])
+        XCTAssertEqual(args.get(positional), false)
+    }
+
+    func testIntParsing() throws {
+        var parser = ArgumentParser(usage: "sample", overview: "sample")
+        let option = parser.add(option: "--verbosity", kind: Int.self)
+
+        do {
+            _ = try parser.parse(["--verbosity"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.expectedValue(let option) {
+            XCTAssertEqual(option, "--verbosity")
+        }
+
+        do {
+            _ = try parser.parse(["--verbosity=4.5"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let option, let error) {
+            XCTAssertEqual(option, "--verbosity")
+            XCTAssertEqual(error, .typeMismatch(value: "4.5", expectedType: Int.self))
+        }
+
+        do {
+            _ = try parser.parse(["--verbosity", "notInt"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let option, let error) {
+            XCTAssertEqual(option, "--verbosity")
+            XCTAssertEqual(error, .typeMismatch(value: "notInt", expectedType: Int.self))
+        }
+
+        var args = try parser.parse(["--verbosity=4"])
+        XCTAssertEqual(args.get(option), 4)
+
+        args = try parser.parse(["--verbosity", "-2"])
+        XCTAssertEqual(args.get(option), -2)
+
+        args = try parser.parse([])
+        XCTAssertEqual(args.get(option), nil)
+
+        parser = ArgumentParser(usage: "sample", overview: "sample")
+        let positional = parser.add(positional: "posi", kind: Int.self)
+
+        do {
+            _ = try parser.parse(["yes"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.invalidValue(let positional, let error) {
+            XCTAssertEqual(positional, "posi")
+            XCTAssertEqual(error, .typeMismatch(value: "yes", expectedType: Int.self))
+        }
+
+        do {
+            _ = try parser.parse(["-18"])
+            XCTFail("unexpected success")
+        } catch ArgumentParserError.unknownOption(let option) {
+            XCTAssertEqual(option, "-18")
+        }
+
+        args = try parser.parse(["0"])
+        XCTAssertEqual(args.get(positional), 0)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testErrors", testErrors),
@@ -472,5 +668,9 @@ class ArgumentParserTests: XCTestCase {
         ("testOptionalPositionalArg", testOptionalPositionalArg),
         ("testPathArgument", testPathArgument),
         ("testShellCompletionGeneration", testShellCompletionGeneration),
+        ("testUpToNextOptionStrategy", testUpToNextOptionStrategy),
+        ("testRemainingStrategy", testRemainingStrategy),
+        ("testBoolParsing", testBoolParsing),
+        ("testIntParsing", testIntParsing)
     ]
 }
