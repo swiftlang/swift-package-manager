@@ -13,11 +13,41 @@ import Basic
 
 class SortedArrayPerfTests: XCTestCasePerf {
     func testPerformanceOfSortedArrayInAscendingOrder() {
-        
         measure() {
             var arr = SortedArray<Int>(areInIncreasingOrder: <)
-            for i in 1...1000 {
+            for i in 1...200_000 {
                 arr.insert(i)
+            }
+        }
+    }
+
+    func testPerformanceOfSortedArrayInsertWithDuplicates() {
+        let initial = SortedArray<Int>(0..<80_000, areInIncreasingOrder: <)
+        
+        measure() {
+            var arr = initial
+            for element in 40_000..<120_000 {
+                arr.insert(element)
+            }
+        }
+    }
+
+    func testPerformanceOfSortedArrayInsertContentsOfWithDuplicates() {
+        let initial = SortedArray<Int>(0..<120_000, areInIncreasingOrder: <)
+        
+        measure() {
+            var arr = initial
+            arr.insert(contentsOf: 60_000..<180_000)
+        }
+    }
+
+    func testPerformanceOfSmallSortedArrayInsertContentsOfWithDuplicates() {
+        let initial = SortedArray<Int>(0..<100, areInIncreasingOrder: <)
+
+        measure() {
+            for _ in 1...2000 {
+                var arr = initial
+                arr.insert(contentsOf: 50..<150)
             }
         }
     }
