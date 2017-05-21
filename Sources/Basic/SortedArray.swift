@@ -96,12 +96,12 @@ public struct SortedArray<Element>: CustomStringConvertible {
             if areInIncreasingOrder(lhs, rhs) {
                 elements[index] = rhs
                 rhsIndex -= 1
-                guard rhsIndex >= 0 else { break }
+                guard rhsIndex >= newElements.startIndex else { break }
                 rhs = newElements[rhsIndex]
             } else {
                 elements[index] = lhs
                 lhsIndex -= 1
-                guard lhsIndex >= 0 else { break }
+                guard lhsIndex >= elements.startIndex else { break }
                 lhs = elements[lhsIndex]
             }
         }

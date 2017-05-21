@@ -65,6 +65,17 @@ class SortedArrayTests: XCTestCase {
         XCTAssertEqual(arr.values, [198, 198, 100, 15, 14, 13, 9, 3, 3, 2, 2, 1, 0, 0, -13, -13])
     }
 
+    func testSortedArrayInsertIntoSmallerArray() throws {
+        var arr = SortedArray<Int>(areInIncreasingOrder: <)
+        arr.insert(contentsOf: [3])
+
+        arr.insert(contentsOf: [1, 2])
+        XCTAssertEqual(arr.values, [1, 2, 3])
+
+        arr.insert(contentsOf: [4, 5, 6, 7])
+        XCTAssertEqual(arr.values, [1, 2, 3, 4, 5, 6, 7])
+    }
+
     func testSortedArrayWithValues() throws {
         let arr = SortedArray<Int>([5, 4, 3, 2, 1], areInIncreasingOrder: <)
         XCTAssertEqual(arr.values, [1, 2, 3, 4, 5])
@@ -73,6 +84,7 @@ class SortedArrayTests: XCTestCase {
     static var allTests = [
         ("testSortedArrayInAscendingOrder", testSortedArrayInAscendingOrder),
         ("testSortedArrayInDescendingOrder", testSortedArrayInDescendingOrder),
+        ("testSortedArrayInsertIntoSmallerArray", testSortedArrayInsertIntoSmallerArray),
         ("testSortedArrayWithValues", testSortedArrayWithValues)
     ]
 }
