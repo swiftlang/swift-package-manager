@@ -108,10 +108,10 @@ public struct SortedArray<Element>: CustomStringConvertible {
 
         // Any remaining new elements were smaller than all old elements
         // so the remaining new elements can safely replace the prefix.
-        if rhsIndex >= 0 {
+        if rhsIndex >= newElements.startIndex {
             elements.replaceSubrange(
-                0 ... rhsIndex,
-                with: newElements[0 ... rhsIndex])
+                newElements.startIndex ... rhsIndex,
+                with: newElements[newElements.startIndex ... rhsIndex])
         }
     }
 
