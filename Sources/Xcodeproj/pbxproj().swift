@@ -194,6 +194,20 @@ func xcodeProject(
     // Determine the list of external package dependencies, if any.
     let externalPackages = graph.packages.filter({ !graph.rootPackages.contains($0) })
 
+    // Build a backmap of targets and products to packages.
+    var packagesByTarget = [ResolvedTarget: ResolvedPackage]()
+    for package in graph.packages {
+        for target in package.targets {
+            packagesByTarget[target] = package
+        }
+    }
+    var packagesByProduct = [ResolvedProduct: ResolvedPackage]()
+    for package in graph.packages {
+        for product in package.products {
+            packagesByProduct[product] = package
+        }
+    }
+    
     // To avoid creating multiple groups for the same path, we keep a mapping
     // of the paths we've seen and the corresponding groups we've created.
     var srcPathsToGroups: [AbsolutePath: Xcode.Group] = [:]
@@ -351,7 +365,10 @@ func xcodeProject(
         }
 
         // Create a Xcode target for the target.
-        let xcodeTarget = project.addTarget(productType: productType, name: target.name)
+        let package = packagesByTarget[target]!
+        let xcodeTarget = project.addTarget(
+            objectID: "\(package.name)::\(target.name)",
+            productType: productType, name: target.name)
 
         // Set the product name to the C99-mangled form of the target name.
         xcodeTarget.productName = target.c99name
@@ -427,7 +444,7 @@ func xcodeProject(
         targetSettings.common.FRAMEWORK_SEARCH_PATHS = ["$(inherited)", "$(PLATFORM_DIR)/Developer/Library/Frameworks"]
 
         // Add a file reference for the target's product.
-        let productRef = productsGroup.addFileReference(path: target.productPath.asString, pathBase: .buildDir)
+        let productRef = productsGroup.addFileReference(path: target.productPath.asString, pathBase: .buildDir, objectID: "\(package.name)::\(target.name)::Product")
 
         // Set that file reference as the target's product reference.
         xcodeTarget.productReference = productRef
@@ -556,7 +573,10 @@ func xcodeProject(
         // Go on to next product if we already have a target with the same name.
         if targetNames.contains(product.name) { continue }
         // Otherwise, create an aggreate target.
-        let aggregateTarget = project.addTarget(productType: nil, name: product.name)
+        let package = packagesByProduct[product]!
+        let aggregateTarget = project.addTarget(
+            objectID: "\(package.name)::\(product.name)::ProductTarget",
+            productType: nil, name: product.name)
         // Add dependencies on the targets created for each of the dependencies.
         for target in product.targets {
             // Find the target that corresponds to the target.  There might not
