@@ -125,13 +125,13 @@ public class SwiftTool<Options: ToolOptions> {
         // Bind the common options.
         binder.bindArray(
             parser.add(
-                option: "-Xcc", kind: [String].self,
+                option: "-Xcc", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all C compiler invocations"),
             parser.add(
-                option: "-Xswiftc", kind: [String].self,
+                option: "-Xswiftc", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all Swift compiler invocations"),
             parser.add(
-                option: "-Xlinker", kind: [String].self,
+                option: "-Xlinker", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all linker invocations"),
             to: { $0.buildFlags = BuildFlags(xcc: $1, xswiftc: $2, xlinker: $3) })
 
