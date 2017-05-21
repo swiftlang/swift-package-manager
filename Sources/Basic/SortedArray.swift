@@ -69,7 +69,7 @@ public struct SortedArray<Element>: CustomStringConvertible {
     
     /// Insert the given sequence, maintaining the sort order.
     public mutating func insert<S: Sequence>(contentsOf newElements: S) where S.Iterator.Element == Element {
-        var newElements = newElements.sorted(by: areInIncreasingOrder)
+        var newElements: Array = newElements.sorted(by: areInIncreasingOrder)
         guard !newElements.isEmpty else {
             return
         }
