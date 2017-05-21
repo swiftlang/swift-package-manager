@@ -144,7 +144,7 @@ let package = Package(
         .package(url: "http://github.com/SwiftyJSON/SwiftyJSON", from: "1.2.3"),
         .package(url: "../CHTTPParser", .upToNextMinor(from: "2.2.0")),
         .package(url: "http://some/other/lib", .exact("1.2.3")),
-    ]
+    ],
     targets: [
         .target(
             name: "tool",
