@@ -261,8 +261,7 @@ public final class InitPackage {
             stream <<< "    }\n"
             stream <<< "\n"
             stream <<< "\n"
-            // FIXME: <rdar://problem/31725325> Swift compiler does not infer XCTest related types in -swift-version 4
-            stream <<< "    static var allTests: [(String, (\(moduleName)Tests) -> () -> Void)] = [\n"
+            stream <<< "    static var allTests = [\n"
             stream <<< "        (\"testExample\", testExample),\n"
             stream <<< "    ]\n"
             stream <<< "}\n"
