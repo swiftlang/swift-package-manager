@@ -1401,32 +1401,29 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     private func remove(specifier: RepositorySpecifier) throws {
-        guard var dependency = managedDependencies[specifier] else {
+        
+        guard let dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
-
-        // If this dependency is based on a dependency, switch to that because
-        // we don't want to touch the editable checkout here.
-        //
-        // FIXME: This will remove also the data about the editable dependency
-        // and it will not be possible to "unedit" that dependency anymore.  To
-        // do that we need to persist the value of isInEditableState and also
-        // store the package names in managed dependencies, because it will not
-        // be possible to lookup these dependencies using their manifests as we
-        // won't have them anymore.
-        // https://bugs.swift.org/browse/SR-3689
-        if let basedOn = dependency.basedOn {
-            dependency = basedOn
-        }
-
+        
         // Inform the delegate.
         delegate.removing(repository: dependency.repository.url)
+        
+        // Compute the dependency which we need to remove.
+        let dependencyToRemove: ManagedDependency
 
-        // Remove the repository from dependencies.
-        managedDependencies[dependency.repository] = nil
-
+        if let basedOn = dependency.basedOn {
+            // Remove the underlying dependency for edited packages.
+            dependencyToRemove = basedOn
+            dependency.basedOn = nil
+            managedDependencies[dependency.repository] = dependency
+        } else {
+            dependencyToRemove = dependency
+            managedDependencies[dependencyToRemove.repository] = nil
+        }
+        
         // Remove the checkout.
-        let dependencyPath = checkoutsPath.appending(dependency.subpath)
+        let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
         guard !checkedOutRepo.hasUncommitedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
@@ -1436,7 +1433,7 @@ extension Workspace {
         fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
-        try repositoryManager.remove(repository: dependency.repository)
+        try repositoryManager.remove(repository: dependencyToRemove.repository)
 
         // Save the state.
         try managedDependencies.saveState()
