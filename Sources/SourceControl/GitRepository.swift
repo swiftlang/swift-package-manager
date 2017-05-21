@@ -325,9 +325,9 @@ public class GitRepository: Repository, WorkingCheckout {
 
     public func hasUnpushedCommits() throws -> Bool {
         return try queue.sync {
-            let hasOutput = try Process.checkNonZeroExit(
-                args: Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes").chomp().isEmpty
-            return !hasOutput
+            let output = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "branch", "-r", "--contains", "HEAD").chomp()
+            return output.isEmpty
         }
     }
 

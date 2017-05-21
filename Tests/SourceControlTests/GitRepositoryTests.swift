@@ -356,8 +356,20 @@ class GitRepositoryTests: XCTestCase {
 
             // We should have commits which are not pushed.
             XCTAssert(try checkoutRepo.hasUnpushedCommits())
-            // Push the changes and check again.
+            
+            // Detach the current HEAD
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "checkout", "--detach"])
+            
+            // The detached HEAD should still not be pushed.
+            XCTAssert(try checkoutRepo.hasUnpushedCommits())
+            
+            // Restore the branch, push the changes and check again.
+            try checkoutTestRepo.checkout(revision: Revision(identifier: "master"))
             try checkoutTestRepo.push(remote: "origin", branch: "master")
+            XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
+            
+            // Detach again, the changes should still be pushed.
+            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "checkout", "--detach"])
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
         }
     }
