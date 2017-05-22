@@ -750,6 +750,49 @@ def get_swiftc_path():
     except:
         error("unable to find 'swiftc' tool for bootstrap build")
 
+# Install a binary file at the install path.
+#
+# This method removes the hardcoded stdlib path from the binary.
+def installBinary(binary_path, install_path, swiftc_path, add_rpath=None):
+    mkdir_p(install_path)
+    cmd = ["rsync", "-a", binary_path, install_path]
+    note("installing %s: %s" % (
+        os.path.basename(binary_path), ' '.join(cmd)))
+    result = subprocess.call(cmd)
+    if result != 0:
+        error("install failed with exit status %d" % (result,))
+
+    # Remove the hard-coded stdlib RPATHs that `swiftc` bakes in on
+    # Darwin.
+    #
+    # FIXME: We need a way to control this, instead of having to rip it
+    # out after the fact. https://bugs.swift.org/browse/SR-1967
+    if platform.system() == 'Darwin':
+        installed_path = os.path.join(
+            install_path, os.path.basename(binary_path))
+        stdlib_path = os.path.realpath(
+            os.path.join(os.path.dirname(swiftc_path), "..",
+                         "lib", "swift", "macosx"))
+        cmd = ["install_name_tool", "-delete_rpath",
+               stdlib_path, installed_path]
+        note("removing stray RPATH from %s: %s" % (
+                installed_path, ' '.join(cmd)))
+        result = subprocess.call(cmd)
+        if result != 0:
+            error("command  failed with exit status %d" % (result,))
+
+        # Add an additional RPATH, if requested.
+        if add_rpath:
+            cmd = ["install_name_tool", "-add_rpath",
+                   add_rpath, installed_path]
+            note("adding RPATH to %s: %s" % (
+                    installed_path, ' '.join(cmd)))
+            result = subprocess.call(cmd)
+            if result != 0:
+                error("command  failed with exit status %d" % (result,))
+    else:
+        if add_rpath:
+            error("unable to add RPATHs on this platform")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1027,48 +1070,6 @@ def main():
             mkdir_p(lib_install_path)
             mkdir_p(libexec_install_path)
 
-            # Install a binary file at the install path.
-            def installBinary(binary_path, install_path, add_rpath=None):
-                mkdir_p(install_path)
-                cmd = ["install", binary_path, install_path]
-                note("installing %s: %s" % (
-                    os.path.basename(binary_path), ' '.join(cmd)))
-                result = subprocess.call(cmd)
-                if result != 0:
-                    error("install failed with exit status %d" % (result,))
-
-                # Remove the hard-coded stdlib RPATHs that `swiftc` bakes in on
-                # Darwin.
-                #
-                # FIXME: We need a way to control this, instead of having to rip it
-                # out after the fact. https://bugs.swift.org/browse/SR-1967
-                if platform.system() == 'Darwin':
-                    installed_path = os.path.join(
-                        install_path, os.path.basename(binary_path))
-                    stdlib_path = os.path.realpath(
-                        os.path.join(os.path.dirname(args.swiftc_path), "..",
-                                     "lib", "swift", "macosx"))
-                    cmd = ["install_name_tool", "-delete_rpath",
-                           stdlib_path, installed_path]
-                    note("removing stray RPATH from %s: %s" % (
-                            installed_path, ' '.join(cmd)))
-                    result = subprocess.call(cmd)
-                    if result != 0:
-                        error("command  failed with exit status %d" % (result,))
-
-                    # Add an additional RPATH, if requested.
-                    if add_rpath:
-                        cmd = ["install_name_tool", "-add_rpath",
-                               add_rpath, installed_path]
-                        note("adding RPATH to %s: %s" % (
-                                installed_path, ' '.join(cmd)))
-                        result = subprocess.call(cmd)
-                        if result != 0:
-                            error("command  failed with exit status %d" % (result,))
-                else:
-                    if add_rpath:
-                        error("unable to add RPATHs on this platform")
-
             # Install XCTest helper inside libexec.
             if platform.system() == 'Darwin':
                 # Append the required RPATH for finding the standard libraries from
@@ -1077,13 +1078,14 @@ def main():
                 # FIXME: We need to find a way to express this from within the
                 # package manager. https://bugs.swift.org/browse/SR-1968
                 installBinary(swiftpm_xctest_helper_path, libexec_install_path,
+                              args.swiftc_path,
                               add_rpath=("@executable_path/../../../"
                                          "lib/swift/macosx"))
 
             # Install the main executables.
             for product_path in [swift_package_path, swift_build_path,
                                  swift_test_path]:
-                installBinary(product_path, bin_install_path)
+                installBinary(product_path, bin_install_path, args.swiftc_path)
 
             # Install the runtimes.
             for version, runtime in processed_runtimes.items():
@@ -1091,7 +1093,7 @@ def main():
                 install_path = os.path.join(lib_install_path, version)
 
                 # Install library.
-                installBinary(runtime_lib_path, install_path)
+                installBinary(runtime_lib_path, install_path, args.swiftc_path)
 
                 # Install module.
                 cmd = ["install", "-m", "0644",
@@ -1120,16 +1122,12 @@ def main():
         # FIXME: This shouldn't require so much knowledge of the manifest.
         # FIXME: We should handle what happens if it's a static library.
         src_path = os.path.join(build_path, conf, libswiftpm_product.product_name)
-        dst_path = os.path.join(libswiftpm_library_dir, libswiftpm_product.product_name)
-        cmd = ["rsync", "-a", src_path, dst_path]
-        note("copying %s: %s" % (os.path.basename(src_path), ' '.join(cmd)))
-        result = subprocess.call(cmd)
-        if result != 0:
-            error("copying failed with exit status %d" % result)
+        installBinary(src_path, libswiftpm_library_dir, args.swiftc_path)
         
         # If it's a dynamic library, and if we're on Darwin, fix the dylib id.
         if platform.system() == 'Darwin':
             if libswiftpm_product.type == ProductType.DYNAMIC_LIBRARY:
+                dst_path = os.path.join(libswiftpm_library_dir, libswiftpm_product.product_name)
                 dylib_id = os.path.join("@rpath", libswiftpm_product.product_name)
                 cmd = ["install_name_tool", "-id", dylib_id, dst_path]
                 note("resetting dylib id: %s" % ' '.join(cmd))
