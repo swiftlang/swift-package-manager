@@ -165,7 +165,7 @@ let package = Package(
             dependencies: ["SourceControl", "TestSupport"]),
         Target(
             name: "UtilityTests",
-            dependencies: ["Utility", "TestSupport"]),
+            dependencies: ["Utility", "TestSupport", "TestSupportExecutable"]),
         Target(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
