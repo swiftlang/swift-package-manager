@@ -1216,7 +1216,7 @@ def main():
         with open(xcconfig_path, "w") as f:
             # Add hardcoded `-swift-version 3` in other swift flags for Xcode 8.3 support.
             if find_xcode_version().startswith("Xcode 8.3"):
-                print("OTHER_SWIFT_FLAGS = -swift-version 3", file=f)
+                print("OTHER_SWIFT_FLAGS = $(inherited) -swift-version 3", file=f)
         cmd += ["--xcconfig-overrides", xcconfig_path]
             
         # Call `swift-package` to generate the Xcode project.
