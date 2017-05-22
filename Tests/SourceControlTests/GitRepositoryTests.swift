@@ -405,13 +405,10 @@ class GitRepositoryTests: XCTestCase {
             let pushedCommit = try checkoutTestRepo.getCurrentRevision()
             try checkoutTestRepo.checkout(revision: Revision(identifier: "master"))
             
-            // Remove the upstream, so we can delete the local branch.
+            // Delete the branch so hasUnpushedCommits won't return true because of unpushed branches.
             try systemQuietly([Git.tool, "-C", checkoutPath.asString, "branch", "--force", "-d", "new-branch"])
             
             try checkoutTestRepo.checkout(revision: pushedCommit)
-            
-            // Verify there are no unpushed commits on branches.
-            XCTAssert(try checkoutTestRepo._areAllBranchesPushed())
             
             // The detached HEAD should no longer have unpushed changes.
             XCTAssertFalse(try checkoutTestRepo.hasUnpushedCommits())

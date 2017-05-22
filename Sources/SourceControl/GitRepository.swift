@@ -323,21 +323,15 @@ public class GitRepository: Repository, WorkingCheckout {
 
     // MARK: Working Checkout Interface
 
-    internal func _areAllBranchesPushed() throws -> Bool {
-        let unpushedBranches = try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes").chomp()
-        return unpushedBranches.isEmpty
-    }
-
-    internal func _isHeadOnRemote() throws -> Bool {
-        let upstreamBranches = try Process.checkNonZeroExit(
-            args: Git.tool, "-C", path.asString, "branch", "-r", "--contains", "HEAD").chomp()
-        return !upstreamBranches.isEmpty
-    }
-
+    /// Returns true if any branches or HEAD are not pushed to remote.
     public func hasUnpushedCommits() throws -> Bool {
         return try queue.sync {
-            return try !_areAllBranchesPushed() || !_isHeadOnRemote()
+            let unpushedBranches = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "log", "--branches", "--not", "--remotes").chomp()
+            guard unpushedBranches.isEmpty else { return true }
+            let upstreamBranches = try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.asString, "branch", "-r", "--contains", "HEAD").chomp()
+            return upstreamBranches.isEmpty
         }
     }
 
