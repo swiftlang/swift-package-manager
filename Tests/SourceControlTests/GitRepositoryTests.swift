@@ -362,59 +362,6 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testHasDetatchedUnpushedCommits() throws {
-        mktmpdir { path in
-            // Create a repo.
-            let testRepoPath = path.appending(component: "test-repo")
-            try makeDirectories(testRepoPath)
-            initGitRepo(testRepoPath)
-
-            // Create a bare clone it somewhere because we want to later push into the repo.
-            let testBareRepoPath = path.appending(component: "test-repo-bare")
-            try systemQuietly([Git.tool, "clone", "--bare", testRepoPath.asString, testBareRepoPath.asString])
-
-            // Clone it somewhere.
-            let testClonePath = path.appending(component: "clone")
-            let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testBareRepoPath.asString)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
-
-            // Clone off a checkout.
-            let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: true)
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
-
-            // Detach the current HEAD
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "checkout", "--detach"])
-
-            XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
-            // Add a new file to checkout.
-            try localFileSystem.writeFileContents(checkoutPath.appending(component: "test.txt"), bytes: "Hi")
-            let checkoutTestRepo = GitRepository(path: checkoutPath)
-            try checkoutTestRepo.stage(file: "test.txt")
-            try checkoutTestRepo.commit()
-            
-            // The detached HEAD should still not be pushed.
-            XCTAssert(try checkoutTestRepo.hasUnpushedCommits())
-            
-            // Pushed the changes.
-            try checkoutTestRepo.checkout(newBranch: "new-branch")
-            try checkoutTestRepo.push(remote: "origin", branch: "new-branch")
-            
-            // remove history of the old commit
-            let pushedCommit = try checkoutTestRepo.getCurrentRevision()
-            try checkoutTestRepo.checkout(revision: Revision(identifier: "master"))
-            
-            // Delete the branch so hasUnpushedCommits won't return true because of unpushed branches.
-            try systemQuietly([Git.tool, "-C", checkoutPath.asString, "branch", "--force", "-d", "new-branch"])
-            
-            try checkoutTestRepo.checkout(revision: pushedCommit)
-            
-            // The detached HEAD should no longer have unpushed changes.
-            XCTAssertFalse(try checkoutTestRepo.hasUnpushedCommits())
-        }
-    }
-
     func testSetRemote() {
         mktmpdir { path in
             // Create a repo.
@@ -624,7 +571,6 @@ class GitRepositoryTests: XCTestCase {
         ("testGitFileView", testGitFileView),
         ("testGitRepositoryHash", testGitRepositoryHash),
         ("testHasUnpushedCommits", testHasUnpushedCommits),
-        ("testHasDetatchedUnpushedCommits", testHasDetatchedUnpushedCommits),
         ("testProvider", testProvider),
         ("testRawRepository", testRawRepository),
         ("testRepositorySpecifier", testRepositorySpecifier),
