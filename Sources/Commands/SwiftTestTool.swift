@@ -108,6 +108,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
     }
 
     override func runImpl() throws {
+
         switch options.mode {
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
@@ -129,26 +130,23 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             switch options.testCaseSpecifier {
             case .none:
-                let runner = TestRunner(
-                    path: testPath,
-                    xctestArg: nil,
-                    processSet: processSet
-                )
+                let runner = TestRunner(path: testPath, xctestArg: nil, processSet: processSet)
                 ranSuccessfully = runner.test()
+
             case .regex, .specific:
                 if case .specific = options.testCaseSpecifier {
                     diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
                 }
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
                 for test in tests {
-                    let runner = TestRunner(path: testPath,
-                                            xctestArg: test.specifier,
-                                            processSet: processSet)
+                    let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
                     ranSuccessfully = ranSuccessfully && runner.test()
                 }
             }
 
-            exit(ranSuccessfully ? 0 : 1)
+            if !ranSuccessfully {
+                executionStatus = .failure
+            }
 
         case .runParallel:
             let testPath = try buildTestsIfNeeded(options)
@@ -156,7 +154,10 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
             let runner = ParallelTestRunner(testPath: testPath, processSet: processSet)
             try runner.run(tests)
-            exit(runner.ranSuccesfully ? 0 : 1)
+
+            if !runner.ranSuccessfully {
+                executionStatus = .failure
+            }
         }
     }
 
@@ -386,7 +387,7 @@ final class ParallelTestRunner {
     private var numCurrentTest = 0
 
     /// True if all tests executed successfully.
-    private(set) var ranSuccesfully: Bool = true
+    private(set) var ranSuccessfully = true
 
     let processSet: ProcessSet
 
@@ -434,7 +435,7 @@ final class ParallelTestRunner {
                     if success {
                         self.finishedTests.enqueue(.success(test))
                     } else {
-                        self.ranSuccesfully = false
+                        self.ranSuccessfully = false
                         self.finishedTests.enqueue(.failure(test, output: output))
                     }
                 }
