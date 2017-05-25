@@ -121,7 +121,7 @@ public final class Process: ObjectIdentifierProtocol {
     public let verbose: Bool
 
     /// The current environment.
-    static var env: [String: String] {
+    static public var env: [String: String] {
         return ProcessInfo.processInfo.environment
     }
 

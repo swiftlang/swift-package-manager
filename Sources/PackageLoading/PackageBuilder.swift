@@ -843,6 +843,7 @@ public final class PackageBuilder {
         // Create and return the right kind of target depending on what kind of sources we found.
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
+            let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
@@ -855,6 +856,7 @@ public final class PackageBuilder {
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
+            let cSources = Array(cSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
             return ClangTarget(
                 name: potentialModule.name,
