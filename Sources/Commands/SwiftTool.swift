@@ -103,6 +103,9 @@ public class SwiftTool<Options: ToolOptions> {
     /// The diagnostics engine.
     let diagnostics = DiagnosticsEngine()
 
+    /// The execution status of the tool.
+    var executionStatus: ExecutionStatus = .success
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
@@ -215,6 +218,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         } catch {
             handle(error: error)
+            SwiftTool.exit(with: .failure)
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
@@ -274,14 +278,25 @@ public class SwiftTool<Options: ToolOptions> {
             // Print any non fatal diagnostics like warnings, notes.
             printDiagnostics()
         } catch {
+            // Set execution status to failure in case of errors.
+            executionStatus = .failure
             printDiagnostics()
             handle(error: error)
         }
+        SwiftTool.exit(with: executionStatus)
     }
 
     private func printDiagnostics() {
         for diagnostic in diagnostics.diagnostics {
             print(diagnostic: diagnostic)
+        }
+    }
+
+    /// Exit the tool with the given execution status.
+    private static func exit(with status: ExecutionStatus) -> Never {
+        switch status {
+        case .success: POSIX.exit(0)
+        case .failure: POSIX.exit(1)
         }
     }
 
@@ -419,6 +434,12 @@ public class SwiftTool<Options: ToolOptions> {
             )
         })
     }()
+
+    /// An enum indicating the execution status of run commands.
+    enum ExecutionStatus {
+        case success
+        case failure
+    }
 }
 
 extension SwiftTool: BuildPlanDelegate {

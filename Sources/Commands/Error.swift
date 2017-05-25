@@ -40,7 +40,7 @@ extension Error: CustomStringConvertible {
     }
 }
 
-public func handle(error: Any) -> Never {
+public func handle(error: Any) {
     switch error {
 
     // If we got instance of any error, handle the underlying error.
@@ -50,9 +50,6 @@ public func handle(error: Any) -> Never {
     default:
         _handle(error)
     }
-
-    // Exit with non zero exit-code.
-    exit(1)
 }
 
 // The name has underscore because of SR-4015.
