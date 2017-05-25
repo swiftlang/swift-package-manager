@@ -691,6 +691,41 @@ class DependencyResolverTests: XCTestCase {
         }
     }
 
+    func testPrereleaseResolve() throws {
+        let provider = MockPackagesProvider(containers: [
+            MockPackageContainer(name: "A", dependencies: [
+                "1.0.0": [],
+                "1.0.1": [],
+                "1.0.1-alpha": [],
+                "1.0.5-alpha": [],
+                "1.0.6-beta": [],
+                "1.1.0-alpha": [],
+                "1.1.6-beta": [],
+                "2.0.0-alpha": [],
+                "2.0.0-beta": [],
+                "2.0.0": [],
+            ]),
+        ])
+
+        func check(range: Range<Version> , result version: Version, file: StaticString = #file, line: UInt = #line) {
+            let resolver = MockDependencyResolver(provider, MockResolverDelegate())
+            let result = try! resolver.resolve(constraints: [
+                MockPackageConstraint(container: "A", versionRequirement: .range(range)),
+            ])
+            XCTAssertEqual(result, ["A": .version(version)])
+        }
+
+        check(range: "1.0.0"..<"2.0.0", result: "1.0.1")
+        check(range: "1.0.0"..<"1.1.0", result: "1.0.1")
+
+        check(range: "1.0.0-alpha"..<"2.0.0", result: "1.1.6-beta")
+        check(range: "1.0.0-alpha"..<"2.0.0-alpha", result: "1.1.6-beta")
+        check(range: "1.0.0"..<"2.0.0-beta", result: "2.0.0-alpha")
+        check(range: "1.0.0-alpha"..<"1.1.0", result: "1.0.6-beta")
+        check(range: "1.0.0-alpha"..<"1.1.0-beta", result: "1.1.0-alpha")
+        check(range: "1.0.0"..<"1.1.0-beta", result: "1.1.0-alpha")
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testVersionSetSpecifier", testVersionSetSpecifier),
@@ -705,6 +740,7 @@ class DependencyResolverTests: XCTestCase {
         ("testUnversionedConstraint", testUnversionedConstraint),
         ("testIncompleteMode", testIncompleteMode),
         ("testDiagnostics", testDiagnostics),
+        ("testPrereleaseResolve", testPrereleaseResolve),
     ]
 }
 
