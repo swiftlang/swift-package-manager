@@ -336,10 +336,10 @@ def parse_manifest():
     # We have a *very* strict format for our manifest to make parsing more
     # robust.  We use this to determine the target and product definitions.
     target_pattern = re.compile(
-        r'Target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
+        r'\.target\(.*?name: "(.*?)",\n *dependencies: (\[.*?\])\)',
         re.DOTALL | re.MULTILINE)
     product_pattern = re.compile(
-        r'Product\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*modules: (\[.*?\])[\n ]*\)',
+        r'.library\([\n ]*name: \"(.*?)\",[\n ]*type: (.*?),[\n ]*targets: (\[.*?\])[\n ]*\)',
         re.DOTALL | re.MULTILINE)
 
     # Load the manifest as a string (we always assume UTF-8 encoding).
@@ -359,9 +359,9 @@ def parse_manifest():
         name = match.group(1)
         try:
             type = {
-                '.Executable': ProductType.EXECUTABLE,
-                '.Library(.Dynamic)': ProductType.DYNAMIC_LIBRARY,
-                '.Library(.Static)': ProductType.STATIC_LIBRARY
+                '.executable': ProductType.EXECUTABLE,
+                '.dynamic': ProductType.DYNAMIC_LIBRARY,
+                '.static': ProductType.STATIC_LIBRARY
             }[match.group(2)]
         except:
             error("unknown type '%s for product '%s' in manifest" % (match.group(2), name))
@@ -1116,7 +1116,7 @@ def main():
         try:
             libswiftpm_product = product_map["SwiftPM"]
         except:
-            error("unable to find 'SwiftPM' product in package manifest; cannot copy library to '%s'", libswiftpm_library_dir)
+            error("unable to find 'SwiftPM' product in package manifest; cannot copy library to '%s'" % (libswiftpm_library_dir, ))
         
         # Copy the libSwiftPM library.
         # FIXME: This shouldn't require so much knowledge of the manifest.

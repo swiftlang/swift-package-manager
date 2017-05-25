@@ -1,3 +1,5 @@
+// swift-tools-version:4.0
+
 /*
  This source file is part of the Swift.org open source project
 
@@ -12,195 +14,186 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftPM",
-    
-    /**
-     The following is parsed by our bootstrap script, so
-     if you make changes here please check the bootstrap still
-     succeeds! Thanks.
-    */
+    products: [
+        .library(
+            name: "SwiftPM",
+            type: .dynamic,
+            targets: [
+                "clibc",
+                "libc",
+                "POSIX",
+                "Basic",
+                "Utility",
+                "SourceControl",
+                "PackageDescription",
+                "PackageDescription4",
+                "PackageModel",
+                "PackageLoading",
+                "PackageGraph",
+                "Build",
+                "Xcodeproj",
+                "Workspace"
+            ]
+        )
+    ],
     targets: [
         // The `PackageDescription` targets are special, they define the API which
         // is available to the `Package.swift` manifest files.
-        Target(
+        .target(
             /** Package Definition API version 3 */
             name: "PackageDescription",
             dependencies: []),
-        Target(
+        .target(
             /** Package Definition API version 4 */
             name: "PackageDescription4",
             dependencies: []),
 
         // MARK: Support libraries
         
-        Target(
+        .target(
             /** Shim target to import missing C headers in Darwin and Glibc modulemap. */
             name: "clibc",
             dependencies: []),
-        Target(
+        .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "libc",
             dependencies: ["clibc"]),
-        Target(
+        .target(
             /** “Swifty” POSIX functions from libc */
             name: "POSIX",
             dependencies: ["libc"]),
-        Target(
+        .target(
             /** Basic support library */
             name: "Basic",
             dependencies: ["libc", "POSIX"]),
-        Target(
+        .target(
             /** Abstractions for common operations, should migrate to Basic */
             name: "Utility",
             dependencies: ["POSIX", "Basic"]),
-        Target(
+        .target(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["Basic", "Utility"]),
 
         // MARK: Project Model
         
-        Target(
+        .target(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["Basic", "PackageDescription", "PackageDescription4", "Utility"]),
-        Target(
+        .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: ["Basic", "PackageDescription", "PackageDescription4", "PackageModel", "Utility"]),
 
         // MARK: Package Dependency Resolution
         
-        Target(
+        .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
             dependencies: ["Basic", "PackageLoading", "PackageModel", "SourceControl", "Utility"]),
         
         // MARK: Package Manager Functionality
         
-        Target(
+        .target(
             /** Builds Modules and Products */
             name: "Build",
             dependencies: ["Basic", "PackageGraph"]),
-        Target(
+        .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
             dependencies: ["Basic", "PackageGraph"]),
-        Target(
+        .target(
             /** High level functionality */
             name: "Workspace",
             dependencies: ["Basic", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
         
-        Target(
+        .target(
             /** High-level commands */
             name: "Commands",
             dependencies: ["Basic", "Build", "PackageGraph", "SourceControl", "Utility", "Xcodeproj", "Workspace"]),
-        Target(
+        .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
             dependencies: ["Commands"]),
-        Target(
+        .target(
             /** Builds packages */
             name: "swift-build",
             dependencies: ["Commands"]),
-        Target(
+        .target(
             /** Runs package tests */
             name: "swift-test",
             dependencies: ["Commands"]),
-        Target(
+        .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: []),
 
         // MARK: Additional Test Dependencies
 
-        Target(
+        .target(
             /** Test support library */
             name: "TestSupport",
             dependencies: ["Basic", "POSIX", "PackageGraph", "PackageLoading", "SourceControl", "Utility", "Commands"]),
-        Target(
+        .target(
             /** Test support executable */
             name: "TestSupportExecutable",
             dependencies: ["Basic", "POSIX", "Utility"]),
         
-        Target(
+        .testTarget(
             name: "BasicTests",
             dependencies: ["TestSupport", "TestSupportExecutable"]),
-        Target(
+        .testTarget(
             name: "BasicPerformanceTests",
             dependencies: ["Basic", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "CommandsTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "Commands", "Workspace", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "FunctionalTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "Basic", "Utility", "PackageModel", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "swift-build", "swift-package", "TestSupport"]),
-        Target(
+        .testTarget(
+            name: "PackageDescriptionTests",
+            dependencies: ["PackageDescription"]),
+        .testTarget(
             name: "PackageLoadingTests",
-            dependencies: ["PackageLoading", "TestSupport"]),
-        Target(
+            dependencies: ["PackageLoading", "TestSupport"],
+            exclude: ["Inputs"]),
+        .testTarget(
             name: "PackageLoadingPerformanceTests",
             dependencies: ["PackageLoading", "TestSupport"]),
-        Target(
+        .testTarget(
+            name: "PackageModelTests",
+            dependencies: ["PackageModel"]),
+        .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "POSIXTests",
             dependencies: ["POSIX", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "TestSupport"]),
-        Target(
+        .testTarget(
             name: "UtilityTests",
             dependencies: ["Utility", "TestSupport", "TestSupportExecutable"]),
-        Target(
+        .testTarget(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "TestSupport"]),
     ],
-    swiftLanguageVersions: [3],
-    exclude: [
-        "Tests/PackageLoadingTests/Inputs",
-    ]
-)
-
-
-// The executable products are automatically determined by SwiftPM; any target
-// that contains a `main.swift` source file results in an implicit executable
-// product.
-
-// SwiftPM Library -- provides package management functionality to clients
-products.append(
-    Product(
-        name: "SwiftPM",
-        type: .Library(.Dynamic),
-        modules: [
-            "clibc",
-            "libc",
-            "POSIX",
-            "Basic",
-            "Utility",
-            "SourceControl",
-            "PackageDescription",
-            "PackageDescription4",
-            "PackageModel",
-            "PackageLoading",
-            "PackageGraph",
-            "Build",
-            "Xcodeproj",
-            "Workspace"
-        ]
-    )
+    swiftLanguageVersions: [3]
 )
