@@ -91,7 +91,7 @@ public enum VersionSetSpecifier: Equatable, CustomStringConvertible {
         case .empty:
             return false
         case .range(let range):
-            return range.contains(version)
+            return range.contains(version: version)
         case .any:
             return true
         case .exact(let v):
