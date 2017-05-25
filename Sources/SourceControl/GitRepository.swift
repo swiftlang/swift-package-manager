@@ -438,7 +438,8 @@ public class GitRepository: Repository, WorkingCheckout {
             // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
             // the line is the file name.
             let bytes = ByteString(encodingAsUTF8: line)
-            guard bytes.count > 6 + 1 + 4 + 1 + 40 + 1,
+            let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
+            guard bytes.count > expectedBytesCount,
                   bytes.contents[6] == UInt8(ascii: " "),
                   // Search for the second space since `type` is of variable length.
                   let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].index(of: UInt8(ascii: " ")),
