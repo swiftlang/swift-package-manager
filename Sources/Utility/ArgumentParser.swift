@@ -37,7 +37,7 @@ extension ArgumentParserError: CustomStringConvertible {
         case .unknownOption(let option):
             return "Unknown option \(option). Use --help to list available options"
         case .invalidValue(let argument, let error):
-            return "Invalid value for argument \(argument): \(error)"
+            return "\(error) for argument \(argument). Use --help to print usage"
         case .expectedValue(let option):
             return "Option \(option) requires a value. Provide a value using '\(option) <value>' or '\(option)=<value>'"
         case .unexpectedArgument(let arg):
@@ -66,7 +66,7 @@ extension ArgumentConversionError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .unknown(let value):
-            return "Unknown value \(value). Use --help to list available values"
+            return "Unknown value \(value)"
         case .typeMismatch(let value, let expectedType):
             return "\(value) is not convertible to \(expectedType)"
         case .custom(let reason):
