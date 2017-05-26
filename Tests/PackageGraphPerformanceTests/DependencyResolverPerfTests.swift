@@ -326,8 +326,6 @@ struct GitRepositoryResolutionHelper {
 
     class DummyResolverDelegate: DependencyResolverDelegate {
         typealias Identifier = RepositoryPackageContainer.Identifier
-        func added(container identifier: Identifier) {
-        }
     }
 
     class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
