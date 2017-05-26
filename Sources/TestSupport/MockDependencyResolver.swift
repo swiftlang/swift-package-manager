@@ -181,12 +181,6 @@ public struct MockPackagesProvider: PackageContainerProvider {
 public class MockResolverDelegate: DependencyResolverDelegate {
     public typealias Identifier = MockPackageContainer.Identifier
 
-    public var messages = [String]()
-
-    public func added(container identifier: Identifier) {
-        messages.append("added container: \(identifier)")
-    }
-
     public init() {}
 }
 

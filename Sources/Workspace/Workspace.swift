@@ -62,9 +62,6 @@ public extension WorkspaceDelegate {
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
-
-    func added(container identifier: Identifier) {
-    }
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {

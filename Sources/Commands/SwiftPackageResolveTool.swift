@@ -16,10 +16,6 @@ import struct Utility.Version
 private class ResolverToolDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
-    func added(container identifier: Identifier) {
-        print("note: considering repository: \(identifier.url)")
-    }
-
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
         print("note: fetching \(handle.repository.url)")
     }

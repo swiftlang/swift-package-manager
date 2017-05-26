@@ -309,9 +309,6 @@ public struct PackageContainerConstraint<T: PackageContainerIdentifier>: CustomS
 /// Delegate interface for dependency resoler status.
 public protocol DependencyResolverDelegate {
     associatedtype Identifier: PackageContainerIdentifier
-
-    /// Called when a new container is being considered.
-    func added(container identifier: Identifier)
 }
 
 /// A bound version for a package within an assignment.
@@ -808,7 +805,7 @@ public class DependencyResolver<
     public let provider: Provider
 
     /// The resolver's delegate.
-    public let delegate: Delegate
+    public let delegate: Delegate?
 
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
@@ -827,7 +824,7 @@ public class DependencyResolver<
     /// Note that the input constraints will always be fetched.
     public var isInIncompleteMode = false
 
-    public init(_ provider: Provider, _ delegate: Delegate, isPrefetchingEnabled: Bool = false) {
+    public init(_ provider: Provider, _ delegate: Delegate? = nil, isPrefetchingEnabled: Bool = false) {
         self.provider = provider
         self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
@@ -1138,64 +1135,72 @@ public class DependencyResolver<
 
     // MARK: Container Management
 
+    /// Condition for container management structures.
+    private let fetchCondition = Condition()
+
     /// The active set of managed containers.
     public var containers: [Identifier: Container] {
-        return containersLock.withLock {
-            _containers
-        }
+        return fetchCondition.whileLocked({
+            _fetchedContainers.flatMapValues({
+                try? $0.dematerialize()
+            })
+        })
     }
-    private var containersLock = Lock()
-    private var _containers: [Identifier: Container] = [:]
+
+    /// The list of fetched containers.
+    private var _fetchedContainers: [Identifier: Basic.Result<Container, AnyError>] = [:]
 
     /// The set of containers requested so far.
-    private var requestedContainers: Set<Identifier> = []
+    private var _prefetchingContainers: Set<Identifier> = []
 
     /// Get the container for the given identifier, loading it if necessary.
     private func getContainer(for identifier: Identifier) throws -> Container {
-        // Return the cached container, if available.
-        if let container = containers[identifier] {
+        return try fetchCondition.whileLocked {
+            // Return the cached container, if available.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // If this container is being prefetched, wait for that to complete.
+            while _prefetchingContainers.contains(identifier) {
+                fetchCondition.wait()
+            }
+
+            // The container may now be available in our cache if it was prefetched.
+            if let container = _fetchedContainers[identifier] {
+                return try container.dematerialize()
+            }
+
+            // Otherwise, fetch the container synchronously.
+            let container = try await { provider.getContainer(for: identifier, skipUpdate: false, completion: $0) }
+            self._fetchedContainers[identifier] = Basic.Result(container)
             return container
         }
-
-        // Otherwise, load it.
-        return try addContainer(for: identifier)
-    }
-
-    /// Add a managed container.
-    private func addContainer(for identifier: Identifier) throws -> Container {
-        // Get the container synchronously from provider.
-        let skipUpdate = requestedContainers.contains(identifier)
-        requestedContainers.insert(identifier)
-        let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
-
-        return set(container, for: identifier)
     }
 
     /// Starts prefetching the given containers.
     private func prefetch(containers identifiers: [Identifier]) {
+        fetchCondition.whileLocked {
+            // Process each container.
+            for identifier in identifiers {
+                // If we already have this container, skip it.
+                guard _fetchedContainers[identifier] == nil else {
+                    continue
+                }
 
-        // Prefetch the containers which are missing.
-        for identifier in identifiers where !requestedContainers.contains(identifier) {
-            requestedContainers.insert(identifier)
-            provider.getContainer(for: identifier, skipUpdate: false) {
-                // We ignore the errors here and expect them to be caught later.
-                guard case .success(let container) = $0 else { return }
-                self.set(container, for: identifier)
+                // Otherwise, record that we're prefetching this container.
+                _prefetchingContainers.insert(identifier)
+
+                provider.getContainer(for: identifier, skipUpdate: false) { container in
+                    self.fetchCondition.whileLocked {
+                        // Update the structures and signal any thread waiting
+                        // on prefetching to finish.
+                        self._fetchedContainers[identifier] = container
+                        self._prefetchingContainers.remove(identifier)
+                        self.fetchCondition.signal()
+                    }
+                }
             }
-        }
-    }
-
-    /// Set the container for the given identifier to containers store.
-    ///
-    /// If the container is already present, it is not inserted again and the old
-    /// copy is returned.
-    @discardableResult
-    private func set(_ container: Container, for identifier: Identifier) -> Container {
-        return containersLock.withLock {
-            if let container = _containers[identifier] { return container }
-            self._containers[identifier] = container
-            self.delegate.added(container: identifier)
-            return container
         }
     }
 }

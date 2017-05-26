@@ -110,12 +110,7 @@ private class MockRepositories: RepositoryProvider {
 private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
-    var addedContainers: [Identifier] = []
     var fetched = [RepositorySpecifier]()
-
-    func added(container identifier: Identifier) {
-        addedContainers.append(identifier)
-    }
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
         fetched += [handle.repository]
@@ -202,7 +197,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     repoA.specifier: v1,
                     repoB.specifier: v2,
                 ])
-            XCTAssertEqual(resolver.delegate.addedContainers, [repoA.specifier, repoB.specifier])
             XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
         }
     }
