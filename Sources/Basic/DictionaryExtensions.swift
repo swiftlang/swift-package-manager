@@ -24,4 +24,16 @@ extension Dictionary {
             self[key] = value
         }
     }
+
+    /// Returns a new dictionary containing the keys of this dictionary with the
+    /// values transformed by the given closure, if transformed is not nil.
+    public func flatMapValues<T>(_ transform: (Value) throws -> T?) rethrows -> [Key: T] {
+        var transformed: [Key: T] = [:]
+        for (key, value) in self {
+            if let value = try transform(value) {
+                transformed[key] = value
+            }
+        }
+        return transformed
+    }
 }
