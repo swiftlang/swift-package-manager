@@ -338,20 +338,8 @@ private class LocalFileSystem: FileSystem {
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
       #if os(macOS)
-        // Create appropriate variables for calling the posix functions.
-        //
-        // FIXME: We should have a utility for this.
-        let paths = [path.asString.withCString(strdup), nil]
-        var modeString = mode.cliArgument.withCString(strdup)
-
-        // Free the allocation we did above.
-        defer {
-            for case let path? in paths { free(path) }
-            free(modeString)
-        }
-
         // Get the mode we need to set.
-        guard let setMode = setmode(modeString) else {
+        guard let setMode = setmode(mode.cliArgument) else {
             throw FileSystemError(errno: errno)
         }
 
@@ -360,7 +348,8 @@ private class LocalFileSystem: FileSystem {
         let ftsOptions = recursive ? FTS_PHYSICAL : FTS_LOGICAL
 
         // Get handle to the file hierarchy we want to traverse.
-        guard let ftsp = fts_open(paths, ftsOptions, nil) else {
+        let paths = CStringArray([path.asString])
+        guard let ftsp = fts_open(paths.cArray, ftsOptions, nil) else {
             throw FileSystemError(errno: errno)
         }
 
