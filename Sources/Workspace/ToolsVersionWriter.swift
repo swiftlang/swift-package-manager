@@ -19,7 +19,7 @@ import Utility
 ///   - path: The path of the package.
 ///   - version: The version to write.
 public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: inout FileSystem) throws {
-    let file = path.appending(component: ToolsVersion.toolsVersionFileName)
+    let file = path.appending(component: Manifest.filename)
     assert(fs.isFile(file), "Tools version file not present")
 
     // Get the current contents of the file.

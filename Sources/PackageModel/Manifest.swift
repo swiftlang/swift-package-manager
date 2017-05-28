@@ -11,6 +11,7 @@
 import Basic
 import PackageDescription
 import PackageDescription4
+import Utility
 
 /// The supported manifest versions.
 public enum ManifestVersion: Int {
@@ -26,6 +27,23 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible {
 
     /// The standard filename for the manifest.
     public static var filename = basename + ".swift"
+
+    /// Returns the manifest at the given package path.
+    ///
+    /// Version specific manifest is chosen if present, otherwise path to regular
+    /// manfiest is returned.
+    public static func path(
+        atPackagePath packagePath: AbsolutePath,
+        fileSystem: FileSystem
+    ) -> AbsolutePath {
+        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+            let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
+            if fileSystem.isFile(versionSpecificPath) {
+                return versionSpecificPath
+            }
+        }
+        return packagePath.appending(component: filename)
+    }
 
     /// The standard basename for the manifest.
     public static var basename = "Package"
