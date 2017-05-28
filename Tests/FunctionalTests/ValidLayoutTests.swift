@@ -64,29 +64,6 @@ class ValidLayoutsTests: XCTestCase {
         }
     }
 
-    func testPackageIdentifiers() {
-        #if os(macOS)
-            // this because sort orders vary on Linux on Mac currently
-            let tags = ["1.3.4-alpha.beta.gamma1", "1.2.3+24", "1.2.3", "1.2.3-beta5"]
-        #else
-            let tags = ["1.2.3", "1.2.3-beta5", "1.3.4-alpha.beta.gamma1", "1.2.3+24"]
-        #endif
-        
-        fixture(name: "DependencyResolution/External/Complex", tags: tags) { prefix in
-            let packageRoot = prefix.appending(component: "app")
-            XCTAssertBuilds(packageRoot, configurations: [.Debug])
-
-            var path = try SwiftPMProduct.packagePath(for: "deck-of-playing-cards", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3-beta5"])
-
-            path = try SwiftPMProduct.packagePath(for: "FisherYates", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.3.4-alpha.beta.gamma1"])
-
-            path = try SwiftPMProduct.packagePath(for: "PlayingCard", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3+24"])
-        }
-    }
-
     func testMadeValidWithExclude() {
         fixture(name: "ValidLayouts/MadeValidWithExclude/Case1") { prefix in
             XCTAssertBuilds(prefix)
@@ -111,7 +88,6 @@ class ValidLayoutsTests: XCTestCase {
         ("testSingleModuleSubfolderWithSwiftSuffix", testSingleModuleSubfolderWithSwiftSuffix),
         ("testMultipleModulesLibraries", testMultipleModulesLibraries),
         ("testMultipleModulesExecutables", testMultipleModulesExecutables),
-        ("testPackageIdentifiers", testPackageIdentifiers),
         ("testMadeValidWithExclude", testMadeValidWithExclude),
         ("testExtraCommandLineFlags", testExtraCommandLineFlags),
     ]

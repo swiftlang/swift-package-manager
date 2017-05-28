@@ -52,13 +52,6 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
 
     public func getContainer(
         for identifier: Container.Identifier,
-        completion: @escaping (Result<Container, AnyError>) -> Void
-    ) {
-        getContainer(for: identifier, skipUpdate: false, completion: completion)
-    }
-
-    public func getContainer(
-        for identifier: Container.Identifier,
         skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>) -> Void
     ) {

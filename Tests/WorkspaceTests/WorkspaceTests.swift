@@ -37,14 +37,19 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
     /// Map of checkedout repos with key as repository and value as the reference (version or revision).
     var checkedOut = [String: String]()
     var removed = [String]()
-    var warnings = [String]()
     var managedDependenciesData = [AnySequence<ManagedDependency>]()
 
     typealias PartialGraphData = (currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>)
     var partialGraphs = [PartialGraphData]()
 
+    var repoUpdates = [String]()
+
     func packageGraphWillLoad(currentGraph: PackageGraph, dependencies: AnySequence<ManagedDependency>, missingURLs: Set<String>) {
         partialGraphs.append((currentGraph, dependencies, missingURLs))
+    }
+
+    func repositoryWillUpdate(_ repository: String) {
+        repoUpdates.append(repository)
     }
 
     func fetchingWillBegin(repository: String) {
@@ -64,10 +69,6 @@ private class TestWorkspaceDelegate: WorkspaceDelegate {
 
     func removing(repository: String) {
         removed.append(repository)
-    }
-
-    func warning(message: String) {
-        warnings.append(message)
     }
 
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>) {
@@ -558,6 +559,57 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
+    
+    func testCanUneditRemovedDependencies() throws {
+
+        mktmpdir { path in
+            let manifestGraph = try MockManifestGraph(at: path,
+                rootDeps: [
+                    MockDependency("A", version: Version(1, 0, 0)..<Version(1, .max, .max)),
+                ],
+                packages: [
+                    MockPackage("A", version: v1)
+                ]
+            )
+            
+            let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader)
+            
+            // Load the package graph.
+            let diagnostics = DiagnosticsEngine()
+            workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            // Put the dependency in edit mode at its current revision.
+            workspace.edit(packageName: "A", diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+
+            let editedDependency = try workspace.managedDependencies.dependency(forName: "A")
+            let editRepoPath = workspace.editablesPath.appending(editedDependency.subpath)
+            
+            // Its basedon should not be nil
+            XCTAssertNotNil(editedDependency.basedOn)
+            
+            // Create an empty root to remove the dependency requirement
+            let root = WorkspaceRoot(packages: [])
+            
+            workspace.updateDependencies(root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
+            
+            // Its basedon should be nil
+            XCTAssertNil(editedDependency.basedOn)
+            
+            // Unedit the package
+            try workspace.unedit(
+                packageName: "A",
+                forceRemove: false,
+                root: root,
+                diagnostics: diagnostics
+            )
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertFalse(exists(editRepoPath))
+            XCTAssertFalse(exists(workspace.editablesPath))
+        }
+    }
 
     func testCleanAndReset() throws {
         mktmpdir { path in
@@ -627,6 +679,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -700,11 +753,15 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssertTrue(diagnostics.hasErrors)
             }
 
-            // We should be able to unedit the dependency.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
+            do {
+                // We should be able to unedit the dependency.
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssert(getDependency(aManifest).state.isCheckout)
+                XCTAssertFalse(exists(editRepoPath))
+                XCTAssertFalse(exists(workspace.editablesPath))
+            }
         }
     }
 
@@ -719,6 +776,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -738,22 +796,25 @@ final class WorkspaceTests: XCTestCase {
             
             let dependency = getDependency(aManifest)
             
-            // We should error out if we try to edit on a non existent revision.
-            workspace.edit(
-                packageName: aManifest.name,
-                revision: Revision(identifier: "non-existent-revision"),
-                diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
-            XCTAssert(diagnostics.diagnostics.contains(where: {
-                $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
-            }))
+            do {
+                // We should error out if we try to edit on a non existent revision.
+                let diagnostics = DiagnosticsEngine()
+                workspace.edit(
+                    packageName: aManifest.name,
+                    revision: Revision(identifier: "non-existent-revision"),
+                    diagnostics: diagnostics)
+                XCTAssert(diagnostics.hasErrors)
+                XCTAssert(diagnostics.diagnostics.contains(where: {
+                    $0.id == WorkspaceDiagnostics.RevisionDoesNotExist.id
+                }))
+            }
 
             // Put the dependency in edit mode at its current revision on a new branch.
             workspace.edit(
                 packageName: aManifest.name,
                 checkoutBranch: "BugFix",
                 diagnostics: diagnostics)
-            XCTAssert(diagnostics.hasErrors)
+            XCTAssertNoDiagnostics(diagnostics)
             let editedDependency = getDependency(aManifest)
             XCTAssert(editedDependency.state == .edited(nil))
 
@@ -762,7 +823,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try editRepo.getCurrentRevision(), dependency.checkoutState?.revision)
             XCTAssertEqual(try editRepo.currentBranch(), "BugFix")
             // Unedit it.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(getDependency(aManifest).state.isCheckout)
 
             workspace.edit(
@@ -787,6 +849,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil), // To load the edited package manifest.
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
             // Load the package graph.
@@ -822,7 +885,9 @@ final class WorkspaceTests: XCTestCase {
             try editRepo.stage(file: "test.txt")
             // Try to unedit.
             do {
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTFail("Unexpected edit success")
             } catch let error as WorkspaceDiagnostics.UncommitedChanges {
                 XCTAssertEqual(error.repositoryPath, editRepoPath)
@@ -830,16 +895,34 @@ final class WorkspaceTests: XCTestCase {
             // Commit and try to unedit.
             try editRepo.commit()
             do {
-                try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
                 XCTFail("Unexpected edit success")
             } catch let error as WorkspaceDiagnostics.UnpushedChanges {
                 XCTAssertEqual(error.repositoryPath, editRepoPath)
             }
+
+            // Run package update which should remove the entry from pins store.
+            do {
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+                let diagnostics = DiagnosticsEngine()
+                workspace.updateDependencies(root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssertNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+            }
+
             // Force remove.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: true)
-            XCTAssert(getDependency(aManifest).state.isCheckout)
-            XCTAssertFalse(exists(editRepoPath))
-            XCTAssertFalse(exists(workspace.editablesPath))
+            do {
+                let diagnostics = DiagnosticsEngine()
+                try workspace.unedit(packageName: aManifest.name, forceRemove: true, root: root, diagnostics: diagnostics)
+                XCTAssertNoDiagnostics(diagnostics)
+                XCTAssert(getDependency(aManifest).state.isCheckout)
+                XCTAssertFalse(exists(editRepoPath))
+                XCTAssertFalse(exists(workspace.editablesPath))
+                // We should get the entry back in pinsStore.
+                XCTAssertNotNil(try workspace.pinsStore.load().pinsMap[aManifest.name])
+            }
         }
     }
 
@@ -1027,7 +1110,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Pinning non existant version should fail.
             pin(at: "1.0.2", diagnostics: diagnostics)
-            XCTAssertTrue(diagnostics.diagnostics[0].localizedDescription.contains("A @ 1.0.2"))
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.localizedDescription.contains("A @ 1.0.2") }))
 
             // Pinning an unstatisfiable version should fail.
             diagnostics = DiagnosticsEngine()
@@ -1385,9 +1468,12 @@ final class WorkspaceTests: XCTestCase {
 
             // Remove edited checkout.
             try removeFileTree(workspace.editablesPath)
-            delegate.warnings.removeAll()
             workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
-            XCTAssertTrue(delegate.warnings[0].hasSuffix("A was being edited but has been removed, falling back to original checkout."))
+            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
+                $0.behavior == .warning &&
+                $0.localizedDescription == "The dependency 'A' was being edited but is missing. Falling back to original checkout."
+            }))
         }
     }
 
@@ -1567,6 +1653,7 @@ final class WorkspaceTests: XCTestCase {
                     MockPackage("A", version: nil),
                 ]
             )
+            let root = WorkspaceRoot(packages: [path])
             // Create the workspace.
             let workspace = Workspace.createWith(
                 rootPackage: path, manifestLoader: manifestGraph.manifestLoader, delegate: TestWorkspaceDelegate())
@@ -1618,7 +1705,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(try editRepo.currentBranch(), "HEAD")
 
             // We should be able to unedit the dependency.
-            try workspace.unedit(packageName: aManifest.name, forceRemove: false)
+            try workspace.unedit(packageName: aManifest.name, forceRemove: false, root: root, diagnostics: diagnostics)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(getDependency(aManifest).state.isCheckout)
             XCTAssertTrue(exists(tot))
             XCTAssertFalse(exists(workspace.editablesPath))
@@ -1712,7 +1800,10 @@ final class WorkspaceTests: XCTestCase {
 
             workspace.loadPackageGraph(rootPackages: [barRoot], diagnostics: diagnostics)
             XCTAssertFalse(diagnostics.hasErrors)
-            XCTAssertTrue(delegate.warnings.contains(where: { $0.hasPrefix("Foo") && $0.hasSuffix(" is missing and has been cloned again.") }))
+            XCTAssertTrue(diagnostics.diagnostics.contains(where: {
+                $0.behavior == .warning &&
+                $0.localizedDescription == "The dependency 'Foo' is missing and has been cloned again."
+            }))
             XCTAssertTrue(isDirectory(workspace.checkoutsPath))
         }
     }
@@ -1863,6 +1954,107 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolverCanHaveError() throws {
+        let v2: Version = "2.0.0"
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [],
+            packages: [
+                MockPackage("A", version: v1, dependencies: [
+                    MockDependency("AA", version: v1)
+                ]),
+                MockPackage("B", version: v1, dependencies: [
+                    MockDependency("AA", version: v2)
+                ]),
+                MockPackage("AA", version: v1),
+                MockPackage("AA", version: v2),
+            ],
+            fs: fs)
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("AA")]!.tag(name: "2.0.0")
+
+        let delegate = TestWorkspaceDelegate()
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: delegate,
+            fileSystem: fs,
+            repositoryProvider: provider)
+
+        let root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
+            .init(url: "/RootPkg/B", requirement: .exact(v1.asPD4Version), location: "B"),
+        ])
+
+        let diagnostics = DiagnosticsEngine()
+        workspace.resolve(root: root, diagnostics: diagnostics)
+
+        // Check that we produce error.
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: .contains("graph is unresolvable."), behavior: .error)
+        }
+
+        // There should be no extra fetches.
+        XCTAssertEqual(delegate.repoUpdates, [])
+    }
+
+    func testCanResolveWithIncompatiblePins() throws {
+        let v2: Version = "2.0.0"
+        let path = AbsolutePath("/RootPkg")
+        let fs = InMemoryFileSystem()
+
+        let manifestGraph = try MockManifestGraph(at: path,
+            rootDeps: [],
+            packages: [
+                MockPackage("A", version: v1, dependencies: [
+                    MockDependency("AA", version: v1)
+                ]),
+                MockPackage("A", version: "1.0.1", dependencies: [
+                    MockDependency("AA", version: v2)
+                ]),
+                MockPackage("AA", version: v1),
+                MockPackage("AA", version: v2),
+            ],
+            fs: fs)
+        let provider = manifestGraph.repoProvider!
+        try provider.specifierMap[manifestGraph.repo("A")]!.tag(name: "1.0.1")
+        try provider.specifierMap[manifestGraph.repo("AA")]!.tag(name: "2.0.0")
+
+        let delegate = TestWorkspaceDelegate()
+
+        let workspace = Workspace.createWith(
+            rootPackage: path,
+            manifestLoader: manifestGraph.manifestLoader,
+            delegate: delegate,
+            fileSystem: fs,
+            repositoryProvider: provider)
+
+        var root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact(v1.asPD4Version), location: "A"),
+        ])
+
+        let diagnostics = DiagnosticsEngine()
+        workspace.resolve(root: root, diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(delegate.repoUpdates, [])
+
+        // This pin will become unresolvable when A is at 1.0.1.
+        // We should still be able to resolve in that case.
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v1)
+
+        root = WorkspaceRoot(packages: [], dependencies: [
+            .init(url: "/RootPkg/A", requirement: .exact("1.0.1"), location: "A"),
+        ])
+        workspace.resolve(root: root, diagnostics: diagnostics)
+        XCTAssertFalse(diagnostics.hasErrors)
+        XCTAssertEqual(try workspace.pinsStore.load().pinsMap["AA"]?.state.version, v2)
+        // There should be only one update per dependency.
+        XCTAssertEqual(delegate.repoUpdates.sorted(), ["/RootPkg/A", "/RootPkg/AA"])
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBranchAndRevision", testBranchAndRevision),
@@ -1879,6 +2071,7 @@ final class WorkspaceTests: XCTestCase {
         ("testUpdate", testUpdate),
         ("testUneditDependency", testUneditDependency),
         ("testCleanAndReset", testCleanAndReset),
+        ("testCanResolveWithIncompatiblePins", testCanResolveWithIncompatiblePins),
         ("testMultipleRootPackages", testMultipleRootPackages),
         ("testWarnings", testWarnings),
         ("testDependencyResolutionWithEdit", testDependencyResolutionWithEdit),
@@ -1891,6 +2084,8 @@ final class WorkspaceTests: XCTestCase {
         ("testGraphData", testGraphData),
         ("testSymlinkedDependency", testSymlinkedDependency),
         ("testIsResolutionRequired", testIsResolutionRequired),
+        ("testResolverCanHaveError", testResolverCanHaveError),
+        ("testCanUneditRemovedDependencies", testCanUneditRemovedDependencies)
     ]
 }
 

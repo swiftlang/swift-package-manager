@@ -65,11 +65,15 @@ extension Version: Hashable {
         result = (result &* mul) ^ UInt64(bitPattern: Int64(patch.hashValue))
         result = prereleaseIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
         result = buildMetadataIdentifiers.reduce(result, { ($0 &* mul) ^ UInt64(bitPattern: Int64($1.hashValue)) })
-        return Int(truncatingBitPattern: result)
+        return Int(extendingOrTruncating: result)
     }
 }
 
 extension Version: Comparable {
+
+    func isEqualWithoutPrerelease(_ other: Version) -> Bool {
+        return major == other.major && minor == other.minor && patch == other.patch
+    }
 
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
@@ -196,5 +200,57 @@ extension Version: JSONMappable, JSONSerializable {
 
     public func toJSON() -> JSON {
         return .string(description)
+    }
+}
+
+// MARK:- Range operations
+
+extension ClosedRange where Bound == Version {
+    /// Marked as unavailable because we have custom rules for contains.
+    public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
+        fatalError("contains(_:) is unavailable, use contains(version:)")
+    }
+}
+
+// Disabled because compiler hits an assertion https://bugs.swift.org/browse/SR-5014
+#if false
+extension CountableRange where Bound == Version {
+    /// Marked as unavailable because we have custom rules for contains.
+    public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
+        fatalError("contains(_:) is unavailable, use contains(version:)")
+    }
+}
+#endif
+
+extension Range where Bound == Version {
+    /// Marked as unavailable because we have custom rules for contains.
+    public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
+        fatalError("contains(_:) is unavailable, use contains(version:)")
+    }
+}
+
+extension Range where Bound == Version {
+
+    public func contains(version: Version) -> Bool {
+        // Special cases if version contains prerelease identifiers.
+        if !version.prereleaseIdentifiers.isEmpty {
+            // If the ranage does not contain prerelease identifiers, return false.
+            if lowerBound.prereleaseIdentifiers.isEmpty && upperBound.prereleaseIdentifiers.isEmpty {
+                return false
+            }
+
+            // At this point, one of the bounds contains prerelease identifiers.
+            //
+            // Reject 2.0.0-alpha when upper bound is 2.0.0.
+            if upperBound.prereleaseIdentifiers.isEmpty && upperBound.isEqualWithoutPrerelease(version) {
+                return false
+            }
+        }
+
+        // Otherwise, apply normal contains rules.
+        return version >= lowerBound && version < upperBound
     }
 }

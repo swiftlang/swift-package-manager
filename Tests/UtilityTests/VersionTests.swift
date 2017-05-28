@@ -210,6 +210,82 @@ class VersionTests: XCTestCase {
         }
     }
 
+    func testContains() {
+        do {
+            let range: Range<Version> = "1.0.0"..<"2.0.0"
+
+            XCTAssertTrue(range.contains(version: "1.0.0"))
+            XCTAssertTrue(range.contains(version: "1.5.0"))
+            XCTAssertTrue(range.contains(version: "1.9.99999"))
+            XCTAssertTrue(range.contains(version: "1.9.99999+1232"))
+
+            XCTAssertFalse(range.contains(version: "1.0.0-alpha"))
+            XCTAssertFalse(range.contains(version: "1.5.0-alpha"))
+            XCTAssertFalse(range.contains(version: "2.0.0-alpha"))
+            XCTAssertFalse(range.contains(version: "2.0.0"))
+        }
+
+        do {
+            let range: Range<Version> = "1.0.0"..<"2.0.0-beta"
+
+            XCTAssertTrue(range.contains(version: "1.0.0"))
+            XCTAssertTrue(range.contains(version: "1.5.0"))
+            XCTAssertTrue(range.contains(version: "1.9.99999"))
+            XCTAssertTrue(range.contains(version: "1.0.1-alpha"))
+            XCTAssertTrue(range.contains(version: "2.0.0-alpha"))
+
+            XCTAssertFalse(range.contains(version: "1.0.0-alpha"))
+            XCTAssertFalse(range.contains(version: "2.0.0"))
+            XCTAssertFalse(range.contains(version: "2.0.0-beta"))
+            XCTAssertFalse(range.contains(version: "2.0.0-clpha"))
+        }
+
+        do {
+            let range: Range<Version> = "1.0.0-alpha"..<"2.0.0"
+            XCTAssertTrue(range.contains(version: "1.0.0"))
+            XCTAssertTrue(range.contains(version: "1.5.0"))
+            XCTAssertTrue(range.contains(version: "1.9.99999"))
+            XCTAssertTrue(range.contains(version: "1.0.0-alpha"))
+            XCTAssertTrue(range.contains(version: "1.0.0-beta"))
+            XCTAssertTrue(range.contains(version: "1.0.1-alpha"))
+
+            XCTAssertFalse(range.contains(version: "2.0.0-alpha"))
+            XCTAssertFalse(range.contains(version: "2.0.0-beta"))
+            XCTAssertFalse(range.contains(version: "2.0.0-clpha"))
+            XCTAssertFalse(range.contains(version: "2.0.0"))
+        }
+
+        do {
+            let range: Range<Version> = "1.0.0"..<"1.1.0"
+            XCTAssertTrue(range.contains(version: "1.0.0"))
+            XCTAssertTrue(range.contains(version: "1.0.9"))
+
+            XCTAssertFalse(range.contains(version: "1.1.0"))
+            XCTAssertFalse(range.contains(version: "1.2.0"))
+            XCTAssertFalse(range.contains(version: "1.5.0"))
+            XCTAssertFalse(range.contains(version: "2.0.0"))
+            XCTAssertFalse(range.contains(version: "1.0.0-beta"))
+            XCTAssertFalse(range.contains(version: "1.0.10-clpha"))
+            XCTAssertFalse(range.contains(version: "1.1.0-alpha"))
+        }
+
+        do {
+            let range: Range<Version> = "1.0.0"..<"1.1.0-alpha"
+            XCTAssertTrue(range.contains(version: "1.0.0"))
+            XCTAssertTrue(range.contains(version: "1.0.9"))
+            XCTAssertTrue(range.contains(version: "1.0.1-beta"))
+            XCTAssertTrue(range.contains(version: "1.0.10-clpha"))
+
+            XCTAssertFalse(range.contains(version: "1.1.0"))
+            XCTAssertFalse(range.contains(version: "1.2.0"))
+            XCTAssertFalse(range.contains(version: "1.5.0"))
+            XCTAssertFalse(range.contains(version: "2.0.0"))
+            XCTAssertFalse(range.contains(version: "1.0.0-alpha"))
+            XCTAssertFalse(range.contains(version: "1.1.0-alpha"))
+            XCTAssertFalse(range.contains(version: "1.1.0-beta"))
+        }
+    }
+
     static var allTests = [
         ("testEquality", testEquality),
         ("testHashable", testHashable),
@@ -218,5 +294,6 @@ class VersionTests: XCTestCase {
         ("testFromString", testFromString),
         ("testOrder", testOrder),
         ("testRange", testRange),
+        ("testContains", testContains),
     ]
 }

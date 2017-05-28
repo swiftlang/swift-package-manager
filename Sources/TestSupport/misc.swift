@@ -33,7 +33,6 @@ import class Foundation.Bundle
 /// the name were a relative path.
 public func fixture(
     name: String,
-    tags: [String] = [],
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> Void
@@ -71,25 +70,13 @@ public func fixture(
             // Invoke the block, passing it the path of the copied fixture.
             try body(dstDir)
         } else {
-            // Not a single package, so we expect it to be a directory of packages.
-            var versions = tags
-            func popVersion() -> String {
-                if versions.isEmpty {
-                    return "1.2.3"
-                } else if versions.count == 1 {
-                    return versions.first!
-                } else {
-                    return versions.removeFirst()
-                }
-            }
-
             // Copy each of the package directories and construct a git repo in it.
             for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                 let srcDir = fixtureDir.appending(component: fileName)
                 guard isDirectory(srcDir) else { continue }
                 let dstDir = tmpDir.path.appending(component: fileName)
                 try systemQuietly("cp", "-R", "-H", srcDir.asString, dstDir.asString)
-                initGitRepo(dstDir, tag: popVersion(), addFile: false)
+                initGitRepo(dstDir, tag: "1.2.3", addFile: false)
             }
 
             // Invoke the block, passing it the path of the copied fixture.

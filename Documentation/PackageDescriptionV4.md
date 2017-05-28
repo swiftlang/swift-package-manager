@@ -119,7 +119,7 @@ available to other packages only if it is a part of some product.
 
 Two types of products are supported:
 
-* libary: A library product contains library targets. It should contain the
+* library: A library product contains library targets. It should contain the
     targets which are supposed to be used by other packages, i.e. the public API
     of a library package. The library product can be declared static, dynamic
     or automatic. It is recommended to use automatic so the Package Manager can
@@ -136,15 +136,15 @@ let package = Package(
     name: "Paper",
     products: [
         .executable(name: "tool", targets: ["tool"]),
-        .libary(name: "Paper", targets: ["Paper"]),
-        .libary(name: "PaperStatic", type: .static, targets: ["Paper"]),
-        .libary(name: "PaperDynamic", type: .dynamic, targets: ["Paper"]),
+        .library(name: "Paper", targets: ["Paper"]),
+        .library(name: "PaperStatic", type: .static, targets: ["Paper"]),
+        .library(name: "PaperDynamic", type: .dynamic, targets: ["Paper"]),
     ],
     dependencies: [
         .package(url: "http://github.com/SwiftyJSON/SwiftyJSON", from: "1.2.3"),
         .package(url: "../CHTTPParser", .upToNextMinor(from: "2.2.0")),
         .package(url: "http://some/other/lib", .exact("1.2.3")),
-    ]
+    ],
     targets: [
         .target(
             name: "tool",

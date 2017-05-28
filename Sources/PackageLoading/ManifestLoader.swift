@@ -16,7 +16,7 @@ import func POSIX.realpath
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest file is empty.
-    case emptyManifestFile
+    case emptyManifestFile(url: String, version: String?)
 
     /// The manifest had a string encoding error.
     case invalidEncoding
@@ -196,7 +196,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         // Get the json from manifest.
         guard let jsonString = parseResult.jsonString else {
-            throw ManifestParseError.emptyManifestFile
+            // FIXME: This only supports version right now, we need support for
+            // branch and revision too.
+            throw ManifestParseError.emptyManifestFile(url: baseURL, version: version?.description) 
         }
         let json = try JSON(string: jsonString)
 

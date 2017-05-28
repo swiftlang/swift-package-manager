@@ -30,10 +30,10 @@ class MiscellaneousTestCase: XCTestCase {
         // verifies the stdout contains information about
         // the selected version of the package
 
-        fixture(name: "DependencyResolution/External/Simple", tags: ["1.3.5"]) { prefix in
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
             let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertTrue(output.contains("Resolving"))
-            XCTAssertTrue(output.contains("at 1.3.5"))
+            XCTAssertTrue(output.contains("at 1.2.3"))
         }
     }
 
@@ -146,12 +146,6 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
             XCTAssertBuilds(prefix.appending(component: "app"))
-            XCTAssertBuilds(prefix.appending(component: "app"))
-        }
-    }
-
-    func testDependenciesWithVPrefixTagsWork() {
-        fixture(name: "DependencyResolution/External/Complex", tags: ["v1.2.3"]) { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
         }
     }
@@ -383,6 +377,15 @@ class MiscellaneousTestCase: XCTestCase {
       #endif
     }
 
+    func testSwiftTestFilter() throws {
+        #if os(macOS)
+            fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], chdir: prefix, printIfError: true)
+                XCTAssert(output.contains("testExample1"))
+            }
+        #endif
+    }
+
     func testExecutableAsBuildOrderDependency() throws {
         // Test that we can build packages which have modules depending on executable modules.
         fixture(name: "Miscellaneous/ExecDependency") { prefix in
@@ -515,7 +518,6 @@ class MiscellaneousTestCase: XCTestCase {
         ("testCanBuildMoreThanTwiceWithExternalDependencies", testCanBuildMoreThanTwiceWithExternalDependencies),
         ("testNoArgumentsExitsWithOne", testNoArgumentsExitsWithOne),
         ("testCompileFailureExitsGracefully", testCompileFailureExitsGracefully),
-        ("testDependenciesWithVPrefixTagsWork", testDependenciesWithVPrefixTagsWork),
         ("testCanBuildIfADependencyAlreadyCheckedOut", testCanBuildIfADependencyAlreadyCheckedOut),
         ("testCanBuildIfADependencyClonedButThenAborted", testCanBuildIfADependencyClonedButThenAborted),
         ("testTipHasNoPackageSwift", testTipHasNoPackageSwift),
@@ -530,6 +532,7 @@ class MiscellaneousTestCase: XCTestCase {
         ("testSpaces", testSpaces),
         ("testSecondBuildIsNullInModulemapGen", testSecondBuildIsNullInModulemapGen),
         ("testSwiftTestParallel", testSwiftTestParallel),
+        ("testSwiftTestFilter", testSwiftTestFilter),
         ("testOverridingSwiftcArguments", testOverridingSwiftcArguments),
         ("testPkgConfigClangModules", testPkgConfigClangModules),
         ("testCanKillSubprocessOnSigInt", testCanKillSubprocessOnSigInt),

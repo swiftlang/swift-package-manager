@@ -9,6 +9,7 @@
 */
 
 import libc
+import Dispatch
 
 /// Convert an integer in 0..<16 to its hexadecimal ASCII character.
 private func hexdigit(_ value: UInt8) -> UInt8 {
@@ -50,6 +51,9 @@ public class OutputByteStream: TextOutputStream {
     /// Default buffer size of the data buffer.
     private static let bufferSize = 1024
 
+    /// Queue to protect mutating operation.
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.basic.stream")
+
     init() {
         self.buffer = []
         self.buffer.reserveCapacity(OutputByteStream.bufferSize)
@@ -59,7 +63,9 @@ public class OutputByteStream: TextOutputStream {
 
     /// The current offset within the output stream.
     public final var position: Int {
-        return buffer.count
+        return queue.sync {
+            return buffer.count
+        }
     }
 
     /// Currently available buffer size.
@@ -75,9 +81,11 @@ public class OutputByteStream: TextOutputStream {
     // MARK: Data Output API
 
     public final func flush() {
-        writeImpl(buffer)
-        clearBuffer()
-        flushImpl()
+        queue.sync {
+            writeImpl(buffer)
+            clearBuffer()
+            flushImpl()
+        }
     }
 
     func flushImpl() {
@@ -90,6 +98,11 @@ public class OutputByteStream: TextOutputStream {
 
     /// Write an individual byte to the buffer.
     public final func write(_ byte: UInt8) {
+        queue.sync {
+            writeUnsafe(byte)
+        }
+    }
+    private final func writeUnsafe(_ byte: UInt8) {
         // If buffer is full, write and clear it.
         if availableBufferSize == 0 {
             writeImpl(buffer)
@@ -105,43 +118,44 @@ public class OutputByteStream: TextOutputStream {
     public final func write<C: Collection>(collection bytes: C) where
         C.IndexDistance == Int,
         C.Iterator.Element == UInt8,
-        C.SubSequence: Collection,
-        C.SubSequence.Iterator.Element == UInt8 {
-        // This is based on LLVM's raw_ostream.
-        let availableBufferSize = self.availableBufferSize
+        C.SubSequence: Collection {
+        queue.sync {
+            // This is based on LLVM's raw_ostream.
+            let availableBufferSize = self.availableBufferSize
 
-        // If we have to insert more than the available space in buffer.
-        if bytes.count > availableBufferSize {
-            // If buffer is empty, start writing and keep the last chunk in buffer.
-            if buffer.isEmpty {
-                let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
-                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: bytesToWrite)
-                writeImpl(bytes.prefix(upTo: writeUptoIndex))
+            // If we have to insert more than the available space in buffer.
+            if bytes.count > availableBufferSize {
+                // If buffer is empty, start writing and keep the last chunk in buffer.
+                if buffer.isEmpty {
+                    let bytesToWrite = bytes.count - (bytes.count % availableBufferSize)
+                    let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: bytesToWrite)
+                    writeImpl(bytes.prefix(upTo: writeUptoIndex))
 
-                // If remaining bytes is more than buffer size write everything.
-                let bytesRemaining = bytes.count - bytesToWrite
-                if bytesRemaining > availableBufferSize {
-                    writeImpl(bytes.suffix(from: writeUptoIndex))
+                    // If remaining bytes is more than buffer size write everything.
+                    let bytesRemaining = bytes.count - bytesToWrite
+                    if bytesRemaining > availableBufferSize {
+                        writeImpl(bytes.suffix(from: writeUptoIndex))
+                        return
+                    }
+                    // Otherwise keep remaining in buffer.
+                    buffer += bytes.suffix(from: writeUptoIndex)
                     return
                 }
-                // Otherwise keep remaining in buffer.
-                buffer += bytes.suffix(from: writeUptoIndex)
+
+                let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
+                // Append whatever we can accommodate.
+                buffer += bytes.prefix(upTo: writeUptoIndex)
+
+                writeImpl(buffer)
+                clearBuffer()
+
+                // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
+                //write(collection: bytes.suffix(from: writeUptoIndex))
+                writeImpl(bytes.suffix(from: writeUptoIndex))
                 return
             }
-
-            let writeUptoIndex = bytes.index(bytes.startIndex, offsetBy: availableBufferSize)
-            // Append whatever we can accommodate.
-            buffer += bytes.prefix(upTo: writeUptoIndex)
-
-            writeImpl(buffer)
-            clearBuffer()
-
-            // FIXME: We should start again with remaining chunk but this doesn't work. Write everything for now.
-            //write(collection: bytes.suffix(from: writeUptoIndex))
-            writeImpl(bytes.suffix(from: writeUptoIndex))
-            return
+            buffer += bytes
         }
-        buffer += bytes
     }
 
     /// Write the contents of a UnsafeBufferPointer<UInt8>.
@@ -161,10 +175,12 @@ public class OutputByteStream: TextOutputStream {
 
     /// Write a sequence of bytes to the buffer.
     public final func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
-        // Iterate the sequence and append byte by byte since sequence's append
-        // is not performant anyway.
-        for byte in sequence {
-            write(byte)
+        queue.sync {
+            // Iterate the sequence and append byte by byte since sequence's append
+            // is not performant anyway.
+            for byte in sequence {
+                writeUnsafe(byte)
+            }
         }
     }
 
@@ -198,45 +214,47 @@ public class OutputByteStream: TextOutputStream {
     /// does not write any other characters (like the quotes that would surround
     /// a JSON string).
     public final func writeJSONEscaped(_ string: String) {
-        // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
-        for character in string.utf8 {
-            // Handle string escapes; we use constants here to directly match the RFC.
-            switch character {
-                // Literal characters.
-            case 0x20...0x21, 0x23...0x5B, 0x5D...0xFF:
-                write(character)
+        queue.sync {
+            // See RFC7159 for reference: https://tools.ietf.org/html/rfc7159
+            for character in string.utf8 {
+                // Handle string escapes; we use constants here to directly match the RFC.
+                switch character {
+                    // Literal characters.
+                case 0x20...0x21, 0x23...0x5B, 0x5D...0xFF:
+                    writeUnsafe(character)
 
-                // Single-character escaped characters.
-            case 0x22: // '"'
-                write(0x5C) // '\'
-                write(0x22) // '"'
-            case 0x5C: // '\\'
-                write(0x5C) // '\'
-                write(0x5C) // '\'
-            case 0x08: // '\b'
-                write(0x5C) // '\'
-                write(0x62) // 'b'
-            case 0x0C: // '\f'
-                write(0x5C) // '\'
-                write(0x66) // 'b'
-            case 0x0A: // '\n'
-                write(0x5C) // '\'
-                write(0x6E) // 'n'
-            case 0x0D: // '\r'
-                write(0x5C) // '\'
-                write(0x72) // 'r'
-            case 0x09: // '\t'
-                write(0x5C) // '\'
-                write(0x74) // 't'
+                    // Single-character escaped characters.
+                    case 0x22: // '"'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x22) // '"'
+                    case 0x5C: // '\\'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x5C) // '\'
+                    case 0x08: // '\b'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x62) // 'b'
+                    case 0x0C: // '\f'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x66) // 'b'
+                    case 0x0A: // '\n'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x6E) // 'n'
+                    case 0x0D: // '\r'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x72) // 'r'
+                    case 0x09: // '\t'
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x74) // 't'
 
-                // Multi-character escaped characters.
-            default:
-                write(0x5C) // '\'
-                write(0x75) // 'u'
-                write(hexdigit(0))
-                write(hexdigit(0))
-                write(hexdigit(character >> 4))
-                write(hexdigit(character & 0xF))
+                    // Multi-character escaped characters.
+                default:
+                    writeUnsafe(0x5C) // '\'
+                    writeUnsafe(0x75) // 'u'
+                    writeUnsafe(hexdigit(0))
+                    writeUnsafe(hexdigit(0))
+                    writeUnsafe(hexdigit(character >> 4))
+                    writeUnsafe(hexdigit(character & 0xF))
+                }
             }
         }
     }
@@ -279,8 +297,7 @@ public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputBy
 public func <<< <C: Collection>(stream: OutputByteStream, value: C) -> OutputByteStream where
     C.Iterator.Element == UInt8,
     C.IndexDistance == Int,
-    C.SubSequence: Collection,
-    C.SubSequence.Iterator.Element == UInt8 {
+    C.SubSequence: Collection {
     stream.write(collection: value)
     return stream
 }

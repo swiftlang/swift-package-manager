@@ -23,25 +23,102 @@ public struct SortedArray<Element>: CustomStringConvertible {
         self.elements = []
         self.areInIncreasingOrder = areInIncreasingOrder
     }
+
+    /// Create a sorted array with the given sequence and comparison predicate.
+    public init<S: Sequence>(
+        _ newElements: S,
+        areInIncreasingOrder: @escaping (Element, Element) -> Bool)
+    where S.Iterator.Element == Element
+    {
+        self.elements = newElements.sorted(by: areInIncreasingOrder)
+        self.areInIncreasingOrder = areInIncreasingOrder
+    }
     
     /// Insert the given element, maintaining the sort order.
     public mutating func insert(_ newElement: Element) {
-        elements.append(newElement)
-        // FIXME: It is way too costly to sort again for just one element.
-        // We can use binary search to find the index for this element.
-        elements.sort(by: areInIncreasingOrder)
+        let index = self.index(for: newElement)
+        elements.insert(newElement, at: index)
+    }
+    
+    /// Returns the index to insert the element in the sorted array using binary search.
+    private func index(for element: Element) -> Index {
+        
+        if self.isEmpty {
+            return 0
+        }
+        var (low, high) = (0, self.endIndex - 1)
+        var mid = 0
+        
+        while low < high {
+            mid = (low + high)/2
+            if areInIncreasingOrder(self[mid], element) {
+                low = mid + 1
+            } else {
+                high = mid
+            }
+        }
+        
+        // At this point, low == high, low will never be greater than high, as low is incremented by just one or high is adjusted to mid.
+        
+        if areInIncreasingOrder(element, self[low]) {
+            return low
+        }
+        
+        return high + 1
     }
     
     /// Insert the given sequence, maintaining the sort order.
     public mutating func insert<S: Sequence>(contentsOf newElements: S) where S.Iterator.Element == Element {
+        var newElements: Array = newElements.sorted(by: areInIncreasingOrder)
+        guard !newElements.isEmpty else {
+            return
+        }
+        guard !elements.isEmpty else {
+            elements = newElements
+            return
+        }
+
+        var lhsIndex = elements.endIndex - 1
+        var rhsIndex = newElements.endIndex - 1
+
+        elements.reserveCapacity(elements.count + newElements.count)
+
+        // NOTE: If SortedArray moves to stdlib an _ArrayBuffer can be used
+        // instead. This append can then be removed as _ArrayBuffer can be
+        // resized without requiring instantiated elements.
         elements.append(contentsOf: newElements)
-        elements.sort(by: areInIncreasingOrder)
+
+        var lhs = elements[lhsIndex], rhs = newElements[rhsIndex]
+
+        // Equivalent to a merge sort, "pop" and append the max elemeent of
+        // each array until either array is empty.
+        for index in elements.indices.reversed() {
+            if areInIncreasingOrder(lhs, rhs) {
+                elements[index] = rhs
+                rhsIndex -= 1
+                guard rhsIndex >= newElements.startIndex else { break }
+                rhs = newElements[rhsIndex]
+            } else {
+                elements[index] = lhs
+                lhsIndex -= 1
+                guard lhsIndex >= elements.startIndex else { break }
+                lhs = elements[lhsIndex]
+            }
+        }
+
+        // Any remaining new elements were smaller than all old elements
+        // so the remaining new elements can safely replace the prefix.
+        if rhsIndex >= newElements.startIndex {
+            elements.replaceSubrange(
+                newElements.startIndex ... rhsIndex,
+                with: newElements[newElements.startIndex ... rhsIndex])
+        }
     }
 
-	/// Returns the values as an array.
-	public var values: [Element] {
-		return elements
-	}
+    /// Returns the values as an array.
+    public var values: [Element] {
+        return elements
+    }
     
     public var description: String {
         return "<SortedArray: \(elements)>"

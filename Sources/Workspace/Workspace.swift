@@ -50,9 +50,6 @@ public protocol WorkspaceDelegate: class {
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
 
-    /// The workspace operation emitted this warning.
-    func warning(message: String)
-
     /// Called when the managed dependencies are updated.
     func managedDependenciesDidUpdate(_ dependencies: AnySequence<ManagedDependency>)
 }
@@ -65,9 +62,6 @@ public extension WorkspaceDelegate {
 
 private class WorkspaceResolverDelegate: DependencyResolverDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
-
-    func added(container identifier: Identifier) {
-    }
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -238,6 +232,9 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let isResolverPrefetchingEnabled: Bool
 
+    /// Typealias for dependency resolver we use in the workspace.
+    fileprivate typealias PackageDependencyResolver = DependencyResolver<RepositoryPackageContainerProvider, WorkspaceResolverDelegate>
+
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -326,17 +323,26 @@ extension Workspace {
         }
     }
 
-    /// Ends the edit mode of a dependency which is in edit mode.
+    /// Ends the edit mode of an edited dependency.
+    ///
+    /// This will re-resolve the dependencies after ending edit as the original
+    /// checkout may be outdated.
     ///
     /// - Parameters:
     ///     - packageName: The name of the package to edit.
-    ///     - forceRemove: If true, the dependency will be unedited even if has
-    /// unpushed and uncommited changes. Otherwise will throw respective errors.
-    ///
-    /// - throws: WorkspaceError
-    public func unedit(packageName: String, forceRemove: Bool) throws {
+    ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
+    ///           or uncommited changes. Otherwise will throw respective errors.
+    ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///           and notes.
+    public func unedit(
+        packageName: String,
+        forceRemove: Bool,
+        root: WorkspaceRoot,
+        diagnostics: DiagnosticsEngine
+    ) throws {
         let dependency = try managedDependencies.dependency(forName: packageName)
-        try unedit(dependency: dependency, forceRemove: forceRemove)
+        try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
     /// Resolve a package at the given state.
@@ -370,27 +376,22 @@ extension Workspace {
             return diagnostics.emit(error)
         }
 
-        // Compute the checkout state.
-        //
-        // We use a dummy revision in case of version and branch because we
-        // might not know the needed revision at this point.
-        let checkoutState: CheckoutState
+        // Compute the custom or extra constraint we need to impose.
+        let requirement: RepositoryPackageConstraint.Requirement
         if let version = version {
-            checkoutState = CheckoutState(revision: Revision(identifier: ""), version: version)
+            requirement = .versionSet(.exact(version))
         } else if let branch = branch {
-            checkoutState = CheckoutState(revision: Revision(identifier: ""), branch: branch)
+            requirement = .revision(branch)
         } else if let revision = revision {
-            checkoutState = CheckoutState(revision: Revision(identifier: revision))
+            requirement = .revision(revision)
         } else {
-            checkoutState = currentState
+            requirement = currentState.requirement()
         }
-
-        // Create a pin with above checkout state.
-        let pin = PinsStore.Pin(
-            package: dependency.name, repository: dependency.repository, state: checkoutState)
+        let constraint = RepositoryPackageConstraint(
+                container: dependency.repository, requirement: requirement)
 
         // Run the resolution.
-        _resolve(root: root, extraPins: [pin], diagnostics: diagnostics)
+        _resolve(root: root, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -479,7 +480,7 @@ extension Workspace {
         updateConstraints += currentManifests.editedPackagesConstraints()
 
         // Resolve the dependencies.
-        let updateResults = resolveDependencies(dependencies: updateConstraints, pins: [], diagnostics: diagnostics)
+        let updateResults = resolveDependencies(dependencies: updateConstraints, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else { return }
 
 		// Update the checkouts based on new dependency resolution.
@@ -612,10 +613,14 @@ extension Workspace {
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                delegate.warning(message: "not checking out branch '\(checkoutBranch)' for dependency '\(packageName)'")
+                diagnostics.emit(WorkspaceDiagnostics.EditBranchNotCheckedOut(
+                    packageName: packageName,
+                    branchName: checkoutBranch))
             }
             if let revision = revision {
-                delegate.warning(message: "not using revsion '\(revision.identifier)' for dependency '\(packageName)'")
+                diagnostics.emit(WorkspaceDiagnostics.EditRevisionNotUsed(
+                    packageName: packageName,
+                    revisionIdentifier: revision.identifier))
             }
         } else {
             // Otherwise, create a checkout at the destination from our repository store.
@@ -665,7 +670,12 @@ extension Workspace {
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
-    fileprivate func unedit(dependency: ManagedDependency, forceRemove: Bool) throws {
+    fileprivate func unedit(
+        dependency: ManagedDependency,
+        forceRemove: Bool,
+        root: WorkspaceRoot? = nil,
+        diagnostics: DiagnosticsEngine
+    ) throws {
 
         // Compute if we need to force remove.
         var forceRemove = forceRemove
@@ -708,6 +718,12 @@ extension Workspace {
         managedDependencies[dependency.repository] = dependency.basedOn
         // Save the state.
         try managedDependencies.saveState()
+
+        // Resolve the dependencies if workspace root is provided. We do this to
+        // ensure the unedited version of this dependency is resolved properly.
+        if let root = root {
+            resolve(root: root, diagnostics: diagnostics)
+        }
     }
 
 }
@@ -780,10 +796,8 @@ extension Workspace {
     ) -> DependencyManifests {
 
         // Try to load current managed dependencies, or emit and return.
-        do {
-            try fixManagedDependencies()
-        } catch {
-            diagnostics.emit(error)
+        fixManagedDependencies(with: diagnostics)
+        guard !diagnostics.hasErrors else {
             return DependencyManifests(root: root, dependencies: [])
         }
 
@@ -867,14 +881,14 @@ extension Workspace {
 
     /// Implementation of resolve(root:diagnostics:).
     ///
-    /// The extra pins will override the pin of the same package in the
-    /// pinsStore.  It is useful in situations where a requirement is being
+    /// The extra constraints will be added to the main requirements.
+    /// It is useful in situations where a requirement is being
     /// imposed outside of manifest and pins file. E.g., when using a command
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
     fileprivate func _resolve(
         root: WorkspaceRoot,
-        extraPins: [PinsStore.Pin] = [],
+        extraConstraints: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> DependencyManifests {
 
@@ -899,17 +913,18 @@ extension Workspace {
         // The pins to use in case we need to run the resolution.
         var validPins = pinsStore.createConstraints()
 
-        // Compute if we need to run the resolver.
+        // Compute if we need to run the resolver. We always run the resolver if
+        // there are extra constraints.
         if missingURLs.isEmpty {
             // Use root constraints, dependency manifest constraints and extra
-            // pins to compute if a new resolution is required.
-            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints()
-            extraPins.forEach(pinsStore.add)
+            // constraints to compute if a new resolution is required.
+            let dependencies = graphRoot.constraints + currentManifests.dependencyConstraints() + extraConstraints
 
             let result = isResolutionRequired(dependencies: dependencies, pinsStore: pinsStore)
 
-            // If we don't need resolution, just validate pinsStore and return.
-            if !result.resolve {
+            // If we don't need resolution and there are no extra constraints,
+            // just validate pinsStore and return.
+            if !result.resolve && extraConstraints.isEmpty {
                 validatePinsStore(with: diagnostics)
                 return currentManifests
             }
@@ -919,13 +934,31 @@ extension Workspace {
 
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
-        constraints += graphRoot.constraints
+        constraints += graphRoot.constraints + extraConstraints
         constraints += currentManifests.editedPackagesConstraints()
 
         // Perform dependency resolution.
-        let result = resolveDependencies(dependencies: constraints, pins: validPins, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
-            return currentManifests
+        let resolverDiagnostics = DiagnosticsEngine()
+        let resolver = createResolver()
+        var result = resolveDependencies(
+            resolver: resolver, dependencies: constraints, pins: validPins, diagnostics: resolverDiagnostics)
+
+        // If we fail, we just try again without any pins because the pins might
+        // be completely incompatible.
+        //
+        // FIXME: We should only do this if resolver emits "unresolvable" error.
+        if resolverDiagnostics.hasErrors {
+            // If there are no pins, merge diagnostics and return now.
+            if validPins.isEmpty {
+                diagnostics.merge(resolverDiagnostics)
+                return currentManifests
+            }
+
+            // Run using the same resolver so we don't re-add the containers, we already have.
+            result = resolveDependencies(resolver: resolver, dependencies: constraints, diagnostics: diagnostics)
+            guard !diagnostics.hasErrors else {
+                return currentManifests
+            }
         }
 
         // Update the checkouts with dependency resolution result.
@@ -1128,17 +1161,22 @@ extension Workspace {
         return packageStateChanges
     }
 
+    /// Creates resolver for the workspace.
+    fileprivate func createResolver() -> PackageDependencyResolver {
+        let resolverDelegate = WorkspaceResolverDelegate()
+        return DependencyResolver(containerProvider, resolverDelegate,
+            isPrefetchingEnabled: isResolverPrefetchingEnabled)
+    }
+
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
+        resolver: PackageDependencyResolver? = nil,
         dependencies: [RepositoryPackageConstraint],
-        pins: [RepositoryPackageConstraint],
+        pins: [RepositoryPackageConstraint] = [],
         diagnostics: DiagnosticsEngine
     ) -> [(container: WorkspaceResolverDelegate.Identifier, binding: BoundVersion)] {
-        let resolverDelegate = WorkspaceResolverDelegate()
+        let resolver = resolver ?? createResolver()
 
-        // Run the resolver.
-        let resolver = DependencyResolver(containerProvider, resolverDelegate,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled)
         let result = resolver.resolve(dependencies: dependencies, pins: pins)
 
         // Take an action based on the result.
@@ -1169,22 +1207,29 @@ extension Workspace {
     /// If some checkout dependency is reomved form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    fileprivate func fixManagedDependencies() throws {
+    fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
         for dependency in managedDependencies.values {
-            let dependencyPath = path(for: dependency)
-            if !fileSystem.isDirectory(dependencyPath) {
+            diagnostics.wrap {
+
+                // If the dependency is present, we're done.
+                let dependencyPath = path(for: dependency)
+                guard !fileSystem.isDirectory(dependencyPath) else { return }
+
                 switch dependency.state {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(repository: dependency.repository, at: checkoutState)
-                    // FIXME: Use diagnostics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) is missing and has been cloned again.")
+                    diagnostics.emit(WorkspaceDiagnostics.CheckedOutDependencyMissing(packageName: dependency.name))
+
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
-                    try unedit(dependency: dependency, forceRemove: true)
-                    // FIXME: Use diagnostics engine when we have that.
-                    delegate.warning(message: "\(dependency.subpath.asString) was being edited but has been removed, " +
-                        "falling back to original checkout.")
+                    //
+                    // Note: We don't resolve the dependencies when unediting
+                    // here because we expect this method to be called as part
+                    // of some other resolve operation (i.e. resolve, update, etc).
+                    try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
+
+                    diagnostics.emit(WorkspaceDiagnostics.EditedDependencyMissing(packageName: dependency.name))
                 }
             }
         }
@@ -1353,32 +1398,29 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     private func remove(specifier: RepositorySpecifier) throws {
-        guard var dependency = managedDependencies[specifier] else {
+        
+        guard let dependency = managedDependencies[specifier] else {
             fatalError("This should never happen, trying to remove \(specifier) which isn't in workspace")
         }
-
-        // If this dependency is based on a dependency, switch to that because
-        // we don't want to touch the editable checkout here.
-        //
-        // FIXME: This will remove also the data about the editable dependency
-        // and it will not be possible to "unedit" that dependency anymore.  To
-        // do that we need to persist the value of isInEditableState and also
-        // store the package names in managed dependencies, because it will not
-        // be possible to lookup these dependencies using their manifests as we
-        // won't have them anymore.
-        // https://bugs.swift.org/browse/SR-3689
-        if let basedOn = dependency.basedOn {
-            dependency = basedOn
-        }
-
+        
         // Inform the delegate.
         delegate.removing(repository: dependency.repository.url)
+        
+        // Compute the dependency which we need to remove.
+        let dependencyToRemove: ManagedDependency
 
-        // Remove the repository from dependencies.
-        managedDependencies[dependency.repository] = nil
-
+        if let basedOn = dependency.basedOn {
+            // Remove the underlying dependency for edited packages.
+            dependencyToRemove = basedOn
+            dependency.basedOn = nil
+            managedDependencies[dependency.repository] = dependency
+        } else {
+            dependencyToRemove = dependency
+            managedDependencies[dependencyToRemove.repository] = nil
+        }
+        
         // Remove the checkout.
-        let dependencyPath = checkoutsPath.appending(dependency.subpath)
+        let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
         let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
         guard !checkedOutRepo.hasUncommitedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
@@ -1388,7 +1430,7 @@ extension Workspace {
         fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
-        try repositoryManager.remove(repository: dependency.repository)
+        try repositoryManager.remove(repository: dependencyToRemove.repository)
 
         // Save the state.
         try managedDependencies.saveState()

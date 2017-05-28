@@ -58,6 +58,15 @@ extension PackageContainerConstraint where T == String {
     }
 }
 
+extension PackageContainerProvider {
+    public func getContainer(
+        for identifier: Container.Identifier,
+        completion: @escaping (Result<Container, AnyError>) -> Void
+    ) {
+        getContainer(for: identifier, skipUpdate: false, completion: completion)
+    }
+}
+
 public enum MockLoadingError: Error {
     case unknownModule
 }
@@ -159,6 +168,7 @@ public struct MockPackagesProvider: PackageContainerProvider {
 
     public func getContainer(
         for identifier: Container.Identifier,
+        skipUpdate: Bool,
         completion: @escaping (Result<Container, AnyError>
     ) -> Void) {
         DispatchQueue.global().async {
@@ -170,12 +180,6 @@ public struct MockPackagesProvider: PackageContainerProvider {
 
 public class MockResolverDelegate: DependencyResolverDelegate {
     public typealias Identifier = MockPackageContainer.Identifier
-
-    public var messages = [String]()
-
-    public func added(container identifier: Identifier) {
-        messages.append("added container: \(identifier)")
-    }
 
     public init() {}
 }

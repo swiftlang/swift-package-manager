@@ -176,6 +176,31 @@ class OutputByteStreamTests: XCTestCase {
         XCTAssertEqual(read(), "Hello World")
     }
 
+    func testThreadSafeStream() {
+        var threads = [Thread]()
+
+        let stream = BufferedOutputByteStream()
+
+        let t1 = Thread {
+            for _ in 0..<1000 {
+                stream <<< "Hello"
+            }
+        }
+        threads.append(t1)
+
+        let t2 = Thread {
+            for _ in 0..<1000 {
+                stream.write("Hello")
+            }
+        }
+        threads.append(t2)
+
+        threads.forEach { $0.start() }
+        threads.forEach { $0.join() }
+
+        XCTAssertEqual(stream.bytes.count, 5 * 2000)
+    }
+
     static var allTests = [
         ("testBasics", testBasics),
         ("testBufferCorrectness", testBufferCorrectness),
@@ -183,5 +208,6 @@ class OutputByteStreamTests: XCTestCase {
         ("testJSONEncoding", testJSONEncoding),
         ("testFormattedOutput", testFormattedOutput),
         ("testLocalFileStream", testLocalFileStream),
+        ("testThreadSafeStream", testThreadSafeStream),
     ]
 }

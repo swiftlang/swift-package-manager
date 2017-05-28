@@ -19,6 +19,8 @@ class DictionaryExtensionTests: XCTestCase {
 
         XCTAssertEqual(Dictionary(items: [(1, 1), (1, nil)]), [:])
         XCTAssertEqual(Dictionary(items: [(1, 1), (2, nil), (3, 4)]), [1: 1, 3: 4])
+
+        XCTAssertEqual(["foo": "1", "bar": "2", "baz": "f"].flatMapValues({ Int($0) }), ["foo": 1, "bar": 2])
     }
     
     static var allTests = [

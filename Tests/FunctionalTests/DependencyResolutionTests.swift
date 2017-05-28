@@ -42,11 +42,10 @@ class DependencyResolutionTests: XCTestCase {
 
     /// Check resolution of a trivial package with one dependency.
     func testExternalSimple() {
-        // This will tag 'Foo' with 1.0.0, to start.
-        fixture(name: "DependencyResolution/External/Simple", tags: ["1.0.0"]) { prefix in
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
             // Add several other tags to check version selection.
             let repo = GitRepository(path: prefix.appending(components: "Foo"))
-            for tag in ["1.1.0", "1.2.0", "1.2.3"] {
+            for tag in ["1.1.0", "1.2.0"] {
                 try repo.tag(name: tag)
             }
 

@@ -168,6 +168,9 @@ extension Target {
 
         /// The target contains an invalid mix of languages (e.g. both Swift and C).
         case mixedSources(String)
+
+        /// The manifest contains duplicate targets.
+        case duplicateTargets([String])
     }
 }
 
@@ -178,6 +181,8 @@ extension Target.Error: FixableError {
             return "the directory \(path) has an invalid name ('\(name)'): \(problem.error)"
           case .mixedSources(let path):
             return "the target at \(path) contains mixed language source files"
+        case .duplicateTargets(let targets):
+            return "duplicate targets found: " + targets.joined(separator: ", ")
         }
     }
 
@@ -187,6 +192,8 @@ extension Target.Error: FixableError {
             return "rename the directory '\(path)'\(problem.fix ?? "")"
         case .mixedSources(_):
             return "use only a single language within a target"
+        case .duplicateTargets:
+            return nil
         }
     }
 }
@@ -456,6 +463,14 @@ public final class PackageBuilder {
 
     /// Private function that creates and returns a list of targets defined by a package.
     private func constructTargets() throws -> [Target] {
+
+        // Ensure no dupicate target definitions are found.
+        let duplicateTargetNames: [String] = manifest.package.targets.map({ $0.name
+        }).findDuplicates()
+        
+        if !duplicateTargetNames.isEmpty {
+            throw Target.Error.duplicateTargets(duplicateTargetNames)
+        }
 
         // Check for a modulemap file, which indicates a system target.
         let moduleMapPath = packagePath.appending(component: moduleMapFilename)
@@ -828,6 +843,7 @@ public final class PackageBuilder {
         // Create and return the right kind of target depending on what kind of sources we found.
         if cSources.isEmpty {
             guard !swiftSources.isEmpty else { return nil }
+            let swiftSources = Array(swiftSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: swiftSources)
             // No C sources, so we expect to have Swift sources, and we create a Swift target.
             return SwiftTarget(
@@ -840,6 +856,7 @@ public final class PackageBuilder {
         } else {
             // No Swift sources, so we expect to have C sources, and we create a C target.
             guard swiftSources.isEmpty else { throw Target.Error.mixedSources(potentialModule.path.asString) }
+            let cSources = Array(cSources)
             try validateSourcesOverlapping(forTarget: potentialModule.name, sources: cSources)
             return ClangTarget(
                 name: potentialModule.name,

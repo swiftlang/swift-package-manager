@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0830"
+   LastUpgradeVersion = "9999"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -16,7 +16,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_1169"
+               BlueprintIdentifier = "OBJ_638"
                BuildableName = "BasicPerformanceTests.xctest"
                BlueprintName = "BasicPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
@@ -26,7 +26,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_1185"
+               BlueprintIdentifier = "OBJ_596"
                BuildableName = "FunctionalPerformanceTests.xctest"
                BlueprintName = "FunctionalPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
@@ -36,7 +36,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_986"
+               BlueprintIdentifier = "OBJ_910"
                BuildableName = "PackageGraphPerformanceTests.xctest"
                BlueprintName = "PackageGraphPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">
@@ -46,7 +46,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "OBJ_1297"
+               BlueprintIdentifier = "OBJ_509"
                BuildableName = "PackageLoadingPerformanceTests.xctest"
                BlueprintName = "PackageLoadingPerformanceTests"
                ReferencedContainer = "container:SwiftPM.xcodeproj">

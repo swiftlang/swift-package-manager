@@ -56,7 +56,7 @@ public final class ManagedDependency: JSONMappable, JSONSerializable {
     ///
     /// This information is useful so it can be restored when users 
     /// unedit a package.
-    let basedOn: ManagedDependency?
+    var basedOn: ManagedDependency?
 
     init(
         name: String,

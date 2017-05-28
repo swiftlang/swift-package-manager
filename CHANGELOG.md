@@ -1,5 +1,10 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift 4.0
+---------
+* `--specifier` option for `swift test` is now deprecated.
+  Use `--filter` instead which supports regex.
+
 Swift 3.0
 ---------
 

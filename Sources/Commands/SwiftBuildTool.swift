@@ -33,10 +33,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             checkClangVersion()
           #endif
 
-            let graph = try loadPackageGraph()
-            // If we don't have any targets in root package, we're done.
-            guard !graph.rootPackages[0].targets.isEmpty else { break }
-            try build(graph: graph, includingTests: options.buildTests, config: options.config)
+            try build(includingTests: options.buildTests)
 
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
@@ -48,11 +45,6 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             option: parser.add(option: "--build-tests", kind: Bool.self,
                 usage: "Build the both source and test targets"),
             to: { $0.buildTests = $1 })
-
-        binder.bind(
-            option: parser.add(option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
-                usage: "Build with configuration (debug|release) [default: debug]"),
-            to: { $0.config = $1 })
     }
 
     private func checkClangVersion() {
@@ -82,9 +74,6 @@ public class BuildToolOptions: ToolOptions {
 
     /// If the test should be built.
     var buildTests = false
-
-    /// Build configuration.
-    var config: Build.Configuration = .debug
 }
 
 public enum BuildToolMode {
@@ -93,11 +82,4 @@ public enum BuildToolMode {
 
     /// Print the version.
     case version
-}
-
-extension Build.Configuration: StringEnumArgument {
-    public static var completion: ShellCompletion = .values([
-        (debug.rawValue, "build with DEBUG configuration"),
-        (release.rawValue, "build with RELEASE configuration"),
-    ])
 }

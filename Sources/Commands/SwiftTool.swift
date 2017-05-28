@@ -65,6 +65,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 }
 
 public class SwiftTool<Options: ToolOptions> {
+    /// The original working directory.
+    let originalWorkingDirectory: AbsolutePath
+    
     /// The options of this tool.
     let options: Options
 
@@ -100,11 +103,16 @@ public class SwiftTool<Options: ToolOptions> {
     /// The diagnostics engine.
     let diagnostics = DiagnosticsEngine()
 
+    /// The execution status of the tool.
+    var executionStatus: ExecutionStatus = .success
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(toolName: String, usage: String, overview: String, args: [String]) {
-
+        // Capture the original working directory ASAP.
+        originalWorkingDirectory = currentWorkingDirectory
+        
         // Create the parser.
         parser = ArgumentParser(
             commandName: "swift \(toolName)",
@@ -117,16 +125,22 @@ public class SwiftTool<Options: ToolOptions> {
         // Bind the common options.
         binder.bindArray(
             parser.add(
-                option: "-Xcc", kind: [String].self,
+                option: "-Xcc", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all C compiler invocations"),
             parser.add(
-                option: "-Xswiftc", kind: [String].self,
+                option: "-Xswiftc", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all Swift compiler invocations"),
             parser.add(
-                option: "-Xlinker", kind: [String].self,
+                option: "-Xlinker", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all linker invocations"),
             to: { $0.buildFlags = BuildFlags(xcc: $1, xswiftc: $2, xlinker: $3) })
 
+        binder.bind(
+            option: parser.add(
+                option: "--configuration", shortName: "-c", kind: Build.Configuration.self,
+                usage: "Build with configuration (debug|release) [default: debug]"),
+            to: { $0.configuration = $1 })
+        
         binder.bind(
             option: parser.add(
                 option: "--build-path", kind: PathArgument.self,
@@ -204,6 +218,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         } catch {
             handle(error: error)
+            SwiftTool.exit(with: .failure)
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
@@ -263,14 +278,25 @@ public class SwiftTool<Options: ToolOptions> {
             // Print any non fatal diagnostics like warnings, notes.
             printDiagnostics()
         } catch {
+            // Set execution status to failure in case of errors.
+            executionStatus = .failure
             printDiagnostics()
             handle(error: error)
         }
+        SwiftTool.exit(with: executionStatus)
     }
 
     private func printDiagnostics() {
         for diagnostic in diagnostics.diagnostics {
             print(diagnostic: diagnostic)
+        }
+    }
+
+    /// Exit the tool with the given execution status.
+    private static func exit(with status: ExecutionStatus) -> Never {
+        switch status {
+        case .success: POSIX.exit(0)
+        case .failure: POSIX.exit(1)
         }
     }
 
@@ -318,19 +344,20 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Build the package graph using swift-build-tool.
-    func build(graph: PackageGraph, includingTests: Bool, config: Build.Configuration) throws {
-        // Create build parameters.
-        let buildParameters = BuildParameters(
-            dataPath: buildPath,
-            configuration: config,
-            toolchain: try getToolchain(),
-            flags: options.buildFlags
-        )
-        let yaml = buildPath.appending(component: config.dirname + ".yaml")
-        // Create build plan.
-        let buildPlan = try BuildPlan(buildParameters: buildParameters, graph: graph, delegate: self)
+    func build(includingTests: Bool) throws {
+        try build(plan: buildPlan(), includingTests: includingTests)
+    }
+    
+    /// Build the package graph using swift-build-tool.
+    func build(plan: BuildPlan, includingTests: Bool) throws {
+        guard !plan.graph.rootPackages[0].targets.isEmpty else {
+            warning(message: "no targets to build in package")
+            return
+        }
+
+        let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
         // Generate llbuild manifest.
-        let llbuild = LLbuildManifestGenerator(buildPlan)
+        let llbuild = LLbuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
@@ -366,6 +393,18 @@ public class SwiftTool<Options: ToolOptions> {
         }
     }
 
+    /// Generates a BuildPlan based on the tool's options.
+    func buildPlan() throws -> BuildPlan {
+        return try BuildPlan(
+            buildParameters: BuildParameters(
+                dataPath: buildPath,
+                configuration: options.configuration,
+                toolchain: try getToolchain(),
+                flags: options.buildFlags),
+            graph: try loadPackageGraph(),
+            delegate: self)
+    }
+
     /// Lazily compute the destination toolchain.
     private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
         // Create custom toolchain if present.
@@ -381,7 +420,8 @@ public class SwiftTool<Options: ToolOptions> {
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, AnyError> = {
         return Result(anyError: {
-            try UserToolchain(destination: Destination.hostDestination())
+            try UserToolchain(destination: Destination.hostDestination(
+                        originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 
@@ -394,6 +434,12 @@ public class SwiftTool<Options: ToolOptions> {
             )
         })
     }()
+
+    /// An enum indicating the execution status of run commands.
+    enum ExecutionStatus {
+        case success
+        case failure
+    }
 }
 
 extension SwiftTool: BuildPlanDelegate {
@@ -455,4 +501,11 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.asString!
+}
+
+extension Build.Configuration: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (debug.rawValue, "build with DEBUG configuration"),
+        (release.rawValue, "build with RELEASE configuration"),
+    ])
 }

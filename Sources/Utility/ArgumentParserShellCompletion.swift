@@ -60,9 +60,9 @@ extension ArgumentParser {
         // first argument. So no options (like --all) will be suggested. However after
         // the positional argument; [swift package pin MyPackage <TAB>] will list them
         // just fine.
-        for (position, option) in positionalArgs.enumerated() {
-            stream <<< "    if [[ $COMP_CWORD == $(($1+\(position))) ]]; then\n"
-            generateBashCompletion(option, on: stream)
+        for (index, argument) in positionalArguments.enumerated() {
+            stream <<< "    if [[ $COMP_CWORD == $(($1+\(index))) ]]; then\n"
+            generateBashCompletion(argument, on: stream)
             stream <<< "    fi\n"
         }
 
@@ -72,7 +72,7 @@ extension ArgumentParser {
         for (subName, _) in subparsers {
             completions.append(subName)
         }
-        for option in options {
+        for option in optionArguments {
             completions.append(option.name)
             if let shortName = option.shortName {
                 completions.append(shortName)
@@ -108,10 +108,10 @@ extension ArgumentParser {
 
     fileprivate func generateBashCasePrev(on stream: OutputByteStream) {
         stream <<< "    case $prev in\n"
-        for option in options {
-            let flags = [option.name] + (option.shortName.map({ [$0] }) ?? [])
+        for argument in optionArguments {
+            let flags = [argument.name] + (argument.shortName.map({ [$0] }) ?? [])
             stream <<< "        (\(flags.joined(separator: "|")))\n"
-            generateBashCompletion(option, on: stream)
+            generateBashCompletion(argument, on: stream)
             stream <<< "        ;;\n"
         }
         stream <<< "    esac\n"
@@ -140,13 +140,13 @@ extension ArgumentParser {
         // Completions are provided by zsh's _arguments builtin.
         stream <<< "\(name)() {\n"
         stream <<< "    arguments=(\n"
-        for option in positionalArgs {
+        for argument in positionalArguments {
             stream <<< "        \""
-            generateZshCompletion(option, on: stream)
+            generateZshCompletion(argument, on: stream)
             stream <<< "\"\n"
         }
-        for option in options {
-            generateZshArgument(option, on: stream)
+        for argument in optionArguments {
+            generateZshArgument(argument, on: stream)
         }
 
         // Use a simple state-machine when dealing with sub parsers.
