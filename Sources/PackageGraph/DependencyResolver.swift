@@ -12,13 +12,13 @@ import Basic
 import struct Utility.Version
 import class Foundation.NSDate
 
-public enum DependencyResolverError: Error, Equatable {
+public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
     /// The resolver was unable to find a solution to the input constraints.
     case unsatisfiable
 
     /// The resolver encountered a versioned container which has a revision dependency.
     case revisionConstraints(
-        dependency: AnyPackageContainerIdentifier,
+        dependency: (AnyPackageContainerIdentifier, String),
         revisions: [(AnyPackageContainerIdentifier, String)])
 
     public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
@@ -32,6 +32,24 @@ public enum DependencyResolverError: Error, Equatable {
             return lDependency == rDependency && lRevisions == rRevisions
         case (.revisionConstraints, _):
             return false
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .unsatisfiable:
+            return "unable to resolve dependencies"
+        case let .revisionConstraints(dependency, revisions):
+            let stream = BufferedOutputByteStream()
+            stream <<< "the package \(dependency.0.identifier) @ \(dependency.1) contains revisioned dependencies:\n"
+            for (i, revision) in revisions.enumerated() {
+                stream <<< "    "
+                stream <<< "\(revision.0.identifier)" <<< " @ " <<< revision.1
+                if i != revisions.count - 1 {
+                    stream  <<< "\n"
+                }
+            }
+            return stream.bytes.asString!
         }
     }
 }
@@ -1013,7 +1031,7 @@ public class DependencyResolver<
                     // If we have any revision constraints, set the error and abort.
                     guard revisionConstraints.isEmpty else {
                         self.error = DependencyResolverError.revisionConstraints(
-                            dependency: AnyPackageContainerIdentifier(container.identifier),
+                            dependency: (AnyPackageContainerIdentifier(container.identifier), version.description),
                             revisions: revisionConstraints)
                         return AnySequence([])
                     }
