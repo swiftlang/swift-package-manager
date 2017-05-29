@@ -557,7 +557,7 @@ class PackageBuilderTests: XCTestCase {
             ])
 
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced targets could not be found: Bam fix: reference only valid targets")
+            result.checkDiagnostic("could not find target(s): Bam. Use \'path\' property in Swift 4 manifest to set a custom target path.")
         }
     }
 
@@ -611,7 +611,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift",
             "/Tests/source.swift")
         PackageBuilderTester("LooseSourceFileInTestsDir", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Tests/source.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Tests/source.swift")
         }
     }
     
@@ -621,13 +621,13 @@ class PackageBuilderTests: XCTestCase {
             "/Foo.swift")
         var package = PackageDescription.Package(name: "pkg", targets: [.init(name: "Random")])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced targets could not be found: Random fix: reference only valid targets")
+            result.checkDiagnostic("could not find target(s): Random. Use \'path\' property in Swift 4 manifest to set a custom target path.")
         }
 
         // Reference an invalid dependency.
         package = PackageDescription.Package(name: "pkg", targets: [.init(name: "pkg", dependencies: ["Foo"])])
         PackageBuilderTester(package, in: fs) { result in
-            result.checkDiagnostic("these referenced targets could not be found: Foo fix: reference only valid targets")
+            result.checkDiagnostic("could not find target(s): Foo. Use \'path\' property in Swift 4 manifest to set a custom target path.")
         }
 
         // Reference self in dependencies.
@@ -770,7 +770,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Foo.swift, /main.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Foo.swift, /main.swift")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -779,7 +779,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/FooBarLib/FooBar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /Sources, /src fix: remove the extra source roots, or add them to the source root exclude list")
+            result.checkDiagnostic("the package has an unsupported layout, multiple source roots found: /Sources, /src")
         }
     }
 
@@ -795,7 +795,7 @@ class PackageBuilderTests: XCTestCase {
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
         }
     }
 
@@ -813,7 +813,7 @@ class PackageBuilderTests: XCTestCase {
             "/main.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
         }
     }
 
@@ -830,7 +830,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/main.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Sources/main.swift")
         }
     }
 
@@ -847,7 +847,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/File2.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /main.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /main.swift")
         }
     }
 
@@ -868,7 +868,7 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /File1.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /File1.swift")
         }
     }
 
@@ -879,7 +879,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, unexpected source file(s) found: /Sources/file.swift fix: move the file(s) inside a target")
+            result.checkDiagnostic("the package has an unsupported layout, found loose source files: /Sources/file.swift")
         }
     }
 
@@ -901,7 +901,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, modulemap (/Sources/module.modulemap) is not allowed to be mixed with sources fix: move the modulemap inside include directory")
+            result.checkDiagnostic("the package has an unsupported layout, the modulemap /Sources/module.modulemap should be inside the \'include\' directory")
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -910,7 +910,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/bar.swift")
 
         PackageBuilderTester("MyPackage", in: fs) { result in
-            result.checkDiagnostic("the package has an unsupported layout, modulemap (/Sources/Foo/module.modulemap) is not allowed to be mixed with sources fix: move the modulemap inside include directory")
+            result.checkDiagnostic("the package has an unsupported layout, the modulemap /Sources/Foo/module.modulemap should be inside the \'include\' directory")
         }
     }
 

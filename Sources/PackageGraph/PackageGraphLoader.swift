@@ -27,8 +27,8 @@ enum PackageGraphError: Swift.Error {
     case productDependencyIncorrectPackage(name: String, package: String)
 }
 
-extension PackageGraphError: FixableError {
-    var error: String {
+extension PackageGraphError: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .noModules(let package):
             return "the package \(package) contains no targets"
@@ -43,15 +43,6 @@ extension PackageGraphError: FixableError {
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "The product dependency '\(name)' on package '\(package)' was not found."
-        }
-    }
-
-    var fix: String? {
-        switch self {
-        case .noModules:
-            return "create at least one target"
-        case .cycleDetected, .productDependencyNotFound, .productDependencyIncorrectPackage:
-            return nil
         }
     }
 }

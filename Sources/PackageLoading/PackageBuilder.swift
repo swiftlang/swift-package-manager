@@ -22,6 +22,13 @@ fileprivate typealias Target = PackageModel.Target
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
 
+    /// Describes a way in which a package layout is invalid.
+    public enum InvalidLayoutType {
+        case multipleSourceRoots([String])
+        case unexpectedSourceFiles([String])
+        case modulemapInSources(String)
+    }
+
     /// Indicates two targets with the same name.
     case duplicateModule(String)
 
@@ -30,13 +37,6 @@ public enum ModuleError: Swift.Error {
 
     /// Package layout is invalid.
     case invalidLayout(InvalidLayoutType)
-
-        /// Describes a way in which a package layout is invalid.
-        public enum InvalidLayoutType {
-            case multipleSourceRoots([String])
-            case unexpectedSourceFiles([String])
-            case modulemapInSources(String)
-        }
 
     /// The manifest has invalid configuration wrt type of the target.
     case invalidManifestConfig(String, String)
@@ -63,15 +63,16 @@ public enum ModuleError: Swift.Error {
     case targetOutsidePackage(package: String, target: String)
 }
 
-extension ModuleError: FixableError {
-    public var error: String {
+extension ModuleError: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .duplicateModule(let name):
-            return "multiple targets with the name \(name) found"
+            return "found multiple targets named \(name)"
         case .modulesNotFound(let targets):
-            return "these referenced targets could not be found: " + targets.joined(separator: ", ")
+            let targets = targets.joined(separator: ", ")
+            return "could not find target(s): \(targets). Use 'path' property in Swift 4 manifest to set a custom target path."
         case .invalidLayout(let type):
-            return "the package has an unsupported layout, \(type.error)"
+            return "the package has an unsupported layout, \(type)"
         case .invalidManifestConfig(let package, let message):
             return "invalid configuration in '\(package)': \(message)"
         case .cycleDetected(let cycle):
@@ -97,55 +98,17 @@ extension ModuleError: FixableError {
             return "The target \(target) in package \(package) is outside the package root."
         }
     }
-
-    public var fix: String? {
-        switch self {
-        case .duplicateModule:
-            return "targets should have a unique name across dependencies"
-        case .modulesNotFound:
-            return "reference only valid targets"
-        case .invalidLayout(let type):
-            return type.fix
-        case .invalidManifestConfig:
-            return nil
-        case .cycleDetected:
-            return nil
-        case .invalidPublicHeadersDirectory:
-            return nil
-        case .overlappingSources:
-            return nil
-        case .multipleLinuxMainFound:
-            return nil
-        case .mustSupportSwift3Compiler:
-            return nil
-        case .incompatibleToolsVersions:
-            return nil
-        case .targetOutsidePackage:
-            return nil
-        }
-    }
 }
 
-extension ModuleError.InvalidLayoutType: FixableError {
-    public var error: String {
+extension ModuleError.InvalidLayoutType: CustomStringConvertible {
+    public var description: String {
         switch self {
         case .multipleSourceRoots(let paths):
             return "multiple source roots found: " + paths.sorted().joined(separator: ", ")
         case .unexpectedSourceFiles(let paths):
-            return "unexpected source file(s) found: " + paths.sorted().joined(separator: ", ")
+            return "found loose source files: " + paths.sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
-            return "modulemap (\(path)) is not allowed to be mixed with sources"
-        }
-    }
-
-    public var fix: String? {
-        switch self {
-        case .multipleSourceRoots(_):
-            return "remove the extra source roots, or add them to the source root exclude list"
-        case .unexpectedSourceFiles(_):
-            return "move the file(s) inside a target"
-        case .modulemapInSources(_):
-            return "move the modulemap inside include directory"
+            return "the modulemap \(path) should be inside the 'include' directory"
         }
     }
 }
