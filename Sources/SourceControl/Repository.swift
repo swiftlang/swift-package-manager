@@ -45,7 +45,7 @@ extension RepositorySpecifier: Hashable {
 
 extension RepositorySpecifier: CustomStringConvertible {
     public var description: String {
-        return "RepositorySpecifier(\(url))"
+        return url
     }
 }
 

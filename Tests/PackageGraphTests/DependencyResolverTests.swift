@@ -446,7 +446,12 @@ class DependencyResolverTests: XCTestCase {
             let bIdentifier = AnyPackageContainerIdentifier("B")
             let cIdentifier = AnyPackageContainerIdentifier("C")
             let error = DependencyResolverError.revisionConstraints(
-                dependency: aIdentifier, revisions: [(cIdentifier, develop), (bIdentifier, develop)])
+                dependency: (aIdentifier, "1.0.0"), revisions: [(cIdentifier, develop), (bIdentifier, develop)])
+            XCTAssertEqual(error.description, """
+            the package A @ 1.0.0 contains revisioned dependencies:
+                C @ develop
+                B @ develop
+            """)
             XCTAssertThrows(error) {
                 _ = try resolver.resolve(constraints: [
                     MockPackageConstraint(container: "A", versionRequirement: v1Range),
