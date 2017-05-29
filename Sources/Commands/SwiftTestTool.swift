@@ -140,7 +140,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
                 for test in tests {
                     let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
-                    ranSuccessfully = ranSuccessfully && runner.test()
+                    ranSuccessfully = runner.test() && ranSuccessfully
                 }
             }
 
