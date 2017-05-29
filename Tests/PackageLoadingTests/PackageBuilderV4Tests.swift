@@ -462,7 +462,7 @@ class PackageBuilderV4Tests: XCTestCase {
                 "/Foo.swift")
             let package = Package(name: "pkg", targets: [.target(name: "Random")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("these referenced targets could not be found: Random fix: reference only valid targets")
+                result.checkDiagnostic("could not find target(s): Random. Use \'path\' property in Swift 4 manifest to set a custom target path.")
             }
         }
 
@@ -476,7 +476,7 @@ class PackageBuilderV4Tests: XCTestCase {
                     .target(name: "pkg", dependencies: [.target(name: "Foo")]),
                 ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("these referenced targets could not be found: Foo fix: reference only valid targets")
+                result.checkDiagnostic("could not find target(s): Foo. Use 'path' property in Swift 4 manifest to set a custom target path.")
             }
         }
 
@@ -496,7 +496,7 @@ class PackageBuilderV4Tests: XCTestCase {
             // Reference invalid target.
             let package = Package(name: "pkg", targets: [.target(name: "foo")])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("these referenced targets could not be found: foo fix: reference only valid targets")
+                result.checkDiagnostic("could not find target(s): foo. Use 'path' property in Swift 4 manifest to set a custom target path.")
             }
         }
 
@@ -706,7 +706,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("these referenced targets could not be found: Bar fix: reference only valid targets")
+                result.checkDiagnostic("could not find target(s): Bar. Use \'path\' property in Swift 4 manifest to set a custom target path.")
             }
         }
 
@@ -726,7 +726,7 @@ class PackageBuilderV4Tests: XCTestCase {
             )
 
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("these referenced targets could not be found: BarTests fix: reference only valid targets")
+                result.checkDiagnostic("could not find target(s): BarTests. Use \'path\' property in Swift 4 manifest to set a custom target path.")
             }
 
             // We should be able to fix this by using custom paths.
