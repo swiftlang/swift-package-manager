@@ -1201,8 +1201,9 @@ public class DependencyResolver<
         fetchCondition.whileLocked {
             // Process each container.
             for identifier in identifiers {
-                // If we already have this container, skip it.
-                guard _fetchedContainers[identifier] == nil else {
+                // Skip if we're already have this container or are pre-fetching it.
+                guard _fetchedContainers[identifier] == nil,
+                      !_prefetchingContainers.contains(identifier) else {
                     continue
                 }
 
