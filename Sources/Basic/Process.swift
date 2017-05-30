@@ -311,14 +311,10 @@ public final class Process: ObjectIdentifierProtocol {
             posix_spawn_file_actions_adddup2(&fileActions, 2, 2)
         }
 
-        var argv: [UnsafeMutablePointer<CChar>?] = arguments.map({ $0.withCString(strdup) })
-        argv.append(nil)
-        defer { for case let arg? in argv { free(arg) } }
-        var env: [UnsafeMutablePointer<CChar>?] = environment.map({ "\($0.0)=\($0.1)".withCString(strdup) })
-        env.append(nil)
-        defer { for case let arg? in env { free(arg) } }
+        let argv = CStringArray(arguments)
+        let env = CStringArray(environment.map({ "\($0.0)=\($0.1)" }))
+        let rv = posix_spawnp(&processID, argv.cArray[0], &fileActions, &attributes, argv.cArray, env.cArray)
 
-        let rv = posix_spawnp(&processID, argv[0], &fileActions, &attributes, argv, env)
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, arguments)
         }
