@@ -17,14 +17,26 @@ import Utility
 import func POSIX.exit
 
 
-/// Diagnostics info for deprecated `--specifier` option
+/// Diagnostics info for deprecated `--specifier` option.
 struct SpecifierDeprecatedDiagnostic: DiagnosticData {
     static let id = DiagnosticID(
-        type: AnyDiagnostic.self,
+        type: SpecifierDeprecatedDiagnostic.self,
         name: "org.swift.diags.specifier-deprecated",
         defaultBehavior: .warning,
         description: {
             $0 <<< "'--specifier' option is deprecated, use '--filter' instead."
+        }
+    )
+}
+
+/// Diagnostic data for zero --filter matches.
+struct NoMatchingTestsWarning: DiagnosticData {
+    static let id = DiagnosticID(
+        type: NoMatchingTestsWarning.self,
+        name: "org.swift.diags.no-matching-tests",
+        defaultBehavior: .note,
+        description: {
+            $0 <<< "the filter predicate did not match any test case"
         }
     )
 }
@@ -134,10 +146,20 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 ranSuccessfully = runner.test()
 
             case .regex, .specific:
+                // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
                     diagnostics.emit(data: SpecifierDeprecatedDiagnostic())
                 }
+
+                // Find the tests we need to run.
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+
+                // If there were no matches, emit a warning.
+                if tests.isEmpty {
+                    diagnostics.emit(data: NoMatchingTestsWarning())
+                }
+
+                // Finally, run the tests.
                 for test in tests {
                     let runner = TestRunner(path: testPath, xctestArg: test.specifier, processSet: processSet)
                     ranSuccessfully = runner.test() && ranSuccessfully
