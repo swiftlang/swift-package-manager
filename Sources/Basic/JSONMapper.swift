@@ -55,6 +55,16 @@ extension JSON {
         return try Dictionary(items: value.map({ ($0.0, try T.init(json: $0.1)) }))
     }
 
+    /// Returns a JSON mappable dictionary from a given key.
+    public func get(_ key: String) throws -> [String: JSON] {
+        let object: JSON = try get(key)
+        guard case .dictionary(let value) = object else {
+            throw MapError.typeMismatch(
+                key: key, expected: Dictionary<String, JSON>.self, json: object)
+        }
+        return value
+    }
+
     /// Returns JSON entry in the dictionary from a given key.
     public func get(_ key: String) throws -> JSON {
         guard case .dictionary(let dict) = self else {
