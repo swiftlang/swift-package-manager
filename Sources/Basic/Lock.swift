@@ -13,14 +13,14 @@ import libc
 
 /// A simple lock wrapper.
 public struct Lock {
-    private var _lock = NSLock()
+    private let _lock = NSLock()
 
     /// Create a new lock.
     public init() {
     }
 
     /// Execute the given block while holding the lock.
-    public mutating func withLock<T> (_ body: () throws -> T) rethrows -> T {
+    public func withLock<T> (_ body: () throws -> T) rethrows -> T {
         _lock.lock()
         defer { _lock.unlock() }
         return try body()
