@@ -194,6 +194,9 @@ public class RepositoryManager {
             //
             // FIXME: We need to do something better here.
             print("warning: unable to restore checkouts state: \(error)")
+
+            // Try to save the empty state.
+            try? self.persistence.saveState(self)
         }
     }
 
