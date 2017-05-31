@@ -8,6 +8,21 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import libc
+import POSIX
+
+/// Replace the current process image with a new process image.
+///
+/// - Parameters:
+///   - path: Absolute path to the executable.
+///   - args: The executable arguments.
+public func exec(path: String, args: [String]) throws {
+    let cArgs = CStringArray(args)
+    guard execv(path, cArgs.cArray) != -1 else {
+        throw POSIX.SystemError.exec(errno, path: path, args: args)
+    }
+}
+
 // MARK: Utility function for searching for executables
 
 /// Create a list of AbsolutePath search paths from a string, such as the PATH environment variable.
