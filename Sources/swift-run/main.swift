@@ -8,15 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
+import Commands
 
-#if !os(macOS)
-public func allTests() -> [XCTestCaseEntry] {
-    return [
-        testCase(BuildToolTests.allTests),
-        testCase(PackageToolTests.allTests),
-        testCase(TestToolTests.allTests),
-        testCase(RunToolTests.allTests),
-    ]
-}
-#endif
+let tool = SwiftRunTool(args: Array(CommandLine.arguments.dropFirst()))
+tool.run()

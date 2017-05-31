@@ -18,6 +18,7 @@
   * [Swift Tools Version](#swift-tools-version)
   * [Prefetching Dependencies](#prefetching-dependencies)
   * [Testing](#testing)
+  * [Running](#running)
   * [Build Configurations](#build-configurations)
     * [Debug](#debug)
     * [Release](#release)
@@ -719,6 +720,13 @@ $ swift build --enable-prefetching
 
 Use `swift test` tool to run tests of a Swift package. For more information on
 the test tool, run `swift test --help`.
+
+## Running
+
+Use `swift run [executable [arguments...]]` tool to run an executable product of a Swift
+package. The executable's name is optional when running without arguments and when there
+is only one executable product. For more information on the run tool, run
+`swift run --help`.
 
 ## Build Configurations
 
