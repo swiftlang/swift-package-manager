@@ -519,8 +519,11 @@ public final class ArgumentParser {
                 results[argument] = array
             } else {
                 // We expect only one value for non-array arguments.
-                assert(values.count == 1)
-                results[argument] = values[0]
+                guard let value = values.only else {
+                    assertionFailure()
+                    return
+                }
+                results[argument] = value
             }
         }
 
