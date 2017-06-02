@@ -132,7 +132,7 @@ public struct AbsolutePath {
     /// True if the path is the root directory.
     public var isRoot: Bool {
         let chars = _impl.string.characters
-        return chars.count == 1 && chars.first == "/"
+        return chars.only == "/"
     }
 
     /// Returns the absolute path with the relative path applied.
@@ -387,7 +387,7 @@ struct PathImpl {
         //        if possible, and certainly optimized (using UTF8View).
         let chars = string.characters
         // Check for a special case of the root directory.
-        if chars.count == 1 && chars.first == "/" {
+        if chars.only == "/" {
             // Root directory, so the basename is a single path separator (the
             // root directory is special in this regard).
             return "/"

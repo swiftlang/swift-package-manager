@@ -258,7 +258,7 @@ func xcodeProject(
     func createSourceGroup(named groupName: String, for targets: [ResolvedTarget], in parentGroup: Xcode.Group) {
         // Look for the special case of a single target in a flat layout.
         let needsSourcesGroup: Bool
-        if targets.count == 1, let target = targets.first {
+        if let target = targets.only {
             // FIXME: This is somewhat flaky; packages should have a notion of
             // what kind of layout they have.  But at least this is just a
             // heuristic and won't affect the functioning of the Xcode project.
