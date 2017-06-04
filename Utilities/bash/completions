@@ -16,9 +16,9 @@ _swift()
     fi
 
     # shared options are available in all tools
-    shared_options="-C --chdir --color -v --verbose -Xcc -Xlinker -Xswiftc"
+    shared_options="--package-path --color -v --verbose -Xcc -Xlinker -Xswiftc"
     case $prev in
-        (-C|--chdir)
+        (--package-path)
             _filedir
             return
             ;;

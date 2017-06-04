@@ -142,7 +142,7 @@ private var globalSymbolInMainBinary = 0
 
 @discardableResult
 public func executeSwiftBuild(
-    _ chdir: AbsolutePath,
+    _ packagePath: AbsolutePath,
     configuration: Configuration = .Debug,
     printIfError: Bool = false,
     Xcc: [String] = [],
@@ -161,7 +161,7 @@ public func executeSwiftBuild(
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
 
-    return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, env: env, printIfError: printIfError)
+    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env, printIfError: printIfError)
 }
 
 /// Test helper utility for executing a block with a temporary directory.

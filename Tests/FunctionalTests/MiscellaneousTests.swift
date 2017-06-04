@@ -366,10 +366,10 @@ class MiscellaneousTestCase: XCTestCase {
       #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
             // First try normal serial testing.
-            var output = try SwiftPMProduct.SwiftTest.execute([], chdir: prefix, printIfError: true)
+            var output = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix, printIfError: true)
             XCTAssert(output.contains("Executed 2 tests"))
             // Run tests in parallel.
-            output = try SwiftPMProduct.SwiftTest.execute(["--parallel"], chdir: prefix, printIfError: true)
+            output = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix, printIfError: true)
             XCTAssert(output.contains("testExample2"))
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("100%"))
@@ -380,7 +380,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestFilter() throws {
         #if os(macOS)
             fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], chdir: prefix, printIfError: true)
+                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix, printIfError: true)
                 XCTAssert(output.contains("testExample1"))
             }
         #endif
@@ -463,7 +463,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--chdir", app.asString, environment: env)
+            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--package-path", app.asString, environment: env)
             try process.launch()
 
             guard waitForFile(waitFile) else {
@@ -491,7 +491,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--chdir", app.asString)
+            let process = Process(args: SwiftPMProduct.SwiftBuild.path.asString, "--package-path", app.asString)
             try process.launch()
 
             let result = try process.waitUntilExit()

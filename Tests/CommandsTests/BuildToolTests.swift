@@ -15,8 +15,8 @@ import Basic
 @testable import Commands
 
 final class BuildToolTests: XCTestCase {
-    private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftBuild.execute(args, chdir: chdir, printIfError: true)
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
+        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, printIfError: true)
     }
     
     func testUsage() throws {

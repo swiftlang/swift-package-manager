@@ -16,13 +16,13 @@ import Utility
 class BuildPerfTests: XCTestCasePerf {
 
     @discardableResult
-    func execute(args: [String] = [], chdir: AbsolutePath) throws -> String {
+    func execute(args: [String] = [], packagePath: AbsolutePath) throws -> String {
         // FIXME: We should pass the SWIFT_EXEC at lower level.
-        return try SwiftPMProduct.SwiftBuild.execute(args + [], chdir: chdir, env: ["SWIFT_EXEC": Resources.default.swiftCompiler.asString], printIfError: true)
+        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": Resources.default.swiftCompiler.asString], printIfError: true)
     }
 
-    func clean(chdir: AbsolutePath) throws {
-        _ = try SwiftPMProduct.SwiftPackage.execute(["clean"], chdir: chdir)
+    func clean(packagePath: AbsolutePath) throws {
+        _ = try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath)
     }
 
     func testTrivialPackageFullBuild() {
@@ -45,10 +45,10 @@ class BuildPerfTests: XCTestCasePerf {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
             let product = app.appending(components: ".build", "debug", productString)
-            try self.execute(chdir: app)
+            try self.execute(packagePath: app)
             measure {
-                try! self.clean(chdir: app)
-                try! self.execute(chdir: app)
+                try! self.clean(packagePath: app)
+                try! self.execute(packagePath: app)
                 XCTAssertFileExists(product)
             }
         }
@@ -58,9 +58,9 @@ class BuildPerfTests: XCTestCasePerf {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
             let product = app.appending(components: ".build", "debug", productString)
-            try self.execute(chdir: app)
+            try self.execute(packagePath: app)
             measure {
-                try! self.execute(chdir: app)
+                try! self.execute(packagePath: app)
                 XCTAssertFileExists(product)
             }
         }
