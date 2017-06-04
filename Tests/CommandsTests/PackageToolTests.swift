@@ -21,8 +21,8 @@ import Workspace
 @testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
-    private func execute(_ args: [String], chdir: AbsolutePath? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, chdir: chdir, printIfError: true)
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, printIfError: true)
     }
 
     func testUsage() throws {
@@ -38,7 +38,7 @@ final class PackageToolTests: XCTestCase {
             let packageRoot = prefix.appending(component: "Bar")
 
             // Check that `resolve` works.
-            _ = try execute(["resolve"], chdir: packageRoot)
+            _ = try execute(["resolve"], packagePath: packageRoot)
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
         }
@@ -49,7 +49,7 @@ final class PackageToolTests: XCTestCase {
             let packageRoot = prefix.appending(component: "Bar")
 
             // Check that `fetch` works.
-            let output = try execute(["fetch"], chdir: packageRoot)
+            let output = try execute(["fetch"], packagePath: packageRoot)
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
             XCTAssert(output.contains("deprecated"), output)
@@ -61,14 +61,14 @@ final class PackageToolTests: XCTestCase {
             let packageRoot = prefix.appending(component: "Bar")
 
             // Perform an initial fetch.
-            _ = try execute(["fetch"], chdir: packageRoot)
+            _ = try execute(["fetch"], packagePath: packageRoot)
             var path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
 
             // Retag the dependency, and update.
             let repo = GitRepository(path: prefix.appending(component: "Foo"))
             try repo.tag(name: "1.2.4")
-            _ = try execute(["update"], chdir: packageRoot)
+            _ = try execute(["update"], packagePath: packageRoot)
 
             // We shouldn't assume package path will be same after an update so ask again for it.
             path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -78,7 +78,7 @@ final class PackageToolTests: XCTestCase {
 
     func testDescribe() throws {
         fixture(name: "ClangModules/SwiftCMixed") { prefix in
-            let output = try execute(["describe", "--type=json"], chdir: prefix)
+            let output = try execute(["describe", "--type=json"], packagePath: prefix)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
 
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
@@ -96,7 +96,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
             XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
-            let textOutput = try execute(["describe"], chdir: prefix)
+            let textOutput = try execute(["describe"], packagePath: prefix)
             
             XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
             XCTAssert(textOutput.contains("    C99name: CExec"))
@@ -109,8 +109,8 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
             // Fetch first so stdout doesn't contain any fetch progress related output.
-            _ = try execute(["fetch"], chdir: packageRoot)
-            let dumpOutput = try execute(["dump-package"], chdir: packageRoot)
+            _ = try execute(["fetch"], packagePath: packageRoot)
+            let dumpOutput = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
@@ -121,11 +121,11 @@ final class PackageToolTests: XCTestCase {
     func testShowDependencies() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            let textOutput = try execute(["show-dependencies", "--format=text"], chdir: packageRoot)
+            let textOutput = try execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
             // FIXME: We have to fetch first otherwise the fetching output is mingled with the JSON data.
-            let jsonOutput = try execute(["show-dependencies", "--format=json"], chdir: packageRoot)
+            let jsonOutput = try execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
             print("output = \(jsonOutput)")
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
@@ -184,12 +184,12 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                return try SwiftPMProduct.SwiftBuild.execute([], chdir: fooPath, printIfError: true)
+                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
             }
 
             // Put bar and baz in edit mode.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
-            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "bar", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath, printIfError: true)
 
             // Path to the executable.
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
@@ -216,7 +216,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of uncommited changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -225,7 +225,7 @@ final class PackageToolTests: XCTestCase {
 
             // It shouldn't be possible to unedit right now because of unpushed changes.
             do {
-                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath)
+                _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
                 XCTFail("Unexpected unedit success")
             } catch {}
 
@@ -233,11 +233,11 @@ final class PackageToolTests: XCTestCase {
             try editsRepo.push(remote: "origin", branch: "bugfix")
 
             // We should be able to unedit now.
-            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], chdir: fooPath, printIfError: true)
+            _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath, printIfError: true)
 
             // Test editing with a path i.e. ToT development.
             let bazTot = prefix.appending(component: "tot")
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], chdir: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
             XCTAssertTrue(exists(bazTot))
             XCTAssertTrue(isSymlink(bazEditsPath))
 
@@ -248,12 +248,12 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(bazTotPackageFile, bytes: stream.bytes)
 
             // Unediting baz will remove the symlink but not the checked out package.
-            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], chdir: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["unedit", "baz"], packagePath: fooPath, printIfError: true)
             XCTAssertTrue(exists(bazTot))
             XCTAssertFalse(isSymlink(bazEditsPath))
 
             // Check that on re-editing with path, we don't make a new clone.
-            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], chdir: fooPath, printIfError: true)
+            try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.asString], packagePath: fooPath, printIfError: true)
             XCTAssertTrue(isSymlink(bazEditsPath))
             XCTAssertEqual(try localFileSystem.readFileContents(bazTotPackageFile), stream.bytes)
         }
@@ -269,10 +269,10 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
 
             // Clean, and check for removal of the build directory but not Packages.
-            _ = try execute(["clean"], chdir: packageRoot)
+            _ = try execute(["clean"], packagePath: packageRoot)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             // Clean again to ensure we get no error.
-            _ = try execute(["clean"], chdir: packageRoot)
+            _ = try execute(["clean"], packagePath: packageRoot)
         }
     }
 
@@ -286,12 +286,12 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(isDirectory(packageRoot.appending(component: ".build")))
             // Clean, and check for removal of the build directory but not Packages.
 
-            _ = try execute(["clean"], chdir: packageRoot)
+            _ = try execute(["clean"], packagePath: packageRoot)
             XCTAssert(!exists(packageRoot.appending(components: ".build", "debug", "Bar")))
             XCTAssertFalse(try localFileSystem.getDirectoryContents(packageRoot.appending(components: ".build", "repositories")).isEmpty)
 
             // Fully clean.
-            _ = try execute(["reset"], chdir: packageRoot)
+            _ = try execute(["reset"], packagePath: packageRoot)
             XCTAssertFalse(isDirectory(packageRoot.appending(component: ".build")))
         }
     }
@@ -302,7 +302,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, chdir: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
             }
 
             try execute("update")
@@ -344,7 +344,7 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], chdir: fooPath, printIfError: true)
+                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath, printIfError: true)
                 return buildOutput
             }
             let exec = [fooPath.appending(components: ".build", "debug", "foo").asString]
@@ -380,7 +380,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, chdir: fooPath, printIfError: printError)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath, printIfError: printError)
             }
             
             // Try to pin bar.

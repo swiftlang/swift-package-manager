@@ -52,7 +52,7 @@ public func XCTAssertSwiftTest(
     env: [String: String]? = nil
 ) {
     do {
-        _ = try SwiftPMProduct.SwiftTest.execute([], chdir: path, env: env, printIfError: true)
+        _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env, printIfError: true)
     } catch {
         XCTFail("`swift test' failed:\n\n\(error)\n", file: file, line: line)
     }

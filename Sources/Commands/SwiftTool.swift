@@ -19,6 +19,17 @@ import Utility
 import Workspace
 import libc
 
+struct ChdirDeprecatedDiagnostic: DiagnosticData {
+    static let id = DiagnosticID(
+        type: AnyDiagnostic.self,
+        name: "org.swift.diags.chdir-deprecated",
+        defaultBehavior: .warning,
+        description: {
+            $0 <<< "the '--chdir/-C' option is deprecated; use '--package-path' instead"
+        }
+    )
+}
+
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func packageGraphWillLoad(
@@ -149,9 +160,14 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(
-                option: "--chdir", shortName: "-C", kind: PathArgument.self,
-                usage: "Change working directory before any other operation"),
+                option: "--chdir", shortName: "-C", kind: PathArgument.self),
             to: { $0.chdir = $1.path })
+        
+        binder.bind(
+            option: parser.add(
+                option: "--package-path", kind: PathArgument.self,
+                usage: "Change working directory before any other operation"),
+            to: { $0.packagePath = $1.path })
 
         binder.bind(
             option: parser.add(option: "--enable-prefetching", kind: Bool.self, usage: ""),
@@ -191,11 +207,11 @@ public class SwiftTool<Options: ToolOptions> {
             binder.fill(result, into: &options)
 
             self.options = options
-            // Honor chdir option is provided.
-            if let dir = options.chdir {
+            // Honor package-path option is provided.
+            if let packagePath = options.packagePath ?? options.chdir {
                 // FIXME: This should be an API which takes AbsolutePath and maybe
                 // should be moved to file system APIs with currentWorkingDirectory.
-                try POSIX.chdir(dir.asString)
+                try POSIX.chdir(packagePath.asString)
             }
 
             let processSet = ProcessSet()
@@ -232,6 +248,10 @@ public class SwiftTool<Options: ToolOptions> {
         self.buildPath = getEnvBuildPath() ??
             customBuildPath ??
             (packageRoot ?? currentWorkingDirectory).appending(component: ".build")
+        
+        if options.chdir != nil {
+            diagnostics.emit(data: ChdirDeprecatedDiagnostic())
+        }
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
