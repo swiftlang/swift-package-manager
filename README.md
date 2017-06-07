@@ -27,7 +27,7 @@ To learn about the policies and best practices that govern contributions to the 
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
 
-Instrutions for setting up the development environment is available [here](Documentation/Development.md).
+Instructions for setting up the development environment are available [here](Documentation/Development.md).
 
 The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files.  It is also open source and part of the Swift project.
 
