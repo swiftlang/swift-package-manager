@@ -133,7 +133,7 @@ class PackageGraphTests: XCTestCase {
             "/Bar": Package(name: "Bar", dependencies: [.Package(url: "/Foo", majorVersion: 1)]),
         ], root: "/Bar", diagnostics: diagnostics, in: fs)
 
-        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "multiple targets with the name Bar found fix: targets should have a unique name across dependencies")
+        XCTAssertEqual(diagnostics.diagnostics[0].localizedDescription, "found multiple targets named Bar")
     }
 
     static var allTests = [

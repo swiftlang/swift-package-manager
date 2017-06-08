@@ -12,6 +12,7 @@ public enum SystemError: Swift.Error {
     case chdir(Int32, String)
     case close(Int32)
     case dirfd(Int32, String)
+    case exec(Int32, path: String, args: [String])
     case fgetc(Int32)
     case fread(Int32)
     case getcwd(Int32)
@@ -68,6 +69,9 @@ extension SystemError: CustomStringConvertible {
             return "close error: \(strerror(errno))"
         case .dirfd(let errno, _):
             return "dirfd error: \(strerror(errno))"
+        case .exec(let errno, let path, let args):
+            let joinedArgs = args.joined(separator: " ")
+            return "exec error: \(strerror(errno)): \(path) \(joinedArgs)"
         case .fgetc(let errno):
             return "fgetc error: \(strerror(errno))"
         case .fread(let errno):

@@ -519,8 +519,11 @@ public final class ArgumentParser {
                 results[argument] = array
             } else {
                 // We expect only one value for non-array arguments.
-                assert(values.count == 1)
-                results[argument] = values[0]
+                guard let value = values.only else {
+                    assertionFailure()
+                    return
+                }
+                results[argument] = value
             }
         }
 
@@ -921,6 +924,18 @@ public final class ArgumentBinder<Options> {
     public func bind<T>(
         positional: PositionalArgument<T>,
         to body: @escaping (inout Options, T) -> Void
+    ) {
+        addBody {
+            // All the positional argument will always be present.
+            guard let result = $1.get(positional) else { return }
+            body(&$0, result)
+        }
+    }
+
+    /// Bind an array positional argument.
+    public func bindArray<T>(
+        positional: PositionalArgument<[T]>,
+        to body: @escaping (inout Options, [T]) -> Void
     ) {
         addBody {
             // All the positional argument will always be present.

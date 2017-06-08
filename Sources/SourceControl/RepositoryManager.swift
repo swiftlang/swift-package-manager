@@ -139,6 +139,11 @@ public class RepositoryManager {
     // repositories map to the same location.
     fileprivate var repositories: [String: RepositoryHandle] = [:]
 
+    /// The map of serialized repositories.
+    /// 
+    /// NOTE: This is to be used only for persistence support.
+    fileprivate var serializedRepositories: [String: JSON] = [:]
+
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
 
@@ -194,6 +199,9 @@ public class RepositoryManager {
             //
             // FIXME: We need to do something better here.
             print("warning: unable to restore checkouts state: \(error)")
+
+            // Try to save the empty state.
+            try? self.persistence.saveState(self)
         }
     }
 
@@ -278,6 +286,11 @@ public class RepositoryManager {
                     // Save the manager state.
                     self.serialQueue.sync {
                         do {
+                            // Update the serialized repositories map.
+                            //
+                            // We do this so we don't have to read the other
+                            // handles when saving the sate of this handle.
+                            self.serializedRepositories[repository.url] = handle.toJSON()
                             try self.persistence.saveState(self)
                         } catch {
                             // FIXME: Handle failure gracefully, somehow.
@@ -358,17 +371,18 @@ public class RepositoryManager {
 extension RepositoryManager: SimplePersistanceProtocol {
 
     public func restore(from json: JSON) throws {
-        self.repositories = try Dictionary(items: json.get("repositories").map({
-            try ($0.get("key"), RepositoryHandle(manager: self, json: $0.get("handle")))
+        // Update the serialized repositories.
+        //
+        // We will use this to save the state so we don't have to read the other
+        // handles when saving the sate of a handle.
+        self.serializedRepositories = try json.get("repositories")
+        self.repositories = try Dictionary(items: serializedRepositories.map({
+            try ($0.0, RepositoryHandle(manager: self, json: $0.1))
         }))
     }
 
     public func toJSON() -> JSON {
-        return JSON([
-            "repositories": repositories.map({
-                JSON(["key": $0.0, "handle": $0.1.toJSON()])
-            }).toJSON()
-        ])
+        return JSON(["repositories": JSON(self.serializedRepositories)])
     }
 }
 

@@ -16,9 +16,6 @@ import Utility
 /// Tools version represents version of the Swift toolchain.
 public struct ToolsVersion: CustomStringConvertible, Comparable {
 
-    /// The name of the file which contains tools version.
-    public static let toolsVersionFileName = Manifest.filename
-
     /// The default tool version if a the tools version file is absent.
     public static let defaultToolsVersion = ToolsVersion(version: "3.1.0")
 

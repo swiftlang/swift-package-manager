@@ -16,7 +16,7 @@ import TestSupport
 class LockTests: XCTestCase {
     func testBasics() {
         // FIXME: Make this a more interesting test once we have concurrency primitives.
-        var lock = Basic.Lock()
+        let lock = Basic.Lock()
         var count = 0
         let N = 100
         for _ in 0..<N {

@@ -446,7 +446,12 @@ class DependencyResolverTests: XCTestCase {
             let bIdentifier = AnyPackageContainerIdentifier("B")
             let cIdentifier = AnyPackageContainerIdentifier("C")
             let error = DependencyResolverError.revisionConstraints(
-                dependency: aIdentifier, revisions: [(cIdentifier, develop), (bIdentifier, develop)])
+                dependency: (aIdentifier, "1.0.0"), revisions: [(cIdentifier, develop), (bIdentifier, develop)])
+            XCTAssertEqual(error.description, """
+            the package A @ 1.0.0 contains revisioned dependencies:
+                C @ develop
+                B @ develop
+            """)
             XCTAssertThrows(error) {
                 _ = try resolver.resolve(constraints: [
                     MockPackageConstraint(container: "A", versionRequirement: v1Range),
@@ -822,11 +827,12 @@ private func checkResolution(_ resolver: MockDependencyResolver, constraints: [M
 
     // Check the solution against our oracle.
     if let solution = solution {
-        if maximalSolutions.count != 1 {
+        guard let onlySolution = maximalSolutions.only else {
             return XCTFail("solver unexpectedly found: \(solution) when there are no viable solutions")
         }
-        if solution != maximalSolutions[0] {
-            return XCTFail("solver result: \(solution.map{ ($0.0.identifier, $0.1) }) does not match expected result: \(maximalSolutions[0].map{ ($0.0.identifier, $0.1) })")
+        if solution != onlySolution {
+            return XCTFail("solver result: \(solution.map{ ($0.0.identifier, $0.1) }) does not match expected " +
+                "result: \(onlySolution.map{ ($0.0.identifier, $0.1) })")
         }
     } else {
         if maximalSolutions.count != 0 {

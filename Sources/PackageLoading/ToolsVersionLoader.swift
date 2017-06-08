@@ -36,7 +36,6 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         public var description: String {
             switch self {
             case .malformed(let versionSpecifier, let file):
-                let file = file.appending(component: ToolsVersion.toolsVersionFileName)
                 return "The version specifier '\(versionSpecifier)' in '\(file.asString)' is not valid"
             }
         }
@@ -44,7 +43,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
     public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // The file which contains the tools version.
-        let file = path.appending(component: ToolsVersion.toolsVersionFileName)
+        let file = Manifest.path(atPackagePath: path, fileSystem: fileSystem)
         guard fileSystem.isFile(file) else {
             return ToolsVersion.defaultToolsVersion
         }
@@ -61,7 +60,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             let misspellings = ["swift-tool", "tool-version"]
             if let firstLine = ByteString(splitted[0]).asString,
                misspellings.first(where: firstLine.lowercased().contains) != nil {
-                throw Error.malformed(specifier: firstLine, file: path)
+                throw Error.malformed(specifier: firstLine, file: file)
             }
             // Otherwise assume the default.
             return ToolsVersion.defaultToolsVersion
@@ -69,7 +68,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
         // Ensure we can construct the version from the specifier.
         guard let version = ToolsVersion(string: versionSpecifier) else {
-            throw Error.malformed(specifier: versionSpecifier, file: path)
+            throw Error.malformed(specifier: versionSpecifier, file: file)
         }
         return version
     }

@@ -130,21 +130,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         manifestVersion: ManifestVersion,
         fileSystem: FileSystem? = nil
     ) throws -> Manifest {
-        // As per our versioning support, determine the appropriate manifest version to load.
-        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
-            let versionSpecificPath = path.appending(component: Manifest.basename + versionSpecificKey + ".swift")
-            if (fileSystem ?? localFileSystem).exists(versionSpecificPath) {
-                return try loadFile(
-                    path: versionSpecificPath,
-                    baseURL: baseURL,
-                    version: version,
-                    manifestVersion: manifestVersion,
-                    fileSystem: fileSystem)
-            }
-        }
-
         return try loadFile(
-            path: path.appending(component: Manifest.filename),
+            path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
             baseURL: baseURL,
             version: version,
             manifestVersion: manifestVersion,
@@ -184,15 +171,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         guard baseURL.chuzzle() != nil else { fatalError() }  //TODO
 
-        // Compute the actual input file path.
-        let path: AbsolutePath = isDirectory(inputPath) ? inputPath.appending(component: Manifest.filename) : inputPath
-
         // Validate that the file exists.
-        guard isFile(path) else {
+        guard isFile(inputPath) else {
             throw PackageModel.Package.Error.noManifest(baseURL: baseURL, version: version?.description)
         }
 
-        let parseResult = try parse(path: path, manifestVersion: manifestVersion)
+        let parseResult = try parse(path: inputPath, manifestVersion: manifestVersion)
 
         // Get the json from manifest.
         guard let jsonString = parseResult.jsonString else {
@@ -207,7 +191,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         case .three:
             let pd = try loadPackageDescription(json, baseURL: baseURL)
             return Manifest(
-                path: path,
+                path: inputPath,
                 url: baseURL,
                 package: .v3(pd.package),
                 legacyProducts: pd.products,
@@ -217,7 +201,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         case .four:
             let package = try loadPackageDescription4(json, baseURL: baseURL)
             return Manifest(
-                path: path, url: baseURL, package: .v4(package),
+                path: inputPath, url: baseURL, package: .v4(package),
                 version: version, interpreterFlags: parseResult.interpreterFlags)
         }
     }
