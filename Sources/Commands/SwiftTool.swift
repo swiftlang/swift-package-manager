@@ -372,7 +372,7 @@ public class SwiftTool<Options: ToolOptions> {
         // against arbitrary code execution. We only allow the permissions which
         // are absolutely necessary for performing a build.
         if !options.shouldDisableSandbox {
-            let allowedDirectories = [buildPath, resolveSymlinks(BuildParameters.swiftpmTestCache)]
+            let allowedDirectories = [buildPath, BuildParameters.swiftpmTestCache].map(resolveSymlinks)
             args += ["sandbox-exec", "-p", sandboxProfile(allowedDirectories: allowedDirectories)]
         }
       #endif
