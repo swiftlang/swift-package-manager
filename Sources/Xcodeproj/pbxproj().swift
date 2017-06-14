@@ -128,10 +128,6 @@ func xcodeProject(
     // Prevent Xcode project upgrade warnings.
     projectSettings.common.COMBINE_HIDPI_IMAGES = "YES"
 
-    // Set the Swift version to 3.0 (we'll need to make this dynamic), but for
-    // now this is necessary.
-    projectSettings.common.SWIFT_VERSION = "3.0"
-
     // Defined for regular `swift build` instantiations, so also should be defined here.
     projectSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = "SWIFT_PACKAGE"
 
@@ -413,6 +409,11 @@ func xcodeProject(
 
         targetSettings.common.OTHER_LDFLAGS = ["$(inherited)"]
         targetSettings.common.OTHER_SWIFT_FLAGS = ["$(inherited)"]
+
+        // Set the correct SWIFT_VERSION for the Swift targets.
+        if case let swiftTarget as SwiftTarget = target.underlyingTarget {
+            targetSettings.common.SWIFT_VERSION = "\(swiftTarget.swiftVersion).0"
+        }
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
