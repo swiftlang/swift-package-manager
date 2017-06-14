@@ -16,6 +16,8 @@ import TestSupport
 
 class InterruptHandlerTests: XCTestCase {
     func testBasics() throws {
+        // Disabled because it sometimes hangs the CI, possibly due to https://bugs.swift.org/browse/SR-5042
+      #if false
         mktmpdir { path in
             let exec = SwiftPMProduct.TestSupportExecutable.path.asString
             let waitFile = path.appending(component: "waitFile")
@@ -28,6 +30,7 @@ class InterruptHandlerTests: XCTestCase {
             let result = try process.waitUntilExit()
             XCTAssertEqual(try result.utf8Output(), "Hello from handler!\n")
         }
+      #endif
     }
 
     static var allTests = [
