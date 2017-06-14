@@ -160,8 +160,15 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
 /// Represents a collection of managed dependency which are persisted on disk.
 public final class ManagedDependencies: SimplePersistanceProtocol {
 
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, CustomStringConvertible {
         case dependencyNotFound(name: String)
+
+        var description: String {
+            switch self {
+            case .dependencyNotFound(let name):
+                return "Could not find dependency '\(name)'"
+            }
+        }
     }
 
     /// The current state of managed dependencies.
