@@ -747,7 +747,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Make the edited package "invalid" and ensure we can get the errors.
             do {
-                localFileSystem.removeFileTree(path.appending(components: "A", "file.swift"))
+                try localFileSystem.removeFileTree(path.appending(components: "A", "file.swift"))
                 let diagnostics = DiagnosticsEngine()
                 workspace.loadPackageGraph(rootPackages: [path], diagnostics: diagnostics)
                 XCTAssertTrue(diagnostics.hasErrors)

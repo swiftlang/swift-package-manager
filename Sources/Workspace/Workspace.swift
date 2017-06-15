@@ -424,7 +424,7 @@ extension Workspace {
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
         }
     }
 
@@ -443,7 +443,7 @@ extension Workspace {
         guard removed else { return }
 
         repositoryManager.reset()
-        fileSystem.removeFileTree(dataPath)
+        try? fileSystem.removeFileTree(dataPath)
     }
 
     /// Updates the current dependencies.
@@ -708,11 +708,11 @@ extension Workspace {
         }
         // Remove the editable checkout from disk.
         if fileSystem.exists(path) {
-            fileSystem.removeFileTree(path)
+            try fileSystem.removeFileTree(path)
         }
         // If this was the last editable dependency, remove the editables directory too.
         if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
-            fileSystem.removeFileTree(editablesPath)
+            try fileSystem.removeFileTree(editablesPath)
         }
         // Restore the dependency state.
         managedDependencies[dependency.repository] = dependency.basedOn
@@ -1313,7 +1313,7 @@ extension Workspace {
         let path = checkoutsPath.appending(component: repository.fileSystemIdentifier)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-        fileSystem.removeFileTree(path)
+        try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
         delegate.cloning(repository: handle.repository.url)
@@ -1427,7 +1427,7 @@ extension Workspace {
         }
 
         try fileSystem.chmod(.userWritable, path: dependencyPath, options: [.recursive, .onlyFiles])
-        fileSystem.removeFileTree(dependencyPath)
+        try fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
         try repositoryManager.remove(repository: dependencyToRemove.repository)

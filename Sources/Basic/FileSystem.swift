@@ -156,9 +156,10 @@ public protocol FileSystem {
     mutating func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws
 
     /// Recursively deletes the file system entity at `path`.
+    ///
     /// If there is no file system entity at `path`, this function does nothing (in particular, this is not considered
     /// to be an error).
-    mutating func removeFileTree(_ path: AbsolutePath)
+    mutating func removeFileTree(_ path: AbsolutePath) throws
 
     /// Change file mode.
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws
@@ -330,9 +331,9 @@ private class LocalFileSystem: FileSystem {
         }
     }
 
-    func removeFileTree(_ path: AbsolutePath) {
+    func removeFileTree(_ path: AbsolutePath) throws {
         if self.exists(path) {
-            try? Basic.removeFileTree(path)
+            try Basic.removeFileTree(path)
         }
     }
 
@@ -653,7 +654,7 @@ public class InMemoryFileSystem: FileSystem {
         contents.entries[path.basename] = Node(.file(bytes))
     }
 
-    public func removeFileTree(_ path: AbsolutePath) {
+    public func removeFileTree(_ path: AbsolutePath) throws {
         // Ignore root and get the parent node's content if its a directory.
         guard !path.isRoot,
               let parent = try? getNode(path.parentDirectory),
@@ -743,8 +744,8 @@ public struct RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.writeFileContents(path, bytes: bytes)
     }
 
-    public mutating func removeFileTree(_ path: AbsolutePath) {
-        underlyingFileSystem.removeFileTree(path)
+    public mutating func removeFileTree(_ path: AbsolutePath) throws {
+        try underlyingFileSystem.removeFileTree(path)
     }
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
