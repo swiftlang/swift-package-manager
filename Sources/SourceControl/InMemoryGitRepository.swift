@@ -131,7 +131,7 @@ public final class InMemoryGitRepository {
     /// Installs (or checks out) current head on the filesystem on which this repository exists.
     private func installHead() throws {
         // Remove the old state.
-        fs.removeFileTree(path)
+        try fs.removeFileTree(path)
         // Create the repository directory.
         try fs.createDirectory(path, recursive: true)
         // Get the file system state at the HEAD,
@@ -212,8 +212,8 @@ extension InMemoryGitRepository: FileSystem {
         isDirty = true
     }
 
-    public func removeFileTree(_ path: AbsolutePath) {
-        head.fileSystem.removeFileTree(path)
+    public func removeFileTree(_ path: AbsolutePath) throws {
+        try head.fileSystem.removeFileTree(path)
     }
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {

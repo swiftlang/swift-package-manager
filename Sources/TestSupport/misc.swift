@@ -48,7 +48,7 @@ public func fixture(
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            localFileSystem.removeFileTree(tmpDir.path)
+            try? localFileSystem.removeFileTree(tmpDir.path)
         }
 
         // Construct the expected path of the fixture.
@@ -180,7 +180,7 @@ public func mktmpdir(
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDir.path, options: [.recursive])
-            localFileSystem.removeFileTree(tmpDir.path)
+            try? localFileSystem.removeFileTree(tmpDir.path)
         }
         try body(tmpDir.path)
     } catch {

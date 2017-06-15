@@ -257,7 +257,7 @@ public class RepositoryManager {
                     handle.status = .pending
                     let repositoryPath = self.path.appending(handle.subpath)
                     // Make sure desination is free.
-                    self.fileSystem.removeFileTree(repositoryPath)
+                    try? self.fileSystem.removeFileTree(repositoryPath)
 
                     // Inform delegate.
                     self.callbacksQueue.async {
@@ -351,7 +351,7 @@ public class RepositoryManager {
             }
             repositories[repository.url] = nil
             let repositoryPath = path.appending(handle.subpath)
-            fileSystem.removeFileTree(repositoryPath)
+            try fileSystem.removeFileTree(repositoryPath)
             try self.persistence.saveState(self)
         }
     }
@@ -362,7 +362,7 @@ public class RepositoryManager {
     public func reset() {
         serialQueue.sync {
             self.repositories = [:]
-            self.fileSystem.removeFileTree(path)
+            try? self.fileSystem.removeFileTree(path)
         }
     }
 }
