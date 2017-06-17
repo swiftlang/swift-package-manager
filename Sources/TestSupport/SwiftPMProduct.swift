@@ -31,6 +31,7 @@ public enum SwiftPMProduct {
     case SwiftBuild
     case SwiftPackage
     case SwiftTest
+    case SwiftRun
     case XCTestHelper
     case TestSupportExecutable
 
@@ -56,6 +57,8 @@ public enum SwiftPMProduct {
             return RelativePath("swift-package")
         case .SwiftTest:
             return RelativePath("swift-test")
+        case .SwiftRun:
+            return RelativePath("swift-run")
         case .XCTestHelper:
             return RelativePath("swiftpm-xctest-helper")
         case .TestSupportExecutable:

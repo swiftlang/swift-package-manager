@@ -127,6 +127,10 @@ let package = Package(
             name: "swift-test",
             dependencies: ["Commands"]),
         .target(
+            /** Runs an executable product */
+            name: "swift-run",
+            dependencies: ["Commands"]),
+        .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: []),
