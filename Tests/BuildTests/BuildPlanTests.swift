@@ -38,12 +38,17 @@ private struct MockToolchain: Toolchain {
 
 final class BuildPlanTests: XCTestCase {
 
-    func mockBuildParameters(buildPath: AbsolutePath = AbsolutePath("/path/to/build"), config: Build.Configuration = .debug) -> BuildParameters {
+    func mockBuildParameters(
+        buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
+        config: Build.Configuration = .debug,
+        shouldLinkStaticSwiftStdlib: Bool = false
+    ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
             configuration: config,
             toolchain: MockToolchain(),
-            flags: BuildFlags())
+            flags: BuildFlags(),
+            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib)
     }
 
     func testBasicSwiftPackage() throws {
@@ -59,7 +64,10 @@ final class BuildPlanTests: XCTestCase {
         )
         let diagnostics = DiagnosticsEngine()
         let graph = loadMockPackageGraph(["/Pkg": pkg], root: "/Pkg", diagnostics: diagnostics, in: fs)
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph))
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph)
+        )
  
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -70,12 +78,17 @@ final class BuildPlanTests: XCTestCase {
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
         XCTAssertEqual(lib, ["-swift-version", "3", "-Onone", "-g", "-enable-testing", "-j8", "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/debug/ModuleCache"])
 
-        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
-            "-o", "/path/to/build/debug/exe", "-module-name", "exe", 
-            "-emit-executable",
+        var linkArguments = ["/fake/path/to/swiftc", "-g", "-L", "/path/to/build/debug",
+            "-o", "/path/to/build/debug/exe", "-module-name", "exe"]
+      #if os(macOS)
+        linkArguments += ["-static-stdlib"]
+      #endif
+        linkArguments += ["-emit-executable",
             "/path/to/build/debug/exe.build/main.swift.o",
             "/path/to/build/debug/lib.build/lib.swift.o",
-        ])
+        ]
+
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
     }
 
     func testBasicReleasePackage() throws {
