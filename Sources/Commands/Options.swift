@@ -43,5 +43,8 @@ public class ToolOptions {
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
 
+    /// If should link the Swift stdlib statically.
+    public var shouldLinkStaticSwiftStdlib = false
+
     public required init() {}
 }
