@@ -41,7 +41,7 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 ## Installation
 
-The Swift Package Manager is included in Xcode 8.0 and all subsequent release.
+The Swift Package Manager is included in Xcode 8.0 and all subsequent releases.
 
 The package manager is also available for other platforms as part of all [Snapshots available at swift.org](https://swift.org/download/), including snapshots for the latest versions built from `master`. For installation instructions for downloaded snapshots, please see the [Getting Started](https://swift.org/getting-started/#installing-swift) section of [swift.org](https://swift.org).
 
