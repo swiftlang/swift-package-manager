@@ -1121,7 +1121,9 @@ extension Workspace {
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).
                 if branch != nil {
-                    if let pin = pinsStore.pins.first(where: { $0.repository == specifier }), !updateBranches {
+                    if let pin = pinsStore.pins.first(where: { $0.repository == specifier }),
+                        !updateBranches,
+                        pin.state.branch == branch {
                         revision = pin.state.revision
                     }
                 }
