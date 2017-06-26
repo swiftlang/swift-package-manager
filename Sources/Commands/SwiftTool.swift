@@ -144,7 +144,16 @@ public class SwiftTool<Options: ToolOptions> {
             parser.add(
                 option: "-Xlinker", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all linker invocations"),
-            to: { $0.buildFlags = BuildFlags(xcc: $1, xswiftc: $2, xlinker: $3) })
+            to: {
+                $0.buildFlags.cCompilerFlags = $1
+                $0.buildFlags.swiftCompilerFlags = $2
+                $0.buildFlags.linkerFlags = $3
+            })
+        binder.bindArray(
+            option: parser.add(
+                option: "-Xcxx", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to all C++ compiler invocations"),
+            to: { $0.buildFlags.cxxCompilerFlags = $1 })
 
         binder.bind(
             option: parser.add(
