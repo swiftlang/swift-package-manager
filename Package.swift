@@ -157,7 +157,7 @@ let package = Package(
             dependencies: ["Build", "TestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "Commands", "Workspace", "TestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "TestSupport"]),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "TestSupport"]),
