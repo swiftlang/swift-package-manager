@@ -50,7 +50,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             to: { $0.buildTests = $1 })
 
         binder.bind(
-            option: parser.add(option: "--bin-path", kind: Bool.self,
+            option: parser.add(option: "--show-bin-path", kind: Bool.self,
                usage: "Print the binary output path"),
             to: { $0.shouldPrintBinPath = $1 })
     }
