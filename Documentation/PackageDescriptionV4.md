@@ -93,7 +93,7 @@ This property should only be used for system module packages. It can be used to
 provide _hints_ for users to install a System Module using a system package
 manager like homebrew, apt-get etc.
 
-_NOTE: SwiftPM will *never* execute the command, and only provide suggestions.
+_NOTE: SwiftPM will **never** execute the command, and only provide suggestions._
 
 ```swift
 import PackageDescription

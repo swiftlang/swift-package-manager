@@ -27,8 +27,19 @@ final class BuildToolTests: XCTestCase {
         XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
     }
 
+    func testBinPath() throws {
+        fixture(name: "ValidLayouts/SingleModule/Executable") { path in
+            let fullPath = resolveSymlinks(path)
+            XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath),
+                           fullPath.appending(RelativePath(".build/debug")).asString + "\n")
+            XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath),
+                           fullPath.appending(RelativePath(".build/release")).asString + "\n")
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
+        ("testBinPath", testBinPath),
     ]
 }

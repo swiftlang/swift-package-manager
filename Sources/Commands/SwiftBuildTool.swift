@@ -35,6 +35,9 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
 
             try build(includingTests: options.buildTests)
 
+        case .binPath:
+            try print(buildPlan().buildParameters.buildPath.asString)
+
         case .version:
             print(Versioning.currentVersion.completeDisplayString)
         }
@@ -45,6 +48,11 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             option: parser.add(option: "--build-tests", kind: Bool.self,
                 usage: "Build the both source and test targets"),
             to: { $0.buildTests = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--show-bin-path", kind: Bool.self,
+               usage: "Print the binary output path"),
+            to: { $0.shouldPrintBinPath = $1 })
     }
 
     private func checkClangVersion() {
@@ -68,17 +76,26 @@ public class BuildToolOptions: ToolOptions {
         if shouldPrintVersion {
             return .version
         }
+        if shouldPrintBinPath {
+            return .binPath
+        }
         // Get the build configuration or assume debug.
         return .build
     }
 
     /// If the test should be built.
     var buildTests = false
+
+    /// If the binary output path should be printed.
+    var shouldPrintBinPath = false
 }
 
 public enum BuildToolMode {
     /// Build the package.
     case build
+
+    /// Print the binary output path.
+    case binPath
 
     /// Print the version.
     case version

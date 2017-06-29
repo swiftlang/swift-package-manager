@@ -60,7 +60,7 @@ using a [snapshot](https://swift.org/download/#releases) from swift.org.
     code.
 	
     You can also use the built binaries: `swift-build`, `swift-package`,
-    `swift-test`.
+    `swift-test`, `swift-run`.
 	
 	
 	### Example:

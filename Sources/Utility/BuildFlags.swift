@@ -13,17 +13,27 @@
 // FIXME: This belongs somewhere else, but we don't have a layer specifically
 // for BuildSupport style logic yet.
 public struct BuildFlags {
+
     /// Flags to pass to the C compiler.
-    public let cCompilerFlags: [String]
+    public var cCompilerFlags: [String]
+
+    /// Flags to pass to the C++ compiler.
+    public var cxxCompilerFlags: [String]
 
     /// Flags to pass to the linker.
-    public let linkerFlags: [String]
+    public var linkerFlags: [String]
 
     /// Flags to pass to the Swift compiler.
-    public let swiftCompilerFlags: [String]
+    public var swiftCompilerFlags: [String]
 
-    public init(xcc: [String]? = nil, xswiftc: [String]? = nil, xlinker: [String]? = nil) {
+    public init(
+        xcc: [String]? = nil,
+        xcxx: [String]? = nil,
+        xswiftc: [String]? = nil,
+        xlinker: [String]? = nil
+    ) {
         cCompilerFlags = xcc ?? []
+        cxxCompilerFlags = xcxx ?? []
         linkerFlags = xlinker ?? []
         swiftCompilerFlags = xswiftc ?? []
     }
