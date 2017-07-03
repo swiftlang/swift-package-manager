@@ -1,15 +1,20 @@
-//
-//  zsh_template.swift
-//  SwiftPM
-//
-//  Created by Bouke Haarsma on 29/09/2016.
-//
-//
+/*
+ This source file is part of the Swift.org open source project
+ 
+ Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+ 
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+*/
 
 import Foundation
 import Basic
 import Utility
 
+/// Template for ZSH completion script.
+///
+/// - Parameter stream: output stream to write the script to.
 func zsh_template(on stream: OutputByteStream) {
     stream <<< "#compdef swift\n"
     stream <<< "local context state state_descr line\n"
@@ -72,6 +77,7 @@ func zsh_template(on stream: OutputByteStream) {
     SwiftPackageTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
     SwiftTestTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
     
+    // Hard-coded compiler flags of Swift 4.0 (beta 2).
     stream <<< "_swift_compiler() {\n"
     stream <<< "    declare -a build_options\n"
     stream <<< "    build_options=(\n"
@@ -114,9 +120,8 @@ func zsh_template(on stream: OutputByteStream) {
     stream <<< "}\n"
     stream <<< "\n"
     
+    // Run the `_swift` function to register the completions.
     stream <<< "_swift\n"
     
     stream.flush()
 }
-
-
