@@ -137,7 +137,6 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         case .runSerial:
             let testPath = try buildTestsIfNeeded(options)
-            let testSuites = try getTestSuites(path: testPath)
             var ranSuccessfully = true
 
             switch options.testCaseSpecifier {
@@ -152,6 +151,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
                 }
 
                 // Find the tests we need to run.
+                let testSuites = try getTestSuites(path: testPath)
                 let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
 
                 // If there were no matches, emit a warning.
