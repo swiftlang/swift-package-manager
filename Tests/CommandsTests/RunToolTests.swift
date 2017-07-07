@@ -13,6 +13,7 @@ import XCTest
 import TestSupport
 import Commands
 import Basic
+import POSIX
 
 final class RunToolTests: XCTestCase {
     private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
@@ -38,7 +39,7 @@ final class RunToolTests: XCTestCase {
 
             let runOutput = try execute(["secho", "1", "--hello", "world"], packagePath: path)
             let outputLines = runOutput.split(separator: "\n")
-            XCTAssertEqual(outputLines.last!, "\"1\" \"--hello\" \"world\"")
+            XCTAssertEqual(String(outputLines.last!), "\"\(getcwd())\" \"1\" \"--hello\" \"world\"")
         }
 
         fixture(name: "Miscellaneous/MultipleExecutables") { path in
@@ -60,15 +61,11 @@ final class RunToolTests: XCTestCase {
 
     func testFileDeprecation() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
-            let expectedOutput =
-                "\"1\" \"2\"\n" +
+            let filePath = AbsolutePath(path, "Sources/secho/main.swift").asString
+            XCTAssertEqual(try execute([filePath, "1", "2"], packagePath: path),
+                "\"\(getcwd())\" \"1\" \"2\"\n" +
                 "warning: 'swift run file.swift' command to interpret swift files is deprecated; " +
-                    "use 'swift file.swift' instead\n"
-
-            let relativePath = "Sources/secho/main.swift"
-            XCTAssertEqual(try execute([relativePath, "1", "2"], packagePath: path), expectedOutput)
-            let absolutePath = AbsolutePath(path, relativePath).asString
-            XCTAssertEqual(try execute([absolutePath, "1", "2"], packagePath: path), expectedOutput)
+                    "use 'swift file.swift' instead\n")
         }
     }
 
