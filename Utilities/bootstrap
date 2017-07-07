@@ -934,6 +934,7 @@ def main():
     # Construct a fake toolchain so swift-build can build itself
     # without requiring it to have hacky-edge-case logic
     def make_fake_toolchain():
+        symlink_force(args.swiftc_path, os.path.join(bindir, "swift"))
         symlink_force(args.swiftc_path, os.path.join(bindir, "swiftc"))
         symlink_force(args.sbt_path, os.path.join(bindir, "swift-build-tool"))
         symlink_force(os.path.join(sandbox_path, "bin", "swift-build"),

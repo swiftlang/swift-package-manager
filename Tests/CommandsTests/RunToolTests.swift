@@ -58,9 +58,24 @@ final class RunToolTests: XCTestCase {
         }
     }
 
+    func testFileDeprecation() throws {
+        fixture(name: "Miscellaneous/EchoExecutable") { path in
+            let expectedOutput =
+                "\"1\" \"2\"\n" +
+                "warning: 'swift run file.swift' command to interpret swift files is deprecated; " +
+                    "use 'swift file.swift' instead\n"
+
+            let relativePath = "Sources/secho/main.swift"
+            XCTAssertEqual(try execute([relativePath, "1", "2"], packagePath: path), expectedOutput)
+            let absolutePath = AbsolutePath(path, relativePath).asString
+            XCTAssertEqual(try execute([absolutePath, "1", "2"], packagePath: path), expectedOutput)
+        }
+    }
+
     static var allTests = [
         ("testUsage", testUsage),
         ("testVersion", testVersion),
-        ("testFunctional", testFunctional)
+        ("testFunctional", testFunctional),
+        ("testFileDeprecation", testFileDeprecation)
     ]
 }
