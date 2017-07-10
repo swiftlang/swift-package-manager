@@ -14,7 +14,7 @@ import PackageModel
 import PackageGraph
 
 /// llbuild manifest file generator for a build plan.
-public struct LLbuildManifestGenerator {
+public struct LLBuildManifestGenerator {
 
     /// The build plan to work on.
     public let plan: BuildPlan
