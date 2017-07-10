@@ -399,7 +399,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         let yaml = buildPath.appending(component: plan.buildParameters.configuration.dirname + ".yaml")
         // Generate llbuild manifest.
-        let llbuild = LLbuildManifestGenerator(plan)
+        let llbuild = LLBuildManifestGenerator(plan)
         try llbuild.generateManifest(at: yaml)
         assert(isFile(yaml), "llbuild manifest not present: \(yaml.asString)")
 
