@@ -52,6 +52,11 @@ public struct UserToolchain: Toolchain {
         return destination.dynamicLibraryExtension
     }
 
+    /// Path of the `swift` interpreter.
+    public var swiftInterpreter: AbsolutePath {
+        return swiftCompiler.parentDirectory.appending(component: "swift")
+    }
+
     /// Path to llbuild.
     let llbuild: AbsolutePath
 
