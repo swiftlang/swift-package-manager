@@ -538,7 +538,7 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
         // For xcrun cache.
         stream <<< "    (regex #\"^\(directory.asString)/xcrun.*\")" <<< "\n"
         // For autolink files.
-        stream <<< "    (regex #\"^\(directory.asString)/.*\\.swift-[0-9a-f]+\\.autolink\")" <<< "\n"
+        stream <<< "    (regex #\"^\(directory.asString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
     }
     for directory in allowedDirectories {
         stream <<< "    (subpath \"\(directory.asString)\")" <<< "\n"
