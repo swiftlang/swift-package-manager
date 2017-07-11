@@ -222,7 +222,6 @@ rsync -a "$tmp/usr/lib/swift_static/linux" "$xc_tc_name/usr/lib/swift_static/"
 rsync -a "$tmp/usr/lib/swift/dispatch" "$linux_sdk_name/usr/include/"
 rsync -a "$tmp/usr/lib/swift/os" "$linux_sdk_name/usr/include/"
 rsync -a "$tmp/usr/lib/swift/CoreFoundation" "$linux_sdk_name/usr/include/"
-cp -a "$tmp/usr/lib/swift/linux/libdispatch.so" "$linux_sdk_name/usr/lib/"
 rm -rf "$tmp"
 curl --fail -s -o "$linux_sdk_name/usr/include/Block.h" "$blocks_h_url"
 if [ ! -e "$xc_tc_name/usr/bin/swift-autolink-extract" ]; then
