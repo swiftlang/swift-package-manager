@@ -24,7 +24,7 @@ struct SpecifierDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.specifier-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "'--specifier' option is deprecated, use '--filter' instead."
+            $0 <<< "'--specifier' option is deprecated; use '--filter' instead"
         }
     )
 }
@@ -36,7 +36,7 @@ struct NoMatchingTestsWarning: DiagnosticData {
         name: "org.swift.diags.no-matching-tests",
         defaultBehavior: .note,
         description: {
-            $0 <<< "the filter predicate did not match any test case"
+            $0 <<< "'--filter' predicate did not match any test case"
         }
     )
 }

@@ -207,7 +207,7 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
             let buildOutput = try build()
 
-            XCTAssert(buildOutput.contains("The dependency 'baz' was being edited but is missing. Falling back to original checkout."))
+            XCTAssert(buildOutput.contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
@@ -421,7 +421,7 @@ final class PackageToolTests: XCTestCase {
                     try execute("resolve", "bar", printError: false)
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssert(stderr.contains("bar' is already in edit mode"), stderr)
+                    XCTAssertEqual(stderr, "error: dependency 'bar' already in edit mode\n")
                 }
                 try execute("unedit", "bar")
             }

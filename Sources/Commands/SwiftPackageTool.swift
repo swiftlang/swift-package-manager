@@ -24,7 +24,7 @@ struct FetchDeprecatedDiagnostic: DiagnosticData {
         name: "org.swift.diags.fetch-deprecated",
         defaultBehavior: .warning,
         description: {
-            $0 <<< "'fetch' command is deprecated, use 'resolve' command instead."
+            $0 <<< "'fetch' command is deprecated; use 'resolve' instead"
         }
     )
 }

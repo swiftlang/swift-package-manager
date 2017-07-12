@@ -538,7 +538,7 @@ class PackageBuilderV4Tests: XCTestCase {
                     .target(name: "pkg2"),
             ])
             PackageBuilderTester(package, in: fs) { result in
-                result.checkDiagnostic("The target pkg2 in package pkg does not contain any valid source files.")
+                result.checkDiagnostic("target 'pkg2' in package 'pkg' contains no valid source files")
                 result.checkModule("pkg1") { moduleResult in
                     moduleResult.check(c99name: "pkg1", type: .library)
                     moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
