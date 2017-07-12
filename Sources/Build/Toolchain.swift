@@ -30,18 +30,3 @@ public protocol Toolchain {
     /// The dynamic library extension, for e.g. dylib, so.
     var dynamicLibraryExtension: String { get }
 }
-
-extension AbsolutePath {
-    var isCpp: Bool {
-        guard let ext = self.extension else {
-            return false
-        }
-        return SupportedLanguageExtension.cppExtensions.contains(ext)
-    }
-}
-
-extension ClangTarget {
-    var containsCppFiles: Bool {
-        return sources.paths.contains { $0.isCpp }
-    }
-}

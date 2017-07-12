@@ -25,6 +25,16 @@ public struct Sources {
         self.relativePaths = relativePaths.sorted(by: { $0.asString < $1.asString })
         self.root = root
     }
+
+    /// Returns true if the sources contain C++ files.
+    public var containsCXXFiles: Bool {
+        return paths.contains(where: {
+            guard let ext = $0.extension else {
+                return false
+            }
+            return SupportedLanguageExtension.cppExtensions.contains(ext)
+        })
+    }
 }
 
 /// An enum representing supported source file extensions.
